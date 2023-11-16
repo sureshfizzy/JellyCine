@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".AddServerFragment">
-
+    tools:context=".LoginFragment">
 
     <ImageView
         android:id="@+id/image_banner"
@@ -32,32 +31,46 @@
         app:layout_constraintVertical_bias="0.36">
 
         <TextView
-            android:id="@+id/text_add_server"
+            android:id="@+id/text_login"
             style="@style/text_header"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="32dp"
-            android:text="@string/add_server"
+            android:text="@string/login"
             android:textColor="?android:textColorPrimary" />
 
         <EditText
-            android:id="@+id/edit_text_server_address"
+            android:id="@+id/edit_text_username"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:autofillHints="no"
+            android:layout_marginBottom="12dp"
+            android:autofillHints="username"
             android:background="@drawable/edit_text_background"
-            android:hint="@string/edit_text_server_address_hint"
+            android:hint="@string/edit_text_username_hint"
             android:inputType="text"
             android:padding="10dp"
             android:textAppearance="@style/text_subtitle"
             android:textColorHint="@color/neutral_400" />
 
+        <EditText
+            android:id="@+id/edit_text_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:autofillHints="password"
+            android:background="@drawable/edit_text_background"
+            android:hint="@string/edit_text_password_hint"
+            android:inputType="textPassword"
+            android:padding="10dp"
+            android:textAppearance="@style/text_subtitle"
+            android:textColorHint="@color/neutral_400" />
+
         <Button
-            android:id="@+id/button_connect"
+            android:id="@+id/button_login"
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:background="@drawable/button_setup_background"
-            android:text="@string/button_connect" />
+            android:text="@string/button_login" />
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
