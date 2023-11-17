@@ -10,13 +10,15 @@ import androidx.navigation.fragment.findNavController
 import dev.cinestream.jellycine.R
 import dev.cinestream.jellycine.database.ServerDatabase
 import dev.cinestream.jellycine.databinding.FragmentServerSelectBinding
+import android.widget.Toast
+import dev.cinestream.jellycine.dialogs.DeleteServerDialogFragment
 
 
 class ServerSelectFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
         val binding = FragmentServerSelectBinding.inflate(inflater)
 
         val application = requireNotNull(this.activity).application
@@ -28,7 +30,11 @@ class ServerSelectFragment : Fragment() {
 
         binding.lifecycleOwner = this
         binding.viewModel = viewModel
-        binding.serversRecyclerView.adapter = ServerGridAdapter(ServerGridAdapter.OnClickListener {
+        binding.serversRecyclerView.adapter = ServerGridAdapter(ServerGridAdapter.OnClickListener { server ->
+            Toast.makeText(application, "You selected server ${server.name}", Toast.LENGTH_SHORT).show()
+        }, ServerGridAdapter.OnLongClickListener { server ->
+            DeleteServerDialogFragment(viewModel, server).show(parentFragmentManager, "deleteServer")
+            true
         })
 
         binding.buttonAddServer.setOnClickListener {
