@@ -4,6 +4,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <data>
+        <variable
+            name="viewModel"
+            type="dev.cinestream.jellycine.viewmodels.AddServerViewModel" />
+    </data>
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -43,24 +49,45 @@
                 android:text="@string/add_server"
                 android:textColor="?android:textColorPrimary" />
 
-            <EditText
-                android:id="@+id/edit_text_server_address"
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/edit_text_server_address_layout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:autofillHints="no"
-                android:background="@drawable/edit_text_background"
+                android:layout_marginBottom="8dp"
                 android:hint="@string/edit_text_server_address_hint"
-                android:inputType="text"
-                android:padding="10dp"
-                android:textAppearance="@style/text_subtitle"
-                android:textColorHint="@color/neutral_400" />
+                app:errorEnabled="true">
 
-            <Button
-                android:id="@+id/button_connect"
-                style="@style/setup_button"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/edit_text_server_address"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textUri"
+                    android:singleLine="true" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <RelativeLayout
                 android:layout_width="match_parent"
-                android:text="@string/button_connect" />
+                android:layout_height="wrap_content">
+
+                <Button
+                    android:id="@+id/button_connect"
+                    style="@style/setup_button"
+                    android:layout_width="match_parent"
+                    android:drawableStart="@drawable/ic_launcher_foreground"
+                    android:text="@string/button_connect" />
+
+                <ProgressBar
+                    android:id="@+id/progress_circular"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:elevation="8dp"
+                    android:indeterminateTint="@color/white"
+                    android:padding="8dp"
+                    android:visibility="invisible" />
+
+            </RelativeLayout>
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

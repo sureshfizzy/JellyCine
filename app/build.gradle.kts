@@ -64,7 +64,6 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.0")
     implementation(platform("androidx.compose:compose-bom:2023.03.00"))
     implementation("androidx.compose.ui:ui")
-    implementation ("androidx.legacy:legacy-support-v4:1.0.0")
     implementation ("androidx.navigation:navigation-fragment-ktx:2.3.5")
     implementation ("androidx.navigation:navigation-ui-ktx:2.3.5")
     implementation ("androidx.constraintlayout:constraintlayout:2.0.4")
@@ -83,4 +82,8 @@ dependencies {
 
     // Jellyfin
     implementation ("org.jellyfin.sdk:jellyfin-platform-android:$jellyfin_version")
+
+    // RecyclerView
+    implementation ("androidx.recyclerview:recyclerview:1.2.1")
+    implementation ("androidx.recyclerview:recyclerview-selection:1.1.0")
 }

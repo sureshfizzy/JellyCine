@@ -6,6 +6,7 @@ import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.android
 import org.jellyfin.sdk.api.operations.SystemApi
 import org.jellyfin.sdk.model.ClientInfo
+import org.jellyfin.sdk.api.operations.UserApi
 
 class JellyfinApi(context: Context, baseUrl: String) {
     val jellyfin = Jellyfin {
@@ -15,6 +16,7 @@ class JellyfinApi(context: Context, baseUrl: String) {
     }
     val api = jellyfin.createApi(baseUrl = baseUrl)
     val systemApi = SystemApi(api)
+    val userApi = UserApi(api)
 
     companion object {
         @Volatile
