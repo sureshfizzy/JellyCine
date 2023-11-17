@@ -8,10 +8,12 @@ import dev.cinestream.jellycine.database.ServerDatabaseDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.app.Application
 import java.util.*
 
 class ServerSelectViewModel(
     val database: ServerDatabaseDao,
+    val application: Application,
 ) : ViewModel() {
     private val _servers = database.getAllServers()
     val servers: LiveData<List<Server>>

@@ -53,6 +53,7 @@ android {
 
 dependencies {
     val room_version = "2.6.0"
+    val jellyfin_version = "1.0.0-beta.9"
 
     kapt ("androidx.room:room-compiler:$room_version")
     implementation ("androidx.room:room-runtime:$room_version")
@@ -79,4 +80,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Jellyfin
+    implementation ("org.jellyfin.sdk:jellyfin-platform-android:$jellyfin_version")
 }
