@@ -8,4 +8,6 @@
     <string name="edit_text_password_hint">Password</string>
     <string name="button_connect">Connect</string>
     <string name="button_login">Login</string>
+    <string name="select_server">Select server</string>
+    <string name="server_icon">Server icon</string>
 </resources>
