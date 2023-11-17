@@ -6,7 +6,7 @@
     app:startDestination="@id/ServerSelectFragment">
     <fragment
         android:id="@+id/addServerFragment"
-        android:name="dev.cinestream.jellycine.AddServerFragment"
+        android:name="dev.cinestream.jellycine.fragments.AddServerFragment"
         android:label="fragment_add_server"
         tools:layout="@layout/fragment_add_server" >
         <action
@@ -19,12 +19,12 @@
     </fragment>
     <fragment
         android:id="@+id/loginFragment"
-        android:name="dev.cinestream.jellycine.LoginFragment"
+        android:name="dev.cinestream.jellycine.fragments.LoginFragment"
         android:label="fragment_login"
         tools:layout="@layout/fragment_login" />
     <fragment
         android:id="@+id/ServerSelectFragment"
-        android:name="dev.cinestream.jellycine.serverselect.ServerSelectFragment"
+        android:name="dev.cinestream.jellycine.fragments.ServerSelectFragment"
         android:label="ServerSelectFragment" >
         <action
             android:id="@+id/action_serverSelectFragment_to_addServerFragment"

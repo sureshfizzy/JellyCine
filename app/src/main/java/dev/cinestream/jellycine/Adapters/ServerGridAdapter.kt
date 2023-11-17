@@ -1,4 +1,4 @@
-package dev.cinestream.jellycine.serverselect
+package dev.cinestream.jellycine.Adapters
 
 import android.view.LayoutInflater
 import android.view.ViewGroup

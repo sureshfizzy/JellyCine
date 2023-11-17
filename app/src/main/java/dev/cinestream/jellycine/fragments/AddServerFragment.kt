@@ -1,4 +1,4 @@
-package dev.cinestream.jellycine
+package dev.cinestream.jellycine.fragments
 
 import android.os.Bundle
 import androidx.fragment.app.Fragment
@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.navigation.findNavController
+import dev.cinestream.jellycine.R
 import dev.cinestream.jellycine.databinding.FragmentAddServerBinding
 
 class AddServerFragment : Fragment() {

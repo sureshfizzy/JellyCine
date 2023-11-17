@@ -1,4 +1,4 @@
-package dev.cinestream.jellycine.serverselect
+package dev.cinestream.jellycine.fragments
 
 import android.os.Bundle
 import androidx.fragment.app.Fragment
@@ -11,6 +11,9 @@ import dev.cinestream.jellycine.R
 import dev.cinestream.jellycine.database.ServerDatabase
 import dev.cinestream.jellycine.databinding.FragmentServerSelectBinding
 import android.widget.Toast
+import dev.cinestream.jellycine.Adapters.ServerGridAdapter
+import dev.cinestream.jellycine.viewmodels.ServerSelectViewModel
+import dev.cinestream.jellycine.viewmodels.ServerSelectViewModelFactory
 import dev.cinestream.jellycine.dialogs.DeleteServerDialogFragment
 
 

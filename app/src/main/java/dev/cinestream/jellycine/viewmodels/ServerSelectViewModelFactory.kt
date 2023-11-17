@@ -1,4 +1,4 @@
-package dev.cinestream.jellycine.serverselect
+package dev.cinestream.jellycine.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
