@@ -6,6 +6,13 @@ import dev.cinestream.jellycine.database.Server
 import dev.cinestream.jellycine.Adapters.ServerGridAdapter
 import dev.cinestream.jellycine.Adapters.ViewListAdapter
 import org.jellyfin.sdk.model.api.BaseItemDto
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.widget.ImageView
+import com.bumptech.glide.Glide
+import dev.cinestream.jellycine.Adapters.ViewItemListAdapter
+import dev.cinestream.jellycine.models.View
+import dev.cinestream.jellycine.models.ViewItem
 
 @BindingAdapter("servers")
 fun bindServers(recyclerView: RecyclerView, data: List<Server>?) {
@@ -14,7 +21,23 @@ fun bindServers(recyclerView: RecyclerView, data: List<Server>?) {
 }
 
 @BindingAdapter("views")
-fun bindViews(recyclerView: RecyclerView, data: List<BaseItemDto>?) {
+fun bindViews(recyclerView: RecyclerView, data: List<View>?) {
     val adapter = recyclerView.adapter as ViewListAdapter
     adapter.submitList(data)
+
+}
+
+@BindingAdapter("items")
+fun bindItems(recyclerView: RecyclerView, data: List<ViewItem>?) {
+    val adapter = recyclerView.adapter as ViewItemListAdapter
+    adapter.submitList(data)
+}
+
+@BindingAdapter("itemImage")
+fun bindItemImage(imageView: ImageView, item: ViewItem) {
+    Glide
+        .with(imageView.context)
+        .load(item.primaryImageUrl)
+        .placeholder(ColorDrawable(Color.GRAY))
+        .into(imageView)
 }

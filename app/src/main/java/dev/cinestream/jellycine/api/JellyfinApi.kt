@@ -4,10 +4,8 @@ import android.content.Context
 import dev.cinestream.jellycine.BuildConfig
 import org.jellyfin.sdk.Jellyfin
 import org.jellyfin.sdk.android
-import org.jellyfin.sdk.api.operations.SystemApi
+import org.jellyfin.sdk.api.operations.*
 import org.jellyfin.sdk.model.ClientInfo
-import org.jellyfin.sdk.api.operations.UserApi
-import org.jellyfin.sdk.api.operations.UserViewsApi
 import java.util.*
 
 class JellyfinApi(context: Context, baseUrl: String) {
@@ -21,6 +19,8 @@ class JellyfinApi(context: Context, baseUrl: String) {
     val userApi = UserApi(api)
     var userId: UUID? = null
     val viewsApi = UserViewsApi(api)
+    val itemsApi = ItemsApi(api)
+    val userLibraryApi = UserLibraryApi(api)
 
     companion object {
         @Volatile
