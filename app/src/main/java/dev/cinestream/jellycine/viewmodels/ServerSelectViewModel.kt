@@ -9,6 +9,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.app.Application
+import androidx.lifecycle.MutableLiveData
+import dev.cinestream.jellycine.api.JellyfinApi
+import java.util.*
 
 class ServerSelectViewModel(
     val database: ServerDatabaseDao,
@@ -17,6 +20,9 @@ class ServerSelectViewModel(
     private val _servers = database.getAllServers()
     val servers: LiveData<List<Server>> = _servers
 
+    private val _navigateToMain = MutableLiveData<Boolean>()
+    val navigateToMain: LiveData<Boolean> = _navigateToMain
+
     fun deleteServer(server: Server) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -24,4 +30,17 @@ class ServerSelectViewModel(
             }
         }
     }
+
+    fun connectToServer(server: Server) {
+        JellyfinApi.getInstance(application, server.address).apply {
+            api.accessToken = server.accessToken
+            userId = UUID.fromString(server.userId)
+        }
+        _navigateToMain.value = true
+    }
+
+    fun doneNavigatingToMain() {
+        _navigateToMain.value = false
+    }
+
 }

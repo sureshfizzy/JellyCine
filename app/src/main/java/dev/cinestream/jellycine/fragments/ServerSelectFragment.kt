@@ -33,17 +33,30 @@ class ServerSelectFragment : Fragment() {
 
         binding.lifecycleOwner = this
         binding.viewModel = viewModel
-        binding.serversRecyclerView.adapter = ServerGridAdapter(ServerGridAdapter.OnClickListener { server ->
-            Toast.makeText(application, "You selected server $server", Toast.LENGTH_SHORT).show()
-            findNavController().navigate(R.id.action_serverSelectFragment_to_mainActivity)
-        }, ServerGridAdapter.OnLongClickListener { server ->
-            DeleteServerDialogFragment(viewModel, server).show(parentFragmentManager, "deleteServer")
-            true
-        })
+        binding.serversRecyclerView.adapter =
+            ServerGridAdapter(ServerGridAdapter.OnClickListener { server ->
+                Toast.makeText(application, "You selected server $server", Toast.LENGTH_SHORT)
+                    .show()
+                viewModel.connectToServer(server)
+            }, ServerGridAdapter.OnLongClickListener { server ->
+                DeleteServerDialogFragment(viewModel, server).show(
+                    parentFragmentManager,
+                    "deleteServer"
+                )
+                true
+            })
 
         binding.buttonAddServer.setOnClickListener {
             this.findNavController().navigate(R.id.action_serverSelectFragment_to_addServerFragment)
         }
+
+        viewModel.navigateToMain.observe(viewLifecycleOwner, {
+            if (it) {
+                findNavController().navigate(R.id.action_serverSelectFragment_to_mainActivity)
+                viewModel.doneNavigatingToMain()
+            }
+        })
+
         return binding.root
     }
 }
