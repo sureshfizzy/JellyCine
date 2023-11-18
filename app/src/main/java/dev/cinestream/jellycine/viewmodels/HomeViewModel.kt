@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.BaseItemDto
 import dev.cinestream.jellycine.models.View
 import dev.cinestream.jellycine.models.ViewItem
+import java.util.*
 
 class HomeViewModel(
     application: Application
@@ -47,11 +48,18 @@ class HomeViewModel(
 }
 
 private fun BaseItemDto.toViewItem(baseUrl: String) : ViewItem {
-    return ViewItem(
-        id = id,
-        name = name,
-        primaryImageUrl = baseUrl.plus("/items/${id}/Images/Primary")
-    )
+    return when (type) {
+        "Episode" -> ViewItem(
+            id = seriesId!!,
+            name = seriesName,
+            primaryImageUrl = baseUrl.plus("/items/${seriesId}/Images/Primary")
+        )
+        else -> ViewItem(
+            id = id,
+            name = name,
+            primaryImageUrl = baseUrl.plus("/items/${id}/Images/Primary")
+        )
+    }
 }
 
 private fun BaseItemDto.toView() : View {

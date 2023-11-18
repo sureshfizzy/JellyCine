@@ -3,9 +3,9 @@ package dev.cinestream.jellycine
 import androidx.databinding.BindingAdapter
 import androidx.recyclerview.widget.RecyclerView
 import dev.cinestream.jellycine.database.Server
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import dev.cinestream.jellycine.Adapters.ServerGridAdapter
 import dev.cinestream.jellycine.Adapters.ViewListAdapter
-import org.jellyfin.sdk.model.api.BaseItemDto
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.widget.ImageView
@@ -38,6 +38,7 @@ fun bindItemImage(imageView: ImageView, item: ViewItem) {
     Glide
         .with(imageView.context)
         .load(item.primaryImageUrl)
-        .placeholder(ColorDrawable(Color.GRAY))
+        .transition(DrawableTransitionOptions.withCrossFade())
+        .placeholder(R.color.neutral_800)
         .into(imageView)
 }
