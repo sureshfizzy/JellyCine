@@ -21,7 +21,11 @@
         android:id="@+id/loginFragment"
         android:name="dev.cinestream.jellycine.fragments.LoginFragment"
         android:label="fragment_login"
-        tools:layout="@layout/fragment_login" />
+        tools:layout="@layout/fragment_login" >
+        <action
+            android:id="@+id/action_loginFragment_to_mainActivity"
+            app:destination="@id/mainActivity" />
+    </fragment>
     <fragment
         android:id="@+id/ServerSelectFragment"
         android:name="dev.cinestream.jellycine.fragments.ServerSelectFragment"
@@ -41,5 +45,6 @@
     <activity
         android:id="@+id/mainActivity"
         android:name="dev.cinestream.jellycine.MainActivity"
-        android:label="MainActivity" />
+        android:label="MainActivity"
+        tools:layout="@layout/activity_main" />
 </navigation>

@@ -19,6 +19,9 @@ class LoginViewModel(application: Application) : ViewModel() {
     private val jellyfinApi = JellyfinApi.getInstance(application, "")
     private val database = ServerDatabase.getInstance(application).serverDatabaseDao
 
+    private val _navigateToMain = MutableLiveData<Boolean>()
+    val navigateToMain: LiveData<Boolean> = _navigateToMain
+
     private val _error = MutableLiveData<String>()
     val error: LiveData<String> = _error
 
@@ -42,6 +45,11 @@ class LoginViewModel(application: Application) : ViewModel() {
                     authenticationResult.accessToken!!
                 )
                 insert(server)
+                jellyfinApi.apply {
+                    api.accessToken = authenticationResult.accessToken
+                    userId = authenticationResult.user?.id
+                }
+                _navigateToMain.value = true
             } catch (e: Exception) {
                 Log.e("LoginViewModel", "${e.message}")
                 _error.value = e.message
@@ -53,5 +61,9 @@ class LoginViewModel(application: Application) : ViewModel() {
         withContext(Dispatchers.IO) {
             database.insert(server)
         }
+    }
+
+    fun doneNavigatingToMain() {
+        _navigateToMain.value = false
     }
 }

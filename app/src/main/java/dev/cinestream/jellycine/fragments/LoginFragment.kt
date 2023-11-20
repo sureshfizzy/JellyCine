@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
+import androidx.navigation.fragment.findNavController
+import dev.cinestream.jellycine.R
 import android.view.ViewGroup
 import androidx.lifecycle.ViewModelProvider
 import dev.cinestream.jellycine.databinding.FragmentLoginBinding
@@ -33,6 +35,13 @@ class LoginFragment : Fragment() {
         viewModel.error.observe(viewLifecycleOwner, {
             binding.progressCircular.visibility = View.GONE
             binding.editTextUsernameLayout.error = it
+        })
+
+        viewModel.navigateToMain.observe(viewLifecycleOwner, {
+            if (it) {
+                findNavController().navigate(R.id.action_loginFragment_to_mainActivity)
+                viewModel.doneNavigatingToMain()
+            }
         })
 
         return binding.root
