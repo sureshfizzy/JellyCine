@@ -12,6 +12,11 @@
         android:title="@string/title_media" />
 
     <item
+        android:id="@+id/navigation_coming_soon"
+        android:icon="@drawable/ic_coming_soon_24dp"
+        android:title="@string/title_coming_soon" />
+
+    <item
         android:id="@+id/navigation_settings"
         android:icon="@drawable/ic_settings_24dp"
         android:title="@string/title_settings" />

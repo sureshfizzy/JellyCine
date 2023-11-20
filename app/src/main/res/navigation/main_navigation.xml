@@ -18,6 +18,12 @@
         tools:layout="@layout/fragment_media" />
 
     <fragment
+        android:id="@+id/navigation_coming_soon"
+        android:name="dev.cinestream.jellycine.fragments.ComingSoonFragment"
+        android:label="@string/title_coming_soon"
+        tools:layout="@layout/fragment_coming_soon" />
+
+    <fragment
         android:id="@+id/navigation_settings"
         android:name="dev.cinestream.jellycine.fragments.SettingsFragment"
         android:label="@string/title_settings"
