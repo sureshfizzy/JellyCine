@@ -25,7 +25,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:trackCornerRadius="10dp"
             android:indeterminate="true"/>
-        
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/views_recycler_view"
             android:layout_width="match_parent"
