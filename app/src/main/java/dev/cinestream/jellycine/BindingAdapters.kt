@@ -6,14 +6,14 @@ import dev.cinestream.jellycine.database.Server
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import dev.cinestream.jellycine.Adapters.ServerGridAdapter
 import dev.cinestream.jellycine.Adapters.ViewListAdapter
-import dev.cinestream.jellycine.Adapters.CollectionListAdapter
+import dev.cinestream.jellycine.Adapters.GenreListAdapter
 import android.widget.ImageView
 import com.bumptech.glide.Glide
 import dev.cinestream.jellycine.Adapters.ViewItemListAdapter
 import dev.cinestream.jellycine.models.View
 import dev.cinestream.jellycine.models.ViewItem
 import dev.cinestream.jellycine.api.JellyfinApi
-import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.*
 
 @BindingAdapter("servers")
 fun bindServers(recyclerView: RecyclerView, data: List<Server>?) {
@@ -45,14 +45,14 @@ fun bindItemImage(imageView: ImageView, item: ViewItem) {
     imageView.contentDescription = "${item.name} poster"
 }
 
-@BindingAdapter("collections")
-fun bindCollections(recyclerView: RecyclerView, data: List<BaseItemDto>?) {
-    val adapter = recyclerView.adapter as CollectionListAdapter
+@BindingAdapter("genres")
+fun bindGenres(recyclerView: RecyclerView, data: List<BaseItemDto>?) {
+    val adapter = recyclerView.adapter as GenreListAdapter
     adapter.submitList(data)
 }
 
-@BindingAdapter("collectionImage")
-fun bindCollectionImage(imageView: ImageView, item: BaseItemDto) {
+@BindingAdapter("genresImage")
+fun bindGenresImage(imageView: ImageView, item: BaseItemDto) {
     val jellyfinApi = JellyfinApi.getInstance(imageView.context.applicationContext, "")
 
     Glide

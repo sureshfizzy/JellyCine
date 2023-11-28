@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import dev.cinestream.jellycine.Adapters.CollectionListAdapter
+import dev.cinestream.jellycine.Adapters.GenreListAdapter
 import dev.cinestream.jellycine.databinding.FragmentMediaBinding
 import dev.cinestream.jellycine.viewmodels.MediaViewModel
 import dev.cinestream.jellycine.viewmodels.MediaViewModelFactory
@@ -26,7 +26,7 @@ class MediaFragment : Fragment() {
 
         binding.lifecycleOwner = this
         binding.viewModel = viewModel
-        binding.viewsRecyclerView.adapter = CollectionListAdapter()
+        binding.viewsRecyclerView.adapter = GenreListAdapter()
 
         viewModel.finishedLoading.observe(viewLifecycleOwner, {
             if (it) {

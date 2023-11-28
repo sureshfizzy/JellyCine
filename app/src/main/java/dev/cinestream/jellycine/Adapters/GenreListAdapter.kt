@@ -5,15 +5,15 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import dev.cinestream.jellycine.databinding.CollectionItemBinding
-import org.jellyfin.sdk.model.api.BaseItemDto
+import dev.cinestream.jellycine.databinding.GenreItemBinding
+import org.jellyfin.sdk.model.api.*
 
-class CollectionListAdapter :
-    ListAdapter<BaseItemDto, CollectionListAdapter.ViewViewHolder>(DiffCallback) {
-    class ViewViewHolder(private var binding: CollectionItemBinding) :
+class GenreListAdapter :
+    ListAdapter<BaseItemDto, GenreListAdapter.ViewViewHolder>(DiffCallback) {
+    class ViewViewHolder(private var binding: GenreItemBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(collection: BaseItemDto) {
-            binding.collection = collection
+        fun bind(Genre: BaseItemDto) {
+            binding.genres = Genre
             binding.executePendingBindings()
         }
     }
@@ -30,7 +30,7 @@ class CollectionListAdapter :
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewViewHolder {
         return ViewViewHolder(
-            CollectionItemBinding.inflate(
+            GenreItemBinding.inflate(
                 LayoutInflater.from(parent.context),
                 parent,
                 false
@@ -39,7 +39,7 @@ class CollectionListAdapter :
     }
 
     override fun onBindViewHolder(holder: ViewViewHolder, position: Int) {
-        val collection = getItem(position)
-        holder.bind(collection)
+        val Genre = getItem(position)
+        holder.bind(Genre)
     }
 }

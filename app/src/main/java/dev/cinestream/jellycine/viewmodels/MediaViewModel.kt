@@ -9,7 +9,7 @@ import dev.cinestream.jellycine.api.JellyfinApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.*
 import java.util.*
 
 class MediaViewModel(
@@ -17,24 +17,24 @@ class MediaViewModel(
 ) : ViewModel() {
     private val jellyfinApi = JellyfinApi.getInstance(application, "")
 
-    private val _collections = MutableLiveData<List<BaseItemDto>>()
-    val collections : LiveData<List<BaseItemDto>> = _collections
+    private val _genres = MutableLiveData<List<BaseItemDto>?>()
+    val genres : MutableLiveData<List<BaseItemDto>?> = _genres
 
     private val _finishedLoading = MutableLiveData<Boolean>()
     val finishedLoading: LiveData<Boolean> = _finishedLoading
 
     init {
         viewModelScope.launch {
-            val items = getItems(jellyfinApi.userId!!)
-            _collections.value = items
+            val items = getGenres(jellyfinApi.userId!!)
+            _genres.value = items
             _finishedLoading.value = true
         }
     }
 
-    private suspend fun getItems(userId: UUID) : List<BaseItemDto>? {
+    private suspend fun getGenres(userId: UUID): List<BaseItemDto>? {
         var items: List<BaseItemDto>?
         withContext(Dispatchers.IO) {
-            items = jellyfinApi.itemsApi.getItems(userId).content.items
+            items = jellyfinApi.genresApi.getGenres(userId = userId).content.items
         }
         return items
     }

@@ -6,7 +6,7 @@
     <data>
 
         <variable
-            name="collection"
+            name="genres"
             type="org.jellyfin.sdk.model.api.BaseItemDto" />
     </data>
 
@@ -22,14 +22,14 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
             android:adjustViewBounds="true"
-            app:collectionImage="@{collection}"
+            app:genresImage="@{genres}"
             app:shapeAppearanceOverlay="@style/roundedImageView" />
 
         <TextView
             style="@style/text_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@{collection.name}"
+            android:text="@{genres.name}"
             tools:text="Movies" />
     </LinearLayout>
 </layout>

@@ -8,7 +8,7 @@ import org.jellyfin.sdk.model.api.BaseItemDtoQueryResult
 import androidx.lifecycle.*
 import dev.cinestream.jellycine.api.JellyfinApi
 import kotlinx.coroutines.launch
-import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.model.api.*
 import dev.cinestream.jellycine.models.View
 import dev.cinestream.jellycine.models.ViewItem
 import java.util.*
@@ -24,6 +24,9 @@ class HomeViewModel(
     private val _items = MutableLiveData<List<BaseItemDto>>()
     val items: LiveData<List<BaseItemDto>> = _items
 
+    private val _genres = MutableLiveData<List<BaseItemDto>>()
+    val genres: LiveData<List<BaseItemDto>> = _genres
+
     private val _finishedLoading = MutableLiveData<Boolean>()
     val finishedLoading: LiveData<Boolean> = _finishedLoading
 
@@ -31,17 +34,20 @@ class HomeViewModel(
         viewModelScope.launch {
             val views: MutableList<View> = mutableListOf()
             val viewsResult = getViews(jellyfinApi.userId!!)
-            for (view in viewsResult.items!!) {
+            for (view in viewsResult.items.orEmpty()) {
                 val items: MutableList<ViewItem> = mutableListOf()
-                val latestItems = getLatestMedia(jellyfinApi.userId!!, view.id)
-                if (latestItems.isEmpty()) continue
-                val v = view.toView()
-                for (item in latestItems) {
-                    val i = jellyfinApi.api.baseUrl?.let { item.toViewItem(it) }
-                    if (i != null) {
-                        items.add(i)
+                val genres = getGenres(jellyfinApi.userId!!, view.id)
+
+                genres?.let {
+                    for (genres in it) {
+                        val i = jellyfinApi.api.baseUrl?.let { genres.toViewItem(it) }
+                        if (i != null) {
+                            items.add(i)
+                        }
                     }
                 }
+
+                val v = view.toView()
                 v.items = items
                 views.add(v)
             }
@@ -54,15 +60,15 @@ class HomeViewModel(
     private suspend fun getViews(userId: UUID): BaseItemDtoQueryResult {
         val views: BaseItemDtoQueryResult
         withContext(Dispatchers.IO) {
-            views = jellyfinApi.viewsApi.getUserViews(userId).content
+            views = jellyfinApi.genresApi.getGenres(userId = userId, searchTerm = "Animation").content
         }
         return views
     }
 
-    private suspend fun getLatestMedia(userId: UUID, parentId: UUID): List<BaseItemDto> {
-        val items: List<BaseItemDto>
+    private suspend fun getGenres(userId: UUID, parentId: UUID): List<BaseItemDto>? {
+        val items: List<BaseItemDto>?
         withContext(Dispatchers.IO) {
-            items = jellyfinApi.userLibraryApi.getLatestMedia(userId, parentId = parentId).content
+            items = jellyfinApi.userLibraryApi.getLatestMedia(userId = userId, parentId = parentId).content
         }
         return items
     }
@@ -74,11 +80,13 @@ private fun BaseItemDto.toViewItem(baseUrl: String): ViewItem {
         "Episode" -> ViewItem(
             id = seriesId!!,
             name = seriesName,
+            genre = genres?.toList(),
             primaryImageUrl = baseUrl.plus("/items/${seriesId}/Images/Primary")
         )
         else -> ViewItem(
             id = id,
             name = name,
+            genre = genres?.toList(),
             primaryImageUrl = baseUrl.plus("/items/${id}/Images/Primary")
         )
     }
@@ -87,6 +95,7 @@ private fun BaseItemDto.toViewItem(baseUrl: String): ViewItem {
 private fun BaseItemDto.toView(): View {
     return View(
         id = id,
+        genre = listOf(genres),
         name = name
     )
 }

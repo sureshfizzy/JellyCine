@@ -33,7 +33,7 @@
             android:layout_height="0dp"
             android:clipToPadding="false"
             android:paddingHorizontal="12dp"
-            app:collections="@{viewModel.collections}"
+            app:genres="@{viewModel.genres}"
             app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -41,6 +41,6 @@
             app:layout_constraintTop_toTopOf="parent"
             app:spanCount="@integer/collection_colums"
             tools:itemCount="4"
-            tools:listitem="@layout/collection_item" />
+            tools:listitem="@layout/genre_item" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
