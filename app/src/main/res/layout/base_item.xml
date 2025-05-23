@@ -10,29 +10,62 @@
             type="dev.cinestream.jellycine.models.ViewItem" />
     </data>
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="150dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="12dp"
-        android:orientation="vertical">
+        android:layout_marginHorizontal="12dp">
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/item_image"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="220dp"
-            android:layout_marginBottom="8dp"
             android:scaleType="centerCrop"
             app:itemImage="@{item}"
-            app:shapeAppearanceOverlay="@style/roundedImageView" />
+            app:shapeAppearanceOverlay="@style/roundedImageView"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <ProgressBar
+            android:id="@+id/item_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="4dp"
+            android:max="100"
+            app:itemProgress="@{item}"
+            android:layout_marginBottom="4dp"
+            app:layout_constraintBottom_toBottomOf="@id/item_image"
+            app:layout_constraintStart_toStartOf="@id/item_image"
+            app:layout_constraintEnd_toEndOf="@id/item_image" />
+            <!-- Visibility and progress binding will be handled later -->
+
+        <ImageView
+            android:id="@+id/item_favorite_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:src="@android:drawable/star_on"
+            app:itemFavorite="@{item}"
+            android:contentDescription="Favorite"
+            app:layout_constraintTop_toTopOf="@id/item_image"
+            app:layout_constraintEnd_toEndOf="@id/item_image" />
+            <!-- Visibility binding will be handled later -->
 
         <TextView
             android:id="@+id/item_name"
             style="@style/text_subtitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:ellipsize="end"
             android:maxLines="2"
             android:text="@{item.name}"
-            tools:text="Movie title" />
-    </LinearLayout>
+            tools:text="Movie title"
+            app:layout_constraintTop_toBottomOf="@id/item_image"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

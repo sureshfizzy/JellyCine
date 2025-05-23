@@ -14,6 +14,9 @@ import dev.cinestream.jellycine.models.View
 import dev.cinestream.jellycine.models.ViewItem
 import dev.cinestream.jellycine.api.JellyfinApi
 import org.jellyfin.sdk.model.api.BaseItemDto
+import android.view.View
+import android.widget.ProgressBar
+// ImageView is already imported
 
 @BindingAdapter("servers")
 fun bindServers(recyclerView: RecyclerView, data: List<Server>?) {
@@ -43,6 +46,25 @@ fun bindItemImage(imageView: ImageView, item: ViewItem) {
         .placeholder(R.color.neutral_800)
         .into(imageView)
     imageView.contentDescription = "${item.name} poster"
+}
+
+@BindingAdapter("itemProgress")
+fun bindItemProgressBar(progressBar: ProgressBar, item: ViewItem?) {
+    if (item?.playedPercentage == null || item.playedPercentage <= 1.0 || item.playedPercentage >= 99.0) {
+        progressBar.visibility = View.GONE
+    } else {
+        progressBar.visibility = View.VISIBLE
+        progressBar.progress = item.playedPercentage.toInt()
+    }
+}
+
+@BindingAdapter("itemFavorite")
+fun bindItemFavoriteIcon(imageView: ImageView, item: ViewItem?) {
+    if (item?.isFavorite == true) {
+        imageView.visibility = View.VISIBLE
+    } else {
+        imageView.visibility = View.GONE
+    }
 }
 
 @BindingAdapter("collections")

@@ -10,9 +10,15 @@ import dev.cinestream.jellycine.models.ViewItem
 import org.jellyfin.sdk.model.api.BaseItemDto
 
 class ViewItemListAdapter : ListAdapter<ViewItem, ViewItemListAdapter.ItemViewHolder>(DiffCallback) {
+
+    var onItemClick: ((ViewItem) -> Unit)? = null
+
     class ItemViewHolder(private var binding: BaseItemBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(view: ViewItem) {
+        fun bind(view: ViewItem, onItemClick: ((ViewItem) -> Unit)?) {
             binding.item = view
+            binding.root.setOnClickListener {
+                onItemClick?.invoke(view)
+            }
             binding.executePendingBindings()
         }
     }
@@ -33,6 +39,6 @@ class ViewItemListAdapter : ListAdapter<ViewItem, ViewItemListAdapter.ItemViewHo
 
     override fun onBindViewHolder(holder: ItemViewHolder, position: Int) {
         val item = getItem(position)
-        holder.bind(item)
+        holder.bind(item, onItemClick)
     }
 }
