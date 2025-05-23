@@ -32,17 +32,8 @@
         <item name="colorOutlineVariant">@color/md_theme_outlineVariant</item>
         <item name="colorScrim">@color/md_theme_scrim</item>
 
-        <!-- Status bar color - Using surface or background for dark theme -->
         <item name="android:statusBarColor" tools:targetApi="l">@color/md_theme_surface</item>
-        <!-- Optional: For light theme, it might be colorPrimary or colorSurface -->
-        <!-- <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item> -->
 
-
-        <!-- Customize your theme here. -->
-        <!-- android:windowBackground is already covered by android:colorBackground -->
-        <!-- <item name="android:windowBackground">@color/md_theme_background</item> -->
-
-        <!-- Material 3 Typography -->
         <item name="textAppearanceDisplayLarge">@style/TextAppearance.App.DisplayLarge</item>
         <item name="textAppearanceDisplayMedium">@style/TextAppearance.App.DisplayMedium</item>
         <item name="textAppearanceDisplaySmall">@style/TextAppearance.App.DisplaySmall</item>
@@ -58,8 +49,5 @@
         <item name="textAppearanceLabelLarge">@style/TextAppearance.App.LabelLarge</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.App.LabelMedium</item>
         <item name="textAppearanceLabelSmall">@style/TextAppearance.App.LabelSmall</item>
-
-        <!-- Ensure text colors are appropriate, M3 themes handle this well by default with OnSurface, OnBackground etc. -->
-        <!-- Example: <item name="android:textColorPrimary">@color/md_theme_onSurface</item> -->
     </style>
 </resources>
