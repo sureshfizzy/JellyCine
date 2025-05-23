@@ -1,16 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#2B82D9</color>
-    <color name="primary_variant">#1B5692</color>
-    <color name="secondary">#AA5CC3</color>
-    <color name="secondary_variant">#5F2970</color>
-    <color name="neutral_900">#121A21</color>
-    <color name="neutral_800">#243342</color>
-    <color name="neutral_700">#374F67</color>
-    <color name="neutral_400">#5D82A7</color>
-    <color name="neutral_300">#A9BDD1</color>
-    <color name="neutral_200">#D7E0E9</color>
-    <color name="neutral_100">#EEF2F6</color>
+    <!-- Material 3 Netflix-inspired Dark Theme Palette -->
+    <color name="md_theme_primary">#E50914</color> <!-- Netflix Red -->
+    <color name="md_theme_onPrimary">#FFFFFF</color>
+    <color name="md_theme_primaryContainer">#B00020</color> <!-- Darker/muted red -->
+    <color name="md_theme_onPrimaryContainer">#F5F5F5</color>
+
+    <color name="md_theme_secondary">#424242</color> <!-- Medium Gray for accents -->
+    <color name="md_theme_onSecondary">#FFFFFF</color>
+    <color name="md_theme_secondaryContainer">#303030</color> <!-- Darker Gray -->
+    <color name="md_theme_onSecondaryContainer">#E0E0E0</color>
+
+    <color name="md_theme_tertiary">#616161</color> <!-- Another Gray accent -->
+    <color name="md_theme_onTertiary">#FFFFFF</color>
+    <color name="md_theme_tertiaryContainer">#212121</color>
+    <color name="md_theme_onTertiaryContainer">#E0E0E0</color>
+
+    <color name="md_theme_error">#CF6679</color> <!-- Standard M3 Dark error -->
+    <color name="md_theme_onError">#000000</color>
+    <color name="md_theme_errorContainer">#B00020</color>
+    <color name="md_theme_onErrorContainer">#F5F5F5</color>
+
+    <color name="md_theme_background">#121212</color> <!-- Very Dark Gray/Almost Black -->
+    <color name="md_theme_onBackground">#E0E0E0</color> <!-- Light Gray for text -->
+
+    <color name="md_theme_surface">#1E1E1E</color> <!-- Dark Gray, slightly lighter than background -->
+    <color name="md_theme_onSurface">#E0E0E0</color>
+    <color name="md_theme_surfaceVariant">#2C2C2C</color> <!-- Different dark shade for cards/components -->
+    <color name="md_theme_onSurfaceVariant">#BDBDBD</color> <!-- Lighter gray for text on surfaceVariant -->
+
+    <color name="md_theme_outline">#424242</color> <!-- Subtle borders -->
+    <color name="md_theme_inverseOnSurface">#121212</color> <!-- For text on inverseSurface -->
+    <color name="md_theme_inverseSurface">#E0E0E0</color> <!-- For snackbars, etc. -->
+    <color name="md_theme_inversePrimary">#B00020</color> <!-- Accent on inverseSurface -->
+    <color name="md_theme_shadow">#000000</color>
+    <color name="md_theme_surfaceTint">#E50914</color> <!-- Tint color for surfaces, usually same as primary -->
+    <color name="md_theme_outlineVariant">#2C2C2C</color>
+    <color name="md_theme_scrim">#000000</color> <!-- For modals/drawers scrim -->
+
+    <!-- Fallback/compatibility colors - can be removed if not used elsewhere -->
+    <color name="primary">@color/md_theme_primary</color>
+    <color name="primary_variant">@color/md_theme_primaryContainer</color> <!-- Mapped to primaryContainer for M2 compat -->
+    <color name="secondary">@color/md_theme_secondary</color>
+    <color name="secondary_variant">@color/md_theme_secondaryContainer</color> <!-- Mapped to secondaryContainer for M2 compat -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

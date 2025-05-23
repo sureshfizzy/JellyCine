@@ -8,12 +8,18 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import dev.cinestream.jellycine.databinding.ViewItemBinding
 import dev.cinestream.jellycine.models.View
+import dev.cinestream.jellycine.models.ViewItem // Added for the lambda type
 
 class ViewListAdapter : ListAdapter<View, ViewListAdapter.ViewViewHolder>(DiffCallback) {
+
+    var onItemInInnerListClicked: ((ViewItem) -> Unit)? = null
+
     class ViewViewHolder(private var binding: ViewItemBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(view: View) {
+        fun bind(view: View, onItemInInnerListClicked: ((ViewItem) -> Unit)?) {
             binding.view = view
-            binding.itemsRecyclerView.adapter = ViewItemListAdapter()
+            val itemsAdapter = ViewItemListAdapter()
+            itemsAdapter.onItemClick = onItemInInnerListClicked
+            binding.itemsRecyclerView.adapter = itemsAdapter
             binding.executePendingBindings()
         }
     }
@@ -34,6 +40,6 @@ class ViewListAdapter : ListAdapter<View, ViewListAdapter.ViewViewHolder>(DiffCa
 
     override fun onBindViewHolder(holder: ViewViewHolder, position: Int) {
         val view = getItem(position)
-        holder.bind(view)
+        holder.bind(view, onItemInInnerListClicked)
     }
 }
