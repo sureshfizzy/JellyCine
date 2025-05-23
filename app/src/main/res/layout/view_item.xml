@@ -17,7 +17,7 @@
 
         <TextView
             android:id="@+id/view_name"
-            style="@style/text_title"
+            android:textAppearance="?attr/textAppearanceTitleLarge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="24dp"
@@ -28,7 +28,7 @@
 
         <TextView
             android:id="@+id/view_all"
-            style="@style/text_regular"
+            android:textAppearance="?attr/textAppearanceLabelLarge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="24dp"

@@ -10,13 +10,19 @@
             type="dev.cinestream.jellycine.models.ViewItem" />
     </data>
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="150dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="12dp">
+        android:layout_marginHorizontal="12dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp">
 
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/item_image"
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/item_image"
             android:layout_width="0dp"
             android:layout_height="220dp"
             android:scaleType="centerCrop"
@@ -37,7 +43,7 @@
             app:layout_constraintBottom_toBottomOf="@id/item_image"
             app:layout_constraintStart_toStartOf="@id/item_image"
             app:layout_constraintEnd_toEndOf="@id/item_image" />
-            <!-- Visibility and progress binding will be handled later -->
+            <!-- Visibility and progress binding is handled by BindingAdapter -->
 
         <ImageView
             android:id="@+id/item_favorite_icon"
@@ -50,14 +56,15 @@
             android:contentDescription="Favorite"
             app:layout_constraintTop_toTopOf="@id/item_image"
             app:layout_constraintEnd_toEndOf="@id/item_image" />
-            <!-- Visibility binding will be handled later -->
+            <!-- Visibility binding is handled by BindingAdapter -->
 
         <TextView
             android:id="@+id/item_name"
-            style="@style/text_subtitle"
+            android:textAppearance="?attr/textAppearanceTitleSmall"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
             android:ellipsize="end"
             android:maxLines="2"
             android:text="@{item.name}"
@@ -67,5 +74,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.google.android.material.card.MaterialCardView>
 </layout>

@@ -42,16 +42,15 @@
 
             <TextView
                 android:id="@+id/text_login"
-                style="@style/text_header"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="32dp"
-                android:text="@string/login"
-                android:textColor="?android:textColorPrimary" />
+                android:text="@string/login" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/edit_text_username_layout"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
@@ -68,7 +67,7 @@
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/edit_text_password_layout"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
@@ -87,20 +86,22 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/button_login"
-                    style="@style/setup_button"
                     android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:text="@string/button_login" />
+                    <!-- Removed style="@style/setup_button" -->
 
                 <ProgressBar
                     android:id="@+id/progress_circular"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:elevation="8dp"
-                    android:indeterminateTint="@color/white"
+                    android:indeterminateTint="?attr/colorOnPrimary"
                     android:padding="8dp"
                     android:visibility="invisible" />
+                    <!-- Changed indeterminateTint to use theme attribute -->
             </RelativeLayout>
         </LinearLayout>
 

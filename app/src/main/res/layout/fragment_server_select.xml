@@ -41,12 +41,11 @@
 
             <TextView
                 android:id="@+id/text_add_server"
-                style="@style/text_header"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                android:text="@string/select_server"
-                android:textColor="?android:textColorPrimary" />
+                android:text="@string/select_server" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/servers_recycler_view"
@@ -65,16 +64,16 @@
                 tools:listitem="@layout/server_item" />
         </LinearLayout>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/button_add_server"
-            style="@style/setup_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="16dp"
             android:text="@string/add_server"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/main_content" />
+            <!-- Removed style="@style/setup_button", increased marginTop for better spacing -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
