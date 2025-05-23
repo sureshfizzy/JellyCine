@@ -36,9 +36,10 @@
     <color name="md_theme_shadow">#000000</color>
     <color name="md_theme_surfaceTint">#E50914</color> <!-- Tint color for surfaces, usually same as primary -->
     <color name="md_theme_outlineVariant">#2C2C2C</color>
-    <color name="md_theme_scrim">#000000</color> <!-- For modals/drawers scrim -->
+    <color name="md_theme_scrim">#99000000</color> <!-- For modals/drawers scrim, 60% opacity black -->
 
     <!-- Fallback/compatibility colors - can be removed if not used elsewhere -->
+    <color name="neutral_900">#FF202124</color> <!-- Common dark gray -->
     <color name="primary">@color/md_theme_primary</color>
     <color name="primary_variant">@color/md_theme_primaryContainer</color> <!-- Mapped to primaryContainer for M2 compat -->
     <color name="secondary">@color/md_theme_secondary</color>
