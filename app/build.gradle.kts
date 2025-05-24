@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+kapt {
+    verbose = true
+}
+
 android {
     namespace = "dev.cinestream.jellycine"
     compileSdk = 34
