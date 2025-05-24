@@ -20,4 +20,8 @@
     <string name="title_coming_soon">Coming Soon</string>
     <string name="title_settings">Settings</string>
     <string name="view_all">View all</string>
+    <string name="media_backdrop_image_description">Backdrop image of the media</string>
+    <string name="media_poster_image_description">Poster image of the media</string>
+    <string name="play_button_text">Play</string>
+    <string name="favorite_button_description">Toggle favorite</string>
 </resources>
