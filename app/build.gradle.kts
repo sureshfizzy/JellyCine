@@ -52,12 +52,11 @@ android {
 }
 
 dependencies {
-    val room_version = "2.6.0"
+    val room_version = "2.6.1"
     val jellyfin_version = "1.0.0-beta.9"
 
     kapt ("androidx.room:room-compiler:$room_version")
     implementation ("androidx.room:room-runtime:$room_version")
-    annotationProcessor ("androidx.room:room-compiler:$room_version")
     implementation ("androidx.room:room-ktx:$room_version")
     implementation("androidx.core:core-ktx:1.12.0") // Updated
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
@@ -91,6 +90,6 @@ dependencies {
     implementation ("androidx.recyclerview:recyclerview-selection:1.1.0")
 
     // Glide
-    implementation ("com.github.bumptech.glide:glide:4.12.0")
-    kapt ("com.github.bumptech.glide:compiler:4.12.0")
+    implementation ("com.github.bumptech.glide:glide:4.16.0")
+    kapt ("com.github.bumptech.glide:compiler:4.16.0")
 }
