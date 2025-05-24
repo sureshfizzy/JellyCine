@@ -4,8 +4,8 @@
     android:viewportWidth="24"
     android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">  <!-- Use theme attribute for tint -->
-  <path
-      android:fillColor="@android:color/white"
-      <!-- Default fill, will be tinted -->
-      android:pathData="M8,5.14V19.14L19,12.14L8,5.14Z"/>
+    <!-- Default fill, will be tinted -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M8,5.14V19.14L19,12.14L8,5.14Z"/>
 </vector>
