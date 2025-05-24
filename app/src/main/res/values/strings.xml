@@ -24,4 +24,8 @@
     <string name="media_poster_image_description">Poster image of the media</string>
     <string name="play_button_text">Play</string>
     <string name="favorite_button_description">Toggle favorite</string>
+    <string name="media_backdrop_desc_v2">Backdrop image of the media</string>
+    <string name="media_poster_desc_v2">Poster image of the media</string>
+    <string name="play_btn_text_v2">Play</string>
+    <string name="fav_btn_desc_v2">Toggle favorite</string>
 </resources>

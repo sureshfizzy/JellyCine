@@ -52,7 +52,7 @@
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    android:contentDescription="@string/media_backdrop_image_description" />
+                    android:contentDescription="@string/media_backdrop_desc_v2" />
 
                 <ImageView
                     android:id="@+id/poster_image"
@@ -67,7 +67,7 @@
                     app:layout_constraintBottom_toBottomOf="@id/backdrop_image"
                     app:layout_constraintVertical_bias="1.0"
                     android:elevation="4dp"
-                    android:contentDescription="@string/media_poster_image_description" />
+                    android:contentDescription="@string/media_poster_desc_v2" />
                     <!-- Adjust marginTop or constraints to overlap backdrop_image's bottom -->
 
                 <TextView
@@ -111,8 +111,8 @@
                         style="@style/Widget.Material3.Button"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/play_button_text"
-                        app:icon="@drawable/ic_play_arrow_24dp" /> <!-- Assuming ic_play_arrow_24dp exists -->
+                        android:text="@string/play_btn_text_v2"
+                        app:icon="@drawable/ic_play_arrow_v2" /> <!-- Assuming ic_play_arrow_24dp exists -->
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/favorite_button"
@@ -121,7 +121,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
                         app:favoriteState="@{viewModel.mediaItemDetails.userData.favorite}"
-                        android:contentDescription="@string/favorite_button_description" />
+                        android:contentDescription="@string/fav_btn_desc_v2" />
                         <!-- Icon is now handled by favoriteState BindingAdapter -->
 
                 </LinearLayout>
