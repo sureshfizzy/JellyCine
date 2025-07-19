@@ -1,0 +1,67 @@
+<resources>
+    <string name="app_name">JellyCine</string>
+    
+    <!-- General -->
+    <string name="loading">Loading…</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="search">Search</string>
+    <string name="settings">Settings</string>
+    
+    <!-- Server Connection -->
+    <string name="server_url">Server URL</string>
+    <string name="server_url_hint">https://your-jellyfin-server.com</string>
+    <string name="connect">Connect</string>
+    <string name="connecting">Connecting…</string>
+    <string name="connection_failed">Connection failed</string>
+    <string name="invalid_server_url">Invalid server URL</string>
+    <string name="server_not_found">Server not found</string>
+    
+    <!-- Authentication -->
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login">Login</string>
+    <string name="logout">Logout</string>
+    <string name="logging_in">Logging in…</string>
+    <string name="login_failed">Login failed</string>
+    <string name="invalid_credentials">Invalid username or password</string>
+    
+    <!-- Navigation -->
+    <string name="home">Home</string>
+    <string name="libraries">Libraries</string>
+    <string name="favorites">Favorites</string>
+    <string name="downloads">Downloads</string>
+    <string name="profile">Profile</string>
+    
+    <!-- Media -->
+    <string name="movies">Movies</string>
+    <string name="tv_shows">TV Shows</string>
+    <string name="music">Music</string>
+    <string name="photos">Photos</string>
+    <string name="books">Books</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+    <string name="resume">Resume</string>
+    <string name="watched">Watched</string>
+    <string name="unwatched">Unwatched</string>
+    <string name="favorite">Favorite</string>
+    <string name="unfavorite">Unfavorite</string>
+    
+    <!-- Content Descriptions -->
+    <string name="cd_poster">Poster</string>
+    <string name="cd_backdrop">Backdrop</string>
+    <string name="cd_play_button">Play button</string>
+    <string name="cd_favorite_button">Favorite button</string>
+    <string name="cd_menu_button">Menu button</string>
+    <string name="cd_back_button">Back button</string>
+    <string name="cd_search_button">Search button</string>
+    <string name="cd_settings_button">Settings button</string>
+</resources>
