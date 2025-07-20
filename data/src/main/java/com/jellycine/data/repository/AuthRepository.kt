@@ -1,0 +1,113 @@
+package com.jellycine.data.repository
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.jellycine.data.api.JellyfinApi
+import com.jellycine.data.model.AuthenticationRequest
+import com.jellycine.data.model.AuthenticationResult
+import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.network.NetworkModule
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+class AuthRepository(private val context: Context) {
+    
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
+    
+
+    
+    companion object {
+        private val SERVER_URL_KEY = stringPreferencesKey("server_url")
+        private val SERVER_NAME_KEY = stringPreferencesKey("server_name")
+        private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
+        private val USER_ID_KEY = stringPreferencesKey("user_id")
+        private val USERNAME_KEY = stringPreferencesKey("username")
+        private val IS_AUTHENTICATED_KEY = booleanPreferencesKey("is_authenticated")
+    }
+    
+    val isAuthenticated: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IS_AUTHENTICATED_KEY] ?: false
+    }
+    
+    fun getServerUrl(): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[SERVER_URL_KEY]
+    }
+    
+    fun getServerName(): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[SERVER_NAME_KEY]
+    }
+    
+    fun getUsername(): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[USERNAME_KEY]
+    }
+    
+    fun getAccessToken(): Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[ACCESS_TOKEN_KEY]
+    }
+    
+    // Remove the sync method - not needed anymore
+    
+    suspend fun testServerConnection(serverUrl: String): Result<ServerInfo> {
+        return try {
+            val api = NetworkModule.createJellyfinApi(serverUrl)
+            val response = api.getPublicSystemInfo()
+            
+            if (response.isSuccessful && response.body() != null) {
+                val serverInfo = response.body()!!
+                // Save server info
+                context.dataStore.edit { preferences ->
+                    preferences[SERVER_URL_KEY] = serverUrl
+                    preferences[SERVER_NAME_KEY] = serverInfo.serverName
+                }
+                Result.success(serverInfo)
+            } else {
+                Result.failure(Exception("Server connection failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    suspend fun authenticateUser(
+        serverUrl: String,
+        username: String,
+        password: String
+    ): Result<AuthenticationResult> {
+        return try {
+            val api = NetworkModule.createJellyfinApi(serverUrl)
+            val request = AuthenticationRequest(username, password)
+            val response = api.authenticateByName(request)
+            
+            if (response.isSuccessful && response.body() != null) {
+                val authResult = response.body()!!
+                
+
+                context.dataStore.edit { preferences ->
+                    preferences[ACCESS_TOKEN_KEY] = authResult.accessToken
+                    preferences[USER_ID_KEY] = authResult.user.id
+                    preferences[USERNAME_KEY] = authResult.user.name
+                    preferences[IS_AUTHENTICATED_KEY] = true
+                }
+                
+                Result.success(authResult)
+            } else {
+                Result.failure(Exception("Authentication failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    suspend fun logout() {
+        context.dataStore.edit { preferences ->
+            preferences[ACCESS_TOKEN_KEY] = ""
+            preferences[USER_ID_KEY] = ""
+            preferences[IS_AUTHENTICATED_KEY] = false
+        }
+    }
+}

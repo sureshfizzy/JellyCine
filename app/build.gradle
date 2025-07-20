@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "com.jellycine.app"
-        minSdk 24
+        minSdk 27
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
@@ -52,6 +52,10 @@ android {
 }
 
 dependencies {
+    // Project modules
+    implementation project(':data')
+    implementation project(':core')
+
     // Core Android
     implementation 'androidx.core:core-ktx:1.10.1'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
@@ -70,17 +74,9 @@ dependencies {
     
     // ViewModel
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2'
-    
-
-    
+        
     // Image Loading
     implementation 'io.coil-kt:coil-compose:2.4.0'
-    
-
-    
-
-    
-
     
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
