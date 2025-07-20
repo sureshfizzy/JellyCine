@@ -11,7 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import com.jellycine.app.feature.home.HomeScreen
+import com.jellycine.app.feature.dashboard.DashboardContainer
 import com.jellycine.app.feature.auth.AuthScreen
 import com.jellycine.app.feature.splash.SplashScreen
 
@@ -33,7 +33,7 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateToHome = {
-                        navController.navigate("home") {
+                        navController.navigate("dashboard") {
                             popUpTo("splash") { inclusive = true }
                         }
                     }
@@ -57,18 +57,18 @@ fun AppNavigation() {
             ) {
                 AuthScreen(
                     onAuthSuccess = {
-                        navController.navigate("home") {
+                        navController.navigate("dashboard") {
                             popUpTo("server_connection") { inclusive = true }
                         }
                     }
                 )
             }
 
-            composable("home") {
-                HomeScreen(
+            composable("dashboard") {
+                DashboardContainer(
                     onLogout = {
                         navController.navigate("splash") {
-                            popUpTo("home") { inclusive = true }
+                            popUpTo("dashboard") { inclusive = true }
                         }
                     }
                 )
