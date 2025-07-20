@@ -1,8 +1,9 @@
 package com.jellycine.app.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -11,18 +12,34 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.jellycine.app.feature.dashboard.DashboardContainer
 import com.jellycine.app.feature.auth.AuthScreen
 import com.jellycine.app.feature.splash.SplashScreen
+import com.jellycine.app.feature.detail.DetailScreen
+import com.jellycine.data.model.BaseItemDto
+import com.google.gson.Gson
+import com.jellycine.app.manager.AuthStateManager
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val authStateManager = remember { AuthStateManager.getInstance(context) }
 
+    // Determine start destination based on auth state to avoid unnecessary splash
+    val startDestination = remember {
+        if (authStateManager.checkAuthenticationStateSync()) {
+            "dashboard"
+        } else {
+            "splash"
+        }
+    }
 
     NavHost(
         navController = navController,
-        startDestination = "splash",
+        startDestination = startDestination,
         modifier = Modifier.fillMaxSize()
     ) {
             composable("splash") {
@@ -70,6 +87,28 @@ fun AppNavigation() {
                         navController.navigate("splash") {
                             popUpTo("dashboard") { inclusive = true }
                         }
+                    },
+                    onNavigateToDetail = { item ->
+                        val itemJson = Gson().toJson(item)
+                        navController.navigate("detail/$itemJson")
+                    }
+                )
+            }
+
+            composable(
+                "detail/{itemJson}",
+                arguments = listOf(navArgument("itemJson") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val itemJson = backStackEntry.arguments?.getString("itemJson")
+                val item = Gson().fromJson(itemJson, BaseItemDto::class.java)
+
+                DetailScreen(
+                    item = item,
+                    onBackPressed = {
+                        navController.popBackStack()
+                    },
+                    onPlayClick = {
+                        // TODO: Implement play functionality
                     }
                 )
             }

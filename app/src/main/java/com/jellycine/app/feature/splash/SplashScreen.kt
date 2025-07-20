@@ -25,7 +25,7 @@ fun SplashScreen(
     val authStateManager = remember { AuthStateManager.getInstance(context) }
 
     LaunchedEffect(Unit) {
-        delay(2000)
+        delay(800)
         val isAuthenticated = authStateManager.checkAuthenticationState()
         if (isAuthenticated) {
             onNavigateToHome()

@@ -18,6 +18,17 @@ class AuthStateManager(private val context: Context) {
             false
         }
     }
+
+    // Synchronous version for navigation setup
+    fun checkAuthenticationStateSync(): Boolean {
+        return try {
+            kotlinx.coroutines.runBlocking {
+                authRepository.isAuthenticated.first()
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
     
     suspend fun logout() {
         authRepository.logout()

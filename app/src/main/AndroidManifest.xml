@@ -24,7 +24,9 @@
         <activity
             android:name=".ui.JellyCineActivity"
             android:exported="true"
-            android:theme="@style/Theme.JellyCine">
+            android:theme="@style/Theme.JellyCine"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

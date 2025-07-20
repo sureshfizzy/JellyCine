@@ -6,8 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.jellycine.data.api.JellyfinApi
+import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.ServerInfo
@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class AuthRepository(private val context: Context) {
-    
-    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
+
+    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     
 
     
@@ -30,23 +30,23 @@ class AuthRepository(private val context: Context) {
         private val IS_AUTHENTICATED_KEY = booleanPreferencesKey("is_authenticated")
     }
     
-    val isAuthenticated: Flow<Boolean> = context.dataStore.data.map { preferences ->
+    val isAuthenticated: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[IS_AUTHENTICATED_KEY] ?: false
     }
-    
-    fun getServerUrl(): Flow<String?> = context.dataStore.data.map { preferences ->
+
+    fun getServerUrl(): Flow<String?> = dataStore.data.map { preferences ->
         preferences[SERVER_URL_KEY]
     }
-    
-    fun getServerName(): Flow<String?> = context.dataStore.data.map { preferences ->
+
+    fun getServerName(): Flow<String?> = dataStore.data.map { preferences ->
         preferences[SERVER_NAME_KEY]
     }
-    
-    fun getUsername(): Flow<String?> = context.dataStore.data.map { preferences ->
+
+    fun getUsername(): Flow<String?> = dataStore.data.map { preferences ->
         preferences[USERNAME_KEY]
     }
-    
-    fun getAccessToken(): Flow<String?> = context.dataStore.data.map { preferences ->
+
+    fun getAccessToken(): Flow<String?> = dataStore.data.map { preferences ->
         preferences[ACCESS_TOKEN_KEY]
     }
     
@@ -60,7 +60,7 @@ class AuthRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 val serverInfo = response.body()!!
                 // Save server info
-                context.dataStore.edit { preferences ->
+                dataStore.edit { preferences ->
                     preferences[SERVER_URL_KEY] = serverUrl
                     preferences[SERVER_NAME_KEY] = serverInfo.serverName
                 }
@@ -87,7 +87,7 @@ class AuthRepository(private val context: Context) {
                 val authResult = response.body()!!
                 
 
-                context.dataStore.edit { preferences ->
+                dataStore.edit { preferences ->
                     preferences[ACCESS_TOKEN_KEY] = authResult.accessToken
                     preferences[USER_ID_KEY] = authResult.user.id
                     preferences[USERNAME_KEY] = authResult.user.name
@@ -104,7 +104,7 @@ class AuthRepository(private val context: Context) {
     }
     
     suspend fun logout() {
-        context.dataStore.edit { preferences ->
+        dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN_KEY] = ""
             preferences[USER_ID_KEY] = ""
             preferences[IS_AUTHENTICATED_KEY] = false

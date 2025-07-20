@@ -1,0 +1,85 @@
+package com.jellycine.app.util
+
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.request.ImageRequest
+import coil.request.CachePolicy
+import android.content.Context
+
+// Skeleton loading animation
+@Composable
+fun ImageSkeleton(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(12.dp)
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Box(
+        modifier = modifier
+            .background(
+                color = Color.White.copy(alpha = alpha),
+                shape = shape
+            )
+    )
+}
+
+@Composable
+fun JellyfinPosterImage(
+    imageUrl: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    context: Context,
+    onLoadingStateChange: (Boolean) -> Unit = {}
+) {
+    var imageState by remember(imageUrl) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+
+    // Notify parent about loading state changes
+    LaunchedEffect(imageState) {
+        when (imageState) {
+            is AsyncImagePainter.State.Loading -> onLoadingStateChange(true)
+            is AsyncImagePainter.State.Success -> onLoadingStateChange(false)
+            is AsyncImagePainter.State.Error -> onLoadingStateChange(false)
+            else -> onLoadingStateChange(true)
+        }
+    }
+
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(imageUrl)
+            .crossfade(300)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .networkCachePolicy(CachePolicy.ENABLED)
+            .allowHardware(false)
+            .build(),
+        contentDescription = contentDescription,
+        modifier = modifier,
+        contentScale = contentScale,
+        onState = { state ->
+            imageState = state
+        }
+    )
+}

@@ -64,7 +64,8 @@ sealed class DashboardDestination(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardContainer(
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -80,15 +81,7 @@ fun DashboardContainer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0A0A0A),
-                        Color(0xFF1A1A2E),
-                        Color(0xFF16213E)
-                    )
-                )
-            )
+            .background(Color.Black) // Pure AMOLED black background
     ) {
         Box(
             modifier = Modifier.fillMaxSize()
@@ -100,7 +93,10 @@ fun DashboardContainer(
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable(DashboardDestination.Home.route) {
-                    Dashboard(onLogout = onLogout)
+                    Dashboard(
+                        onLogout = onLogout,
+                        onNavigateToDetail = onNavigateToDetail
+                    )
                 }
                 composable(DashboardDestination.MyMedia.route) {
                     MyMedia()

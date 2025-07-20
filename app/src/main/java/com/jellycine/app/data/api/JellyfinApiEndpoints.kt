@@ -92,7 +92,7 @@ object JellyfinApiEndpoints {
     }
     
     fun getResumeItems(
-        baseUrl: String, 
+        baseUrl: String,
         userId: String,
         parentId: String? = null,
         includeItemTypes: String? = null,
@@ -102,8 +102,12 @@ object JellyfinApiEndpoints {
         parentId?.let { params.add("parentId=$it") }
         includeItemTypes?.let { params.add("includeItemTypes=$it") }
         limit?.let { params.add("limit=$it") }
+        params.add("filters=IsResumable")
+        params.add("recursive=true")
+        params.add("sortBy=DatePlayed")
+        params.add("sortOrder=Descending")
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Items/Resume$queryString"
+        return "${baseUrl.trimEnd('/')}/Users/$userId/Items$queryString"
     }
     
     // Media images
