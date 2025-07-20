@@ -51,43 +51,79 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 
-// Static cache to persist data across app lifecycle
 private object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
+    var continueWatchingItems: List<BaseItemDto> = emptyList()
     var username: String? = null
     var userImageUrl: String? = null
     var lastLoadTime: Long = 0
+    var continueWatchingLastLoadTime: Long = 0
+    private var _isCurrentlyLoading: Boolean = false
+
+    val isCurrentlyLoading: Boolean get() = _isCurrentlyLoading
 
     fun shouldRefresh(): Boolean {
-        return System.currentTimeMillis() - lastLoadTime > 300_000 // 5 minutes
+        return featuredItems.isEmpty() || System.currentTimeMillis() - lastLoadTime > 300_000
+    }
+
+    fun shouldRefreshContinueWatching(): Boolean {
+        return continueWatchingItems.isEmpty() || System.currentTimeMillis() - continueWatchingLastLoadTime > 300_000
     }
 
     fun updateFeaturedItems(items: List<BaseItemDto>) {
         featuredItems = items
         lastLoadTime = System.currentTimeMillis()
+        _isCurrentlyLoading = false
+    }
+
+    fun updateContinueWatchingItems(items: List<BaseItemDto>) {
+        continueWatchingItems = items
+        continueWatchingLastLoadTime = System.currentTimeMillis()
     }
 
     fun updateUserData(name: String?, imageUrl: String?) {
         username = name
         userImageUrl = imageUrl
     }
+
+    fun clearCache() {
+        featuredItems = emptyList()
+        continueWatchingItems = emptyList()
+        lastLoadTime = 0
+        continueWatchingLastLoadTime = 0
+        _isCurrentlyLoading = false
+    }
+
+    fun clearAllCache() {
+        featuredItems = emptyList()
+        continueWatchingItems = emptyList()
+        username = null
+        userImageUrl = null
+        lastLoadTime = 0
+        continueWatchingLastLoadTime = 0
+        _isCurrentlyLoading = false
+    }
+
+    fun markAsLoading(loading: Boolean) {
+        _isCurrentlyLoading = loading
+    }
 }
 
 @Composable
 fun FeatureTab(
     modifier: Modifier = Modifier,
+    featuredItems: List<BaseItemDto> = emptyList(),
+    isLoading: Boolean = true,
+    error: String? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
 
-    // Use static variables for better persistence across app lifecycle
-    var featuredItems by remember { mutableStateOf(CachedData.featuredItems) }
-    var isLoading by remember { mutableStateOf(CachedData.featuredItems.isEmpty()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var hasLoadedContent by remember { mutableStateOf(CachedData.featuredItems.isNotEmpty()) }
+
 
     // User information state - use stored credentials
     var storedUsername by remember { mutableStateOf(CachedData.username) }
@@ -98,71 +134,7 @@ fun FeatureTab(
     var currentIndex by remember { mutableStateOf(0) }
     val listState = rememberLazyListState()
     
-    // Load featured items with improved error handling - only if not already loaded or needs refresh
-    LaunchedEffect(hasLoadedContent) {
-        if (hasLoadedContent && !CachedData.shouldRefresh()) return@LaunchedEffect // Skip if already loaded and fresh
 
-        var retryCount = 0
-        val maxRetries = 3
-
-        while (retryCount < maxRetries && featuredItems.isEmpty() && error == null) {
-            try {
-                // Add a small delay to avoid DataStore conflicts
-                if (retryCount > 0) {
-                    delay(500L * retryCount)
-                }
-
-                val result = mediaRepository.getLatestItems(limit = 20)
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter {
-                            it.id != null && !it.name.isNullOrBlank()
-                        }
-                        if (validItems.isNotEmpty()) {
-                            featuredItems = validItems
-                            CachedData.updateFeaturedItems(validItems) // Update cache
-                            isLoading = false
-                            hasLoadedContent = true
-                            return@LaunchedEffect
-                        } else if (retryCount == maxRetries - 1) {
-                            error = "No valid content found"
-                            isLoading = false
-                        }
-                    },
-                    onFailure = { throwable ->
-                        val errorMessage = when {
-                            throwable.message?.contains("DataStore") == true ->
-                                "Loading content... Please wait"
-                            else -> throwable.message ?: "Failed to load content"
-                        }
-
-                        if (retryCount == maxRetries - 1) {
-                            error = errorMessage
-                            isLoading = false
-                        }
-                    }
-                )
-            } catch (e: Exception) {
-                val errorMessage = when {
-                    e.message?.contains("DataStore") == true ->
-                        "Loading content... Please wait"
-                    else -> e.message ?: "Unknown error occurred"
-                }
-
-                if (retryCount == maxRetries - 1) {
-                    error = errorMessage
-                    isLoading = false
-                }
-            }
-
-            if (featuredItems.isEmpty() && error == null) {
-                retryCount++
-                if (retryCount < maxRetries) {
-                    delay(1000L * retryCount) // Exponential backoff
-                }
-            }
-        }
-    }
 
     // Load user information - use stored username and fetch image
     LaunchedEffect(hasLoadedUser) {
@@ -200,11 +172,11 @@ fun FeatureTab(
         }
     }
 
-    // Auto-rotation effect with smooth animations
+    // Auto-rotation effect with longer delay for better performance
     LaunchedEffect(featuredItems) {
-        if (featuredItems.isNotEmpty()) {
+        if (featuredItems.isNotEmpty() && featuredItems.size > 1) {
             while (true) {
-                delay(5000) // Rotate every 5 seconds for better UX
+                delay(8000) // Increased to 8 seconds to reduce performance impact
                 val nextIndex = (currentIndex + 1) % featuredItems.size
                 currentIndex = nextIndex
 
@@ -290,23 +262,7 @@ fun FeatureTab(
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 12.sp
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = {
-                                error = null
-                                isLoading = true
-                                featuredItems = emptyList()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.White.copy(alpha = 0.2f)
-                            )
-                        ) {
-                            Text(
-                                text = "Retry",
-                                color = Color.White,
-                                fontSize = 12.sp
-                            )
-                        }
+
                     }
                 }
             }
@@ -376,12 +332,25 @@ private fun FeatureCard(
                 itemId
             }
 
-            imageUrl = mediaRepository.getImageUrl(
+            // Try to get backdrop image first, fallback to primary if not available
+            var backdropUrl = mediaRepository.getBackdropImageUrl(
                 itemId = actualItemId,
-                width = 1200,
-                height = 800,
-                quality = 90 // Higher quality for feature images
+                width = 800, // Optimized width for feature cards
+                height = 450, // Optimized height for feature cards
+                quality = 75 // Reduced quality for faster loading
             ).first()
+
+            // If backdrop is not available, fallback to primary image
+            if (backdropUrl.isNullOrEmpty()) {
+                backdropUrl = mediaRepository.getImageUrl(
+                    itemId = actualItemId,
+                    width = 800,
+                    height = 450,
+                    quality = 75
+                ).first()
+            }
+
+            imageUrl = backdropUrl
         }
     }
     
@@ -608,25 +577,14 @@ private fun UserProfileAvatar(
 
 // Skeleton Components for Feature Tab
 @Composable
-private fun ShimmerEffect(
+private fun SkeletonBox(
     modifier: Modifier = Modifier,
     cornerRadius: Float = 12f
 ) {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val alpha = transition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
     Box(
         modifier = modifier
             .background(
-                color = Color.White.copy(alpha = alpha.value),
+                color = Color.White.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(cornerRadius.dp)
             )
     )
@@ -683,14 +641,14 @@ private fun FeatureTabSkeleton() {
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     // Title skeleton (2 lines max)
-                    ShimmerEffect(
+                    SkeletonBox(
                         modifier = Modifier
                             .fillMaxWidth(0.8f)
                             .height(18.dp),
                         cornerRadius = 4f
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    ShimmerEffect(
+                    SkeletonBox(
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
                             .height(18.dp),
@@ -700,7 +658,7 @@ private fun FeatureTabSkeleton() {
                     Spacer(modifier = Modifier.height(6.dp))
 
                     // Year and rating skeleton
-                    ShimmerEffect(
+                    SkeletonBox(
                         modifier = Modifier
                             .width(100.dp)
                             .height(14.dp),
@@ -710,7 +668,7 @@ private fun FeatureTabSkeleton() {
                     Spacer(modifier = Modifier.height(6.dp))
 
                     // Genres skeleton
-                    ShimmerEffect(
+                    SkeletonBox(
                         modifier = Modifier
                             .width(140.dp)
                             .height(12.dp),
@@ -725,7 +683,7 @@ private fun FeatureTabSkeleton() {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         // Play button skeleton
-                        ShimmerEffect(
+                        SkeletonBox(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(40.dp),
@@ -733,7 +691,7 @@ private fun FeatureTabSkeleton() {
                         )
 
                         // Details button skeleton
-                        ShimmerEffect(
+                        SkeletonBox(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(40.dp),

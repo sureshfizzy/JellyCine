@@ -44,19 +44,21 @@ class MediaRepository(private val context: Context) {
     suspend fun getLatestItems(
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series",
-        limit: Int? = 20
+        limit: Int? = 20,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
     ): Result<List<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
             val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
-            
+
             val response = api.getLatestItems(
                 userId = userId,
                 parentId = parentId,
                 includeItemTypes = includeItemTypes,
-                limit = limit
+                limit = limit,
+                fields = fields
             )
-            
+
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -74,12 +76,13 @@ class MediaRepository(private val context: Context) {
         sortBy: String? = null,
         sortOrder: String? = null,
         limit: Int? = null,
-        startIndex: Int? = null
+        startIndex: Int? = null,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
             val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
-            
+
             val response = api.getUserItems(
                 userId = userId,
                 parentId = parentId,
@@ -88,9 +91,10 @@ class MediaRepository(private val context: Context) {
                 sortBy = sortBy,
                 sortOrder = sortOrder,
                 limit = limit,
-                startIndex = startIndex
+                startIndex = startIndex,
+                fields = fields
             )
-            
+
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
@@ -186,7 +190,8 @@ class MediaRepository(private val context: Context) {
     suspend fun getResumeItems(
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series,Episode",
-        limit: Int? = 20
+        limit: Int? = 20,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
     ): Result<List<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
@@ -200,7 +205,8 @@ class MediaRepository(private val context: Context) {
                 filters = "IsResumable",
                 recursive = true,
                 sortBy = "DatePlayed",
-                sortOrder = "Descending"
+                sortOrder = "Descending",
+                fields = fields
             )
 
             if (response.isSuccessful && response.body() != null) {

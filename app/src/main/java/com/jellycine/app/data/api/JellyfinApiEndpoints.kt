@@ -77,16 +77,18 @@ object JellyfinApiEndpoints {
     fun getItemById(baseUrl: String, userId: String, itemId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Items/$itemId"
     
     fun getLatestItems(
-        baseUrl: String, 
+        baseUrl: String,
         userId: String,
         parentId: String? = null,
         includeItemTypes: String? = null,
-        limit: Int? = null
+        limit: Int? = null,
+        fields: String? = null
     ): String {
         val params = mutableListOf<String>()
         parentId?.let { params.add("parentId=$it") }
         includeItemTypes?.let { params.add("includeItemTypes=$it") }
         limit?.let { params.add("limit=$it") }
+        fields?.let { params.add("fields=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
         return "${baseUrl.trimEnd('/')}/Users/$userId/Items/Latest$queryString"
     }

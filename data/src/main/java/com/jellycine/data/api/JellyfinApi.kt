@@ -26,7 +26,8 @@ interface JellyfinApi {
         @Path("userId") userId: String,
         @Query("parentId") parentId: String? = null,
         @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("limit") limit: Int? = null
+        @Query("limit") limit: Int? = null,
+        @Query("fields") fields: String? = null
     ): Response<List<BaseItemDto>>
 
     @GET("Users/{userId}/Items")
@@ -38,7 +39,8 @@ interface JellyfinApi {
         @Query("sortBy") sortBy: String? = null,
         @Query("sortOrder") sortOrder: String? = null,
         @Query("limit") limit: Int? = null,
-        @Query("startIndex") startIndex: Int? = null
+        @Query("startIndex") startIndex: Int? = null,
+        @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 
     @GET("Users/{userId}/Views")
@@ -53,7 +55,8 @@ interface JellyfinApi {
         @Query("filters") filters: String = "IsResumable",
         @Query("recursive") recursive: Boolean = true,
         @Query("sortBy") sortBy: String = "DatePlayed",
-        @Query("sortOrder") sortOrder: String = "Descending"
+        @Query("sortOrder") sortOrder: String = "Descending",
+        @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 
     @GET("Users/{userId}")

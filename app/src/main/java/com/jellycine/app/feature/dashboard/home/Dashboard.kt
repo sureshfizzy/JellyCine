@@ -36,6 +36,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.foundation.border
 
 
 // Sample movie data for demonstration
@@ -51,18 +52,89 @@ fun Dashboard(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
-    // Sample movies for demonstration
-    val sampleMovies = remember {
-        listOf(
-            Movie("1", "Spider-Man: No Way Home", "2021"),
-            Movie("2", "Joker", "2019"),
-            Movie("3", "The Batman", "2022"),
-            Movie("4", "Final Destination", "2000"),
-            Movie("5", "Avengers: Endgame", "2019"),
-            Movie("6", "Dune", "2021"),
-            Movie("7", "Top Gun: Maverick", "2022"),
-            Movie("8", "Black Widow", "2021")
-        )
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    var continueWatchingItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var continueWatchingLoading by remember { mutableStateOf(true) }
+    var continueWatchingError by remember { mutableStateOf<String?>(null) }
+    var continueWatchingLoaded by remember { mutableStateOf(false) }
+
+    var featuredItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var featuredLoading by remember { mutableStateOf(true) }
+    var featuredError by remember { mutableStateOf<String?>(null) }
+    var featuredLoaded by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+
+    LaunchedEffect(key1 = "featured_items_dashboard", key2 = refreshTrigger) {
+        if (featuredItems.isEmpty() || refreshTrigger > 0) {
+            featuredLoading = true
+            featuredError = null
+
+            try {
+                val result = mediaRepository.getLatestItems(
+                    parentId = null,
+                    includeItemTypes = "Movie,Series",
+                    limit = 10,
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount"
+                )
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        }
+                        featuredItems = validItems
+                        featuredLoading = false
+                        featuredLoaded = true
+                    },
+                    onFailure = { throwable ->
+                        featuredError = throwable.message ?: "Failed to load featured content"
+                        featuredLoading = false
+                    }
+                )
+            } catch (e: Exception) {
+                featuredError = e.message ?: "Unknown error occurred"
+                featuredLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(key1 = "continue_watching_dashboard", key2 = refreshTrigger) {
+        if (continueWatchingItems.isEmpty() || refreshTrigger > 0) {
+            continueWatchingLoading = true
+            continueWatchingError = null
+
+            try {
+                val result = mediaRepository.getResumeItems(limit = 8)
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter { item ->
+                            val userData = item.userData
+                            item.id != null &&
+                            !item.name.isNullOrBlank() &&
+                            userData?.playedPercentage != null &&
+                            userData.playedPercentage!! > 0 &&
+                            userData.playedPercentage!! < 95
+                        }
+                        continueWatchingItems = validItems
+                        continueWatchingLoading = false
+                        continueWatchingLoaded = true
+                    },
+                    onFailure = { throwable ->
+                        continueWatchingError = throwable.message ?: "Failed to load continue watching items"
+                        continueWatchingLoading = false
+                    }
+                )
+            } catch (e: Exception) {
+                continueWatchingError = e.message ?: "Unknown error occurred"
+                continueWatchingLoading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshTrigger = 1
     }
 
     LazyColumn(
@@ -74,24 +146,29 @@ fun Dashboard(
 
 
         item {
-            // Feature Tab - Recently Added Content
             FeatureTab(
+                featuredItems = featuredItems,
+                isLoading = featuredLoading,
+                error = featuredError,
                 onItemClick = onNavigateToDetail,
-                onLogout = onLogout
+                onLogout = onLogout,
+                refreshTrigger = refreshTrigger
             )
         }
 
         item {
-            // Continue Watching Section
             ContinueWatchingSection(
+                items = continueWatchingItems,
+                isLoading = continueWatchingLoading,
+                error = continueWatchingError,
                 onItemClick = onNavigateToDetail
             )
         }
 
         item {
-            // Library Sections
             LibrarySections(
-                onItemClick = onNavigateToDetail
+                onItemClick = onNavigateToDetail,
+                refreshTrigger = refreshTrigger
             )
         }
     }
@@ -99,66 +176,15 @@ fun Dashboard(
 
 @Composable
 private fun ContinueWatchingSection(
+    items: List<com.jellycine.data.model.BaseItemDto>,
+    isLoading: Boolean,
+    error: String?,
     onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
-    // Use rememberSaveable to persist across recompositions and navigation
-    var resumeItems by rememberSaveable { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var isLoading by rememberSaveable { mutableStateOf(true) }
-    var error by rememberSaveable { mutableStateOf<String?>(null) }
-    var hasLoaded by rememberSaveable { mutableStateOf(false) }
 
-    // Load resume items with retry logic - only if not already loaded
-    LaunchedEffect(hasLoaded) {
-        if (hasLoaded) return@LaunchedEffect
-
-        var retryCount = 0
-        val maxRetries = 3
-
-        while (retryCount < maxRetries && resumeItems.isEmpty() && error == null) {
-            try {
-                if (retryCount > 0) {
-                    delay(1000L * retryCount)
-                }
-
-                val result = mediaRepository.getResumeItems(limit = 10)
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter { item ->
-                            val userData = item.userData
-                            item.id != null &&
-                            !item.name.isNullOrBlank() &&
-                            userData?.playedPercentage != null &&
-                            userData.playedPercentage!! > 0 &&
-                            userData.playedPercentage!! < 95
-                        }
-                        resumeItems = validItems
-                        isLoading = false
-                        hasLoaded = true
-                        return@LaunchedEffect
-                    },
-                    onFailure = { throwable ->
-                        if (retryCount == maxRetries - 1) {
-                            error = throwable.message ?: "Failed to load continue watching items"
-                            isLoading = false
-                        }
-                    }
-                )
-            } catch (e: Exception) {
-                if (retryCount == maxRetries - 1) {
-                    error = e.message ?: "Unknown error occurred"
-                    isLoading = false
-                }
-            }
-            retryCount++
-        }
-
-        if (resumeItems.isEmpty() && error == null) {
-            isLoading = false
-        }
-    }
 
     Column(
         modifier = Modifier
@@ -212,13 +238,13 @@ private fun ContinueWatchingSection(
                 }
             }
 
-            resumeItems.isNotEmpty() -> {
+            items.isNotEmpty() -> {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(resumeItems.take(10)) { item ->
+                    items(items.take(10)) { item ->
                         ContinueWatchingCard(
                             item = item,
                             mediaRepository = mediaRepository,
@@ -272,7 +298,7 @@ private fun ContinueWatchingCard(
                 itemId = actualItemId,
                 width = 300,
                 height = 170,
-                quality = 70
+                quality = 65 // Slightly reduced quality for better performance
             ).first()
         }
     }
@@ -299,7 +325,7 @@ private fun ContinueWatchingCard(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(12.dp)),
                 context = context,
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.FillBounds
             )
 
             // Progress bar at bottom
@@ -381,18 +407,26 @@ private fun ContinueWatchingCard(
 
 @Composable
 private fun LibrarySections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
-    var libraryViews by rememberSaveable { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var isLoading by rememberSaveable { mutableStateOf(true) }
-    var hasLoaded by rememberSaveable { mutableStateOf(false) }
+    var libraryViews by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var hasLoaded by remember { mutableStateOf(false) }
 
-    // Load library views - only if not already loaded
-    LaunchedEffect(hasLoaded) {
-        if (hasLoaded) return@LaunchedEffect
+    // Load library views - always load fresh data or when refreshTrigger changes
+    LaunchedEffect(refreshTrigger) {
+        // Always load data, don't skip based on hasLoaded
+        isLoading = true
+        hasLoaded = false
+
+        // Add delay to stagger loading after other sections (only on initial load)
+        if (refreshTrigger == 0) {
+            delay(400L)
+        }
 
         try {
             val result = mediaRepository.getUserViews()
@@ -403,7 +437,12 @@ private fun LibrarySections(
                         !it.name.isNullOrBlank() &&
                         it.collectionType != "boxsets" &&
                         it.collectionType != "playlists" &&
-                        (it.type == "CollectionFolder" || it.type == "Folder")
+                        it.collectionType != "folders" && // Also exclude generic folders
+                        (it.type == "CollectionFolder" || it.type == "Folder") &&
+                        // Only include media libraries (movies, tvshows, music, etc.)
+                        (it.collectionType == "movies" || it.collectionType == "tvshows" ||
+                         it.collectionType == "music" || it.collectionType == "books" ||
+                         it.collectionType == "mixed" || it.collectionType == null)
                     } ?: emptyList()
                     isLoading = false
                     hasLoaded = true
@@ -455,7 +494,8 @@ private fun LibrarySections(
                     LibrarySection(
                         library = library,
                         mediaRepository = mediaRepository,
-                        onItemClick = onItemClick
+                        onItemClick = onItemClick,
+                        refreshTrigger = refreshTrigger
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -468,43 +508,37 @@ private fun LibrarySections(
 private fun LibrarySection(
     library: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
 ) {
-    var libraryItems by rememberSaveable(library.id) { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var isLoading by rememberSaveable(library.id) { mutableStateOf(true) }
-    var hasLoaded by rememberSaveable(library.id) { mutableStateOf(false) }
+    var libraryItems by remember(library.id) { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var isLoading by remember(library.id) { mutableStateOf(true) }
+    var hasLoaded by remember(library.id) { mutableStateOf(false) }
 
-    // Load items for this library - only if not already loaded
-    LaunchedEffect(library.id, hasLoaded) {
-        if (hasLoaded) return@LaunchedEffect
+    // Load items for this library - always load fresh data or when refreshTrigger changes
+    LaunchedEffect(library.id, refreshTrigger) {
+        // Always load data, don't skip based on hasLoaded
+        isLoading = true
+        hasLoaded = false
 
         library.id?.let { libraryId ->
             try {
-                val result = mediaRepository.getUserItems(
+                val result = mediaRepository.getLatestItems(
                     parentId = libraryId,
-                    recursive = true,
-                    sortBy = "DateCreated",
-                    sortOrder = "Descending",
-                    limit = 8
+                    includeItemTypes = "Movie,Series",
+                    limit = 15,
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount"
                 )
-                result.fold(
-                    onSuccess = { queryResult ->
-                        libraryItems = queryResult.items?.filter {
-                            it.id != null &&
-                            !it.name.isNullOrBlank() &&
-                            (it.type == "Movie" || it.type == "Series" || it.type == "Episode" || it.type == "Video") &&
-                            it.type != "BoxSet" &&
-                            it.type != "Collection" &&
-                            it.type != "Playlist"
-                        } ?: emptyList()
-                        isLoading = false
-                        hasLoaded = true
-                    },
-                    onFailure = {
-                        isLoading = false
-                        hasLoaded = true
-                    }
-                )
+
+                // Filter and process items
+                val validItems = result.getOrNull()?.filter {
+                    it.id != null && !it.name.isNullOrBlank()
+                } ?: emptyList()
+
+                libraryItems = validItems.take(12) // Show up to 12 items per library
+                isLoading = false
+                hasLoaded = true
+
             } catch (e: Exception) {
                 isLoading = false
                 hasLoaded = true
@@ -529,7 +563,7 @@ private fun LibrarySection(
 
             libraryItems.isNotEmpty() -> {
                 LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -572,8 +606,8 @@ private fun LibraryItemCard(
     val context = LocalContext.current
     var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
 
-    // Get image URL - for episodes, use series poster
-    LaunchedEffect(item.id) {
+    // Get image URL - for episodes, use series poster; for series/movies, use their own poster
+    LaunchedEffect(item.id, item.seriesId) {
         val itemId = item.id
         if (itemId != null) {
             // For episodes, get the series poster instead
@@ -585,22 +619,22 @@ private fun LibraryItemCard(
 
             imageUrl = mediaRepository.getImageUrl(
                 itemId = actualItemId,
-                width = 200,
-                height = 300,
-                quality = 70
+                width = 280,
+                height = 420,
+                quality = 75 // Better quality for improved appearance
             ).first()
         }
     }
 
     Card(
         modifier = Modifier
-            .width(120.dp)
-            .height(180.dp),
-        shape = RoundedCornerShape(12.dp),
+            .width(140.dp)
+            .height(210.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         onClick = onClick
     ) {
         Box(
@@ -612,10 +646,26 @@ private fun LibraryItemCard(
                 contentDescription = item.name,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(16.dp)),
                 context = context,
                 contentScale = ContentScale.Crop
             )
+
+            // Episode count badge for series (top-right corner)
+            val episodeCount = when {
+                item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
+                item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
+                else -> null
+            }
+
+            episodeCount?.let { count ->
+                EpisodeCountBadge(
+                    count = count,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                )
+            }
 
             // Title overlay at bottom
             Box(
@@ -629,19 +679,56 @@ private fun LibraryItemCard(
                                 Color.Black.copy(alpha = 0.8f)
                             )
                         ),
-                        RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+                        RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
                     )
-                    .padding(8.dp)
+                    .padding(12.dp)
             ) {
+                // Show series name for episodes, otherwise show item name
+                val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
+                    item.seriesName!!
+                } else {
+                    item.name ?: "Unknown"
+                }
+
                 Text(
-                    text = item.name ?: "Unknown",
+                    text = displayName,
                     color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Start
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeCountBadge(
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    if (count > 0) {
+        Box(
+            modifier = modifier
+                .background(
+                    Color(0xFF1976D2).copy(alpha = 0.95f), // Blue background like Findroid
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .border(
+                    1.5.dp,
+                    Color.White.copy(alpha = 0.4f),
+                    RoundedCornerShape(14.dp)
+                )
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = count.toString(),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
