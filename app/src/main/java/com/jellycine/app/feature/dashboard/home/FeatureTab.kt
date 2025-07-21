@@ -121,8 +121,10 @@ fun FeatureTab(
     featuredItems: List<BaseItemDto> = emptyList(),
     isLoading: Boolean = true,
     error: String? = null,
+    selectedCategory: String = "Home",
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
+    onCategorySelected: (String) -> Unit = {},
     refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
@@ -251,6 +253,8 @@ fun FeatureTab(
 
         // Category pills
         CategoryPills(
+            selectedCategory = selectedCategory,
+            onCategorySelected = onCategorySelected,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
 
@@ -502,18 +506,18 @@ private fun FeatureCard(
             // Try to get backdrop image first, fallback to primary if not available
             var backdropUrl = mediaRepository.getBackdropImageUrl(
                 itemId = actualItemId,
-                width = 800, // Optimized width for feature cards
-                height = 450, // Optimized height for feature cards
-                quality = 75 // Reduced quality for faster loading
+                width = 600,
+                height = 340,
+                quality = 60
             ).first()
 
             // If backdrop is not available, fallback to primary image
             if (backdropUrl.isNullOrEmpty()) {
                 backdropUrl = mediaRepository.getImageUrl(
                     itemId = actualItemId,
-                    width = 800,
-                    height = 450,
-                    quality = 75
+                    width = 600,
+                    height = 340,
+                    quality = 60
                 ).first()
             }
 
@@ -754,9 +758,10 @@ private fun UserProfileAvatar(
 // Skeleton Components for Feature Tab
 @Composable
 private fun CategoryPills(
+    selectedCategory: String = "Home",
+    onCategorySelected: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var selectedCategory by remember { mutableStateOf("Home") }
     val categories = listOf("Home", "Movies", "TV Shows")
 
     LazyRow(
@@ -767,7 +772,7 @@ private fun CategoryPills(
             CategoryPill(
                 text = category,
                 isSelected = category == selectedCategory,
-                onClick = { selectedCategory = category }
+                onClick = { onCategorySelected(category) }
             )
         }
     }

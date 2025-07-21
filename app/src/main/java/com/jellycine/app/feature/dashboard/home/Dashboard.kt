@@ -54,6 +54,8 @@ fun Dashboard(
 ) {
     var refreshTrigger by remember { mutableStateOf(0) }
 
+    var selectedCategory by remember { mutableStateOf("Home") }
+
     var continueWatchingItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var continueWatchingLoading by remember { mutableStateOf(true) }
     var continueWatchingError by remember { mutableStateOf<String?>(null) }
@@ -67,18 +69,32 @@ fun Dashboard(
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
-    LaunchedEffect(key1 = "featured_items_dashboard", key2 = refreshTrigger) {
-        if (featuredItems.isEmpty() || refreshTrigger > 0) {
+    LaunchedEffect(key1 = "featured_items_dashboard", key2 = refreshTrigger, key3 = selectedCategory) {
+        if (featuredItems.isEmpty() || refreshTrigger > 0 || selectedCategory != "Home") {
             featuredLoading = true
             featuredError = null
 
             try {
-                val result = mediaRepository.getLatestItems(
-                    parentId = null,
-                    includeItemTypes = "Movie,Series",
-                    limit = 5,
-                    fields = "BasicSyncInfo"
-                )
+                val result = when (selectedCategory) {
+                    "Movies" -> mediaRepository.getLatestItems(
+                        parentId = null,
+                        includeItemTypes = "Movie",
+                        limit = 5,
+                        fields = "BasicSyncInfo"
+                    )
+                    "TV Shows" -> mediaRepository.getLatestItems(
+                        parentId = null,
+                        includeItemTypes = "Series",
+                        limit = 5,
+                        fields = "BasicSyncInfo"
+                    )
+                    else -> mediaRepository.getLatestItems(
+                        parentId = null,
+                        includeItemTypes = "Movie,Series",
+                        limit = 5,
+                        fields = "BasicSyncInfo"
+                    )
+                }
                 result.fold(
                     onSuccess = { items ->
                         val validItems = items.filter {
@@ -146,8 +162,12 @@ fun Dashboard(
                 featuredItems = featuredItems,
                 isLoading = featuredLoading,
                 error = featuredError,
+                selectedCategory = selectedCategory,
                 onItemClick = onNavigateToDetail,
                 onLogout = onLogout,
+                onCategorySelected = { category ->
+                    selectedCategory = category
+                },
                 refreshTrigger = refreshTrigger
             )
         }
@@ -169,16 +189,47 @@ fun Dashboard(
             }
         }
 
-        item("library_sections") {
-            val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+        // Only show library sections on Home tab
+        if (selectedCategory == "Home") {
+            item("library_sections") {
+                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
 
-            Column(
-                modifier = Modifier.padding(top = topPadding)
-            ) {
-                LibrarySections(
-                    onItemClick = onNavigateToDetail,
-                    refreshTrigger = refreshTrigger
-                )
+                Column(
+                    modifier = Modifier.padding(top = topPadding)
+                ) {
+                    LibrarySections(
+                        onItemClick = onNavigateToDetail,
+                        refreshTrigger = refreshTrigger
+                    )
+                }
+            }
+        } else if (selectedCategory == "Movies") {
+            item("movie_genres") {
+                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+
+                Column(
+                    modifier = Modifier.padding(top = topPadding)
+                ) {
+                    MovieGenreSections(
+                        onItemClick = onNavigateToDetail,
+                        refreshTrigger = refreshTrigger
+                    )
+                }
+            }
+
+
+        } else if (selectedCategory == "TV Shows") {
+            item("tvshow_genres") {
+                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+
+                Column(
+                    modifier = Modifier.padding(top = topPadding)
+                ) {
+                    TVShowGenreSections(
+                        onItemClick = onNavigateToDetail,
+                        refreshTrigger = refreshTrigger
+                    )
+                }
             }
         }
     }
@@ -193,8 +244,6 @@ private fun ContinueWatchingSection(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
-
-
 
     Column(
         modifier = Modifier
@@ -515,19 +564,24 @@ private fun LibrarySection(
 
             library.id?.let { libraryId ->
                 try {
+                    val includeItemTypes = when (library.collectionType) {
+                        "tvshows" -> "Episode"
+                        "movies" -> "Movie"
+                        else -> "Movie,Series,Episode"
+                    }
+
                     val result = mediaRepository.getLatestItems(
                         parentId = libraryId,
-                        includeItemTypes = "Movie,Series",
-                        limit = 10,
-                        fields = "BasicSyncInfo"
+                        includeItemTypes = includeItemTypes,
+                        limit = 20,
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
                     )
 
-                    // Filter and process items
                     val validItems = result.getOrNull()?.filter {
                         it.id != null && !it.name.isNullOrBlank()
                     } ?: emptyList()
 
-                    libraryItems = validItems.take(8)
+                    libraryItems = validItems.take(10)
                     isLoading = false
                     hasLoaded = true
 
@@ -542,7 +596,7 @@ private fun LibrarySection(
     Column {
         // Section Header
         Text(
-            text = library.name ?: "Library",
+            text = "Recently Added • ${library.name ?: "Library"}",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -795,6 +849,375 @@ private fun LibrarySkeleton() {
                     .height(210.dp),
                 cornerRadius = 16f
             )
+        }
+    }
+}
+
+// Cache for genre data
+private object GenreCache {
+    var movieGenres: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    var tvGenres: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    var movieGenresLoadTime: Long = 0
+    var tvGenresLoadTime: Long = 0
+
+    // Cache for genre items
+    private val genreItemsCache = mutableMapOf<String, List<com.jellycine.data.model.BaseItemDto>>()
+    private val genreItemsLoadTime = mutableMapOf<String, Long>()
+
+    fun shouldRefreshMovieGenres(): Boolean {
+        return movieGenres.isEmpty() || System.currentTimeMillis() - movieGenresLoadTime > 600_000 // 10 minutes
+    }
+
+    fun shouldRefreshTVGenres(): Boolean {
+        return tvGenres.isEmpty() || System.currentTimeMillis() - tvGenresLoadTime > 600_000 // 10 minutes
+    }
+
+    fun shouldRefreshGenreItems(genreId: String): Boolean {
+        val lastLoadTime = genreItemsLoadTime[genreId] ?: 0
+        return !genreItemsCache.containsKey(genreId) || System.currentTimeMillis() - lastLoadTime > 300_000 // 5 minutes
+    }
+
+    fun updateMovieGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
+        movieGenres = genres
+        movieGenresLoadTime = System.currentTimeMillis()
+    }
+
+    fun updateTVGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
+        tvGenres = genres
+        tvGenresLoadTime = System.currentTimeMillis()
+    }
+
+    fun updateGenreItems(genreId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+        genreItemsCache[genreId] = items
+        genreItemsLoadTime[genreId] = System.currentTimeMillis()
+    }
+
+    fun getGenreItems(genreId: String): List<com.jellycine.data.model.BaseItemDto> {
+        return genreItemsCache[genreId] ?: emptyList()
+    }
+}
+
+@Composable
+private fun MovieGenreSections(
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+
+    var movieGenres by remember { mutableStateOf(GenreCache.movieGenres) }
+    var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
+
+    // Load movie genres with caching
+    LaunchedEffect(refreshTrigger) {
+        if (GenreCache.shouldRefreshMovieGenres()) {
+            isLoading = true
+            try {
+                val result = mediaRepository.getGenres(includeItemTypes = "Movie")
+                result.fold(
+                    onSuccess = { genres ->
+                        GenreCache.updateMovieGenres(genres)
+                        movieGenres = genres
+                        isLoading = false
+                    },
+                    onFailure = { error ->
+                        isLoading = false
+                    }
+                )
+            } catch (e: Exception) {
+                isLoading = false
+            }
+        } else {
+            movieGenres = GenreCache.movieGenres
+            isLoading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        if (isLoading) {
+            repeat(3) {
+                Column {
+                    Text(
+                        text = "Loading...",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    LibrarySkeleton()
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        } else {
+            val genresToShow = movieGenres.take(5)
+            genresToShow.forEach { genre ->
+                MovieGenreSection(
+                    genre = genre,
+                    mediaRepository = mediaRepository,
+                    onItemClick = onItemClick,
+                    refreshTrigger = refreshTrigger
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TVShowGenreSections(
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
+) {
+    val context = LocalContext.current
+    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+
+    var tvGenres by remember { mutableStateOf(GenreCache.tvGenres) }
+    var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshTVGenres()) }
+
+    // Load TV show genres with caching
+    LaunchedEffect(refreshTrigger) {
+        if (GenreCache.shouldRefreshTVGenres()) {
+            isLoading = true
+            try {
+                val result = mediaRepository.getGenres(includeItemTypes = "Series")
+                result.fold(
+                    onSuccess = { genres ->
+                        GenreCache.updateTVGenres(genres)
+                        tvGenres = genres
+                        isLoading = false
+                    },
+                    onFailure = { error ->
+                        isLoading = false
+                    }
+                )
+            } catch (e: Exception) {
+                isLoading = false
+            }
+        } else {
+            tvGenres = GenreCache.tvGenres
+            isLoading = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        if (isLoading) {
+            // Use the same skeleton as home
+            repeat(3) {
+                Column {
+                    Text(
+                        text = "Loading...",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    LibrarySkeleton()
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        } else {
+            // Show only first 5 genres initially for better performance
+            val genresToShow = tvGenres.take(5)
+            genresToShow.forEach { genre ->
+                TVShowGenreSection(
+                    genre = genre,
+                    mediaRepository = mediaRepository,
+                    onItemClick = onItemClick,
+                    refreshTrigger = refreshTrigger
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovieGenreSection(
+    genre: com.jellycine.data.model.BaseItemDto,
+    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
+) {
+    val genreId = genre.id ?: return // Skip if no genre ID
+    var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
+    var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems(genreId)) }
+
+    // Load movies for this specific genre with caching
+    LaunchedEffect(genreId, refreshTrigger) {
+        if (GenreCache.shouldRefreshGenreItems(genreId)) {
+            isLoading = true
+            try {
+                val result = mediaRepository.getItemsByGenre(
+                    genreId = genreId,
+                    includeItemTypes = "Movie",
+                    limit = 20
+                )
+
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        }.take(8)
+                        GenreCache.updateGenreItems(genreId, validItems)
+                        genreMovies = validItems
+                    },
+                    onFailure = { error ->
+                        genreMovies = emptyList()
+                    }
+                )
+                isLoading = false
+            } catch (e: Exception) {
+                isLoading = false
+            }
+        } else {
+            genreMovies = GenreCache.getGenreItems(genreId)
+            isLoading = false
+        }
+    }
+
+    // Always show the genre section, but show different content based on state
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        // Section Header
+        Text(
+            text = "${genre.name ?: "Movies"}",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        when {
+            isLoading -> {
+                LibrarySkeleton()
+            }
+            genreMovies.isNotEmpty() -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(genreMovies) { movie ->
+                        LibraryItemCard(
+                            item = movie,
+                            mediaRepository = mediaRepository,
+                            onClick = { onItemClick(movie) }
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Show a message when no items are found
+                Text(
+                    text = "No movies found in this genre",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TVShowGenreSection(
+    genre: com.jellycine.data.model.BaseItemDto,
+    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    refreshTrigger: Int = 0
+) {
+    val genreId = genre.id ?: return // Skip if no genre ID
+    var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
+    var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems("tv_$genreId")) }
+
+    // Load TV shows for this specific genre with caching
+    LaunchedEffect(genreId, refreshTrigger) {
+        val cacheKey = "tv_$genreId"
+        if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
+            isLoading = true
+            try {
+                val result = mediaRepository.getItemsByGenre(
+                    genreId = genreId,
+                    includeItemTypes = "Series",
+                    limit = 20
+                )
+
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        }.take(8)
+                        GenreCache.updateGenreItems(cacheKey, validItems)
+                        genreShows = validItems
+                    },
+                    onFailure = { error ->
+                        genreShows = emptyList()
+                    }
+                )
+                isLoading = false
+            } catch (e: Exception) {
+                isLoading = false
+            }
+        } else {
+            genreShows = GenreCache.getGenreItems("tv_$genreId")
+            isLoading = false
+        }
+    }
+
+    // Always show the genre section, but show different content based on state
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        // Section Header
+        Text(
+            text = "${genre.name ?: "TV Shows"}",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        when {
+            isLoading -> {
+                LibrarySkeleton()
+            }
+            genreShows.isNotEmpty() -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(genreShows) { show ->
+                        LibraryItemCard(
+                            item = show,
+                            mediaRepository = mediaRepository,
+                            onClick = { onItemClick(show) }
+                        )
+                    }
+                }
+            }
+            else -> {
+                // Show a message when no items are found
+                Text(
+                    text = "No TV shows found in this genre",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }

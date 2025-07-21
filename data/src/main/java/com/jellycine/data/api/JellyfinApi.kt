@@ -61,4 +61,23 @@ interface JellyfinApi {
 
     @GET("Users/{userId}")
     suspend fun getUserById(@Path("userId") userId: String): Response<UserDto>
+
+    @GET("Genres")
+    suspend fun getGenres(
+        @Query("userId") userId: String,
+        @Query("parentId") parentId: String? = null,
+        @Query("includeItemTypes") includeItemTypes: String? = null
+    ): Response<QueryResult<BaseItemDto>>
+
+    @GET("Items")
+    suspend fun getItemsByGenre(
+        @Query("userId") userId: String,
+        @Query("genreIds") genreIds: String,
+        @Query("includeItemTypes") includeItemTypes: String? = null,
+        @Query("recursive") recursive: Boolean? = true,
+        @Query("limit") limit: Int? = null,
+        @Query("sortBy") sortBy: String? = null,
+        @Query("sortOrder") sortOrder: String? = null,
+        @Query("fields") fields: String? = null
+    ): Response<QueryResult<BaseItemDto>>
 }

@@ -52,7 +52,7 @@ object JellyfinApiEndpoints {
     
     // Library & items
     fun getUserItems(
-        baseUrl: String, 
+        baseUrl: String,
         userId: String,
         parentId: String? = null,
         includeItemTypes: String? = null,
@@ -210,7 +210,7 @@ object JellyfinApiEndpoints {
 
     // Library views
     fun getUserViews(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Views"
-    
+
     fun getGenres(
         baseUrl: String,
         userId: String,

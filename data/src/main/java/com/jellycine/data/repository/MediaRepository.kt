@@ -187,6 +187,72 @@ class MediaRepository(private val context: Context) {
         )
     }
 
+    suspend fun getGenres(
+        parentId: String? = null,
+        includeItemTypes: String? = null
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getGenres(
+                userId = userId,
+                parentId = parentId,
+                includeItemTypes = includeItemTypes
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val items = body.items ?: emptyList()
+
+                Result.success(items)
+            } else {
+                val errorMsg = "Failed to fetch genres: ${response.code()} - ${response.message()}"
+
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getItemsByGenre(
+        genreId: String,
+        includeItemTypes: String? = null,
+        limit: Int? = 20
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getItemsByGenre(
+                userId = userId,
+                genreIds = genreId,
+                includeItemTypes = includeItemTypes,
+                recursive = true,
+                limit = limit,
+                sortBy = "Random",
+                sortOrder = null,
+                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val items = body.items ?: emptyList()
+
+                Result.success(items)
+            } else {
+                val errorMsg = "Failed to fetch items by genreId '$genreId': ${response.code()} - ${response.message()}"
+
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+
+            Result.failure(Exception("Error fetching items by genreId '$genreId': ${e.message}", e))
+        }
+    }
+
     suspend fun getResumeItems(
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series,Episode",
