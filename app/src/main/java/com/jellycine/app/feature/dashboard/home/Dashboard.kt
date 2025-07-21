@@ -76,8 +76,8 @@ fun Dashboard(
                 val result = mediaRepository.getLatestItems(
                     parentId = null,
                     includeItemTypes = "Movie,Series",
-                    limit = 10,
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount"
+                    limit = 5,
+                    fields = "BasicSyncInfo"
                 )
                 result.fold(
                     onSuccess = { items ->
@@ -106,7 +106,7 @@ fun Dashboard(
             continueWatchingError = null
 
             try {
-                val result = mediaRepository.getResumeItems(limit = 8)
+                val result = mediaRepository.getResumeItems(limit = 5)
                 result.fold(
                     onSuccess = { items ->
                         val validItems = items.filter { item ->
@@ -138,13 +138,9 @@ fun Dashboard(
     }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-
-
         item {
             FeatureTab(
                 featuredItems = featuredItems,
@@ -156,20 +152,34 @@ fun Dashboard(
             )
         }
 
-        item {
-            ContinueWatchingSection(
-                items = continueWatchingItems,
-                isLoading = continueWatchingLoading,
-                error = continueWatchingError,
-                onItemClick = onNavigateToDetail
-            )
+        item("continue_watching") {
+            // Only show Continue Watching section if there are items or it's loading
+            if (continueWatchingLoading || continueWatchingItems.isNotEmpty()) {
+
+                Column(
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    ContinueWatchingSection(
+                        items = continueWatchingItems,
+                        isLoading = continueWatchingLoading,
+                        error = continueWatchingError,
+                        onItemClick = onNavigateToDetail
+                    )
+                }
+            }
         }
 
-        item {
-            LibrarySections(
-                onItemClick = onNavigateToDetail,
-                refreshTrigger = refreshTrigger
-            )
+        item("library_sections") {
+            val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+
+            Column(
+                modifier = Modifier.padding(top = topPadding)
+            ) {
+                LibrarySections(
+                    onItemClick = onNavigateToDetail,
+                    refreshTrigger = refreshTrigger
+                )
+            }
         }
     }
 }
@@ -253,22 +263,6 @@ private fun ContinueWatchingSection(
                     }
                 }
             }
-
-            else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No items to continue watching",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
-                    )
-                }
-            }
         }
     }
 }
@@ -296,9 +290,9 @@ private fun ContinueWatchingCard(
 
             imageUrl = mediaRepository.getImageUrl(
                 itemId = actualItemId,
-                width = 300,
-                height = 170,
-                quality = 65 // Slightly reduced quality for better performance
+                width = 250,
+                height = 140,
+                quality = 50
             ).first()
         }
     }
@@ -325,7 +319,7 @@ private fun ContinueWatchingCard(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(12.dp)),
                 context = context,
-                contentScale = ContentScale.FillBounds
+                contentScale = ContentScale.Crop
             )
 
             // Progress bar at bottom
@@ -417,44 +411,43 @@ private fun LibrarySections(
     var isLoading by remember { mutableStateOf(true) }
     var hasLoaded by remember { mutableStateOf(false) }
 
-    // Load library views - always load fresh data or when refreshTrigger changes
+    // Load library views - only load if not already loaded or when refreshTrigger changes
     LaunchedEffect(refreshTrigger) {
-        // Always load data, don't skip based on hasLoaded
-        isLoading = true
-        hasLoaded = false
+        if (!hasLoaded || refreshTrigger > 0) {
+            isLoading = true
 
-        // Add delay to stagger loading after other sections (only on initial load)
-        if (refreshTrigger == 0) {
-            delay(400L)
-        }
+            if (refreshTrigger == 0) {
+                delay(200L)
+            }
 
-        try {
-            val result = mediaRepository.getUserViews()
-            result.fold(
-                onSuccess = { queryResult ->
-                    libraryViews = queryResult.items?.filter {
-                        it.id != null &&
-                        !it.name.isNullOrBlank() &&
-                        it.collectionType != "boxsets" &&
-                        it.collectionType != "playlists" &&
-                        it.collectionType != "folders" && // Also exclude generic folders
-                        (it.type == "CollectionFolder" || it.type == "Folder") &&
-                        // Only include media libraries (movies, tvshows, music, etc.)
-                        (it.collectionType == "movies" || it.collectionType == "tvshows" ||
-                         it.collectionType == "music" || it.collectionType == "books" ||
-                         it.collectionType == "mixed" || it.collectionType == null)
-                    } ?: emptyList()
-                    isLoading = false
-                    hasLoaded = true
-                },
-                onFailure = {
-                    isLoading = false
-                    hasLoaded = true
-                }
-            )
-        } catch (e: Exception) {
-            isLoading = false
-            hasLoaded = true
+            try {
+                val result = mediaRepository.getUserViews()
+                result.fold(
+                    onSuccess = { queryResult ->
+                        libraryViews = queryResult.items?.filter {
+                            it.id != null &&
+                            !it.name.isNullOrBlank() &&
+                            it.collectionType != "boxsets" &&
+                            it.collectionType != "playlists" &&
+                            it.collectionType != "folders" &&
+                            (it.type == "CollectionFolder" || it.type == "Folder") &&
+    
+                            (it.collectionType == "movies" || it.collectionType == "tvshows" ||
+                             it.collectionType == "music" || it.collectionType == "books" ||
+                             it.collectionType == "mixed" || it.collectionType == null)
+                        } ?: emptyList()
+                        isLoading = false
+                        hasLoaded = true
+                    },
+                    onFailure = {
+                        isLoading = false
+                        hasLoaded = true
+                    }
+                )
+            } catch (e: Exception) {
+                isLoading = false
+                hasLoaded = true
+            }
         }
     }
 
@@ -515,33 +508,33 @@ private fun LibrarySection(
     var isLoading by remember(library.id) { mutableStateOf(true) }
     var hasLoaded by remember(library.id) { mutableStateOf(false) }
 
-    // Load items for this library - always load fresh data or when refreshTrigger changes
+    // Load items for this library - only load if not already loaded or when refreshTrigger changes
     LaunchedEffect(library.id, refreshTrigger) {
-        // Always load data, don't skip based on hasLoaded
-        isLoading = true
-        hasLoaded = false
+        if (!hasLoaded || refreshTrigger > 0) {
+            isLoading = true
 
-        library.id?.let { libraryId ->
-            try {
-                val result = mediaRepository.getLatestItems(
-                    parentId = libraryId,
-                    includeItemTypes = "Movie,Series",
-                    limit = 15,
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount"
-                )
+            library.id?.let { libraryId ->
+                try {
+                    val result = mediaRepository.getLatestItems(
+                        parentId = libraryId,
+                        includeItemTypes = "Movie,Series",
+                        limit = 10,
+                        fields = "BasicSyncInfo"
+                    )
 
-                // Filter and process items
-                val validItems = result.getOrNull()?.filter {
-                    it.id != null && !it.name.isNullOrBlank()
-                } ?: emptyList()
+                    // Filter and process items
+                    val validItems = result.getOrNull()?.filter {
+                        it.id != null && !it.name.isNullOrBlank()
+                    } ?: emptyList()
 
-                libraryItems = validItems.take(12) // Show up to 12 items per library
-                isLoading = false
-                hasLoaded = true
+                    libraryItems = validItems.take(8)
+                    isLoading = false
+                    hasLoaded = true
 
-            } catch (e: Exception) {
-                isLoading = false
-                hasLoaded = true
+                } catch (e: Exception) {
+                    isLoading = false
+                    hasLoaded = true
+                }
             }
         }
     }
@@ -619,9 +612,9 @@ private fun LibraryItemCard(
 
             imageUrl = mediaRepository.getImageUrl(
                 itemId = actualItemId,
-                width = 280,
-                height = 420,
-                quality = 75 // Better quality for improved appearance
+                width = 200,
+                height = 300,
+                quality = 60
             ).first()
         }
     }
@@ -753,10 +746,10 @@ private fun ShimmerEffect(
 ) {
     val transition = rememberInfiniteTransition(label = "shimmer")
     val alpha = transition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
+        initialValue = 0.3f,
+        targetValue = 0.6f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000),
+            animation = tween(1500),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alpha"
@@ -764,7 +757,7 @@ private fun ShimmerEffect(
 
     Canvas(modifier = modifier) {
         drawRoundRect(
-            color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = alpha.value),
+            color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
             cornerRadius = CornerRadius(cornerRadius, cornerRadius)
         )
     }
@@ -791,15 +784,15 @@ private fun ContinueWatchingSkeleton() {
 @Composable
 private fun LibrarySkeleton() {
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         items(6) {
             ShimmerEffect(
                 modifier = Modifier
-                    .width(160.dp)
-                    .height(240.dp),
+                    .width(140.dp)
+                    .height(210.dp),
                 cornerRadius = 16f
             )
         }

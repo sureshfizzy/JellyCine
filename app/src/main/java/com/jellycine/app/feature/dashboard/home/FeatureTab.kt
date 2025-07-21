@@ -8,18 +8,23 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -37,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
@@ -203,108 +209,269 @@ fun FeatureTab(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.Black) // AMOLED black background
+            .background(Color.Black)
     ) {
-        // Section Header with user profile avatar
+        // Top header with logo and user avatar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp)
+                .padding(top = 48.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = if (!storedUsername.isNullOrBlank()) "Welcome $storedUsername" else "Welcome",
-                fontSize = 20.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
 
-            // User profile avatar
-            UserProfileAvatar(
-                imageUrl = userProfileImageUrl,
-                userName = storedUsername,
-                onClick = onLogout,
-                modifier = Modifier.size(40.dp)
-            )
-        }
-        
-        when {
-            isLoading -> {
-                FeatureTabSkeleton()
-            }
-            
-            error != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(450.dp) // Reduced height
-                        .background(Color.Black), // AMOLED black background
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "⚠️",
-                            fontSize = 32.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Failed to load featured content",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = error ?: "Unknown error",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp
-                        )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Search icon
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = "Search",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
 
-                    }
-                }
+                // User profile avatar
+                UserProfileAvatar(
+                    imageUrl = userProfileImageUrl,
+                    userName = storedUsername,
+                    onClick = onLogout,
+                    modifier = Modifier.size(32.dp)
+                )
             }
-            
+        }
+
+        // Category pills
+        CategoryPills(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        // Featured content card
+        when {
+            isLoading && featuredItems.isEmpty() -> {
+                ModernFeatureCardSkeleton()
+            }
+
+            error != null && featuredItems.isEmpty() -> {
+                ModernErrorCard(error = error)
+            }
+
             featuredItems.isNotEmpty() -> {
-                // Horizontal scrolling carousel with smooth auto-rotation
+                // Modern featured card
                 @OptIn(ExperimentalFoundationApi::class)
                 LazyRow(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(450.dp),
-                    horizontalArrangement = Arrangement.spacedBy(0.dp), // No gap for seamless scrolling
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
                     flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
                 ) {
                     items(
                         count = featuredItems.size,
                         key = { index -> featuredItems[index].id ?: index }
                     ) { index ->
-                        FeatureCard(
+                        ModernFeatureCard(
                             item = featuredItems[index],
                             mediaRepository = mediaRepository,
                             onClick = { onItemClick(featuredItems[index]) },
-                            modifier = Modifier.fillParentMaxWidth() // Each item takes full width
+                            modifier = Modifier.fillParentMaxWidth()
                         )
                     }
                 }
             }
-            
+
             else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(450.dp) // Reduced height
-                        .background(Color.Black), // AMOLED black background
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No featured content available",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
+                ModernErrorCard(error = "No featured content available")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ModernFeatureCard(
+    item: BaseItemDto,
+    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
+
+    // Get backdrop image URL
+    LaunchedEffect(item.id) {
+        val itemId = item.id
+        if (itemId != null) {
+            imageUrl = mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Backdrop",
+                width = 600,
+                height = 340,
+                quality = 60
+            ).first()
+        }
+    }
+
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(400.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Background image
+            JellyfinPosterImage(
+                imageUrl = imageUrl,
+                contentDescription = item.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp)),
+                context = context,
+                contentScale = ContentScale.Crop
+            )
+
+            // Gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.3f),
+                                Color.Black.copy(alpha = 0.8f)
+                            ),
+                            startY = 0f,
+                            endY = Float.POSITIVE_INFINITY
+                        )
                     )
+            )
+
+            // Content at bottom
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Title
+                Text(
+                    text = item.name ?: "Unknown Title",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                // Metadata row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    item.productionYear?.let { year ->
+                        Text(
+                            text = year.toString(),
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            text = "•",
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+
+                    Text(
+                        text = when (item.type) {
+                            "Movie" -> "Movie"
+                            "Series" -> "TV Series"
+                            else -> item.type ?: "Unknown"
+                        },
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+
+                    item.genres?.firstOrNull()?.let { genre ->
+                        Text(
+                            text = "•",
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = genre,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                // Action buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Play button
+                    Button(
+                        onClick = onClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play",
+                            tint = Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Play",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // View Details button
+                    Button(
+                        onClick = onClick,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent
+                        ),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.7f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = "View details",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Details",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -353,27 +520,19 @@ private fun FeatureCard(
             imageUrl = backdropUrl
         }
     }
-    
-    @OptIn(ExperimentalMaterial3Api::class)
-    Card(
-        modifier = modifier
-            .fillMaxWidth() // Full width for better coverage
-            .height(450.dp), // Optimized height for better performance
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        onClick = onClick
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Track image loading state directly
-            var imageState by remember(item.id, imageUrl) {
-                mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
-            }
 
-            // Always show the image component
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(600.dp)
+            .clickable { onClick() }
+    ) {
+        // Track image loading state directly
+        var imageState by remember(item.id, imageUrl) {
+            mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty)
+        }
+
+            // Edge-to-edge immersive image
             if (!imageUrl.isNullOrEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -385,9 +544,7 @@ private fun FeatureCard(
                         .allowHardware(false)
                         .build(),
                     contentDescription = item.name,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(20.dp)),
+                    modifier = Modifier.fillMaxSize(), // No clipping for edge-to-edge
                     contentScale = ContentScale.Crop,
                     onState = { state ->
                         imageState = state
@@ -398,8 +555,26 @@ private fun FeatureCard(
             // Remove individual card skeleton - only use main FeatureTabSkeleton
             // No skeleton overlay in individual cards
 
-            // Enhanced Gradient Overlay for better text readability - always show when image URL exists
+            // Multi-layer gradient overlay for immersive experience
             if (!imageUrl.isNullOrEmpty()) {
+                // Top gradient for header area
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.7f),
+                                    Color.Transparent
+                                ),
+                                startY = 0f,
+                                endY = Float.POSITIVE_INFINITY
+                            )
+                        )
+                )
+
+                // Bottom gradient for content area
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -407,18 +582,18 @@ private fun FeatureCard(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    Color.Black.copy(alpha = 0.3f),
-                                    Color.Black.copy(alpha = 0.8f)
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.4f),
+                                    Color.Black.copy(alpha = 0.9f)
                                 ),
                                 startY = 0f,
                                 endY = Float.POSITIVE_INFINITY
-                            ),
-                            RoundedCornerShape(20.dp)
+                            )
                         )
                 )
             }
 
-            // Content - always show when image URL exists
+            // Main content at the bottom
             if (!imageUrl.isNullOrEmpty()) {
                 Column(
                     modifier = Modifier
@@ -429,10 +604,11 @@ private fun FeatureCard(
                 Text(
                     text = item.name ?: "Unknown Title",
                     color = Color.White,
-                    fontSize = 18.sp, // Increased font size
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 32.sp
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -474,7 +650,7 @@ private fun FeatureCard(
 
                 // Play and Details buttons
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     // Play button
@@ -483,23 +659,23 @@ private fun FeatureCard(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .height(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = "Play",
                             tint = Color.Black,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Play",
                             color = Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
@@ -507,26 +683,26 @@ private fun FeatureCard(
                     OutlinedButton(
                         onClick = onClick,
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White
+                            contentColor = Color.White,
+                            containerColor = Color.Black.copy(alpha = 0.3f)
                         ),
                         border = BorderStroke(
-                            1.dp,
-                            Color.White.copy(alpha = 0.5f)
+                            2.dp,
+                            Color.White.copy(alpha = 0.8f)
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .height(48.dp)
                     ) {
                         Text(
                             text = "Details",
                             color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
-            }
             }
         }
     }
@@ -577,6 +753,54 @@ private fun UserProfileAvatar(
 
 // Skeleton Components for Feature Tab
 @Composable
+private fun CategoryPills(
+    modifier: Modifier = Modifier
+) {
+    var selectedCategory by remember { mutableStateOf("Home") }
+    val categories = listOf("Home", "Movies", "TV Shows")
+
+    LazyRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(categories) { category ->
+            CategoryPill(
+                text = category,
+                isSelected = category == selectedCategory,
+                onClick = { selectedCategory = category }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryPill(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color.White else Color.Transparent
+        ),
+        border = if (!isSelected) BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)) else null,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Text(
+            text = text,
+            color = if (isSelected) Color.Black else Color.White,
+            fontSize = 14.sp,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+    }
+}
+
+@Composable
 private fun SkeletonBox(
     modifier: Modifier = Modifier,
     cornerRadius: Float = 12f
@@ -584,122 +808,114 @@ private fun SkeletonBox(
     Box(
         modifier = modifier
             .background(
-                color = Color.White.copy(alpha = 0.2f),
+                color = Color(0xFF2A2A2A), // Dark grey instead of white with alpha
                 shape = RoundedCornerShape(cornerRadius.dp)
             )
     )
 }
 
 @Composable
-private fun FeatureTabSkeleton() {
-    Column(
+private fun ModernFeatureCardSkeleton() {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.Black)
+            .height(400.dp)
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        // Reduced spacing to move skeleton up and fill the gap
-        Spacer(modifier = Modifier.height(16.dp)) // Smaller gap between Welcome and skeleton
-
-        // Feature card skeleton moved to top - matches actual FeatureCard layout
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(450.dp)
-                .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Background image skeleton
-                ImageSkeleton(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(20.dp)
+            ImageSkeleton(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            // Content skeleton at bottom
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SkeletonBox(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(32.dp),
+                    cornerRadius = 4f
                 )
 
-                // Gradient overlay to match actual card
-                Box(
+                SkeletonBox(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.7f)
-                                ),
-                                startY = 0f,
-                                endY = Float.POSITIVE_INFINITY
-                            ),
-                            RoundedCornerShape(20.dp)
-                        )
+                        .width(200.dp)
+                        .height(16.dp),
+                    cornerRadius = 4f
                 )
 
-                // Content skeleton at bottom - matches actual layout
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.Bottom
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Title skeleton (2 lines max)
                     SkeletonBox(
                         modifier = Modifier
-                            .fillMaxWidth(0.8f)
-                            .height(18.dp),
-                        cornerRadius = 4f
+                            .weight(1f)
+                            .height(48.dp),
+                        cornerRadius = 8f
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     SkeletonBox(
                         modifier = Modifier
-                            .fillMaxWidth(0.6f)
-                            .height(18.dp),
-                        cornerRadius = 4f
+                            .weight(1f)
+                            .height(48.dp),
+                        cornerRadius = 8f
                     )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Year and rating skeleton
-                    SkeletonBox(
-                        modifier = Modifier
-                            .width(100.dp)
-                            .height(14.dp),
-                        cornerRadius = 4f
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Genres skeleton
-                    SkeletonBox(
-                        modifier = Modifier
-                            .width(140.dp)
-                            .height(12.dp),
-                        cornerRadius = 4f
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Buttons skeleton - matches actual Play and Details buttons
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Play button skeleton
-                        SkeletonBox(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp),
-                            cornerRadius = 8f
-                        )
-
-                        // Details button skeleton
-                        SkeletonBox(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp),
-                            cornerRadius = 8f
-                        )
-                    }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun ModernErrorCard(error: String?) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(400.dp)
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1A1A1A)
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "⚠️",
+                    fontSize = 48.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                Text(
+                    text = "Unable to load content",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+                Text(
+                    text = error ?: "Unknown error occurred",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+

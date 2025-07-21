@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
@@ -19,18 +22,20 @@ import coil.request.ImageRequest
 import coil.request.CachePolicy
 import android.content.Context
 
-// Skeleton loading animation
+// Skeleton loading animation with optional placeholder
 @Composable
 fun ImageSkeleton(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(12.dp)
+    shape: Shape = RoundedCornerShape(12.dp),
+    showPlaceholder: Boolean = false,
+    placeholderRes: Int? = null
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
     val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
+        initialValue = 0.3f,
+        targetValue = 0.6f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000),
+            animation = tween(1500),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alpha"
@@ -39,10 +44,20 @@ fun ImageSkeleton(
     Box(
         modifier = modifier
             .background(
-                color = Color.White.copy(alpha = alpha),
+                color = Color(0xFF1A1A1A).copy(alpha = alpha),
                 shape = shape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (showPlaceholder && placeholderRes != null) {
+            Icon(
+                painter = painterResource(id = placeholderRes),
+                contentDescription = "Placeholder",
+                modifier = Modifier.fillMaxSize(0.8f),
+                tint = Color.White.copy(alpha = 0.3f)
             )
-    )
+        }
+    }
 }
 
 @Composable
