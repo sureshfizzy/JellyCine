@@ -18,9 +18,13 @@ import com.jellycine.app.feature.dashboard.DashboardContainer
 import com.jellycine.app.feature.auth.AuthScreen
 import com.jellycine.app.feature.splash.SplashScreen
 import com.jellycine.app.feature.detail.DetailScreen
+import com.jellycine.app.feature.detail.DetailScreenContainer
 import com.jellycine.data.model.BaseItemDto
 import com.google.gson.Gson
 import com.jellycine.app.manager.AuthStateManager
+import java.net.URLEncoder
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 @Composable
 fun AppNavigation() {
@@ -81,7 +85,15 @@ fun AppNavigation() {
                 )
             }
 
-            composable("dashboard") {
+            composable(
+                "dashboard",
+                enterTransition = {
+                    fadeIn(animationSpec = tween(200))
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(200))
+                }
+            ) {
                 DashboardContainer(
                     onLogout = {
                         navController.navigate("splash") {
@@ -89,28 +101,45 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateToDetail = { item ->
-                        val itemJson = Gson().toJson(item)
-                        navController.navigate("detail/$itemJson")
+                        item.id?.let { itemId ->
+                            navController.navigate("detail/$itemId")
+                        }
                     }
                 )
             }
 
             composable(
-                "detail/{itemJson}",
-                arguments = listOf(navArgument("itemJson") { type = NavType.StringType })
+                "detail/{itemId}",
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
             ) { backStackEntry ->
-                val itemJson = backStackEntry.arguments?.getString("itemJson")
-                val item = Gson().fromJson(itemJson, BaseItemDto::class.java)
+                val itemId = backStackEntry.arguments?.getString("itemId")
 
-                DetailScreen(
-                    item = item,
-                    onBackPressed = {
+                if (itemId != null) {
+                    DetailScreenContainer(
+                        itemId = itemId,
+                        onBackPressed = {
+                            navController.popBackStack()
+                        },
+                        onPlayClick = {
+                        }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
                         navController.popBackStack()
-                    },
-                    onPlayClick = {
-                        // TODO: Implement play functionality
                     }
-                )
+                }
             }
         }
 }

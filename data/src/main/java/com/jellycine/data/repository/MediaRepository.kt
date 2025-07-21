@@ -68,7 +68,28 @@ class MediaRepository(private val context: Context) {
             Result.failure(e)
         }
     }
-    
+
+    suspend fun getItemById(itemId: String): Result<BaseItemDto> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getItemById(
+                userId = userId,
+                itemId = itemId,
+                fields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to fetch item: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserItems(
         parentId: String? = null,
         includeItemTypes: String? = null,

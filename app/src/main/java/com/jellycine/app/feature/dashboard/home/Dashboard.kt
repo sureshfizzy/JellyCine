@@ -52,8 +52,6 @@ fun Dashboard(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
-    var refreshTrigger by remember { mutableStateOf(0) }
-
     var selectedCategory by remember { mutableStateOf("Home") }
 
     var continueWatchingItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
@@ -69,8 +67,8 @@ fun Dashboard(
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
-    LaunchedEffect(key1 = "featured_items_dashboard", key2 = refreshTrigger, key3 = selectedCategory) {
-        if (featuredItems.isEmpty() || refreshTrigger > 0 || selectedCategory != "Home") {
+    LaunchedEffect(selectedCategory) {
+        if (!featuredLoaded) {
             featuredLoading = true
             featuredError = null
 
@@ -116,8 +114,8 @@ fun Dashboard(
         }
     }
 
-    LaunchedEffect(key1 = "continue_watching_dashboard", key2 = refreshTrigger) {
-        if (continueWatchingItems.isEmpty() || refreshTrigger > 0) {
+    LaunchedEffect(Unit) {
+        if (!continueWatchingLoaded) {
             continueWatchingLoading = true
             continueWatchingError = null
 
@@ -149,10 +147,6 @@ fun Dashboard(
         }
     }
 
-    LaunchedEffect(Unit) {
-        refreshTrigger = 1
-    }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -167,8 +161,7 @@ fun Dashboard(
                 onLogout = onLogout,
                 onCategorySelected = { category ->
                     selectedCategory = category
-                },
-                refreshTrigger = refreshTrigger
+                }
             )
         }
 
@@ -198,8 +191,7 @@ fun Dashboard(
                     modifier = Modifier.padding(top = topPadding)
                 ) {
                     LibrarySections(
-                        onItemClick = onNavigateToDetail,
-                        refreshTrigger = refreshTrigger
+                        onItemClick = onNavigateToDetail
                     )
                 }
             }
@@ -211,8 +203,7 @@ fun Dashboard(
                     modifier = Modifier.padding(top = topPadding)
                 ) {
                     MovieGenreSections(
-                        onItemClick = onNavigateToDetail,
-                        refreshTrigger = refreshTrigger
+                        onItemClick = onNavigateToDetail
                     )
                 }
             }
@@ -226,8 +217,7 @@ fun Dashboard(
                     modifier = Modifier.padding(top = topPadding)
                 ) {
                     TVShowGenreSections(
-                        onItemClick = onNavigateToDetail,
-                        refreshTrigger = refreshTrigger
+                        onItemClick = onNavigateToDetail
                     )
                 }
             }
@@ -450,8 +440,7 @@ private fun ContinueWatchingCard(
 
 @Composable
 private fun LibrarySections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -460,14 +449,11 @@ private fun LibrarySections(
     var isLoading by remember { mutableStateOf(true) }
     var hasLoaded by remember { mutableStateOf(false) }
 
-    // Load library views - only load if not already loaded or when refreshTrigger changes
-    LaunchedEffect(refreshTrigger) {
-        if (!hasLoaded || refreshTrigger > 0) {
+    // Load library views - only load if not already loaded
+    LaunchedEffect(Unit) {
+        if (!hasLoaded) {
             isLoading = true
-
-            if (refreshTrigger == 0) {
-                delay(200L)
-            }
+            delay(200L)
 
             try {
                 val result = mediaRepository.getUserViews()
@@ -536,8 +522,7 @@ private fun LibrarySections(
                     LibrarySection(
                         library = library,
                         mediaRepository = mediaRepository,
-                        onItemClick = onItemClick,
-                        refreshTrigger = refreshTrigger
+                        onItemClick = onItemClick
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -550,16 +535,15 @@ private fun LibrarySections(
 private fun LibrarySection(
     library: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     var libraryItems by remember(library.id) { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var isLoading by remember(library.id) { mutableStateOf(true) }
     var hasLoaded by remember(library.id) { mutableStateOf(false) }
 
-    // Load items for this library - only load if not already loaded or when refreshTrigger changes
-    LaunchedEffect(library.id, refreshTrigger) {
-        if (!hasLoaded || refreshTrigger > 0) {
+    // Load items for this library - only load if not already loaded
+    LaunchedEffect(library.id) {
+        if (!hasLoaded) {
             isLoading = true
 
             library.id?.let { libraryId ->
@@ -899,8 +883,7 @@ private object GenreCache {
 
 @Composable
 private fun MovieGenreSections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -909,7 +892,7 @@ private fun MovieGenreSections(
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
 
     // Load movie genres with caching
-    LaunchedEffect(refreshTrigger) {
+    LaunchedEffect(Unit) {
         if (GenreCache.shouldRefreshMovieGenres()) {
             isLoading = true
             try {
@@ -958,8 +941,7 @@ private fun MovieGenreSections(
                 MovieGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick,
-                    refreshTrigger = refreshTrigger
+                    onItemClick = onItemClick
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -969,8 +951,7 @@ private fun MovieGenreSections(
 
 @Composable
 private fun TVShowGenreSections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -979,7 +960,7 @@ private fun TVShowGenreSections(
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshTVGenres()) }
 
     // Load TV show genres with caching
-    LaunchedEffect(refreshTrigger) {
+    LaunchedEffect(Unit) {
         if (GenreCache.shouldRefreshTVGenres()) {
             isLoading = true
             try {
@@ -1030,8 +1011,7 @@ private fun TVShowGenreSections(
                 TVShowGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick,
-                    refreshTrigger = refreshTrigger
+                    onItemClick = onItemClick
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1043,15 +1023,14 @@ private fun TVShowGenreSections(
 private fun MovieGenreSection(
     genre: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems(genreId)) }
 
     // Load movies for this specific genre with caching
-    LaunchedEffect(genreId, refreshTrigger) {
+    LaunchedEffect(genreId) {
         if (GenreCache.shouldRefreshGenreItems(genreId)) {
             isLoading = true
             try {
@@ -1134,15 +1113,14 @@ private fun MovieGenreSection(
 private fun TVShowGenreSection(
     genre: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    refreshTrigger: Int = 0
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems("tv_$genreId")) }
 
     // Load TV shows for this specific genre with caching
-    LaunchedEffect(genreId, refreshTrigger) {
+    LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
         if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
             isLoading = true
