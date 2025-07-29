@@ -45,9 +45,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.cos
 import kotlin.math.sin
+import android.content.Context
 
 @Composable
-fun CoolLoadingAnimation(
+fun LoadingAnimation(
     modifier: Modifier = Modifier,
     color: Color = Color.White
 ) {
@@ -144,7 +145,7 @@ fun DetailScreenContainer(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CoolLoadingAnimation()
+                    LoadingAnimation()
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "Loading...",
@@ -201,6 +202,9 @@ fun DetailContent(
     var isFavorite by remember { mutableStateOf(item.userData?.isFavorite == true) }
     var showFullOverview by remember { mutableStateOf(false) }
 
+    // Get device audio capabilities
+    val deviceCapabilities = rememberAudioCapabilities(context)
+
     LaunchedEffect(item.id) {
         val itemId = item.id
         if (itemId != null) {
@@ -221,46 +225,11 @@ fun DetailContent(
         }
     }
 
-    fun formatRuntime(ticks: Long?): String {
-        if (ticks == null) return ""
-        val minutes = (ticks / 10000000) / 60
-        val hours = minutes / 60
-        val remainingMinutes = minutes % 60
-        return if (hours > 0) "${hours}h ${remainingMinutes}m" else "${minutes}m"
-    }
-
-    fun getVideoCodecInfo(item: BaseItemDto): String? {
-        val videoStream = item.mediaStreams?.find { it.type == "Video" }
-        return videoStream?.codec?.uppercase()
-    }
-
-    fun getAudioCodecInfo(item: BaseItemDto): String? {
-        val audioStream = item.mediaStreams?.find { it.type == "Audio" }
-        return audioStream?.codec?.uppercase()
-    }
-
-    fun getResolutionInfo(item: BaseItemDto): String? {
-        val videoStream = item.mediaStreams?.find { it.type == "Video" }
-        return if (videoStream?.width != null && videoStream.height != null) {
-            "${videoStream.width}x${videoStream.height}"
-        } else null
-    }
-
-    fun formatFileSize(bytes: Long?): String? {
-        if (bytes == null || bytes <= 0) return null
-        val gb = bytes / (1024.0 * 1024.0 * 1024.0)
-        return if (gb >= 1) {
-            String.format("%.1f GB", gb)
-        } else {
-            val mb = bytes / (1024.0 * 1024.0)
-            String.format("%.0f MB", mb)
-        }
-    }
-
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Black),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
 
         item {
@@ -340,7 +309,6 @@ fun DetailContent(
             }
         }
 
-
         item {
             Column(
                 modifier = Modifier
@@ -400,10 +368,9 @@ fun DetailContent(
                                 )
                             }
 
-
                             item.runTimeTicks?.let { ticks ->
                                 Text(
-                                    text = formatRuntime(ticks),
+                                    text = CodecUtils.formatRuntime(ticks),
                                     fontSize = 16.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.Medium,
@@ -485,7 +452,7 @@ fun DetailContent(
                     }
                 }
 
-                // Codecs Info section - moved here to eliminate gap
+                // Codecs Info section
                 Text(
                     text = "Codecs Info",
                     fontSize = 16.sp,
@@ -499,7 +466,7 @@ fun DetailContent(
                     contentPadding = PaddingValues(horizontal = 0.dp)
                 ) {
 
-                    getResolutionInfo(item)?.let { resolution ->
+                    CodecUtils.getResolutionInfo(item)?.let { resolution ->
                         item {
                             Surface(
                                 color = Color(0xFF1A1A1A),
@@ -533,7 +500,7 @@ fun DetailContent(
                     }
 
                     // Video Codec
-                    getVideoCodecInfo(item)?.let { codec ->
+                    CodecUtils.getVideoCodecInfo(item)?.let { codec ->
                         item {
                             Surface(
                                 color = Color(0xFF1A1A1A),
@@ -562,7 +529,15 @@ fun DetailContent(
                     }
 
                     item.mediaStreams?.firstOrNull { it.type == "Audio" }?.let { audioStream ->
-                        val audioDisplayInfo = getAudioDisplayInfo(audioStream)
+                        val audioDisplayInfo = CodecUtils.getAudioDisplayInfo(audioStream)
+                        val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
+                            audioStream.codec?.uppercase() ?: "",
+                            audioStream.channels ?: 0,
+                            audioStream.channelLayout,
+                            audioStream.title,
+                            audioStream.profile
+                        )
+
                         if (audioDisplayInfo.isNotEmpty()) {
                             item {
                                 Surface(
@@ -574,22 +549,48 @@ fun DetailContent(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                     ) {
-                                        // Dolby symbol or audio icon
-                                        if (isDolbyAudio(audioStream)) {
-                                            // Use vector drawable Dolby logo
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_dolby_logo),
-                                                contentDescription = "Dolby Audio",
-                                                tint = Color.Unspecified, // Keep original blue and white colors
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
-                                                contentDescription = "Audio",
-                                                tint = Color(0xFF2196F3),
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                        // Spatial audio indicator or Dolby symbol or audio icon
+                                        when {
+                                            spatialInfo.contains("Dolby Atmos") -> {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_dolby_atmos),
+                                                    contentDescription = "Dolby Atmos",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(22.dp)
+                                                )
+                                            }
+                                            spatialInfo.contains("DTS:X") -> {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.SurroundSound,
+                                                    contentDescription = "DTS:X",
+                                                    tint = Color(0xFFFF5722),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            spatialInfo.isNotEmpty() -> {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_spatial_audio),
+                                                    contentDescription = "Spatial Audio",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            CodecCapabilityManager.isDolbyAudio(audioStream) -> {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_dolby_logo),
+                                                    contentDescription = "Dolby Audio",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            else -> {
+                                                Icon(
+                                                    imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                                                    contentDescription = "Audio",
+                                                    tint = Color(0xFF2196F3),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         }
 
                                         Text(
@@ -640,8 +641,9 @@ fun DetailContent(
                     }
 
                     // HDR Support
-                    item.mediaStreams?.firstOrNull { it.type == "Video" }?.videoRange?.let { videoRange ->
-                        if (videoRange == "HDR") {
+                    item.mediaStreams?.firstOrNull { it.type == "Video" }?.let { videoStream ->
+                        val hdrInfo = CodecCapabilityManager.detectHDRFormat(videoStream)
+                        if (hdrInfo.isNotEmpty()) {
                             item {
                                 Surface(
                                     color = Color(0xFF1A1A1A),
@@ -652,17 +654,118 @@ fun DetailContent(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.HighQuality,
-                                            contentDescription = "HDR",
-                                            tint = Color(0xFFFFEB3B),
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                        when {
+                                            hdrInfo.contains("Dolby Vision") -> {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_dolby_logo),
+                                                    contentDescription = hdrInfo,
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                            else -> {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.HighQuality,
+                                                    contentDescription = hdrInfo,
+                                                    tint = when {
+                                                        hdrInfo.contains("HDR10+") -> Color(0xFF00BCD4)
+                                                        else -> Color(0xFFFFEB3B)
+                                                    },
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = "HDR",
+                                            text = hdrInfo,
                                             fontSize = 14.sp,
                                             color = Color.White,
                                             fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Device Audio Capability Info
+                    if (deviceCapabilities.connectedAudioDevice != "Unknown") {
+                        item {
+                            Surface(
+                                color = Color(0xFF1A1A1A),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = when (deviceCapabilities.connectedAudioDevice) {
+                                            "HDMI" -> Icons.Rounded.Tv
+                                            "Bluetooth" -> Icons.Rounded.Bluetooth
+                                            "USB Headset" -> Icons.Rounded.Headphones
+                                            "Wired Headphones", "Wired Headset" -> Icons.Rounded.Headphones
+                                            else -> Icons.Rounded.Speaker
+                                        },
+                                        contentDescription = "Audio Device",
+                                        tint = if (deviceCapabilities.canProcessSpatialAudio) Color(0xFF4CAF50) else Color(0xFF757575),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+
+                                    Column {
+                                        Text(
+                                            text = deviceCapabilities.connectedAudioDevice,
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        if (deviceCapabilities.canProcessSpatialAudio) {
+                                            Text(
+                                                text = "Spatial Audio Ready",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFF4CAF50),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Spatial Audio Badge
+                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.let { audioStream ->
+                        val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
+                            audioStream.codec?.uppercase() ?: "",
+                            audioStream.channels ?: 0,
+                            audioStream.channelLayout,
+                            audioStream.title,
+                            audioStream.profile
+                        )
+
+                        if (spatialInfo.isNotEmpty()) {
+                            item {
+                                Surface(
+                                    color = Color(0xFF1A1A1A),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_spatial_audio),
+                                            contentDescription = "Spatial Audio",
+                                            tint = Color.Unspecified,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+
+                                        Text(
+                                            text = "Spatial Audio",
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
@@ -701,86 +804,74 @@ fun DetailContent(
                         }
                     }
                 }
-            }
-        }
 
-        // Action Buttons Section
-        item {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 32.dp)
-            ) {
-                    // Play Button - Primary Action
-                    Button(
-                        onClick = onPlayClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0080FF)
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Play",
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Play",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    // Download Button
-                    OutlinedButton(
-                        onClick = { /* TODO: Download */ },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White,
-                            containerColor = Color.Transparent
-                        ),
-                        border = BorderStroke(2.dp, Color.White.copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = "Download",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            "Download",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-            }
-        }
-
-        // Overview Section
-        item {
-            item.overview?.let { overview ->
-                Column(
+                // Action Buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 24.dp)
+                        .padding(top = 16.dp)
                 ) {
+                        // Play Button - Primary Action
+                        Button(
+                            onClick = onPlayClick,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF0080FF)
+                            ),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PlayArrow,
+                                contentDescription = "Play",
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Play",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        // Download Button
+                        OutlinedButton(
+                            onClick = { /* TODO: Download */ },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White,
+                                containerColor = Color.Transparent
+                            ),
+                            border = BorderStroke(2.dp, Color.White.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Download,
+                                contentDescription = "Download",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Download",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                }
+
+                // Overview Section
+                item.overview?.let { overview ->
                     Text(
                         text = "Overview",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.padding(bottom = 12.dp)
+                        modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
                     )
 
                     Card(
@@ -821,23 +912,14 @@ fun DetailContent(
                         }
                     }
                 }
-            }
-        }
 
-        // Technical Information Section
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 24.dp)
-            ) {
+                // Technical Information Section
                 Text(
                     text = "Technical Information",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
                 )
 
                 Card(
@@ -853,7 +935,7 @@ fun DetailContent(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item.mediaSources?.firstOrNull()?.size?.let { size ->
-                            formatFileSize(size)?.let { formattedSize ->
+                            CodecUtils.getFileSize(size)?.let { formattedSize ->
                                 ModernFileInfoRow(
                                     label = "File Size",
                                     value = formattedSize,
@@ -863,17 +945,18 @@ fun DetailContent(
                         }
 
                         item.mediaStreams?.firstOrNull { it.type == "Video" }?.let { videoStream ->
-                            val resolution = getResolutionInfo(item)
-                            val codec = getVideoCodecInfo(item)
+                            val resolution = CodecUtils.getResolutionInfo(item)
+                            val codec = CodecUtils.getVideoCodecInfo(item)
                             val videoInfo = buildString {
                                 if (!resolution.isNullOrEmpty()) append(resolution)
                                 if (!codec.isNullOrEmpty()) {
                                     if (isNotEmpty()) append(" • ")
                                     append(codec)
                                 }
-                                if (videoStream.videoRange == "HDR") {
+                                val hdrInfo = CodecCapabilityManager.detectHDRFormat(videoStream)
+                                if (hdrInfo.isNotEmpty()) {
                                     if (isNotEmpty()) append(" • ")
-                                    append("HDR")
+                                    append(hdrInfo)
                                 }
                             }
 
@@ -888,11 +971,19 @@ fun DetailContent(
 
                         val audioStreams = item.mediaStreams?.filter { it.type == "Audio" } ?: emptyList()
                         if (audioStreams.isNotEmpty()) {
+                            val primaryTrack = audioStreams.find { it.isDefault == true } ?: audioStreams.first()
+                            val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
+                                primaryTrack.codec?.uppercase() ?: "",
+                                primaryTrack.channels ?: 0,
+                                primaryTrack.channelLayout,
+                                primaryTrack.title,
+                                primaryTrack.profile
+                            )
+
                             val audioInfo = if (audioStreams.size == 1) {
-                                getEnhancedAudioInfo(audioStreams.first())
+                                CodecUtils.getEnhancedAudioInfo(audioStreams.first())
                             } else {
-                                val primaryTrack = audioStreams.find { it.isDefault == true } ?: audioStreams.first()
-                                val primaryInfo = getEnhancedAudioInfo(primaryTrack)
+                                val primaryInfo = CodecUtils.getEnhancedAudioInfo(primaryTrack)
                                 if (audioStreams.size > 1) {
                                     "$primaryInfo + ${audioStreams.size - 1} more"
                                 } else {
@@ -902,9 +993,18 @@ fun DetailContent(
 
                             if (audioInfo.isNotEmpty()) {
                                 ModernFileInfoRow(
-                                    label = "Audio",
+                                    label = if (spatialInfo.isNotEmpty()) "Audio (Spatial)" else "Audio",
                                     value = audioInfo,
-                                    icon = Icons.Rounded.AudioFile
+                                    icon = if (spatialInfo.isNotEmpty()) Icons.Rounded.SurroundSound else Icons.Rounded.AudioFile
+                                )
+                            }
+
+                            // Add dedicated spatial audio info if detected
+                            if (spatialInfo.isNotEmpty()) {
+                                ModernFileInfoRow(
+                                    label = "Spatial Audio",
+                                    value = spatialInfo,
+                                    icon = Icons.Rounded.SurroundSound
                                 )
                             }
                         }
@@ -915,7 +1015,7 @@ fun DetailContent(
                                 subtitleStreams.size == 1 -> {
                                     val stream = subtitleStreams.first()
                                     val language = stream.language ?: stream.displayTitle ?: "Unknown"
-                                    val codec = getSubtitleCodecDisplayName(stream.codec)
+                                    val codec = CodecUtils.getSubtitleCodecName(stream.codec)
                                     "${language.uppercase()} • $codec"
                                 }
                                 subtitleStreams.size <= 3 -> {
@@ -940,26 +1040,16 @@ fun DetailContent(
                         }
                     }
                 }
-            }
-        }
 
-        // Cast Section
-        item {
-            val actors = item.people?.filter { it.type == "Actor" }?.take(8) ?: emptyList()
-
-            if (actors.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 24.dp)
-                ) {
+                // Cast Section
+                val actors = item.people?.filter { it.type == "Actor" }?.take(8) ?: emptyList()
+                if (actors.isNotEmpty()) {
                     Text(
                         text = "Cast",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)
                     )
 
                     LazyRow(
@@ -975,11 +1065,6 @@ fun DetailContent(
                     }
                 }
             }
-        }
-
-        // Bottom Spacing
-        item {
-            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
@@ -1173,6 +1258,93 @@ fun DetailScreenPreview() {
             genres = listOf("Animation", "Family", "Adventure"),
             userData = null,
             people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "h264",
+                    width = 1920,
+                    height = 1080
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "aac",
+                    channels = 2,
+                    language = "eng"
+                )
+            )
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenLongRatingPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "The Dark Knight",
+            overview = "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+            productionYear = 2008,
+            runTimeTicks = 9120000000L, // 2h 32m
+            communityRating = 9.0f,
+            officialRating = "Not Rated", // Long rating text
+            genres = listOf("Action", "Crime", "Drama", "Thriller"),
+            userData = null,
+            people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "h264",
+                    width = 3840,
+                    height = 2160,
+                    videoRange = "HDR"
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "eac3",
+                    channels = 6,
+                    language = "eng",
+                    title = "Dolby Digital+ 5.1"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "subrip",
+                    language = "eng"
+                )
+            )
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenNoGenresPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "Mystery Movie",
+            overview = "A mysterious film with no genre information available.",
+            productionYear = 2023,
+            runTimeTicks = 5400000000L, // 1h 30m
+            communityRating = 6.5f,
+            officialRating = "PG-13",
+            genres = null, // No genres
+            userData = null,
+            people = null,
             studios = null
         )
 
@@ -1184,196 +1356,60 @@ fun DetailScreenPreview() {
     }
 }
 
-private fun getEnhancedAudioInfo(audioStream: MediaStream): String {
-    val codec = audioStream.codec?.uppercase() ?: ""
-    val language = audioStream.language ?: audioStream.displayTitle ?: "ENG"
-    val channels = audioStream.channels ?: 0
-    val channelLayout = audioStream.channelLayout
-    val title = audioStream.title
-    val profile = audioStream.profile
+@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenManyGenresPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "Genre Overload",
+            overview = "A movie that somehow fits into every possible genre category.",
+            productionYear = 2024,
+            runTimeTicks = 7200000000L, // 2h
+            communityRating = 8.2f,
+            officialRating = "R",
+            genres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi", "Thriller"),
+            userData = null,
+            people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "hevc",
+                    width = 1920,
+                    height = 1080
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "truehd",
+                    channels = 8,
+                    language = "eng",
+                    title = "Dolby TrueHD 7.1 Atmos"
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "ac3",
+                    channels = 6,
+                    language = "spa"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "ass",
+                    language = "eng"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "subrip",
+                    language = "spa"
+                )
+            )
+        )
 
-    val spatialAudioInfo = detectSpatialAudio(codec, channels, channelLayout, title, profile)
-    val channelInfo = when {
-        spatialAudioInfo.isNotEmpty() -> spatialAudioInfo
-        channels > 0 -> when (channels) {
-            1 -> "Mono"
-            2 -> "Stereo"
-            6 -> "5.1"
-            8 -> "7.1"
-            else -> "${channels}ch"
-        }
-        else -> ""
-    }
-
-    return buildString {
-        // Language
-        if (language.isNotEmpty() && language.uppercase() != "UNKNOWN") {
-            append(language.uppercase())
-        }
-
-        // Codec with spatial audio enhancement
-        if (codec.isNotEmpty()) {
-            if (isNotEmpty()) append(" - ")
-            append(getDisplayCodecName(codec, spatialAudioInfo.isNotEmpty()))
-        }
-
-        // Channel layout
-        if (channelInfo.isNotEmpty()) {
-            if (isNotEmpty()) append(" + ")
-            append(channelInfo)
-        }
-
-        // Default indicator
-        if (audioStream.isDefault == true) {
-            if (isNotEmpty()) append(" - Default")
-        }
-    }
-}
-
-private fun detectSpatialAudio(codec: String, channels: Int, channelLayout: String?, title: String?, profile: String?): String {
-    val codecLower = codec.lowercase()
-    val titleLower = title?.lowercase() ?: ""
-    val layoutLower = channelLayout?.lowercase() ?: ""
-    val profileLower = profile?.lowercase() ?: ""
-
-    // Enhanced Dolby Atmos detection
-    when {
-        // TrueHD with Atmos - more comprehensive detection
-        codecLower.contains("truehd") && (
-            titleLower.contains("atmos") ||
-            layoutLower.contains("atmos") ||
-            profileLower.contains("atmos") ||
-            titleLower.contains("dolby atmos") ||
-            // Common Atmos indicators in metadata
-            channels > 8 // TrueHD with more than 8 channels is likely Atmos
-        ) -> return "Dolby Atmos"
-
-        // E-AC-3 with Atmos
-        (codecLower.contains("eac3") || codecLower.contains("e-ac-3") || codecLower.contains("ec-3")) && (
-            titleLower.contains("atmos") ||
-            layoutLower.contains("atmos") ||
-            profileLower.contains("atmos") ||
-            titleLower.contains("dolby atmos") ||
-            channels > 8 // E-AC-3 with more than 8 channels is likely Atmos
-        ) -> return "Dolby Atmos"
-
-        // DTS:X detection
-        titleLower.contains("dts:x") ||
-        layoutLower.contains("dts:x") ||
-        profileLower.contains("dts:x") ||
-        titleLower.contains("dtsx") -> return "DTS:X"
-
-        // Object-based audio detection by channel layout patterns
-        layoutLower.contains("7.1.4") || layoutLower.contains("(7.1.4)") -> return "7.1.4 (Spatial)"
-        layoutLower.contains("5.1.4") || layoutLower.contains("(5.1.4)") -> return "5.1.4 (Spatial)"
-        layoutLower.contains("7.1.2") || layoutLower.contains("(7.1.2)") -> return "7.1.2 (Spatial)"
-        layoutLower.contains("5.1.2") || layoutLower.contains("(5.1.2)") -> return "5.1.2 (Spatial)"
-
-        // Detect by codec + high channel count (common for spatial audio)
-        (codecLower.contains("truehd") || codecLower.contains("eac3")) && channels >= 10 -> return "Dolby Atmos"
-        codecLower.contains("dts") && channels >= 10 -> return "DTS:X"
-
-        // Generic spatial audio for high channel counts
-        channels >= 12 -> return "${channels}ch (Spatial)"
-    }
-
-    return ""
-}
-
-private fun getDisplayCodecName(codec: String, isSpatial: Boolean): String {
-    return when (codec.uppercase()) {
-        "TRUEHD" -> if (isSpatial) "TrueHD" else "TrueHD"
-        "EAC3", "E-AC-3" -> if (isSpatial) "E-AC-3" else "E-AC-3"
-        "AC3", "AC-3" -> "AC-3"
-        "DTS" -> "DTS"
-        "DTSHD" -> "DTS-HD"
-        "AAC" -> "AAC"
-        "MP3" -> "MP3"
-        "FLAC" -> "FLAC"
-        "PCM" -> "PCM"
-        "OPUS" -> "Opus"
-        "VORBIS" -> "Vorbis"
-        else -> codec.uppercase()
-    }
-}
-
-private fun getAudioDisplayInfo(audioStream: MediaStream): String {
-    val codec = audioStream.codec?.uppercase() ?: ""
-    val channels = audioStream.channels ?: 0
-    val channelLayout = audioStream.channelLayout
-    val title = audioStream.title
-    val profile = audioStream.profile
-
-    val spatialInfo = detectSpatialAudio(codec, channels, channelLayout, title, profile)
-    if (spatialInfo.isNotEmpty()) {
-        return when {
-            spatialInfo.contains("Dolby Atmos") -> "Dolby Digital+ - $spatialInfo"
-            spatialInfo.contains("DTS:X") -> "DTS - $spatialInfo"
-            else -> "$spatialInfo"
-        }
-    }
-
-    return buildString {
-        when (codec) {
-            "EAC3", "E-AC-3" -> append("Dolby Digital+")
-            "AC3", "AC-3" -> append("Dolby Digital")
-            "TRUEHD" -> append("Dolby TrueHD")
-            "DTS" -> append("DTS")
-            "DTSHD" -> append("DTS-HD")
-            "AAC" -> append("AAC")
-            "MP3" -> append("MP3")
-            "FLAC" -> append("FLAC")
-            "PCM" -> append("PCM")
-            else -> append(codec)
-        }
-
-        // Add channel info
-        val channelInfo = when (channels) {
-            1 -> "Mono"
-            2 -> "Stereo"
-            6 -> "5.1"
-            8 -> "7.1"
-            else -> if (channels > 0) "${channels}ch" else ""
-        }
-
-        if (channelInfo.isNotEmpty()) {
-            append(" - $channelInfo")
-        }
-
-        // Add default indicator if needed
-        if (audioStream.isDefault == true) {
-            append(" - Default")
-        }
-    }
-}
-
-// Check if audio is Dolby-based for special icon
-private fun isDolbyAudio(audioStream: MediaStream): Boolean {
-    val codec = audioStream.codec?.uppercase() ?: ""
-    val title = audioStream.title?.lowercase() ?: ""
-    val profile = audioStream.profile?.lowercase() ?: ""
-
-    return codec.contains("EAC3") ||
-           codec.contains("E-AC-3") ||
-           codec.contains("AC3") ||
-           codec.contains("AC-3") ||
-           codec.contains("TRUEHD") ||
-           title.contains("dolby") ||
-           profile.contains("dolby") ||
-           title.contains("atmos")
-}
-
-private fun getSubtitleCodecDisplayName(codec: String?): String {
-    return when (codec?.uppercase()) {
-        "SUBRIP", "SRT" -> "SRT"
-        "ASS", "SSA" -> "ASS"
-        "VTT", "WEBVTT" -> "VTT"
-        "PGSSUB", "PGS" -> "PGS"
-        "DVDSUB" -> "DVDSUB"
-        "MOV_TEXT" -> "MOV"
-        "TTML" -> "TTML"
-        null, "" -> "SRT"
-        else -> codec.uppercase()
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = {}
+        )
     }
 }
 

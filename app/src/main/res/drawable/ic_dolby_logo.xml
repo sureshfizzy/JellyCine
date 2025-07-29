@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="20dp"
-    android:height="20dp"
-    android:viewportWidth="20"
-    android:viewportHeight="20">
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
 
-    <!-- White background -->
+    <!-- White background circle -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M0,0h20v20H0z" />
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2z" />
 
-    <!-- Left semicircle (black) -->
+    <!-- Black border for definition -->
+    <path
+        android:strokeColor="#E0E0E0"
+        android:strokeWidth="0.5"
+        android:fillColor="#00000000"
+        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2z" />
+
+    <!-- Left D shape (black) -->
     <path
         android:fillColor="#000000"
-        android:pathData="M0,1v18c4.97,0 9,-4.03 9,-9S4.97,1 0,1z" />
+        android:pathData="M6,7v10c2.76,0 5,-2.24 5,-5S8.76,7 6,7z" />
 
-    <!-- Right semicircle (black) -->
+    <!-- Right D shape (black) -->
     <path
         android:fillColor="#000000"
-        android:pathData="M20,1v18c-4.97,0 -9,-4.03 -9,-9S15.03,1 20,1z" />
+        android:pathData="M18,7v10c-2.76,0 -5,-2.24 -5,-5S15.24,7 18,7z" />
+
+    <!-- Dolby text dots (black) -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M7,18h1.5v1H7z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M15.5,18h1.5v1H15.5z" />
 </vector>
