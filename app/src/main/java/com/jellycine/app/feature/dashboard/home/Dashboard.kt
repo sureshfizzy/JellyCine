@@ -522,7 +522,7 @@ private fun ContinueWatchingCard(
                     (percentage.toFloat() / 100f).coerceIn(0f, 1f)
                 }
                 LinearProgressIndicator(
-                    progress = progress,
+                    progress = { progress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)

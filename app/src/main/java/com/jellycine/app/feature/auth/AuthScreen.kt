@@ -12,7 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -115,7 +115,7 @@ fun AuthScreen(
                         animationSpec = tween(500, easing = FastOutSlowInEasing)
                     ) + fadeIn(
                         animationSpec = tween(400, delayMillis = 100)
-                    ) with slideOutHorizontally(
+                    ) togetherWith slideOutHorizontally(
                         targetOffsetX = { if (targetState == AuthStep.LOGIN) -it else it },
                         animationSpec = tween(400)
                     ) + fadeOut(
@@ -218,7 +218,7 @@ private fun LoginContent(
                     )
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     tint = Color.White
                 )
