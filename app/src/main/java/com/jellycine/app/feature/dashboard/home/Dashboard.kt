@@ -970,7 +970,7 @@ private fun EpisodeCountBadge(
         Box(
             modifier = modifier
                 .background(
-                    Color(0xFF1976D2).copy(alpha = 0.95f), // Blue background like Findroid
+                    Color(0xFF1976D2).copy(alpha = 0.95f),
                     shape = RoundedCornerShape(14.dp)
                 )
                 .border(

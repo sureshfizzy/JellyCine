@@ -1,13 +1,16 @@
 package com.jellycine.app.feature.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,7 +22,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
+import com.jellycine.app.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,6 +33,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jellycine.app.util.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.BaseItemPerson
+import com.jellycine.data.model.MediaStream
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -95,7 +104,7 @@ fun DetailScreenContainer(
     onPlayClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -186,9 +195,11 @@ fun DetailContent(
     onPlayClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     var backdropImageUrl by remember { mutableStateOf<String?>(null) }
+    var posterImageUrl by remember { mutableStateOf<String?>(null) }
     var isFavorite by remember { mutableStateOf(item.userData?.isFavorite == true) }
+    var showFullOverview by remember { mutableStateOf(false) }
 
     LaunchedEffect(item.id) {
         val itemId = item.id
@@ -197,6 +208,14 @@ fun DetailContent(
                 itemId = itemId,
                 width = 1200,
                 height = 675,
+                quality = 95
+            ).first()
+
+            posterImageUrl = mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Primary",
+                width = 400,
+                height = 600,
                 quality = 95
             ).first()
         }
@@ -238,181 +257,227 @@ fun DetailContent(
         }
     }
 
-
-
-    fun getPersonImageUrl(personId: String?, mediaRepository: com.jellycine.data.repository.MediaRepository): Flow<String?> {
-        return if (personId != null) {
-            mediaRepository.getImageUrl(
-                itemId = personId,
-                imageType = "Primary",
-                width = 120,
-                height = 120,
-                quality = 90
-            )
-        } else {
-            flowOf(null)
-        }
-    }
-
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .systemBarsPadding()
     ) {
-        JellyfinPosterImage(
-            imageUrl = backdropImageUrl,
-            contentDescription = item.name,
-            modifier = Modifier.fillMaxSize(),
-            context = context
-        )
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Black.copy(alpha = 0.8f),
-                            Color.Black
-                        ),
-                        startY = 0f,
-                        endY = Float.POSITIVE_INFINITY
-                    )
-                )
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBackPressed,
-                modifier = Modifier
-                    .background(
-                        Color.Black.copy(alpha = 0.6f),
-                        CircleShape
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White
-                )
-            }
-
-
-        }
-
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-            Column(
+        item {
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.7f),
-                                Color.Black.copy(alpha = 0.95f),
-                                Color.Black
-                            )
-                        )
-                    )
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 80.dp, bottom = 32.dp)
+                    .height(400.dp)
             ) {
-                Text(
-                    text = item.name ?: "Unknown Title",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 16.dp)
+
+                JellyfinPosterImage(
+                    imageUrl = backdropImageUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier.fillMaxSize(),
+                    context = context,
+                    contentScale = ContentScale.Crop
                 )
 
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.3f),
+                                    Color.Black.copy(alpha = 0.5f),
+                                    Color.Black.copy(alpha = 0.8f),
+                                    Color.Black
+                                )
+                            )
+                        )
+                )
+
+
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    item.communityRating?.let { rating ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Star,
-                                contentDescription = "Rating",
-                                tint = Color.Yellow,
-                                modifier = Modifier.size(18.dp)
+                    IconButton(
+                        onClick = onBackPressed,
+                        modifier = Modifier
+                            .background(
+                                Color.Black.copy(alpha = 0.6f),
+                                CircleShape
                             )
-                            Text(
-                                text = String.format("%.1f", rating),
-                                fontSize = 15.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { isFavorite = !isFavorite },
+                        modifier = Modifier
+                            .background(
+                                Color.Black.copy(alpha = 0.6f),
+                                CircleShape
                             )
-                        }
-                    }
-
-                    if (item.communityRating != null && item.productionYear != null) {
-                        Text(
-                            text = "•",
-                            fontSize = 15.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    item.productionYear?.let { year ->
-                        Text(
-                            text = year.toString(),
-                            fontSize = 15.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    if (item.productionYear != null && item.runTimeTicks != null) {
-                        Text(
-                            text = "•",
-                            fontSize = 15.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    item.runTimeTicks?.let { ticks ->
-                        Text(
-                            text = formatRuntime(ticks),
-                            fontSize = 15.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color.Red else Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
+            }
+        }
+
+
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .offset(y = (-85).dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+
+                    Card(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(180.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        JellyfinPosterImage(
+                            imageUrl = posterImageUrl,
+                            contentDescription = item.name,
+                            modifier = Modifier.fillMaxSize(),
+                            context = context,
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = item.name ?: "Unknown Title",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            lineHeight = 32.sp
+                        )
+
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+
+                            item.productionYear?.let { year ->
+                                Text(
+                                    text = year.toString(),
+                                    fontSize = 16.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+
+
+                            item.runTimeTicks?.let { ticks ->
+                                Text(
+                                    text = formatRuntime(ticks),
+                                    fontSize = 16.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // Rating on separate line to prevent layout breaking
+                        item.officialRating?.let { rating ->
+                            Surface(
+                                color = Color(0xFF1A1A1A),
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text(
+                                    text = rating,
+                                    fontSize = 14.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+
+                        item.communityRating?.let { rating ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Star,
+                                    contentDescription = "Rating",
+                                    tint = Color(0xFFFFD700),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = String.format("%.1f", rating),
+                                    fontSize = 16.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+
+                    }
+                }
+
 
                 item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(horizontal = 0.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
                     ) {
-                        items(genres.take(3)) { genre ->
+                        items(genres) { genre ->
                             Surface(
-                                color = Color.White.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(20.dp)
+                                color = Color(0xFF2A2A2A),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
                             ) {
                                 Text(
                                     text = genre,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    fontSize = 13.sp,
-                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.9f),
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -420,101 +485,377 @@ fun DetailContent(
                     }
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                // Codecs Info section - moved here to eliminate gap
+                Text(
+                    text = "Codecs Info",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
+                )
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
                 ) {
-                    Surface(
-                        color = Color.Gray.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = item.officialRating ?: "NR",
-                            fontSize = 12.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+
+                    getResolutionInfo(item)?.let { resolution ->
+                        item {
+                            Surface(
+                                color = Color(0xFF1A1A1A),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.HighQuality,
+                                        contentDescription = "Video Quality",
+                                        tint = Color(0xFF00C853),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = when {
+                                            resolution.contains("3840") -> "4K"
+                                            resolution.contains("1920") -> "HD"
+                                            resolution.contains("1280") -> "720p"
+                                            else -> resolution
+                                        },
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    item.productionYear?.let { year ->
-                        Text(
-                            text = year.toString(),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
+                    // Video Codec
+                    getVideoCodecInfo(item)?.let { codec ->
+                        item {
+                            Surface(
+                                color = Color(0xFF1A1A1A),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.VideoLibrary,
+                                        contentDescription = "Video Codec",
+                                        tint = Color(0xFFE91E63),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = codec,
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    item.runTimeTicks?.let { ticks ->
-                        Text(
-                            text = formatRuntime(ticks),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
+                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.let { audioStream ->
+                        val audioDisplayInfo = getAudioDisplayInfo(audioStream)
+                        if (audioDisplayInfo.isNotEmpty()) {
+                            item {
+                                Surface(
+                                    color = Color(0xFF1A1A1A),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        // Dolby symbol or audio icon
+                                        if (isDolbyAudio(audioStream)) {
+                                            // Use vector drawable Dolby logo
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_dolby_logo),
+                                                contentDescription = "Dolby Audio",
+                                                tint = Color.Unspecified, // Keep original blue and white colors
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                                                contentDescription = "Audio",
+                                                tint = Color(0xFF2196F3),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        Text(
+                                            text = audioDisplayInfo,
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    item.genres?.firstOrNull()?.let { genre ->
-                        Text(
-                            text = genre,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
+                    // Audio Channels
+                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.channels?.let { channels ->
+                        item {
+                            Surface(
+                                color = Color(0xFF1A1A1A),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SurroundSound,
+                                        contentDescription = "Audio Channels",
+                                        tint = Color(0xFF9C27B0),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = when (channels) {
+                                            1 -> "Mono"
+                                            2 -> "Stereo"
+                                            6 -> "5.1"
+                                            8 -> "7.1"
+                                            else -> "${channels}ch"
+                                        },
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // HDR Support
+                    item.mediaStreams?.firstOrNull { it.type == "Video" }?.videoRange?.let { videoRange ->
+                        if (videoRange == "HDR") {
+                            item {
+                                Surface(
+                                    color = Color(0xFF1A1A1A),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.HighQuality,
+                                            contentDescription = "HDR",
+                                            tint = Color(0xFFFFEB3B),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "HDR",
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Subtitles
+                    item.mediaStreams?.any { it.type == "Subtitle" }?.let { hasSubtitles ->
+                        if (hasSubtitles) {
+                            item {
+                                Surface(
+                                    color = Color(0xFF1A1A1A),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Subtitles,
+                                            contentDescription = "Subtitles",
+                                            tint = Color(0xFFFF9800),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "CC",
+                                            fontSize = 14.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            }
+        }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { /* TODO: Download */ },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "Download",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Download")
-                    }
-
+        // Action Buttons Section
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 32.dp)
+            ) {
+                    // Play Button - Primary Action
                     Button(
                         onClick = onPlayClick,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF0080FF)
-                        )
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Play now",
-                            color = Color.White,
+                            "Play",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    // Download Button
+                    OutlinedButton(
+                        onClick = { /* TODO: Download */ },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White,
+                            containerColor = Color.Transparent
+                        ),
+                        border = BorderStroke(2.dp, Color.White.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Download",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Download",
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
-                }
+            }
+        }
 
-                Surface(
+        // Overview Section
+        item {
+            item.overview?.let { overview ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.05f)
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 24.dp)
+                ) {
+                    Text(
+                        text = "Overview",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1A1A1A)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Text(
+                                text = overview,
+                                fontSize = 15.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                lineHeight = 22.sp,
+                                maxLines = if (showFullOverview) Int.MAX_VALUE else 4,
+                                overflow = if (showFullOverview) TextOverflow.Visible else TextOverflow.Ellipsis
+                            )
+
+                            if (overview.length > 200) {
+                                TextButton(
+                                    onClick = { showFullOverview = !showFullOverview },
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = Color(0xFF0080FF)
+                                    )
+                                ) {
+                                    Text(
+                                        text = if (showFullOverview) "Show Less" else "Read More",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Technical Information Section
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 24.dp)
+            ) {
+                Text(
+                    text = "Technical Information",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1A1A1A)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item.mediaSources?.firstOrNull()?.size?.let { size ->
                             formatFileSize(size)?.let { formattedSize ->
-                                FileInfoRow(
-                                    label = "Size",
+                                ModernFileInfoRow(
+                                    label = "File Size",
                                     value = formattedSize,
                                     icon = Icons.Rounded.Storage
                                 )
@@ -527,18 +868,18 @@ fun DetailContent(
                             val videoInfo = buildString {
                                 if (!resolution.isNullOrEmpty()) append(resolution)
                                 if (!codec.isNullOrEmpty()) {
-                                    if (isNotEmpty()) append(" ")
+                                    if (isNotEmpty()) append(" • ")
                                     append(codec)
                                 }
                                 if (videoStream.videoRange == "HDR") {
-                                    if (isNotEmpty()) append(" ")
+                                    if (isNotEmpty()) append(" • ")
                                     append("HDR")
                                 }
                             }
 
                             if (videoInfo.isNotEmpty()) {
-                                FileInfoRow(
-                                    label = "Video",
+                                ModernFileInfoRow(
+                                    label = "Video Quality",
                                     value = videoInfo,
                                     icon = Icons.Rounded.VideoFile
                                 )
@@ -560,7 +901,7 @@ fun DetailContent(
                             }
 
                             if (audioInfo.isNotEmpty()) {
-                                FileInfoRow(
+                                ModernFileInfoRow(
                                     label = "Audio",
                                     value = audioInfo,
                                     icon = Icons.Rounded.AudioFile
@@ -575,13 +916,12 @@ fun DetailContent(
                                     val stream = subtitleStreams.first()
                                     val language = stream.language ?: stream.displayTitle ?: "Unknown"
                                     val codec = getSubtitleCodecDisplayName(stream.codec)
-                                    "${language.uppercase()} - $codec"
+                                    "${language.uppercase()} • $codec"
                                 }
                                 subtitleStreams.size <= 3 -> {
                                     subtitleStreams.joinToString(", ") { stream ->
                                         val language = stream.language ?: stream.displayTitle ?: "Unknown"
-                                        val codec = getSubtitleCodecDisplayName(stream.codec)
-                                        "${language.uppercase()} - $codec"
+                                        language.uppercase()
                                     }
                                 }
                                 else -> {
@@ -592,7 +932,7 @@ fun DetailContent(
                                 }
                             }
 
-                            FileInfoRow(
+                            ModernFileInfoRow(
                                 label = "Subtitles",
                                 value = subtitleInfo,
                                 icon = Icons.Rounded.Subtitles
@@ -600,106 +940,178 @@ fun DetailContent(
                         }
                     }
                 }
+            }
+        }
 
-                item.overview?.let { overview ->
+        // Cast Section
+        item {
+            val actors = item.people?.filter { it.type == "Actor" }?.take(8) ?: emptyList()
+
+            if (actors.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 24.dp)
+                ) {
                     Text(
-                        text = overview,
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f),
-                        lineHeight = 20.sp,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
+                        text = "Cast",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                }
 
-                Text(
-                    text = "Cast",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                val actors = item.people?.filter { it.type == "Actor" }?.take(6) ?: emptyList()
-
-                if (actors.isNotEmpty()) {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 0.dp)
                     ) {
                         items(actors) { person ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.width(100.dp)
-                            ) {
-                                var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
-
-                                LaunchedEffect(person.id) {
-                                    if (person.id != null) {
-                                        personImageUrl = getPersonImageUrl(person.id, mediaRepository).first()
-                                    }
-                                }
-
-                                if (personImageUrl != null) {
-                                    AsyncImage(
-                                        model = personImageUrl,
-                                        contentDescription = person.name,
-                                        modifier = Modifier
-                                            .size(80.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(80.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.Gray.copy(alpha = 0.3f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Person,
-                                            contentDescription = person.name,
-                                            tint = Color.White.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(40.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = person.name ?: "Unknown",
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.8f),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                                person.role?.let { role ->
-                                    Text(
-                                        text = role,
-                                        fontSize = 10.sp,
-                                        color = Color.White.copy(alpha = 0.6f),
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
+                            CastMemberCard(
+                                person = person,
+                                mediaRepository = mediaRepository
+                            )
                         }
                     }
+                }
+            }
+        }
+
+        // Bottom Spacing
+        item {
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+private fun CastMemberCard(
+    person: BaseItemPerson,
+    mediaRepository: MediaRepository
+) {
+    var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(person.id) {
+        if (person.id != null) {
+            personImageUrl = getPersonImageUrl(person.id, mediaRepository).first()
+        }
+    }
+
+    Card(
+        modifier = Modifier.width(120.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF1A1A1A)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Card(
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                if (personImageUrl != null) {
+                    AsyncImage(
+                        model = personImageUrl,
+                        contentDescription = person.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 } else {
-                    Text(
-                        text = "Cast information not available",
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(bottom = 16.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF2A2A2A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = person.name,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = person.name ?: "Unknown",
+                fontSize = 13.sp,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.Medium
+            )
+
+            person.role?.let { role ->
+                Text(
+                    text = role,
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernFileInfoRow(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Surface(
+                modifier = Modifier.size(36.dp),
+                shape = CircleShape,
+                color = Color(0xFF2A2A2A)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = Color(0xFF0080FF),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
+            }
 
-
+            Column {
+                Text(
+                    text = label,
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = value,
+                    fontSize = 16.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -772,7 +1184,7 @@ fun DetailScreenPreview() {
     }
 }
 
-private fun getEnhancedAudioInfo(audioStream: com.jellycine.data.model.MediaStream): String {
+private fun getEnhancedAudioInfo(audioStream: MediaStream): String {
     val codec = audioStream.codec?.uppercase() ?: ""
     val language = audioStream.language ?: audioStream.displayTitle ?: "ENG"
     val channels = audioStream.channels ?: 0
@@ -885,6 +1297,72 @@ private fun getDisplayCodecName(codec: String, isSpatial: Boolean): String {
     }
 }
 
+private fun getAudioDisplayInfo(audioStream: MediaStream): String {
+    val codec = audioStream.codec?.uppercase() ?: ""
+    val channels = audioStream.channels ?: 0
+    val channelLayout = audioStream.channelLayout
+    val title = audioStream.title
+    val profile = audioStream.profile
+
+    val spatialInfo = detectSpatialAudio(codec, channels, channelLayout, title, profile)
+    if (spatialInfo.isNotEmpty()) {
+        return when {
+            spatialInfo.contains("Dolby Atmos") -> "Dolby Digital+ - $spatialInfo"
+            spatialInfo.contains("DTS:X") -> "DTS - $spatialInfo"
+            else -> "$spatialInfo"
+        }
+    }
+
+    return buildString {
+        when (codec) {
+            "EAC3", "E-AC-3" -> append("Dolby Digital+")
+            "AC3", "AC-3" -> append("Dolby Digital")
+            "TRUEHD" -> append("Dolby TrueHD")
+            "DTS" -> append("DTS")
+            "DTSHD" -> append("DTS-HD")
+            "AAC" -> append("AAC")
+            "MP3" -> append("MP3")
+            "FLAC" -> append("FLAC")
+            "PCM" -> append("PCM")
+            else -> append(codec)
+        }
+
+        // Add channel info
+        val channelInfo = when (channels) {
+            1 -> "Mono"
+            2 -> "Stereo"
+            6 -> "5.1"
+            8 -> "7.1"
+            else -> if (channels > 0) "${channels}ch" else ""
+        }
+
+        if (channelInfo.isNotEmpty()) {
+            append(" - $channelInfo")
+        }
+
+        // Add default indicator if needed
+        if (audioStream.isDefault == true) {
+            append(" - Default")
+        }
+    }
+}
+
+// Check if audio is Dolby-based for special icon
+private fun isDolbyAudio(audioStream: MediaStream): Boolean {
+    val codec = audioStream.codec?.uppercase() ?: ""
+    val title = audioStream.title?.lowercase() ?: ""
+    val profile = audioStream.profile?.lowercase() ?: ""
+
+    return codec.contains("EAC3") ||
+           codec.contains("E-AC-3") ||
+           codec.contains("AC3") ||
+           codec.contains("AC-3") ||
+           codec.contains("TRUEHD") ||
+           title.contains("dolby") ||
+           profile.contains("dolby") ||
+           title.contains("atmos")
+}
+
 private fun getSubtitleCodecDisplayName(codec: String?): String {
     return when (codec?.uppercase()) {
         "SUBRIP", "SRT" -> "SRT"
@@ -896,5 +1374,19 @@ private fun getSubtitleCodecDisplayName(codec: String?): String {
         "TTML" -> "TTML"
         null, "" -> "SRT"
         else -> codec.uppercase()
+    }
+}
+
+private fun getPersonImageUrl(personId: String?, mediaRepository: MediaRepository): Flow<String?> {
+    return if (personId != null) {
+        mediaRepository.getImageUrl(
+            itemId = personId,
+            imageType = "Primary",
+            width = 120,
+            height = 120,
+            quality = 90
+        )
+    } else {
+        flowOf(null)
     }
 }
