@@ -21,6 +21,8 @@ import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.request.CachePolicy
 import android.content.Context
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
 
 // Skeleton loading animation with optional placeholder
 @Composable
@@ -84,14 +86,18 @@ fun JellyfinPosterImage(
     AsyncImage(
         model = ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(300)
+            .crossfade(100)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.ENABLED)
-            .allowHardware(false)
+            .allowHardware(true) // Enable hardware acceleration
+            .allowRgb565(true) // Better memory efficiency
             .build(),
         contentDescription = contentDescription,
-        modifier = modifier,
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+            renderEffect = null
+        },
         contentScale = contentScale,
         onState = { state ->
             imageState = state

@@ -180,15 +180,15 @@ fun FeatureTab(
         }
     }
 
-    // Auto-rotation effect with longer delay for better performance
+    // Optimized auto-rotation with longer delay and better performance
     LaunchedEffect(featuredItems) {
         if (featuredItems.isNotEmpty() && featuredItems.size > 1) {
             while (true) {
-                delay(8000) // Increased to 8 seconds to reduce performance impact
+                delay(8000)
                 val nextIndex = (currentIndex + 1) % featuredItems.size
                 currentIndex = nextIndex
 
-                // Smooth scroll animation with better easing
+                // Smooth scroll animation with optimized easing
                 try {
                     listState.animateScrollToItem(
                         index = nextIndex,
@@ -541,11 +541,12 @@ private fun FeatureCard(
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(imageUrl)
-                        .crossfade(300)
+                        .crossfade(200)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .networkCachePolicy(CachePolicy.ENABLED)
-                        .allowHardware(false)
+                        .allowHardware(true) // Enable hardware acceleration
+                        .allowRgb565(true) // Better memory efficiency
                         .build(),
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(), // No clipping for edge-to-edge

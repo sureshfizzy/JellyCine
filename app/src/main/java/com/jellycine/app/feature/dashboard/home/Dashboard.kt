@@ -37,6 +37,17 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.Immutable
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.ui.draw.drawWithCache
 
 
 // Sample movie data for demonstration
@@ -46,6 +57,39 @@ data class Movie(
     val year: String,
     val posterUrl: String? = null
 )
+
+// Stable wrapper for BaseItemDto to prevent recomposition
+@Stable
+@Immutable
+data class StableBaseItem(
+    val id: String?,
+    val name: String?,
+    val type: String?,
+    val seriesId: String?,
+    val seriesName: String?,
+    val productionYear: Int?,
+    val userData: com.jellycine.data.model.UserItemDataDto?,
+    val episodeCount: Int?,
+    val recursiveItemCount: Int?,
+    val collectionType: String?
+) {
+    companion object {
+        fun from(item: com.jellycine.data.model.BaseItemDto): StableBaseItem {
+            return StableBaseItem(
+                id = item.id,
+                name = item.name,
+                type = item.type,
+                seriesId = item.seriesId,
+                seriesName = item.seriesName,
+                productionYear = item.productionYear,
+                userData = item.userData,
+                episodeCount = item.episodeCount,
+                recursiveItemCount = item.recursiveItemCount,
+                collectionType = item.collectionType
+            )
+        }
+    }
+}
 
 @Composable
 fun Dashboard(
@@ -59,54 +103,83 @@ fun Dashboard(
     var continueWatchingError by remember { mutableStateOf<String?>(null) }
     var continueWatchingLoaded by remember { mutableStateOf(false) }
 
+    // Featured items state
     var featuredItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var featuredLoading by remember { mutableStateOf(true) }
     var featuredError by remember { mutableStateOf<String?>(null) }
-    var featuredLoaded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
+    // Optimize LazyColumn state for better performance
+    val lazyColumnState = rememberLazyListState()
+
+    // Use derivedStateOf to prevent unnecessary recompositions during scrolling
+    val isScrolling by remember {
+        derivedStateOf {
+            lazyColumnState.isScrollInProgress
+        }
+    }
+
+    // Additional scroll optimization
+    val scrollOptimization = remember {
+        true
+    }
+
     LaunchedEffect(selectedCategory) {
-        if (!featuredLoaded) {
+        val cachedItems = DashboardCache.getFeaturedItems(selectedCategory)
+
+        if (!DashboardCache.shouldRefreshFeaturedItems(selectedCategory) && cachedItems.isNotEmpty()) {
+            featuredItems = cachedItems
+            featuredLoading = false
+            featuredError = null
+        } else {
+            // Load data only if not cached
             featuredLoading = true
             featuredError = null
 
             try {
-                val result = when (selectedCategory) {
-                    "Movies" -> mediaRepository.getLatestItems(
-                        parentId = null,
-                        includeItemTypes = "Movie",
-                        limit = 5,
-                        fields = "BasicSyncInfo"
-                    )
-                    "TV Shows" -> mediaRepository.getLatestItems(
-                        parentId = null,
-                        includeItemTypes = "Series",
-                        limit = 5,
-                        fields = "BasicSyncInfo"
-                    )
-                    else -> mediaRepository.getLatestItems(
-                        parentId = null,
-                        includeItemTypes = "Movie,Series",
-                        limit = 5,
-                        fields = "BasicSyncInfo"
-                    )
-                }
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter {
-                            it.id != null && !it.name.isNullOrBlank()
-                        }
-                        featuredItems = validItems
-                        featuredLoading = false
-                        featuredLoaded = true
-                    },
-                    onFailure = { throwable ->
-                        featuredError = throwable.message ?: "Failed to load featured content"
-                        featuredLoading = false
+                withContext(Dispatchers.IO) {
+                    val result = when (selectedCategory) {
+                        "Movies" -> mediaRepository.getLatestItems(
+                            parentId = null,
+                            includeItemTypes = "Movie",
+                            limit = 5,
+                            fields = "BasicSyncInfo"
+                        )
+                        "TV Shows" -> mediaRepository.getLatestItems(
+                            parentId = null,
+                            includeItemTypes = "Series",
+                            limit = 5,
+                            fields = "BasicSyncInfo"
+                        )
+                        else -> mediaRepository.getLatestItems(
+                            parentId = null,
+                            includeItemTypes = "Movie,Series",
+                            limit = 5,
+                            fields = "BasicSyncInfo"
+                        )
                     }
-                )
+
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { items ->
+                                val validItems = items.filter {
+                                    it.id != null && !it.name.isNullOrBlank()
+                                }
+
+                                DashboardCache.updateFeaturedItems(selectedCategory, validItems)
+
+                                featuredItems = validItems
+                                featuredLoading = false
+                            },
+                            onFailure = { throwable ->
+                                featuredError = throwable.message ?: "Failed to load featured content"
+                                featuredLoading = false
+                            }
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 featuredError = e.message ?: "Unknown error occurred"
                 featuredLoading = false
@@ -114,32 +187,75 @@ fun Dashboard(
         }
     }
 
+    // Preload other tabs in background for instant switching
+    LaunchedEffect(Unit) {
+        delay(2000)
+
+        // Preload other tabs in background
+        withContext(Dispatchers.IO) {
+            try {
+                if (DashboardCache.shouldRefreshFeaturedItems("Movies")) {
+                    val moviesResult = mediaRepository.getLatestItems(
+                        parentId = null,
+                        includeItemTypes = "Movie",
+                        limit = 5,
+                        fields = "BasicSyncInfo"
+                    )
+                    moviesResult.getOrNull()?.let { items ->
+                        val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
+                        DashboardCache.updateFeaturedItems("Movies", validItems)
+                    }
+                }
+
+                if (DashboardCache.shouldRefreshFeaturedItems("TV Shows")) {
+                    val tvResult = mediaRepository.getLatestItems(
+                        parentId = null,
+                        includeItemTypes = "Series",
+                        limit = 5,
+                        fields = "BasicSyncInfo"
+                    )
+                    tvResult.getOrNull()?.let { items ->
+                        val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
+                        DashboardCache.updateFeaturedItems("TV Shows", validItems)
+                    }
+                }
+            } catch (e: Exception) {
+            }
+        }
+    }
+
+    // Optimize continue watching loading with background thread
     LaunchedEffect(Unit) {
         if (!continueWatchingLoaded) {
             continueWatchingLoading = true
             continueWatchingError = null
 
             try {
-                val result = mediaRepository.getResumeItems(limit = 5)
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter { item ->
-                            val userData = item.userData
-                            item.id != null &&
-                            !item.name.isNullOrBlank() &&
-                            userData?.playedPercentage != null &&
-                            userData.playedPercentage!! > 0 &&
-                            userData.playedPercentage!! < 95
-                        }
-                        continueWatchingItems = validItems
-                        continueWatchingLoading = false
-                        continueWatchingLoaded = true
-                    },
-                    onFailure = { throwable ->
-                        continueWatchingError = throwable.message ?: "Failed to load continue watching items"
-                        continueWatchingLoading = false
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getResumeItems(limit = 5)
+
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { items ->
+                                val validItems = items.filter { item ->
+                                    val userData = item.userData
+                                    item.id != null &&
+                                    !item.name.isNullOrBlank() &&
+                                    userData?.playedPercentage != null &&
+                                    userData.playedPercentage!! > 0 &&
+                                    userData.playedPercentage!! < 95
+                                }
+                                continueWatchingItems = validItems
+                                continueWatchingLoading = false
+                                continueWatchingLoaded = true
+                            },
+                            onFailure = { throwable ->
+                                continueWatchingError = throwable.message ?: "Failed to load continue watching items"
+                                continueWatchingLoading = false
+                            }
+                        )
                     }
-                )
+                }
             } catch (e: Exception) {
                 continueWatchingError = e.message ?: "Unknown error occurred"
                 continueWatchingLoading = false
@@ -148,8 +264,16 @@ fun Dashboard(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        state = lazyColumnState,
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                renderEffect = null
+            },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        userScrollEnabled = true,
+        flingBehavior = ScrollableDefaults.flingBehavior()
     ) {
         item {
             FeatureTab(
@@ -291,13 +415,22 @@ private fun ContinueWatchingSection(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                            renderEffect = null
+                            clip = false
+                        }
                 ) {
-                    items(items.take(10)) { item ->
+                    items(
+                        count = minOf(items.size, 10),
+                        key = { index -> items[index].id ?: index }
+                    ) { index ->
                         ContinueWatchingCard(
-                            item = item,
+                            item = items[index],
                             mediaRepository = mediaRepository,
-                            onClick = { onItemClick(item) }
+                            onClick = { onItemClick(items[index]) }
                         )
                     }
                 }
@@ -313,33 +446,52 @@ private fun ContinueWatchingCard(
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     onClick: () -> Unit = {}
 ) {
+    val stableItem = remember(item.id) { StableBaseItem.from(item) }
     val context = LocalContext.current
-    var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
 
-    // Get image URL with higher quality
-    LaunchedEffect(item.id) {
-        val itemId = item.id
+    var imageUrl by remember(stableItem.id, stableItem.seriesId) {
+        mutableStateOf<String?>(null)
+    }
+
+    LaunchedEffect(stableItem.id) {
+        val itemId = stableItem.id
         if (itemId != null) {
-            // For episodes, get the series poster instead
-            val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                item.seriesId!!
-            } else {
-                itemId
-            }
+            withContext(Dispatchers.IO) {
+                try {
+                    val actualItemId = if (stableItem.type == "Episode" && !stableItem.seriesId.isNullOrBlank()) {
+                        stableItem.seriesId!!
+                    } else {
+                        itemId
+                    }
 
-            imageUrl = mediaRepository.getImageUrl(
-                itemId = actualItemId,
-                width = 250,
-                height = 140,
-                quality = 50
-            ).first()
+                    val url = mediaRepository.getImageUrl(
+                        itemId = actualItemId,
+                        width = 250,
+                        height = 140,
+                        quality = 100
+                    ).first()
+
+                    withContext(Dispatchers.Main) {
+                        imageUrl = url
+                    }
+                } catch (e: Exception) {
+                }
+            }
         }
     }
 
     Card(
         modifier = Modifier
             .width(200.dp)
-            .height(120.dp),
+            .height(120.dp)
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                renderEffect = null
+                clip = false
+            }
+            .drawWithCache {
+                onDrawBehind { }
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
@@ -353,22 +505,31 @@ private fun ContinueWatchingCard(
             // Movie poster
             JellyfinPosterImage(
                 imageUrl = imageUrl,
-                contentDescription = item.name,
+                contentDescription = stableItem.name,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    },
                 context = context,
                 contentScale = ContentScale.Crop
             )
 
-            // Progress bar at bottom
-            item.userData?.playedPercentage?.let { percentage ->
+            // Progress bar at bottom - memoized
+            stableItem.userData?.playedPercentage?.let { percentage ->
+                val progress = remember(percentage) {
+                    (percentage.toFloat() / 100f).coerceIn(0f, 1f)
+                }
                 LinearProgressIndicator(
-                    progress = (percentage.toFloat() / 100f).coerceIn(0f, 1f),
+                    progress = progress,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)
-                        .align(Alignment.BottomCenter),
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        },
                     color = Color.Red,
                     trackColor = Color.White.copy(alpha = 0.3f)
                 )
@@ -390,8 +551,21 @@ private fun ContinueWatchingCard(
                     .padding(12.dp)
             ) {
                 Column {
+                    val itemName = remember(stableItem.name) { stableItem.name ?: "Unknown" }
+                    val typeText = remember(stableItem.type) {
+                        when (stableItem.type) {
+                            "Movie" -> "Movie"
+                            "Series" -> "TV Series"
+                            "Episode" -> "Episode"
+                            else -> stableItem.type ?: "Media"
+                        }
+                    }
+                    val yearText = remember(stableItem.productionYear, typeText) {
+                        "${stableItem.productionYear ?: ""} • $typeText"
+                    }
+
                     Text(
-                        text = item.name ?: "Unknown",
+                        text = itemName,
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -400,15 +574,8 @@ private fun ContinueWatchingCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    val typeText = when (item.type) {
-                        "Movie" -> "Movie"
-                        "Series" -> "TV Series"
-                        "Episode" -> "Episode"
-                        else -> item.type ?: "Media"
-                    }
-
                     Text(
-                        text = "${item.productionYear ?: ""} • $typeText",
+                        text = yearText,
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 12.sp,
                         maxLines = 1,
@@ -449,36 +616,38 @@ private fun LibrarySections(
     var isLoading by remember { mutableStateOf(true) }
     var hasLoaded by remember { mutableStateOf(false) }
 
-    // Load library views - only load if not already loaded
+    // Load library views
     LaunchedEffect(Unit) {
         if (!hasLoaded) {
-            isLoading = true
-            delay(200L)
-
             try {
-                val result = mediaRepository.getUserViews()
-                result.fold(
-                    onSuccess = { queryResult ->
-                        libraryViews = queryResult.items?.filter {
-                            it.id != null &&
-                            !it.name.isNullOrBlank() &&
-                            it.collectionType != "boxsets" &&
-                            it.collectionType != "playlists" &&
-                            it.collectionType != "folders" &&
-                            (it.type == "CollectionFolder" || it.type == "Folder") &&
-    
-                            (it.collectionType == "movies" || it.collectionType == "tvshows" ||
-                             it.collectionType == "music" || it.collectionType == "books" ||
-                             it.collectionType == "mixed" || it.collectionType == null)
-                        } ?: emptyList()
-                        isLoading = false
-                        hasLoaded = true
-                    },
-                    onFailure = {
-                        isLoading = false
-                        hasLoaded = true
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getUserViews()
+
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { queryResult ->
+                                libraryViews = queryResult.items?.filter {
+                                    it.id != null &&
+                                    !it.name.isNullOrBlank() &&
+                                    it.collectionType != "boxsets" &&
+                                    it.collectionType != "playlists" &&
+                                    it.collectionType != "folders" &&
+                                    (it.type == "CollectionFolder" || it.type == "Folder") &&
+
+                                    (it.collectionType == "movies" || it.collectionType == "tvshows" ||
+                                     it.collectionType == "music" || it.collectionType == "books" ||
+                                     it.collectionType == "mixed" || it.collectionType == null)
+                                } ?: emptyList()
+                                isLoading = false
+                                hasLoaded = true
+                            },
+                            onFailure = {
+                                isLoading = false
+                                hasLoaded = true
+                            }
+                        )
                     }
-                )
+                }
             } catch (e: Exception) {
                 isLoading = false
                 hasLoaded = true
@@ -486,14 +655,14 @@ private fun LibrarySections(
         }
     }
 
-    when {
-        isLoading -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-            ) {
-                repeat(3) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        when {
+            isLoading -> {
+                repeat(2) {
                     Column {
                         ShimmerEffect(
                             modifier = Modifier
@@ -504,25 +673,35 @@ private fun LibrarySections(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Library items skeleton
-                        LibrarySkeleton()
-                        Spacer(modifier = Modifier.height(24.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    compositingStrategy = CompositingStrategy.Offscreen
+                                }
+                        ) {
+                            items(4) { index ->
+                                ShimmerEffect(
+                                    modifier = Modifier
+                                        .width(140.dp)
+                                        .height(210.dp),
+                                    cornerRadius = 16f
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
             }
-        }
-        libraryViews.isNotEmpty() -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-            ) {
-                // Show all libraries
-                libraryViews.forEach { library ->
-                    LibrarySection(
+            libraryViews.isNotEmpty() -> {
+                libraryViews.forEachIndexed { index, library ->
+                    ProgressiveLibrarySection(
                         library = library,
                         mediaRepository = mediaRepository,
-                        onItemClick = onItemClick
+                        onItemClick = onItemClick,
+                        loadDelay = index * 300L
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -532,43 +711,49 @@ private fun LibrarySections(
 }
 
 @Composable
-private fun LibrarySection(
+private fun ProgressiveLibrarySection(
     library: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    loadDelay: Long = 0L
 ) {
     var libraryItems by remember(library.id) { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var isLoading by remember(library.id) { mutableStateOf(true) }
     var hasLoaded by remember(library.id) { mutableStateOf(false) }
 
-    // Load items for this library - only load if not already loaded
+    // Progressive loading with staggered delays
     LaunchedEffect(library.id) {
         if (!hasLoaded) {
-            isLoading = true
+            if (loadDelay > 0) {
+                delay(loadDelay)
+            }
 
             library.id?.let { libraryId ->
                 try {
-                    val includeItemTypes = when (library.collectionType) {
-                        "tvshows" -> "Episode"
-                        "movies" -> "Movie"
-                        else -> "Movie,Series,Episode"
+                    withContext(Dispatchers.IO) {
+                        val includeItemTypes = when (library.collectionType) {
+                            "tvshows" -> "Episode"
+                            "movies" -> "Movie"
+                            else -> "Movie,Series,Episode"
+                        }
+
+                        val result = mediaRepository.getLatestItems(
+                            parentId = libraryId,
+                            includeItemTypes = includeItemTypes,
+                            limit = 10,
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+                        )
+
+                        val validItems = result.getOrNull()?.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        } ?: emptyList()
+
+                        withContext(Dispatchers.Main) {
+                            libraryItems = validItems.take(6)
+                            isLoading = false
+                            hasLoaded = true
+                        }
                     }
-
-                    val result = mediaRepository.getLatestItems(
-                        parentId = libraryId,
-                        includeItemTypes = includeItemTypes,
-                        limit = 20,
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
-                    )
-
-                    val validItems = result.getOrNull()?.filter {
-                        it.id != null && !it.name.isNullOrBlank()
-                    } ?: emptyList()
-
-                    libraryItems = validItems.take(10)
-                    isLoading = false
-                    hasLoaded = true
-
                 } catch (e: Exception) {
                     isLoading = false
                     hasLoaded = true
@@ -578,7 +763,6 @@ private fun LibrarySection(
     }
 
     Column {
-        // Section Header
         Text(
             text = "Recently Added • ${library.name ?: "Library"}",
             fontSize = 18.sp,
@@ -589,37 +773,62 @@ private fun LibrarySection(
 
         when {
             isLoading -> {
-                LibrarySkeleton()
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
+                ) {
+                    items(4) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(210.dp),
+                            cornerRadius = 16f
+                        )
+                    }
+                }
             }
 
             libraryItems.isNotEmpty() -> {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
                 ) {
-                    items(libraryItems.take(10)) { item ->
+                    items(
+                        count = libraryItems.size,
+                        key = { index -> libraryItems[index].id ?: index }
+                    ) { index ->
                         LibraryItemCard(
-                            item = item,
+                            item = libraryItems[index],
                             mediaRepository = mediaRepository,
-                            onClick = { onItemClick(item) }
+                            onClick = { onItemClick(libraryItems[index]) }
                         )
                     }
                 }
             }
 
             else -> {
+                // Minimal empty state
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp)
+                        .height(100.dp)
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "No items found",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -634,33 +843,50 @@ private fun LibraryItemCard(
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     onClick: () -> Unit = {}
 ) {
+    val stableItem = remember(item.id) { StableBaseItem.from(item) }
     val context = LocalContext.current
-    var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
 
-    // Get image URL - for episodes, use series poster; for series/movies, use their own poster
-    LaunchedEffect(item.id, item.seriesId) {
-        val itemId = item.id
+    var imageUrl by remember(stableItem.id, stableItem.seriesId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(stableItem.id, stableItem.seriesId) {
+        val itemId = stableItem.id
         if (itemId != null) {
-            // For episodes, get the series poster instead
-            val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                item.seriesId!!
-            } else {
-                itemId
-            }
+            withContext(Dispatchers.IO) {
+                try {
+                    val actualItemId = if (stableItem.type == "Episode" && !stableItem.seriesId.isNullOrBlank()) {
+                        stableItem.seriesId!!
+                    } else {
+                        itemId
+                    }
 
-            imageUrl = mediaRepository.getImageUrl(
-                itemId = actualItemId,
-                width = 200,
-                height = 300,
-                quality = 60
-            ).first()
+                    val url = mediaRepository.getImageUrl(
+                        itemId = actualItemId,
+                        width = 200,
+                        height = 300,
+                        quality = 100
+                    ).first()
+
+                    withContext(Dispatchers.Main) {
+                        imageUrl = url
+                    }
+                } catch (e: Exception) {
+                }
+            }
         }
     }
 
     Card(
         modifier = Modifier
             .width(140.dp)
-            .height(210.dp),
+            .height(210.dp)
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+                renderEffect = null
+                clip = false
+            }
+            .drawWithCache {
+                onDrawBehind { }
+            },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
@@ -787,13 +1013,17 @@ private fun ShimmerEffect(
         initialValue = 0.3f,
         targetValue = 0.6f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500),
+            animation = tween(2000),
             repeatMode = RepeatMode.Reverse
         ),
         label = "alpha"
     )
 
-    Canvas(modifier = modifier) {
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+        }
+    ) {
         drawRoundRect(
             color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
             cornerRadius = CornerRadius(cornerRadius, cornerRadius)
@@ -833,6 +1063,54 @@ private fun LibrarySkeleton() {
                     .height(210.dp),
                 cornerRadius = 16f
             )
+        }
+    }
+}
+
+// Enhanced cache for all dashboard data
+private object DashboardCache {
+    var homeItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    var movieItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    var tvShowItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+
+    var homeItemsLoadTime: Long = 0
+    var movieItemsLoadTime: Long = 0
+    var tvShowItemsLoadTime: Long = 0
+
+    // Cache timeout: 5 minutes for featured items
+    private const val FEATURED_CACHE_TIMEOUT = 300_000L
+
+    fun shouldRefreshFeaturedItems(category: String): Boolean {
+        val loadTime = when (category) {
+            "Movies" -> movieItemsLoadTime
+            "TV Shows" -> tvShowItemsLoadTime
+            else -> homeItemsLoadTime
+        }
+        return System.currentTimeMillis() - loadTime > FEATURED_CACHE_TIMEOUT
+    }
+
+    fun getFeaturedItems(category: String): List<com.jellycine.data.model.BaseItemDto> {
+        return when (category) {
+            "Movies" -> movieItems
+            "TV Shows" -> tvShowItems
+            else -> homeItems
+        }
+    }
+
+    fun updateFeaturedItems(category: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+        when (category) {
+            "Movies" -> {
+                movieItems = items
+                movieItemsLoadTime = System.currentTimeMillis()
+            }
+            "TV Shows" -> {
+                tvShowItems = items
+                tvShowItemsLoadTime = System.currentTimeMillis()
+            }
+            else -> {
+                homeItems = items
+                homeItemsLoadTime = System.currentTimeMillis()
+            }
         }
     }
 }
@@ -891,22 +1169,27 @@ private fun MovieGenreSections(
     var movieGenres by remember { mutableStateOf(GenreCache.movieGenres) }
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
 
-    // Load movie genres with caching
+    // Optimize movie genres loading with background thread
     LaunchedEffect(Unit) {
         if (GenreCache.shouldRefreshMovieGenres()) {
             isLoading = true
             try {
-                val result = mediaRepository.getGenres(includeItemTypes = "Movie")
-                result.fold(
-                    onSuccess = { genres ->
-                        GenreCache.updateMovieGenres(genres)
-                        movieGenres = genres
-                        isLoading = false
-                    },
-                    onFailure = { error ->
-                        isLoading = false
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getGenres(includeItemTypes = "Movie")
+
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { genres ->
+                                GenreCache.updateMovieGenres(genres)
+                                movieGenres = genres
+                                isLoading = false
+                            },
+                            onFailure = { error ->
+                                isLoading = false
+                            }
+                        )
                     }
-                )
+                }
             } catch (e: Exception) {
                 isLoading = false
             }
@@ -924,24 +1207,45 @@ private fun MovieGenreSections(
         if (isLoading) {
             repeat(3) {
                 Column {
-                    Text(
-                        text = "Loading...",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    // Genre title skeleton
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .width(150.dp)
+                            .height(24.dp),
+                        cornerRadius = 4f
                     )
-                    LibrarySkeleton()
+                    // Genre items skeleton
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                compositingStrategy = CompositingStrategy.Offscreen
+                            }
+                    ) {
+                        items(4) { index ->
+                            ShimmerEffect(
+                                modifier = Modifier
+                                    .width(140.dp)
+                                    .height(210.dp),
+                                cornerRadius = 16f
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         } else {
-            val genresToShow = movieGenres.take(5)
-            genresToShow.forEach { genre ->
-                MovieGenreSection(
+            // Show only first 3 genres with progressive loading
+            val genresToShow = movieGenres.take(3)
+            genresToShow.forEachIndexed { index, genre ->
+                ProgressiveMovieGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    loadDelay = index * 400L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -990,28 +1294,43 @@ private fun TVShowGenreSections(
             .background(Color.Black)
     ) {
         if (isLoading) {
-            // Use the same skeleton as home
             repeat(3) {
                 Column {
-                    Text(
-                        text = "Loading...",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    // Genre title skeleton
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .width(150.dp)
+                            .height(24.dp),
+                        cornerRadius = 4f
                     )
-                    LibrarySkeleton()
+                    // Genre items skeleton
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(4) {
+                            ShimmerEffect(
+                                modifier = Modifier
+                                    .width(140.dp)
+                                    .height(210.dp),
+                                cornerRadius = 16f
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         } else {
-            // Show only first 5 genres initially for better performance
-            val genresToShow = tvGenres.take(5)
-            genresToShow.forEach { genre ->
-                TVShowGenreSection(
+            // Show only first 3 genres with progressive loading
+            val genresToShow = tvGenres.take(3)
+            genresToShow.forEachIndexed { index, genre ->
+                ProgressiveTVShowGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    loadDelay = index * 400L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1020,39 +1339,49 @@ private fun TVShowGenreSections(
 }
 
 @Composable
-private fun MovieGenreSection(
+private fun ProgressiveMovieGenreSection(
     genre: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    loadDelay: Long = 0L
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems(genreId)) }
 
-    // Load movies for this specific genre with caching
+    // Progressive loading with staggered delays
     LaunchedEffect(genreId) {
         if (GenreCache.shouldRefreshGenreItems(genreId)) {
+            // Add staggered delay to prevent all genres loading at once
+            if (loadDelay > 0) {
+                delay(loadDelay)
+            }
+
             isLoading = true
             try {
-                val result = mediaRepository.getItemsByGenre(
-                    genreId = genreId,
-                    includeItemTypes = "Movie",
-                    limit = 20
-                )
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getItemsByGenre(
+                        genreId = genreId,
+                        includeItemTypes = "Movie",
+                        limit = 8
+                    )
 
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter {
-                            it.id != null && !it.name.isNullOrBlank()
-                        }.take(8)
-                        GenreCache.updateGenreItems(genreId, validItems)
-                        genreMovies = validItems
-                    },
-                    onFailure = { error ->
-                        genreMovies = emptyList()
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { items ->
+                                val validItems = items.filter {
+                                    it.id != null && !it.name.isNullOrBlank()
+                                }.take(5)
+                                GenreCache.updateGenreItems(genreId, validItems)
+                                genreMovies = validItems
+                            },
+                            onFailure = { error ->
+                                genreMovies = emptyList()
+                            }
+                        )
+                        isLoading = false
                     }
-                )
-                isLoading = false
+                }
             } catch (e: Exception) {
                 isLoading = false
             }
@@ -1062,7 +1391,7 @@ private fun MovieGenreSection(
         }
     }
 
-    // Always show the genre section, but show different content based on state
+    // Always show the genre section
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1079,29 +1408,53 @@ private fun MovieGenreSection(
 
         when {
             isLoading -> {
-                LibrarySkeleton()
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
+                ) {
+                    items(4) { index ->
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(210.dp),
+                            cornerRadius = 16f
+                        )
+                    }
+                }
             }
             genreMovies.isNotEmpty() -> {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
                 ) {
-                    items(genreMovies) { movie ->
+                    items(
+                        count = genreMovies.size,
+                        key = { index -> genreMovies[index].id ?: index }
+                    ) { index ->
                         LibraryItemCard(
-                            item = movie,
+                            item = genreMovies[index],
                             mediaRepository = mediaRepository,
-                            onClick = { onItemClick(movie) }
+                            onClick = { onItemClick(genreMovies[index]) }
                         )
                     }
                 }
             }
             else -> {
-                // Show a message when no items are found
+                // Minimal empty state
                 Text(
-                    text = "No movies found in this genre",
-                    color = Color.Gray,
-                    fontSize = 14.sp,
+                    text = "No movies found",
+                    color = Color.Gray.copy(alpha = 0.5f),
+                    fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -1110,40 +1463,50 @@ private fun MovieGenreSection(
 }
 
 @Composable
-private fun TVShowGenreSection(
+private fun ProgressiveTVShowGenreSection(
     genre: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    loadDelay: Long = 0L
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems("tv_$genreId")) }
 
-    // Load TV shows for this specific genre with caching
+    // Progressive loading with staggered delays
     LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
         if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
+            // Add staggered delay to prevent all genres loading at once
+            if (loadDelay > 0) {
+                delay(loadDelay)
+            }
+
             isLoading = true
             try {
-                val result = mediaRepository.getItemsByGenre(
-                    genreId = genreId,
-                    includeItemTypes = "Series",
-                    limit = 20
-                )
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getItemsByGenre(
+                        genreId = genreId,
+                        includeItemTypes = "Series",
+                        limit = 8
+                    )
 
-                result.fold(
-                    onSuccess = { items ->
-                        val validItems = items.filter {
-                            it.id != null && !it.name.isNullOrBlank()
-                        }.take(8)
-                        GenreCache.updateGenreItems(cacheKey, validItems)
-                        genreShows = validItems
-                    },
-                    onFailure = { error ->
-                        genreShows = emptyList()
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { items ->
+                                val validItems = items.filter {
+                                    it.id != null && !it.name.isNullOrBlank()
+                                }.take(5)
+                                GenreCache.updateGenreItems(cacheKey, validItems)
+                                genreShows = validItems
+                            },
+                            onFailure = { error ->
+                                genreShows = emptyList()
+                            }
+                        )
+                        isLoading = false
                     }
-                )
-                isLoading = false
+                }
             } catch (e: Exception) {
                 isLoading = false
             }
@@ -1153,7 +1516,7 @@ private fun TVShowGenreSection(
         }
     }
 
-    // Always show the genre section, but show different content based on state
+    // Always show the genre section
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1170,7 +1533,20 @@ private fun TVShowGenreSection(
 
         when {
             isLoading -> {
-                LibrarySkeleton()
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(4) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(210.dp),
+                            cornerRadius = 16f
+                        )
+                    }
+                }
             }
             genreShows.isNotEmpty() -> {
                 LazyRow(
@@ -1188,11 +1564,11 @@ private fun TVShowGenreSection(
                 }
             }
             else -> {
-                // Show a message when no items are found
+                // Minimal empty state
                 Text(
-                    text = "No TV shows found in this genre",
-                    color = Color.Gray,
-                    fontSize = 14.sp,
+                    text = "No TV shows found",
+                    color = Color.Gray.copy(alpha = 0.5f),
+                    fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
