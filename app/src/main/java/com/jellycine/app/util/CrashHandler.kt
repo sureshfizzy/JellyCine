@@ -68,7 +68,13 @@ class CrashHandler private constructor(private val context: Context) : Thread.Un
                 try {
                     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
                     writer.appendLine("App Version: ${packageInfo.versionName}")
-                    writer.appendLine("Version Code: ${packageInfo.longVersionCode}")
+                    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        packageInfo.longVersionCode
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageInfo.versionCode.toLong()
+                    }
+                    writer.appendLine("Version Code: $versionCode")
                 } catch (e: Exception) {
                     writer.appendLine("Failed to get app version: ${e.message}")
                 }
@@ -122,7 +128,6 @@ class CrashHandler private constructor(private val context: Context) : Thread.Un
                 crashFiles.drop(MAX_CRASH_FILES).forEach { file ->
                     try {
                         file.delete()
-                        Log.d(TAG, "Deleted old crash file: ${file.name}")
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed to delete old crash file: ${file.name}", e)
                     }

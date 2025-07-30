@@ -46,7 +46,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.cos
 import kotlin.math.sin
 import android.content.Context
-import com.jellycine.app.feature.player.PlayerScreen
+import com.jellycine.app.feature.player.player.PlayerScreen
 
 @Composable
 fun LoadingAnimation(

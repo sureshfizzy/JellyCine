@@ -1,4 +1,4 @@
-package com.jellycine.app.feature.player.viewmodel
+package com.jellycine.app.feature.player.core
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -14,16 +14,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.app.feature.player.domain.model.PlayerState
-import com.jellycine.app.feature.player.domain.usecase.InitializePlayerUseCase
 
 /**
- * ViewModel for managing video player state and operations
+ * Player ViewModel
  */
 @HiltViewModel
-class PlayerViewModel @Inject constructor(
-    private val initializePlayerUseCase: InitializePlayerUseCase
-) : ViewModel() {
+class PlayerViewModel @Inject constructor() : ViewModel() {
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -33,48 +29,32 @@ class PlayerViewModel @Inject constructor(
 
     private lateinit var mediaRepository: MediaRepository
 
-    /**
-     * Initialize the player with media content
-     */
     fun initializePlayer(context: Context, mediaId: String) {
         viewModelScope.launch {
             try {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
 
-                // Initialize MediaRepository
                 mediaRepository = MediaRepositoryProvider.getInstance(context)
+                exoPlayer = PlayerUtils.createPlayer(context)
 
-                // Initialize ExoPlayer
-                exoPlayer = initializePlayerUseCase.execute(context)
-
-                // Get streaming URL from repository
                 val streamingResult = mediaRepository.getStreamingUrl(mediaId)
                 if (streamingResult.isFailure) {
                     val error = streamingResult.exceptionOrNull()?.message ?: "Failed to get streaming URL"
-                    _playerState.value = _playerState.value.copy(
-                        isLoading = false,
-                        error = error
-                    )
+                    _playerState.value = _playerState.value.copy(isLoading = false, error = error)
                     return@launch
                 }
 
                 val streamingUrl = streamingResult.getOrNull()!!
-
-                // Create and set media item
                 val mediaItem = MediaItem.fromUri(streamingUrl)
+                
                 exoPlayer?.apply {
                     setMediaItem(mediaItem)
                     prepare()
                     playWhenReady = true
-
-                    // Add player listener
                     addListener(playerListener)
                 }
 
-                _playerState.value = _playerState.value.copy(
-                    isLoading = false,
-                    isPlaying = true
-                )
+                _playerState.value = _playerState.value.copy(isLoading = false, isPlaying = true)
 
             } catch (e: Exception) {
                 _playerState.value = _playerState.value.copy(
@@ -85,9 +65,34 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Release player resources
-     */
+    fun seekTo(position: Long) {
+        exoPlayer?.seekTo(position)
+        _playerState.value = _playerState.value.copy(currentPosition = position)
+    }
+
+    fun togglePlayPause() {
+        exoPlayer?.let { player ->
+            if (player.isPlaying) {
+                player.pause()
+            } else {
+                player.play()
+            }
+        }
+    }
+
+    fun setVolume(volume: Float) {
+        exoPlayer?.volume = volume
+        _playerState.value = _playerState.value.copy(volume = volume)
+    }
+
+    fun setBrightness(brightness: Float) {
+        _playerState.value = _playerState.value.copy(brightness = brightness)
+    }
+
+    fun toggleControls() {
+        _playerState.value = _playerState.value.copy(showControls = !_playerState.value.showControls)
+    }
+
     fun releasePlayer() {
         exoPlayer?.apply {
             removeListener(playerListener)
@@ -97,21 +102,8 @@ class PlayerViewModel @Inject constructor(
         _playerState.value = PlayerState()
     }
 
-    /**
-     * Clear error state
-     */
     fun clearError() {
         _playerState.value = _playerState.value.copy(error = null)
-    }
-
-    /**
-     * Retry playback
-     */
-    fun retryPlayback() {
-        exoPlayer?.let { player ->
-            player.prepare()
-            player.playWhenReady = true
-        }
     }
 
     private val playerListener = object : Player.Listener {
@@ -127,6 +119,17 @@ class PlayerViewModel @Inject constructor(
                 error = error.message ?: "Playback error occurred",
                 isLoading = false,
                 isPlaying = false
+            )
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            _playerState.value = _playerState.value.copy(
+                currentPosition = newPosition.positionMs,
+                duration = exoPlayer?.duration ?: 0L
             )
         }
     }

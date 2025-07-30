@@ -4,7 +4,6 @@
     <!-- General -->
     <string name="loading">Loading…</string>
     <string name="error">Error</string>
-    <string name="retry">Retry</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <string name="save">Save</string>
