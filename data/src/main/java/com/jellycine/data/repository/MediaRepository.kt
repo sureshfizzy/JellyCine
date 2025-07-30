@@ -335,4 +335,132 @@ class MediaRepository(private val context: Context) {
             null
         }
     }
+
+    // Player-related methods
+
+    /**
+     * Get playback information for a media item
+     */
+    suspend fun getPlaybackInfo(itemId: String): Result<com.jellycine.data.model.PlaybackInfoResponse> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getPlaybackInfo(itemId, userId)
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to fetch playback info: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get direct streaming URL for a media item
+     */
+    suspend fun getStreamingUrl(itemId: String): Result<String> {
+        return try {
+            val preferences = dataStore.data.first()
+            val serverUrl = preferences[SERVER_URL_KEY]
+            val accessToken = preferences[ACCESS_TOKEN_KEY]
+
+            if (serverUrl == null) {
+                return Result.failure(Exception("Server URL not available"))
+            }
+
+            // Get playback info first to determine the best streaming method
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+
+            if (mediaSource == null) {
+                return Result.failure(Exception("No media source available"))
+            }
+
+            // Build streaming URL
+            val streamingUrl = if (mediaSource.supportsDirectPlay == true) {
+                // Direct play
+                "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?static=true&mediaSourceId=${mediaSource.id}&api_key=$accessToken"
+            } else if (mediaSource.supportsDirectStream == true) {
+                // Direct stream
+                "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?static=true&mediaSourceId=${mediaSource.id}&api_key=$accessToken"
+            } else {
+                // Transcoding
+                mediaSource.transcodingUrl?.let { url ->
+                    if (url.startsWith("http")) url else "${serverUrl.trimEnd('/')}$url"
+                } ?: "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?api_key=$accessToken"
+            }
+
+            Result.success(streamingUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get available audio tracks for a media item
+     */
+    suspend fun getAudioTracks(itemId: String): Result<List<com.jellycine.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val audioStreams = mediaSource?.mediaStreams?.filter { it.type == "Audio" } ?: emptyList()
+
+            Result.success(audioStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get available video tracks for a media item
+     */
+    suspend fun getVideoTracks(itemId: String): Result<List<com.jellycine.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val videoStreams = mediaSource?.mediaStreams?.filter { it.type == "Video" } ?: emptyList()
+
+            Result.success(videoStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get available subtitle tracks for a media item
+     */
+    suspend fun getSubtitleTracks(itemId: String): Result<List<com.jellycine.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val subtitleStreams = mediaSource?.mediaStreams?.filter { it.type == "Subtitle" } ?: emptyList()
+
+            Result.success(subtitleStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

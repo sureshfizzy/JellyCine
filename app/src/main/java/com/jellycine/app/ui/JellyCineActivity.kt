@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.jellycine.app.ui.theme.JellyCineTheme
 import com.jellycine.app.navigation.AppNavigation
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class JellyCineActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

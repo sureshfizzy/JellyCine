@@ -131,8 +131,6 @@ fun AppNavigation() {
                         itemId = itemId,
                         onBackPressed = {
                             navController.popBackStack()
-                        },
-                        onPlayClick = {
                         }
                     )
                 } else {

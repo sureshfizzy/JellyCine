@@ -153,7 +153,11 @@ class LogManager(private val context: Context) {
                     // Filter for app-related logs (excluding crashes which are handled separately)
                     if ((line.contains("jellycine", ignoreCase = true) ||
                         line.contains(context.packageName) ||
-                        line.contains("JellyCine")) &&
+                        line.contains("JellyCine") ||
+                        line.contains("PlayerScreen") ||
+                        line.contains("PlayerViewModel") ||
+                        line.contains("DetailScreen") ||
+                        line.contains("InitializePlayerUseCase")) &&
                         !line.contains("E/AndroidRuntime") &&
                         !line.contains("FATAL EXCEPTION")) {
                         writer.appendLine(line)

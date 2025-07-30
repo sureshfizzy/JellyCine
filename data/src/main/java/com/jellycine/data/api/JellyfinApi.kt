@@ -6,6 +6,7 @@ import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
+import com.jellycine.data.model.PlaybackInfoResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -87,4 +88,29 @@ interface JellyfinApi {
         @Query("sortOrder") sortOrder: String? = null,
         @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
+
+    // Streaming/Playback endpoints
+    @GET("Items/{itemId}/PlaybackInfo")
+    suspend fun getPlaybackInfo(
+        @Path("itemId") itemId: String,
+        @Query("userId") userId: String
+    ): Response<PlaybackInfoResponse>
+
+    @GET("Videos/{itemId}/stream")
+    suspend fun getVideoStreamUrl(
+        @Path("itemId") itemId: String,
+        @Query("static") static: Boolean = true,
+        @Query("mediaSourceId") mediaSourceId: String? = null,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("api_key") apiKey: String? = null
+    ): String
+
+    @GET("Audio/{itemId}/stream")
+    suspend fun getAudioStreamUrl(
+        @Path("itemId") itemId: String,
+        @Query("static") static: Boolean = true,
+        @Query("mediaSourceId") mediaSourceId: String? = null,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("api_key") apiKey: String? = null
+    ): String
 }

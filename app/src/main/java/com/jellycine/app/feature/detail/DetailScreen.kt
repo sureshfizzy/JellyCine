@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.cos
 import kotlin.math.sin
 import android.content.Context
+import com.jellycine.app.feature.player.PlayerScreen
 
 @Composable
 fun LoadingAnimation(
@@ -101,8 +102,7 @@ fun LoadingAnimation(
 @Composable
 fun DetailScreenContainer(
     itemId: String,
-    onBackPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {}
+    onBackPressed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -110,6 +110,7 @@ fun DetailScreenContainer(
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var showPlayer by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         try {
@@ -161,11 +162,22 @@ fun DetailScreenContainer(
             }
         }
         item != null -> {
-            DetailScreen(
-                item = item!!,
-                onBackPressed = onBackPressed,
-                onPlayClick = onPlayClick
-            )
+            if (showPlayer) {
+                PlayerScreen(
+                    mediaId = itemId,
+                    onBackPressed = {
+                        showPlayer = false
+                    }
+                )
+            } else {
+                DetailScreen(
+                    item = item!!,
+                    onBackPressed = onBackPressed,
+                    onPlayClick = {
+                        showPlayer = true
+                    }
+                )
+            }
         }
         else -> {
             LaunchedEffect(Unit) {
