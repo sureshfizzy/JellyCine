@@ -30,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.util.JellyfinPosterImage
+import com.jellycine.app.ui.components.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import androidx.compose.animation.core.*
@@ -73,6 +74,19 @@ data class StableBaseItem(
     val recursiveItemCount: Int?,
     val collectionType: String?
 ) {
+    // Memoized computed properties to reduce recomposition
+    val displayName: String by lazy {
+        name ?: "Unknown Title"
+    }
+
+    val hasProgress: Boolean by lazy {
+        userData?.playedPercentage != null && userData.playedPercentage!! > 0
+    }
+
+    val progressPercentage: Float by lazy {
+        (userData?.playedPercentage?.toFloat() ?: 0f) / 100f
+    }
+
     companion object {
         fun from(item: com.jellycine.data.model.BaseItemDto): StableBaseItem {
             return StableBaseItem(
@@ -98,10 +112,26 @@ fun Dashboard(
 ) {
     var selectedCategory by remember { mutableStateOf("Home") }
 
-    var continueWatchingItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var continueWatchingLoading by remember { mutableStateOf(true) }
+    var continueWatchingItems by remember {
+        mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(
+            if (!DashboardCache.shouldRefreshContinueWatching()) {
+                DashboardCache.continueWatchingItems
+            } else {
+                emptyList()
+            }
+        )
+    }
+    var continueWatchingLoading by remember {
+        mutableStateOf(
+            DashboardCache.shouldRefreshContinueWatching() || DashboardCache.continueWatchingItems.isEmpty()
+        )
+    }
     var continueWatchingError by remember { mutableStateOf<String?>(null) }
-    var continueWatchingLoaded by remember { mutableStateOf(false) }
+    var continueWatchingLoaded by remember {
+        mutableStateOf(
+            !DashboardCache.shouldRefreshContinueWatching() && DashboardCache.continueWatchingItems.isNotEmpty()
+        )
+    }
 
     // Featured items state
     var featuredItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
@@ -187,78 +217,92 @@ fun Dashboard(
         }
     }
 
-    // Preload other tabs in background for instant switching
-    LaunchedEffect(Unit) {
-        delay(2000)
+    // Preloading - only after user interaction or when UI is stable
+    LaunchedEffect(selectedCategory) {
+        if (featuredItems.isNotEmpty() && !featuredLoading) {
+            delay(3000)
 
-        // Preload other tabs in background
-        withContext(Dispatchers.IO) {
-            try {
-                if (DashboardCache.shouldRefreshFeaturedItems("Movies")) {
-                    val moviesResult = mediaRepository.getLatestItems(
-                        parentId = null,
-                        includeItemTypes = "Movie",
-                        limit = 5,
-                        fields = "BasicSyncInfo"
-                    )
-                    moviesResult.getOrNull()?.let { items ->
-                        val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
-                        DashboardCache.updateFeaturedItems("Movies", validItems)
+            // Preload other tabs in background
+            withContext(Dispatchers.IO) {
+                try {
+                    if (selectedCategory != "Movies" && DashboardCache.shouldRefreshFeaturedItems("Movies")) {
+                        delay(500)
+                        val moviesResult = mediaRepository.getLatestItems(
+                            parentId = null,
+                            includeItemTypes = "Movie",
+                            limit = 5,
+                            fields = "BasicSyncInfo"
+                        )
+                        moviesResult.getOrNull()?.let { items ->
+                            val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
+                            DashboardCache.updateFeaturedItems("Movies", validItems)
+                        }
                     }
-                }
 
-                if (DashboardCache.shouldRefreshFeaturedItems("TV Shows")) {
-                    val tvResult = mediaRepository.getLatestItems(
-                        parentId = null,
-                        includeItemTypes = "Series",
-                        limit = 5,
-                        fields = "BasicSyncInfo"
-                    )
-                    tvResult.getOrNull()?.let { items ->
-                        val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
-                        DashboardCache.updateFeaturedItems("TV Shows", validItems)
+                    if (selectedCategory != "TV Shows" && DashboardCache.shouldRefreshFeaturedItems("TV Shows")) {
+                        delay(500)
+                        val tvResult = mediaRepository.getLatestItems(
+                            parentId = null,
+                            includeItemTypes = "Series",
+                            limit = 5,
+                            fields = "BasicSyncInfo"
+                        )
+                        tvResult.getOrNull()?.let { items ->
+                            val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
+                            DashboardCache.updateFeaturedItems("TV Shows", validItems)
+                        }
                     }
+                } catch (e: Exception) {
                 }
-            } catch (e: Exception) {
             }
         }
     }
 
-    // Optimize continue watching loading with background thread
+    // Continue watching loading with background thread
     LaunchedEffect(Unit) {
         if (!continueWatchingLoaded) {
-            continueWatchingLoading = true
-            continueWatchingError = null
-
-            try {
-                withContext(Dispatchers.IO) {
-                    val result = mediaRepository.getResumeItems(limit = 5)
-
-                    withContext(Dispatchers.Main) {
-                        result.fold(
-                            onSuccess = { items ->
-                                val validItems = items.filter { item ->
-                                    val userData = item.userData
-                                    item.id != null &&
-                                    !item.name.isNullOrBlank() &&
-                                    userData?.playedPercentage != null &&
-                                    userData.playedPercentage!! > 0 &&
-                                    userData.playedPercentage!! < 95
-                                }
-                                continueWatchingItems = validItems
-                                continueWatchingLoading = false
-                                continueWatchingLoaded = true
-                            },
-                            onFailure = { throwable ->
-                                continueWatchingError = throwable.message ?: "Failed to load continue watching items"
-                                continueWatchingLoading = false
-                            }
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                continueWatchingError = e.message ?: "Unknown error occurred"
+            if (!DashboardCache.shouldRefreshContinueWatching() && DashboardCache.continueWatchingItems.isNotEmpty()) {
+                continueWatchingItems = DashboardCache.continueWatchingItems
                 continueWatchingLoading = false
+                continueWatchingLoaded = true
+                continueWatchingError = null
+            } else {
+                continueWatchingLoading = true
+                continueWatchingError = null
+
+                try {
+                    withContext(Dispatchers.IO) {
+                        val result = mediaRepository.getResumeItems(limit = 5)
+
+                        withContext(Dispatchers.Main) {
+                            result.fold(
+                                onSuccess = { items ->
+                                    val validItems = items.filter { item ->
+                                        val userData = item.userData
+                                        item.id != null &&
+                                        !item.name.isNullOrBlank() &&
+                                        userData?.playedPercentage != null &&
+                                        userData.playedPercentage!! > 0 &&
+                                        userData.playedPercentage!! < 95
+                                    }
+                                    continueWatchingItems = validItems
+                                    DashboardCache.updateContinueWatching(validItems)
+                                    continueWatchingLoading = false
+                                    continueWatchingLoaded = true
+                                },
+                                onFailure = { throwable ->
+                                    continueWatchingError = throwable.message ?: "Failed to load continue watching items"
+                                    continueWatchingLoading = false
+                                    continueWatchingLoaded = true
+                                }
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    continueWatchingError = e.message ?: "Unknown error occurred"
+                    continueWatchingLoading = false
+                    continueWatchingLoaded = true
+                }
             }
         }
     }
@@ -268,7 +312,11 @@ fun Dashboard(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
+                compositingStrategy = if (isScrolling) {
+                    CompositingStrategy.Auto
+                } else {
+                    CompositingStrategy.Offscreen
+                }
                 renderEffect = null
             },
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -289,19 +337,28 @@ fun Dashboard(
             )
         }
 
-        item("continue_watching") {
-            // Only show Continue Watching section if there are items or it's loading
-            if (continueWatchingLoading || continueWatchingItems.isNotEmpty()) {
-
+        // Continue Watching section - only show on Home tab
+        if (selectedCategory == "Home" && (continueWatchingLoading || continueWatchingItems.isNotEmpty())) {
+            item("continue_watching") {
                 Column(
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    ContinueWatchingSection(
-                        items = continueWatchingItems,
-                        isLoading = continueWatchingLoading,
-                        error = continueWatchingError,
-                        onItemClick = onNavigateToDetail
-                    )
+                    if (continueWatchingLoading) {
+                        Text(
+                            text = "Continue Watching",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                        ContinueWatchingSkeleton()
+                    } else {
+                        ContinueWatchingSection(
+                            items = continueWatchingItems,
+                            isLoading = continueWatchingLoading,
+                            error = continueWatchingError,
+                            onItemClick = onNavigateToDetail
+                        )
+                    }
                 }
             }
         }
@@ -1072,13 +1129,16 @@ private object DashboardCache {
     var homeItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
     var movieItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
     var tvShowItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    var continueWatchingItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
 
     var homeItemsLoadTime: Long = 0
     var movieItemsLoadTime: Long = 0
     var tvShowItemsLoadTime: Long = 0
+    var continueWatchingLoadTime: Long = 0
 
     // Cache timeout: 5 minutes for featured items
     private const val FEATURED_CACHE_TIMEOUT = 300_000L
+    private const val CONTINUE_WATCHING_CACHE_TIMEOUT = 120_000L
 
     fun shouldRefreshFeaturedItems(category: String): Boolean {
         val loadTime = when (category) {
@@ -1112,6 +1172,15 @@ private object DashboardCache {
                 homeItemsLoadTime = System.currentTimeMillis()
             }
         }
+    }
+
+    fun shouldRefreshContinueWatching(): Boolean {
+        return System.currentTimeMillis() - continueWatchingLoadTime > CONTINUE_WATCHING_CACHE_TIMEOUT
+    }
+
+    fun updateContinueWatching(items: List<com.jellycine.data.model.BaseItemDto>) {
+        continueWatchingItems = items
+        continueWatchingLoadTime = System.currentTimeMillis()
     }
 }
 
@@ -1352,9 +1421,9 @@ private fun ProgressiveMovieGenreSection(
     // Progressive loading with staggered delays
     LaunchedEffect(genreId) {
         if (GenreCache.shouldRefreshGenreItems(genreId)) {
-            // Add staggered delay to prevent all genres loading at once
+            // Add longer staggered delay to prevent all genres loading at once
             if (loadDelay > 0) {
-                delay(loadDelay)
+                delay(loadDelay + 500)
             }
 
             isLoading = true
@@ -1477,9 +1546,9 @@ private fun ProgressiveTVShowGenreSection(
     LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
         if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
-            // Add staggered delay to prevent all genres loading at once
+            // Add longer staggered delay to prevent all genres loading at once
             if (loadDelay > 0) {
-                delay(loadDelay)
+                delay(loadDelay + 500)
             }
 
             isLoading = true

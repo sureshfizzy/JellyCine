@@ -28,12 +28,13 @@ object NetworkModule {
     
     private fun createOkHttpClient(accessToken: String? = null): OkHttpClient {
         val builder = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
         
+        // Only enable detailed logging in debug builds to reduce overhead
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.BASIC
         }
         builder.addInterceptor(loggingInterceptor)
         val authInterceptor = Interceptor { chain ->

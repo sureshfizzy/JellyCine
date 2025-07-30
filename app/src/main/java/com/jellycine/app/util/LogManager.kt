@@ -17,6 +17,8 @@ import java.io.IOException
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 class LogManager(private val context: Context) {
     
@@ -277,19 +279,31 @@ class LogManager(private val context: Context) {
         try {
             val preferences = dataStore.data.first()
             val serverUrl = preferences[stringPreferencesKey("server_url")]
-            
+
             if (serverUrl != null) {
                 writer.appendLine("Testing connectivity to server...")
-                
+
                 try {
-                    val url = java.net.URL(serverUrl)
-                    val connection = url.openConnection()
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 5000
-                    connection.connect()
-                    writer.appendLine("Server connectivity: SUCCESS")
+                    // Use OkHttp for better HTTPS support and error handling
+                    val client = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+
+                    val request = okhttp3.Request.Builder()
+                        .url("$serverUrl/System/Ping")
+                        .build()
+
+                    val response = client.newCall(request).execute()
+                    if (response.isSuccessful) {
+                        writer.appendLine("Server connectivity: SUCCESS")
+                    } else {
+                        writer.appendLine("Server connectivity: FAILED - HTTP ${response.code}")
+                    }
+                    response.close()
                 } catch (e: Exception) {
-                    writer.appendLine("Server connectivity: FAILED - ${e.message}")
+                    val errorMessage = e.message ?: "Unknown error"
+                    writer.appendLine("Server connectivity: FAILED - $errorMessage")
                 }
             } else {
                 writer.appendLine("No server URL configured")

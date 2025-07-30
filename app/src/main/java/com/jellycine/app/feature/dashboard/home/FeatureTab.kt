@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.jellycine.app.util.JellyfinPosterImage
 import com.jellycine.app.util.ImageSkeleton
+import com.jellycine.app.ui.components.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.UserDto
@@ -131,8 +132,6 @@ fun FeatureTab(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
 
-
-
     // User information state - use stored credentials
     var storedUsername by remember { mutableStateOf(CachedData.username) }
     var userProfileImageUrl by remember { mutableStateOf(CachedData.userImageUrl) }
@@ -141,8 +140,6 @@ fun FeatureTab(
     // Auto-rotation state
     var currentIndex by remember { mutableStateOf(0) }
     val listState = rememberLazyListState()
-    
-
 
     // Load user information - use stored username and fetch image
     LaunchedEffect(hasLoadedUser) {
@@ -180,7 +177,7 @@ fun FeatureTab(
         }
     }
 
-    // Optimized auto-rotation with longer delay and better performance
+    // Auto-rotation with longer delay and better performance
     LaunchedEffect(featuredItems) {
         if (featuredItems.isNotEmpty() && featuredItems.size > 1) {
             while (true) {
@@ -188,7 +185,7 @@ fun FeatureTab(
                 val nextIndex = (currentIndex + 1) % featuredItems.size
                 currentIndex = nextIndex
 
-                // Smooth scroll animation with optimized easing
+                // Smooth scroll animation
                 try {
                     listState.animateScrollToItem(
                         index = nextIndex,
@@ -492,23 +489,23 @@ private fun FeatureCard(
     val context = LocalContext.current
     var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
     
-    // Get image URL with optimized quality for smooth performance
-    LaunchedEffect(item.id) {
-        val itemId = item.id
-        if (itemId != null) {
-            // For episodes, get the series backdrop instead
-            val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                item.seriesId!!
-            } else {
-                itemId
-            }
+    // Get image URL
+    val actualItemId = remember(item.id, item.type, item.seriesId) {
+        if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
+            item.seriesId!!
+        } else {
+            item.id
+        }
+    }
 
+    LaunchedEffect(actualItemId) {
+        if (actualItemId != null) {
             // Try to get backdrop image first, fallback to primary if not available
             var backdropUrl = mediaRepository.getBackdropImageUrl(
                 itemId = actualItemId,
                 width = 600,
                 height = 340,
-                quality = 60
+                quality = 90
             ).first()
 
             // If backdrop is not available, fallback to primary image
@@ -517,7 +514,7 @@ private fun FeatureCard(
                     itemId = actualItemId,
                     width = 600,
                     height = 340,
-                    quality = 60
+                    quality = 90
                 ).first()
             }
 

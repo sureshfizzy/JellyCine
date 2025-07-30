@@ -54,9 +54,14 @@ class AuthRepository(private val context: Context) {
     
     suspend fun testServerConnection(serverUrl: String): Result<ServerInfo> {
         return try {
+            // Validate URL format first
+            if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+                return Result.failure(Exception("Invalid URL format. URL must start with http:// or https://"))
+            }
+
             val api = NetworkModule.createJellyfinApi(serverUrl)
             val response = api.getPublicSystemInfo()
-            
+
             if (response.isSuccessful && response.body() != null) {
                 val serverInfo = response.body()!!
                 // Save server info
@@ -66,10 +71,25 @@ class AuthRepository(private val context: Context) {
                 }
                 Result.success(serverInfo)
             } else {
-                Result.failure(Exception("Server connection failed: ${response.code()}"))
+                val errorMessage = when (response.code()) {
+                    404 -> "Server not found. Please check the URL."
+                    403 -> "Access forbidden. Server may not allow connections."
+                    500 -> "Server internal error. Please try again later."
+                    else -> "Server connection failed with HTTP ${response.code()}"
+                }
+                Result.failure(Exception(errorMessage))
             }
+        } catch (e: java.net.UnknownHostException) {
+            Result.failure(Exception("Cannot reach server. Please check your internet connection and server URL."))
+        } catch (e: java.net.ConnectException) {
+            Result.failure(Exception("Connection refused. Please check if the server is running and the URL is correct."))
+        } catch (e: java.net.SocketTimeoutException) {
+            Result.failure(Exception("Connection timeout. Please check your internet connection."))
+        } catch (e: javax.net.ssl.SSLException) {
+            Result.failure(Exception("SSL/TLS error. Please check if the server supports HTTPS properly."))
         } catch (e: Exception) {
-            Result.failure(e)
+            val errorMessage = e.message ?: "Unknown connection error"
+            Result.failure(Exception("Connection failed: $errorMessage"))
         }
     }
     
