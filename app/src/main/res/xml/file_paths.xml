@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cache directory for temporary log files -->
+    <cache-path name="log_files" path="." />
+    
+    <!-- External files directory for user downloads -->
+    <external-files-path name="external_files" path="." />
+</paths>
