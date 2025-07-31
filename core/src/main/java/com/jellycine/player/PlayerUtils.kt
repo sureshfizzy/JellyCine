@@ -3,6 +3,7 @@ package com.jellycine.player
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
@@ -14,6 +15,7 @@ object PlayerUtils {
     /**
      * Create ExoPlayer instance with optimal settings
      */
+    @UnstableApi
     fun createPlayer(context: Context): ExoPlayer {
         val trackSelector = DefaultTrackSelector(context).apply {
             parameters = buildUponParameters()

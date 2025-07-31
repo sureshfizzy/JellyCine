@@ -89,6 +89,24 @@ interface JellyfinApi {
         @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 
+    // TV Show specific endpoints
+    @GET("Shows/{seriesId}/Seasons")
+    suspend fun getSeasons(
+        @Path("seriesId") seriesId: String,
+        @Query("userId") userId: String,
+        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
+    ): Response<QueryResult<BaseItemDto>>
+
+    @GET("Shows/{seriesId}/Episodes")
+    suspend fun getEpisodes(
+        @Path("seriesId") seriesId: String,
+        @Query("userId") userId: String,
+        @Query("seasonId") seasonId: String? = null,
+        @Query("fields") fields: String? = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
+        @Query("limit") limit: Int? = null,
+        @Query("startIndex") startIndex: Int? = null
+    ): Response<QueryResult<BaseItemDto>>
+
     // Streaming/Playback endpoints
     @GET("Items/{itemId}/PlaybackInfo")
     suspend fun getPlaybackInfo(

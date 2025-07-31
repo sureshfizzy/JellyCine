@@ -1,5 +1,7 @@
 package com.jellycine.app.ui.screens.detail
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -51,6 +53,12 @@ import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.app.ui.components.common.rememberAudioCapabilities
+import com.jellycine.app.ui.components.common.ActionButtonsSection
+import com.jellycine.app.ui.components.common.CastSection
+import com.jellycine.app.ui.components.common.CodecInfoSection
+import com.jellycine.app.ui.components.common.ModernFileInfoRow
+import com.jellycine.app.ui.components.common.OverviewSection
+import com.jellycine.app.ui.components.common.TechnicalInfoSection
 
 @Composable
 fun LoadingAnimation(
@@ -115,6 +123,12 @@ fun DetailScreenContainer(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
+    var playbackItemId by remember { mutableStateOf<String?>(null) }
+
+    // Navigation state
+    var currentScreen by remember { mutableStateOf("detail") }
+    var seasonDetailData by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
+    var episodeDetailId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(itemId) {
         try {
@@ -168,19 +182,79 @@ fun DetailScreenContainer(
         item != null -> {
             if (showPlayer) {
                 PlayerScreen(
-                    mediaId = itemId,
+                    mediaId = playbackItemId ?: itemId,
                     onBackPressed = {
                         showPlayer = false
+                        playbackItemId = null
                     }
                 )
             } else {
-                DetailScreen(
-                    item = item!!,
-                    onBackPressed = onBackPressed,
-                    onPlayClick = {
-                        showPlayer = true
+                AnimatedContent(
+                    targetState = currentScreen,
+                    transitionSpec = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeIn(
+                            animationSpec = tween(300)
+                        ) togetherWith slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + fadeOut(
+                            animationSpec = tween(300)
+                        )
+                    },
+                    label = "screen_navigation"
+                ) { screen ->
+                    when (screen) {
+                        "detail" -> {
+                            DetailScreen(
+                                item = item!!,
+                                onBackPressed = onBackPressed,
+                                onPlayClick = {
+                                    playbackItemId = itemId
+                                    showPlayer = true
+                                },
+                                onSeasonClick = { seriesId, seasonId, seasonName ->
+                                    seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                    currentScreen = "season"
+                                }
+                            )
+                        }
+                        "season" -> {
+                            seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
+                                SeasonDetailScreen(
+                                    seriesId = seriesId,
+                                    seasonId = seasonId,
+                                    seasonName = seasonName,
+                                    onBackPressed = {
+                                        currentScreen = "detail"
+                                        seasonDetailData = null
+                                    },
+                                    onEpisodeClick = { episodeId ->
+                                        episodeDetailId = episodeId
+                                        currentScreen = "episode"
+                                    }
+                                )
+                            }
+                        }
+                        "episode" -> {
+                            episodeDetailId?.let { episodeId ->
+                                EpisodeDetailScreen(
+                                    episodeId = episodeId,
+                                    onBackPressed = {
+                                        currentScreen = "season"
+                                        episodeDetailId = null
+                                    },
+                                    onPlayClick = {
+                                        playbackItemId = episodeId
+                                        showPlayer = true
+                                    }
+                                )
+                            }
+                        }
                     }
-                )
+                }
             }
         }
         else -> {
@@ -196,12 +270,14 @@ fun DetailScreenContainer(
 fun DetailScreen(
     item: BaseItemDto,
     onBackPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {}
+    onPlayClick: () -> Unit = {},
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
         item = item,
         onBackPressed = onBackPressed,
-        onPlayClick = onPlayClick
+        onPlayClick = onPlayClick,
+        onSeasonClick = onSeasonClick
     )
 }
 
@@ -209,7 +285,8 @@ fun DetailScreen(
 fun DetailContent(
     item: BaseItemDto,
     onBackPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {}
+    onPlayClick: () -> Unit = {},
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -263,7 +340,6 @@ fun DetailContent(
                     contentScale = ContentScale.Crop
                 )
 
-
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -278,7 +354,6 @@ fun DetailContent(
                             )
                         )
                 )
-
 
                 Row(
                     modifier = Modifier
@@ -354,7 +429,6 @@ fun DetailContent(
                         )
                     }
 
-
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -366,7 +440,6 @@ fun DetailContent(
                             color = Color.White,
                             lineHeight = 32.sp
                         )
-
 
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -414,7 +487,6 @@ fun DetailContent(
                             }
                         }
 
-
                         item.communityRating?.let { rating ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -436,11 +508,8 @@ fun DetailContent(
                                 )
                             }
                         }
-
-
                     }
                 }
-
 
                 item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
                     LazyRow(
@@ -468,625 +537,59 @@ fun DetailContent(
                     }
                 }
 
-                // Codecs Info section
-                Text(
-                    text = "Codecs Info",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
-                )
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
-                ) {
-
-                    CodecUtils.getResolutionInfo(item)?.let { resolution ->
-                        item {
-                            Surface(
-                                color = Color(0xFF1A1A1A),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.HighQuality,
-                                        contentDescription = "Video Quality",
-                                        tint = Color(0xFF00C853),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = when {
-                                            resolution.contains("3840") -> "4K"
-                                            resolution.contains("1920") -> "HD"
-                                            resolution.contains("1280") -> "720p"
-                                            else -> resolution
-                                        },
-                                        fontSize = 14.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Video Codec
-                    CodecUtils.getVideoCodecInfo(item)?.let { codec ->
-                        item {
-                            Surface(
-                                color = Color(0xFF1A1A1A),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.VideoLibrary,
-                                        contentDescription = "Video Codec",
-                                        tint = Color(0xFFE91E63),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = codec,
-                                        fontSize = 14.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.let { audioStream ->
-                        val audioDisplayInfo = CodecUtils.getAudioDisplayInfo(audioStream)
-                        val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
-                            audioStream.codec?.uppercase() ?: "",
-                            audioStream.channels ?: 0,
-                            audioStream.channelLayout,
-                            audioStream.title,
-                            audioStream.profile
-                        )
-
-                        if (audioDisplayInfo.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    color = Color(0xFF1A1A1A),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                    ) {
-                                        // Spatial audio indicator or Dolby symbol or audio icon
-                                        when {
-                                            spatialInfo.contains("Dolby Atmos") -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_dolby_atmos),
-                                                    contentDescription = "Dolby Atmos",
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.size(22.dp)
-                                                )
-                                            }
-                                            spatialInfo.contains("DTS:X") -> {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.SurroundSound,
-                                                    contentDescription = "DTS:X",
-                                                    tint = Color(0xFFFF5722),
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                            spatialInfo.isNotEmpty() -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_spatial_audio),
-                                                    contentDescription = "Spatial Audio",
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                            CodecCapabilityManager.isDolbyAudio(audioStream) -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_dolby_logo),
-                                                    contentDescription = "Dolby Audio",
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                            }
-                                            else -> {
-                                                Icon(
-                                                    imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
-                                                    contentDescription = "Audio",
-                                                    tint = Color(0xFF2196F3),
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-
-                                        Text(
-                                            text = audioDisplayInfo,
-                                            fontSize = 14.sp,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Audio Channels
-                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.channels?.let { channels ->
-                        item {
-                            Surface(
-                                color = Color(0xFF1A1A1A),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.SurroundSound,
-                                        contentDescription = "Audio Channels",
-                                        tint = Color(0xFF9C27B0),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = when (channels) {
-                                            1 -> "Mono"
-                                            2 -> "Stereo"
-                                            6 -> "5.1"
-                                            8 -> "7.1"
-                                            else -> "${channels}ch"
-                                        },
-                                        fontSize = 14.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // HDR Support
-                    item.mediaStreams?.firstOrNull { it.type == "Video" }?.let { videoStream ->
-                        val hdrInfo = CodecCapabilityManager.detectHDRFormat(videoStream)
-                        if (hdrInfo.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    color = Color(0xFF1A1A1A),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        when {
-                                            hdrInfo.contains("Dolby Vision") -> {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_dolby_logo),
-                                                    contentDescription = hdrInfo,
-                                                    tint = Color.Unspecified,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                            else -> {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.HighQuality,
-                                                    contentDescription = hdrInfo,
-                                                    tint = when {
-                                                        hdrInfo.contains("HDR10+") -> Color(0xFF00BCD4)
-                                                        else -> Color(0xFFFFEB3B)
-                                                    },
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            text = hdrInfo,
-                                            fontSize = 14.sp,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Device Audio Capability Info
-                    if (deviceCapabilities.connectedAudioDevice != "Unknown") {
-                        item {
-                            Surface(
-                                color = Color(0xFF1A1A1A),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = when (deviceCapabilities.connectedAudioDevice) {
-                                            "HDMI" -> Icons.Rounded.Tv
-                                            "Bluetooth" -> Icons.Rounded.Bluetooth
-                                            "USB Headset" -> Icons.Rounded.Headphones
-                                            "Wired Headphones", "Wired Headset" -> Icons.Rounded.Headphones
-                                            else -> Icons.Rounded.Speaker
-                                        },
-                                        contentDescription = "Audio Device",
-                                        tint = if (deviceCapabilities.canProcessSpatialAudio) Color(0xFF4CAF50) else Color(0xFF757575),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-
-                                    Column {
-                                        Text(
-                                            text = deviceCapabilities.connectedAudioDevice,
-                                            fontSize = 14.sp,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        if (deviceCapabilities.canProcessSpatialAudio) {
-                                            Text(
-                                                text = "Spatial Audio Ready",
-                                                fontSize = 11.sp,
-                                                color = Color(0xFF4CAF50),
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Spatial Audio Badge
-                    item.mediaStreams?.firstOrNull { it.type == "Audio" }?.let { audioStream ->
-                        val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
-                            audioStream.codec?.uppercase() ?: "",
-                            audioStream.channels ?: 0,
-                            audioStream.channelLayout,
-                            audioStream.title,
-                            audioStream.profile
-                        )
-
-                        if (spatialInfo.isNotEmpty()) {
-                            item {
-                                Surface(
-                                    color = Color(0xFF1A1A1A),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.ic_spatial_audio),
-                                            contentDescription = "Spatial Audio",
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-
-                                        Text(
-                                            text = "Spatial Audio",
-                                            fontSize = 14.sp,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Subtitles
-                    item.mediaStreams?.any { it.type == "Subtitle" }?.let { hasSubtitles ->
-                        if (hasSubtitles) {
-                            item {
-                                Surface(
-                                    color = Color(0xFF1A1A1A),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Subtitles,
-                                            contentDescription = "Subtitles",
-                                            tint = Color(0xFFFF9800),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Text(
-                                            text = "CC",
-                                            fontSize = 14.sp,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Action Buttons
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp)
-                ) {
-                        // Play Button - Primary Action
-                        Button(
-                            onClick = onPlayClick,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF0080FF)
-                            ),
-                            shape = RoundedCornerShape(16.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "Play",
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Play",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        // Download Button
-                        OutlinedButton(
-                            onClick = { /* TODO: Download */ },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.White,
-                                containerColor = Color.Transparent
-                            ),
-                            border = BorderStroke(2.dp, Color.White.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Download,
-                                contentDescription = "Download",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Download",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                }
-
-                // Overview Section
-                item.overview?.let { overview ->
+                // Codec Information Section
+                item.mediaStreams?.let { streams ->
                     Text(
-                        text = "Overview",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "Codecs Info",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White,
                         modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
                     )
+                    CodecInfoSection(mediaStreams = streams)
+                }
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1A1A1A)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp)
-                        ) {
-                            Text(
-                                text = overview,
-                                fontSize = 15.sp,
-                                color = Color.White.copy(alpha = 0.9f),
-                                lineHeight = 22.sp,
-                                maxLines = if (showFullOverview) Int.MAX_VALUE else 4,
-                                overflow = if (showFullOverview) TextOverflow.Visible else TextOverflow.Ellipsis
-                            )
+                // Action Buttons
+                if (item.type != "Series") {
+                    ActionButtonsSection(
+                        onPlayClick = onPlayClick,
+                        onDownloadClick = { /* TODO: Download */ }
+                    )
+                }
 
-                            if (overview.length > 200) {
-                                TextButton(
-                                    onClick = { showFullOverview = !showFullOverview },
-                                    modifier = Modifier.padding(top = 8.dp),
-                                    colors = ButtonDefaults.textButtonColors(
-                                        contentColor = Color(0xFF0080FF)
-                                    )
-                                ) {
-                                    Text(
-                                        text = if (showFullOverview) "Show Less" else "Read More",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-                    }
+                // Overview Section (after action buttons)
+                item.overview?.let { overview ->
+                    OverviewSection(overview = overview)
                 }
 
                 // Technical Information Section
-                Text(
-                    text = "Technical Information",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
-                )
+                if (item.type != "Series") {
+                    TechnicalInfoSection(item = item)
+                }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF1A1A1A)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        item.mediaSources?.firstOrNull()?.size?.let { size ->
-                            CodecUtils.getFileSize(size)?.let { formattedSize ->
-                                ModernFileInfoRow(
-                                    label = "File Size",
-                                    value = formattedSize,
-                                    icon = Icons.Rounded.Storage
-                                )
-                            }
-                        }
-
-                        item.mediaStreams?.firstOrNull { it.type == "Video" }?.let { videoStream ->
-                            val resolution = CodecUtils.getResolutionInfo(item)
-                            val codec = CodecUtils.getVideoCodecInfo(item)
-                            val videoInfo = buildString {
-                                if (!resolution.isNullOrEmpty()) append(resolution)
-                                if (!codec.isNullOrEmpty()) {
-                                    if (isNotEmpty()) append(" • ")
-                                    append(codec)
-                                }
-                                val hdrInfo = CodecCapabilityManager.detectHDRFormat(videoStream)
-                                if (hdrInfo.isNotEmpty()) {
-                                    if (isNotEmpty()) append(" • ")
-                                    append(hdrInfo)
-                                }
-                            }
-
-                            if (videoInfo.isNotEmpty()) {
-                                ModernFileInfoRow(
-                                    label = "Video Quality",
-                                    value = videoInfo,
-                                    icon = Icons.Rounded.VideoFile
-                                )
-                            }
-                        }
-
-                        val audioStreams = item.mediaStreams?.filter { it.type == "Audio" } ?: emptyList()
-                        if (audioStreams.isNotEmpty()) {
-                            val primaryTrack = audioStreams.find { it.isDefault == true } ?: audioStreams.first()
-                            val spatialInfo = CodecCapabilityManager.detectSpatialAudio(
-                                primaryTrack.codec?.uppercase() ?: "",
-                                primaryTrack.channels ?: 0,
-                                primaryTrack.channelLayout,
-                                primaryTrack.title,
-                                primaryTrack.profile
-                            )
-
-                            val audioInfo = if (audioStreams.size == 1) {
-                                CodecUtils.getEnhancedAudioInfo(audioStreams.first())
-                            } else {
-                                val primaryInfo = CodecUtils.getEnhancedAudioInfo(primaryTrack)
-                                if (audioStreams.size > 1) {
-                                    "$primaryInfo + ${audioStreams.size - 1} more"
-                                } else {
-                                    primaryInfo
-                                }
-                            }
-
-                            if (audioInfo.isNotEmpty()) {
-                                ModernFileInfoRow(
-                                    label = if (spatialInfo.isNotEmpty()) "Audio (Spatial)" else "Audio",
-                                    value = audioInfo,
-                                    icon = if (spatialInfo.isNotEmpty()) Icons.Rounded.SurroundSound else Icons.Rounded.AudioFile
-                                )
-                            }
-
-                            // Add dedicated spatial audio info if detected
-                            if (spatialInfo.isNotEmpty()) {
-                                ModernFileInfoRow(
-                                    label = "Spatial Audio",
-                                    value = spatialInfo,
-                                    icon = Icons.Rounded.SurroundSound
-                                )
-                            }
-                        }
-
-                        val subtitleStreams = item.mediaStreams?.filter { it.type == "Subtitle" }
-                        if (!subtitleStreams.isNullOrEmpty()) {
-                            val subtitleInfo = when {
-                                subtitleStreams.size == 1 -> {
-                                    val stream = subtitleStreams.first()
-                                    val language = stream.language ?: stream.displayTitle ?: "Unknown"
-                                    val codec = CodecUtils.getSubtitleCodecName(stream.codec)
-                                    "${language.uppercase()} • $codec"
-                                }
-                                subtitleStreams.size <= 3 -> {
-                                    subtitleStreams.joinToString(", ") { stream ->
-                                        val language = stream.language ?: stream.displayTitle ?: "Unknown"
-                                        language.uppercase()
-                                    }
-                                }
-                                else -> {
-                                    val languages = subtitleStreams.take(3).map { stream ->
-                                        (stream.language ?: stream.displayTitle ?: "Unknown").uppercase()
-                                    }.distinct()
-                                    "${languages.joinToString(", ")} + ${subtitleStreams.size - 3} more"
-                                }
-                            }
-
-                            ModernFileInfoRow(
-                                label = "Subtitles",
-                                value = subtitleInfo,
-                                icon = Icons.Rounded.Subtitles
-                            )
-                        }
+                // Seasons Section for TV Series
+                if (item.type == "Series") {
+                    item.id?.let { seriesId ->
+                        SeasonsSection(
+                            seriesId = seriesId,
+                            mediaRepository = mediaRepository,
+                            onSeasonClick = onSeasonClick
+                        )
                     }
                 }
 
                 // Cast Section
-                val actors = item.people?.filter { it.type == "Actor" }?.take(8) ?: emptyList()
-                if (actors.isNotEmpty()) {
-                    Text(
-                        text = "Cast",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)
-                    )
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(horizontal = 0.dp)
-                    ) {
-                        items(actors) { person ->
-                            CastMemberCard(
-                                person = person,
-                                mediaRepository = mediaRepository
-                            )
-                        }
-                    }
-                }
+                CastSection(
+                    item = item,
+                    mediaRepository = mediaRepository
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CastMemberCard(
+fun CastMemberCard(
     person: BaseItemPerson,
     mediaRepository: MediaRepository
 ) {
@@ -1167,58 +670,6 @@ private fun CastMemberCard(
 }
 
 @Composable
-private fun ModernFileInfoRow(
-    label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.weight(1f)
-        ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color = Color(0xFF2A2A2A)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        tint = Color(0xFF0080FF),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Column {
-                Text(
-                    text = label,
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = value,
-                    fontSize = 16.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun FileInfoRow(
     label: String,
     value: String,
@@ -1256,6 +707,85 @@ private fun FileInfoRow(
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
+    }
+}
+
+@Composable
+private fun SeasonsSection(
+    seriesId: String,
+    mediaRepository: MediaRepository,
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+) {
+    var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var isLoadingSeasons by remember { mutableStateOf(true) }
+
+    // Load seasons
+    LaunchedEffect(seriesId) {
+        isLoadingSeasons = true
+        try {
+            val result = mediaRepository.getSeasons(seriesId)
+            result.fold(
+                onSuccess = { seasonList ->
+                    seasons = seasonList.sortedBy { it.indexNumber ?: 0 }
+                    isLoadingSeasons = false
+                },
+                onFailure = {
+                    isLoadingSeasons = false
+                }
+            )
+        } catch (e: Exception) {
+            isLoadingSeasons = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Seasons Section
+        Text(
+            text = "Seasons",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        when {
+            isLoadingSeasons -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(3) {
+                        SeasonCardSkeleton()
+                    }
+                }
+            }
+            seasons.isNotEmpty() -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(seasons) { season ->
+                        SeasonCard(
+                            season = season,
+                            mediaRepository = mediaRepository,
+                            onClick = {
+                                season.id?.let { seasonId ->
+                                    onSeasonClick(seriesId, seasonId, season.name)
+                                }
+                            },
+                            onPreviewClick = {
+                                // TODO: Implement season preview functionality
+                                season.id?.let { seasonId ->
+                                    onSeasonClick(seriesId, seasonId, season.name)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

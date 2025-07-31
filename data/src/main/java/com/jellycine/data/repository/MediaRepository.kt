@@ -307,6 +307,58 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    suspend fun getSeasons(seriesId: String): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getSeasons(
+                seriesId = seriesId,
+                userId = userId,
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to fetch seasons: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEpisodes(
+        seriesId: String,
+        seasonId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getEpisodes(
+                seriesId = seriesId,
+                userId = userId,
+                seasonId = seasonId,
+                fields = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
+                limit = limit,
+                startIndex = startIndex
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to fetch episodes: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getCurrentUser(): Result<UserDto> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
