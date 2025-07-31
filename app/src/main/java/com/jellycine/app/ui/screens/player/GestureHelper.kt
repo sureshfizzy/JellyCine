@@ -9,6 +9,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.media3.common.util.UnstableApi
 import kotlin.math.abs
 
 import com.jellycine.player.PlayerConstants.GESTURE_EXCLUSION_AREA_HORIZONTAL
@@ -20,6 +21,7 @@ import com.jellycine.player.PlayerConstants.ZOOM_SCALE_BASE
 import com.jellycine.player.PlayerConstants.ZOOM_SCALE_THRESHOLD
 import com.jellycine.player.PlayerPreferences
 
+@UnstableApi
 class GestureHelper(
     private val context: Context,
     private val playerView: PlayerView,

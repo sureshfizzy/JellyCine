@@ -29,11 +29,11 @@ enum class SeekSide {
 
 @Composable
 fun GestureIndicators(
+    modifier: Modifier = Modifier,
     volumeLevel: Float? = null,
     brightnessLevel: Float? = null,
     seekPosition: String? = null,
-    seekSide: SeekSide = SeekSide.CENTER,
-    modifier: Modifier = Modifier
+    seekSide: SeekSide = SeekSide.CENTER
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         // Volume indicator (right side)

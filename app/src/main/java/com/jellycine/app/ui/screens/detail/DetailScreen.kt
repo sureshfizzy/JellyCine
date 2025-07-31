@@ -59,6 +59,8 @@ import com.jellycine.app.ui.components.common.CodecInfoSection
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
+import java.util.Locale
+import androidx.media3.common.util.UnstableApi
 
 @Composable
 fun LoadingAnimation(
@@ -111,6 +113,7 @@ fun LoadingAnimation(
     }
 }
 
+@UnstableApi
 @Composable
 fun DetailScreenContainer(
     itemId: String,
@@ -500,7 +503,7 @@ fun DetailContent(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = String.format("%.1f", rating),
+                                    text = String.format(Locale.US, "%.1f", rating),
                                     fontSize = 16.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold,

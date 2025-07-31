@@ -23,7 +23,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.media3.common.util.UnstableApi
 
+@UnstableApi
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun VideoSurface(
@@ -80,7 +82,6 @@ fun VideoSurface(
                     )
 
                     // Smooth video rendering
-                    setUseArtwork(false)
                     setDefaultArtwork(null)
 
                     // Set up  gesture handling

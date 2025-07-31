@@ -81,7 +81,13 @@ class LogManager(private val context: Context) {
         try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             writer.appendLine("App Version: ${packageInfo.versionName}")
-            writer.appendLine("Version Code: ${packageInfo.longVersionCode}")
+            val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.versionCode.toLong()
+            }
+            writer.appendLine("Version Code: $versionCode")
             writer.appendLine("Package Name: ${packageInfo.packageName}")
             writer.appendLine("Target SDK: ${packageInfo.applicationInfo?.targetSdkVersion ?: "Unknown"}")
         } catch (e: PackageManager.NameNotFoundException) {
@@ -315,24 +321,15 @@ class LogManager(private val context: Context) {
             
             // Network state
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                val activeNetwork = connectivityManager.activeNetwork
-                val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-                writer.appendLine("Network Available: ${activeNetwork != null && networkCapabilities != null}")
-                writer.appendLine("Network Type: ${when {
-                    networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true -> "WiFi"
-                    networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Cellular"
-                    networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
-                    else -> "Unknown"
-                }}")
-            } else {
-                @Suppress("DEPRECATION")
-                val activeNetwork = connectivityManager.activeNetworkInfo
-                @Suppress("DEPRECATION")
-                writer.appendLine("Network Available: ${activeNetwork?.isConnected ?: false}")
-                @Suppress("DEPRECATION")
-                writer.appendLine("Network Type: ${activeNetwork?.typeName ?: "Unknown"}")
-            }
+            val activeNetwork = connectivityManager.activeNetwork
+            val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            writer.appendLine("Network Available: ${activeNetwork != null && networkCapabilities != null}")
+            writer.appendLine("Network Type: ${when {
+                networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true -> "WiFi"
+                networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Cellular"
+                networkCapabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
+                else -> "Unknown"
+            }}")
             
         } catch (e: Exception) {
             writer.appendLine("Failed to check network info: ${e.message}")

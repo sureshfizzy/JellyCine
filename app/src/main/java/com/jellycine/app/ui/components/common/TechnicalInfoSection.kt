@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
+import com.jellycine.detail.CodecUtils
 
 @Composable
 fun TechnicalInfoSection(

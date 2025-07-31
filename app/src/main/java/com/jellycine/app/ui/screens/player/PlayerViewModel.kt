@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ import com.jellycine.player.PlayerUtils
 /**
  * Player ViewModel
  */
+@UnstableApi
 @HiltViewModel
 class PlayerViewModel @Inject constructor() : ViewModel() {
 

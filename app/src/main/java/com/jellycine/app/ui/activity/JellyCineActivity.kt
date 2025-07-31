@@ -11,7 +11,9 @@ import androidx.compose.ui.Modifier
 import com.jellycine.app.ui.theme.JellyCineTheme
 import com.jellycine.app.ui.navigation.AppNavigation
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.media3.common.util.UnstableApi
 
+@UnstableApi
 @AndroidEntryPoint
 class JellyCineActivity : ComponentActivity() {
 

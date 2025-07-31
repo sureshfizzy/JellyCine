@@ -30,8 +30,8 @@ import kotlinx.coroutines.flow.first
 fun EpisodeCard(
     episode: BaseItemDto,
     mediaRepository: MediaRepository,
-    onClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }

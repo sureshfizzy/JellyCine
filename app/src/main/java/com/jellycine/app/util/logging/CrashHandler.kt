@@ -8,9 +8,11 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.*
+import java.lang.ref.WeakReference
 
-class CrashHandler private constructor(private val context: Context) : Thread.UncaughtExceptionHandler {
-    
+class CrashHandler private constructor(context: Context) : Thread.UncaughtExceptionHandler {
+
+    private val contextRef = WeakReference(context.applicationContext)
     private val defaultHandler: Thread.UncaughtExceptionHandler? = Thread.getDefaultUncaughtExceptionHandler()
     
     companion object {
@@ -46,6 +48,7 @@ class CrashHandler private constructor(private val context: Context) : Thread.Un
     
     private fun saveCrashToFile(thread: Thread, exception: Throwable) {
         try {
+            val context = contextRef.get() ?: return
             val crashDir = File(context.filesDir, CRASH_DIR)
             if (!crashDir.exists()) {
                 crashDir.mkdirs()

@@ -16,9 +16,9 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun ActionButtonsSection(
+    modifier: Modifier = Modifier,
     onPlayClick: () -> Unit = {},
-    onDownloadClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onDownloadClick: () -> Unit = {}
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),

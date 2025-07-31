@@ -25,7 +25,9 @@ import com.jellycine.auth.AuthStateManager
 import java.net.URLEncoder
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import androidx.media3.common.util.UnstableApi
 
+@UnstableApi
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()

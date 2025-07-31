@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.player.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
@@ -55,6 +56,7 @@ data class PlayerUiState(
 /**
  * Player Screen with proper immersive mode and gestures
  */
+@UnstableApi
 @Composable
 fun PlayerScreen(
     mediaId: String,
