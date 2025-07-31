@@ -3,8 +3,8 @@ package com.jellycine.app
 import android.app.Application
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import com.jellycine.app.util.CrashHandler
-import com.jellycine.app.util.ImageLoaderConfig
+import com.jellycine.app.util.logging.CrashHandler
+import com.jellycine.app.util.image.ImageLoaderConfig
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp

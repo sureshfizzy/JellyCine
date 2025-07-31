@@ -36,8 +36,22 @@ dependencies {
     // Core Android
     implementation 'androidx.core:core-ktx:1.13.1'
 
+    // Lifecycle & ViewModel
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2'
+
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+
+    // Media3 for player
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-common:1.4.1'
+
+    // Hilt for dependency injection
+    implementation 'com.google.dagger:hilt-android:2.52'
+
+    // Data module dependency
+    implementation project(':data')
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
