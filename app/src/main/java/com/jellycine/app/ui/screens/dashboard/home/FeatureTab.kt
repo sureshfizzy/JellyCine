@@ -226,26 +226,13 @@ fun FeatureTab(
                 color = Color.White
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Search icon
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = "Search",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-
-                // User profile avatar
-                UserProfileAvatar(
-                    imageUrl = userProfileImageUrl,
-                    userName = storedUsername,
-                    onClick = onLogout,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            // User profile avatar
+            UserProfileAvatar(
+                imageUrl = userProfileImageUrl,
+                userName = storedUsername,
+                onClick = onLogout,
+                modifier = Modifier.size(32.dp)
+            )
         }
 
         // Category pills
