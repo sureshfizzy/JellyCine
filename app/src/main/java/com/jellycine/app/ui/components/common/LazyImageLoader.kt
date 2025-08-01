@@ -25,13 +25,14 @@ fun LazyImageLoader(
     cornerRadius: Int = 8,
     showShimmer: Boolean = true
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var hasError by remember { mutableStateOf(false) }
-    
+    var isLoading by remember(imageUrl) { mutableStateOf(true) }
+    var hasError by remember(imageUrl) { mutableStateOf(false) }
+    var isSuccess by remember(imageUrl) { mutableStateOf(false) }
+
     val context = LocalContext.current
-    
+
     Box(modifier = modifier) {
-        if (imageUrl != null) {
+        if (imageUrl != null && !hasError) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(imageUrl)
@@ -46,17 +47,34 @@ fun LazyImageLoader(
                     .clip(RoundedCornerShape(cornerRadius.dp)),
                 contentScale = contentScale,
                 onState = { state ->
-                    isLoading = state is AsyncImagePainter.State.Loading
-                    hasError = state is AsyncImagePainter.State.Error
+                    when (state) {
+                        is AsyncImagePainter.State.Loading -> {
+                            isLoading = true
+                            hasError = false
+                            isSuccess = false
+                        }
+                        is AsyncImagePainter.State.Success -> {
+                            isLoading = false
+                            hasError = false
+                            isSuccess = true
+                        }
+                        is AsyncImagePainter.State.Error -> {
+                            isLoading = false
+                            hasError = true
+                            isSuccess = false
+                        }
+                        else -> {
+                            isLoading = true
+                            hasError = false
+                            isSuccess = false
+                        }
+                    }
                 }
             )
-        } else {
-            hasError = true
-            isLoading = false
         }
-        
-        // Show shimmer while loading
-        if (isLoading && showShimmer) {
+
+        // Show shimmer while loading (only if not successful)
+        if (isLoading && showShimmer && !isSuccess) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -64,9 +82,9 @@ fun LazyImageLoader(
                     .shimmer()
             )
         }
-        
-        // Show placeholder on error
-        if (hasError) {
+
+        // Show placeholder on error or null URL
+        if (hasError || imageUrl == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

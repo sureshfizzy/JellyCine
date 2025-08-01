@@ -40,6 +40,7 @@ fun SeasonCard(
 ) {
     val context = LocalContext.current
     var seasonImageUrl by remember(season.id) { mutableStateOf<String?>(null) }
+    var imageLoadingFailed by remember(season.id) { mutableStateOf(false) }
     var isHovered by remember { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
 
@@ -90,15 +91,19 @@ fun SeasonCard(
                         .height(210.dp)
                         .clip(RoundedCornerShape(12.dp))
                 ) {
-                    seasonImageUrl?.let { imageUrl ->
+                    if (seasonImageUrl != null && !imageLoadingFailed) {
                         JellyfinPosterImage(
                             context = context,
-                            imageUrl = imageUrl,
+                            imageUrl = seasonImageUrl!!,
                             contentDescription = season.name,
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Crop,
+                            onErrorStateChange = { hasError ->
+                                imageLoadingFailed = hasError
+                            }
                         )
-                    } ?: run {
+                    } else {
+                        // Show fallback when URL is null or loading failed
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()

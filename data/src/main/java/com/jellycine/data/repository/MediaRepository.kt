@@ -152,8 +152,10 @@ class MediaRepository(private val context: Context) {
     ): Flow<String?> {
         return dataStore.data.map { preferences ->
             val serverUrl = preferences[SERVER_URL_KEY]
+            val accessToken = preferences[ACCESS_TOKEN_KEY]
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val params = mutableListOf<String>()
+                accessToken?.let { params.add("api_key=$it") }
                 width?.let { params.add("width=$it") }
                 height?.let { params.add("height=$it") }
                 quality?.let { params.add("quality=$it") }
@@ -174,8 +176,10 @@ class MediaRepository(private val context: Context) {
     ): Flow<String?> {
         return dataStore.data.map { preferences ->
             val serverUrl = preferences[SERVER_URL_KEY]
+            val accessToken = preferences[ACCESS_TOKEN_KEY]
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val params = mutableListOf<String>()
+                accessToken?.let { params.add("api_key=$it") }
                 width?.let { params.add("width=$it") }
                 height?.let { params.add("height=$it") }
                 quality?.let { params.add("quality=$it") }
@@ -380,9 +384,11 @@ class MediaRepository(private val context: Context) {
         val preferences = dataStore.data.first()
         val serverUrl = preferences[SERVER_URL_KEY]
         val userId = preferences[USER_ID_KEY]
+        val accessToken = preferences[ACCESS_TOKEN_KEY]
 
         return if (serverUrl != null && userId != null) {
-            "${serverUrl.trimEnd('/')}/Users/$userId/Images/Primary"
+            val apiKeyParam = if (accessToken != null) "?api_key=$accessToken" else ""
+            "${serverUrl.trimEnd('/')}/Users/$userId/Images/Primary$apiKeyParam"
         } else {
             null
         }

@@ -35,6 +35,7 @@ fun EpisodeCard(
 ) {
     val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
+    var imageLoadingFailed by remember(episode.id) { mutableStateOf(false) }
 
     LaunchedEffect(episode.id) {
         episode.id?.let { episodeId ->
@@ -79,15 +80,18 @@ fun EpisodeCard(
                     .height(68.dp)
                     .clip(RoundedCornerShape(8.dp))
             ) {
-                episodeImageUrl?.let { imageUrl ->
+                if (episodeImageUrl != null && !imageLoadingFailed) {
                     JellyfinPosterImage(
                         context = context,
-                        imageUrl = imageUrl,
+                        imageUrl = episodeImageUrl!!,
                         contentDescription = episode.name,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        onErrorStateChange = { hasError ->
+                            imageLoadingFailed = hasError
+                        }
                     )
-                } ?: run {
+                } else {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

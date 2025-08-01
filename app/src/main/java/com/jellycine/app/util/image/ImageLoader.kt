@@ -69,17 +69,30 @@ fun JellyfinPosterImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     context: Context,
-    onLoadingStateChange: (Boolean) -> Unit = {}
+    onLoadingStateChange: (Boolean) -> Unit = {},
+    onErrorStateChange: (Boolean) -> Unit = {}
 ) {
     var imageState by remember(imageUrl) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
 
-    // Notify parent about loading state changes
+    // Notify parent about loading and error state changes
     LaunchedEffect(imageState) {
         when (imageState) {
-            is AsyncImagePainter.State.Loading -> onLoadingStateChange(true)
-            is AsyncImagePainter.State.Success -> onLoadingStateChange(false)
-            is AsyncImagePainter.State.Error -> onLoadingStateChange(false)
-            else -> onLoadingStateChange(true)
+            is AsyncImagePainter.State.Loading -> {
+                onLoadingStateChange(true)
+                onErrorStateChange(false)
+            }
+            is AsyncImagePainter.State.Success -> {
+                onLoadingStateChange(false)
+                onErrorStateChange(false)
+            }
+            is AsyncImagePainter.State.Error -> {
+                onLoadingStateChange(false)
+                onErrorStateChange(true)
+            }
+            else -> {
+                onLoadingStateChange(true)
+                onErrorStateChange(false)
+            }
         }
     }
 
