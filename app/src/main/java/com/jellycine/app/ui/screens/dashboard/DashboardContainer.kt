@@ -8,13 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -37,7 +37,6 @@ import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
-import com.jellycine.app.ui.theme.JellyBlue
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,11 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.draw.scale
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.TransformOrigin
 
 sealed class DashboardDestination(
     val route: String,
@@ -62,31 +56,31 @@ sealed class DashboardDestination(
     object Home : DashboardDestination(
         "dashboard_home",
         "Home",
-        Icons.Rounded.Home,
+        Icons.Filled.Home,
         Icons.Outlined.Home
     )
     object MyMedia : DashboardDestination(
         "my_media",
         "My Media",
-        Icons.Rounded.PlayArrow,
+        Icons.Filled.PlayArrow,
         Icons.Outlined.PlayArrow
     )
     object Search : DashboardDestination(
         "search",
         "Search",
-        Icons.Rounded.Search,
+        Icons.Filled.Search,
         Icons.Outlined.Search
     )
     object Favorites : DashboardDestination(
         "favorites",
         "Favorites",
-        Icons.Rounded.Favorite,
+        Icons.Filled.Favorite,
         Icons.Outlined.FavoriteBorder
     )
     object Settings : DashboardDestination(
         "settings",
         "Settings",
-        Icons.Rounded.Settings,
+        Icons.Filled.Settings,
         Icons.Outlined.Settings
     )
 }
@@ -154,19 +148,20 @@ fun DashboardContainer(
                 }
             }
 
-            // Curved Bottom Navigation
+            // Curved Bottom Navigation with Glass Effect
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
             ) {
-                // Curved navigation bar background
+                // AMOLED black background layer
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp)
+                        .background(Color.Black)
                         .drawBehind {
-                            drawCurvedNavigationBar(
+                            drawCurvedNavigationBarGlass(
                                 width = size.width,
                                 height = size.height
                             )
@@ -182,10 +177,11 @@ fun DashboardContainer(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                    // Left side items
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         sideDestinations.take(2).forEach { destination ->
                             val isSelected = currentRoute == destination.route
                             NavigationItem(
@@ -205,10 +201,12 @@ fun DashboardContainer(
                             )
                         }
                     }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+
+                    // Right side items
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         sideDestinations.drop(2).forEach { destination ->
                             val isSelected = currentRoute == destination.route
                             NavigationItem(
@@ -230,6 +228,7 @@ fun DashboardContainer(
                     }
                 }
 
+                // Center search button positioned in the curve
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,13 +256,14 @@ fun DashboardContainer(
     }
 }
 
-// Function to draw the curved navigation bar
-private fun DrawScope.drawCurvedNavigationBar(
+// Function to draw the curved navigation bar with glass effect
+private fun DrawScope.drawCurvedNavigationBarGlass(
     width: Float,
     height: Float
 ) {
     val centerWidth = width / 2f
 
+    // Use dimensions that are proportional to the FAB size for a good fit
     val fabRadius = 28.dp.toPx()
     val curveDepth = fabRadius + (fabRadius / 3f)
     val curveWidth = (fabRadius * 2) + (fabRadius * 1.5f)
@@ -271,6 +271,7 @@ private fun DrawScope.drawCurvedNavigationBar(
     val curveStartX = centerWidth - (curveWidth / 2)
     val curveEndX = centerWidth + (curveWidth / 2)
 
+    // Control points for a wide, smooth curve
     val controlPoint1X = curveStartX + curveWidth * 0.15f
     val controlPoint2X = centerWidth - curveWidth * 0.30f
     
@@ -299,9 +300,24 @@ private fun DrawScope.drawCurvedNavigationBar(
         close()
     }
 
+    // Glass morphism effect with multiple layers
+    // Base glass layer with blur effect
     drawPath(
         path = backgroundPath,
-        color = Color.Black
+        color = Color.White.copy(alpha = 0.05f)
+    )
+
+    // Secondary layer for depth
+    drawPath(
+        path = backgroundPath,
+        color = Color.Black.copy(alpha = 0.4f)
+    )
+
+    // Subtle border for glass effect
+    drawPath(
+        path = backgroundPath,
+        color = Color.White.copy(alpha = 0.1f),
+        style = Stroke(width = 1.dp.toPx())
     )
 }
 
@@ -319,7 +335,7 @@ private fun FloatingSearchButton(
                 clip = false
             )
             .background(
-                color = if (isSelected) JellyBlue.copy(alpha = 0.9f) else JellyBlue,
+                color = Color.White,
                 shape = CircleShape
             )
             .clickable { onClick() },
@@ -328,7 +344,7 @@ private fun FloatingSearchButton(
         Icon(
             imageVector = if (isSelected) Icons.Filled.Search else Icons.Outlined.Search,
             contentDescription = "Search",
-            tint = Color.White,
+            tint = Color.Black,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -344,26 +360,15 @@ private fun NavigationItem(
 
     // Animations for selection state
     val color by animateColorAsState(
-        targetValue = if (isSelected) JellyBlue else Color.White.copy(alpha = 0.7f),
+        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
         animationSpec = tween(durationMillis = 300)
     )
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.2f else 1f,
-        animationSpec = spring(
-            dampingRatio = 0.5f,
-            stiffness = 300f
-        )
-    )
-
-    val offsetY by animateDpAsState(
-        targetValue = if (isSelected) (-6).dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = 0.5f,
-            stiffness = 300f
-        )
+    val iconSize by animateDpAsState(
+        targetValue = if (isSelected) 24.dp else 22.dp,
+        animationSpec = tween(durationMillis = 300)
     )
     val textAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
+        targetValue = if (isSelected) 1f else 0f, // 2. Only show text when selected
         animationSpec = tween(300)
     )
 
@@ -386,24 +391,19 @@ private fun NavigationItem(
             imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
             contentDescription = destination.title,
             tint = color,
-            modifier = Modifier
-                .size(24.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                    translationY = offsetY.toPx()
-                    transformOrigin = TransformOrigin(0.5f, 1f)
-                }
+            modifier = Modifier.size(iconSize)
         )
 
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = destination.title,
-            color = color,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.alpha(textAlpha)
-        )
+        if (isSelected) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = destination.title,
+                color = color,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.alpha(textAlpha)
+            )
+        }
     }
 }
 
@@ -412,3 +412,4 @@ private fun NavigationItem(
 fun DashboardContainerPreview() {
     DashboardContainer()
 }
+
