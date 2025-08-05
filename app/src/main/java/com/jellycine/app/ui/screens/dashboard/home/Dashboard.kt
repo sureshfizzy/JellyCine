@@ -8,8 +8,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
@@ -49,6 +51,14 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Immutable
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.ui.draw.drawWithCache
+
+// Stable data class to prevent unnecessary recompositions
+@Stable
+@Immutable
+private data class StableLibraryState(
+    val libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    val isLoading: Boolean
+)
 
 
 // Sample movie data for demonstration
@@ -108,35 +118,25 @@ data class StableBaseItem(
 @Composable
 fun Dashboard(
     onLogout: () -> Unit = {},
-    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    isTabActive: Boolean = true
 ) {
     var selectedCategory by remember { mutableStateOf("Home") }
 
-    var continueWatchingItems by remember {
-        mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(
-            if (!DashboardCache.shouldRefreshContinueWatching()) {
-                DashboardCache.continueWatchingItems
-            } else {
-                emptyList()
-            }
-        )
-    }
-    var continueWatchingLoading by remember {
-        mutableStateOf(
-            DashboardCache.shouldRefreshContinueWatching() || DashboardCache.continueWatchingItems.isEmpty()
-        )
-    }
+    var continueWatchingItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var continueWatchingLoading by remember { mutableStateOf(true) }
     var continueWatchingError by remember { mutableStateOf<String?>(null) }
-    var continueWatchingLoaded by remember {
-        mutableStateOf(
-            !DashboardCache.shouldRefreshContinueWatching() && DashboardCache.continueWatchingItems.isNotEmpty()
-        )
-    }
+    var continueWatchingLoaded by remember { mutableStateOf(false) }
 
     // Featured items state
     var featuredItems by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var featuredLoading by remember { mutableStateOf(true) }
     var featuredError by remember { mutableStateOf<String?>(null) }
+
+    // Library views state
+    var libraryViews by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
+    var libraryViewsLoading by remember { mutableStateOf(true) }
+    var libraryViewsLoaded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -230,7 +230,7 @@ fun Dashboard(
                         val moviesResult = mediaRepository.getLatestItems(
                             parentId = null,
                             includeItemTypes = "Movie",
-                            limit = 5,
+                            limit = 10,
                             fields = "BasicSyncInfo"
                         )
                         moviesResult.getOrNull()?.let { items ->
@@ -244,7 +244,7 @@ fun Dashboard(
                         val tvResult = mediaRepository.getLatestItems(
                             parentId = null,
                             includeItemTypes = "Series",
-                            limit = 5,
+                            limit = 10,
                             fields = "BasicSyncInfo"
                         )
                         tvResult.getOrNull()?.let { items ->
@@ -254,6 +254,47 @@ fun Dashboard(
                     }
                 } catch (e: Exception) {
                 }
+            }
+        }
+    }
+
+    // Library views loading
+    LaunchedEffect(Unit) {
+        if (!libraryViewsLoaded) {
+            try {
+                withContext(Dispatchers.IO) {
+                    val result = mediaRepository.getUserViews()
+
+                    withContext(Dispatchers.Main) {
+                        result.fold(
+                            onSuccess = { queryResult ->
+                                val validViews = queryResult.items?.filter {
+                                    it.id != null &&
+                                    !it.name.isNullOrBlank() &&
+                                    it.collectionType != "boxsets" &&
+                                    it.collectionType != "playlists" &&
+                                    it.collectionType != "folders" &&
+                                    (it.type == "CollectionFolder" || it.type == "Folder") &&
+                                    (it.collectionType == "movies" || it.collectionType == "tvshows" ||
+                                     it.collectionType == "music" || it.collectionType == "books" ||
+                                     it.collectionType == "mixed" || it.collectionType == null)
+                                } ?: emptyList()
+
+                                LibraryCache.updateLibraryViews(validViews)
+                                libraryViews = validViews
+                                libraryViewsLoading = false
+                                libraryViewsLoaded = true
+                            },
+                            onFailure = {
+                                libraryViewsLoading = false
+                                libraryViewsLoaded = true
+                            }
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                libraryViewsLoading = false
+                libraryViewsLoaded = true
             }
         }
     }
@@ -272,7 +313,7 @@ fun Dashboard(
 
                 try {
                     withContext(Dispatchers.IO) {
-                        val result = mediaRepository.getResumeItems(limit = 5)
+                        val result = mediaRepository.getResumeItems(limit = 12)
 
                         withContext(Dispatchers.Main) {
                             result.fold(
@@ -307,102 +348,86 @@ fun Dashboard(
         }
     }
 
-    LazyColumn(
-        state = lazyColumnState,
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .graphicsLayer {
-                compositingStrategy = if (isScrolling) {
-                    CompositingStrategy.Auto
-                } else {
-                    CompositingStrategy.Offscreen
-                }
-                renderEffect = null
-            },
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        userScrollEnabled = true,
-        flingBehavior = ScrollableDefaults.flingBehavior()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        item {
-            FeatureTab(
-                featuredItems = featuredItems,
-                isLoading = featuredLoading,
-                error = featuredError,
-                selectedCategory = selectedCategory,
-                onItemClick = onNavigateToDetail,
-                onLogout = onLogout,
-                onCategorySelected = { category ->
-                    selectedCategory = category
-                }
-            )
-        }
+        FeatureTab(
+            featuredItems = featuredItems,
+            isLoading = featuredLoading,
+            error = featuredError,
+            selectedCategory = selectedCategory,
+            onItemClick = onNavigateToDetail,
+            onLogout = onLogout,
+            onCategorySelected = { category ->
+                selectedCategory = category
+            }
+        )
 
         // Continue Watching section - only show on Home tab
         if (selectedCategory == "Home" && (continueWatchingLoading || continueWatchingItems.isNotEmpty())) {
-            item("continue_watching") {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    if (continueWatchingLoading) {
-                        Text(
-                            text = "Continue Watching",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                        ContinueWatchingSkeleton()
-                    } else {
-                        ContinueWatchingSection(
-                            items = continueWatchingItems,
-                            isLoading = continueWatchingLoading,
-                            error = continueWatchingError,
-                            onItemClick = onNavigateToDetail
-                        )
-                    }
+            Column(
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                if (continueWatchingLoading) {
+                    Text(
+                        text = "Continue Watching",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    ContinueWatchingSkeleton()
+                } else {
+                    ContinueWatchingSection(
+                        items = continueWatchingItems,
+                        isLoading = continueWatchingLoading,
+                        error = continueWatchingError,
+                        onItemClick = onNavigateToDetail
+                    )
                 }
             }
         }
 
         // Only show library sections on Home tab
         if (selectedCategory == "Home") {
-            item("library_sections") {
-                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    LibrarySections(
-                        onItemClick = onNavigateToDetail
-                    )
-                }
+            val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+
+            Column(
+                modifier = Modifier.padding(top = topPadding)
+            ) {
+                LibrarySections(
+                    libraryViews = libraryViews,
+                    isLoading = libraryViewsLoading,
+                    onItemClick = onNavigateToDetail
+                )
             }
         } else if (selectedCategory == "Movies") {
-            item("movie_genres") {
-                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+            val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    MovieGenreSections(
-                        onItemClick = onNavigateToDetail
-                    )
-                }
+            Column(
+                modifier = Modifier.padding(top = topPadding)
+            ) {
+                MovieGenreSections(
+                    onItemClick = onNavigateToDetail
+                )
             }
 
 
         } else if (selectedCategory == "TV Shows") {
-            item("tvshow_genres") {
-                val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
+            val topPadding = if (continueWatchingItems.isEmpty() && !continueWatchingLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    TVShowGenreSections(
-                        onItemClick = onNavigateToDetail
-                    )
-                }
+            Column(
+                modifier = Modifier.padding(top = topPadding)
+            ) {
+                TVShowGenreSections(
+                    onItemClick = onNavigateToDetail
+                )
             }
         }
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
@@ -472,16 +497,10 @@ private fun ContinueWatchingSection(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                            renderEffect = null
-                            clip = false
-                        }
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     items(
-                        count = minOf(items.size, 10),
+                        count = minOf(items.size, 8),
                         key = { index -> items[index].id ?: index }
                     ) { index ->
                         ContinueWatchingCard(
@@ -523,8 +542,9 @@ private fun ContinueWatchingCard(
 
                     val url = mediaRepository.getImageUrl(
                         itemId = actualItemId,
-                        width = 250,
-                        height = 140,
+                        imageType = "Thumb",
+                        width = 300,
+                        height = 180,
                         quality = 100
                     ).first()
 
@@ -537,179 +557,146 @@ private fun ContinueWatchingCard(
         }
     }
 
-    Card(
+    val itemName = remember(stableItem.name) { stableItem.name ?: "Unknown" }
+    val typeText = remember(stableItem.type) {
+        when (stableItem.type) {
+            "Movie" -> "Movie"
+            "Series" -> "TV Series"
+            "Episode" -> "Episode"
+            else -> stableItem.type ?: "Media"
+        }
+    }
+    val yearText = remember(stableItem.productionYear, typeText) {
+        "${stableItem.productionYear ?: ""} • $typeText"
+    }
+
+    Column(
         modifier = Modifier
             .width(200.dp)
-            .height(120.dp)
-            .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
-                renderEffect = null
-                clip = false
-            }
-            .drawWithCache {
-                onDrawBehind { }
-            },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        onClick = onClick
+            .height(180.dp)
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
+        Card(
+            modifier = Modifier
+                .width(200.dp)
+                .height(120.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            onClick = onClick
         ) {
-            // Movie poster
-            JellyfinPosterImage(
-                imageUrl = imageUrl,
-                contentDescription = stableItem.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    },
-                context = context,
-                contentScale = ContentScale.Crop
-            )
-
-            // Progress bar at bottom - memoized
-            stableItem.userData?.playedPercentage?.let { percentage ->
-                val progress = remember(percentage) {
-                    (percentage.toFloat() / 100f).coerceIn(0f, 1f)
-                }
-                LinearProgressIndicator(
-                    progress = { progress },
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Movie poster
+                JellyfinPosterImage(
+                    imageUrl = imageUrl,
+                    contentDescription = stableItem.name,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .align(Alignment.BottomCenter)
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        },
-                    color = Color.Red,
-                    trackColor = Color.White.copy(alpha = 0.3f)
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(12.dp)),
+                    context = context,
+                    contentScale = ContentScale.Crop
                 )
-            }
 
-            // Movie info overlay
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomStart)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
+                // Progress bar at bottom - memoized
+                stableItem.userData?.playedPercentage?.let { percentage ->
+                    val progress = remember(percentage) {
+                        (percentage.toFloat() / 100f).coerceIn(0f, 1f)
+                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .align(Alignment.BottomCenter),
+                        color = Color.Red,
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                }
+
+                // Play button overlay
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .background(
+                            Color.Black.copy(alpha = 0.6f),
+                            shape = CircleShape
                         )
-                    )
-                    .padding(12.dp)
-            ) {
-                Column {
-                    val itemName = remember(stableItem.name) { stableItem.name ?: "Unknown" }
-                    val typeText = remember(stableItem.type) {
-                        when (stableItem.type) {
-                            "Movie" -> "Movie"
-                            "Series" -> "TV Series"
-                            "Episode" -> "Episode"
-                            else -> stableItem.type ?: "Media"
-                        }
-                    }
-                    val yearText = remember(stableItem.productionYear, typeText) {
-                        "${stableItem.productionYear ?: ""} • $typeText"
-                    }
-
-                    Text(
-                        text = itemName,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = yearText,
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        .padding(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Continue Watching",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
             }
+        }
 
-            // Play button overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(
-                        Color.Black.copy(alpha = 0.6f),
-                        shape = CircleShape
-                    )
-                    .padding(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = "Continue Watching",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+        // Title and info below the image with fixed height container
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp) // Fixed height for title area
+                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = itemName,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = yearText,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
 private fun LibrarySections(
+    libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    isLoading: Boolean,
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+) {
+    // Use a stable composition approach
+    StableLibrarySectionsContent(
+        libraryViews = libraryViews,
+        isLoading = isLoading,
+        onItemClick = onItemClick
+    )
+}
+
+@Composable
+private fun StableLibrarySectionsContent(
+    libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    isLoading: Boolean,
     onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
 
-    var libraryViews by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var hasLoaded by remember { mutableStateOf(false) }
-
-    // Load library views
-    LaunchedEffect(Unit) {
-        if (!hasLoaded) {
-            try {
-                withContext(Dispatchers.IO) {
-                    val result = mediaRepository.getUserViews()
-
-                    withContext(Dispatchers.Main) {
-                        result.fold(
-                            onSuccess = { queryResult ->
-                                libraryViews = queryResult.items?.filter {
-                                    it.id != null &&
-                                    !it.name.isNullOrBlank() &&
-                                    it.collectionType != "boxsets" &&
-                                    it.collectionType != "playlists" &&
-                                    it.collectionType != "folders" &&
-                                    (it.type == "CollectionFolder" || it.type == "Folder") &&
-
-                                    (it.collectionType == "movies" || it.collectionType == "tvshows" ||
-                                     it.collectionType == "music" || it.collectionType == "books" ||
-                                     it.collectionType == "mixed" || it.collectionType == null)
-                                } ?: emptyList()
-                                isLoading = false
-                                hasLoaded = true
-                            },
-                            onFailure = {
-                                isLoading = false
-                                hasLoaded = true
-                            }
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                isLoading = false
-                hasLoaded = true
-            }
-        }
+    // Create a stable key based on actual content
+    val contentKey = remember(libraryViews) {
+        libraryViews.map { it.id }.hashCode()
     }
 
     Column(
@@ -753,16 +740,40 @@ private fun LibrarySections(
                 }
             }
             libraryViews.isNotEmpty() -> {
-                libraryViews.forEachIndexed { index, library ->
-                    ProgressiveLibrarySection(
-                        library = library,
-                        mediaRepository = mediaRepository,
-                        onItemClick = onItemClick,
-                        loadDelay = index * 300L
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+                // Use a stable list approach instead of forEachIndexed
+                StableLibraryList(
+                    libraries = libraryViews,
+                    mediaRepository = mediaRepository,
+                    onItemClick = onItemClick
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun StableLibraryList(
+    libraries: List<com.jellycine.data.model.BaseItemDto>,
+    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+) {
+    // Create a stable list that only changes when content changes
+    val stableLibraries = remember(libraries.map { it.id }.hashCode()) { libraries }
+
+
+
+    // Render libraries with stable keys
+    stableLibraries.forEachIndexed { index, library ->
+        key(library.id ?: index) {
+            ProgressiveLibrarySection(
+                library = library,
+                mediaRepository = mediaRepository,
+                onItemClick = onItemClick,
+                loadDelay = index * 150L
+            )
+        }
+        if (index < stableLibraries.size - 1) {
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -774,46 +785,70 @@ private fun ProgressiveLibrarySection(
     onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
     loadDelay: Long = 0L
 ) {
-    var libraryItems by remember(library.id) { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
-    var isLoading by remember(library.id) { mutableStateOf(true) }
-    var hasLoaded by remember(library.id) { mutableStateOf(false) }
+    val libraryId = library.id ?: return
 
-    // Progressive loading with staggered delays
-    LaunchedEffect(library.id) {
-        if (!hasLoaded) {
-            if (loadDelay > 0) {
-                delay(loadDelay)
-            }
+    // Use cache to check if we already have data
+    val cachedItems = LibraryCache.getLibraryItems(libraryId)
+    val shouldRefresh = LibraryCache.shouldRefreshLibraryItems(libraryId)
 
-            library.id?.let { libraryId ->
-                try {
-                    withContext(Dispatchers.IO) {
-                        val includeItemTypes = when (library.collectionType) {
-                            "tvshows" -> "Episode"
-                            "movies" -> "Movie"
-                            else -> "Movie,Series,Episode"
-                        }
+    var libraryItems by remember(libraryId) {
+        mutableStateOf(if (!shouldRefresh && cachedItems.isNotEmpty()) cachedItems else emptyList())
+    }
+    var isLoading by remember(libraryId) {
+        mutableStateOf(shouldRefresh || cachedItems.isEmpty())
+    }
+    var hasLoaded by remember(libraryId) {
+        mutableStateOf(!shouldRefresh && cachedItems.isNotEmpty())
+    }
 
-                        val result = mediaRepository.getLatestItems(
-                            parentId = libraryId,
-                            includeItemTypes = includeItemTypes,
-                            limit = 10,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
-                        )
+    // Prevent duplicate loading with a loading state tracker
+    var isCurrentlyLoading by remember(libraryId) { mutableStateOf(false) }
 
-                        val validItems = result.getOrNull()?.filter {
-                            it.id != null && !it.name.isNullOrBlank()
-                        } ?: emptyList()
+    // Optimized loading with proper network throttling and duplicate prevention
+    LaunchedEffect(libraryId) {
+        if (!hasLoaded && !isCurrentlyLoading) {
+            isCurrentlyLoading = true
+            try {
+                // Add delay to prevent network overload
+                if (loadDelay > 0) {
+                    delay(loadDelay)
+                }
 
-                        withContext(Dispatchers.Main) {
-                            libraryItems = validItems.take(6)
-                            isLoading = false
-                            hasLoaded = true
-                        }
+                // Use a separate dispatcher to avoid blocking UI
+                withContext(Dispatchers.IO) {
+                    val includeItemTypes = when (library.collectionType) {
+                        "tvshows" -> "Episode"
+                        "movies" -> "Movie"
+                        else -> "Movie,Series,Episode"
                     }
-                } catch (e: Exception) {
+
+                    val result = mediaRepository.getLatestItems(
+                        parentId = libraryId,
+                        includeItemTypes = includeItemTypes,
+                        limit = 12,
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+                    )
+
+                    val validItems = result.getOrNull()?.filter {
+                        it.id != null && !it.name.isNullOrBlank()
+                    } ?: emptyList()
+
+                    // Cache the results immediately
+                    LibraryCache.updateLibraryItems(libraryId, validItems)
+
+                    // Update UI on main thread
+                    withContext(Dispatchers.Main) {
+                        libraryItems = validItems
+                        isLoading = false
+                        hasLoaded = true
+                        isCurrentlyLoading = false
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
                     isLoading = false
                     hasLoaded = true
+                    isCurrentlyLoading = false
                 }
             }
         }
@@ -932,87 +967,149 @@ private fun LibraryItemCard(
         }
     }
 
-    Card(
+    // Show series name for episodes, otherwise show item name
+    val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
+        item.seriesName!!
+    } else {
+        item.name ?: "Unknown"
+    }
+
+    Column(
         modifier = Modifier
             .width(140.dp)
-            .height(210.dp)
-            .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
-                renderEffect = null
-                clip = false
-            }
-            .drawWithCache {
-                onDrawBehind { }
-            },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        onClick = onClick
+            .height(260.dp) // Fixed total height to prevent recomposition issues
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
+        Card(
+            modifier = Modifier
+                .width(140.dp)
+                .height(210.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Transparent
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            onClick = onClick
         ) {
-            // Poster image
-            JellyfinPosterImage(
-                imageUrl = imageUrl,
-                contentDescription = item.name,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp)),
-                context = context,
-                contentScale = ContentScale.Crop
-            )
-
-            // Episode count badge for series (top-right corner)
-            val episodeCount = when {
-                item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
-                item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
-                else -> null
-            }
-
-            episodeCount?.let { count ->
-                EpisodeCountBadge(
-                    count = count,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(12.dp)
-                )
-            }
-
-            // Title overlay at bottom
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        ),
-                        RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-                    )
-                    .padding(12.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
-                // Show series name for episodes, otherwise show item name
-                val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
-                    item.seriesName!!
-                } else {
-                    item.name ?: "Unknown"
+                // Poster image
+                JellyfinPosterImage(
+                    imageUrl = imageUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(16.dp)),
+                    context = context,
+                    contentScale = ContentScale.Crop
+                )
+
+                // Episode count badge for series (top-right corner)
+                val episodeCount = when {
+                    item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
+                    item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
+                    else -> null
                 }
 
+                episodeCount?.let { count ->
+                    EpisodeCountBadge(
+                        count = count,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(12.dp)
+                    )
+                }
+            }
+        }
+
+        // Title and metadata below the image with fixed height container
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
                     text = displayName,
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Start
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                // Additional metadata
+                val metadataText = buildMetadataText(item)
+                if (metadataText.isNotEmpty()) {
+                    Text(
+                        text = metadataText,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Build metadata text for library items
+ */
+private fun buildMetadataText(item: com.jellycine.data.model.BaseItemDto): String {
+    return buildString {
+        when (item.type) {
+            "Series" -> {
+                // For series, show year range if available
+                item.productionYear?.let { startYear ->
+                    append(startYear.toString())
+                    item.endDate?.let { endDate ->
+                        val endYear = endDate.substring(0, 4).toIntOrNull()
+                        if (endYear != null && endYear != startYear) {
+                            append(" - $endYear")
+                        }
+                    } ?: run {
+                        // If no end date and series is ongoing, show start year only
+                        // Could add " - Present" for ongoing series if needed
+                    }
+                }
+            }
+            "Movie" -> {
+                // For movies, show year
+                item.productionYear?.let { year ->
+                    append(year.toString())
+                }
+            }
+            "Episode" -> {
+                // For episodes, show season and episode info
+                val seasonNumber = item.parentIndexNumber
+                val episodeNumber = item.indexNumber
+                if (seasonNumber != null && episodeNumber != null) {
+                    append("S${seasonNumber}:E${episodeNumber}")
+                    // Add episode title if different from series name
+                    item.name?.let { episodeName ->
+                        if (episodeName != item.seriesName) {
+                            append(" - ${episodeName.take(20)}")
+                            if (episodeName.length > 20) append("...")
+                        }
+                    }
+                }
+            }
+            else -> {
+                // For other types, show year if available
+                item.productionYear?.let { year ->
+                    append(year.toString())
+                }
             }
         }
     }
@@ -1024,24 +1121,17 @@ private fun EpisodeCountBadge(
     modifier: Modifier = Modifier
 ) {
     if (count > 0) {
-        Box(
-            modifier = modifier
-                .background(
-                    Color(0xFF1976D2).copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                .border(
-                    1.5.dp,
-                    Color.White.copy(alpha = 0.4f),
-                    RoundedCornerShape(14.dp)
-                )
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(12.dp),
+            color = Color.Black.copy(alpha = 0.8f)
         ) {
             Text(
                 text = count.toString(),
                 color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
     }
@@ -1225,6 +1315,39 @@ private object GenreCache {
 
     fun getGenreItems(genreId: String): List<com.jellycine.data.model.BaseItemDto> {
         return genreItemsCache[genreId] ?: emptyList()
+    }
+}
+
+// Cache for library data
+private object LibraryCache {
+    var libraryViews: List<com.jellycine.data.model.BaseItemDto> = emptyList()
+    private var libraryViewsLoadTime: Long = 0
+    private val libraryItemsCache = mutableMapOf<String, List<com.jellycine.data.model.BaseItemDto>>()
+    private val libraryItemsLoadTime = mutableMapOf<String, Long>()
+    private const val LIBRARY_CACHE_TIMEOUT = 300_000L
+    private const val LIBRARY_VIEWS_CACHE_TIMEOUT = 600_000L
+
+    fun shouldRefreshLibraryViews(): Boolean {
+        return libraryViews.isEmpty() || System.currentTimeMillis() - libraryViewsLoadTime > LIBRARY_VIEWS_CACHE_TIMEOUT
+    }
+
+    fun updateLibraryViews(views: List<com.jellycine.data.model.BaseItemDto>) {
+        libraryViews = views
+        libraryViewsLoadTime = System.currentTimeMillis()
+    }
+
+    fun shouldRefreshLibraryItems(libraryId: String): Boolean {
+        val lastLoadTime = libraryItemsLoadTime[libraryId] ?: 0
+        return !libraryItemsCache.containsKey(libraryId) || System.currentTimeMillis() - lastLoadTime > LIBRARY_CACHE_TIMEOUT
+    }
+
+    fun updateLibraryItems(libraryId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+        libraryItemsCache[libraryId] = items
+        libraryItemsLoadTime[libraryId] = System.currentTimeMillis()
+    }
+
+    fun getLibraryItems(libraryId: String): List<com.jellycine.data.model.BaseItemDto> {
+        return libraryItemsCache[libraryId] ?: emptyList()
     }
 }
 

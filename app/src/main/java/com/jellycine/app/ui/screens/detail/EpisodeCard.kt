@@ -185,8 +185,9 @@ fun EpisodeCard(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                        lineHeight = 18.sp,
                         modifier = Modifier.weight(1f)
                     )
                 }

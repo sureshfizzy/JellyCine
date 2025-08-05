@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 
+
 sealed class DashboardDestination(
     val route: String,
     val title: String,
@@ -95,6 +96,8 @@ fun DashboardContainer(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+
+
     val sideDestinations = listOf(
         DashboardDestination.Home,
         DashboardDestination.MyMedia,
@@ -119,9 +122,13 @@ fun DashboardContainer(
                 exitTransition = { fadeOut(animationSpec = tween(200)) }
             ) {
                 composable(DashboardDestination.Home.route) {
+                    // Track when Home tab becomes active
+                    val isHomeActive = currentRoute == DashboardDestination.Home.route
+
                     Dashboard(
                         onLogout = onLogout,
-                        onNavigateToDetail = onNavigateToDetail
+                        onNavigateToDetail = onNavigateToDetail,
+                        isTabActive = isHomeActive
                     )
                 }
                 composable(DashboardDestination.MyMedia.route) {

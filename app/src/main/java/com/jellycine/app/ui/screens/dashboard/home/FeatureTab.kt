@@ -609,7 +609,7 @@ private fun FeatureCard(
                         Text(
                             text = year.toString(),
                             color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 14.sp // Increased font size
+                            fontSize = 14.sp
                         )
                     }
 
@@ -617,7 +617,7 @@ private fun FeatureCard(
                         Text(
                             text = " • $rating",
                             color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 14.sp // Increased font size
+                            fontSize = 14.sp
                         )
                     }
                 }
