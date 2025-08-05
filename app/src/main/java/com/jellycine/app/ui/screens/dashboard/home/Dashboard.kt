@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -175,19 +176,19 @@ fun Dashboard(
                             parentId = null,
                             includeItemTypes = "Movie",
                             limit = 5,
-                            fields = "BasicSyncInfo"
+                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
                         )
                         "TV Shows" -> mediaRepository.getLatestItems(
                             parentId = null,
                             includeItemTypes = "Series",
                             limit = 5,
-                            fields = "BasicSyncInfo"
+                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
                         )
                         else -> mediaRepository.getLatestItems(
                             parentId = null,
                             includeItemTypes = "Movie,Series",
                             limit = 5,
-                            fields = "BasicSyncInfo"
+                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
                         )
                     }
 
@@ -231,7 +232,7 @@ fun Dashboard(
                             parentId = null,
                             includeItemTypes = "Movie",
                             limit = 10,
-                            fields = "BasicSyncInfo"
+                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
                         )
                         moviesResult.getOrNull()?.let { items ->
                             val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }
@@ -245,7 +246,7 @@ fun Dashboard(
                             parentId = null,
                             includeItemTypes = "Series",
                             limit = 10,
-                            fields = "BasicSyncInfo"
+                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
                         )
                         tvResult.getOrNull()?.let { items ->
                             val validItems = items.filter { it.id != null && !it.name.isNullOrBlank() }

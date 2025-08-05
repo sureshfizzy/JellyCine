@@ -54,6 +54,9 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.UserDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
@@ -197,6 +200,39 @@ fun FeatureTab(
             }
         }
     }
+
+    // Preload images for better performance
+    LaunchedEffect(featuredItems) {
+        if (featuredItems.isNotEmpty()) {
+            withContext(Dispatchers.IO) {
+                featuredItems.take(3).forEach { item ->
+                    try {
+                        item.id?.let { itemId ->
+                            async {
+                                mediaRepository.getImageUrl(
+                                    itemId = itemId,
+                                    imageType = "Backdrop",
+                                    width = 1200,
+                                    height = 680,
+                                    quality = 95
+                                ).first()
+                            }
+                            async {
+                                mediaRepository.getImageUrl(
+                                    itemId = itemId,
+                                    imageType = "Logo",
+                                    width = 400,
+                                    height = 200,
+                                    quality = 95
+                                ).first()
+                            }
+                        }
+                    } catch (e: Exception) {
+                    }
+                }
+            }
+        }
+    }
     
     // Handle manual scroll to update current index
     LaunchedEffect(listState.firstVisibleItemIndex) {
@@ -295,18 +331,48 @@ private fun ModernFeatureCard(
 ) {
     val context = LocalContext.current
     var imageUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
+    var logoUrl by remember(item.id, item.seriesId) { mutableStateOf<String?>(null) }
 
-    // Get backdrop image URL
+    // Get backdrop image URL and logo with background threading
     LaunchedEffect(item.id) {
         val itemId = item.id
         if (itemId != null) {
-            imageUrl = mediaRepository.getImageUrl(
-                itemId = itemId,
-                imageType = "Backdrop",
-                width = 600,
-                height = 340,
-                quality = 60
-            ).first()
+            withContext(Dispatchers.IO) {
+                try {
+                    val backdropDeferred = async {
+                        mediaRepository.getImageUrl(
+                            itemId = itemId,
+                            imageType = "Backdrop",
+                            width = 1200,
+                            height = 680,
+                            quality = 95
+                        ).first()
+                    }
+
+                    val logoDeferred = async {
+                        mediaRepository.getImageUrl(
+                            itemId = itemId,
+                            imageType = "Logo",
+                            width = 400,
+                            height = 200,
+                            quality = 95
+                        ).first()
+                    }
+
+                    // Wait for both to complete
+                    val backdrop = backdropDeferred.await()
+                    val logo = logoDeferred.await()
+
+                    // Update UI on main thread
+                    withContext(Dispatchers.Main) {
+                        imageUrl = backdrop
+                        logoUrl = logo
+                    }
+                } catch (e: Exception) {
+                    // Handle errors gracefully
+                    android.util.Log.e("FeatureCard", "Error loading images for $itemId", e)
+                }
+            }
         }
     }
 
@@ -353,61 +419,57 @@ private fun ModernFeatureCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomStart)
+                    .align(Alignment.BottomCenter)
                     .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Title
+                // Logo or Title - centered and larger
+                if (!logoUrl.isNullOrEmpty()) {
+                    JellyfinPosterImage(
+                        imageUrl = logoUrl,
+                        contentDescription = "${item.name} logo",
+                        modifier = Modifier
+                            .height(80.dp)
+                            .fillMaxWidth(0.8f),
+                        context = context,
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Text(
+                        text = item.name ?: "Unknown Title",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 36.sp
+                    )
+                }
+
+                val typeText = when (item.type) {
+                    "Movie" -> "Movie"
+                    "Series" -> "TV Series"
+                    else -> item.type ?: "Media"
+                }
+
+                val genreText = item.genres?.take(3)?.joinToString(" • ") ?: ""
+                val displayText = if (genreText.isNotEmpty()) {
+                    "$typeText • $genreText"
+                } else {
+                    typeText
+                }
+
                 Text(
-                    text = item.name ?: "Unknown Title",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    text = displayText,
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                // Metadata row
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    item.productionYear?.let { year ->
-                        Text(
-                            text = year.toString(),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "•",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                    }
-
-                    Text(
-                        text = when (item.type) {
-                            "Movie" -> "Movie"
-                            "Series" -> "TV Series"
-                            else -> item.type ?: "Unknown"
-                        },
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-
-                    item.genres?.firstOrNull()?.let { genre ->
-                        Text(
-                            text = "•",
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = genre,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-                }
 
                 // Action buttons
                 Row(
@@ -467,6 +529,45 @@ private fun ModernFeatureCard(
 }
 
 @Composable
+private fun RatingBadge(
+    rating: Float,
+    type: String,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = backgroundColor,
+        shape = RoundedCornerShape(4.dp),
+        modifier = modifier
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+        ) {
+            Text(
+                text = type,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1
+            )
+            Text(
+                text = when (type) {
+                    "RT" -> "${rating.toInt()}%"
+                    "IMDB" -> String.format("%.1f", rating)
+                    else -> rating.toString()
+                },
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
 private fun FeatureCard(
     item: BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
@@ -487,25 +588,35 @@ private fun FeatureCard(
 
     LaunchedEffect(actualItemId) {
         if (actualItemId != null) {
-            // Try to get backdrop image first, fallback to primary if not available
-            var backdropUrl = mediaRepository.getBackdropImageUrl(
-                itemId = actualItemId,
-                width = 600,
-                height = 340,
-                quality = 90
-            ).first()
+            // Use IO dispatcher for network operations
+            withContext(Dispatchers.IO) {
+                try {
+                    // Try to get backdrop image first, fallback to primary if not available
+                    var backdropUrl = mediaRepository.getBackdropImageUrl(
+                        itemId = actualItemId,
+                        width = 1200,
+                        height = 680,
+                        quality = 95
+                    ).first()
 
-            // If backdrop is not available, fallback to primary image
-            if (backdropUrl.isNullOrEmpty()) {
-                backdropUrl = mediaRepository.getImageUrl(
-                    itemId = actualItemId,
-                    width = 600,
-                    height = 340,
-                    quality = 90
-                ).first()
+                    // If backdrop is not available, fallback to primary image
+                    if (backdropUrl.isNullOrEmpty()) {
+                        backdropUrl = mediaRepository.getImageUrl(
+                            itemId = actualItemId,
+                            width = 1200,
+                            height = 680,
+                            quality = 95
+                        ).first()
+                    }
+
+                    // Update UI on main thread
+                    withContext(Dispatchers.Main) {
+                        imageUrl = backdropUrl
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("FeatureCard", "Error loading image for $actualItemId", e)
+                }
             }
-
-            imageUrl = backdropUrl
         }
     }
 
