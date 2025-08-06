@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
@@ -120,6 +121,7 @@ data class StableBaseItem(
 fun Dashboard(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     isTabActive: Boolean = true
 ) {
     var selectedCategory by remember { mutableStateOf("Home") }
@@ -277,8 +279,7 @@ fun Dashboard(
                                     it.collectionType != "folders" &&
                                     (it.type == "CollectionFolder" || it.type == "Folder") &&
                                     (it.collectionType == "movies" || it.collectionType == "tvshows" ||
-                                     it.collectionType == "music" || it.collectionType == "books" ||
-                                     it.collectionType == "mixed" || it.collectionType == null)
+                                     it.collectionType == null)
                                 } ?: emptyList()
 
                                 LibraryCache.updateLibraryViews(validViews)
@@ -402,7 +403,8 @@ fun Dashboard(
                 LibrarySections(
                     libraryViews = libraryViews,
                     isLoading = libraryViewsLoading,
-                    onItemClick = onNavigateToDetail
+                    onItemClick = onNavigateToDetail,
+                    onNavigateToViewAll = onNavigateToViewAll
                 )
             }
         } else if (selectedCategory == "Movies") {
@@ -676,13 +678,15 @@ private fun ContinueWatchingCard(
 private fun LibrarySections(
     libraryViews: List<com.jellycine.data.model.BaseItemDto>,
     isLoading: Boolean,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     // Use a stable composition approach
     StableLibrarySectionsContent(
         libraryViews = libraryViews,
         isLoading = isLoading,
-        onItemClick = onItemClick
+        onItemClick = onItemClick,
+        onNavigateToViewAll = onNavigateToViewAll
     )
 }
 
@@ -690,7 +694,8 @@ private fun LibrarySections(
 private fun StableLibrarySectionsContent(
     libraryViews: List<com.jellycine.data.model.BaseItemDto>,
     isLoading: Boolean,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -745,7 +750,8 @@ private fun StableLibrarySectionsContent(
                 StableLibraryList(
                     libraries = libraryViews,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    onNavigateToViewAll = onNavigateToViewAll
                 )
             }
         }
@@ -756,7 +762,8 @@ private fun StableLibrarySectionsContent(
 private fun StableLibraryList(
     libraries: List<com.jellycine.data.model.BaseItemDto>,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     // Create a stable list that only changes when content changes
     val stableLibraries = remember(libraries.map { it.id }.hashCode()) { libraries }
@@ -770,6 +777,7 @@ private fun StableLibraryList(
                 library = library,
                 mediaRepository = mediaRepository,
                 onItemClick = onItemClick,
+                onNavigateToViewAll = onNavigateToViewAll,
                 loadDelay = index * 150L
             )
         }
@@ -784,6 +792,7 @@ private fun ProgressiveLibrarySection(
     library: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     loadDelay: Long = 0L
 ) {
     val libraryId = library.id ?: return
@@ -856,13 +865,42 @@ private fun ProgressiveLibrarySection(
     }
 
     Column {
-        Text(
-            text = "Recently Added • ${library.name ?: "Library"}",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        // Section header with View All button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recently Added • ${library.name ?: "Library"}",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+            
+            // View All button
+            IconButton(
+                onClick = {
+                    val contentType = when (library.collectionType) {
+                        "movies" -> "MOVIES"
+                        "tvshows" -> "SERIES"
+                        else -> "ALL"
+                    }
+                    onNavigateToViewAll(contentType, library.id, library.name ?: "Library")
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "View All",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
         when {
             isLoading -> {
@@ -931,7 +969,7 @@ private fun ProgressiveLibrarySection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LibraryItemCard(
+internal fun LibraryItemCard(
     item: com.jellycine.data.model.BaseItemDto,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     onClick: () -> Unit = {}
@@ -1020,6 +1058,8 @@ private fun LibraryItemCard(
                             .padding(12.dp)
                     )
                 }
+
+
             }
         }
 
@@ -1215,7 +1255,7 @@ private fun LibrarySkeleton() {
     }
 }
 
-// Enhanced cache for all dashboard data
+// Cache for all dashboard data
 private object DashboardCache {
     var homeItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
     var movieItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()

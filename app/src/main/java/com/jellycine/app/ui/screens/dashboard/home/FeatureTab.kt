@@ -424,7 +424,7 @@ private fun ModernFeatureCard(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Logo or Title - centered and larger
+                // Logo - only show if available
                 if (!logoUrl.isNullOrEmpty()) {
                     JellyfinPosterImage(
                         imageUrl = logoUrl,
@@ -434,17 +434,6 @@ private fun ModernFeatureCard(
                             .fillMaxWidth(0.8f),
                         context = context,
                         contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Text(
-                        text = item.name ?: "Unknown Title",
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 36.sp
                     )
                 }
 
@@ -640,11 +629,11 @@ private fun FeatureCard(
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .networkCachePolicy(CachePolicy.ENABLED)
-                        .allowHardware(true) // Enable hardware acceleration
-                        .allowRgb565(true) // Better memory efficiency
+                        .allowHardware(true)
+                        .allowRgb565(true)
                         .build(),
                     contentDescription = item.name,
-                    modifier = Modifier.fillMaxSize(), // No clipping for edge-to-edge
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     onState = { state ->
                         imageState = state

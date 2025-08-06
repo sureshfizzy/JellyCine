@@ -103,8 +103,8 @@ fun JellyfinPosterImage(
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.ENABLED)
-            .allowHardware(true) // Enable hardware acceleration
-            .allowRgb565(true) // Better memory efficiency
+            .allowHardware(true)
+            .allowRgb565(true)
             .build(),
         contentDescription = contentDescription,
         modifier = modifier.graphicsLayer {

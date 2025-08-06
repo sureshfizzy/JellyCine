@@ -106,6 +106,15 @@ fun AppNavigation() {
                         item.id?.let { itemId ->
                             navController.navigate("detail/$itemId")
                         }
+                    },
+                    onNavigateToViewAll = { contentType, parentId, title ->
+                        val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
+                        val route = if (parentId != null) {
+                            "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
+                        } else {
+                            "viewall/$contentType?title=$encodedTitle"
+                        }
+                        navController.navigate(route)
                     }
                 )
             }
@@ -140,6 +149,61 @@ fun AppNavigation() {
                         navController.popBackStack()
                     }
                 }
+            }
+
+            composable(
+                "viewall/{contentType}?parentId={parentId}&title={title}",
+                arguments = listOf(
+                    navArgument("contentType") { type = NavType.StringType },
+                    navArgument("parentId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = "View All"
+                    }
+                ),
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeIn(animationSpec = tween(300))
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { it },
+                        animationSpec = tween(300)
+                    ) + fadeOut(animationSpec = tween(300))
+                }
+            ) { backStackEntry ->
+                val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
+                val parentId = backStackEntry.arguments?.getString("parentId")
+                val title = backStackEntry.arguments?.getString("title")?.let { 
+                    java.net.URLDecoder.decode(it, "UTF-8") 
+                } ?: "View All"
+
+                val contentType = when (contentTypeString.uppercase()) {
+                    "MOVIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES
+                    "SERIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SERIES
+                    "EPISODES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.EPISODES
+                    else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
+                }
+
+                com.jellycine.app.ui.screens.dashboard.media.ViewAllScreen(
+                    contentType = contentType,
+                    parentId = parentId,
+                    title = title,
+                    onBackPressed = {
+                        navController.popBackStack()
+                    },
+                    onItemClick = { item ->
+                        item.id?.let { itemId ->
+                            navController.navigate("detail/$itemId")
+                        }
+                    }
+                )
             }
         }
 }

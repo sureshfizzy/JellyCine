@@ -23,7 +23,8 @@ fun LazyImageLoader(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     cornerRadius: Int = 8,
-    showShimmer: Boolean = true
+    showShimmer: Boolean = true,
+    enablePreloading: Boolean = true
 ) {
     var isLoading by remember(imageUrl) { mutableStateOf(true) }
     var hasError by remember(imageUrl) { mutableStateOf(false) }
@@ -39,7 +40,10 @@ fun LazyImageLoader(
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .networkCachePolicy(CachePolicy.ENABLED)
-                    .crossfade(200)
+                    .allowHardware(true)
+                    .allowRgb565(true)
+                    .crossfade(150)
+                    .size(coil.size.Size.ORIGINAL)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -125,4 +129,91 @@ fun OptimizedBackdropImage(
         cornerRadius = 12,
         showShimmer = true
     )
+}
+
+@Composable
+fun ProgressiveImageLoader(
+    imageUrl: String?,
+    lowQualityImageUrl: String? = null,
+    contentDescription: String? = null,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    cornerRadius: Int = 8
+) {
+    var isHighQualityLoaded by remember(imageUrl) { mutableStateOf(false) }
+    var hasError by remember(imageUrl) { mutableStateOf(false) }
+
+    val context = LocalContext.current
+
+    Box(modifier = modifier) {
+        // Low quality image (loads first)
+        if (lowQualityImageUrl != null && !isHighQualityLoaded && !hasError) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(lowQualityImageUrl)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .allowHardware(true)
+                    .allowRgb565(true)
+                    .size(coil.size.Size(100, 150))
+                    .build(),
+                contentDescription = contentDescription,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius.dp)),
+                contentScale = contentScale,
+                alpha = 0.8f
+            )
+        }
+
+        if (imageUrl != null && !hasError) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(imageUrl)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .networkCachePolicy(CachePolicy.ENABLED)
+                    .allowHardware(true)
+                    .allowRgb565(true)
+                    .crossfade(300)
+                    .build(),
+                contentDescription = contentDescription,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius.dp)),
+                contentScale = contentScale,
+                onState = { state ->
+                    when (state) {
+                        is AsyncImagePainter.State.Success -> {
+                            isHighQualityLoaded = true
+                            hasError = false
+                        }
+                        is AsyncImagePainter.State.Error -> {
+                            hasError = true
+                        }
+                        else -> { /* Loading states */ }
+                    }
+                }
+            )
+        }
+
+        if (!isHighQualityLoaded && lowQualityImageUrl == null && !hasError) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius.dp))
+                    .shimmer()
+            )
+        }
+
+        // Show placeholder on error or null URL
+        if (hasError || (imageUrl == null && lowQualityImageUrl == null)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+        }
+    }
 }

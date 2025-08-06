@@ -90,7 +90,8 @@ sealed class DashboardDestination(
 @Composable
 fun DashboardContainer(
     onLogout: () -> Unit = {},
-    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -128,11 +129,16 @@ fun DashboardContainer(
                     Dashboard(
                         onLogout = onLogout,
                         onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToViewAll = onNavigateToViewAll,
                         isTabActive = isHomeActive
                     )
                 }
                 composable(DashboardDestination.MyMedia.route) {
-                    MyMedia()
+                    MyMedia(
+                        onLibraryClick = { contentType, parentId, title ->
+                            onNavigateToViewAll(contentType.name, parentId, title)
+                        }
+                    )
                 }
                 composable(DashboardDestination.Search.route) {
                     // TODO: Implement search screen
