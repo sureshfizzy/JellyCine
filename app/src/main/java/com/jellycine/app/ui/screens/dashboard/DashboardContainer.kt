@@ -47,6 +47,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
 
 
 sealed class DashboardDestination(
@@ -429,3 +443,231 @@ fun DashboardContainerPreview() {
     DashboardContainer()
 }
 
+@Composable
+fun ShimmerEffect(
+    modifier: Modifier = Modifier,
+    cornerRadius: Float = 12f,
+    shape: Shape = RoundedCornerShape(cornerRadius.dp)
+) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha = transition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmer_alpha"
+    )
+
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            compositingStrategy = CompositingStrategy.Offscreen
+        }
+    ) {
+        drawRoundRect(
+            color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
+            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+        )
+    }
+}
+
+/**
+ * Skeleton for poster/card items in horizontal rows
+ * Used in: Dashboard sections, Continue Watching, etc.
+ */
+@Composable
+fun PosterSkeleton(
+    modifier: Modifier = Modifier,
+    width: Dp = 140.dp,
+    height: Dp = 210.dp,
+    cornerRadius: Float = 16f
+) {
+    ShimmerEffect(
+        modifier = modifier
+            .width(width)
+            .height(height),
+        cornerRadius = cornerRadius
+    )
+}
+
+/**
+ * Skeleton for continue watching items (landscape orientation)
+ */
+@Composable
+fun ContinueWatchingSkeleton(
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        items(5) {
+            ShimmerEffect(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(120.dp),
+                cornerRadius = 12f
+            )
+        }
+    }
+}
+
+/**
+ * Skeleton for library/poster grid sections
+ */
+@Composable
+fun LibrarySkeleton(
+    modifier: Modifier = Modifier,
+    itemCount: Int = 6
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
+    ) {
+        items(itemCount) {
+            PosterSkeleton()
+        }
+    }
+}
+
+/**
+ * Skeleton for search results (list view with poster + text)
+ */
+@Composable
+fun SearchResultsSkeleton(
+    modifier: Modifier = Modifier,
+    itemCount: Int = 8
+) {
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(bottom = 100.dp),
+        modifier = modifier.fillMaxSize()
+    ) {
+        items(itemCount) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Poster skeleton
+                ShimmerEffect(
+                    modifier = Modifier.size(70.dp),
+                    cornerRadius = 12f
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Text content skeleton
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .height(16.dp),
+                        cornerRadius = 4f
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.5f)
+                            .height(12.dp),
+                        cornerRadius = 4f
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .width(60.dp)
+                            .height(12.dp),
+                        cornerRadius = 4f
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Skeleton for grid view (search results, view all screens)
+ */
+@Composable
+fun GridSkeleton(
+    modifier: Modifier = Modifier,
+    columns: Int = 2,
+    itemCount: Int = 6,
+    aspectRatio: Float = 0.65f
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 100.dp)
+    ) {
+        items(itemCount) {
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(aspectRatio),
+                cornerRadius = 16f
+            )
+        }
+    }
+}
+
+/**
+ * Skeleton for section titles
+ */
+@Composable
+fun SectionTitleSkeleton(
+    modifier: Modifier = Modifier,
+    width: Dp = 150.dp
+) {
+    ShimmerEffect(
+        modifier = modifier
+            .width(width)
+            .height(24.dp),
+        cornerRadius = 4f
+    )
+}
+
+/**
+ * Skeleton for genre sections with title + horizontal list
+ */
+@Composable
+fun GenreSectionSkeleton(
+    modifier: Modifier = Modifier,
+    sectionCount: Int = 3
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        repeat(sectionCount) {
+            Column {
+                // Genre title skeleton
+                SectionTitleSkeleton(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                // Genre items skeleton
+                LibrarySkeleton()
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}

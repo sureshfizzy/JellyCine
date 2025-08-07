@@ -18,6 +18,7 @@ import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.request.CachePolicy
 import com.jellycine.app.util.image.ImageUrlViewModel
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 @Composable
 fun JellyfinImageLoader(
@@ -84,11 +85,10 @@ fun JellyfinImageLoader(
 
         // Show shimmer while loading (only if not successful)
         if ((isLoading || imageUrl == null) && showShimmer && !isSuccess) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .shimmer()
+            ShimmerEffect(
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = cornerRadius.toFloat(),
+                shape = RoundedCornerShape(cornerRadius.dp)
             )
         }
 

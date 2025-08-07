@@ -30,6 +30,7 @@ import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 // Skeleton loading animation with optional placeholder
 @Composable
@@ -39,25 +40,15 @@ fun ImageSkeleton(
     showPlaceholder: Boolean = false,
     placeholderRes: Int? = null
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "skeleton")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
     Box(
-        modifier = modifier
-            .background(
-                color = Color(0xFF1A1A1A).copy(alpha = alpha),
-                shape = shape
-            ),
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
+        ShimmerEffect(
+            modifier = Modifier.fillMaxSize(),
+            shape = shape
+        )
+
         if (showPlaceholder && placeholderRes != null) {
             Icon(
                 painter = painterResource(id = placeholderRes),

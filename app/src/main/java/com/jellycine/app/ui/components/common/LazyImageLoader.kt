@@ -15,6 +15,7 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.request.CachePolicy
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 @Composable
 fun LazyImageLoader(
@@ -79,11 +80,10 @@ fun LazyImageLoader(
 
         // Show shimmer while loading (only if not successful)
         if (isLoading && showShimmer && !isSuccess) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .shimmer()
+            ShimmerEffect(
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = cornerRadius.toFloat(),
+                shape = RoundedCornerShape(cornerRadius.dp)
             )
         }
 
@@ -198,11 +198,10 @@ fun ProgressiveImageLoader(
         }
 
         if (!isHighQualityLoaded && lowQualityImageUrl == null && !hasError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .shimmer()
+            ShimmerEffect(
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = cornerRadius.toFloat(),
+                shape = RoundedCornerShape(cornerRadius.dp)
             )
         }
 

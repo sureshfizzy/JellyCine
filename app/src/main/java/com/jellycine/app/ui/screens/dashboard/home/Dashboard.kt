@@ -47,6 +47,12 @@ import kotlinx.coroutines.async
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
+import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
+import com.jellycine.app.ui.screens.dashboard.ContinueWatchingSkeleton
+import com.jellycine.app.ui.screens.dashboard.LibrarySkeleton
+import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
+import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Stable
@@ -712,38 +718,7 @@ private fun StableLibrarySectionsContent(
     ) {
         when {
             isLoading -> {
-                repeat(2) {
-                    Column {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .width(120.dp)
-                                .height(24.dp),
-                            cornerRadius = 4f
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer {
-                                    compositingStrategy = CompositingStrategy.Offscreen
-                                }
-                        ) {
-                            items(4) { index ->
-                                ShimmerEffect(
-                                    modifier = Modifier
-                                        .width(140.dp)
-                                        .height(210.dp),
-                                    cornerRadius = 16f
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
+                GenreSectionSkeleton(sectionCount = 2)
             }
             libraryViews.isNotEmpty() -> {
                 // Use a stable list approach instead of forEachIndexed
@@ -914,12 +889,7 @@ private fun ProgressiveLibrarySection(
                         }
                 ) {
                     items(4) {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .width(140.dp)
-                                .height(210.dp),
-                            cornerRadius = 16f
-                        )
+                        PosterSkeleton()
                     }
                 }
             }
@@ -1190,71 +1160,6 @@ fun DashboardPreview() {
     }
 }
 
-// Skeleton Components
-@Composable
-private fun ShimmerEffect(
-    modifier: Modifier = Modifier,
-    cornerRadius: Float = 12f
-) {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val alpha = transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
-    Canvas(
-        modifier = modifier.graphicsLayer {
-            compositingStrategy = CompositingStrategy.Offscreen
-        }
-    ) {
-        drawRoundRect(
-            color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
-            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-        )
-    }
-}
-
-@Composable
-private fun ContinueWatchingSkeleton() {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(5) {
-            ShimmerEffect(
-                modifier = Modifier
-                    .width(200.dp)
-                    .height(120.dp),
-                cornerRadius = 12f
-            )
-        }
-    }
-}
-
-@Composable
-private fun LibrarySkeleton() {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(6) {
-            ShimmerEffect(
-                modifier = Modifier
-                    .width(140.dp)
-                    .height(210.dp),
-                cornerRadius = 16f
-            )
-        }
-    }
-}
-
 // Cache for all dashboard data
 private object DashboardCache {
     var homeItems: List<com.jellycine.data.model.BaseItemDto> = emptyList()
@@ -1438,38 +1343,7 @@ private fun MovieGenreSections(
             .background(Color.Black)
     ) {
         if (isLoading) {
-            repeat(3) {
-                Column {
-                    // Genre title skeleton
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .width(150.dp)
-                            .height(24.dp),
-                        cornerRadius = 4f
-                    )
-                    // Genre items skeleton
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
-                    ) {
-                        items(4) { index ->
-                            ShimmerEffect(
-                                modifier = Modifier
-                                    .width(140.dp)
-                                    .height(210.dp),
-                                cornerRadius = 16f
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
+            GenreSectionSkeleton(sectionCount = 3)
         } else {
             // Show only first 3 genres with progressive loading
             val genresToShow = movieGenres.take(3)
@@ -1527,34 +1401,7 @@ private fun TVShowGenreSections(
             .background(Color.Black)
     ) {
         if (isLoading) {
-            repeat(3) {
-                Column {
-                    // Genre title skeleton
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .width(150.dp)
-                            .height(24.dp),
-                        cornerRadius = 4f
-                    )
-                    // Genre items skeleton
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(4) {
-                            ShimmerEffect(
-                                modifier = Modifier
-                                    .width(140.dp)
-                                    .height(210.dp),
-                                cornerRadius = 16f
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
+            GenreSectionSkeleton(sectionCount = 3)
         } else {
             // Show only first 3 genres with progressive loading
             val genresToShow = tvGenres.take(3)
@@ -1651,12 +1498,7 @@ private fun ProgressiveMovieGenreSection(
                         }
                 ) {
                     items(4) { index ->
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .width(140.dp)
-                                .height(210.dp),
-                            cornerRadius = 16f
-                        )
+                        PosterSkeleton()
                     }
                 }
             }
@@ -1772,12 +1614,7 @@ private fun ProgressiveTVShowGenreSection(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(4) {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .width(140.dp)
-                                .height(210.dp),
-                            cornerRadius = 16f
-                        )
+                        PosterSkeleton()
                     }
                 }
             }

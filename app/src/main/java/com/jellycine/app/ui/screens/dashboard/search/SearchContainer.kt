@@ -50,6 +50,8 @@ import com.jellycine.data.repository.getFormattedRuntime
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.repository.getFormattedRating
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.app.ui.screens.dashboard.SearchResultsSkeleton
+import com.jellycine.app.ui.screens.dashboard.GridSkeleton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -255,7 +257,7 @@ fun SearchContainer(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         if (uiState.isLoading) {
-                            PopularMoviesSkeleton()
+                            GridSkeleton()
                         } else {
                             LazyVerticalGrid(
                                 columns = GridCells.Fixed(2),
@@ -671,109 +673,5 @@ fun SearchContainerEmptyPreview() {
             color = Color.Gray,
             fontSize = 16.sp
         )
-    }
-}
-
-@Composable
-private fun ShimmerEffect(
-    modifier: Modifier = Modifier,
-    cornerRadius: Float = 12f
-) {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val alpha = transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
-    Canvas(
-        modifier = modifier.graphicsLayer {
-            compositingStrategy = CompositingStrategy.Offscreen
-        }
-    ) {
-        drawRoundRect(
-            color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
-            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-        )
-    }
-}
-
-@Composable
-private fun PopularMoviesSkeleton() {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 100.dp)
-    ) {
-        items(6) {
-            ShimmerEffect(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.65f),
-                cornerRadius = 16f
-            )
-        }
-    }
-}
-
-@Composable
-private fun SearchResultsSkeleton() {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 100.dp),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        items(8) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Poster skeleton
-                ShimmerEffect(
-                    modifier = Modifier.size(70.dp),
-                    cornerRadius = 12f
-                )
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Text content skeleton
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(16.dp),
-                        cornerRadius = 4f
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.5f)
-                            .height(12.dp),
-                        cornerRadius = 4f
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .width(60.dp)
-                            .height(12.dp),
-                        cornerRadius = 4f
-                    )
-                }
-            }
-        }
     }
 }
