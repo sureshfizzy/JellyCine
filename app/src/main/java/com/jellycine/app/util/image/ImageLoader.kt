@@ -23,6 +23,13 @@ import coil.request.CachePolicy
 import android.content.Context
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.jellycine.data.repository.MediaRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
 // Skeleton loading animation with optional placeholder
 @Composable
@@ -116,4 +123,56 @@ fun JellyfinPosterImage(
             imageState = state
         }
     )
+}
+
+// ImageUrlViewModel
+@HiltViewModel
+class ImageUrlViewModel @Inject constructor(
+    private val mediaRepository: MediaRepository
+) : ViewModel() {
+
+    fun getImageUrl(
+        itemId: String,
+        imageType: String = "Primary",
+        width: Int? = null,
+        height: Int? = null,
+        quality: Int? = 90
+    ): Flow<String?> {
+        return mediaRepository.getImageUrl(
+            itemId = itemId,
+            imageType = imageType,
+            width = width,
+            height = height,
+            quality = quality
+        )
+    }
+}
+
+// Composable functions
+@Composable
+fun rememberImageUrl(
+    itemId: String?,
+    imageType: String = "Primary",
+    mediaRepository: MediaRepository
+): String? {
+    val imageUrl by mediaRepository.getImageUrl(
+        itemId = itemId ?: "",
+        imageType = imageType
+    ).collectAsStateWithLifecycle(initialValue = null)
+
+    return imageUrl
+}
+
+@Composable
+fun rememberImageUrl(
+    itemId: String?,
+    imageType: String = "Primary",
+    viewModel: ImageUrlViewModel = hiltViewModel()
+): String? {
+    val imageUrl by viewModel.getImageUrl(
+        itemId = itemId ?: "",
+        imageType = imageType
+    ).collectAsStateWithLifecycle(initialValue = null)
+
+    return imageUrl
 }

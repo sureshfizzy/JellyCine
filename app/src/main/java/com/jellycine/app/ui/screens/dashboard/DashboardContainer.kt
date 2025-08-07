@@ -37,6 +37,7 @@ import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
+import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -141,17 +142,19 @@ fun DashboardContainer(
                     )
                 }
                 composable(DashboardDestination.Search.route) {
-                    // TODO: Implement search screen
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Search Screen",
-                            color = Color.White,
-                            fontSize = 24.sp
-                        )
-                    }
+                    SearchContainer(
+                        onNavigateToDetail = onNavigateToDetail,
+                        onCancel = {
+                            // Navigate back to home when cancel is pressed
+                            navController.navigate(DashboardDestination.Home.route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
                 }
                 composable(DashboardDestination.Favorites.route) {
                     Favorites()

@@ -521,4 +521,50 @@ class MediaRepository(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    /**
+     * Search for items using Jellyfin's search API
+     */
+    suspend fun searchItems(
+        searchTerm: String,
+        includeItemTypes: String? = "Movie,Series",
+        limit: Int? = 50
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            // Try searchTerm parameter first
+            var response = api.searchItems(
+                userId = userId,
+                searchTerm = searchTerm,
+                includeItemTypes = includeItemTypes,
+                recursive = true,
+                limit = limit,
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+            )
+
+            // If searchTerm doesn't work, try nameStartsWith
+            if (!response.isSuccessful || response.body()?.items?.isEmpty() == true) {
+                response = api.searchItemsByName(
+                    userId = userId,
+                    nameStartsWith = searchTerm,
+                    includeItemTypes = includeItemTypes,
+                    recursive = true,
+                    limit = limit,
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+                )
+            }
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                val items = queryResult.items ?: emptyList()
+                Result.success(items)
+            } else {
+                Result.failure(Exception("Failed to search items: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

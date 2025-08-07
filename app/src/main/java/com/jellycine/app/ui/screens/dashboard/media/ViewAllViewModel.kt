@@ -58,44 +58,44 @@ class ViewAllViewModel @Inject constructor(
 
                 withContext(Dispatchers.IO) {
                     val result = when (contentType) {
-                        ContentType.MOVIES -> mediaRepository.getAllItems(
+                        ContentType.MOVIES -> mediaRepository.getUserItems(
                             parentId = parentId,
                             includeItemTypes = "Movie",
                             sortBy = _uiState.value.sortBy,
                             sortOrder = _uiState.value.sortOrder,
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
-                            genres = _uiState.value.selectedGenres.takeIf { it.isNotEmpty() }?.joinToString(","),
-                            years = _uiState.value.selectedYears.takeIf { it.isNotEmpty() }?.joinToString(",")
+                            recursive = true,
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
                         )
-                        ContentType.SERIES -> mediaRepository.getAllItems(
+                        ContentType.SERIES -> mediaRepository.getUserItems(
                             parentId = parentId,
                             includeItemTypes = "Series",
                             sortBy = _uiState.value.sortBy,
                             sortOrder = _uiState.value.sortOrder,
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
-                            genres = _uiState.value.selectedGenres.takeIf { it.isNotEmpty() }?.joinToString(","),
-                            years = _uiState.value.selectedYears.takeIf { it.isNotEmpty() }?.joinToString(","),
+                            recursive = true,
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
                         )
-                        ContentType.EPISODES -> mediaRepository.getAllItems(
+                        ContentType.EPISODES -> mediaRepository.getUserItems(
                             parentId = parentId,
                             includeItemTypes = "Episode",
                             sortBy = _uiState.value.sortBy,
                             sortOrder = _uiState.value.sortOrder,
                             limit = pageSize,
-                            startIndex = currentPage * pageSize
+                            startIndex = currentPage * pageSize,
+                            recursive = true,
+                            fields = "SeriesName,SeriesId,SeasonName,SeasonId,Overview"
                         )
-                        ContentType.ALL -> mediaRepository.getAllItems(
+                        ContentType.ALL -> mediaRepository.getUserItems(
                             parentId = parentId,
                             includeItemTypes = "Movie,Series",
                             sortBy = _uiState.value.sortBy,
                             sortOrder = _uiState.value.sortOrder,
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
-                            genres = _uiState.value.selectedGenres.takeIf { it.isNotEmpty() }?.joinToString(","),
-                            years = _uiState.value.selectedYears.takeIf { it.isNotEmpty() }?.joinToString(","),
+                            recursive = true,
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
                         )
                     }

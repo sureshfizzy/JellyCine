@@ -131,4 +131,26 @@ interface JellyfinApi {
         @Query("deviceId") deviceId: String? = null,
         @Query("api_key") apiKey: String? = null
     ): String
+
+    // Search endpoint - using the correct Jellyfin search parameter
+    @GET("Users/{userId}/Items")
+    suspend fun searchItems(
+        @Path("userId") userId: String,
+        @Query("searchTerm") searchTerm: String,
+        @Query("includeItemTypes") includeItemTypes: String? = "Movie,Series",
+        @Query("recursive") recursive: Boolean = true,
+        @Query("limit") limit: Int? = 50,
+        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): Response<QueryResult<BaseItemDto>>
+
+    // Alternative search endpoint using nameStartsWith
+    @GET("Users/{userId}/Items")
+    suspend fun searchItemsByName(
+        @Path("userId") userId: String,
+        @Query("nameStartsWith") nameStartsWith: String,
+        @Query("includeItemTypes") includeItemTypes: String? = "Movie,Series",
+        @Query("recursive") recursive: Boolean = true,
+        @Query("limit") limit: Int? = 50,
+        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): Response<QueryResult<BaseItemDto>>
 }
