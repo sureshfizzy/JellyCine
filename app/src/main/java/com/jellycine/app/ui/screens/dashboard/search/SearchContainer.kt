@@ -172,10 +172,11 @@ fun SearchContainer(
                         }
                         
                         // No results message
-                        if (uiState.movieResults.isEmpty() && 
-                            uiState.showResults.isEmpty() && 
-                            uiState.episodeResults.isEmpty() && 
-                            !uiState.isSearching) {
+                        if (uiState.movieResults.isEmpty() &&
+                            uiState.showResults.isEmpty() &&
+                            uiState.episodeResults.isEmpty() &&
+                            !uiState.isSearching &&
+                            uiState.isSearchExecuted) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -191,7 +192,7 @@ fun SearchContainer(
                                             color = Color.Gray,
                                             fontSize = 16.sp
                                         )
-                                        
+
                                         uiState.error?.let { error ->
                                             Spacer(modifier = Modifier.height(8.dp))
                                             Text(
