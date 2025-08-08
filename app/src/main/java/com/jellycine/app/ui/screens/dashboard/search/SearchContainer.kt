@@ -67,10 +67,6 @@ fun SearchContainer(
     val keyboardController = LocalSoftwareKeyboardController.current
     val isSearchActive = searchQuery.isNotEmpty()
 
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
