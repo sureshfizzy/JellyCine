@@ -15,7 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.request.CachePolicy
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -476,6 +483,61 @@ fun ShimmerEffect(
  * Skeleton for poster/card items in horizontal rows
  * Used in: Dashboard sections, Continue Watching, etc.
  */
+@Composable
+fun ActualImageBlurPlaceholder(
+    itemId: String,
+    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    modifier: Modifier = Modifier,
+    width: Dp = 140.dp,
+    height: Dp = 210.dp,
+    cornerRadius: Float = 16f,
+    imageType: String = "Primary"
+) {
+    var blurImageUrl by remember(itemId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(itemId) {
+        try {
+            val url = mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = imageType,
+                width = if (imageType == "Thumb") 50 else 30,
+                height = if (imageType == "Thumb") 30 else 45,
+                quality = 5
+            ).first()
+            blurImageUrl = url
+        } catch (e: Exception) {
+        }
+    }
+
+    if (blurImageUrl != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(blurImageUrl)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .allowHardware(true)
+                .allowRgb565(true)
+                .crossfade(0)
+                .build(),
+            contentDescription = null,
+            modifier = modifier
+                .width(width)
+                .height(height)
+                .clip(RoundedCornerShape(cornerRadius.dp))
+                .blur(radius = 8.dp),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .width(width)
+                .height(height)
+                .clip(RoundedCornerShape(cornerRadius.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+        )
+    }
+}
+
 @Composable
 fun PosterSkeleton(
     modifier: Modifier = Modifier,

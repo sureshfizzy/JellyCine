@@ -26,6 +26,10 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    // Search cache for performance optimization
+    private val searchCache = mutableMapOf<String, SearchCacheEntry>()
+    private val cacheExpirationTime = 300_000L // 5 minutes
+
     init {
         loadPopularMovies()
     }

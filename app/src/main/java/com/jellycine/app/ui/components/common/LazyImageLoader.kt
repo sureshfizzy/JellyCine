@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -25,7 +26,8 @@ fun LazyImageLoader(
     contentScale: ContentScale = ContentScale.Crop,
     cornerRadius: Int = 8,
     showShimmer: Boolean = true,
-    enablePreloading: Boolean = true
+    enablePreloading: Boolean = true,
+    blurImageUrl: String? = null
 ) {
     var isLoading by remember(imageUrl) { mutableStateOf(true) }
     var hasError by remember(imageUrl) { mutableStateOf(false) }
@@ -34,6 +36,25 @@ fun LazyImageLoader(
     val context = LocalContext.current
 
     Box(modifier = modifier) {
+        if (!blurImageUrl.isNullOrEmpty() && !isSuccess && !hasError) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(blurImageUrl)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .allowHardware(true)
+                    .allowRgb565(true)
+                    .crossfade(0)
+                    .build(),
+                contentDescription = contentDescription,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(cornerRadius.dp))
+                    .blur(radius = 8.dp),
+                contentScale = contentScale
+            )
+        }
+
         if (imageUrl != null && !hasError) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -43,7 +64,7 @@ fun LazyImageLoader(
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
                     .allowRgb565(true)
-                    .crossfade(150)
+                    .crossfade(if (blurImageUrl != null) 300 else 150)
                     .size(coil.size.Size.ORIGINAL)
                     .build(),
                 contentDescription = contentDescription,
@@ -78,8 +99,8 @@ fun LazyImageLoader(
             )
         }
 
-        // Show shimmer while loading (only if not successful)
-        if (isLoading && showShimmer && !isSuccess) {
+        // Show shimmer while loading
+        if (isLoading && showShimmer && !isSuccess && blurImageUrl.isNullOrEmpty()) {
             ShimmerEffect(
                 modifier = Modifier.fillMaxSize(),
                 cornerRadius = cornerRadius.toFloat(),
@@ -88,7 +109,7 @@ fun LazyImageLoader(
         }
 
         // Show placeholder on error or null URL
-        if (hasError || imageUrl == null) {
+        if ((hasError || imageUrl == null) && blurImageUrl.isNullOrEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
