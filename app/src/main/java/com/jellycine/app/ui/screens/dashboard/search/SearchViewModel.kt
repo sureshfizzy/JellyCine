@@ -32,6 +32,7 @@ class SearchViewModel @Inject constructor(
 
     init {
         loadPopularMovies()
+        loadTrendingMovies()
     }
 
     fun updateSearchQuery(query: String) {
@@ -231,41 +232,45 @@ class SearchViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             
             try {
-                var result = mediaRepository.getRecentlyAddedMovies(limit = 20)
+                var popularItems: List<BaseItemDto> = emptyList()
+                val recentMoviesResult = mediaRepository.getRecentlyAddedMovies(limit = 12)
+                val recentMovies = recentMoviesResult.getOrNull() ?: emptyList()
+                val recentSeriesResult = mediaRepository.getUserItems(
+                    includeItemTypes = "Series",
+                    recursive = true,
+                    limit = 8,
+                    sortBy = "DateCreated",
+                    sortOrder = "Descending"
+                )
+                val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
+                popularItems = (recentMovies + recentSeries).take(20)
 
-                if (result.getOrNull()?.isEmpty() == true) {
-                    result = mediaRepository.getLatestItems(
-                        includeItemTypes = "Movie",
+                if (popularItems.size < 10) {
+                    val latestResult = mediaRepository.getLatestItems(
+                        includeItemTypes = "Movie,Series",
                         limit = 20
                     )
+                    val latestItems = latestResult.getOrNull() ?: emptyList()
+                    popularItems = (popularItems + latestItems).distinctBy { it.id }.take(20)
                 }
 
-                if (result.getOrNull()?.isEmpty() == true) {
-                    val allMoviesResult = mediaRepository.getUserItems(
-                        includeItemTypes = "Movie",
+                if (popularItems.isEmpty()) {
+                    val allItemsResult = mediaRepository.getUserItems(
+                        includeItemTypes = "Movie,Series",
                         recursive = true,
                         limit = 20,
                         sortBy = "DateCreated",
                         sortOrder = "Descending"
                     )
-                    result = allMoviesResult.map { it.items ?: emptyList() }
+                    popularItems = allItemsResult.getOrNull()?.items ?: emptyList()
                 }
                 
-                result.fold(
-                    onSuccess = { movies ->
-                        _uiState.value = _uiState.value.copy(
-                            popularMovies = movies,
-                            isLoading = false,
-                            error = null
-                        )
-                    },
-                    onFailure = { exception ->
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = exception.message
-                        )
-                    }
+                _uiState.value = _uiState.value.copy(
+                    popularMovies = popularItems,
+                    isLoading = false,
+                    error = null
                 )
+                
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -279,6 +284,97 @@ class SearchViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
+    private fun loadTrendingMovies() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTrendingLoading = true)
+            
+            try {
+                var trendingMovies: List<BaseItemDto> = emptyList()
+
+                try {
+                    val moviesResult = mediaRepository.getUserItems(
+                        includeItemTypes = "Movie",
+                        recursive = true,
+                        limit = 8,
+                        sortBy = "PlayCount,CommunityRating,DateCreated",
+                        sortOrder = "Descending"
+                    )
+                    
+                    val seriesResult = mediaRepository.getUserItems(
+                        includeItemTypes = "Series",
+                        recursive = true,
+                        limit = 7,
+                        sortBy = "PlayCount,CommunityRating,DateCreated",
+                        sortOrder = "Descending"
+                    )
+                    
+                    val movies = moviesResult.getOrNull()?.items ?: emptyList()
+                    val series = seriesResult.getOrNull()?.items ?: emptyList()
+                    val combined = mutableListOf<BaseItemDto>()
+                    val maxSize = maxOf(movies.size, series.size)
+                    
+                    for (i in 0 until maxSize) {
+                        if (i < movies.size) combined.add(movies[i])
+                        if (i < series.size) combined.add(series[i])
+                    }
+                    
+                    trendingMovies = combined.take(15)
+                } catch (e: Exception) {
+                }
+
+                if (trendingMovies.size < 5) {
+                    try {
+                        val recentMoviesResult = mediaRepository.getRecentlyAddedMovies(limit = 8)
+                        val recentMovies = recentMoviesResult.getOrNull() ?: emptyList()
+                        
+                        val recentSeriesResult = mediaRepository.getUserItems(
+                            includeItemTypes = "Series",
+                            recursive = true,
+                            limit = 7,
+                            sortBy = "DateCreated",
+                            sortOrder = "Descending"
+                        )
+                        val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
+                        
+                        trendingMovies = (recentMovies + recentSeries).take(15)
+                    } catch (e: Exception) {
+                    }
+                }
+
+                if (trendingMovies.isEmpty()) {
+                    val latestResult = mediaRepository.getLatestItems(
+                        includeItemTypes = "Movie,Series",
+                        limit = 15
+                    )
+                    trendingMovies = latestResult.getOrNull() ?: emptyList()
+                }
+
+                if (trendingMovies.isEmpty()) {
+                    val allItemsResult = mediaRepository.getUserItems(
+                        includeItemTypes = "Movie,Series",
+                        recursive = true,
+                        limit = 15,
+                        sortBy = "DateCreated",
+                        sortOrder = "Descending"
+                    )
+                    trendingMovies = allItemsResult.getOrNull()?.items ?: emptyList()
+                }
+                
+                _uiState.value = _uiState.value.copy(
+                    trendingMovies = trendingMovies,
+                    isTrendingLoading = false,
+                    error = null
+                )
+                
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isTrendingLoading = false,
+                    error = e.message
+                )
+            }
+        }
+    }
+
     fun clearSearchCache() {
         searchCache.clear()
     }
@@ -287,11 +383,13 @@ class SearchViewModel @Inject constructor(
 data class SearchUiState(
     val searchResults: List<BaseItemDto> = emptyList(),
     val popularMovies: List<BaseItemDto> = emptyList(),
+    val trendingMovies: List<BaseItemDto> = emptyList(),
     val movieResults: List<BaseItemDto> = emptyList(),
     val showResults: List<BaseItemDto> = emptyList(),
     val episodeResults: List<BaseItemDto> = emptyList(),
     val isSearching: Boolean = false,
     val isLoading: Boolean = false,
+    val isTrendingLoading: Boolean = false,
     val isSearchExecuted: Boolean = false,
     val error: String? = null
 )

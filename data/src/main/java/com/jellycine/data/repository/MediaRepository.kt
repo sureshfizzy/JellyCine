@@ -568,3 +568,43 @@ class MediaRepository(private val context: Context) {
         }
     }
 }
+
+// Extension functions for BaseItemDto
+/**
+ * Extension function to get image URL for BaseItemDto
+ * Returns the item ID which will be used by the image loader to construct the full URL
+ */
+fun BaseItemDto.getImageUrl(imageType: String = "Primary"): String {
+    // Return the item ID - the LazyImageLoader will handle constructing the full URL
+    return this.id ?: ""
+}
+
+/**
+ * Get formatted runtime string from ticks
+ */
+fun BaseItemDto.getFormattedRuntime(): String {
+    return runTimeTicks?.let { ticks ->
+        val minutes = (ticks / 600000000).toInt()
+        val hours = minutes / 60
+        val remainingMinutes = minutes % 60
+        if (hours > 0) "${hours}h ${remainingMinutes}m" else "${minutes}m"
+    } ?: ""
+}
+
+/**
+ * Get formatted year and genre string
+ */
+fun BaseItemDto.getYearAndGenre(): String {
+    val year = productionYear?.toString() ?: "Unknown"
+    val genre = genres?.firstOrNull() ?: "Unknown"
+    return "$year • $genre"
+}
+
+/**
+ * Get formatted rating string
+ */
+fun BaseItemDto.getFormattedRating(): String? {
+    return communityRating?.let { rating ->
+        String.format("%.1f", rating)
+    }
+}
