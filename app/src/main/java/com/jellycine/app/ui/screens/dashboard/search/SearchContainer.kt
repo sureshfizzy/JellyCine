@@ -11,6 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -40,6 +43,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.launch
 import com.jellycine.app.ui.components.common.LazyImageLoader
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.repository.getFormattedRuntime
@@ -104,28 +110,36 @@ fun SearchContainer(
                 }
             }
         } else {
-            val listState = rememberLazyListState()
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                userScrollEnabled = true,
-                flingBehavior = ScrollableDefaults.flingBehavior()
-            ) {
-                item {
-                    ImmersiveSection(
-                        title = "Trending Now",
-                        movies = uiState.trendingMovies,
-                        isLoading = uiState.isTrendingLoading,
-                        onItemClick = onNavigateToDetail
-                    )
-                }
-                item {
-                    ImmersiveSection(
-                        title = "Popular",
-                        movies = uiState.popularMovies,
-                        isLoading = uiState.isLoading,
-                        onItemClick = onNavigateToDetail
-                    )
+            // Vertical pager
+            val pagerState = rememberPagerState(
+                initialPage = 0,
+                pageCount = { 2 }
+            )
+            val coroutineScope = rememberCoroutineScope()
+
+            VerticalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 20.dp)
+            ) { page ->
+                when (page) {
+                    0 -> {
+                        ImmersiveSection(
+                            title = "Trending Now",
+                            movies = uiState.trendingMovies,
+                            isLoading = uiState.isTrendingLoading,
+                            onItemClick = onNavigateToDetail
+                        )
+                    }
+                    1 -> {
+                        ImmersiveSection(
+                            title = "Popular",
+                            movies = uiState.popularMovies,
+                            isLoading = uiState.isLoading,
+                            onItemClick = onNavigateToDetail
+                        )
+                    }
                 }
             }
         }
@@ -245,3 +259,4 @@ private fun SearchBar(
         }
     }
 }
+
