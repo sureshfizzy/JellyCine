@@ -27,12 +27,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.jellycine.app.ui.components.common.LazyImageLoader
-import com.jellycine.app.ui.components.common.GenreLabels
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 
@@ -122,23 +122,36 @@ fun TrendingStoriesView(
             )
         }
 
-        // Genre labels for the current active movie
-        if (trendingMovies.isNotEmpty()) {
-            val currentMovie = trendingMovies[currentPage]
-            currentMovie.genres?.let { genres ->
-                if (genres.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 130.dp) // Position above pagination dots
-                    ) {
-                        GenreLabels(
-                            genres = genres,
-                            maxGenres = 3
-                        )
-                    }
-                }
-            }
+        // Genre labels for the current tab
+        val typeText = when (currentMovie.type) {
+            "Movie" -> "Movie"
+            "Series" -> "TV Series"
+            else -> currentMovie.type ?: "Media"
+        }
+
+        val genreText = currentMovie.genres?.take(3)?.joinToString(" • ") ?: ""
+        val displayText = if (genreText.isNotEmpty()) {
+            "$typeText • $genreText"
+        } else {
+            typeText
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 32.dp)
+                .padding(bottom = 160.dp), // Position higher above pagination dots
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = displayText,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
 
         if (trendingMovies.size > 1) {

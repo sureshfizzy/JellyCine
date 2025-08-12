@@ -45,7 +45,7 @@ class MediaRepository(private val context: Context) {
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series",
         limit: Int? = 20,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
@@ -98,7 +98,7 @@ class MediaRepository(private val context: Context) {
         sortOrder: String? = null,
         limit: Int? = null,
         startIndex: Int? = null,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
@@ -194,14 +194,16 @@ class MediaRepository(private val context: Context) {
     suspend fun getRecentlyAddedMovies(limit: Int = 10): Result<List<BaseItemDto>> {
         return getLatestItems(
             includeItemTypes = "Movie",
-            limit = limit
+            limit = limit,
+            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
         )
     }
     
     suspend fun getRecentlyAddedSeries(limit: Int = 10): Result<List<BaseItemDto>> {
         return getLatestItems(
             includeItemTypes = "Series",
-            limit = limit
+            limit = limit,
+            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
         )
     }
     

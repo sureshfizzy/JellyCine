@@ -240,7 +240,8 @@ class SearchViewModel @Inject constructor(
                     recursive = true,
                     limit = 8,
                     sortBy = "DateCreated",
-                    sortOrder = "Descending"
+                    sortOrder = "Descending",
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                 )
                 val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
                 popularItems = (recentMovies + recentSeries).take(20)
@@ -248,7 +249,8 @@ class SearchViewModel @Inject constructor(
                 if (popularItems.size < 10) {
                     val latestResult = mediaRepository.getLatestItems(
                         includeItemTypes = "Movie,Series",
-                        limit = 20
+                        limit = 20,
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     val latestItems = latestResult.getOrNull() ?: emptyList()
                     popularItems = (popularItems + latestItems).distinctBy { it.id }.take(20)
@@ -260,7 +262,8 @@ class SearchViewModel @Inject constructor(
                         recursive = true,
                         limit = 20,
                         sortBy = "DateCreated",
-                        sortOrder = "Descending"
+                        sortOrder = "Descending",
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     popularItems = allItemsResult.getOrNull()?.items ?: emptyList()
                 }
@@ -297,7 +300,8 @@ class SearchViewModel @Inject constructor(
                         recursive = true,
                         limit = 8,
                         sortBy = "PlayCount,CommunityRating,DateCreated",
-                        sortOrder = "Descending"
+                        sortOrder = "Descending",
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     
                     val seriesResult = mediaRepository.getUserItems(
@@ -305,7 +309,8 @@ class SearchViewModel @Inject constructor(
                         recursive = true,
                         limit = 7,
                         sortBy = "PlayCount,CommunityRating,DateCreated",
-                        sortOrder = "Descending"
+                        sortOrder = "Descending",
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     
                     val movies = moviesResult.getOrNull()?.items ?: emptyList()
@@ -332,7 +337,8 @@ class SearchViewModel @Inject constructor(
                             recursive = true,
                             limit = 7,
                             sortBy = "DateCreated",
-                            sortOrder = "Descending"
+                            sortOrder = "Descending",
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                         )
                         val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
                         
@@ -344,7 +350,8 @@ class SearchViewModel @Inject constructor(
                 if (trendingMovies.isEmpty()) {
                     val latestResult = mediaRepository.getLatestItems(
                         includeItemTypes = "Movie,Series",
-                        limit = 15
+                        limit = 15,
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     trendingMovies = latestResult.getOrNull() ?: emptyList()
                 }
@@ -355,7 +362,8 @@ class SearchViewModel @Inject constructor(
                         recursive = true,
                         limit = 15,
                         sortBy = "DateCreated",
-                        sortOrder = "Descending"
+                        sortOrder = "Descending",
+                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
                     )
                     trendingMovies = allItemsResult.getOrNull()?.items ?: emptyList()
                 }
