@@ -80,7 +80,7 @@ fun Settings(
         }
 
         item {
-            SettingsSection(title = "App Language") {
+            SettingsSection {
                 SettingsItem(
                     icon = Icons.Rounded.Language,
                     title = "Language",
@@ -91,7 +91,7 @@ fun Settings(
         }
 
         item {
-            SettingsSection(title = "Player Settings") {
+            SettingsSection {
                 SettingsItem(
                     icon = Icons.Rounded.PlayArrow,
                     title = "Player Settings",
@@ -102,7 +102,7 @@ fun Settings(
         }
 
         item {
-            SettingsSection(title = "Device") {
+            SettingsSection {
                 SettingsItem(
                     icon = Icons.Rounded.PhoneAndroid,
                     title = "Device Name",
@@ -129,7 +129,7 @@ fun Settings(
         }
 
         item {
-            SettingsSection(title = "Debug") {
+            SettingsSection {
                 SettingsItem(
                     icon = Icons.Rounded.BugReport,
                     title = "Download Logs",
@@ -147,7 +147,7 @@ fun Settings(
         }
 
         item {
-            SettingsSection(title = "Account") {
+            SettingsSection {
                 SettingsItem(
                     icon = Icons.AutoMirrored.Rounded.Logout,
                     title = "Sign Out",
@@ -271,29 +271,18 @@ private fun UserProfileSection(
 
 @Composable
 private fun SettingsSection(
-    title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column {
-        Text(
-            text = title,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-            ),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column {
-                content()
-            }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column {
+            content()
         }
     }
 }
