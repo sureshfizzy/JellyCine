@@ -7,6 +7,7 @@ import com.jellycine.data.model.UserDto
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -75,6 +76,7 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             try {
                 authRepository.logout()
+                CachedData.clearAllCache()
                 onLogoutComplete()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)

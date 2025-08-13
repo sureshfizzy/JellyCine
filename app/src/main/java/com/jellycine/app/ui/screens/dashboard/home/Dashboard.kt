@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -620,10 +621,23 @@ fun Dashboard(
     var selectedCategory by remember { mutableStateOf("Home") }
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
+
+    // Track current user to detect user changes
+    val currentUsername by authRepository.getUsername().collectAsState(initial = null)
+    var lastKnownUsername by remember { mutableStateOf<String?>(null) }
 
     // Create QueryManager with proper scope
     val queryManager = remember {
         QueryManager(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+    }
+
+    LaunchedEffect(currentUsername) {
+        if (lastKnownUsername != null && lastKnownUsername != currentUsername) {
+            queryManager.cleanup()
+            Cache.clear()
+        }
+        lastKnownUsername = currentUsername
     }
 
     // Cleanup on disposal

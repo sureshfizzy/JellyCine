@@ -127,6 +127,7 @@ class AuthRepository(private val context: Context) {
         dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN_KEY] = ""
             preferences[USER_ID_KEY] = ""
+            preferences[USERNAME_KEY] = ""
             preferences[IS_AUTHENTICATED_KEY] = false
         }
     }

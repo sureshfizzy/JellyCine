@@ -26,7 +26,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,7 +59,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 
-private object CachedData {
+internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
     var continueWatchingItems: List<BaseItemDto> = emptyList()
     var username: String? = null
@@ -137,6 +137,17 @@ fun FeatureTab(
     var storedUsername by remember { mutableStateOf(CachedData.username) }
     var userProfileImageUrl by remember { mutableStateOf(CachedData.userImageUrl) }
     var hasLoadedUser by remember { mutableStateOf(!CachedData.username.isNullOrBlank()) }
+    
+    // Track authentication state to reset user data when user changes
+    val currentUsername by authRepository.getUsername().collectAsState(initial = null)
+
+    LaunchedEffect(currentUsername) {
+        if (storedUsername != currentUsername) {
+            hasLoadedUser = false
+            storedUsername = null
+            userProfileImageUrl = null
+        }
+    }
     
     // Auto-rotation state
     var currentIndex by remember { mutableStateOf(0) }

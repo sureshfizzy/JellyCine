@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -125,6 +126,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
+            CachedData.clearAllCache()
             // Reset UI state
             _uiState.value = AuthScreenUiState()
         }
