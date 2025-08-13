@@ -85,13 +85,6 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
         
-        if (currentState.password.isBlank()) {
-            _uiState.value = currentState.copy(
-                loginErrorMessage = "Please enter your password"
-            )
-            return
-        }
-        
         _uiState.value = currentState.copy(
             isLoginLoading = true,
             loginErrorMessage = null

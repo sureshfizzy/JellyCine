@@ -527,7 +527,7 @@ private fun LoginForm(
                     Color(0xFF1e3c72),
                     RoundedCornerShape(16.dp)
                 ),
-            enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
+            enabled = !isLoading && username.isNotBlank(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
