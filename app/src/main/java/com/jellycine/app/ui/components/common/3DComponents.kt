@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -53,7 +55,7 @@ fun ScreenWrapper(
                 scaleX = scale,
                 scaleY = scale,
                 alpha = alpha,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                transformOrigin = TransformOrigin.Center
             )
     ) {
         content()
@@ -71,7 +73,7 @@ fun AnimatedCard(
     enabled: Boolean = true,
     elevation: CardElevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     colors: CardColors = CardDefaults.cardColors(),
-    shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp),
+    shape: Shape = RoundedCornerShape(16.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -144,7 +146,7 @@ fun AnimatedCard(
                 scaleY = scale,
                 rotationX = rotationX,
                 rotationY = rotationY,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 12f * density.density
             )
             .pointerInput(enabled) {
@@ -219,7 +221,7 @@ fun ListItem(
                 scaleX = scale,
                 scaleY = scale,
                 rotationX = rotationX,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 20f * density.density
             )
             .pointerInput(enabled) {

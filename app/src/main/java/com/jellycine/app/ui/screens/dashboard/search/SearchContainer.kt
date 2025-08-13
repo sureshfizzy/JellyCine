@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
 import com.jellycine.app.ui.components.common.LazyImageLoader
@@ -168,7 +170,7 @@ private fun SearchBar(
     onCancel: () -> Unit,
     onSearch: () -> Unit,
     focusRequester: FocusRequester,
-    keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
+    keyboardController: SoftwareKeyboardController?,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -203,7 +205,7 @@ private fun SearchBar(
                     BasicTextField(
                         value = query,
                         onValueChange = onQueryChange,
-                        textStyle = androidx.compose.ui.text.TextStyle(
+                        textStyle = TextStyle(
                             color = Color.White,
                             fontSize = 16.sp
                         ),

@@ -436,7 +436,7 @@ private fun ProfileImageLoader(
                     .crossfade(300)
                     .build(),
                 contentDescription = "Profile picture",
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape),

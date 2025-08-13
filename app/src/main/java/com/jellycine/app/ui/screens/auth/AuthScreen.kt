@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.auth
 
 import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
@@ -364,7 +365,7 @@ private fun ConnectionForm(
             shape = RoundedCornerShape(10.dp)
         )
 
-        androidx.compose.animation.AnimatedVisibility(
+        AnimatedVisibility(
             visible = errorMessage != null,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(200))
@@ -504,7 +505,7 @@ private fun LoginForm(
             shape = RoundedCornerShape(10.dp)
         )
 
-        androidx.compose.animation.AnimatedVisibility(
+        AnimatedVisibility(
             visible = errorMessage != null,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(200))

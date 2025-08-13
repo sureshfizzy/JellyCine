@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -114,7 +115,7 @@ fun EpisodeCard(
                 scaleX = scale,
                 scaleY = scale,
                 rotationX = rotationX,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 16f * density.density
             )
             .pointerInput(Unit) {

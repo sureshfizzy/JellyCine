@@ -1,7 +1,10 @@
 package com.jellycine.app.ui.screens.detail
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -10,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.*
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
@@ -23,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
@@ -129,7 +134,7 @@ fun SeasonCard(
                 scaleY = scale,
                 rotationX = rotationX,
                 rotationY = rotationY,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 12f * density.density
             )
             .pointerInput(Unit) {
@@ -305,7 +310,7 @@ fun SeasonCard(
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = Color.White
                             ),
-                            border = androidx.compose.foundation.BorderStroke(
+                            border = BorderStroke(
                                 1.dp,
                                 Color.White.copy(alpha = 0.5f)
                             ),

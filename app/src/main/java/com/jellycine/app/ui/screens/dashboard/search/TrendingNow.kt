@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.jellycine.app.ui.components.common.LazyImageLoader
@@ -77,7 +78,7 @@ fun TrendingStoriesView(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    androidx.compose.ui.graphics.Brush.radialGradient(
+                    Brush.radialGradient(
                         colors = listOf(
                             Color.Black.copy(alpha = 0.3f),
                             Color.Black.copy(alpha = 0.6f),
@@ -93,7 +94,7 @@ fun TrendingStoriesView(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
                             Color.Black.copy(alpha = 0.2f),
@@ -312,7 +313,7 @@ private fun TrendingCard(
                             .padding(top = 16.dp, end = 16.dp)
                             .size(60.dp)
                             .background(
-                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                                brush = Brush.radialGradient(
                                     colors = listOf(
                                         Color.White.copy(alpha = 0.95f),
                                         Color.White.copy(alpha = 0.85f)

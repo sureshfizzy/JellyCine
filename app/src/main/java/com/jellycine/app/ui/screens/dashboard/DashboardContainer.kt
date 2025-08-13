@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.sqrt
 import androidx.compose.ui.text.font.FontWeight
@@ -162,7 +163,7 @@ fun DashboardContainer(
                             DashboardDestination.Search.route -> -2f
                             else -> 0f
                         },
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                        transformOrigin = TransformOrigin.Center
                     )
             ) {
                 composable(
@@ -265,7 +266,7 @@ fun DashboardContainer(
                         .background(Color.Black)
                         .graphicsLayer(
                             rotationX = -3f,
-                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f),
+                            transformOrigin = TransformOrigin(0.5f, 1f),
                             scaleY = when (currentRoute) {
                                 DashboardDestination.Search.route -> 1.2f
                                 else -> 1f
@@ -469,7 +470,7 @@ private fun FloatingSearchButton(
             .graphicsLayer(
                 scaleX = scale,
                 scaleY = scale,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                transformOrigin = TransformOrigin.Center
             )
             .shadow(
                 elevation = elevation,
@@ -561,7 +562,7 @@ private fun NavigationItem(
                 scaleY = scale,
                 rotationX = rotationX,
                 translationY = translationY,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                transformOrigin = TransformOrigin.Center
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -644,7 +645,7 @@ private fun ContentWrapper(
                 scaleX = scale,
                 scaleY = scale,
                 alpha = alpha,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                transformOrigin = TransformOrigin.Center
             )
     ) {
         content()
@@ -720,7 +721,7 @@ fun PosterCard(
                 scaleY = scale,
                 rotationX = rotationX,
                 rotationY = rotationY,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 12f * density.density
             )
             .pointerInput(Unit) {
@@ -780,7 +781,7 @@ fun ListItem(
                 scaleX = scale,
                 scaleY = scale,
                 rotationX = rotationX,
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                transformOrigin = TransformOrigin.Center,
                 cameraDistance = 20f * density.density
             )
             .pointerInput(Unit) {
@@ -831,7 +832,7 @@ fun ShimmerEffect(
         )
     ) {
         drawRoundRect(
-            color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
+            color = Color(0xFF2A2A2A).copy(alpha = alpha.value),
             cornerRadius = CornerRadius(cornerRadius, cornerRadius)
         )
     }

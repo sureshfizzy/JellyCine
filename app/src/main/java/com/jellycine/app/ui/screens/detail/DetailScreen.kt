@@ -31,10 +31,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jellycine.app.util.image.JellyfinPosterImage
-
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.MediaStream
@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.cos
 import kotlin.math.sin
 import android.content.Context
+import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.detail.CodecCapabilityManager
@@ -106,7 +107,7 @@ fun LoadingAnimation(
                 drawCircle(
                     color = color.copy(alpha = 0.7f - (i * 0.08f)),
                     radius = circleRadius,
-                    center = androidx.compose.ui.geometry.Offset(x.toFloat(), y.toFloat())
+                    center = Offset(x.toFloat(), y.toFloat())
                 )
             }
         }
@@ -786,7 +787,7 @@ private fun SeasonsSection(
     }
 }
 
-@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun DetailScreenPreview() {
     MaterialTheme {
@@ -826,7 +827,7 @@ fun DetailScreenPreview() {
     }
 }
 
-@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun DetailScreenLongRatingPreview() {
     MaterialTheme {
@@ -873,7 +874,7 @@ fun DetailScreenLongRatingPreview() {
     }
 }
 
-@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun DetailScreenNoGenresPreview() {
     MaterialTheme {
@@ -899,7 +900,7 @@ fun DetailScreenNoGenresPreview() {
     }
 }
 
-@Preview(showBackground = true, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun DetailScreenManyGenresPreview() {
     MaterialTheme {
