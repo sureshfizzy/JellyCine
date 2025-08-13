@@ -284,9 +284,11 @@ fun <T> useQuery(
 ): QueryState<T> {
     val queryManager = LocalQueryManager.current
     var state by remember(key) { mutableStateOf(queryManager.getQuery<T>(key)) }
+    var hasInitiated by remember(key) { mutableStateOf(false) }
 
     LaunchedEffect(key, config.enabled) {
         if (config.enabled) {
+            hasInitiated = true
             val newState = queryManager.executeQuery(key, config, fetcher)
             state = newState
 
@@ -301,7 +303,12 @@ fun <T> useQuery(
             }
         }
     }
-    return state
+
+    return if (!hasInitiated && state.data == null && !state.isError) {
+        state.copy(isLoading = true)
+    } else {
+        state
+    }
 }
 
 // Image preloader for better performance
@@ -838,11 +845,11 @@ fun Dashboard(
             )
 
             // Continue Watching section - only show on Home tab
-            if (selectedCategory == "Home" && (continueWatchingQuery.isLoading || !continueWatchingQuery.data.isNullOrEmpty())) {
+            if (selectedCategory == "Home" && (continueWatchingQuery.isLoading || !continueWatchingQuery.data.isNullOrEmpty() || (continueWatchingQuery.data == null && !continueWatchingQuery.isError))) {
                 Column(
                     modifier = Modifier.padding(top = 8.dp)
                 ) {
-                    if (continueWatchingQuery.isLoading) {
+                    if (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError)) {
                         Text(
                             text = "Continue Watching",
                             style = MaterialTheme.typography.headlineSmall,
@@ -854,7 +861,7 @@ fun Dashboard(
                         ContinueWatchingSection(
                             items = continueWatchingQuery.data ?: emptyList(),
                             isLoading = continueWatchingQuery.isLoading,
-                            error = continueWatchingQuery.error,
+                            error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
                             onItemClick = onNavigateToDetail
                         )
                     }
@@ -1312,14 +1319,7 @@ private fun ProgressiveLibrarySection(
                         }
                 ) {
                     items(4) {
-                        // Use minimal placeholder while we don't have itemIds yet
-                        Box(
-                            modifier = Modifier
-                                .width(140.dp)
-                                .height(210.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                        )
+                        PosterSkeleton()
                     }
                 }
             }
@@ -1393,19 +1393,34 @@ private fun ProgressiveLibrarySection(
             }
 
             else -> {
-                // Empty state
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No items found",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 12.sp
-                    )
+                if (libraryQuery.data == null && !libraryQuery.isError) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                compositingStrategy = CompositingStrategy.Offscreen
+                            }
+                    ) {
+                        items(4) {
+                            PosterSkeleton()
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No items found",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
         }
@@ -2008,13 +2023,14 @@ private fun ProgressiveMovieGenreSection(
                 }
             }
             else -> {
-                // Minimal empty state
-                Text(
-                    text = "No movies found",
-                    color = Color.Gray.copy(alpha = 0.5f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                if (!isLoading && genreMovies.isEmpty()) {
+                    Text(
+                        text = "No movies found",
+                        color = Color.Gray.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -2117,13 +2133,14 @@ private fun ProgressiveTVShowGenreSection(
                 }
             }
             else -> {
-                // Minimal empty state
-                Text(
-                    text = "No TV shows found",
-                    color = Color.Gray.copy(alpha = 0.5f),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                if (!isLoading && genreShows.isEmpty()) {
+                    Text(
+                        text = "No TV shows found",
+                        color = Color.Gray.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }

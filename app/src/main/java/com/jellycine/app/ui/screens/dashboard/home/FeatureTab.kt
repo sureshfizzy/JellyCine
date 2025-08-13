@@ -278,11 +278,11 @@ fun FeatureTab(
 
         // Featured content card
         when {
-            isLoading && featuredItems.isEmpty() -> {
+            isLoading -> {
                 ModernFeatureCardSkeleton()
             }
 
-            error != null && featuredItems.isEmpty() -> {
+            error != null && featuredItems.isEmpty() && !isLoading -> {
                 ModernErrorCard(error = error)
             }
 
@@ -312,7 +312,11 @@ fun FeatureTab(
             }
 
             else -> {
-                ModernErrorCard(error = "No featured content available")
+                if (!isLoading && featuredItems.isEmpty()) {
+                    ModernErrorCard(error = "No featured content available")
+                } else {
+                    ModernFeatureCardSkeleton()
+                }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))

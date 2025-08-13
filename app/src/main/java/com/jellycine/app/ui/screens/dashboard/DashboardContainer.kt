@@ -901,15 +901,47 @@ fun ActualImageBlurPlaceholder(
 fun PosterSkeleton(
     modifier: Modifier = Modifier,
     width: Dp = 140.dp,
-    height: Dp = 210.dp,
+    height: Dp = 260.dp,
     cornerRadius: Float = 16f
 ) {
-    ShimmerEffect(
+    Column(
         modifier = modifier
             .width(width)
-            .height(height),
-        cornerRadius = cornerRadius
-    )
+            .height(height)
+    ) {
+        // Image skeleton
+        ShimmerEffect(
+            modifier = Modifier
+                .width(width)
+                .height(210.dp),
+            cornerRadius = cornerRadius
+        )
+
+        // Title and metadata skeleton
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Title skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(16.dp),
+                cornerRadius = 4f
+            )
+            // Year/type skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(12.dp),
+                cornerRadius = 4f
+            )
+        }
+    }
 }
 
 /**
@@ -925,12 +957,45 @@ fun ContinueWatchingSkeleton(
         modifier = modifier.fillMaxWidth()
     ) {
         items(5) {
-            ShimmerEffect(
+            Column(
                 modifier = Modifier
                     .width(200.dp)
-                    .height(120.dp),
-                cornerRadius = 12f
-            )
+                    .height(180.dp)
+            ) {
+                // Image skeleton
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(120.dp),
+                    cornerRadius = 12f
+                )
+
+                // Title and info skeleton
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Title skeleton
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .height(16.dp),
+                        cornerRadius = 4f
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Year/type skeleton
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .height(12.dp),
+                        cornerRadius = 4f
+                    )
+                }
+            }
         }
     }
 }
