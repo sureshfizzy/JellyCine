@@ -25,7 +25,12 @@ class JellyCineActivity : ComponentActivity() {
 
         setContent {
             JellyCineTheme {
-                AppNavigation()
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppNavigation()
+                }
             }
         }
     }
