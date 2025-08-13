@@ -9,9 +9,9 @@ import com.jellycine.data.model.MediaStream
 object CodecUtils {
 
     /**
-     * Get enhanced audio information for display
+     * Get audio information for display
      */
-    fun getEnhancedAudioInfo(audioStream: MediaStream): String {
+    fun getAudioInfo(audioStream: MediaStream): String {
         val codec = audioStream.codec?.uppercase() ?: ""
         val channels = audioStream.channels ?: 0
         val channelLayout = audioStream.channelLayout

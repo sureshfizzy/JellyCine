@@ -195,16 +195,10 @@ fun DetailScreenContainer(
                 AnimatedContent(
                     targetState = currentScreen,
                     transitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { fullWidth -> fullWidth },
-                            animationSpec = tween(300, easing = FastOutSlowInEasing)
-                        ) + fadeIn(
-                            animationSpec = tween(300)
-                        ) togetherWith slideOutHorizontally(
-                            targetOffsetX = { fullWidth -> -fullWidth },
-                            animationSpec = tween(300, easing = FastOutSlowInEasing)
-                        ) + fadeOut(
-                            animationSpec = tween(300)
+                        fadeIn(
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
+                        ) togetherWith fadeOut(
+                            animationSpec = tween(300, easing = LinearOutSlowInEasing)
                         )
                     },
                     label = "screen_navigation"

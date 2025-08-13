@@ -19,6 +19,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
@@ -36,6 +43,44 @@ fun EpisodeCard(
     val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
     var imageLoadingFailed by remember(episode.id) { mutableStateOf(false) }
+    var isPressed by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    
+    // Animation states
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.98f
+            isHovered -> 1.02f
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationX by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 2f
+            isHovered -> -3f
+            else -> 0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val elevation by animateDpAsState(
+        targetValue = when {
+            isPressed -> 1.dp
+            isHovered -> 8.dp
+            else -> 2.dp
+        },
+        animationSpec = tween(300)
+    )
 
     LaunchedEffect(episode.id) {
         episode.id?.let { episodeId ->
@@ -59,13 +104,33 @@ fun EpisodeCard(
     }
 
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                rotationX = rotationX,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                cameraDistance = 16f * density.density
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    }
+                )
+            },
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1A1A1A)
         ),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Row(
             modifier = Modifier

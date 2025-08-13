@@ -100,7 +100,7 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.7.1'
     implementation 'androidx.media3:media3-common:1.7.1'
 
-    // Enhanced audio and video processing
+    // audio and video processing
     implementation 'androidx.media3:media3-effect:1.7.1'
 
     // Networking for Jellyfin API

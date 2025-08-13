@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EnhancedEpisodePreviewCard(
+fun EpisodePreviewCard(
     episode: BaseItemDto,
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {},

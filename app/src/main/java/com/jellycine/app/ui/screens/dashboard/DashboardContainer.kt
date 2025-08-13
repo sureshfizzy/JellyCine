@@ -54,7 +54,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -65,10 +68,21 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 
+private fun DashboardEnterTransition(): EnterTransition {
+    return fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing))
+}
+
+private fun DashboardExitTransition(): ExitTransition {
+    return fadeOut(animationSpec = tween(300, easing = LinearOutSlowInEasing))
+}
 
 sealed class DashboardDestination(
     val route: String,
@@ -118,6 +132,7 @@ fun DashboardContainer(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val density = LocalDensity.current
 
 
 
@@ -136,71 +151,132 @@ fun DashboardContainer(
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Main content area
+            // Main content area with transitions and parallax effect
             NavHost(
                 navController = navController,
                 startDestination = DashboardDestination.Home.route,
-                modifier = Modifier.fillMaxSize(),
-                enterTransition = { fadeIn(animationSpec = tween(200)) },
-                exitTransition = { fadeOut(animationSpec = tween(200)) }
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        translationY = when (currentRoute) {
+                            DashboardDestination.Search.route -> -2f
+                            else -> 0f
+                        },
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                    )
             ) {
-                composable(DashboardDestination.Home.route) {
+                composable(
+                    DashboardDestination.Home.route,
+                    enterTransition = { DashboardEnterTransition() },
+                    exitTransition = { DashboardExitTransition() }
+                ) {
                     // Track when Home tab becomes active
                     val isHomeActive = currentRoute == DashboardDestination.Home.route
 
-                    Dashboard(
-                        onLogout = onLogout,
-                        onNavigateToDetail = onNavigateToDetail,
-                        onNavigateToViewAll = onNavigateToViewAll,
-                        isTabActive = isHomeActive
-                    )
+                    ContentWrapper(
+                        isActive = isHomeActive,
+                        route = DashboardDestination.Home.route
+                    ) {
+                        Dashboard(
+                            onLogout = onLogout,
+                            onNavigateToDetail = onNavigateToDetail,
+                            onNavigateToViewAll = onNavigateToViewAll,
+                            isTabActive = isHomeActive
+                        )
+                    }
                 }
-                composable(DashboardDestination.MyMedia.route) {
-                    MyMedia(
-                        onLibraryClick = { contentType, parentId, title ->
-                            onNavigateToViewAll(contentType.name, parentId, title)
-                        }
-                    )
-                }
-                composable(DashboardDestination.Search.route) {
-                    SearchContainer(
-                        onNavigateToDetail = onNavigateToDetail,
-                        onCancel = {
-                            // Navigate back to home when cancel is pressed
-                            navController.navigate(DashboardDestination.Home.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
+                composable(
+                    DashboardDestination.MyMedia.route,
+                    enterTransition = { DashboardEnterTransition() },
+                    exitTransition = { DashboardExitTransition() }
+                ) {
+                    ContentWrapper(
+                        isActive = currentRoute == DashboardDestination.MyMedia.route,
+                        route = DashboardDestination.MyMedia.route
+                    ) {
+                        MyMedia(
+                            onLibraryClick = { contentType, parentId, title ->
+                                onNavigateToViewAll(contentType.name, parentId, title)
                             }
-                        }
-                    )
+                        )
+                    }
                 }
-                composable(DashboardDestination.Favorites.route) {
-                    Favorites()
+                composable(
+                    DashboardDestination.Search.route,
+                    enterTransition = { DashboardEnterTransition() },
+                    exitTransition = { DashboardExitTransition() }
+                ) {
+                    ContentWrapper(
+                        isActive = currentRoute == DashboardDestination.Search.route,
+                        route = DashboardDestination.Search.route,
+                        isSearchScreen = true
+                    ) {
+                        SearchContainer(
+                            onNavigateToDetail = onNavigateToDetail,
+                            onCancel = {
+                                // Navigate back to home when cancel is pressed
+                                navController.navigate(DashboardDestination.Home.route) {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
                 }
-                composable(DashboardDestination.Settings.route) {
-                    Settings(onLogout = onLogout)
+                composable(
+                    DashboardDestination.Favorites.route,
+                    enterTransition = { DashboardEnterTransition() },
+                    exitTransition = { DashboardExitTransition() }
+                ) {
+                    ContentWrapper(
+                        isActive = currentRoute == DashboardDestination.Favorites.route,
+                        route = DashboardDestination.Favorites.route
+                    ) {
+                        Favorites()
+                    }
+                }
+                composable(
+                    DashboardDestination.Settings.route,
+                    enterTransition = { DashboardEnterTransition() },
+                    exitTransition = { DashboardExitTransition() }
+                ) {
+                    ContentWrapper(
+                        isActive = currentRoute == DashboardDestination.Settings.route,
+                        route = DashboardDestination.Settings.route
+                    ) {
+                        Settings(onLogout = onLogout)
+                    }
                 }
             }
 
-            // Curved Bottom Navigation with Glass Effect
+            // Curved Bottom Navigation
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
             ) {
-                // AMOLED black background layer
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp)
                         .background(Color.Black)
+                        .graphicsLayer(
+                            rotationX = -3f,
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f),
+                            scaleY = when (currentRoute) {
+                                DashboardDestination.Search.route -> 1.2f
+                                else -> 1f
+                            },
+                            cameraDistance = 8f * density.density
+                        )
                         .drawBehind {
-                            drawCurvedNavigationBarGlass(
+                            draw3DCurvedNavigationBar(
                                 width = size.width,
-                                height = size.height
+                                height = size.height,
+                                currentRoute = currentRoute
                             )
                         }
                 )
@@ -293,10 +369,11 @@ fun DashboardContainer(
     }
 }
 
-// Function to draw the curved navigation bar with glass effect
-private fun DrawScope.drawCurvedNavigationBarGlass(
+// Function to draw curved navigation bar with dynamic effects
+private fun DrawScope.draw3DCurvedNavigationBar(
     width: Float,
-    height: Float
+    height: Float,
+    currentRoute: String?
 ) {
     val centerWidth = width / 2f
 
@@ -308,17 +385,16 @@ private fun DrawScope.drawCurvedNavigationBarGlass(
     val curveStartX = centerWidth - (curveWidth / 2)
     val curveEndX = centerWidth + (curveWidth / 2)
 
-    // Control points for a wide, smooth curve
-    val controlPoint1X = curveStartX + curveWidth * 0.15f
-    val controlPoint2X = centerWidth - curveWidth * 0.30f
-    
-    val controlPoint3X = centerWidth + curveWidth * 0.30f
-    val controlPoint4X = curveEndX - curveWidth * 0.15f
+    // Control points for smoother curve
+    val controlPoint1X = curveStartX + curveWidth * 0.12f
+    val controlPoint2X = centerWidth - curveWidth * 0.35f
+    val controlPoint3X = centerWidth + curveWidth * 0.35f
+    val controlPoint4X = curveEndX - curveWidth * 0.12f
     
     val backgroundPath = Path().apply {
         moveTo(0f, 0f)
         lineTo(curveStartX, 0f)
-        
+
         cubicTo(
             x1 = controlPoint1X, y1 = 0f,
             x2 = controlPoint2X, y2 = curveDepth,
@@ -337,23 +413,15 @@ private fun DrawScope.drawCurvedNavigationBarGlass(
         close()
     }
 
-    // Glass morphism effect with multiple layers
-    // Base glass layer with blur effect
+    // AMOLED Black background with subtle depth
     drawPath(
         path = backgroundPath,
-        color = Color.White.copy(alpha = 0.05f)
+        color = Color.Black
     )
 
-    // Secondary layer for depth
     drawPath(
         path = backgroundPath,
-        color = Color.Black.copy(alpha = 0.4f)
-    )
-
-    // Subtle border for glass effect
-    drawPath(
-        path = backgroundPath,
-        color = Color.White.copy(alpha = 0.1f),
+        color = Color.White.copy(alpha = 0.05f),
         style = Stroke(width = 1.dp.toPx())
     )
 }
@@ -363,19 +431,59 @@ private fun FloatingSearchButton(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
+    
+    // Animation states with breathing effect
+    val infiniteTransition = rememberInfiniteTransition(label = "search_breathing")
+    val breathingScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breathing_scale"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f * breathingScale else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+
+    val elevation by animateDpAsState(
+        targetValue = if (isSelected) 16.dp else 8.dp,
+        animationSpec = tween(300)
+    )
+    
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f),
+        animationSpec = tween(300)
+    )
+
     Box(
         modifier = Modifier
             .size(56.dp)
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+            )
             .shadow(
-                elevation = 8.dp,
+                elevation = elevation,
                 shape = CircleShape,
                 clip = false
             )
             .background(
-                color = Color.White,
+                color = backgroundColor,
                 shape = CircleShape
             )
-            .clickable { onClick() },
+            .clickable { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick() 
+            },
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -395,18 +503,45 @@ private fun NavigationItem(
 ) {
     val haptic = LocalHapticFeedback.current
 
-    // Animations for selection state
+    // animations for selection state
     val color by animateColorAsState(
         targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
-        animationSpec = tween(durationMillis = 300)
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
     )
+    
     val iconSize by animateDpAsState(
-        targetValue = if (isSelected) 24.dp else 22.dp,
-        animationSpec = tween(durationMillis = 300)
+        targetValue = if (isSelected) 26.dp else 22.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
     )
+    
     val textAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f, // 2. Only show text when selected
-        animationSpec = tween(300)
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = tween(400, easing = LinearOutSlowInEasing)
+    )
+    
+    // transformation effects
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationX by animateFloatAsState(
+        targetValue = if (isSelected) -10f else 0f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing)
+    )
+    
+    val translationY by animateFloatAsState(
+        targetValue = if (isSelected) -2f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
     )
 
     Column(
@@ -420,16 +555,41 @@ private fun NavigationItem(
                 }
             )
             .height(60.dp)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 8.dp)
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                rotationX = rotationX,
+                translationY = translationY,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-            contentDescription = destination.title,
-            tint = color,
-            modifier = Modifier.size(iconSize)
-        )
+        // Icon with glow effect when selected
+        Box(
+            contentAlignment = Alignment.Center
+        ) {
+            // Glow effect background
+            if (isSelected) {
+                Icon(
+                    imageVector = destination.selectedIcon,
+                    contentDescription = null,
+                    tint = color.copy(alpha = 0.3f),
+                    modifier = Modifier
+                        .size(iconSize + 8.dp)
+                        .blur(4.dp)
+                )
+            }
+            
+            // Main icon
+            Icon(
+                imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                contentDescription = destination.title,
+                tint = color,
+                modifier = Modifier.size(iconSize)
+            )
+        }
 
         if (isSelected) {
             Spacer(modifier = Modifier.height(2.dp))
@@ -438,9 +598,207 @@ private fun NavigationItem(
                 color = color,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.alpha(textAlpha)
+                modifier = Modifier
+                    .alpha(textAlpha)
+                    .graphicsLayer(
+                        scaleX = textAlpha,
+                        scaleY = textAlpha
+                    )
             )
         }
+    }
+}
+
+@Composable
+private fun ContentWrapper(
+    isActive: Boolean,
+    route: String,
+    isSearchScreen: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val density = LocalDensity.current
+    // transformation states
+    val scale by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0.95f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val alpha by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = if (isSearchScreen) 400 else 300,
+            easing = if (isSearchScreen) FastOutSlowInEasing else LinearOutSlowInEasing
+        )
+    )
+    
+    // Removed tilt effects - keeping only scale and fade
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                alpha = alpha,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+            )
+    ) {
+        content()
+    }
+}
+
+// Poster Component for general use
+@Composable
+fun PosterCard(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+    content: @Composable () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    
+    // Animation states
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.95f
+            isHovered -> 1.05f
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationX by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 8f
+            isHovered -> -12f
+            else -> 0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationY by animateFloatAsState(
+        targetValue = when {
+            isPressed -> -3f
+            isHovered -> 5f
+            else -> 0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val elevation by animateDpAsState(
+        targetValue = when {
+            isPressed -> 2.dp
+            isHovered -> 16.dp
+            else -> 4.dp
+        },
+        animationSpec = tween(300)
+    )
+
+    Card(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        modifier = modifier
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                rotationX = rotationX,
+                rotationY = rotationY,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                cameraDistance = 12f * density.density
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    }
+                )
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+    ) {
+        content()
+    }
+}
+
+// List Item Component
+@Composable
+fun ListItem(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+    content: @Composable () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    
+    // Subtle effects for list items
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        )
+    )
+    
+    val rotationX by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+
+    Card(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        modifier = modifier
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                rotationX = rotationX,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                cameraDistance = 20f * density.density
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    }
+                )
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        content()
     }
 }
 
@@ -468,9 +826,9 @@ fun ShimmerEffect(
     )
 
     Canvas(
-        modifier = modifier.graphicsLayer {
+        modifier = modifier.graphicsLayer(
             compositingStrategy = CompositingStrategy.Offscreen
-        }
+        )
     ) {
         drawRoundRect(
             color = androidx.compose.ui.graphics.Color(0xFF2A2A2A).copy(alpha = alpha.value),
@@ -589,9 +947,9 @@ fun LibrarySkeleton(
         contentPadding = PaddingValues(horizontal = 16.dp),
         modifier = modifier
             .fillMaxWidth()
-            .graphicsLayer {
+            .graphicsLayer(
                 compositingStrategy = CompositingStrategy.Offscreen
-            }
+            )
     ) {
         items(itemCount) {
             PosterSkeleton()

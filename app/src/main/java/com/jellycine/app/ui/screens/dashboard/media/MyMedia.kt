@@ -325,10 +325,7 @@ private fun VisualLibraryCard(
 
     AnimatedVisibility(
         visible = isVisible,
-        enter = slideInVertically(
-            initialOffsetY = { it / 4 },
-            animationSpec = tween(500, easing = FastOutSlowInEasing)
-        ) + fadeIn(animationSpec = tween(500))
+        enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing))
     ) {
         Card(
             modifier = Modifier

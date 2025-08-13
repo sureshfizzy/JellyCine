@@ -1608,8 +1608,8 @@ fun DashboardPreview() {
     }
 }
 
-// Enhanced cache with memory management and background refresh
-private object EnhancedCache {
+// cache with memory management and background refresh
+private object Cache {
     private val cache = mutableMapOf<String, CacheEntry<Any>>()
     private const val MAX_CACHE_SIZE = 50
     private const val MEMORY_CLEANUP_INTERVAL = 300_000L // 5 minutes
@@ -1691,93 +1691,93 @@ private object EnhancedCache {
     }
 }
 
-// Legacy cache objects for backward compatibility (now using EnhancedCache internally)
+// Legacy cache objects for backward compatibility (now using Cache internally)
 private object DashboardCache {
     fun shouldRefreshFeaturedItems(category: String): Boolean {
-        return EnhancedCache.isStale("featured_$category", 300_000L)
+        return Cache.isStale("featured_$category", 300_000L)
     }
 
     fun getFeaturedItems(category: String): List<com.jellycine.data.model.BaseItemDto> {
-        return EnhancedCache.get<List<com.jellycine.data.model.BaseItemDto>>("featured_$category") ?: emptyList()
+        return Cache.get<List<com.jellycine.data.model.BaseItemDto>>("featured_$category") ?: emptyList()
     }
 
     fun updateFeaturedItems(category: String, items: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("featured_$category", items)
+        Cache.put("featured_$category", items)
     }
 
     fun shouldRefreshContinueWatching(): Boolean {
-        return EnhancedCache.isStale("continue_watching", 120_000L)
+        return Cache.isStale("continue_watching", 120_000L)
     }
 
     fun updateContinueWatching(items: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("continue_watching", items)
+        Cache.put("continue_watching", items)
     }
 
     val continueWatchingItems: List<com.jellycine.data.model.BaseItemDto>
-        get() = EnhancedCache.get("continue_watching") ?: emptyList()
+        get() = Cache.get("continue_watching") ?: emptyList()
 }
 
-// Cache for genre data (now using EnhancedCache)
+// Cache for genre data (now using Cache)
 private object GenreCache {
     fun shouldRefreshMovieGenres(): Boolean {
-        return EnhancedCache.isStale("movie_genres", 600_000L)
+        return Cache.isStale("movie_genres", 600_000L)
     }
 
     fun shouldRefreshTVGenres(): Boolean {
-        return EnhancedCache.isStale("tv_genres", 600_000L)
+        return Cache.isStale("tv_genres", 600_000L)
     }
 
     fun shouldRefreshGenreItems(genreId: String): Boolean {
-        return EnhancedCache.isStale("genre_items_$genreId", 300_000L)
+        return Cache.isStale("genre_items_$genreId", 300_000L)
     }
 
     fun updateMovieGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("movie_genres", genres)
+        Cache.put("movie_genres", genres)
     }
 
     fun updateTVGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("tv_genres", genres)
+        Cache.put("tv_genres", genres)
     }
 
     fun updateGenreItems(genreId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("genre_items_$genreId", items)
+        Cache.put("genre_items_$genreId", items)
     }
 
     fun getGenreItems(genreId: String): List<com.jellycine.data.model.BaseItemDto> {
-        return EnhancedCache.get("genre_items_$genreId") ?: emptyList()
+        return Cache.get("genre_items_$genreId") ?: emptyList()
     }
 
     val movieGenres: List<com.jellycine.data.model.BaseItemDto>
-        get() = EnhancedCache.get("movie_genres") ?: emptyList()
+        get() = Cache.get("movie_genres") ?: emptyList()
 
     val tvGenres: List<com.jellycine.data.model.BaseItemDto>
-        get() = EnhancedCache.get("tv_genres") ?: emptyList()
+        get() = Cache.get("tv_genres") ?: emptyList()
 }
 
-// Cache for library data (now using EnhancedCache)
+// Cache for library data (now using Cache)
 private object LibraryCache {
     fun shouldRefreshLibraryViews(): Boolean {
-        return EnhancedCache.isStale("library_views", 600_000L)
+        return Cache.isStale("library_views", 600_000L)
     }
 
     fun updateLibraryViews(views: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("library_views", views)
+        Cache.put("library_views", views)
     }
 
     fun shouldRefreshLibraryItems(libraryId: String): Boolean {
-        return EnhancedCache.isStale("library_$libraryId", 300_000L)
+        return Cache.isStale("library_$libraryId", 300_000L)
     }
 
     fun updateLibraryItems(libraryId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
-        EnhancedCache.put("library_$libraryId", items)
+        Cache.put("library_$libraryId", items)
     }
 
     fun getLibraryItems(libraryId: String): List<com.jellycine.data.model.BaseItemDto> {
-        return EnhancedCache.get("library_$libraryId") ?: emptyList()
+        return Cache.get("library_$libraryId") ?: emptyList()
     }
 
     val libraryViews: List<com.jellycine.data.model.BaseItemDto>
-        get() = EnhancedCache.get("library_views") ?: emptyList()
+        get() = Cache.get("library_views") ?: emptyList()
 }
 
 @Composable

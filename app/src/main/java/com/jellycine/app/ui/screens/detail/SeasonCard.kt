@@ -24,6 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
@@ -43,6 +47,55 @@ fun SeasonCard(
     var imageLoadingFailed by remember(season.id) { mutableStateOf(false) }
     var isHovered by remember { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
+    var isPressed by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    
+    // Animation states
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.95f
+            isHovered -> 1.05f
+            else -> 1f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationX by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 5f
+            isHovered -> -8f
+            else -> 0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val rotationY by animateFloatAsState(
+        targetValue = when {
+            isPressed -> -2f
+            isHovered -> 3f
+            else -> 0f
+        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+    
+    val elevation by animateDpAsState(
+        targetValue = when {
+            isPressed -> 2.dp
+            isHovered -> 12.dp
+            else -> 4.dp
+        },
+        animationSpec = tween(300)
+    )
 
     LaunchedEffect(season.id) {
         season.id?.let { seasonId ->
@@ -65,12 +118,29 @@ fun SeasonCard(
     }
 
     Card(
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = modifier
             .width(140.dp)
+            .graphicsLayer(
+                scaleX = scale,
+                scaleY = scale,
+                rotationX = rotationX,
+                rotationY = rotationY,
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center,
+                cameraDistance = 12f * density.density
+            )
             .pointerInput(Unit) {
                 detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
                     onLongPress = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showPreviewOverlay = !showPreviewOverlay
                     }
                 )
@@ -78,7 +148,8 @@ fun SeasonCard(
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
     ) {
         Box {
             Column(

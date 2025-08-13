@@ -110,16 +110,10 @@ fun AuthScreen(
             AnimatedContent(
                 targetState = currentStep,
                 transitionSpec = {
-                    slideInHorizontally(
-                        initialOffsetX = { if (targetState == AuthStep.LOGIN) it else -it },
+                    fadeIn(
                         animationSpec = tween(500, easing = FastOutSlowInEasing)
-                    ) + fadeIn(
-                        animationSpec = tween(400, delayMillis = 100)
-                    ) togetherWith slideOutHorizontally(
-                        targetOffsetX = { if (targetState == AuthStep.LOGIN) -it else it },
-                        animationSpec = tween(400)
-                    ) + fadeOut(
-                        animationSpec = tween(300)
+                    ) togetherWith fadeOut(
+                        animationSpec = tween(400, easing = LinearOutSlowInEasing)
                     )
                 },
                 label = "auth_step_transition"
@@ -372,8 +366,8 @@ private fun ConnectionForm(
 
         androidx.compose.animation.AnimatedVisibility(
             visible = errorMessage != null,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(200))
         ) {
             Text(
                 text = errorMessage ?: "",
@@ -512,8 +506,8 @@ private fun LoginForm(
 
         androidx.compose.animation.AnimatedVisibility(
             visible = errorMessage != null,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(200))
         ) {
             Text(
                 text = errorMessage ?: "",

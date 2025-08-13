@@ -49,7 +49,7 @@ object CodecCapabilityManager {
             profileLower.contains("atmos") ||
             titleLower.contains("object audio") -> return "Dolby Atmos"
 
-            // E-AC-3 JOC (Enhanced AC-3 with Joint Object Coding)
+            // E-AC-3 JOC (AC-3 with Joint Object Coding)
             titleLower.contains("e-ac-3 joc") ||
             titleLower.contains("eac3 joc") ||
             titleLower.contains("joint object coding") ||
@@ -68,7 +68,7 @@ object CodecCapabilityManager {
             (codecLower.contains("eac3") || codecLower.contains("e-ac-3") || codecLower.contains("ec-3")) && (
                 titleLower.contains("atmos") ||
                 titleLower.contains("plus") ||
-                titleLower.contains("enhanced") ||
+                titleLower.contains("") ||
                 titleLower.contains("7.1") ||
                 layoutLower.contains("7.1") ||
                 channels >= 8 // E-AC-3 with 8+ channels often indicates Atmos
@@ -107,11 +107,11 @@ object CodecCapabilityManager {
             titleLower.contains("360ra") ||
             profileLower.contains("360 reality") -> return "360 Reality Audio"
 
-            // MPEG-H 3D Audio
+            // MPEG-H Audio
             codecLower.contains("mpegh") ||
             codecLower.contains("mpeg-h") ||
-            titleLower.contains("mpeg-h 3d audio") ||
-            titleLower.contains("3d audio") -> return "MPEG-H 3D Audio"
+            titleLower.contains("mpeg-h audio") ||
+            titleLower.contains("audio") -> return "MPEG-H Audio"
 
             // Auro-3D
             titleLower.contains("auro-3d") ||
@@ -122,7 +122,7 @@ object CodecCapabilityManager {
             
             // High channel count detection (conservative approach)
             channels >= 16 -> return "${channels}ch (Spatial)"
-            channels >= 12 -> return "${channels}ch (Enhanced)"
+            channels >= 12 -> return "${channels}ch ()"
         }
 
         return ""

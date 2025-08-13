@@ -8,10 +8,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
@@ -26,6 +31,15 @@ import java.net.URLEncoder
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import androidx.media3.common.util.UnstableApi
+
+// Pure Animation helpers - no sliding, only fade with content transforms
+private fun create3DEnterTransition(duration: Int = 400): EnterTransition {
+    return fadeIn(animationSpec = tween(duration, easing = FastOutSlowInEasing))
+}
+
+private fun create3DExitTransition(duration: Int = 300): ExitTransition {
+    return fadeOut(animationSpec = tween(duration, easing = LinearOutSlowInEasing))
+}
 
 @UnstableApi
 @Composable
@@ -65,18 +79,8 @@ fun AppNavigation() {
 
             composable(
                 "server_connection",
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { -it },
-                        animationSpec = tween(400)
-                    ) + fadeIn(animationSpec = tween(400))
-                },
-                exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { -it },
-                        animationSpec = tween(400)
-                    ) + fadeOut(animationSpec = tween(400))
-                }
+                enterTransition = { create3DEnterTransition(500) },
+                exitTransition = { create3DExitTransition(400) }
             ) {
                 AuthScreen(
                     onAuthSuccess = {
@@ -89,12 +93,8 @@ fun AppNavigation() {
 
             composable(
                 "dashboard",
-                enterTransition = {
-                    fadeIn(animationSpec = tween(200))
-                },
-                exitTransition = {
-                    fadeOut(animationSpec = tween(200))
-                }
+                enterTransition = { create3DEnterTransition(400) },
+                exitTransition = { create3DExitTransition(300) }
             ) {
                 DashboardContainer(
                     onLogout = {
@@ -122,18 +122,8 @@ fun AppNavigation() {
             composable(
                 "detail/{itemId}",
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
-                },
-                exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
-                }
+                enterTransition = { create3DEnterTransition(500) },
+                exitTransition = { create3DExitTransition(400) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
 
@@ -165,18 +155,8 @@ fun AppNavigation() {
                         defaultValue = "View All"
                     }
                 ),
-                enterTransition = {
-                    slideInHorizontally(
-                        initialOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeIn(animationSpec = tween(300))
-                },
-                exitTransition = {
-                    slideOutHorizontally(
-                        targetOffsetX = { it },
-                        animationSpec = tween(300)
-                    ) + fadeOut(animationSpec = tween(300))
-                }
+                enterTransition = { create3DEnterTransition(450) },
+                exitTransition = { create3DExitTransition(350) }
             ) { backStackEntry ->
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")

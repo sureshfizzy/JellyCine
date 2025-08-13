@@ -105,7 +105,7 @@ fun TrendingStoriesView(
                 )
         )
         
-        // Horizontal Pager for cards with 3D rotation effects
+        // Horizontal Pager for cards with rotation effects
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(), // No top padding - cards should be perfectly centered
