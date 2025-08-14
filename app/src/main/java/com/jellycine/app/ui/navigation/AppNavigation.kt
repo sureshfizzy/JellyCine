@@ -21,7 +21,6 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
-import com.jellycine.app.ui.screens.splash.SplashScreen
 import com.jellycine.app.ui.screens.detail.DetailScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.data.model.BaseItemDto
@@ -48,34 +47,20 @@ fun AppNavigation() {
     val context = LocalContext.current
     val authStateManager = remember { AuthStateManager.getInstance(context) }
 
-    // Determine start destination based on auth state to avoid unnecessary splash
-    val startDestination = remember {
-        if (authStateManager.checkAuthenticationStateSync()) {
-            "dashboard"
-        } else {
-            "splash"
-        }
+    var startDestination by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(Unit) {
+        val isAuthenticated = authStateManager.checkAuthenticationState()
+        startDestination = if (isAuthenticated) "dashboard" else "server_connection"
     }
+
+    if (startDestination == null) return
 
     NavHost(
         navController = navController,
-        startDestination = startDestination,
+        startDestination = startDestination!!,
         modifier = Modifier.fillMaxSize()
     ) {
-            composable("splash") {
-                SplashScreen(
-                    onNavigateToAuth = {
-                        navController.navigate("server_connection") {
-                            popUpTo("splash") { inclusive = true }
-                        }
-                    },
-                    onNavigateToHome = {
-                        navController.navigate("dashboard") {
-                            popUpTo("splash") { inclusive = true }
-                        }
-                    }
-                )
-            }
 
             composable(
                 "server_connection",
@@ -98,7 +83,7 @@ fun AppNavigation() {
             ) {
                 DashboardContainer(
                     onLogout = {
-                        navController.navigate("splash") {
+                        navController.navigate("server_connection") {
                             popUpTo("dashboard") { inclusive = true }
                         }
                     },
