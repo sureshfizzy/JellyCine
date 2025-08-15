@@ -97,12 +97,14 @@ fun JellyfinPosterImage(
     AsyncImage(
         model = ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(100)
+            .crossfade(50)
             .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.ENABLED)
             .networkCachePolicy(CachePolicy.ENABLED)
             .allowHardware(true)
             .allowRgb565(true)
+            .placeholder(null)
+            .error(null)
             .build(),
         contentDescription = contentDescription,
         modifier = modifier.graphicsLayer {

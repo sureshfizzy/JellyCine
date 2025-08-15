@@ -241,7 +241,7 @@ fun ViewAllScreen(
                         ) {
                             items(
                                 items = items,
-                                key = { item -> item.id ?: item.hashCode() }
+                                key = { item -> item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: System.currentTimeMillis()}" }
                             ) { item ->
                                 PosterCard(
                                     item = item,

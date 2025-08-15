@@ -255,7 +255,7 @@ fun MyMedia(
                         ) {
                             items(
                                 items = libraryViews,
-                                key = { library -> library.id ?: "${library.name}_${library.collectionType}" }
+                                key = { library -> library.id ?: "${library.name}_${library.collectionType}_${library.hashCode()}_${System.nanoTime()}" }
                             ) { library ->
                                 VisualLibraryCard(
                                     library = library,

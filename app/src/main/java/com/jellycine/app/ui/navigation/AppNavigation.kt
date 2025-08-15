@@ -51,7 +51,7 @@ fun AppNavigation() {
     
     LaunchedEffect(Unit) {
         val isAuthenticated = authStateManager.checkAuthenticationState()
-        startDestination = if (isAuthenticated) "dashboard" else "server_connection"
+        startDestination = if (isAuthenticated) "dashboard" else "auth"
     }
 
     if (startDestination == null) return
@@ -61,6 +61,33 @@ fun AppNavigation() {
         startDestination = startDestination!!,
         modifier = Modifier.fillMaxSize()
     ) {
+            composable(
+                "splash",
+                enterTransition = { create3DEnterTransition(500) },
+                exitTransition = { create3DExitTransition(400) }
+            ) {
+                AuthScreen(
+                    onAuthSuccess = {
+                        navController.navigate("dashboard") {
+                            popUpTo("splash") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable(
+                "auth",
+                enterTransition = { create3DEnterTransition(500) },
+                exitTransition = { create3DExitTransition(400) }
+            ) {
+                AuthScreen(
+                    onAuthSuccess = {
+                        navController.navigate("dashboard") {
+                            popUpTo("auth") { inclusive = true }
+                        }
+                    }
+                )
+            }
 
             composable(
                 "server_connection",
@@ -83,7 +110,7 @@ fun AppNavigation() {
             ) {
                 DashboardContainer(
                     onLogout = {
-                        navController.navigate("server_connection") {
+                        navController.navigate("auth") {
                             popUpTo("dashboard") { inclusive = true }
                         }
                     },

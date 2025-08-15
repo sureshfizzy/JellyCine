@@ -36,11 +36,12 @@ object ImageLoaderConfig {
         val totalRamMB = memoryInfo.totalMem
         val isLargeHeap = activityManager.memoryClass != activityManager.largeMemoryClass
 
+        // Reduced memory allocation to prevent lag from GC pressure
         val basePercent = when {
-            totalRamMB >= 8192 -> if (isLargeHeap) 0.25 else 0.20
-            totalRamMB >= 4096 -> if (isLargeHeap) 0.20 else 0.15
-            totalRamMB >= 2048 -> if (isLargeHeap) 0.15 else 0.10
-            else -> if (isLargeHeap) 0.12 else 0.08
+            totalRamMB >= 8192 -> if (isLargeHeap) 0.15 else 0.12
+            totalRamMB >= 4096 -> if (isLargeHeap) 0.12 else 0.10
+            totalRamMB >= 2048 -> if (isLargeHeap) 0.10 else 0.08
+            else -> if (isLargeHeap) 0.08 else 0.06
         }
 
         val finalPercent = max(0.08, min(0.30, basePercent))
@@ -106,10 +107,10 @@ object ImageLoaderConfig {
         }
 
         return OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .connectionPool(okhttp3.ConnectionPool(10, 5, TimeUnit.MINUTES))
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectionPool(okhttp3.ConnectionPool(8, 3, TimeUnit.MINUTES))
             .addInterceptor(authInterceptor)
             .build()
     }

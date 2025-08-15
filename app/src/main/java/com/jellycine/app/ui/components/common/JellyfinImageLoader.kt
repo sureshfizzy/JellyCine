@@ -48,8 +48,9 @@ fun JellyfinImageLoader(
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
                     .allowRgb565(true)
-                    .crossfade(150)
-                    .size(coil.size.Size.ORIGINAL)
+                    .crossfade(100)
+                    .placeholder(null)
+                    .error(null)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier

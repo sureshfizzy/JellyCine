@@ -119,12 +119,11 @@ class QueryManager(private val scope: CoroutineScope) {
     private val queries = mutableMapOf<String, QueryState<Any>>()
     private val jobs = mutableMapOf<String, Job>()
     private val activeRequests = mutableMapOf<QueryPriority, Int>()
-
     // Concurrency limits per priority
     private val maxConcurrentRequests = mapOf(
-        QueryPriority.HIGH to 1,
-        QueryPriority.MEDIUM to 1,
-        QueryPriority.LOW to 1
+        QueryPriority.HIGH to 4,
+        QueryPriority.MEDIUM to 3,
+        QueryPriority.LOW to 2
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -347,41 +346,6 @@ object ImagePreloader {
 
 // Image loading
 @Composable
-fun SmoothScrollImage(
-    itemId: String?,
-    seriesId: String? = null,
-    imageType: String = "Primary",
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.Crop,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
-    itemType: String? = null
-) {
-    if (itemId != null) {
-        ImageLoader(
-            itemId = itemId,
-            seriesId = seriesId,
-            imageType = imageType,
-            contentDescription = contentDescription,
-            modifier = modifier,
-            contentScale = contentScale,
-            cornerRadius = if (imageType == "Thumb") 12 else 16,
-            mediaRepository = mediaRepository,
-            itemType = itemType
-        )
-    } else {
-        Box(
-            modifier = modifier
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    RoundedCornerShape(if (imageType == "Thumb") 12.dp else 16.dp)
-                )
-        )
-    }
-}
-
-// Image loader
-@Composable
 fun ImageLoader(
     itemId: String?,
     seriesId: String? = null,
@@ -414,16 +378,17 @@ fun ImageLoader(
                     val blurUrl = mediaRepository.getImageUrl(
                         itemId = actualItemId,
                         imageType = imageType,
-                        width = if (imageType == "Thumb") 32 else 16,
-                        height = if (imageType == "Thumb") 20 else 24,
-                        quality = 2
+                        width = if (imageType == "Thumb") 32 else 20,
+                        height = if (imageType == "Thumb") 20 else 30,
+                        quality = 5
                     ).first()
 
                     withContext(Dispatchers.Main) {
                         blurImageUrl = blurUrl
                     }
 
-                    delay(100)
+                    delay(50)
+
                     val highQualityUrl = mediaRepository.getImageUrl(
                         itemId = actualItemId,
                         imageType = imageType,
@@ -445,6 +410,7 @@ fun ImageLoader(
     }
 
     Box(modifier = modifier) {
+        // Show blur image first for instant visual feedback
         if (!blurImageUrl.isNullOrEmpty() && !hasError) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -464,6 +430,7 @@ fun ImageLoader(
             )
         }
 
+        // Show high quality image on top when loaded
         if (!highQualityImageUrl.isNullOrEmpty() && !hasError) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -473,7 +440,7 @@ fun ImageLoader(
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
                     .allowRgb565(true)
-                    .crossfade(300)
+                    .crossfade(200)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -495,7 +462,7 @@ fun ImageLoader(
             )
         }
 
-        // Minimal placeholder only if no blur image available yet
+        // Placeholder only if no blur image is available yet
         if (blurImageUrl.isNullOrEmpty() && !hasError) {
             Box(
                 modifier = Modifier
@@ -530,15 +497,6 @@ object ScrollOptimization {
         return ScrollableDefaults.flingBehavior()
     }
 
-    fun GraphicsLayer(): Modifier = Modifier.graphicsLayer {
-        compositingStrategy = CompositingStrategy.Offscreen
-        renderEffect = null
-        alpha = 1f
-        scaleX = 1f
-        scaleY = 1f
-        cameraDistance = 12f
-    }
-
     // Optimized content padding for smooth edge scrolling
     val optimizedContentPadding = PaddingValues(horizontal = 16.dp)
 
@@ -550,10 +508,6 @@ object ScrollOptimization {
 
     // Performance-optimized modifier for scroll containers
     fun getScrollContainerModifier(): Modifier = Modifier
-        .graphicsLayer {
-            compositingStrategy = CompositingStrategy.Offscreen
-            renderEffect = null
-        }
         .fillMaxWidth()
 }
 
@@ -736,13 +690,13 @@ fun Dashboard(
         }
 
         // Library views query
-        val libraryViewsQuery = useQuery(
-            key = "library_views",
-            config = QueryConfig(
-                staleTime = 600_000L,
-                enabled = isTabActive && primaryContentLoaded,
-                priority = QueryPriority.MEDIUM
-            )
+         val libraryViewsQuery = useQuery(
+             key = "library_views", 
+             config = QueryConfig(
+                                staleTime = 600_000L,
+               enabled = isTabActive && featuredQuery.isSuccess,
+               priority = QueryPriority.MEDIUM
+             )
         ) {
             val result = mediaRepository.getUserViews()
             result.fold(
@@ -762,40 +716,39 @@ fun Dashboard(
             )
         }
 
-        // Preload other categories in background after initial load
-        LaunchedEffect(selectedCategory, featuredQuery.isSuccess, continueWatchingQuery.isSuccess) {
-            if (featuredQuery.isSuccess && !featuredQuery.isLoading && primaryContentLoaded) {
-                delay(3000)
-
-                // Preload other categories
-                if (selectedCategory != "Movies") {
-                    queryManager.executeQuery("featured_Movies", QueryConfig(
-                        staleTime = 300_000L,
-                        priority = QueryPriority.LOW
-                    )) {
-                        val result = mediaRepository.getLatestItems(
-                            parentId = null,
-                            includeItemTypes = "Movie",
-                            limit = 5,
-                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
-                        )
-                        result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
+        LaunchedEffect(featuredQuery.isSuccess) {
+            if (featuredQuery.isSuccess && primaryContentLoaded) {
+                launch {
+                    if (selectedCategory != "Movies") {
+                        queryManager.executeQuery("featured_Movies", QueryConfig(
+                            staleTime = 300_000L,
+                            priority = QueryPriority.MEDIUM
+                        )) {
+                            val result = mediaRepository.getLatestItems(
+                                parentId = null,
+                                includeItemTypes = "Movie",
+                                limit = 5,
+                                fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
+                            )
+                            result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
+                        }
                     }
                 }
-
-                if (selectedCategory != "TV Shows") {
-                    delay(500)
-                    queryManager.executeQuery("featured_TV Shows", QueryConfig(
-                        staleTime = 300_000L,
-                        priority = QueryPriority.LOW
-                    )) {
-                        val result = mediaRepository.getLatestItems(
-                            parentId = null,
-                            includeItemTypes = "Series",
-                            limit = 5,
-                            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
-                        )
-                        result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
+                
+                launch {
+                    if (selectedCategory != "TV Shows") {
+                        queryManager.executeQuery("featured_TV Shows", QueryConfig(
+                            staleTime = 300_000L,
+                            priority = QueryPriority.MEDIUM
+                        )) {
+                            val result = mediaRepository.getLatestItems(
+                                parentId = null,
+                                includeItemTypes = "Series",
+                                limit = 5,
+                                fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
+                            )
+                            result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
+                        }
                     }
                 }
             }
@@ -830,20 +783,7 @@ fun Dashboard(
                 .verticalScroll(
                     state = mainScrollState,
                     flingBehavior = ScrollableDefaults.flingBehavior()
-                )
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                    renderEffect = null
-                    cameraDistance = 8f
-                    alpha = 1f
-                    scaleX = 1f
-                    scaleY = 1f
-                    rotationX = 0f
-                    rotationY = 0f
-                    rotationZ = 0f
-                    translationX = 0f
-                    translationY = 0f
-                },
+                ),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             FeatureTab(
@@ -994,11 +934,6 @@ private fun ContinueWatchingSection(
                     contentPadding = ScrollOptimization.optimizedContentPadding,
                     flingBehavior = flingBehavior,
                     modifier = ScrollOptimization.getScrollContainerModifier()
-                        .graphicsLayer {
-                            // Additional optimization for LazyRow
-                            compositingStrategy = CompositingStrategy.Offscreen
-                            alpha = 1f
-                        }
                 ) {
                     items(
                         count = minOf(items.size, 8),
@@ -1012,12 +947,7 @@ private fun ContinueWatchingSection(
                         val stableOnClick = remember(item.id) { { onItemClick(item) } }
 
                         // Wrap in graphics layer for hardware acceleration
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                                alpha = 1f
-                            }
-                        ) {
+                        Box {
                             ContinueWatchingCard(
                                 item = item,
                                 mediaRepository = mediaRepository,
@@ -1225,7 +1155,16 @@ private fun StableLibraryList(
                 mediaRepository = mediaRepository,
                 onItemClick = onItemClick,
                 onNavigateToViewAll = onNavigateToViewAll,
-                loadDelay = 0L // No artificial delay - use concurrent loading
+                loadPriority = when {
+                    index < 2 -> QueryPriority.HIGH
+                    index < 4 -> QueryPriority.MEDIUM
+                    else -> QueryPriority.LOW
+                },
+                loadDelay = when {
+                    index == 0 -> 0L
+                    index == 1 -> 200L
+                    else -> (index * 300L).coerceAtMost(1500L)
+                }
             )
         }
         if (index < stableLibraries.size - 1) {
@@ -1240,6 +1179,7 @@ private fun ProgressiveLibrarySection(
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
+    loadPriority: QueryPriority = QueryPriority.MEDIUM,
     loadDelay: Long = 0L
 ) {
     val libraryId = library.id ?: return
@@ -1250,12 +1190,22 @@ private fun ProgressiveLibrarySection(
         library.name?.lowercase()?.contains("series") == true
     }
 
+    // Progressive loading
+    var shouldLoad by remember { mutableStateOf(loadDelay == 0L) }
+    
+    LaunchedEffect(libraryId) {
+        if (loadDelay > 0L) {
+            delay(loadDelay)
+            shouldLoad = true
+        }
+    }
+
     val libraryQuery = useQuery(
         key = "library_$libraryId",
         config = QueryConfig(
             staleTime = 60_000L,
-            enabled = true,
-            priority = if (isEssentialLibrary) QueryPriority.HIGH else QueryPriority.LOW,
+            enabled = shouldLoad,
+            priority = loadPriority,
             retryCount = 3,
             retryDelay = 1000L
         )
@@ -1328,9 +1278,6 @@ private fun ProgressiveLibrarySection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
                 ) {
                     items(4) {
                         PosterSkeleton()
@@ -1355,11 +1302,6 @@ private fun ProgressiveLibrarySection(
                     contentPadding = ScrollOptimization.optimizedContentPadding,
                     flingBehavior = libraryFlingBehavior,
                     modifier = ScrollOptimization.getScrollContainerModifier()
-                        .graphicsLayer {
-                            // Additional optimization for library LazyRow
-                            compositingStrategy = CompositingStrategy.Offscreen
-                            alpha = 1f
-                        }
                 ) {
                     items(
                         count = items.size,
@@ -1373,12 +1315,7 @@ private fun ProgressiveLibrarySection(
                         val stableOnClick = remember(item.id) { { onItemClick(item) } }
 
                         // Wrap in graphics layer for hardware acceleration
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                                alpha = 1f
-                            }
-                        ) {
+                        Box {
                             LibraryItemCard(
                                 item = item,
                                 mediaRepository = mediaRepository,
@@ -1413,9 +1350,6 @@ private fun ProgressiveLibrarySection(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
                     ) {
                         items(4) {
                             PosterSkeleton()
@@ -2005,9 +1939,6 @@ private fun ProgressiveMovieGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
                 ) {
                     items(4) { index ->
                         PosterSkeleton()
@@ -2020,9 +1951,6 @@ private fun ProgressiveMovieGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
                 ) {
                     items(
                         count = genreMovies.size,

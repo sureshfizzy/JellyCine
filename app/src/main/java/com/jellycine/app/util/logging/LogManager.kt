@@ -296,12 +296,12 @@ class LogManager(private val context: Context) {
                 try {
                     // Use OkHttp for better HTTPS support and error handling
                     val client = okhttp3.OkHttpClient.Builder()
-                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
                         .build()
 
                     val request = okhttp3.Request.Builder()
-                        .url("$serverUrl/System/Ping")
+                        .url("$serverUrl/System/Info/Public")
                         .build()
 
                     val response = client.newCall(request).execute()

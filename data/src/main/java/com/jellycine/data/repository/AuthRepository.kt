@@ -84,12 +84,24 @@ class AuthRepository(private val context: Context) {
         } catch (e: java.net.ConnectException) {
             Result.failure(Exception("Connection refused. Please check if the server is running and the URL is correct."))
         } catch (e: java.net.SocketTimeoutException) {
-            Result.failure(Exception("Connection timeout. Please check your internet connection."))
+            Result.failure(Exception("Connection timeout. Please check your network connection and try again."))
         } catch (e: javax.net.ssl.SSLException) {
-            Result.failure(Exception("SSL/TLS error. Please check if the server supports HTTPS properly."))
+            Result.failure(Exception("SSL connection failed. Please check if the server supports HTTPS or try HTTP instead."))
+        } catch (e: java.security.cert.CertificateException) {
+            Result.failure(Exception("Certificate verification failed. The server's SSL certificate may be invalid."))
+        } catch (e: java.io.IOException) {
+            Result.failure(Exception("Network error: ${e.message ?: "Unable to connect to server"}"))
         } catch (e: Exception) {
-            val errorMessage = e.message ?: "Unknown connection error"
-            Result.failure(Exception("Connection failed: $errorMessage"))
+            val errorMessage = when {
+                e.message?.contains("Failed to connect", ignoreCase = true) == true -> 
+                    "Failed to connect to server. Please check the URL and your network connection."
+                e.message?.contains("timeout", ignoreCase = true) == true -> 
+                    "Connection timeout. Server may be slow or unavailable."
+                e.message?.contains("refused", ignoreCase = true) == true -> 
+                    "Connection refused. Please check if the server is running."
+                else -> e.message ?: "Unknown connection error"
+            }
+            Result.failure(Exception(errorMessage))
         }
     }
     
