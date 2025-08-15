@@ -4,5 +4,5 @@
         android:drawable="@drawable/jellycine_logo"
         android:gravity="center"
         android:width="96dp"
-        android:height="96dp" />
+        android:height="72dp" />
 </layer-list>
