@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.detail
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -35,7 +36,6 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
 import kotlinx.coroutines.flow.first
-import com.jellycine.app.ui.components.common.ActionButtonsSection
 import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.CodecInfoSection
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
@@ -267,20 +267,18 @@ fun EpisodeDetailScreen(
                         }
                     }
 
-                    // Action Buttons Section
-                    ActionButtonsSection(
-                        onPlayClick = onPlayClick,
-                        onDownloadClick = { /* TODO: Download */ }
-                    )
+                    // Technical Information Section
+                    episode?.let { ep ->
+                        TechnicalInfoSection(
+                            item = ep,
+                            onPlayClick = onPlayClick,
+                            onDownloadClick = { /* TODO: Download */ }
+                        )
+                    }
 
                     // Episode description
                     episode?.overview?.let { overview ->
                         OverviewSection(overview = overview)
-                    }
-
-                    // Technical Information Section
-                    episode?.let { ep ->
-                        TechnicalInfoSection(item = ep)
                     }
 
                     // Cast Section
@@ -295,3 +293,4 @@ fun EpisodeDetailScreen(
         }
     }
 }
+

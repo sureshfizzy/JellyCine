@@ -57,6 +57,7 @@ import com.jellycine.app.ui.components.common.rememberAudioCapabilities
 import com.jellycine.app.ui.components.common.ActionButtonsSection
 import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.CodecInfoSection
+import com.jellycine.app.ui.components.common.DownloadOnlyButton
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
@@ -547,26 +548,31 @@ fun DetailContent(
                     CodecInfoSection(mediaStreams = streams)
                 }
 
-                // Action Buttons
+                // Technical Information Section (Play button with quality selection)
                 if (item.type != "Series") {
-                    ActionButtonsSection(
+                    TechnicalInfoSection(
+                        item = item,
                         onPlayClick = onPlayClick,
                         onDownloadClick = { /* TODO: Download */ }
                     )
                 }
 
-                // Overview Section (after action buttons)
+                // Overview Section
                 item.overview?.let { overview ->
                     OverviewSection(overview = overview)
                 }
 
-                // Technical Information Section
-                if (item.type != "Series") {
-                    TechnicalInfoSection(item = item)
-                }
-
                 // Seasons Section for TV Series
                 if (item.type == "Series") {
+                    // Download button for series
+                    DownloadOnlyButton(
+                        onClick = { /* TODO: Download series */ },
+                        text = "Download Series",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    )
+                    
                     item.id?.let { seriesId ->
                         SeasonsSection(
                             seriesId = seriesId,
