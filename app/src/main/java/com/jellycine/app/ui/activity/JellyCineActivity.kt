@@ -7,12 +7,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.ui.theme.JellyCineTheme
 import com.jellycine.app.ui.navigation.AppNavigation
+import com.jellycine.app.ui.splash.SplashScreen
+import com.jellycine.app.ui.splash.SplashViewModel
 import com.jellycine.auth.AuthStateManager
 import com.jellycine.data.repository.MediaRepositoryProvider
 import dagger.hilt.android.AndroidEntryPoint
@@ -91,7 +95,18 @@ class JellyCineActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    val splashViewModel: SplashViewModel = hiltViewModel()
+                    val shouldShowSplash by splashViewModel.shouldShowSplash.collectAsState()
+
+                    if (shouldShowSplash) {
+                        SplashScreen(
+                            onSplashComplete = {
+                                splashViewModel.onSplashComplete()
+                            }
+                        )
+                    } else {
+                        AppNavigation()
+                    }
                 }
             }
         }
