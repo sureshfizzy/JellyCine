@@ -48,6 +48,14 @@ android {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            def buildType = variant.buildType.name
+            def versionName = variant.versionName
+            outputFileName = "jellycine-${buildType}-${versionName}.apk"
+        }
+    }
 }
 
 dependencies {
