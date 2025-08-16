@@ -109,28 +109,8 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.7.1'
     implementation 'androidx.media3:media3-common:1.7.1'
 
-    // audio and video processing
+    // Audio and video processing
     implementation 'androidx.media3:media3-effect:1.7.1'
-
-    // Networking for Jellyfin API
-    implementation 'com.squareup.retrofit2:retrofit:2.11.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.11.0'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
-
-    // Permissions handling
-    implementation 'com.google.accompanist:accompanist-permissions:0.36.0'
-
-    // Media3 ExoPlayer for video playback
-    implementation 'androidx.media3:media3-exoplayer:1.5.0'
-    implementation 'androidx.media3:media3-exoplayer-dash:1.5.0'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.5.0'
-    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.5.0'
-    implementation 'androidx.media3:media3-ui:1.5.0'
-    implementation 'androidx.media3:media3-session:1.5.0'
-    implementation 'androidx.media3:media3-common:1.5.0'
-
-    // Spatial Audio Support
-    implementation 'androidx.media3:media3-effect:1.5.0'
 
     // Networking for Jellyfin API
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'
@@ -144,6 +124,7 @@ dependencies {
     implementation 'com.google.dagger:hilt-android:2.57'
     kapt 'com.google.dagger:hilt-compiler:2.57'
     implementation 'androidx.hilt:hilt-navigation-compose:1.3.0-alpha02'
+    implementation 'androidx.hilt:hilt-lifecycle-viewmodel-compose:1.0.0-alpha03'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'

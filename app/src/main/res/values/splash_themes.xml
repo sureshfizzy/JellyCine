@@ -2,9 +2,7 @@
 <resources>
     <!-- Custom splash screen theme -->
     <style name="Theme.JellyCine.Splash" parent="Theme.JellyCine">
-        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
-        <item name="android:windowSplashScreenAnimationDuration">1200</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/splash_background</item>
+        <!-- Splash screen attributes are only available from API 31+ -->
+        <!-- For lower API levels, the core-splashscreen library will handle the splash -->
     </style>
 </resources>

@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -128,7 +128,7 @@ fun TrendingSearchItem(
         Spacer(modifier = Modifier.width(12.dp))
         
         Icon(
-            imageVector = Icons.Default.TrendingUp,
+            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
             contentDescription = "Trending",
             tint = Color.Gray,
             modifier = Modifier.size(20.dp)

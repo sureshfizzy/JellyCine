@@ -19,7 +19,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ViewAllViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private lateinit var mediaRepository: MediaRepository
