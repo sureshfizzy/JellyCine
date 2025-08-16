@@ -331,9 +331,9 @@ object ImagePreloader {
                         mediaRepository.getImageUrl(
                             itemId = itemId,
                             imageType = "Primary",
-                            width = 150,
-                            height = 225,
-                            quality = 85
+                            width = 300,
+                            height = 450,
+                            quality = 100
                         ).first()
                         preloadedUrls.add(key)
                     } catch (e: Exception) {
@@ -378,9 +378,9 @@ fun ImageLoader(
                     val blurUrl = mediaRepository.getImageUrl(
                         itemId = actualItemId,
                         imageType = imageType,
-                        width = if (imageType == "Thumb") 32 else 20,
-                        height = if (imageType == "Thumb") 20 else 30,
-                        quality = 5
+                        width = if (imageType == "Thumb") 80 else 60,
+                        height = if (imageType == "Thumb") 50 else 90,
+                        quality = 20
                     ).first()
 
                     withContext(Dispatchers.Main) {
@@ -392,9 +392,9 @@ fun ImageLoader(
                     val highQualityUrl = mediaRepository.getImageUrl(
                         itemId = actualItemId,
                         imageType = imageType,
-                        width = if (imageType == "Thumb") 250 else 150,
-                        height = if (imageType == "Thumb") 150 else 225,
-                        quality = 85
+                        width = if (imageType == "Thumb") 400 else 300,
+                        height = if (imageType == "Thumb") 240 else 450,
+                        quality = 95
                     ).first()
 
                     withContext(Dispatchers.Main) {
@@ -418,14 +418,14 @@ fun ImageLoader(
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
-                    .allowRgb565(true)
+                    .allowRgb565(false)
                     .crossfade(0)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius.dp))
-                    .blur(radius = 8.dp),
+                    .blur(radius = 4.dp),
                 contentScale = contentScale
             )
         }
@@ -439,7 +439,7 @@ fun ImageLoader(
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
-                    .allowRgb565(true)
+                    .allowRgb565(false)
                     .crossfade(200)
                     .build(),
                 contentDescription = contentDescription,
