@@ -1789,16 +1789,14 @@ private fun MovieGenreSections(
             .background(Color.Black)
     ) {
         if (isLoading) {
-            GenreSectionSkeleton(sectionCount = 3)
+            GenreSectionSkeleton(sectionCount = 6)
         } else {
-            // Show only first 3 genres with progressive loading
-            val genresToShow = movieGenres.take(3)
-            genresToShow.forEachIndexed { index, genre ->
+            movieGenres.forEachIndexed { index, genre ->
                 ProgressiveMovieGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
-                    loadDelay = index * 400L
+                    loadDelay = index * 200L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1847,16 +1845,14 @@ private fun TVShowGenreSections(
             .background(Color.Black)
     ) {
         if (isLoading) {
-            GenreSectionSkeleton(sectionCount = 3)
+            GenreSectionSkeleton(sectionCount = 6)
         } else {
-            // Show only first 3 genres with progressive loading
-            val genresToShow = tvGenres.take(3)
-            genresToShow.forEachIndexed { index, genre ->
+            tvGenres.forEachIndexed { index, genre ->
                 ProgressiveTVShowGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
-                    loadDelay = index * 400L
+                    loadDelay = index * 200L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1889,7 +1885,7 @@ private fun ProgressiveMovieGenreSection(
                     val result = mediaRepository.getItemsByGenre(
                         genreId = genreId,
                         includeItemTypes = "Movie",
-                        limit = 8
+                        limit = 20
                     )
 
                     withContext(Dispatchers.Main) {
@@ -1897,7 +1893,7 @@ private fun ProgressiveMovieGenreSection(
                             onSuccess = { items ->
                                 val validItems = items.filter {
                                     it.id != null && !it.name.isNullOrBlank()
-                                }.take(5)
+                                }
                                 GenreCache.updateGenreItems(genreId, validItems)
                                 genreMovies = validItems
                             },
@@ -2004,7 +2000,7 @@ private fun ProgressiveTVShowGenreSection(
                     val result = mediaRepository.getItemsByGenre(
                         genreId = genreId,
                         includeItemTypes = "Series",
-                        limit = 8
+                        limit = 20
                     )
 
                     withContext(Dispatchers.Main) {
@@ -2012,7 +2008,7 @@ private fun ProgressiveTVShowGenreSection(
                             onSuccess = { items ->
                                 val validItems = items.filter {
                                     it.id != null && !it.name.isNullOrBlank()
-                                }.take(5)
+                                }
                                 GenreCache.updateGenreItems(cacheKey, validItems)
                                 genreShows = validItems
                             },
