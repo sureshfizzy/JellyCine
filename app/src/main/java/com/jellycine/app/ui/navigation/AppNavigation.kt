@@ -121,10 +121,16 @@ fun AppNavigation() {
                     },
                     onNavigateToViewAll = { contentType, parentId, title ->
                         val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-                        val route = if (parentId != null) {
-                            "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
-                        } else {
-                            "viewall/$contentType?title=$encodedTitle"
+                        val route = when {
+                            contentType.contains("GENRE") && parentId != null -> {
+                                "viewall/$contentType?genreId=$parentId&title=$encodedTitle"
+                            }
+                            parentId != null -> {
+                                "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
+                            }
+                            else -> {
+                                "viewall/$contentType?title=$encodedTitle"
+                            }
                         }
                         navController.navigate(route)
                     }
@@ -154,7 +160,7 @@ fun AppNavigation() {
             }
 
             composable(
-                "viewall/{contentType}?parentId={parentId}&title={title}",
+                "viewall/{contentType}?parentId={parentId}&title={title}&genreId={genreId}",
                 arguments = listOf(
                     navArgument("contentType") { type = NavType.StringType },
                     navArgument("parentId") {
@@ -165,6 +171,11 @@ fun AppNavigation() {
                     navArgument("title") {
                         type = NavType.StringType
                         defaultValue = "View All"
+                    },
+                    navArgument("genreId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 ),
                 enterTransition = { create3DEnterTransition(450) },
@@ -172,20 +183,24 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")
-                val title = backStackEntry.arguments?.getString("title")?.let { 
-                    java.net.URLDecoder.decode(it, "UTF-8") 
+                val genreId = backStackEntry.arguments?.getString("genreId")
+                val title = backStackEntry.arguments?.getString("title")?.let {
+                    java.net.URLDecoder.decode(it, "UTF-8")
                 } ?: "View All"
 
                 val contentType = when (contentTypeString.uppercase()) {
                     "MOVIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES
                     "SERIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SERIES
                     "EPISODES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.EPISODES
+                    "MOVIES_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES_GENRE
+                    "TVSHOWS_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.TVSHOWS_GENRE
                     else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
                 }
 
                 com.jellycine.app.ui.screens.dashboard.media.ViewAllScreen(
                     contentType = contentType,
                     parentId = parentId,
+                    genreId = genreId,
                     title = title,
                     onBackPressed = {
                         navController.popBackStack()

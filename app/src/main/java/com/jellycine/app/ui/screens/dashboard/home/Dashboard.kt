@@ -36,6 +36,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.*
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.UserItemDataDto
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -270,7 +274,7 @@ class QueryManager(private val scope: CoroutineScope) {
 @Stable
 @Immutable
 private data class StableLibraryState(
-    val libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    val libraryViews: List<BaseItemDto>,
     val isLoading: Boolean
 )
 
@@ -316,8 +320,8 @@ object ImagePreloader {
     private val preloadedUrls = mutableSetOf<String>()
 
     fun preloadImages(
-        items: List<com.jellycine.data.model.BaseItemDto>,
-        mediaRepository: com.jellycine.data.repository.MediaRepository,
+        items: List<BaseItemDto>,
+        mediaRepository: MediaRepository,
         scope: CoroutineScope
     ) {
         scope.launch(Dispatchers.IO) {
@@ -529,7 +533,7 @@ data class StableBaseItem(
     val seriesId: String?,
     val seriesName: String?,
     val productionYear: Int?,
-    val userData: com.jellycine.data.model.UserItemDataDto?,
+    val userData: UserItemDataDto?,
     val episodeCount: Int?,
     val recursiveItemCount: Int?,
     val collectionType: String?
@@ -548,7 +552,7 @@ data class StableBaseItem(
     }
 
     companion object {
-        fun from(item: com.jellycine.data.model.BaseItemDto): StableBaseItem {
+        fun from(item: BaseItemDto): StableBaseItem {
             return StableBaseItem(
                 id = item.id,
                 name = item.name,
@@ -568,7 +572,7 @@ data class StableBaseItem(
 @Composable
 fun Dashboard(
     onLogout: () -> Unit = {},
-    onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToDetail: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     isTabActive: Boolean = true
 ) {
@@ -843,7 +847,8 @@ fun Dashboard(
                     modifier = Modifier.padding(top = topPadding)
                 ) {
                     MovieGenreSections(
-                        onItemClick = onNavigateToDetail
+                        onItemClick = onNavigateToDetail,
+                        onNavigateToViewAll = onNavigateToViewAll
                     )
                 }
             } else if (selectedCategory == "TV Shows") {
@@ -853,7 +858,8 @@ fun Dashboard(
                     modifier = Modifier.padding(top = topPadding)
                 ) {
                     TVShowGenreSections(
-                        onItemClick = onNavigateToDetail
+                        onItemClick = onNavigateToDetail,
+                        onNavigateToViewAll = onNavigateToViewAll
                     )
                 }
             }
@@ -864,13 +870,13 @@ fun Dashboard(
 
 @Composable
 private fun ContinueWatchingSection(
-    items: List<com.jellycine.data.model.BaseItemDto>,
+    items: List<BaseItemDto>,
     isLoading: Boolean,
     error: String?,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     Column(
         modifier = Modifier
@@ -964,8 +970,8 @@ private fun ContinueWatchingSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ContinueWatchingCard(
-    item: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
@@ -1087,9 +1093,9 @@ private fun ContinueWatchingCard(
 
 @Composable
 private fun LibrarySections(
-    libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    libraryViews: List<BaseItemDto>,
     isLoading: Boolean,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     // Use a stable composition approach
@@ -1103,13 +1109,13 @@ private fun LibrarySections(
 
 @Composable
 private fun StableLibrarySectionsContent(
-    libraryViews: List<com.jellycine.data.model.BaseItemDto>,
+    libraryViews: List<BaseItemDto>,
     isLoading: Boolean,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     // Create a stable key based on actual content
     val contentKey = remember(libraryViews) {
@@ -1140,9 +1146,9 @@ private fun StableLibrarySectionsContent(
 
 @Composable
 private fun StableLibraryList(
-    libraries: List<com.jellycine.data.model.BaseItemDto>,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    libraries: List<BaseItemDto>,
+    mediaRepository: MediaRepository,
+    onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     // Create a stable list that only changes when content changes
@@ -1175,9 +1181,9 @@ private fun StableLibraryList(
 
 @Composable
 private fun ProgressiveLibrarySection(
-    library: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    library: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     loadPriority: QueryPriority = QueryPriority.MEDIUM,
     loadDelay: Long = 0L
@@ -1378,8 +1384,8 @@ private fun ProgressiveLibrarySection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LibraryItemCard(
-    item: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
@@ -1488,7 +1494,7 @@ internal fun LibraryItemCard(
 /**
  * Build metadata text for library items
  */
-private fun buildMetadataText(item: com.jellycine.data.model.BaseItemDto): String {
+private fun buildMetadataText(item: BaseItemDto): String {
     return buildString {
         when (item.type) {
             "Series" -> {
@@ -1660,11 +1666,11 @@ private object DashboardCache {
         return Cache.isStale("featured_$category", 300_000L)
     }
 
-    fun getFeaturedItems(category: String): List<com.jellycine.data.model.BaseItemDto> {
-        return Cache.get<List<com.jellycine.data.model.BaseItemDto>>("featured_$category") ?: emptyList()
+    fun getFeaturedItems(category: String): List<BaseItemDto> {
+        return Cache.get<List<BaseItemDto>>("featured_$category") ?: emptyList()
     }
 
-    fun updateFeaturedItems(category: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateFeaturedItems(category: String, items: List<BaseItemDto>) {
         Cache.put("featured_$category", items)
     }
 
@@ -1672,11 +1678,11 @@ private object DashboardCache {
         return Cache.isStale("continue_watching", 120_000L)
     }
 
-    fun updateContinueWatching(items: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateContinueWatching(items: List<BaseItemDto>) {
         Cache.put("continue_watching", items)
     }
 
-    val continueWatchingItems: List<com.jellycine.data.model.BaseItemDto>
+    val continueWatchingItems: List<BaseItemDto>
         get() = Cache.get("continue_watching") ?: emptyList()
 }
 
@@ -1694,26 +1700,26 @@ private object GenreCache {
         return Cache.isStale("genre_items_$genreId", 300_000L)
     }
 
-    fun updateMovieGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateMovieGenres(genres: List<BaseItemDto>) {
         Cache.put("movie_genres", genres)
     }
 
-    fun updateTVGenres(genres: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateTVGenres(genres: List<BaseItemDto>) {
         Cache.put("tv_genres", genres)
     }
 
-    fun updateGenreItems(genreId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateGenreItems(genreId: String, items: List<BaseItemDto>) {
         Cache.put("genre_items_$genreId", items)
     }
 
-    fun getGenreItems(genreId: String): List<com.jellycine.data.model.BaseItemDto> {
+    fun getGenreItems(genreId: String): List<BaseItemDto> {
         return Cache.get("genre_items_$genreId") ?: emptyList()
     }
 
-    val movieGenres: List<com.jellycine.data.model.BaseItemDto>
+    val movieGenres: List<BaseItemDto>
         get() = Cache.get("movie_genres") ?: emptyList()
 
-    val tvGenres: List<com.jellycine.data.model.BaseItemDto>
+    val tvGenres: List<BaseItemDto>
         get() = Cache.get("tv_genres") ?: emptyList()
 }
 
@@ -1723,7 +1729,7 @@ private object LibraryCache {
         return Cache.isStale("library_views", 600_000L)
     }
 
-    fun updateLibraryViews(views: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateLibraryViews(views: List<BaseItemDto>) {
         Cache.put("library_views", views)
     }
 
@@ -1731,24 +1737,25 @@ private object LibraryCache {
         return Cache.isStale("library_$libraryId", 300_000L)
     }
 
-    fun updateLibraryItems(libraryId: String, items: List<com.jellycine.data.model.BaseItemDto>) {
+    fun updateLibraryItems(libraryId: String, items: List<BaseItemDto>) {
         Cache.put("library_$libraryId", items)
     }
 
-    fun getLibraryItems(libraryId: String): List<com.jellycine.data.model.BaseItemDto> {
+    fun getLibraryItems(libraryId: String): List<BaseItemDto> {
         return Cache.get("library_$libraryId") ?: emptyList()
     }
 
-    val libraryViews: List<com.jellycine.data.model.BaseItemDto>
+    val libraryViews: List<BaseItemDto>
         get() = Cache.get("library_views") ?: emptyList()
 }
 
 @Composable
 private fun MovieGenreSections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     var movieGenres by remember { mutableStateOf(GenreCache.movieGenres) }
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
@@ -1759,7 +1766,7 @@ private fun MovieGenreSections(
             isLoading = true
             try {
                 withContext(Dispatchers.IO) {
-                    val result = mediaRepository.getGenres(includeItemTypes = "Movie")
+                    val result = mediaRepository.getFilteredGenres(includeItemTypes = "Movie")
 
                     withContext(Dispatchers.Main) {
                         result.fold(
@@ -1796,6 +1803,7 @@ private fun MovieGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
+                    onNavigateToViewAll = onNavigateToViewAll,
                     loadDelay = index * 200L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1806,10 +1814,11 @@ private fun MovieGenreSections(
 
 @Composable
 private fun TVShowGenreSections(
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {}
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     var tvGenres by remember { mutableStateOf(GenreCache.tvGenres) }
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshTVGenres()) }
@@ -1819,7 +1828,7 @@ private fun TVShowGenreSections(
         if (GenreCache.shouldRefreshTVGenres()) {
             isLoading = true
             try {
-                val result = mediaRepository.getGenres(includeItemTypes = "Series")
+                val result = mediaRepository.getFilteredGenres(includeItemTypes = "Series")
                 result.fold(
                     onSuccess = { genres ->
                         GenreCache.updateTVGenres(genres)
@@ -1852,6 +1861,7 @@ private fun TVShowGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
+                    onNavigateToViewAll = onNavigateToViewAll,
                     loadDelay = index * 200L
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1862,9 +1872,10 @@ private fun TVShowGenreSections(
 
 @Composable
 private fun ProgressiveMovieGenreSection(
-    genre: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    genre: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     loadDelay: Long = 0L
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
@@ -1919,14 +1930,36 @@ private fun ProgressiveMovieGenreSection(
             .fillMaxWidth()
             .background(Color.Black)
     ) {
-        // Section Header
-        Text(
-            text = "${genre.name ?: "Movies"}",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        // Section Header with View All button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${genre.name ?: "Movies"}",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            // View All button - positioned right next to the genre name
+            IconButton(
+                onClick = {
+                    onNavigateToViewAll("MOVIES_GENRE", genre.id, genre.name ?: "Movies")
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "View All",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
         when {
             isLoading -> {
@@ -1976,9 +2009,10 @@ private fun ProgressiveMovieGenreSection(
 
 @Composable
 private fun ProgressiveTVShowGenreSection(
-    genre: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    genre: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     loadDelay: Long = 0L
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
@@ -2034,14 +2068,36 @@ private fun ProgressiveTVShowGenreSection(
             .fillMaxWidth()
             .background(Color.Black)
     ) {
-        // Section Header
-        Text(
-            text = "${genre.name ?: "TV Shows"}",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        // Section Header with View All button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${genre.name ?: "TV Shows"}",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            // View All button - positioned right next to the genre name
+            IconButton(
+                onClick = {
+                    onNavigateToViewAll("TVSHOWS_GENRE", genre.id, genre.name ?: "TV Shows")
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "View All",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
         when {
             isLoading -> {

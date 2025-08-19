@@ -216,7 +216,10 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getGenres(
         parentId: String? = null,
-        includeItemTypes: String? = null
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        sortBy: String? = "SortName",
+        sortOrder: String? = "Ascending"
     ): Result<List<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
@@ -225,7 +228,12 @@ class MediaRepository(private val context: Context) {
             val response = api.getGenres(
                 userId = userId,
                 parentId = parentId,
-                includeItemTypes = includeItemTypes
+                includeItemTypes = includeItemTypes,
+                recursive = recursive,
+                sortBy = sortBy,
+                sortOrder = sortOrder,
+                enableTotalRecordCount = true,
+                enableImages = false
             )
 
             if (response.isSuccessful && response.body() != null) {
@@ -242,6 +250,126 @@ class MediaRepository(private val context: Context) {
 
             Result.failure(e)
         }
+    }
+
+    /**
+     * Get filtered genres like the official Jellyfin web client
+     * This filters out redundant individual genres when compound genres exist
+     */
+    suspend fun getFilteredGenres(
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        sortBy: String? = "SortName",
+        sortOrder: String? = "Ascending"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val genresResult = getGenres(parentId, includeItemTypes, recursive, sortBy, sortOrder)
+
+            genresResult.fold(
+                onSuccess = { genres ->
+                    val filteredGenres = filterRedundantGenres(genres, includeItemTypes)
+                    Result.success(filteredGenres)
+                },
+                onFailure = { exception ->
+                    Result.failure(exception)
+                }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Filter out redundant individual genres when compound genres exist
+     * Based on how the official Jellyfin web client handles genre display
+     */
+    private fun filterRedundantGenres(genres: List<BaseItemDto>, includeItemTypes: String? = null): List<BaseItemDto> {
+        val genreNames = genres.mapNotNull { it.name }.toSet()
+
+        // Define compound genre patterns and their individual components
+        // Based on common TMDB/TVDB genre patterns
+        val compoundGenreMap = mapOf(
+            "Action & Adventure" to setOf("Action", "Adventure"),
+            "Sci-Fi & Fantasy" to setOf("Sci-Fi", "Science Fiction", "Fantasy", "Sci Fi", "SciFi"),
+            "Crime & Mystery" to setOf("Crime", "Mystery"),
+            "Comedy & Drama" to setOf("Comedy", "Drama"),
+            "Horror & Thriller" to setOf("Horror", "Thriller"),
+            "Romance & Drama" to setOf("Romance", "Drama"),
+            "War & Politics" to setOf("War", "Politics"),
+            "Kids & Family" to setOf("Kids", "Family", "Children"),
+            "News & Documentary" to setOf("News", "Documentary"),
+            "Reality & Talk Show" to setOf("Reality", "Talk Show", "Talk"),
+            "Soap & Drama" to setOf("Soap", "Drama")
+        )
+
+        // Additional genre consolidation rules (prefer one over the other)
+        val genreConsolidationMap = mapOf(
+            "Talk" to setOf("Talk-Show", "Talk Show"),
+            "Reality" to setOf("Reality TV", "Reality-TV"),
+            "Mystery" to setOf("Thriller")
+        )
+
+        // Find which compound genres actually exist in the data
+        val existingCompoundGenres = genreNames.filter { genreName ->
+            compoundGenreMap.keys.any { compound ->
+                genreName.equals(compound, ignoreCase = true)
+            }
+        }
+
+        // Collect all individual genres that should be filtered out
+        val genresToFilter = mutableSetOf<String>()
+        existingCompoundGenres.forEach { compoundGenre ->
+            compoundGenreMap.entries.find {
+                it.key.equals(compoundGenre, ignoreCase = true)
+            }?.value?.let { individuals ->
+                genresToFilter.addAll(individuals)
+            }
+        }
+
+        // Also handle any other " & " patterns dynamically
+        val dynamicCompoundGenres = genreNames.filter {
+            it.contains(" & ") && !compoundGenreMap.keys.any { compound ->
+                it.equals(compound, ignoreCase = true)
+            }
+        }
+
+        dynamicCompoundGenres.forEach { compound ->
+            val parts = compound.split(" & ").map { it.trim() }
+            genresToFilter.addAll(parts)
+        }
+
+        // Apply genre consolidation rules
+        genreConsolidationMap.forEach { (preferredGenre, genresToMerge) ->
+            // If the preferred genre exists, filter out the genres to merge
+            if (genreNames.any { it.equals(preferredGenre, ignoreCase = true) }) {
+                genresToFilter.addAll(genresToMerge)
+            }
+        }
+
+        // Additional filtering for TV Shows - exclude Romance and Game Show
+        val tvShowExcludedGenres = setOf("Romance", "Game Show", "Game-Show")
+        val isTVShows = includeItemTypes?.contains("Series", ignoreCase = true) == true
+
+        // Filter the genres
+        return genres.filter { genre ->
+            val genreName = genre.name ?: return@filter false
+
+            // Exclude specific genres for TV Shows
+            if (isTVShows && tvShowExcludedGenres.any { it.equals(genreName, ignoreCase = true) }) {
+                return@filter false
+            }
+
+            // Always keep compound genres
+            if (genreName.contains(" & ")) {
+                true
+            } else {
+                // Keep individual genres only if they're not part of any compound genre
+                !genresToFilter.any { filterGenre ->
+                    genreName.equals(filterGenre, ignoreCase = true)
+                }
+            }
+        }.sortedBy { it.name } // Sort alphabetically for consistent display
     }
 
     suspend fun getItemsByGenre(
@@ -277,6 +405,43 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
 
             Result.failure(Exception("Error fetching items by genreId '$genreId': ${e.message}", e))
+        }
+    }
+
+    suspend fun getAllItemsByGenre(
+        genreId: String,
+        includeItemTypes: String? = null,
+        sortBy: String? = "SortName",
+        sortOrder: String? = "Ascending"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getItemsByGenre(
+                userId = userId,
+                genreIds = genreId,
+                includeItemTypes = includeItemTypes,
+                recursive = true,
+                limit = null,
+                sortBy = sortBy,
+                sortOrder = sortOrder,
+                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount,CommunityRating,CriticRating,ProductionYear,Overview"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val items = body.items ?: emptyList()
+
+                Result.success(items)
+            } else {
+                val errorMsg = "Failed to fetch all items by genreId '$genreId': ${response.code()} - ${response.message()}"
+
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+
+            Result.failure(Exception("Error fetching all items by genreId '$genreId': ${e.message}", e))
         }
     }
 

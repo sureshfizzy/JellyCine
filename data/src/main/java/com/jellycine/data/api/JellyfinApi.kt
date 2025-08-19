@@ -74,7 +74,14 @@ interface JellyfinApi {
     suspend fun getGenres(
         @Query("userId") userId: String,
         @Query("parentId") parentId: String? = null,
-        @Query("includeItemTypes") includeItemTypes: String? = null
+        @Query("includeItemTypes") includeItemTypes: String? = null,
+        @Query("recursive") recursive: Boolean? = null,
+        @Query("sortBy") sortBy: String? = null,
+        @Query("sortOrder") sortOrder: String? = null,
+        @Query("enableTotalRecordCount") enableTotalRecordCount: Boolean? = null,
+        @Query("enableImages") enableImages: Boolean? = null,
+        @Query("startIndex") startIndex: Int? = null,
+        @Query("limit") limit: Int? = null
     ): Response<QueryResult<BaseItemDto>>
 
     @GET("Items")

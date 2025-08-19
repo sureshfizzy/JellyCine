@@ -54,6 +54,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.model.BaseItemDto
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,8 +63,9 @@ fun ViewAllScreen(
     contentType: ContentType,
     parentId: String? = null,
     title: String = "View All",
+    genreId: String? = null,
     onBackPressed: () -> Unit,
-    onItemClick: (com.jellycine.data.model.BaseItemDto) -> Unit,
+    onItemClick: (BaseItemDto) -> Unit,
     viewModel: ViewAllViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -76,15 +78,15 @@ fun ViewAllScreen(
     val gridState = rememberLazyGridState()
 
     // Load initial data
-    LaunchedEffect(contentType, parentId) {
-        viewModel.loadItems(contentType, parentId, refresh = true)
+    LaunchedEffect(contentType, parentId, genreId) {
+        viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
     LaunchedEffect(gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index) {
         val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
         val totalItems = items.size
         if (lastVisibleIndex >= totalItems - 5 && uiState.hasMorePages && !uiState.isLoading) {
-            viewModel.loadMoreItems(contentType, parentId)
+            viewModel.loadMoreItems(contentType, parentId, genreId)
         }
     }
 
@@ -184,7 +186,7 @@ fun ViewAllScreen(
                                     modifier = Modifier.padding(top = 8.dp)
                                 )
                                 Button(
-                                    onClick = { viewModel.loadItems(contentType, parentId, refresh = true) },
+                                    onClick = { viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId) },
                                     modifier = Modifier.padding(top = 24.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF0080FF)
@@ -284,8 +286,8 @@ fun ViewAllScreen(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
                 onSortSelected = { sortBy, sortOrder ->
-                    viewModel.setSortBy(sortBy, contentType, parentId)
-                    viewModel.setSortOrder(sortOrder, contentType, parentId)
+                    viewModel.setSortBy(sortBy, contentType, parentId, genreId)
+                    viewModel.setSortOrder(sortOrder, contentType, parentId, genreId)
                     showSortSheet = false
                 },
                 onDismiss = { showSortSheet = false }
@@ -297,8 +299,8 @@ fun ViewAllScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecentlyAddedCard(
-    item: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -386,8 +388,8 @@ private fun RecentlyAddedCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PosterCard(
-    item: com.jellycine.data.model.BaseItemDto,
-    mediaRepository: com.jellycine.data.repository.MediaRepository,
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current

@@ -34,16 +34,23 @@ class ViewAllViewModel @Inject constructor(
     private val pageSize = 50
     private var totalItems = 0
     private var hasMorePages = true
+    private var cachedGenreItems: List<BaseItemDto> = emptyList()
+    private var cachedGenreId: String? = null
 
     fun loadItems(
         contentType: ContentType,
         parentId: String? = null,
-        refresh: Boolean = false
+        refresh: Boolean = false,
+        genreId: String? = null
     ) {
         if (refresh) {
             currentPage = 0
             _items.value = emptyList()
             hasMorePages = true
+            if (contentType == ContentType.MOVIES_GENRE || contentType == ContentType.TVSHOWS_GENRE) {
+                cachedGenreItems = emptyList()
+                cachedGenreId = null
+            }
         }
 
         if (!hasMorePages && !refresh) return
@@ -88,6 +95,108 @@ class ViewAllViewModel @Inject constructor(
                             recursive = true,
                             fields = "SeriesName,SeriesId,SeasonName,SeasonId,Overview"
                         )
+                        ContentType.MOVIES_GENRE -> {
+                            if (genreId != null) {
+                                if (cachedGenreItems.isEmpty() || cachedGenreId != genreId) {
+                                    val genreResult = mediaRepository.getAllItemsByGenre(
+                                        genreId = genreId,
+                                        includeItemTypes = "Movie",
+                                        sortBy = _uiState.value.sortBy,
+                                        sortOrder = _uiState.value.sortOrder
+                                    )
+
+                                    genreResult.fold(
+                                        onSuccess = { items ->
+                                            cachedGenreItems = items
+                                            cachedGenreId = genreId
+                                            val startIndex = currentPage * pageSize
+                                            val endIndex = minOf(startIndex + pageSize, items.size)
+                                            val paginatedItems = if (startIndex < items.size) {
+                                                items.subList(startIndex, endIndex)
+                                            } else {
+                                                emptyList()
+                                            }
+
+                                            Result.success(QueryResult(
+                                                items = paginatedItems,
+                                                totalRecordCount = items.size,
+                                                startIndex = startIndex
+                                            ))
+                                        },
+                                        onFailure = { exception ->
+                                            Result.failure(exception)
+                                        }
+                                    )
+                                } else {
+                                    val startIndex = currentPage * pageSize
+                                    val endIndex = minOf(startIndex + pageSize, cachedGenreItems.size)
+                                    val paginatedItems = if (startIndex < cachedGenreItems.size) {
+                                        cachedGenreItems.subList(startIndex, endIndex)
+                                    } else {
+                                        emptyList()
+                                    }
+
+                                    Result.success(QueryResult(
+                                        items = paginatedItems,
+                                        totalRecordCount = cachedGenreItems.size,
+                                        startIndex = startIndex
+                                    ))
+                                }
+                            } else {
+                                Result.failure(Exception("Genre ID is required for genre filtering"))
+                            }
+                        }
+                        ContentType.TVSHOWS_GENRE -> {
+                            if (genreId != null) {
+                                if (cachedGenreItems.isEmpty() || cachedGenreId != genreId) {
+                                    val genreResult = mediaRepository.getAllItemsByGenre(
+                                        genreId = genreId,
+                                        includeItemTypes = "Series",
+                                        sortBy = _uiState.value.sortBy,
+                                        sortOrder = _uiState.value.sortOrder
+                                    )
+
+                                    genreResult.fold(
+                                        onSuccess = { items ->
+                                            cachedGenreItems = items
+                                            cachedGenreId = genreId
+                                            val startIndex = currentPage * pageSize
+                                            val endIndex = minOf(startIndex + pageSize, items.size)
+                                            val paginatedItems = if (startIndex < items.size) {
+                                                items.subList(startIndex, endIndex)
+                                            } else {
+                                                emptyList()
+                                            }
+
+                                            Result.success(QueryResult(
+                                                items = paginatedItems,
+                                                totalRecordCount = items.size,
+                                                startIndex = startIndex
+                                            ))
+                                        },
+                                        onFailure = { exception ->
+                                            Result.failure(exception)
+                                        }
+                                    )
+                                } else {
+                                    val startIndex = currentPage * pageSize
+                                    val endIndex = minOf(startIndex + pageSize, cachedGenreItems.size)
+                                    val paginatedItems = if (startIndex < cachedGenreItems.size) {
+                                        cachedGenreItems.subList(startIndex, endIndex)
+                                    } else {
+                                        emptyList()
+                                    }
+
+                                    Result.success(QueryResult(
+                                        items = paginatedItems,
+                                        totalRecordCount = cachedGenreItems.size,
+                                        startIndex = startIndex
+                                    ))
+                                }
+                            } else {
+                                Result.failure(Exception("Genre ID is required for genre filtering"))
+                            }
+                        }
                         ContentType.ALL -> mediaRepository.getUserItems(
                             parentId = parentId,
                             includeItemTypes = "Movie,Series",
@@ -139,21 +248,29 @@ class ViewAllViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreItems(contentType: ContentType, parentId: String? = null) {
-        loadItems(contentType, parentId, refresh = false)
+    fun loadMoreItems(contentType: ContentType, parentId: String? = null, genreId: String? = null) {
+        loadItems(contentType, parentId, refresh = false, genreId = genreId)
     }
 
-    fun setSortBy(sortBy: String, contentType: ContentType, parentId: String? = null) {
+    fun setSortBy(sortBy: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         _uiState.value = _uiState.value.copy(sortBy = sortBy)
-        loadItems(contentType, parentId, refresh = true)
+        if (contentType == ContentType.MOVIES_GENRE || contentType == ContentType.TVSHOWS_GENRE) {
+            cachedGenreItems = emptyList()
+            cachedGenreId = null
+        }
+        loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
-    fun setSortOrder(sortOrder: String, contentType: ContentType, parentId: String? = null) {
+    fun setSortOrder(sortOrder: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         _uiState.value = _uiState.value.copy(sortOrder = sortOrder)
-        loadItems(contentType, parentId, refresh = true)
+        if (contentType == ContentType.MOVIES_GENRE || contentType == ContentType.TVSHOWS_GENRE) {
+            cachedGenreItems = emptyList()
+            cachedGenreId = null
+        }
+        loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
-    fun toggleGenreFilter(genre: String, contentType: ContentType, parentId: String? = null) {
+    fun toggleGenreFilter(genre: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         val currentGenres = _uiState.value.selectedGenres.toMutableSet()
         if (currentGenres.contains(genre)) {
             currentGenres.remove(genre)
@@ -161,10 +278,10 @@ class ViewAllViewModel @Inject constructor(
             currentGenres.add(genre)
         }
         _uiState.value = _uiState.value.copy(selectedGenres = currentGenres)
-        loadItems(contentType, parentId, refresh = true)
+        loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
-    fun toggleYearFilter(year: String, contentType: ContentType, parentId: String? = null) {
+    fun toggleYearFilter(year: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         val currentYears = _uiState.value.selectedYears.toMutableSet()
         if (currentYears.contains(year)) {
             currentYears.remove(year)
@@ -172,15 +289,15 @@ class ViewAllViewModel @Inject constructor(
             currentYears.add(year)
         }
         _uiState.value = _uiState.value.copy(selectedYears = currentYears)
-        loadItems(contentType, parentId, refresh = true)
+        loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
-    fun clearFilters(contentType: ContentType, parentId: String? = null) {
+    fun clearFilters(contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         _uiState.value = _uiState.value.copy(
             selectedGenres = emptySet(),
             selectedYears = emptySet()
         )
-        loadItems(contentType, parentId, refresh = true)
+        loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 }
 
@@ -196,5 +313,5 @@ data class ViewAllUiState(
 )
 
 enum class ContentType {
-    ALL, MOVIES, SERIES, EPISODES
+    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE
 }
