@@ -144,6 +144,10 @@ fun DetailScreenContainer(
             result.fold(
                 onSuccess = { fetchedItem ->
                     item = fetchedItem
+                    if (fetchedItem.type == "Episode") {
+                        episodeDetailId = itemId
+                        currentScreen = "episode"
+                    }
                     isLoading = false
                 },
                 onFailure = { exception ->
@@ -242,8 +246,12 @@ fun DetailScreenContainer(
                                 EpisodeDetailScreen(
                                     episodeId = episodeId,
                                     onBackPressed = {
-                                        currentScreen = "season"
-                                        episodeDetailId = null
+                                        if (seasonDetailData != null) {
+                                            currentScreen = "season"
+                                            episodeDetailId = null
+                                        } else {
+                                            onBackPressed()
+                                        }
                                     },
                                     onPlayClick = {
                                         playbackItemId = episodeId
