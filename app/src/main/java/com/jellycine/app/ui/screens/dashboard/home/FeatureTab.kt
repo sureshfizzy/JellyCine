@@ -275,7 +275,7 @@ fun FeatureTab(
             UserProfileAvatar(
                 imageUrl = userProfileImageUrl,
                 userName = storedUsername,
-                onClick = onLogout,
+                onClick = { /* Do nothing when profile is clicked */ },
                 modifier = Modifier.size(32.dp)
             )
         }
