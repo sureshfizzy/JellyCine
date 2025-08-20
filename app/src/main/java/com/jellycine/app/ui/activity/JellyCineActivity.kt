@@ -36,19 +36,15 @@ class JellyCineActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val authStateManager = AuthStateManager.getInstance(this)
-        var isAuthReady = false
-        var isDashboardPreloaded = false
-
-        splashScreen.setKeepOnScreenCondition { 
-            !isAuthReady || !isDashboardPreloaded
-        }
+        var isReady = false
+        splashScreen.setKeepOnScreenCondition { !isReady }
 
         lifecycleScope.launch {
             val isAuthenticated = authStateManager.checkAuthenticationState()
-            
+
             if (isAuthenticated) {
                 val mediaRepository = MediaRepositoryProvider.getInstance(this@JellyCineActivity)
-                
+
                 try {
                     withContext(Dispatchers.IO) {
                         val preloadJobs = listOf(
@@ -77,13 +73,12 @@ class JellyCineActivity : ComponentActivity() {
                 } catch (e: Exception) {
                 }
 
-                kotlinx.coroutines.delay(800)
+                kotlinx.coroutines.delay(600)
             } else {
                 kotlinx.coroutines.delay(300)
             }
-            
-            isAuthReady = true
-            isDashboardPreloaded = true
+
+            isReady = true
         }
 
         // Use modern edge-to-edge approach
