@@ -832,7 +832,7 @@ fun ShimmerEffect(
         )
     ) {
         drawRoundRect(
-            color = Color(0xFF2A2A2A).copy(alpha = alpha.value),
+            color = Color(0xFF1A1A1A).copy(alpha = alpha.value),
             cornerRadius = CornerRadius(cornerRadius, cornerRadius)
         )
     }

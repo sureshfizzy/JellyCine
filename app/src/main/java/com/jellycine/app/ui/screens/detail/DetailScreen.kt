@@ -61,59 +61,12 @@ import com.jellycine.app.ui.components.common.DownloadOnlyButton
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
+import com.jellycine.app.ui.components.common.ScreenWrapper
+import com.jellycine.app.ui.components.common.AnimatedCard
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 
-@Composable
-fun LoadingAnimation(
-    modifier: Modifier = Modifier,
-    color: Color = Color.White
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "loading")
-
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-
-    Canvas(
-        modifier = modifier.size(60.dp)
-    ) {
-        val centerX = size.width / 2
-        val centerY = size.height / 2
-        val radius = size.minDimension / 4
-
-        rotate(rotation, pivot = center) {
-            for (i in 0 until 8) {
-                val angle = (i * 45f) * (kotlin.math.PI / 180f)
-                val x = centerX + cos(angle) * radius * scale
-                val y = centerY + sin(angle) * radius * scale
-                val circleRadius = (8f - i) * 2f * scale
-
-                drawCircle(
-                    color = color.copy(alpha = 0.7f - (i * 0.08f)),
-                    radius = circleRadius,
-                    center = Offset(x.toFloat(), y.toFloat())
-                )
-            }
-        }
-    }
-}
 
 @UnstableApi
 @Composable
@@ -161,71 +114,65 @@ fun DetailScreenContainer(
         }
     }
 
-    when {
-        isLoading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    LoadingAnimation()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Loading...",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 16.sp
-                    )
+    if (error != null) {
+        LaunchedEffect(Unit) {
+            onBackPressed()
+        }
+    } else {
+        if (showPlayer) {
+            PlayerScreen(
+                mediaId = playbackItemId ?: itemId,
+                onBackPressed = {
+                    showPlayer = false
+                    playbackItemId = null
                 }
-            }
-        }
-        error != null -> {
-            LaunchedEffect(Unit) {
-                onBackPressed()
-            }
-        }
-        item != null -> {
-            if (showPlayer) {
-                PlayerScreen(
-                    mediaId = playbackItemId ?: itemId,
-                    onBackPressed = {
-                        showPlayer = false
-                        playbackItemId = null
-                    }
-                )
-            } else {
-                AnimatedContent(
-                    targetState = currentScreen,
-                    transitionSpec = {
-                        fadeIn(
-                            animationSpec = tween(400, easing = FastOutSlowInEasing)
-                        ) togetherWith fadeOut(
-                            animationSpec = tween(300, easing = LinearOutSlowInEasing)
-                        )
-                    },
-                    label = "screen_navigation"
-                ) { screen ->
-                    when (screen) {
-                        "detail" -> {
-                            DetailScreen(
-                                item = item!!,
-                                onBackPressed = onBackPressed,
-                                onPlayClick = {
-                                    playbackItemId = itemId
-                                    showPlayer = true
-                                },
-                                onSeasonClick = { seriesId, seasonId, seasonName ->
-                                    seasonDetailData = Triple(seriesId, seasonId, seasonName)
-                                    currentScreen = "season"
+            )
+        } else {
+            AnimatedContent(
+                targetState = currentScreen,
+                transitionSpec = {
+                    fadeIn(
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) togetherWith fadeOut(
+                        animationSpec = tween(300, easing = LinearOutSlowInEasing)
+                    )
+                },
+                label = "screen_navigation"
+            ) { screen ->
+                when (screen) {
+                    "detail" -> {
+                        ScreenWrapper(isActive = true) {
+                            val currentItem = item
+                            if (currentItem != null) {
+                                if (currentItem.type == "Episode") {
+                                    LaunchedEffect(Unit) {
+                                        episodeDetailId = itemId
+                                        currentScreen = "episode"
+                                    }
+                                    EpisodeDetailSkeleton(onBackPressed = onBackPressed)
+                                } else {
+                                    DetailScreen(
+                                        item = currentItem,
+                                        isLoading = isLoading,
+                                        onBackPressed = onBackPressed,
+                                        onPlayClick = {
+                                            playbackItemId = itemId
+                                            showPlayer = true
+                                        },
+                                        onSeasonClick = { seriesId, seasonId, seasonName ->
+                                            seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                            currentScreen = "season"
+                                        }
+                                    )
                                 }
-                            )
+                            } else {
+                                DetailScreenSkeleton(onBackPressed = onBackPressed)
+                            }
                         }
-                        "season" -> {
-                            seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
+                    }
+                    "season" -> {
+                        seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
+                            ScreenWrapper(isActive = true) {
                                 SeasonDetailScreen(
                                     seriesId = seriesId,
                                     seasonId = seasonId,
@@ -241,8 +188,10 @@ fun DetailScreenContainer(
                                 )
                             }
                         }
-                        "episode" -> {
-                            episodeDetailId?.let { episodeId ->
+                    }
+                    "episode" -> {
+                        episodeDetailId?.let { episodeId ->
+                            ScreenWrapper(isActive = true) {
                                 EpisodeDetailScreen(
                                     episodeId = episodeId,
                                     onBackPressed = {
@@ -264,11 +213,6 @@ fun DetailScreenContainer(
                 }
             }
         }
-        else -> {
-            LaunchedEffect(Unit) {
-                onBackPressed()
-            }
-        }
     }
 }
 
@@ -276,12 +220,14 @@ fun DetailScreenContainer(
 @Composable
 fun DetailScreen(
     item: BaseItemDto,
+    isLoading: Boolean = false,
     onBackPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
         item = item,
+        isLoading = isLoading,
         onBackPressed = onBackPressed,
         onPlayClick = onPlayClick,
         onSeasonClick = onSeasonClick
@@ -291,6 +237,7 @@ fun DetailScreen(
 @Composable
 fun DetailContent(
     item: BaseItemDto,
+    isLoading: Boolean = false,
     onBackPressed: () -> Unit = {},
     onPlayClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
@@ -420,15 +367,16 @@ fun DetailContent(
                     verticalAlignment = Alignment.Top
                 ) {
 
-                    Card(
+                    AnimatedCard(
                         modifier = Modifier
                             .width(120.dp)
                             .height(180.dp),
+                        enabled = !isLoading,
                         shape = RoundedCornerShape(16.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
                         JellyfinPosterImage(
-                            imageUrl = posterImageUrl,
+                            imageUrl = if (isLoading) null else posterImageUrl,
                             contentDescription = item.name,
                             modifier = Modifier.fillMaxSize(),
                             context = context,
@@ -968,6 +916,167 @@ fun DetailScreenManyGenresPreview() {
             onBackPressed = {},
             onPlayClick = {}
         )
+    }
+}
+
+@Composable
+fun DetailScreenSkeleton(
+    onBackPressed: () -> Unit = {}
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier.fillMaxSize(),
+                    cornerRadius = 0f
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.3f),
+                                    Color.Black.copy(alpha = 0.5f),
+                                    Color.Black.copy(alpha = 0.8f),
+                                    Color.Black
+                                )
+                            )
+                        )
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onBackPressed,
+                        modifier = Modifier
+                            .background(
+                                Color.Black.copy(alpha = 0.6f),
+                                CircleShape
+                            )
+                            .size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .offset(y = (-85).dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    AnimatedCard(
+                        modifier = Modifier
+                            .width(120.dp)
+                            .height(180.dp),
+                        enabled = false,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        ShimmerEffect(
+                            modifier = Modifier.fillMaxSize(),
+                            cornerRadius = 16f
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .height(32.dp),
+                            cornerRadius = 4f
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ShimmerEffect(
+                                modifier = Modifier
+                                    .width(60.dp)
+                                    .height(16.dp),
+                                cornerRadius = 4f
+                            )
+                            ShimmerEffect(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .height(16.dp),
+                                cornerRadius = 4f
+                            )
+                        }
+
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(50.dp)
+                                .height(20.dp),
+                            cornerRadius = 4f
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(4) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width((60..100).random().dp)
+                                .height(24.dp),
+                            cornerRadius = 12f
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    repeat(3) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .fillMaxWidth(if (it == 2) 0.7f else 1f)
+                                .height(16.dp),
+                            cornerRadius = 4f
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

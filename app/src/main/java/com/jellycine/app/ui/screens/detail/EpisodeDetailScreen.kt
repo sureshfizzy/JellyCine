@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +42,9 @@ import com.jellycine.app.ui.components.common.CodecInfoSection
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
+import com.jellycine.app.ui.components.common.ScreenWrapper
+import com.jellycine.app.ui.components.common.AnimatedCard
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,30 +101,6 @@ fun EpisodeDetailScreen(
     }
 
     when {
-        isLoading -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF00BCD4),
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Loading episode...",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 16.sp
-                    )
-                }
-            }
-        }
         error != null -> {
             LaunchedEffect(Unit) {
                 onBackPressed()
@@ -286,6 +266,175 @@ fun EpisodeDetailScreen(
                         CastSection(
                             item = ep,
                             mediaRepository = mediaRepository
+                        )
+                    }
+                }
+            }
+        }
+        else -> {
+            EpisodeDetailSkeleton(onBackPressed = onBackPressed)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EpisodeDetailSkeleton(
+    onBackPressed: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        TopAppBar(
+            title = {
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(150.dp)
+                        .height(20.dp),
+                    cornerRadius = 4f
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onBackPressed) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Black,
+                titleContentColor = Color.White,
+                navigationIconContentColor = Color.White
+            )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Episode thumbnail skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                cornerRadius = 12f
+            )
+
+            // Series name skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(16.dp),
+                cornerRadius = 4f
+            )
+
+            // Season and Episode number skeleton
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(14.dp),
+                    cornerRadius = 4f
+                )
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(90.dp)
+                        .height(14.dp),
+                    cornerRadius = 4f
+                )
+            }
+
+            // Episode title skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(24.dp),
+                cornerRadius = 4f
+            )
+
+            // Runtime skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .width(80.dp)
+                    .height(14.dp),
+                cornerRadius = 4f
+            )
+
+            // Play button skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                cornerRadius = 25f
+            )
+
+            // Codecs Info section skeleton
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(18.dp),
+                    cornerRadius = 4f
+                )
+                repeat(2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(100.dp)
+                                .height(16.dp),
+                            cornerRadius = 4f
+                        )
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(120.dp)
+                                .height(16.dp),
+                            cornerRadius = 4f
+                        )
+                    }
+                }
+            }
+
+            // Technical Information section skeleton
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(160.dp)
+                        .height(18.dp),
+                    cornerRadius = 4f
+                )
+                repeat(3) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(90.dp)
+                                .height(16.dp),
+                            cornerRadius = 4f
+                        )
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .width(110.dp)
+                                .height(16.dp),
+                            cornerRadius = 4f
                         )
                     }
                 }

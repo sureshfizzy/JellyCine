@@ -25,6 +25,7 @@ import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.components.common.ScreenWrapper
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,36 +116,12 @@ fun SeasonDetailScreen(
         )
 
         when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        CircularProgressIndicator(
-                            color = Color(0xFF00BCD4),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Loading episodes...",
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-            }
             error != null -> {
                 LaunchedEffect(Unit) {
                     onBackPressed()
                 }
             }
-            episodes.isNotEmpty() -> {
+            else -> {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()

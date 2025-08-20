@@ -28,6 +28,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.ui.components.common.AnimatedCard
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecUtils
@@ -44,44 +46,7 @@ fun EpisodeCard(
     val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
     var imageLoadingFailed by remember(episode.id) { mutableStateOf(false) }
-    var isPressed by remember { mutableStateOf(false) }
-    var isHovered by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    
-    // Animation states
-    val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.98f
-            isHovered -> 1.02f
-            else -> 1f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val rotationX by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 2f
-            isHovered -> -3f
-            else -> 0f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val elevation by animateDpAsState(
-        targetValue = when {
-            isPressed -> 1.dp
-            isHovered -> 8.dp
-            else -> 2.dp
-        },
-        animationSpec = tween(300)
-    )
+
 
     LaunchedEffect(episode.id) {
         episode.id?.let { episodeId ->
@@ -104,34 +69,13 @@ fun EpisodeCard(
         }
     }
 
-    Card(
-        onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick()
-        },
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                rotationX = rotationX,
-                transformOrigin = TransformOrigin.Center,
-                cameraDistance = 16f * density.density
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    }
-                )
-            },
+    AnimatedCard(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1A1A1A)
         ),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
@@ -303,8 +247,9 @@ fun EpisodeCard(
 fun EpisodeCardSkeleton(
     modifier: Modifier = Modifier
 ) {
-    Card(
+    AnimatedCard(
         modifier = modifier.fillMaxWidth(),
+        enabled = false,
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1A1A1A)
         ),
@@ -316,13 +261,12 @@ fun EpisodeCardSkeleton(
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Thumbnail skeleton
-            Box(
+            // Thumbnail skeleton using polished ShimmerEffect
+            ShimmerEffect(
                 modifier = Modifier
                     .width(120.dp)
-                    .height(68.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF2A2A2A))
+                    .height(68.dp),
+                cornerRadius = 8f
             )
 
             // Content skeleton
@@ -331,40 +275,36 @@ fun EpisodeCardSkeleton(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Title skeleton
-                Box(
+                ShimmerEffect(
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
-                        .height(16.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF2A2A2A))
+                        .height(16.dp),
+                    cornerRadius = 4f
                 )
 
                 // Metadata skeleton
-                Box(
+                ShimmerEffect(
                     modifier = Modifier
                         .fillMaxWidth(0.4f)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF2A2A2A))
+                        .height(12.dp),
+                    cornerRadius = 4f
                 )
 
                 // Description skeleton
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Box(
+                    ShimmerEffect(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF2A2A2A))
+                            .height(12.dp),
+                        cornerRadius = 4f
                     )
-                    Box(
+                    ShimmerEffect(
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
-                            .height(12.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF2A2A2A))
+                            .height(12.dp),
+                        cornerRadius = 4f
                     )
                 }
             }

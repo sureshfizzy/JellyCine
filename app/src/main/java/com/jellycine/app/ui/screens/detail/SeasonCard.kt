@@ -34,6 +34,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.ui.components.common.AnimatedCard
+import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.flow.first
@@ -50,57 +52,7 @@ fun SeasonCard(
     val context = LocalContext.current
     var seasonImageUrl by remember(season.id) { mutableStateOf<String?>(null) }
     var imageLoadingFailed by remember(season.id) { mutableStateOf(false) }
-    var isHovered by remember { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
-    var isPressed by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    
-    // Animation states
-    val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.95f
-            isHovered -> 1.05f
-            else -> 1f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val rotationX by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 5f
-            isHovered -> -8f
-            else -> 0f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val rotationY by animateFloatAsState(
-        targetValue = when {
-            isPressed -> -2f
-            isHovered -> 3f
-            else -> 0f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val elevation by animateDpAsState(
-        targetValue = when {
-            isPressed -> 2.dp
-            isHovered -> 12.dp
-            else -> 4.dp
-        },
-        animationSpec = tween(300)
-    )
 
     LaunchedEffect(season.id) {
         season.id?.let { seasonId ->
@@ -122,39 +74,15 @@ fun SeasonCard(
         }
     }
 
-    Card(
+    AnimatedCard(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onClick()
         },
-        modifier = modifier
-            .width(140.dp)
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                rotationX = rotationX,
-                rotationY = rotationY,
-                transformOrigin = TransformOrigin.Center,
-                cameraDistance = 12f * density.density
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onLongPress = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showPreviewOverlay = !showPreviewOverlay
-                    }
-                )
-            },
+        modifier = modifier.width(140.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Box {
             Column(
@@ -340,35 +268,40 @@ fun SeasonCard(
 fun SeasonCardSkeleton(
     modifier: Modifier = Modifier
 ) {
-    Column(
+    AnimatedCard(
         modifier = modifier.width(140.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        enabled = false,
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        // Poster skeleton
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF2A2A2A))
-        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Poster skeleton using polished ShimmerEffect
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp),
+                cornerRadius = 12f
+            )
 
-        // Title skeleton
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(14.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF2A2A2A))
-        )
+            // Title skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(14.dp),
+                cornerRadius = 4f
+            )
 
-        // Year skeleton
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.5f)
-                .height(12.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF2A2A2A))
-        )
+            // Year skeleton
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .height(12.dp),
+                cornerRadius = 4f
+            )
+        }
     }
 }
