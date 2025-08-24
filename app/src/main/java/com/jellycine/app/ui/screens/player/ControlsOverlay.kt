@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -20,11 +21,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.util.Log
+import com.jellycine.app.R
+import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
 import com.jellycine.player.PlayerState
 import java.util.Locale
@@ -38,8 +44,14 @@ fun ControlsOverlay(
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // Spatial audio parameters
+    spatializationResult: SpatializationResult? = null,
+    isSpatialAudioEnabled: Boolean = false,
+    onShowSpatialAudioInfo: () -> Unit = {}
 ) {
+    val debugSpatialAudio = false
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -84,6 +96,19 @@ fun ControlsOverlay(
 
             // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (isSpatialAudioEnabled || debugSpatialAudio) {
+                    IconButton(onClick = {
+                        onShowSpatialAudioInfo()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = "Spatial Audio Info",
+                            tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
                 IconButton(onClick = { /* Lock */ }) {
                     Icon(
                         imageVector = Icons.Outlined.Lock,
@@ -213,10 +238,10 @@ fun ControlsOverlay(
             verticalArrangement = Arrangement.Bottom
         ) {
 
-            // Time display
+            // Time display and spatial audio indicator
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -225,6 +250,34 @@ fun ControlsOverlay(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
+                
+                if (isSpatialAudioEnabled) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(
+                                color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
+                            contentDescription = null,
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        
+                        Text(
+                            text = "Spatial Audio",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF4CAF50),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -329,7 +382,14 @@ fun ControlsOverlayPreviewPlaying() {
         duration = 8280000L,
         onBackClick = { },
         onPlayPause = { },
-        onSeek = { }
+        onSeek = { },
+        spatializationResult = SpatializationResult(
+            canSpatialize = true,
+            reason = "Content and device support spatial audio",
+            spatialFormat = "Dolby Atmos"
+        ),
+        isSpatialAudioEnabled = true,
+        onShowSpatialAudioInfo = { }
     )
 }
 
@@ -349,7 +409,14 @@ fun ControlsOverlayPreviewPaused() {
         duration = 8880000L,
         onBackClick = { },
         onPlayPause = { },
-        onSeek = { }
+        onSeek = { },
+        spatializationResult = SpatializationResult(
+            canSpatialize = true,
+            reason = "Content and device support spatial audio",
+            spatialFormat = "DTS:X"
+        ),
+        isSpatialAudioEnabled = false,
+        onShowSpatialAudioInfo = { }
     )
 }
 

@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.os.Build
 
 import com.jellycine.data.model.MediaStream
+import com.jellycine.player.SpatializerHelper
 
 /**
  * Data class representing device audio capabilities
@@ -15,7 +16,9 @@ data class AudioCapabilities(
     val supportsAtmos: Boolean,
     val maxChannels: Int,
     val connectedAudioDevice: String,
-    val canProcessSpatialAudio: Boolean
+    val canProcessSpatialAudio: Boolean,
+    val hasHeadTracker: Boolean = false,
+    val spatializerHelper: SpatializerHelper? = null
 )
 
 /**
@@ -171,25 +174,15 @@ object CodecCapabilityManager {
     }
 
     /**
-     * Detect device audio capabilities
+     * Detect device audio capabilities using proper Spatializer API
      */
     fun detectDeviceAudioCapabilities(context: Context): AudioCapabilities {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val spatializerHelper = SpatializerHelper(context)
         
-        // Check for spatial audio support (Android 12+)
-        val supportsSpatialAudio = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                // Use reflection to access spatializer API safely
-                val spatializer = audioManager.javaClass.getMethod("getSpatializer").invoke(audioManager)
-                val isAvailable = spatializer?.javaClass?.getMethod("isAvailable")?.invoke(spatializer) as? Boolean ?: false
-                val isEnabled = spatializer?.javaClass?.getMethod("isEnabled")?.invoke(spatializer) as? Boolean ?: false
-                isAvailable && isEnabled
-            } catch (e: Exception) {
-                false
-            }
-        } else {
-            false
-        }
+        // Get comprehensive spatial audio info
+        val spatialInfo = spatializerHelper.getSpatialAudioInfo()
+        val supportsSpatialAudio = spatialInfo.isSupported && spatialInfo.isAvailable && spatialInfo.isEnabled
         
         // Detect connected audio devices
         val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -230,7 +223,9 @@ object CodecCapabilityManager {
             supportsAtmos = supportsAtmos,
             maxChannels = maxChannels,
             connectedAudioDevice = deviceName,
-            canProcessSpatialAudio = canProcessSpatialAudio
+            canProcessSpatialAudio = canProcessSpatialAudio,
+            hasHeadTracker = spatialInfo.hasHeadTracker,
+            spatializerHelper = spatializerHelper
         )
     }
 
@@ -291,6 +286,61 @@ object CodecCapabilityManager {
         )
         return spatialInfo.isNotEmpty()
     }
+    
+    /**
+     * Check if the device can spatialize the given audio stream
+     * Content-aware approach: Prioritizes content format detection over strict device requirements
+     */
+    fun canSpatializeAudioStream(context: Context, audioStream: MediaStream): SpatializationResult {
+        // First check if content has spatial audio metadata
+        val hasMetadata = hasSpatialAudio(audioStream)
+        
+        val spatialFormat = detectSpatialAudio(
+            audioStream.codec?.uppercase() ?: "",
+            audioStream.channels ?: 0,
+            audioStream.channelLayout,
+            audioStream.title,
+            audioStream.profile
+        )
+        
+        // Content-first approach: If we detect spatial format, enable processing
+        if (hasMetadata && spatialFormat.isNotEmpty()) {
+            val deviceCapabilities = detectDeviceAudioCapabilities(context)
+            val spatializerHelper = deviceCapabilities.spatializerHelper
+            
+            // Content is compatible, check if device can provide additional enhancement
+            val deviceCanEnhance = spatializerHelper?.let { helper ->
+                val audioFormat = helper.getRecommendedAudioFormat(audioStream.channels ?: 2)
+                audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
+            } ?: false
+            
+            return SpatializationResult(
+                canSpatialize = true,
+                reason = if (deviceCanEnhance) {
+                    "Content has spatial audio and device supports enhancement"
+                } else {
+                    "Content has spatial audio (device enhancement not available)"
+                },
+                spatialFormat = spatialFormat,
+                hasHeadTracking = deviceCapabilities.hasHeadTracker && deviceCanEnhance
+            )
+        }
+        
+        // No spatial audio metadata found
+        return SpatializationResult(
+            canSpatialize = false,
+            reason = "Content does not contain spatial audio metadata",
+            spatialFormat = spatialFormat.ifEmpty { "Stereo" }
+        )
+    }
 }
 
-
+/**
+ * Result of spatialization capability check
+ */
+data class SpatializationResult(
+    val canSpatialize: Boolean,
+    val reason: String,
+    val spatialFormat: String,
+    val hasHeadTracking: Boolean = false
+)

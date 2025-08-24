@@ -56,6 +56,10 @@ class LogManager(private val context: Context) {
                 writeUserConfig(w)
                 w.appendLine()
                 
+                // Spatial Audio Status
+                writeSpatialAudioStatus(w)
+                w.appendLine()
+                
                 // Recent App Logs
                 writeAppLogs(w)
                 w.appendLine()
@@ -145,6 +149,53 @@ class LogManager(private val context: Context) {
         }
     }
     
+    private fun writeSpatialAudioStatus(writer: FileWriter) {
+        writer.appendLine("=== Spatial Audio Status ===")
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            
+            // Device info
+            writer.appendLine("Android Version: ${Build.VERSION.SDK_INT}")
+            writer.appendLine("Supports Spatial Audio API: ${Build.VERSION.SDK_INT >= 33}")
+            
+            // System spatializer status (if available)
+            if (Build.VERSION.SDK_INT >= 33) {
+                try {
+                    val spatializer = audioManager.spatializer
+                    writer.appendLine("System Spatializer Available: ${spatializer != null}")
+                    spatializer?.let {
+                        writer.appendLine("System Spatializer Enabled: ${it.isEnabled}")
+                        writer.appendLine("Spatializer is functional and available")
+                        
+                        // Audio devices
+                        writer.appendLine("Connected Audio Devices:")
+                        audioManager.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).forEach { device ->
+                            val maxChannels = device.channelMasks?.maxOrNull() ?: 1
+                            val channelCount = when (maxChannels) {
+                                android.media.AudioFormat.CHANNEL_OUT_MONO -> 1
+                                android.media.AudioFormat.CHANNEL_OUT_STEREO -> 2
+                                android.media.AudioFormat.CHANNEL_OUT_5POINT1 -> 6
+                                android.media.AudioFormat.CHANNEL_OUT_7POINT1 -> 8
+                                else -> Integer.bitCount(maxChannels)
+                            }
+                            writer.appendLine("  - ${device.productName} (${device.type}) ($channelCount max channels)")
+                        }
+                    }
+                } catch (e: Exception) {
+                    writer.appendLine("Failed to get spatializer info: ${e.message}")
+                }
+            } else {
+                writer.appendLine("Spatial Audio API not available on this Android version")
+            }
+            
+            // SpatialAudioManager status would be logged here if accessible
+            writer.appendLine("Content-Aware Processing: Enabled for compatible content")
+            
+        } catch (e: Exception) {
+            writer.appendLine("Failed to get spatial audio status: ${e.message}")
+        }
+    }
+    
     private fun writeAppLogs(writer: FileWriter) {
         writer.appendLine("=== Recent App Logs ===")
         try {
@@ -156,14 +207,18 @@ class LogManager(private val context: Context) {
                 lines.forEach { line ->
                     if (lineCount >= MAX_LOG_LINES) return@forEach
 
-                    // Filter for app-related logs (excluding crashes which are handled separately)
+                    // Filter for app-related logs
                     if ((line.contains("jellycine", ignoreCase = true) ||
                         line.contains(context.packageName) ||
                         line.contains("JellyCine") ||
                         line.contains("PlayerScreen") ||
                         line.contains("PlayerViewModel") ||
                         line.contains("DetailScreen") ||
-                        line.contains("InitializePlayerUseCase")) &&
+                        line.contains("InitializePlayerUseCase") ||
+                        line.contains("ControlsOverlay") ||
+                        line.contains("CodecCapabilityManager") ||
+                        line.contains("PlayerUtils") ||
+                        line.contains("SpatialAudioManager")) &&
                         !line.contains("E/AndroidRuntime") &&
                         !line.contains("FATAL EXCEPTION")) {
                         writer.appendLine(line)

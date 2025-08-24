@@ -9,9 +9,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -71,6 +74,9 @@ fun PlayerScreen(
     // Consolidated UI state
     var uiState by remember { mutableStateOf(PlayerUiState()) }
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
+    
+    // Player state from ViewModel
+    val playerState by viewModel.playerState.collectAsState()
 
     // System managers
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -123,9 +129,31 @@ fun PlayerScreen(
         }
     }
 
+    // Store initialization state to prevent multiple calls
+    var hasInitialized by remember { mutableStateOf(false) }
+    
     // Initialize player
     LaunchedEffect(mediaId) {
-        viewModel.initializePlayer(context, mediaId)
+        if (!hasInitialized) {
+            try {
+                viewModel.initializePlayer(context, mediaId)
+                hasInitialized = true
+            } catch (e: Exception) {
+                // Initialization failed, will be handled by PlayerViewModel
+            }
+        }
+    }
+    
+    // Backup initialization approach
+    LaunchedEffect(Unit) {
+        delay(1000)
+        if (!hasInitialized) {
+            try {
+                viewModel.initializePlayer(context, mediaId)
+                hasInitialized = true
+            } catch (e: Exception) {
+            }
+        }
     }
 
     // Update position and playing state
@@ -286,6 +314,10 @@ fun PlayerScreen(
                     val duration = viewModel.exoPlayer?.duration ?: 0L
                     viewModel.exoPlayer?.seekTo((duration * progress).toLong())
                 },
+                // Spatial audio parameters
+                spatializationResult = playerState.spatializationResult,
+                isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
+                onShowSpatialAudioInfo = { viewModel.showSpatialAudioInfo() },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -313,7 +345,70 @@ fun PlayerScreen(
                 )
             }
         }
+
+        // Spatial Audio Info Dialog
+        val showSpatialInfo by viewModel.showSpatialAudioInfo.collectAsState()
+        if (showSpatialInfo) {
+            SpatialAudioInfoDialog(
+                spatialInfo = viewModel.getSpatialAudioStatusInfo(),
+                onDismiss = { viewModel.hideSpatialAudioInfo() }
+            )
+        }
     }
+}
+
+@Composable
+fun SpatialAudioInfoDialog(
+    spatialInfo: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Spatial Audio Status",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
+        text = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = spatialInfo,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("OK")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Preview(

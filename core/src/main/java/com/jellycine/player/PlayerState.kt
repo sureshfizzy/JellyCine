@@ -1,5 +1,7 @@
 package com.jellycine.player
 
+import com.jellycine.detail.SpatializationResult
+
 /**
  * Player state data class
  */
@@ -18,7 +20,12 @@ data class PlayerState(
     val isBrightnessGesture: Boolean = false,
     val gestureSeekPosition: Long = 0L,
     val gestureVolume: Float = 1.0f,
-    val gestureBrightness: Float = 0.5f
+    val gestureBrightness: Float = 0.5f,
+    // Spatial audio related fields
+    val spatializationResult: SpatializationResult? = null,
+    val isSpatialAudioEnabled: Boolean = false,
+    val spatialAudioFormat: String = "",
+    val hasHeadTracking: Boolean = false
 )
 
 /**
