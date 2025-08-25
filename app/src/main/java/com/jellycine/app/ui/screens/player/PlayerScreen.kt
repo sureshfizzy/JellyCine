@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -74,7 +75,17 @@ fun PlayerScreen(
     // Consolidated UI state
     var uiState by remember { mutableStateOf(PlayerUiState()) }
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
-    
+    var autoHideKey by remember { mutableStateOf(0) }
+
+    // Helper function to reset auto-hide timer
+    val resetAutoHideTimer = {
+        autoHideKey++
+    }
+
+    // Dialog states
+    var showAudioTrackDialog by remember { mutableStateOf(false) }
+    var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
 
@@ -223,6 +234,14 @@ fun PlayerScreen(
         }
     }
 
+    // Auto-hide controls after 3 seconds
+    LaunchedEffect(uiState.controlsVisible, autoHideKey) {
+        if (uiState.controlsVisible) {
+            delay(3000L)
+            uiState = uiState.copy(controlsVisible = false)
+        }
+    }
+
     // Back handler
     BackHandler {
         viewModel.exoPlayer?.stop()
@@ -239,54 +258,65 @@ fun PlayerScreen(
         VideoSurface(
             player = viewModel.exoPlayer,
             lifecycle = lifecycle,
-            scale = uiState.videoScale,
-            offsetX = uiState.videoOffsetX,
-            offsetY = uiState.videoOffsetY,
+            scale = playerState.videoScale,
+            offsetX = playerState.videoOffsetX,
+            offsetY = playerState.videoOffsetY,
             onScaleChange = { scale, offsetX, offsetY ->
-                uiState = uiState.copy(
-                    videoScale = scale,
-                    videoOffsetX = offsetX,
-                    videoOffsetY = offsetY
-                )
+                if (!playerState.isLocked) {
+                    // For manual pinch-to-zoom, we can still update local state
+                    // but the aspect ratio button will override these values
+                    uiState = uiState.copy(
+                        videoScale = scale,
+                        videoOffsetX = offsetX,
+                        videoOffsetY = offsetY
+                    )
+                }
             },
             onVolumeChange = { level ->
-                playerVolume = level.coerceIn(0f, 1f)
-                playerPreferences.setPlayerVolume(playerVolume)
+                if (!playerState.isLocked) {
+                    playerVolume = level.coerceIn(0f, 1f)
+                    playerPreferences.setPlayerVolume(playerVolume)
 
-                // Apply volume to system
-                val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
+                    // Apply volume to system
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
 
-                uiState = uiState.copy(volumeLevel = playerVolume)
+                    uiState = uiState.copy(volumeLevel = playerVolume)
+                }
             },
             onBrightnessChange = { delta ->
-                val activity = context as? Activity
-                activity?.let { act ->
-                    val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
-                    playerBrightness = newPlayerBrightness
-                    playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                if (!playerState.isLocked) {
+                    val activity = context as? Activity
+                    activity?.let { act ->
+                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
+                        playerBrightness = newPlayerBrightness
+                        playerPreferences.setPlayerBrightness(newPlayerBrightness)
 
-                    val layoutParams = act.window.attributes
-                    layoutParams.screenBrightness = newPlayerBrightness
-                    act.window.attributes = layoutParams
+                        val layoutParams = act.window.attributes
+                        layoutParams.screenBrightness = newPlayerBrightness
+                        act.window.attributes = layoutParams
 
-                    uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
+                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
+                    }
                 }
             },
             onSeek = { delta ->
-                val newPosition = (uiState.currentPosition + delta).coerceIn(0L, viewModel.exoPlayer?.duration ?: 0L)
-                viewModel.exoPlayer?.seekTo(newPosition)
+                if (!playerState.isLocked) {
+                    val newPosition = (uiState.currentPosition + delta).coerceIn(0L, viewModel.exoPlayer?.duration ?: 0L)
+                    viewModel.exoPlayer?.seekTo(newPosition)
 
-                // Show seek indicator
-                val isForward = delta > 0
-                val seconds = kotlin.math.abs(delta) / 1000
-                val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
+                    // Show seek indicator
+                    val isForward = delta > 0
+                    val seconds = kotlin.math.abs(delta) / 1000
+                    val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
+                    val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
 
-                uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                    uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                }
             },
             onToggleControls = {
+                resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
             },
             modifier = Modifier.fillMaxSize()
@@ -304,6 +334,7 @@ fun PlayerScreen(
                     onBackPressed?.invoke()
                 },
                 onPlayPause = {
+                    resetAutoHideTimer()
                     if (uiState.isPlaying) {
                         viewModel.exoPlayer?.pause()
                     } else {
@@ -311,13 +342,52 @@ fun PlayerScreen(
                     }
                 },
                 onSeek = { progress ->
+                    resetAutoHideTimer()
                     val duration = viewModel.exoPlayer?.duration ?: 0L
                     viewModel.exoPlayer?.seekTo((duration * progress).toLong())
                 },
                 // Spatial audio parameters
                 spatializationResult = playerState.spatializationResult,
                 isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
-                onShowSpatialAudioInfo = { viewModel.showSpatialAudioInfo() },
+                onShowSpatialAudioInfo = {
+                    resetAutoHideTimer()
+                    viewModel.showSpatialAudioInfo()
+                },
+                // Lock and track selection parameters
+                isLocked = playerState.isLocked,
+                onToggleLock = {
+                    resetAutoHideTimer()
+                    viewModel.toggleLock()
+                },
+                onShowAudioTrackSelection = {
+                    resetAutoHideTimer()
+                    showAudioTrackDialog = true
+                },
+                onShowSubtitleTrackSelection = {
+                    resetAutoHideTimer()
+                    showSubtitleTrackDialog = true
+                },
+                onCycleAspectRatio = {
+                    resetAutoHideTimer()
+                    viewModel.cycleAspectRatio()
+                },
+                // Seek functions
+                onSeekBackward = {
+                    resetAutoHideTimer()
+                    viewModel.seekBackward()
+                },
+                onSeekForward = {
+                    resetAutoHideTimer()
+                    viewModel.seekForward()
+                },
+                onPrevious = {
+                    resetAutoHideTimer()
+                    viewModel.goToPrevious()
+                },
+                onNext = {
+                    resetAutoHideTimer()
+                    viewModel.goToNext()
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -328,6 +398,29 @@ fun PlayerScreen(
             brightnessLevel = uiState.brightnessLevel,
             seekPosition = uiState.seekPosition,
             seekSide = uiState.seekSide
+        )
+
+        // Track selection dialogs
+        AudioTrackSelectionDialog(
+            isVisible = showAudioTrackDialog,
+            audioTracks = playerState.availableAudioTracks,
+            currentAudioTrack = playerState.currentAudioTrack,
+            onTrackSelected = { trackId ->
+                viewModel.selectAudioTrack(trackId)
+                showAudioTrackDialog = false
+            },
+            onDismiss = { showAudioTrackDialog = false }
+        )
+
+        SubtitleTrackSelectionDialog(
+            isVisible = showSubtitleTrackDialog,
+            subtitleTracks = playerState.availableSubtitleTracks,
+            currentSubtitleTrack = playerState.currentSubtitleTrack,
+            onTrackSelected = { trackId ->
+                viewModel.selectSubtitleTrack(trackId)
+                showSubtitleTrackDialog = false
+            },
+            onDismiss = { showSubtitleTrackDialog = false }
         )
 
         // Loading indicator
@@ -447,6 +540,15 @@ fun PlayerScreenPreview() {
             onBackClick = { },
             onPlayPause = { },
             onSeek = { },
+            isLocked = false,
+            onToggleLock = { },
+            onShowAudioTrackSelection = { },
+            onShowSubtitleTrackSelection = { },
+            onCycleAspectRatio = { },
+            onSeekBackward = { },
+            onSeekForward = { },
+            onPrevious = { },
+            onNext = { },
             modifier = Modifier.fillMaxSize()
         )
     }

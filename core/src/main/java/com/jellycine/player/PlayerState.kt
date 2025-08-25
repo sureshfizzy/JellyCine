@@ -25,7 +25,20 @@ data class PlayerState(
     val spatializationResult: SpatializationResult? = null,
     val isSpatialAudioEnabled: Boolean = false,
     val spatialAudioFormat: String = "",
-    val hasHeadTracking: Boolean = false
+    val hasHeadTracking: Boolean = false,
+    // Lock and track selection fields
+    val isLocked: Boolean = false,
+    val currentAudioTrack: AudioTrackInfo? = null,
+    val availableAudioTracks: List<AudioTrackInfo> = emptyList(),
+    val currentSubtitleTrack: SubtitleTrackInfo? = null,
+    val availableSubtitleTracks: List<SubtitleTrackInfo> = emptyList(),
+    val currentVideoTrack: VideoTrackInfo? = null,
+    val availableVideoTracks: List<VideoTrackInfo> = emptyList(),
+    // Video scaling for aspect ratio control
+    val videoScale: Float = 1f,
+    val videoOffsetX: Float = 0f,
+    val videoOffsetY: Float = 0f,
+    val aspectRatioMode: String = "Fit"
 )
 
 /**
@@ -37,6 +50,17 @@ data class AudioTrackInfo(
     val language: String?,
     val channelCount: Int,
     val codec: String?
+)
+
+/**
+ * Subtitle track information
+ */
+data class SubtitleTrackInfo(
+    val id: String,
+    val label: String,
+    val language: String?,
+    val isForced: Boolean = false,
+    val isDefault: Boolean = false
 )
 
 /**

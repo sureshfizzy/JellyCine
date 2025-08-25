@@ -48,7 +48,16 @@ fun ControlsOverlay(
     // Spatial audio parameters
     spatializationResult: SpatializationResult? = null,
     isSpatialAudioEnabled: Boolean = false,
-    onShowSpatialAudioInfo: () -> Unit = {}
+    onShowSpatialAudioInfo: () -> Unit = {},
+    isLocked: Boolean = false,
+    onToggleLock: () -> Unit = {},
+    onShowAudioTrackSelection: () -> Unit = {},
+    onShowSubtitleTrackSelection: () -> Unit = {},
+    onCycleAspectRatio: () -> Unit = {},
+    onSeekBackward: () -> Unit = {},
+    onSeekForward: () -> Unit = {},
+    onPrevious: () -> Unit = {},
+    onNext: () -> Unit = {}
 ) {
     val debugSpatialAudio = false
 
@@ -76,75 +85,79 @@ fun ControlsOverlay(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+            if (!isLocked) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
 
-            // Action buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (isSpatialAudioEnabled || debugSpatialAudio) {
-                    IconButton(onClick = {
-                        onShowSpatialAudioInfo()
-                    }) {
+                // Action buttons
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (isSpatialAudioEnabled || debugSpatialAudio) {
+                        IconButton(onClick = {
+                            onShowSpatialAudioInfo()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = "Spatial Audio Info",
+                                tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onCycleAspectRatio) {
                         Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = "Spatial Audio Info",
-                            tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.7f),
+                            imageVector = Icons.Outlined.AspectRatio,
+                            contentDescription = "Aspect Ratio",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onShowAudioTrackSelection) {
+                        Icon(
+                            imageVector = Icons.Outlined.Audiotrack,
+                            contentDescription = "Audio Tracks",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onShowSubtitleTrackSelection) {
+                        Icon(
+                            imageVector = Icons.Outlined.Subtitles,
+                            contentDescription = "Subtitles",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onToggleLock) {
+                        Icon(
+                            imageVector = Icons.Outlined.LockOpen,
+                            contentDescription = "Lock",
+                            tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
-                
-                IconButton(onClick = { /* Lock */ }) {
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = onToggleLock) {
                     Icon(
-                        imageVector = Icons.Outlined.Lock,
-                        contentDescription = "Lock",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                IconButton(onClick = { /* Aspect ratio */ }) {
-                    Icon(
-                        imageVector = Icons.Outlined.AspectRatio,
-                        contentDescription = "Aspect Ratio",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                IconButton(onClick = { /* Audio */ }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Audiotrack,
-                        contentDescription = "Audio",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                IconButton(onClick = { /* Subtitles */ }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Subtitles,
-                        contentDescription = "Subtitles",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                IconButton(onClick = { /* More */ }) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = "More",
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = "Unlock",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
@@ -153,16 +166,17 @@ fun ControlsOverlay(
         }
 
         // Center controls
-        Row(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(horizontal = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (!isLocked) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             // Previous track
             IconButton(
-                onClick = { /* Previous */ },
+                onClick = onPrevious,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -175,7 +189,7 @@ fun ControlsOverlay(
 
             // Fast rewind
             IconButton(
-                onClick = { /* Rewind */ },
+                onClick = onSeekBackward,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -203,7 +217,7 @@ fun ControlsOverlay(
 
             // Fast forward
             IconButton(
-                onClick = { /* Forward */ },
+                onClick = onSeekForward,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -216,7 +230,7 @@ fun ControlsOverlay(
 
             // Next track
             IconButton(
-                onClick = { /* Next */ },
+                onClick = onNext,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -227,8 +241,10 @@ fun ControlsOverlay(
                 )
             }
         }
+        }
 
         // Bottom section - Time and seekbar
+        if (!isLocked) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -291,6 +307,7 @@ fun ControlsOverlay(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
     }
 }
 
@@ -389,7 +406,16 @@ fun ControlsOverlayPreviewPlaying() {
             spatialFormat = "Dolby Atmos"
         ),
         isSpatialAudioEnabled = true,
-        onShowSpatialAudioInfo = { }
+        onShowSpatialAudioInfo = { },
+        isLocked = false,
+        onToggleLock = { },
+        onShowAudioTrackSelection = { },
+        onShowSubtitleTrackSelection = { },
+        onCycleAspectRatio = { },
+        onSeekBackward = { },
+        onSeekForward = { },
+        onPrevious = { },
+        onNext = { }
     )
 }
 
@@ -416,7 +442,16 @@ fun ControlsOverlayPreviewPaused() {
             spatialFormat = "DTS:X"
         ),
         isSpatialAudioEnabled = false,
-        onShowSpatialAudioInfo = { }
+        onShowSpatialAudioInfo = { },
+        isLocked = false,
+        onToggleLock = { },
+        onShowAudioTrackSelection = { },
+        onShowSubtitleTrackSelection = { },
+        onCycleAspectRatio = { },
+        onSeekBackward = { },
+        onSeekForward = { },
+        onPrevious = { },
+        onNext = { }
     )
 }
 

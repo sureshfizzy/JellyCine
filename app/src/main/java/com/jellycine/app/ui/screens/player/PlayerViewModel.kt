@@ -2,6 +2,9 @@ package com.jellycine.app.ui.screens.player
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
@@ -122,7 +125,10 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 if (shouldEnableSpatialAudio) {
                     PlayerUtils.configureSpatialAudioForContent(exoPlayer!!, context, spatializationResult)
                 }
-                
+
+                // Update track information after player is ready
+                updateTrackInformation()
+
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
                     isPlaying = true,
@@ -194,12 +200,160 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         _showSpatialAudioInfo.value = false
     }
 
+    /**
+     * Toggle lock state - when locked, disable all gestures and hide controls
+     */
+    fun toggleLock() {
+        val currentState = _playerState.value
+        _playerState.value = currentState.copy(
+            isLocked = !currentState.isLocked,
+            showControls = if (!currentState.isLocked) false else currentState.showControls
+        )
+        Log.d("PlayerViewModel", "Lock toggled: ${_playerState.value.isLocked}")
+    }
+
+    /**
+     * Update track information from ExoPlayer
+     */
+    private fun updateTrackInformation() {
+        exoPlayer?.let { player ->
+            try {
+                val audioTracks = PlayerUtils.getAvailableAudioTracks(player)
+                val subtitleTracks = PlayerUtils.getAvailableSubtitleTracks(player)
+                val videoTracks = PlayerUtils.getAvailableVideoTracks(player)
+                val currentAudio = PlayerUtils.getCurrentAudioTrack(player)
+                val currentSubtitle = PlayerUtils.getCurrentSubtitleTrack(player)
+
+                _playerState.value = _playerState.value.copy(
+                    availableAudioTracks = audioTracks,
+                    currentAudioTrack = currentAudio,
+                    availableSubtitleTracks = subtitleTracks,
+                    currentSubtitleTrack = currentSubtitle,
+                    availableVideoTracks = videoTracks
+                )
+                Log.d("PlayerViewModel", "Track info updated - Audio: ${audioTracks.size}, Subtitles: ${subtitleTracks.size}")
+            } catch (e: Exception) {
+                Log.e("PlayerViewModel", "Failed to update track information", e)
+            }
+        }
+    }
+
+    /**
+     * Select audio track by ID
+     */
+    fun selectAudioTrack(trackId: String) {
+        exoPlayer?.let { player ->
+            PlayerUtils.selectAudioTrack(player, trackId)
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                updateTrackInformation()
+            }
+        }
+    }
+
+    /**
+     * Select subtitle track by ID
+     */
+    fun selectSubtitleTrack(trackId: String) {
+        exoPlayer?.let { player ->
+            PlayerUtils.selectSubtitleTrack(player, trackId)
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                updateTrackInformation()
+            }
+        }
+    }
+
+    // Aspect ratio states
+    private var currentAspectRatio by mutableIntStateOf(0)
+    private val aspectRatioModes = listOf("Fit", "Zoom", "Fill", "Stretch")
+
+    /**
+     * Toggle between fit and zoom modes only
+     * Works with pinch-to-zoom by preserving user zoom levels
+     */
+    fun cycleAspectRatio() {
+        val currentState = _playerState.value
+        val currentScale = currentState.videoScale
+
+        if (currentScale > 1.1f) {
+            currentAspectRatio = 0
+            updateVideoTransform(1f, 0f, 0f)
+            Log.d("PlayerViewModel", "Fullscreen toggled to: Fit (scale: 1.0)")
+        } else {
+            currentAspectRatio = 1
+            updateVideoTransform(1.5f, currentState.videoOffsetX, currentState.videoOffsetY)
+            Log.d("PlayerViewModel", "Fullscreen toggled to: Zoom (scale: 1.5)")
+        }
+    }
+
+    /**
+     * Update video transform values
+     */
+    private fun updateVideoTransform(scale: Float, offsetX: Float, offsetY: Float) {
+        val mode = aspectRatioModes[currentAspectRatio]
+        _playerState.value = _playerState.value.copy(
+            videoScale = scale,
+            videoOffsetX = offsetX,
+            videoOffsetY = offsetY,
+            aspectRatioMode = mode
+        )
+    }
+
+    /**
+     * Seek backward by 30 seconds
+     */
+    fun seekBackward() {
+        exoPlayer?.let { player ->
+            val currentPos = player.currentPosition
+            val newPos = (currentPos - 30000L).coerceAtLeast(0L)
+            player.seekTo(newPos)
+            Log.d("PlayerViewModel", "Seeking backward to ${newPos}ms")
+        }
+    }
+
+    /**
+     * Seek forward by 30 seconds
+     */
+    fun seekForward() {
+        exoPlayer?.let { player ->
+            val currentPos = player.currentPosition
+            val duration = player.duration
+            val newPos = if (duration > 0) {
+                (currentPos + 30000L).coerceAtMost(duration)
+            } else {
+                currentPos + 30000L
+            }
+            player.seekTo(newPos)
+            Log.d("PlayerViewModel", "Seeking forward to ${newPos}ms")
+        }
+    }
+
+    /**
+     * Go to previous track/episode (placeholder)
+     */
+    fun goToPrevious() {
+        Log.d("PlayerViewModel", "Go to previous track")
+    }
+
+    /**
+     * Go to next track/episode (placeholder)
+     */
+    fun goToNext() {
+        Log.d("PlayerViewModel", "Go to next track")
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             _playerState.value = _playerState.value.copy(
                 isLoading = playbackState == Player.STATE_BUFFERING,
                 isPlaying = playbackState == Player.STATE_READY && exoPlayer?.playWhenReady == true
             )
+
+            // Update track information when player becomes ready
+            if (playbackState == Player.STATE_READY) {
+                updateTrackInformation()
+            }
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {

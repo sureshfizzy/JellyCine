@@ -8,6 +8,8 @@ import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.AudioSink
@@ -323,6 +325,293 @@ object PlayerUtils {
             String.format("%d:%02d:%02d", hours, minutes, seconds)
         } else {
             String.format("%02d:%02d", minutes, seconds)
+        }
+    }
+
+    /**
+     * Get available audio tracks from ExoPlayer
+     */
+    @UnstableApi
+    fun getAvailableAudioTracks(exoPlayer: ExoPlayer): List<AudioTrackInfo> {
+        val tracks = mutableListOf<AudioTrackInfo>()
+        val currentTracks = exoPlayer.currentTracks
+
+        currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    val format = group.mediaTrackGroup.getFormat(i)
+                    val isSelected = group.isTrackSelected(i)
+
+                    val language = format.language ?: "Unknown"
+                    val label = when {
+                        language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
+                        language.isNotEmpty() -> language
+                        format.label != null -> format.label!!
+                        else -> "Audio Track ${i + 1}"
+                    }
+
+                    tracks.add(
+                        AudioTrackInfo(
+                            id = "audio_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            label = label,
+                            language = language,
+                            channelCount = format.channelCount,
+                            codec = format.codecs
+                        )
+                    )
+                }
+            }
+        }
+
+        return tracks
+    }
+
+    /**
+     * Get available subtitle tracks from ExoPlayer
+     */
+    @UnstableApi
+    fun getAvailableSubtitleTracks(exoPlayer: ExoPlayer): List<SubtitleTrackInfo> {
+        val tracks = mutableListOf<SubtitleTrackInfo>()
+
+        tracks.add(
+            SubtitleTrackInfo(
+                id = "off",
+                label = "Off",
+                language = null,
+                isForced = false,
+                isDefault = false
+            )
+        )
+
+        val currentTracks = exoPlayer.currentTracks
+        currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    val format = group.mediaTrackGroup.getFormat(i)
+                    val language = format.language ?: "Unknown"
+                    val isForced = format.selectionFlags and C.SELECTION_FLAG_FORCED != 0
+                    val isDefault = format.selectionFlags and C.SELECTION_FLAG_DEFAULT != 0
+                    val label = when {
+                        language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
+                        language.isNotEmpty() -> language
+                        format.label != null -> format.label!!
+                        else -> "Subtitle Track ${i + 1}"
+                    }
+                    tracks.add(
+                        SubtitleTrackInfo(
+                            id = "subtitle_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            label = label,
+                            language = language,
+                            isForced = isForced,
+                            isDefault = isDefault
+                        )
+                    )
+                }
+            }
+        }
+        return tracks
+    }
+
+    /**
+     * Get available video tracks from ExoPlayer
+     */
+    @UnstableApi
+    fun getAvailableVideoTracks(exoPlayer: ExoPlayer): List<VideoTrackInfo> {
+        val tracks = mutableListOf<VideoTrackInfo>()
+        val currentTracks = exoPlayer.currentTracks
+
+        currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_VIDEO) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    val format = group.mediaTrackGroup.getFormat(i)
+
+                    val label = when {
+                        format.height > 0 -> "${format.height}p"
+                        format.width > 0 && format.height > 0 -> "${format.width}x${format.height}"
+                        format.label != null -> format.label!!
+                        else -> "Video Track ${i + 1}"
+                    }
+
+                    tracks.add(
+                        VideoTrackInfo(
+                            id = "video_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            label = label,
+                            width = format.width,
+                            height = format.height,
+                            codec = format.codecs
+                        )
+                    )
+                }
+            }
+        }
+        return tracks
+    }
+
+    /**
+     * Get currently selected audio track
+     */
+    @UnstableApi
+    fun getCurrentAudioTrack(exoPlayer: ExoPlayer): AudioTrackInfo? {
+        val currentTracks = exoPlayer.currentTracks
+
+        currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    if (group.isTrackSelected(i)) {
+                        val format = group.mediaTrackGroup.getFormat(i)
+                        val language = format.language ?: "Unknown"
+                        val label = when {
+                            language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
+                            language.isNotEmpty() -> language
+                            format.label != null -> format.label!!
+                            else -> "Audio Track ${i + 1}"
+                        }
+
+                        return AudioTrackInfo(
+                            id = "audio_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            label = label,
+                            language = language,
+                            channelCount = format.channelCount,
+                            codec = format.codecs
+                        )
+                    }
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Get currently selected subtitle track
+     */
+    @UnstableApi
+    fun getCurrentSubtitleTrack(exoPlayer: ExoPlayer): SubtitleTrackInfo? {
+        val currentTracks = exoPlayer.currentTracks
+
+        currentTracks.groups.forEach { group ->
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    if (group.isTrackSelected(i)) {
+                        val format = group.mediaTrackGroup.getFormat(i)
+                        val language = format.language ?: "Unknown"
+                        val isForced = format.selectionFlags and C.SELECTION_FLAG_FORCED != 0
+                        val isDefault = format.selectionFlags and C.SELECTION_FLAG_DEFAULT != 0
+
+                        val label = when {
+                            language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
+                            language.isNotEmpty() -> language
+                            format.label != null -> format.label!!
+                            else -> "Subtitle Track ${i + 1}"
+                        }
+
+                        return SubtitleTrackInfo(
+                            id = "subtitle_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            label = label,
+                            language = language,
+                            isForced = isForced,
+                            isDefault = isDefault
+                        )
+                    }
+                }
+            }
+        }
+
+        return SubtitleTrackInfo(
+            id = "off",
+            label = "Off",
+            language = null,
+            isForced = false,
+            isDefault = false
+        )
+    }
+
+    /**
+     * Select audio track by ID
+     */
+    @UnstableApi
+    fun selectAudioTrack(exoPlayer: ExoPlayer, trackId: String) {
+        try {
+            val trackSelector = exoPlayer.trackSelector as? DefaultTrackSelector ?: return
+            val currentTracks = exoPlayer.currentTracks
+
+            currentTracks.groups.forEach { group ->
+                if (group.type == C.TRACK_TYPE_AUDIO) {
+                    for (i in 0 until group.mediaTrackGroup.length) {
+                        val format = group.mediaTrackGroup.getFormat(i)
+                        val currentId = "audio_${format.id ?: i}"
+
+                        if (currentId == trackId) {
+                            val override = TrackSelectionOverride(
+                                group.mediaTrackGroup,
+                                listOf(i)
+                            )
+
+                            val newParams = trackSelector.parameters
+                                .buildUpon()
+                                .addOverride(override)
+                                .build()
+
+                            trackSelector.setParameters(newParams)
+
+                            Log.d("PlayerUtils", "Selected audio track: $trackId")
+                            return
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerUtils", "Failed to select audio track: $trackId", e)
+        }
+    }
+
+    /**
+     * Select subtitle track by ID
+     */
+    @UnstableApi
+    fun selectSubtitleTrack(exoPlayer: ExoPlayer, trackId: String) {
+        try {
+            val trackSelector = exoPlayer.trackSelector as? DefaultTrackSelector ?: return
+
+            if (trackId == "off") {
+                val newParams = trackSelector.parameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .build()
+
+                trackSelector.setParameters(newParams)
+                Log.d("PlayerUtils", "Disabled subtitles")
+                return
+            }
+
+            val currentTracks = exoPlayer.currentTracks
+
+            currentTracks.groups.forEach { group ->
+                if (group.type == C.TRACK_TYPE_TEXT) {
+                    for (i in 0 until group.mediaTrackGroup.length) {
+                        val format = group.mediaTrackGroup.getFormat(i)
+                        val currentId = "subtitle_${format.id ?: i}"
+
+                        if (currentId == trackId) {
+                            val override = TrackSelectionOverride(
+                                group.mediaTrackGroup,
+                                listOf(i)
+                            )
+
+                            val newParams = trackSelector.parameters
+                                .buildUpon()
+                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                .addOverride(override)
+                                .build()
+
+                            trackSelector.setParameters(newParams)
+                            Log.d("PlayerUtils", "Selected subtitle track: $trackId")
+                            return
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("PlayerUtils", "Failed to select subtitle track: $trackId", e)
         }
     }
 }
