@@ -1,4 +1,4 @@
-package com.jellycine.player
+package com.jellycine.player.audio
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -202,9 +202,9 @@ data class SpatialAudioInfo(
 )
 
 /**
- * Interface for spatializer state changes
+ * Listener interface for spatializer state changes
  */
 interface SpatializerStateListener {
-    fun onSpatializerStateChanged(spatializer: Spatializer, state: Int) {}
-    fun onHeadTrackerAvailableChanged(spatializer: Spatializer, available: Boolean) {}
+    fun onSpatializerAvailabilityChanged(isAvailable: Boolean)
+    fun onSpatializerEnabledChanged(isEnabled: Boolean)
 }

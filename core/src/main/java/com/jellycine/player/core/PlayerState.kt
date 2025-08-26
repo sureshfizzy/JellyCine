@@ -1,4 +1,4 @@
-package com.jellycine.player
+package com.jellycine.player.core
 
 import com.jellycine.detail.SpatializationResult
 

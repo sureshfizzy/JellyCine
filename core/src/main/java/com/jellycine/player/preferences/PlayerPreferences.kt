@@ -1,9 +1,9 @@
-package com.jellycine.player
+package com.jellycine.player.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.jellycine.player.PlayerConstants.DEFAULT_BRIGHTNESS
-import com.jellycine.player.PlayerConstants.DEFAULT_VOLUME
+import com.jellycine.player.core.PlayerConstants.DEFAULT_BRIGHTNESS
+import com.jellycine.player.core.PlayerConstants.DEFAULT_VOLUME
 
 /**
  * Manages player-specific preferences like brightness and volume levels

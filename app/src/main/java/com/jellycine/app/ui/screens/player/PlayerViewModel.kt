@@ -19,10 +19,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.player.PlayerState
-import com.jellycine.player.PlayerUtils
-import com.jellycine.player.SpatializerHelper
-import com.jellycine.player.SpatializerStateListener
+import com.jellycine.player.core.PlayerState
+import com.jellycine.player.core.PlayerUtils
+import com.jellycine.player.audio.SpatializerHelper
+import com.jellycine.player.audio.SpatializerStateListener
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.detail.SpatializationResult
 import android.media.Spatializer
@@ -378,7 +378,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     private fun setupSpatializerListener() {
         spatializerHelper?.addSpatializerStateListener(object : SpatializerStateListener {
-            override fun onSpatializerStateChanged(spatializer: Spatializer, state: Int) {
+            override fun onSpatializerAvailabilityChanged(isAvailable: Boolean) {
                 val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
                 val currentState = _playerState.value
                 
@@ -396,7 +396,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 
                 // Primary: Content format compatibility
                 val shouldEnable = hasCompatibleAudioFormat || contentSupportsSpatialization
-                val deviceSupportsSpatialization = spatialInfo?.isAvailable == true
                 
                 _playerState.value = _playerState.value.copy(
                     isSpatialAudioEnabled = shouldEnable,
@@ -404,8 +403,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 )
             }
             
-            override fun onHeadTrackerAvailableChanged(spatializer: Spatializer, available: Boolean) {
-                _playerState.value = _playerState.value.copy(hasHeadTracking = available)
+            override fun onSpatializerEnabledChanged(isEnabled: Boolean) {
+                val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
+                _playerState.value = _playerState.value.copy(hasHeadTracking = spatialInfo?.hasHeadTracker == true)
             }
         })
     }
@@ -453,5 +453,53 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 appendLine("• Object-based audio")
             }
         }
+    }
+
+    /**
+     * Get HDR capability and format information
+     */
+    fun getHdrFormatInfo(): String {
+        return playerContext?.let { context ->
+            buildString {
+                appendLine("=== HDR & Video Format Information ===")
+                appendLine("")
+
+                // Device capabilities
+                val hdrInfo = PlayerUtils.getHdrCapabilityInfo(context)
+                appendLine(hdrInfo)
+                appendLine("")
+
+                // Current video track information if available
+                exoPlayer?.currentTracks?.let { tracks ->
+                    tracks.groups.forEach { group ->
+                        if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
+                            for (i in 0 until group.mediaTrackGroup.length) {
+                                if (group.isTrackSelected(i)) {
+                                    val format = group.mediaTrackGroup.getFormat(i)
+                                    appendLine("=== Current Video Format ===")
+                                    appendLine("MIME Type: ${format.sampleMimeType}")
+                                    appendLine("Codec: ${format.codecs ?: "Unknown"}")
+                                    appendLine("Resolution: ${format.width}x${format.height}")
+                                    appendLine("Color Info: ${format.colorInfo?.toString() ?: "None"}")
+                                    appendLine("")
+
+                                    // Analyze format fallback
+                                    val analysisResult = PlayerUtils.analyzeVideoFormatForPlayback(
+                                        context, format.sampleMimeType, format.codecs, format.colorInfo?.toString()
+                                    )
+                                    appendLine("=== Format Analysis ===")
+                                    appendLine(analysisResult)
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                appendLine("")
+                appendLine("Note: This player automatically handles")
+                appendLine("HDR format fallbacks to prevent black screens.")
+            }
+        } ?: "HDR info not available - player not initialized"
     }
 }

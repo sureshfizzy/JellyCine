@@ -1,4 +1,4 @@
-package com.jellycine.player
+package com.jellycine.player.core
 
 /**
  * Shared constants for the player module to avoid duplication

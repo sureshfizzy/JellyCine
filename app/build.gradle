@@ -100,17 +100,17 @@ dependencies {
     // DataStore
     implementation 'androidx.datastore:datastore-preferences:1.1.1'
 
-    // Media3 ExoPlayer for video playback - Latest stable version (July 2025)
-    implementation 'androidx.media3:media3-exoplayer:1.7.1'
-    implementation 'androidx.media3:media3-exoplayer-dash:1.7.1'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.7.1'
-    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.7.1'
-    implementation 'androidx.media3:media3-ui:1.7.1'
-    implementation 'androidx.media3:media3-session:1.7.1'
-    implementation 'androidx.media3:media3-common:1.7.1'
+    // Media3 ExoPlayer for video playback
+    implementation 'androidx.media3:media3-exoplayer:1.8.0'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.8.0'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.8.0'
+    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.8.0'
+    implementation 'androidx.media3:media3-ui:1.8.0'
+    implementation 'androidx.media3:media3-session:1.8.0'
+    implementation 'androidx.media3:media3-common:1.8.0'
 
     // Audio and video processing
-    implementation 'androidx.media3:media3-effect:1.7.1'
+    implementation 'androidx.media3:media3-effect:1.8.0'
 
     // Networking for Jellyfin API
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'

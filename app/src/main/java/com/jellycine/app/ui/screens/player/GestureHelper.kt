@@ -12,14 +12,14 @@ import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
 import kotlin.math.abs
 
-import com.jellycine.player.PlayerConstants.GESTURE_EXCLUSION_AREA_HORIZONTAL
-import com.jellycine.player.PlayerConstants.GESTURE_EXCLUSION_AREA_VERTICAL
-import com.jellycine.player.PlayerConstants.FULL_SWIPE_RANGE_SCREEN_RATIO
-import com.jellycine.player.PlayerConstants.SEEK_BACKWARD_MS
-import com.jellycine.player.PlayerConstants.SEEK_FORWARD_MS
-import com.jellycine.player.PlayerConstants.ZOOM_SCALE_BASE
-import com.jellycine.player.PlayerConstants.ZOOM_SCALE_THRESHOLD
-import com.jellycine.player.PlayerPreferences
+import com.jellycine.player.core.PlayerConstants.GESTURE_EXCLUSION_AREA_HORIZONTAL
+import com.jellycine.player.core.PlayerConstants.GESTURE_EXCLUSION_AREA_VERTICAL
+import com.jellycine.player.core.PlayerConstants.FULL_SWIPE_RANGE_SCREEN_RATIO
+import com.jellycine.player.core.PlayerConstants.SEEK_BACKWARD_MS
+import com.jellycine.player.core.PlayerConstants.SEEK_FORWARD_MS
+import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_BASE
+import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_THRESHOLD
+import com.jellycine.player.preferences.PlayerPreferences
 
 @UnstableApi
 class GestureHelper(

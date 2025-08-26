@@ -6,7 +6,7 @@ import android.media.AudioManager
 import android.os.Build
 
 import com.jellycine.data.model.MediaStream
-import com.jellycine.player.SpatializerHelper
+import com.jellycine.player.audio.SpatializerHelper
 
 /**
  * Data class representing device audio capabilities

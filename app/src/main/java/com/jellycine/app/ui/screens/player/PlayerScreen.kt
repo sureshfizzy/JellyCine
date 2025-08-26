@@ -33,9 +33,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.ui.screens.player.PlayerViewModel
-import com.jellycine.player.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
-import com.jellycine.player.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
-import com.jellycine.player.PlayerPreferences
+import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
+import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
+import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.delay
 
@@ -85,6 +85,7 @@ fun PlayerScreen(
     // Dialog states
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+    var showHdrInfo by remember { mutableStateOf(false) }
 
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
@@ -353,6 +354,11 @@ fun PlayerScreen(
                     resetAutoHideTimer()
                     viewModel.showSpatialAudioInfo()
                 },
+                // HDR format parameters
+                onShowHdrInfo = {
+                    resetAutoHideTimer()
+                    showHdrInfo = true
+                },
                 // Lock and track selection parameters
                 isLocked = playerState.isLocked,
                 onToggleLock = {
@@ -447,6 +453,14 @@ fun PlayerScreen(
                 onDismiss = { viewModel.hideSpatialAudioInfo() }
             )
         }
+
+        // HDR Format Info Dialog
+        if (showHdrInfo) {
+            HdrFormatInfoDialog(
+                hdrInfo = viewModel.getHdrFormatInfo(),
+                onDismiss = { showHdrInfo = false }
+            )
+        }
     }
 }
 
@@ -486,6 +500,60 @@ fun SpatialAudioInfoDialog(
             ) {
                 Text(
                     text = spatialInfo,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text("OK")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun HdrFormatInfoDialog(
+    hdrInfo: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "HDR Format & Fallback Status",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
+        text = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = hdrInfo,
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

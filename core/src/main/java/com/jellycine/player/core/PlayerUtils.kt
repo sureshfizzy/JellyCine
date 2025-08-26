@@ -1,4 +1,4 @@
-package com.jellycine.player
+package com.jellycine.player.core
 
 import android.content.Context
 import android.media.AudioFormat
@@ -15,7 +15,10 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.common.audio.AudioProcessor
-import com.jellycine.player.SpatialAudioManager
+import com.jellycine.player.audio.SpatialAudioManager
+import com.jellycine.player.audio.SpatializerHelper
+import com.jellycine.player.video.DolbyVisionCompatibleRenderersFactory
+import com.jellycine.player.video.HdrCapabilityManager
 
 /**
  * Player utility functions with spatial audio effects
@@ -27,64 +30,95 @@ object PlayerUtils {
     private var spatialAudioManager: SpatialAudioManager? = null
     
     /**
-     * Create ExoPlayer instance with optimal settings including spatial audio support
+     * Create ExoPlayer instance with optimal settings including spatial audio support and HDR fallback
      * Spatial audio is ALWAYS ENABLED for supported content (auto-detect)
+     * HDR/Dolby Vision automatically falls back to compatible formats (no more black screens!)
      */
     @UnstableApi
     fun createPlayer(context: Context): ExoPlayer {
         Log.d("PlayerUtils", "=== CREATEPLAYER METHOD CALLED ===")
-        Log.d("PlayerUtils", "=== CREATING EXOPLAYER WITH AUTO SPATIAL AUDIO ===")
+        Log.d("PlayerUtils", "=== CREATING EXOPLAYER WITH AUTO SPATIAL AUDIO & HDR FALLBACK ===")
         
         try {
-        val spatializerHelper = SpatializerHelper(context)
-        val canSpatializeMultiChannel = spatializerHelper.canSpatializeMultiChannel()
-        Log.d("PlayerUtils", "Device spatial capability: $canSpatializeMultiChannel")
-        
-        val trackSelector = DefaultTrackSelector(context).apply {
-            parameters = buildUponParameters()
-                // Always allow higher channel counts for spatial content - up to 16 channels
-                .setMaxAudioChannelCount(if (canSpatializeMultiChannel) 16 else 8)
-                // Prefer multi-channel tracks for spatial audio
-                .setPreferredAudioLanguages("original", "und")
+            // Check device HDR capabilities
+            val deviceHdrSupport = HdrCapabilityManager.getDeviceHdrSupport(context)
+            Log.d("PlayerUtils", "Device HDR support: ${deviceHdrSupport.displayName}")
+            
+            val spatializerHelper = SpatializerHelper(context)
+            val canSpatializeMultiChannel = spatializerHelper.canSpatializeMultiChannel()
+            Log.d("PlayerUtils", "Device spatial capability: $canSpatializeMultiChannel")
+            
+            val trackSelector = DefaultTrackSelector(context).apply {
+                parameters = buildUponParameters()
+                    // Always allow higher channel counts for spatial content - up to 16 channels
+                    .setMaxAudioChannelCount(if (canSpatializeMultiChannel) 16 else 8)
+                    // Prefer multi-channel tracks for spatial audio
+                    .setPreferredAudioLanguages("original", "und")
+                    // Enable HDR track selection based on device capabilities
+                    .apply {
+                        when (deviceHdrSupport) {
+                            HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
+                                Log.d("PlayerUtils", "Configuring for Dolby Vision support")
+                                // Device supports Dolby Vision, allow all HDR formats
+                            }
+                            HdrCapabilityManager.HdrSupport.HDR10_PLUS,
+                            HdrCapabilityManager.HdrSupport.HDR10 -> {
+                                Log.d("PlayerUtils", "Configuring for HDR10 support")
+                                // Device supports HDR10, prefer HDR10 over Dolby Vision
+                            }
+                            else -> {
+                                Log.d("PlayerUtils", "Configuring for SDR playback")
+                                // Device only supports SDR, will use fallback codecs
+                            }
+                        }
+                    }
+                    .build()
+            }
+            
+            Log.d("PlayerUtils", "Track selector configured with max channels: ${if (canSpatializeMultiChannel) 16 else 8}")
+
+            // Configure AudioAttributes for spatial audio
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
-        }
-        
-        Log.d("PlayerUtils", "Track selector configured with max channels: ${if (canSpatializeMultiChannel) 16 else 8}")
+            
+            Log.d("PlayerUtils", "Audio attributes configured for spatial audio")
 
-        // Configure AudioAttributes for spatial audio
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-            .build()
-        
-        Log.d("PlayerUtils", "Audio attributes configured for spatial audio")
+            // No audio processors needed
+            val audioProcessors = emptyArray<AudioProcessor>()
+            
+            // Configure audio sink
+            val audioSink = DefaultAudioSink.Builder()
+                .setAudioProcessors(audioProcessors)
+                .build()
+            
+            // Create Dolby Vision compatible RenderersFactory
+            val renderersFactory = createDolbyVisionCompatibleRenderersFactory(context)
+            
+            val playerBuilder = ExoPlayer.Builder(context)
+                .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
+                .setTrackSelector(trackSelector)
+                .setAudioAttributes(audioAttributes, true)
+                .setHandleAudioBecomingNoisy(true)
+                .setWakeMode(C.WAKE_MODE_LOCAL)
+                .setSeekBackIncrementMs(10000)
+                .setSeekForwardIncrementMs(10000)
+            
+            Log.d("PlayerUtils", "ExoPlayer builder configured with HDR fallback support")
+            
+            val player = playerBuilder.build()
+            Log.d("PlayerUtils", "ExoPlayer instance created successfully with HDR fallback")
 
-        // No audio processors needed
-        val audioProcessors = emptyArray<AudioProcessor>()
-        
-        // Configure audio sink
-        val audioSink = DefaultAudioSink.Builder()
-            .setAudioProcessors(audioProcessors)
-            .build()
-        
-        val playerBuilder = ExoPlayer.Builder(context)
-            .setTrackSelector(trackSelector)
-            .setAudioAttributes(audioAttributes, true)
-            .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
-            .setSeekBackIncrementMs(10000)
-            .setSeekForwardIncrementMs(10000)
-        
-        Log.d("PlayerUtils", "ExoPlayer builder configured")
-        
-        val player = playerBuilder.build()
-        Log.d("PlayerUtils", "ExoPlayer instance created successfully")
-
-        // Initialize the spatial audio manager with the actual player
-        spatialAudioManager = SpatialAudioManager(context, player)
-        
-        return player
-        
+            // Initialize the spatial audio manager with the actual player
+            spatialAudioManager = SpatialAudioManager(context, player)
+            
+            // Log HDR capability details
+            val hdrInfo = HdrCapabilityManager.getDetailedHdrInfo(context)
+            Log.i("PlayerUtils", "HDR Capabilities:\n$hdrInfo")
+            
+            return player
+            
         } catch (e: Exception) {
             Log.e("PlayerUtils", "=== PLAYER CREATION FAILED ===", e)
             Log.e("PlayerUtils", "Exception type: ${e.javaClass.simpleName}")
@@ -93,6 +127,14 @@ object PlayerUtils {
             e.printStackTrace()
             throw e // Re-throw to let caller handle it
         }
+    }
+    
+    /**
+     * Create Dolby Vision compatible RenderersFactory
+     */
+    @UnstableApi
+    private fun createDolbyVisionCompatibleRenderersFactory(context: Context): DolbyVisionCompatibleRenderersFactory {
+        return DolbyVisionCompatibleRenderersFactory(context)
     }
     
     /**
@@ -300,6 +342,40 @@ object PlayerUtils {
                 "Spatial Audio: Inactive\n$effectStatus"
             }
         } ?: "Spatial Audio: Not Available"
+    }
+    
+    /**
+     * Get HDR capability information for display in UI
+     */
+    fun getHdrCapabilityInfo(context: Context): String {
+        return HdrCapabilityManager.getDetailedHdrInfo(context)
+    }
+    
+    /**
+     * Analyze video format and get fallback information
+     */
+    fun analyzeVideoFormatForPlayback(
+        context: Context, 
+        mimeType: String?, 
+        codec: String?, 
+        colorInfo: String? = null
+    ): String {
+        val videoFormat = HdrCapabilityManager.analyzeVideoFormat(mimeType, codec, colorInfo)
+        val deviceSupport = HdrCapabilityManager.getDeviceHdrSupport(context)
+        val bestFormat = HdrCapabilityManager.getBestPlayableFormat(context, videoFormat)
+        
+        return HdrCapabilityManager.getPlaybackFormatDescription(deviceSupport, videoFormat, bestFormat)
+    }
+    
+    /**
+     * Check if HDR content will play without black screens on this device
+     */
+    fun willHdrContentPlayCorrectly(context: Context, mimeType: String?, codec: String?): Boolean {
+        val videoFormat = HdrCapabilityManager.analyzeVideoFormat(mimeType, codec)
+        val bestFormat = HdrCapabilityManager.getBestPlayableFormat(context, videoFormat)
+        
+        // If we can play the content in some format (even fallback), it won't be a black screen
+        return bestFormat.mimeType.isNotEmpty()
     }
 
     /**

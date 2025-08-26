@@ -31,8 +31,8 @@ import androidx.compose.ui.unit.sp
 import android.util.Log
 import com.jellycine.app.R
 import com.jellycine.detail.SpatializationResult
-import com.jellycine.player.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
-import com.jellycine.player.PlayerState
+import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
+import com.jellycine.player.core.PlayerState
 import java.util.Locale
 
 @Composable
@@ -49,6 +49,7 @@ fun ControlsOverlay(
     spatializationResult: SpatializationResult? = null,
     isSpatialAudioEnabled: Boolean = false,
     onShowSpatialAudioInfo: () -> Unit = {},
+    onShowHdrInfo: () -> Unit = {},
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
     onShowAudioTrackSelection: () -> Unit = {},
@@ -117,6 +118,16 @@ fun ControlsOverlay(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
+                    }
+
+                    // HDR Format Info Button
+                    IconButton(onClick = onShowHdrInfo) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = "HDR Info",
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
 
                     IconButton(onClick = onCycleAspectRatio) {

@@ -20,8 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.player.PlayerConstants.GESTURE_INDICATOR_PADDING_DP
-import com.jellycine.player.PlayerState
+import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_PADDING_DP
+import com.jellycine.player.core.PlayerState
 
 enum class SeekSide {
     LEFT, CENTER, RIGHT

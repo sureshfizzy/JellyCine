@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.jellycine.player.AudioTrackInfo
-import com.jellycine.player.SubtitleTrackInfo
+import com.jellycine.player.core.AudioTrackInfo
+import com.jellycine.player.core.SubtitleTrackInfo
 
 /**
  * Audio track selection dialog with clean design
