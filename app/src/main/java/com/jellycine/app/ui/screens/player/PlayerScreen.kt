@@ -37,6 +37,7 @@ import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.screens.player.MediaInfoDialog
 import kotlinx.coroutines.delay
 
 /**
@@ -85,7 +86,7 @@ fun PlayerScreen(
     // Dialog states
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
-    var showHdrInfo by remember { mutableStateOf(false) }
+    var showMediaInfo by remember { mutableStateOf(false) }
 
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
@@ -347,17 +348,12 @@ fun PlayerScreen(
                     val duration = viewModel.exoPlayer?.duration ?: 0L
                     viewModel.exoPlayer?.seekTo((duration * progress).toLong())
                 },
-                // Spatial audio parameters
+                // Media info parameters
                 spatializationResult = playerState.spatializationResult,
                 isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
-                onShowSpatialAudioInfo = {
+                onShowMediaInfo = {
                     resetAutoHideTimer()
-                    viewModel.showSpatialAudioInfo()
-                },
-                // HDR format parameters
-                onShowHdrInfo = {
-                    resetAutoHideTimer()
-                    showHdrInfo = true
+                    showMediaInfo = true
                 },
                 // Lock and track selection parameters
                 isLocked = playerState.isLocked,
@@ -445,20 +441,11 @@ fun PlayerScreen(
             }
         }
 
-        // Spatial Audio Info Dialog
-        val showSpatialInfo by viewModel.showSpatialAudioInfo.collectAsState()
-        if (showSpatialInfo) {
-            SpatialAudioInfoDialog(
-                spatialInfo = viewModel.getSpatialAudioStatusInfo(),
-                onDismiss = { viewModel.hideSpatialAudioInfo() }
-            )
-        }
-
-        // HDR Format Info Dialog
-        if (showHdrInfo) {
-            HdrFormatInfoDialog(
-                hdrInfo = viewModel.getHdrFormatInfo(),
-                onDismiss = { showHdrInfo = false }
+        // Media Information Dialog
+        if (showMediaInfo) {
+            MediaInfoDialog(
+                mediaInfo = viewModel.getMediaMetadataInfo(),
+                onDismiss = { showMediaInfo = false }
             )
         }
     }

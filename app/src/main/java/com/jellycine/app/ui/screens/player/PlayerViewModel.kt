@@ -24,8 +24,15 @@ import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.audio.SpatializerStateListener
 import com.jellycine.detail.CodecCapabilityManager
+import com.jellycine.detail.CodecUtils
 import com.jellycine.detail.SpatializationResult
+import com.jellycine.player.video.HdrCapabilityManager
 import android.media.Spatializer
+import com.jellycine.app.ui.screens.player.MediaMetadataInfo
+import com.jellycine.app.ui.screens.player.SpatialAudioInfo
+import com.jellycine.app.ui.screens.player.HdrFormatInfo
+import com.jellycine.app.ui.screens.player.VideoFormatInfo
+import com.jellycine.app.ui.screens.player.AudioFormatInfo
 
 /**
  * Player ViewModel
@@ -46,6 +53,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var spatializerHelper: SpatializerHelper? = null
     private lateinit var mediaRepository: MediaRepository
     private var playerContext: Context? = null
+    private var apiMediaStreams: List<com.jellycine.data.model.MediaStream>? = null
 
     fun initializePlayer(context: Context, mediaId: String) {
         viewModelScope.launch {
@@ -73,17 +81,17 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 
                 // Get media info for spatial audio analysis
                 val playbackInfoResult = mediaRepository.getPlaybackInfo(mediaId)
-                
-                val spatializationResult = playbackInfoResult.getOrNull()?.let { playbackInfo ->
-                    playbackInfo.mediaSources?.firstOrNull()?.mediaStreams?.let { streams ->
-                        val audioStreams = streams.filter { it.type == "Audio" }
-                        val primaryAudioStream = audioStreams.firstOrNull()
-                        if (primaryAudioStream != null) {
-                            val result = CodecCapabilityManager.canSpatializeAudioStream(context, primaryAudioStream)
-                            result
-                        } else {
-                            null
-                        }
+
+                apiMediaStreams = playbackInfoResult.getOrNull()?.mediaSources?.firstOrNull()?.mediaStreams
+
+                val spatializationResult = apiMediaStreams?.let { streams ->
+                    val audioStreams = streams.filter { it.type == "Audio" }
+                    val primaryAudioStream = audioStreams.firstOrNull()
+                    if (primaryAudioStream != null) {
+                        val result = CodecCapabilityManager.canSpatializeAudioStream(context, primaryAudioStream)
+                        result
+                    } else {
+                        null
                     }
                 }
                 
@@ -501,5 +509,190 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 appendLine("HDR format fallbacks to prevent black screens.")
             }
         } ?: "HDR info not available - player not initialized"
+    }
+
+    /**
+     * Get unified media metadata information for the modern bubble dialog
+     */
+    fun getMediaMetadataInfo(): MediaMetadataInfo {
+        val currentState = _playerState.value
+        val spatializationResult = currentState.spatializationResult
+
+        // Spatial Audio Info
+        val spatialAudioInfo = SpatialAudioInfo(
+            isActive = currentState.isSpatialAudioEnabled,
+            format = currentState.spatialAudioFormat,
+            hasHeadTracking = currentState.hasHeadTracking,
+            deviceEnhancement = spatializerHelper?.getSpatialAudioInfo()?.isAvailable == true,
+            reason = if (!currentState.isSpatialAudioEnabled) {
+                spatializationResult?.reason ?: "Content does not support spatial audio"
+            } else null
+        )
+
+        // HDR Format Info
+        val hdrFormatInfo = playerContext?.let { context ->
+            val deviceHdrInfo = PlayerUtils.getHdrCapabilityInfo(context)
+            val deviceSupportsHdr = deviceHdrInfo.contains("HDR10") || deviceHdrInfo.contains("Dolby Vision") || deviceHdrInfo.contains("HDR")
+
+            var currentFormat: String? = null
+            var isContentHdr = false
+            var analysisResult: String? = null
+            var originalContentFormat: String? = null
+
+            exoPlayer?.currentTracks?.let { tracks ->
+                tracks.groups.forEach { group ->
+                    if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
+                        for (i in 0 until group.mediaTrackGroup.length) {
+                            if (group.isTrackSelected(i)) {
+                                val format = group.mediaTrackGroup.getFormat(i)
+                                val colorInfo = format.colorInfo?.toString()
+                                val mimeType = format.sampleMimeType
+                                val codecs = format.codecs
+
+                                val isHdrByColorInfo = colorInfo?.contains("HDR", ignoreCase = true) == true ||
+                                                     colorInfo?.contains("Dolby Vision", ignoreCase = true) == true ||
+                                                     colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
+                                                     colorInfo?.contains("BT.2020", ignoreCase = true) == true ||
+                                                     colorInfo?.contains("PQ", ignoreCase = true) == true
+
+                                val isHdrByMimeType = mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
+                                                     mimeType?.contains("hdr", ignoreCase = true) == true
+
+                                val isHdrByCodec = codecs?.contains("dvhe", ignoreCase = true) == true ||
+                                                 codecs?.contains("dvh1", ignoreCase = true) == true ||
+                                                 codecs?.contains("hev1", ignoreCase = true) == true ||
+                                                 codecs?.contains("hvc1", ignoreCase = true) == true
+
+                                // Get original content analysis for fallback detection
+                                val videoFormatAnalysis = HdrCapabilityManager.analyzeVideoFormat(mimeType, codecs, colorInfo)
+                                val bestFormat = HdrCapabilityManager.getBestPlayableFormat(context, videoFormatAnalysis)
+                                originalContentFormat = videoFormatAnalysis.hdrSupport.displayName
+
+                                // Determine if content is HDR
+                                isContentHdr = isHdrByColorInfo || isHdrByMimeType || isHdrByCodec || videoFormatAnalysis.hdrSupport != HdrCapabilityManager.HdrSupport.SDR
+
+                                if (isContentHdr) {
+                                    currentFormat = when {
+                                        colorInfo?.contains("Dolby Vision", ignoreCase = true) == true -> "Dolby Vision"
+                                        codecs?.contains("dvhe", ignoreCase = true) == true || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
+                                        colorInfo?.contains("HDR10+", ignoreCase = true) == true -> "HDR10+"
+                                        colorInfo?.contains("HDR10", ignoreCase = true) == true || colorInfo?.contains("SMPTE2084", ignoreCase = true) == true -> "HDR10"
+                                        colorInfo?.contains("HLG", ignoreCase = true) == true -> "HLG"
+                                        else -> "HDR"
+                                    }
+                                }
+
+                                // Get detailed analysis including fallback information
+                                analysisResult = if (videoFormatAnalysis.hdrSupport != bestFormat.hdrSupport) {
+                                    "Content: ${originalContentFormat} → Playing: ${bestFormat.hdrSupport.displayName} (fallback applied)"
+                                } else if (isContentHdr) {
+                                    "Playing in native ${currentFormat} format"
+                                } else {
+                                    "Standard Dynamic Range (SDR)"
+                                }
+
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+
+            HdrFormatInfo(
+                isSupported = isContentHdr,
+                currentFormat = currentFormat,
+                deviceCapabilities = if (deviceSupportsHdr) "Yes" else "No",
+                analysisResult = analysisResult
+            )
+        }
+
+        // Video Format Info
+        val videoFormatInfo = apiMediaStreams?.find { it.type == "Video" }?.let { videoStream ->
+            val rawCodec = videoStream.codec ?: "Unknown"
+            val displayCodec = getDisplayVideoCodecName(rawCodec)
+            VideoFormatInfo(
+                codec = displayCodec,
+                resolution = if (videoStream.width != null && videoStream.height != null) {
+                    "${videoStream.width}x${videoStream.height}"
+                } else "Unknown",
+                mimeType = videoStream.codec?.let { "video/${it.lowercase()}" } ?: "Unknown",
+                colorInfo = listOfNotNull(
+                    videoStream.colorSpace,
+                    videoStream.colorTransfer,
+                    videoStream.colorPrimaries
+                ).joinToString(", ").takeIf { it.isNotEmpty() }
+            )
+        }
+
+        // Audio Format Info
+        val audioFormatInfo = apiMediaStreams?.find { it.type == "Audio" }?.let { audioStream ->
+            val channels = audioStream.channels?.let { channelCount ->
+                when (channelCount) {
+                    1 -> "Mono"
+                    2 -> "Stereo"
+                    6 -> "5.1"
+                    8 -> "7.1"
+                    else -> "${channelCount}ch"
+                }
+            } ?: "Unknown"
+
+            val rawCodec = audioStream.codec ?: "Unknown"
+            val displayCodec = getDisplayAudioCodecName(rawCodec)
+
+            AudioFormatInfo(
+                codec = displayCodec,
+                channels = channels,
+                bitrate = audioStream.bitRate?.let { "${it / 1000} kbps" },
+                sampleRate = audioStream.sampleRate?.let { "${it / 1000} kHz" }
+            )
+        }
+
+        return MediaMetadataInfo(
+            spatialAudio = spatialAudioInfo,
+            hdrFormat = hdrFormatInfo,
+            videoFormat = videoFormatInfo,
+            audioFormat = audioFormatInfo
+        )
+    }
+
+    /**
+     * Get display-friendly video codec name
+     */
+    private fun getDisplayVideoCodecName(codec: String): String {
+        return when (codec.uppercase()) {
+            "H264", "AVC", "AVC1" -> "H.264"
+            "H265", "HEVC", "HEV1", "HVC1" -> "H.265"
+            "VP8" -> "VP8"
+            "VP9" -> "VP9"
+            "AV1" -> "AV1"
+            "MPEG2", "MPEG-2" -> "MPEG-2"
+            "MPEG4", "MPEG-4" -> "MPEG-4"
+            "XVID" -> "Xvid"
+            "DIVX" -> "DivX"
+            "WMV" -> "WMV"
+            else -> codec.uppercase()
+        }
+    }
+
+    /**
+     * Get display-friendly audio codec name
+     */
+    private fun getDisplayAudioCodecName(codec: String): String {
+        return when (codec.uppercase()) {
+            "EAC3", "E-AC-3", "EC-3" -> "Dolby Digital+"
+            "AC3", "AC-3" -> "Dolby Digital"
+            "TRUEHD" -> "Dolby TrueHD"
+            "DTS" -> "DTS"
+            "DTSHD", "DTS-HD" -> "DTS-HD"
+            "AAC", "MP4A", "MP4A.40.2" -> "AAC"
+            "MP3" -> "MP3"
+            "FLAC" -> "FLAC"
+            "PCM" -> "PCM"
+            "OPUS" -> "Opus"
+            "VORBIS" -> "Vorbis"
+            "WMA" -> "WMA"
+            "ALAC" -> "ALAC"
+            else -> codec.uppercase()
+        }
     }
 }

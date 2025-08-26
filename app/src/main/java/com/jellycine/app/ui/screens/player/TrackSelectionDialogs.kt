@@ -150,12 +150,7 @@ private fun <T> TrackSelectionDialog(
                     .fillMaxWidth(0.6f)
                     .wrapContentHeight()
                     .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF1A1A1A).copy(alpha = 0.95f),
-                                Color(0xFF0A0A0A).copy(alpha = 0.98f)
-                            )
-                        ),
+                        color = Color.Black, // Pure AMOLED black
                         shape = RoundedCornerShape(16.dp)
                     )
                     .border(
@@ -324,42 +319,28 @@ private fun CompactTrackItem(
         label = "scale_animation"
     )
     
-    val animatedBackgroundBrush by remember(isSelected, accentColor) {
-        derivedStateOf {
-            if (isSelected) {
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        accentColor.copy(alpha = 0.15f),
-                        accentColor.copy(alpha = 0.08f)
-                    )
-                )
-            } else {
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        Color(0xFF1A1A1A).copy(alpha = 0.3f),
-                        Color(0xFF0F0F0F).copy(alpha = 0.5f)
-                    )
-                )
-            }
-        }
+    val backgroundColor = if (isSelected) {
+        Color(0xFF2A2A2A)
+    } else {
+        Color.Transparent
     }
     
-    val animatedBorderColor by animateColorAsState(
-        targetValue = if (isSelected) accentColor.copy(alpha = 0.5f) else Color(0xFF333333),
-        animationSpec = tween(300),
-        label = "border_animation"
-    )
+    val borderColor = if (isSelected) accentColor.copy(alpha = 0.5f) else Color.Transparent
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .scale(animatedScale)
             .clip(RoundedCornerShape(12.dp))
-            .background(animatedBackgroundBrush)
-            .border(
-                width = if (isSelected) 1.5.dp else 1.dp,
-                color = animatedBorderColor,
-                shape = RoundedCornerShape(12.dp)
+            .background(backgroundColor)
+            .then(
+                if (isSelected) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = borderColor,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                } else Modifier
             )
             .clickable {
                 isPressed = true
@@ -369,60 +350,62 @@ private fun CompactTrackItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Small selection indicator
-            Box(
-                modifier = Modifier
-                    .size(18.dp)
-                    .background(
-                        color = if (isSelected) accentColor else Color.Transparent,
-                        shape = CircleShape
-                    )
-                    .border(
-                        width = 2.dp,
-                        color = if (isSelected) accentColor else Color(0xFF555555),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
+            // Left side: selection indicator + title
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
             ) {
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(10.dp)
-                    )
+                // Small selection indicator
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .background(
+                            color = if (isSelected) accentColor else Color.Transparent,
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = if (isSelected) accentColor else Color(0xFF555555),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
                 }
-            }
-            
-            // Compact track information
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                // Title - full display without truncation
+
+                // Title text
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.9f),
-                    fontSize = 13.sp,
-                    lineHeight = 16.sp
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                
-                // Subtitle with better visibility
-                if (subtitle.isNotEmpty()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isSelected) accentColor.copy(alpha = 0.9f) else Color(0xFFBBBBBB),
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp
-                    )
-                }
+            }
+
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isSelected) accentColor else Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1.5f)
+                )
             }
         }
     }

@@ -45,11 +45,9 @@ fun ControlsOverlay(
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    // Spatial audio parameters
     spatializationResult: SpatializationResult? = null,
     isSpatialAudioEnabled: Boolean = false,
-    onShowSpatialAudioInfo: () -> Unit = {},
-    onShowHdrInfo: () -> Unit = {},
+    onShowMediaInfo: () -> Unit = {},
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
     onShowAudioTrackSelection: () -> Unit = {},
@@ -107,25 +105,12 @@ fun ControlsOverlay(
 
                 // Action buttons
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (isSpatialAudioEnabled || debugSpatialAudio) {
-                        IconButton(onClick = {
-                            onShowSpatialAudioInfo()
-                        }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Info,
-                                contentDescription = "Spatial Audio Info",
-                                tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-
-                    // HDR Format Info Button
-                    IconButton(onClick = onShowHdrInfo) {
+                    // Media Information Button
+                    IconButton(onClick = onShowMediaInfo) {
                         Icon(
                             imageVector = Icons.Outlined.Info,
-                            contentDescription = "HDR Info",
-                            tint = Color(0xFFFF9800),
+                            contentDescription = "Media Information",
+                            tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color(0xFF03DAC5),
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -417,7 +402,7 @@ fun ControlsOverlayPreviewPlaying() {
             spatialFormat = "Dolby Atmos"
         ),
         isSpatialAudioEnabled = true,
-        onShowSpatialAudioInfo = { },
+        onShowMediaInfo = { },
         isLocked = false,
         onToggleLock = { },
         onShowAudioTrackSelection = { },
@@ -453,7 +438,7 @@ fun ControlsOverlayPreviewPaused() {
             spatialFormat = "DTS:X"
         ),
         isSpatialAudioEnabled = false,
-        onShowSpatialAudioInfo = { },
+        onShowMediaInfo = { },
         isLocked = false,
         onToggleLock = { },
         onShowAudioTrackSelection = { },
