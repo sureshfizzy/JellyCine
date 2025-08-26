@@ -9,6 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
@@ -86,6 +89,16 @@ class JellyCineActivity : ComponentActivity() {
 
         setContent {
             JellyCineTheme {
+                // Handle system bar colors for edge-to-edge
+                val view = LocalView.current
+                SideEffect {
+                    val window = (view.context as ComponentActivity).window
+                    window.statusBarColor = android.graphics.Color.TRANSPARENT
+                    window.navigationBarColor = android.graphics.Color.BLACK
+                    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+                    WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

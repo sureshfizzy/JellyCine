@@ -152,7 +152,7 @@ fun ViewAllScreen(
                     uiState.isLoading && items.isEmpty() -> {
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
-                            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 20.dp),
+                            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxSize()
@@ -235,7 +235,7 @@ fun ViewAllScreen(
                                 start = 16.dp, 
                                 top = 16.dp, 
                                 end = 16.dp,
-                                bottom = 20.dp
+                                bottom = 120.dp
                             ),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),

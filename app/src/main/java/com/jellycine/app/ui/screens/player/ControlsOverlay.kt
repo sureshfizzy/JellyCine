@@ -114,7 +114,6 @@ fun ControlsOverlay(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-
                     IconButton(onClick = onCycleAspectRatio) {
                         Icon(
                             imageVector = Icons.Outlined.AspectRatio,
