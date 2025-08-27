@@ -263,15 +263,11 @@ fun PlayerScreen(
             scale = playerState.videoScale,
             offsetX = playerState.videoOffsetX,
             offsetY = playerState.videoOffsetY,
+            resizeMode = viewModel.getCurrentResizeMode(),
             onScaleChange = { scale, offsetX, offsetY ->
                 if (!playerState.isLocked) {
-                    // For manual pinch-to-zoom, we can still update local state
-                    // but the aspect ratio button will override these values
-                    uiState = uiState.copy(
-                        videoScale = scale,
-                        videoOffsetX = offsetX,
-                        videoOffsetY = offsetY
-                    )
+                    // Update ViewModel state directly to avoid conflicts with start maximized setting
+                    viewModel.updateVideoTransform(scale, offsetX, offsetY)
                 }
             },
             onVolumeChange = { level ->
@@ -320,6 +316,9 @@ fun PlayerScreen(
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
+            },
+            onZoomChange = { isZooming ->
+                viewModel.handlePinchZoom(isZooming)
             },
             modifier = Modifier.fillMaxSize()
         )

@@ -25,6 +25,7 @@ import com.jellycine.app.ui.screens.detail.DetailScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.EpisodeDetailScreen
 import com.jellycine.app.ui.screens.player.PlayerScreen
+import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.data.model.BaseItemDto
 import com.google.gson.Gson
 import com.jellycine.auth.AuthStateManager
@@ -115,6 +116,9 @@ fun AppNavigation() {
                         navController.navigate("auth") {
                             popUpTo("dashboard") { inclusive = true }
                         }
+                    },
+                    onNavigateToPlayerSettings = {
+                        navController.navigate("player_settings")
                     },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
@@ -259,6 +263,18 @@ fun AppNavigation() {
                                 navController.navigate("detail/$itemId")
                             }
                         }
+                    }
+                )
+            }
+
+            composable(
+                "player_settings",
+                enterTransition = { create3DEnterTransition(450) },
+                exitTransition = { create3DExitTransition(350) }
+            ) {
+                PlayerSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
                     }
                 )
             }

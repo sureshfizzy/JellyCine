@@ -65,7 +65,7 @@ data class PlaybackProgressRequest(
     @SerializedName("AspectRatio")
     val aspectRatio: String? = null,
     @SerializedName("PlayMethod")
-    val playMethod: String? = null
+    val playMethod: String? = null,
     @SerializedName("LiveStreamId")
     val liveStreamId: String? = null,
     @SerializedName("PlaylistItemId")

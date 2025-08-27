@@ -34,11 +34,13 @@ fun VideoSurface(
     scale: Float,
     offsetX: Float,
     offsetY: Float,
+    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
     onScaleChange: (Float, Float, Float) -> Unit,
     onVolumeChange: (Float) -> Unit,
     onBrightnessChange: (Float) -> Unit,
     onSeek: (Long) -> Unit,
     onToggleControls: () -> Unit,
+    onZoomChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -73,7 +75,7 @@ fun VideoSurface(
                     useController = false
                     setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                     setKeepContentOnPlayerReset(true)
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    this.resizeMode = resizeMode
                     setBackgroundColor(android.graphics.Color.BLACK)
                     setPadding(0, 0, 0, 0)
                     layoutParams = android.view.ViewGroup.LayoutParams(
@@ -93,6 +95,7 @@ fun VideoSurface(
             },
             update = { playerView ->
                 playerView.player = player
+                playerView.resizeMode = resizeMode
 
                 // Initialize gesture helper
                 if (gestureHelper == null) {
@@ -105,7 +108,7 @@ fun VideoSurface(
                         onSeek = onSeek,
                         onVolumeChange = onVolumeChange,
                         onBrightnessChange = onBrightnessChange,
-                        onZoomChange = { /* Handle zoom change */ }
+                        onZoomChange = onZoomChange
                     )
                 }
 

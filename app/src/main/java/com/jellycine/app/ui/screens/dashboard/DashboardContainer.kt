@@ -131,7 +131,8 @@ sealed class DashboardDestination(
 fun DashboardContainer(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
+    onNavigateToPlayerSettings: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -251,7 +252,10 @@ fun DashboardContainer(
                         isActive = currentRoute == DashboardDestination.Settings.route,
                         route = DashboardDestination.Settings.route
                     ) {
-                        Settings(onLogout = onLogout)
+                        Settings(
+                            onLogout = onLogout,
+                            onNavigateToPlayerSettings = onNavigateToPlayerSettings
+                        )
                     }
                 }
             }

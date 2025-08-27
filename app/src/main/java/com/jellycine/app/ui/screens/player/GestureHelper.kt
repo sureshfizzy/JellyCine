@@ -200,11 +200,6 @@ class GestureHelper(
     }
 
     private fun updateZoomMode(enabled: Boolean) {
-        playerView.resizeMode = if (enabled) {
-            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-        } else {
-            AspectRatioFrameLayout.RESIZE_MODE_FIT
-        }
         isZoomEnabled = enabled
         onZoomChange(enabled)
     }

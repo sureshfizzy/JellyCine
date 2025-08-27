@@ -414,8 +414,7 @@ class SpatialAudioManager(
      * Handle player state changes
      */
     fun onPlayerReady() {
-        // Apply effects when player is ready
-        applyCompatibilityEnhancements()
+        Log.d(TAG, "Player ready - spatial audio manager initialized")
     }
     
     /**

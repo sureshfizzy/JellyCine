@@ -32,7 +32,8 @@ data class MediaMetadataInfo(
     val spatialAudio: SpatialAudioInfo? = null,
     val hdrFormat: HdrFormatInfo? = null,
     val videoFormat: VideoFormatInfo? = null,
-    val audioFormat: AudioFormatInfo? = null
+    val audioFormat: AudioFormatInfo? = null,
+    val hardwareAcceleration: HardwareAccelerationInfo? = null
 )
 
 data class SpatialAudioInfo(
@@ -62,6 +63,15 @@ data class AudioFormatInfo(
     val channels: String,
     val bitrate: String? = null,
     val sampleRate: String? = null
+)
+
+data class HardwareAccelerationInfo(
+    val isHardwareDecoding: Boolean,
+    val activeVideoCodec: String? = null,
+    val activeAudioCodec: String? = null,
+    val decoderType: String, // "Hardware" or "Software"
+    val asyncModeEnabled: Boolean,
+    val performanceMetrics: String? = null
 )
 
 @Composable
@@ -214,6 +224,55 @@ fun MediaInfoDialog(
                                         MediaInfo(
                                             label = "Sample Rate",
                                             value = sampleRate
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            // Hardware Acceleration Section
+                            mediaInfo.hardwareAcceleration?.let { hwInfo ->
+                                MediaInfoSection(
+                                    title = "Hardware Acceleration",
+                                    icon = Icons.Rounded.Speed,
+                                    iconTint = if (hwInfo.isHardwareDecoding) Color(0xFF4CAF50) else Color(0xFF757575)
+                                ) {
+                                    MediaInfo(
+                                        label = "Status",
+                                        value = if (hwInfo.isHardwareDecoding) "ENABLED" else "DISABLED",
+                                        valueColor = if (hwInfo.isHardwareDecoding) Color(0xFF4CAF50) else Color(0xFF757575)
+                                    )
+                                    
+                                    MediaInfo(
+                                        label = "Decoder Type",
+                                        value = hwInfo.decoderType,
+                                        valueColor = if (hwInfo.decoderType == "Hardware") Color(0xFF4CAF50) else Color(0xFF757575)
+                                    )
+                                    
+                                    hwInfo.activeVideoCodec?.let { codec ->
+                                        MediaInfo(
+                                            label = "Video Decoder",
+                                            value = codec
+                                        )
+                                    }
+                                    
+                                    hwInfo.activeAudioCodec?.let { codec ->
+                                        MediaInfo(
+                                            label = "Audio Decoder",
+                                            value = codec
+                                        )
+                                    }
+                                    
+                                    MediaInfo(
+                                        label = "Async Mode",
+                                        value = if (hwInfo.asyncModeEnabled) "Yes" else "No",
+                                        valueColor = if (hwInfo.asyncModeEnabled) Color(0xFF4CAF50) else Color(0xFF757575)
+                                    )
+                                    
+                                    hwInfo.performanceMetrics?.let { metrics ->
+                                        MediaInfo(
+                                            label = "Performance",
+                                            value = metrics,
+                                            valueColor = Color(0xFF03DAC6)
                                         )
                                     }
                                 }

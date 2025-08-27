@@ -36,6 +36,7 @@ import com.jellycine.app.ui.screens.player.SpatialAudioInfo
 import com.jellycine.app.ui.screens.player.HdrFormatInfo
 import com.jellycine.app.ui.screens.player.VideoFormatInfo
 import com.jellycine.app.ui.screens.player.AudioFormatInfo
+import com.jellycine.app.ui.screens.player.HardwareAccelerationInfo
 
 /**
  * Player ViewModel
@@ -125,7 +126,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     if (resumePositionTicks != null && resumePositionTicks > 0) {
                         val resumePositionMs = resumePositionTicks / 10000L // Convert ticks to milliseconds
                         seekTo(resumePositionMs)
-                        Log.d("PlayerViewModel", "Seeking to resume position: ${resumePositionMs}ms")
                     }
                     
                     playWhenReady = true
@@ -154,7 +154,14 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 } ?: false
                 
                 // Enhanced condition: Content format OR successful spatialization detection
-                val shouldEnableSpatialAudio = hasCompatibleAudioFormat || contentSupportsSpatialization
+                val contentBasedSpatialAudio = hasCompatibleAudioFormat || contentSupportsSpatialization
+                
+                // Check user preference for spatial audio
+                val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
+                val userSpatialAudioEnabled = playerPreferences.isSpatialAudioEnabled()
+                
+                // Final decision: Content supports AND user has enabled spatial audio
+                val shouldEnableSpatialAudio = contentBasedSpatialAudio && userSpatialAudioEnabled
                 
                 // Additional enhancement when device supports spatial audio
                 val deviceEnhancementAvailable = deviceSupportsSpatialization
@@ -166,6 +173,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 // Update track information after player is ready
                 updateTrackInformation()
+                
+                // Apply start maximized setting if enabled
+                applyStartMaximizedSetting(context)
 
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
@@ -266,7 +276,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                         
                         if (result.isSuccess) {
                             hasReportedStart = true
-                            Log.d("PlayerViewModel", "Successfully reported playback start")
                             startProgressReporting()
                         } else {
                             Log.e("PlayerViewModel", "Failed to report playback start: ${result.exceptionOrNull()?.message}")
@@ -319,7 +328,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                         )
                         
                         if (result.isSuccess) {
-                            Log.d("PlayerViewModel", "Progress reported: ${currentPos}ms ($positionTicks ticks)")
+                            // Progress reported successfully
                         } else {
                             Log.e("PlayerViewModel", "Failed to report progress: ${result.exceptionOrNull()?.message}")
                         }
@@ -350,7 +359,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                         )
                         
                         if (result.isSuccess) {
-                            Log.d("PlayerViewModel", "Successfully reported playback stopped")
+                            // Playback stopped reported successfully
                         } else {
                             Log.e("PlayerViewModel", "Failed to report playback stopped: ${result.exceptionOrNull()?.message}")
                         }
@@ -385,7 +394,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             isLocked = !currentState.isLocked,
             showControls = if (!currentState.isLocked) false else currentState.showControls
         )
-        Log.d("PlayerViewModel", "Lock toggled: ${_playerState.value.isLocked}")
     }
 
     /**
@@ -407,7 +415,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     currentSubtitleTrack = currentSubtitle,
                     availableVideoTracks = videoTracks
                 )
-                Log.d("PlayerViewModel", "Track info updated - Audio: ${audioTracks.size}, Subtitles: ${subtitleTracks.size}")
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Failed to update track information", e)
             }
@@ -442,31 +449,97 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     // Aspect ratio states
     private var currentAspectRatio by mutableIntStateOf(0)
-    private val aspectRatioModes = listOf("Fit", "Zoom", "Fill", "Stretch")
+    private val aspectRatioModes = listOf("Fit", "Zoom")
+    
+    // Keep track of ExoPlayer resize mode
+    private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
 
     /**
-     * Toggle between fit and zoom modes only
-     * Works with pinch-to-zoom by preserving user zoom levels
+     * Toggle between fit and zoom modes
+     * Uses ExoPlayer's native AspectRatioFrameLayout resize modes for proper aspect ratio handling
      */
     fun cycleAspectRatio() {
-        val currentState = _playerState.value
-        val currentScale = currentState.videoScale
-
-        if (currentScale > 1.1f) {
-            currentAspectRatio = 0
-            updateVideoTransform(1f, 0f, 0f)
-            Log.d("PlayerViewModel", "Fullscreen toggled to: Fit (scale: 1.0)")
-        } else {
+        currentAspectRatio = (currentAspectRatio + 1) % aspectRatioModes.size
+        
+        currentResizeMode = when (currentAspectRatio) {
+            0 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT // Respects video aspect ratio
+            1 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Fills screen, crops if needed
+            else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        
+        val mode = aspectRatioModes[currentAspectRatio]
+        _playerState.value = _playerState.value.copy(
+            aspectRatioMode = mode,
+            videoScale = 1f,
+            videoOffsetX = 0f,
+            videoOffsetY = 0f
+        )
+    }
+    
+    /**
+     * Get current resize mode for VideoSurface
+     */
+    fun getCurrentResizeMode(): Int = currentResizeMode
+    
+    /**
+     * Handle pinch-to-zoom gesture to set appropriate resize mode
+     */
+    fun handlePinchZoom(isZooming: Boolean) {
+        if (isZooming && currentAspectRatio == 0) {
             currentAspectRatio = 1
-            updateVideoTransform(1.5f, currentState.videoOffsetX, currentState.videoOffsetY)
-            Log.d("PlayerViewModel", "Fullscreen toggled to: Zoom (scale: 1.5)")
+            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            _playerState.value = _playerState.value.copy(
+                aspectRatioMode = "Zoom",
+                videoScale = 1f,
+                videoOffsetX = 0f,
+                videoOffsetY = 0f
+            )
+        } else if (!isZooming && currentAspectRatio == 1) {
+            // Switch to fit mode when user pinches to fit
+            currentAspectRatio = 0
+            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            _playerState.value = _playerState.value.copy(
+                aspectRatioMode = "Fit",
+                videoScale = 1f,
+                videoOffsetX = 0f,
+                videoOffsetY = 0f
+            )
+        }
+    }
+
+    /**
+     * Apply start maximized setting based on user preference
+     * Uses ExoPlayer's native resize modes for proper aspect ratio handling
+     */
+    private fun applyStartMaximizedSetting(context: Context) {
+        val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
+        val startMaximized = playerPreferences.isStartMaximizedEnabled()
+        
+        if (startMaximized) {
+            currentAspectRatio = 1 // Zoom mode
+            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            _playerState.value = _playerState.value.copy(
+                aspectRatioMode = "Zoom",
+                videoScale = 1f,
+                videoOffsetX = 0f,
+                videoOffsetY = 0f
+            )
+        } else {
+            currentAspectRatio = 0 // Fit mode
+            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            _playerState.value = _playerState.value.copy(
+                aspectRatioMode = "Fit",
+                videoScale = 1f,
+                videoOffsetX = 0f,
+                videoOffsetY = 0f
+            )
         }
     }
 
     /**
      * Update video transform values
      */
-    private fun updateVideoTransform(scale: Float, offsetX: Float, offsetY: Float) {
+    fun updateVideoTransform(scale: Float, offsetX: Float, offsetY: Float) {
         val mode = aspectRatioModes[currentAspectRatio]
         _playerState.value = _playerState.value.copy(
             videoScale = scale,
@@ -484,7 +557,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             val currentPos = player.currentPosition
             val newPos = (currentPos - 30000L).coerceAtLeast(0L)
             player.seekTo(newPos)
-            Log.d("PlayerViewModel", "Seeking backward to ${newPos}ms")
         }
     }
 
@@ -501,7 +573,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 currentPos + 30000L
             }
             player.seekTo(newPos)
-            Log.d("PlayerViewModel", "Seeking forward to ${newPos}ms")
         }
     }
 
@@ -509,14 +580,14 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Go to previous track/episode (placeholder)
      */
     fun goToPrevious() {
-        Log.d("PlayerViewModel", "Go to previous track")
+        // Placeholder for previous track functionality
     }
 
     /**
      * Go to next track/episode (placeholder)
      */
     fun goToNext() {
-        Log.d("PlayerViewModel", "Go to next track")
+        // Placeholder for next track functionality
     }
 
     private val playerListener = object : Player.Listener {
@@ -779,7 +850,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                                 if (isContentHdr) {
                                     currentFormat = when {
                                         colorInfo?.contains("Dolby Vision", ignoreCase = true) == true -> "Dolby Vision"
-                                        codecs?.contains("dvhe", ignoreCase = true) == true || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
+                                        codecs?.contains("dvhe", ignoreCase = true) || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
                                         colorInfo?.contains("HDR10+", ignoreCase = true) == true -> "HDR10+"
                                         colorInfo?.contains("HDR10", ignoreCase = true) == true || colorInfo?.contains("SMPTE2084", ignoreCase = true) == true -> "HDR10"
                                         colorInfo?.contains("HLG", ignoreCase = true) == true -> "HLG"
@@ -852,11 +923,69 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             )
         }
 
+        // Hardware Acceleration Info
+        val hardwareAccelerationInfo = playerContext?.let { context ->
+            val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
+            val isHwAccelEnabled = playerPreferences.isHardwareAccelerationEnabled()
+            val isAsyncEnabled = playerPreferences.isAsyncMediaCodecEnabled()
+            val decoderPriority = playerPreferences.getDecoderPriority()
+            
+            // Get active codec information from current tracks
+            var activeVideoCodec: String? = null
+            var activeAudioCodec: String? = null
+            var isUsingHardwareDecoder = false
+            
+            exoPlayer?.currentTracks?.let { tracks ->
+                tracks.groups.forEach { group ->
+                    when (group.type) {
+                        androidx.media3.common.C.TRACK_TYPE_VIDEO -> {
+                            for (i in 0 until group.mediaTrackGroup.length) {
+                                if (group.isTrackSelected(i)) {
+                                    val format = group.mediaTrackGroup.getFormat(i)
+                                    activeVideoCodec = getDisplayVideoCodecName(format.codecs ?: format.sampleMimeType ?: "Unknown")
+                                    // Hardware decoding is likely if HW acceleration is enabled and format supports it
+                                    isUsingHardwareDecoder = isHwAccelEnabled && 
+                                        (format.sampleMimeType?.contains("video/") == true)
+                                    break
+                                }
+                            }
+                        }
+                        androidx.media3.common.C.TRACK_TYPE_AUDIO -> {
+                            for (i in 0 until group.mediaTrackGroup.length) {
+                                if (group.isTrackSelected(i)) {
+                                    val format = group.mediaTrackGroup.getFormat(i)
+                                    activeAudioCodec = getDisplayAudioCodecName(format.codecs ?: format.sampleMimeType ?: "Unknown")
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            val decoderType = when {
+                !isHwAccelEnabled -> "Software"
+                isUsingHardwareDecoder -> "Hardware"
+                decoderPriority == "Software First" -> "Software Preferred"
+                else -> "Hardware Preferred"
+            }
+            
+            HardwareAccelerationInfo(
+                isHardwareDecoding = isHwAccelEnabled,
+                activeVideoCodec = activeVideoCodec,
+                activeAudioCodec = activeAudioCodec,
+                decoderType = decoderType,
+                asyncModeEnabled = isAsyncEnabled,
+                performanceMetrics = if (isHwAccelEnabled) "GPU-accelerated" else "CPU-only"
+            )
+        }
+
         return MediaMetadataInfo(
             spatialAudio = spatialAudioInfo,
             hdrFormat = hdrFormatInfo,
             videoFormat = videoFormatInfo,
-            audioFormat = audioFormatInfo
+            audioFormat = audioFormatInfo,
+            hardwareAcceleration = hardwareAccelerationInfo
         )
     }
 

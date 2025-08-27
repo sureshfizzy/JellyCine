@@ -17,8 +17,9 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.common.audio.AudioProcessor
 import com.jellycine.player.audio.SpatialAudioManager
 import com.jellycine.player.audio.SpatializerHelper
-import com.jellycine.player.video.DolbyVisionCompatibleRenderersFactory
+import com.jellycine.player.video.HardwareAcceleration
 import com.jellycine.player.video.HdrCapabilityManager
+import com.jellycine.player.preferences.PlayerPreferences
 
 /**
  * Player utility functions with spatial audio effects
@@ -31,59 +32,67 @@ object PlayerUtils {
     
     /**
      * Create ExoPlayer instance with optimal settings including spatial audio support and HDR fallback
-     * Spatial audio is ALWAYS ENABLED for supported content (auto-detect)
+     * Spatial audio enabled based on user preferences
      * HDR/Dolby Vision automatically falls back to compatible formats (no more black screens!)
      */
     @UnstableApi
     fun createPlayer(context: Context): ExoPlayer {
-        Log.d("PlayerUtils", "=== CREATEPLAYER METHOD CALLED ===")
-        Log.d("PlayerUtils", "=== CREATING EXOPLAYER WITH AUTO SPATIAL AUDIO & HDR FALLBACK ===")
+        val playerPreferences = PlayerPreferences(context)
+        val spatialAudioEnabled = playerPreferences.isSpatialAudioEnabled()
+        val hdrEnabled = playerPreferences.isHdrEnabled()
         
         try {
-            // Check device HDR capabilities
+            // Check device HDR capabilities and user preference
             val deviceHdrSupport = HdrCapabilityManager.getDeviceHdrSupport(context)
-            Log.d("PlayerUtils", "Device HDR support: ${deviceHdrSupport.displayName}")
+            
+            // Only use HDR capabilities if user has enabled HDR
+            val effectiveHdrSupport = if (hdrEnabled) {
+                deviceHdrSupport
+            } else {
+                HdrCapabilityManager.HdrSupport.SDR
+            }
             
             val spatializerHelper = SpatializerHelper(context)
             val canSpatializeMultiChannel = spatializerHelper.canSpatializeMultiChannel()
-            Log.d("PlayerUtils", "Device spatial capability: $canSpatializeMultiChannel")
             
             val trackSelector = DefaultTrackSelector(context).apply {
                 parameters = buildUponParameters()
-                    // Always allow higher channel counts for spatial content - up to 16 channels
-                    .setMaxAudioChannelCount(if (canSpatializeMultiChannel) 16 else 8)
-                    // Prefer multi-channel tracks for spatial audio
+                    // Set channel count based on user preference and device capability
+                    .setMaxAudioChannelCount(
+                        if (spatialAudioEnabled && canSpatializeMultiChannel) 16 else 2
+                    )
+                    // Prefer multi-channel tracks only if spatial audio is enabled
                     .setPreferredAudioLanguages("original", "und")
-                    // Enable HDR track selection based on device capabilities
+                    // Enable HDR track selection based on device capabilities and user preference
                     .apply {
-                        when (deviceHdrSupport) {
+                        when (effectiveHdrSupport) {
                             HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
-                                Log.d("PlayerUtils", "Configuring for Dolby Vision support")
-                                // Device supports Dolby Vision, allow all HDR formats
+                                // Device supports Dolby Vision and user enabled HDR, allow all HDR formats
                             }
                             HdrCapabilityManager.HdrSupport.HDR10_PLUS,
                             HdrCapabilityManager.HdrSupport.HDR10 -> {
-                                Log.d("PlayerUtils", "Configuring for HDR10 support")
-                                // Device supports HDR10, prefer HDR10 over Dolby Vision
+                                Log.d("PlayerUtils", "Configuring for HDR playback")
                             }
                             else -> {
-                                Log.d("PlayerUtils", "Configuring for SDR playback")
-                                // Device only supports SDR, will use fallback codecs
+                                Log.d("PlayerUtils", "Configuring for SDR playback (HDR disabled or not supported)")
                             }
                         }
                     }
                     .build()
             }
             
-            Log.d("PlayerUtils", "Track selector configured with max channels: ${if (canSpatializeMultiChannel) 16 else 8}")
+            Log.d(
+                "PlayerUtils", 
+                "Track selector configured with max channels: ${if (spatialAudioEnabled && canSpatializeMultiChannel) 16 else 2}"
+            )
 
-            // Configure AudioAttributes for spatial audio
+            // Configure AudioAttributes based on spatial audio preference
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
             
-            Log.d("PlayerUtils", "Audio attributes configured for spatial audio")
+            Log.d("PlayerUtils", "Audio attributes configured. Spatial audio: $spatialAudioEnabled")
 
             // No audio processors needed
             val audioProcessors = emptyArray<AudioProcessor>()
@@ -93,8 +102,8 @@ object PlayerUtils {
                 .setAudioProcessors(audioProcessors)
                 .build()
             
-            // Create Dolby Vision compatible RenderersFactory
-            val renderersFactory = createDolbyVisionCompatibleRenderersFactory(context)
+            // Create hardware acceleration
+            val renderersFactory = createHardwareAcceleration(context)
             
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
@@ -105,36 +114,70 @@ object PlayerUtils {
                 .setSeekBackIncrementMs(10000)
                 .setSeekForwardIncrementMs(10000)
             
+            // Apply battery optimization if enabled
+            if (playerPreferences.isBatteryOptimizationEnabled()) {
+                Log.d("PlayerUtils", "Applying battery optimization settings")
+                applyBatteryOptimization(playerBuilder, playerPreferences)
+            }
+
             Log.d("PlayerUtils", "ExoPlayer builder configured with HDR fallback support")
             
             val player = playerBuilder.build()
-            Log.d("PlayerUtils", "ExoPlayer instance created successfully with HDR fallback")
 
-            // Initialize the spatial audio manager with the actual player
-            spatialAudioManager = SpatialAudioManager(context, player)
-            
-            // Log HDR capability details
-            val hdrInfo = HdrCapabilityManager.getDetailedHdrInfo(context)
-            Log.i("PlayerUtils", "HDR Capabilities:\n$hdrInfo")
+            // Initialize spatial audio manager only if enabled by user
+            if (spatialAudioEnabled) {
+                spatialAudioManager = SpatialAudioManager(context, player)
+            } else {
+                spatialAudioManager = null
+            }
             
             return player
             
         } catch (e: Exception) {
-            Log.e("PlayerUtils", "=== PLAYER CREATION FAILED ===", e)
-            Log.e("PlayerUtils", "Exception type: ${e.javaClass.simpleName}")
-            Log.e("PlayerUtils", "Exception message: ${e.message}")
-            Log.e("PlayerUtils", "Exception cause: ${e.cause}")
-            e.printStackTrace()
+            Log.e("PlayerUtils", "Player creation failed", e)
             throw e // Re-throw to let caller handle it
         }
     }
     
     /**
-     * Create Dolby Vision compatible RenderersFactory
+     * Apply battery optimization settings to the player
      */
     @UnstableApi
-    private fun createDolbyVisionCompatibleRenderersFactory(context: Context): DolbyVisionCompatibleRenderersFactory {
-        return DolbyVisionCompatibleRenderersFactory(context)
+    private fun applyBatteryOptimization(
+        playerBuilder: ExoPlayer.Builder,
+        playerPreferences: PlayerPreferences
+    ) {
+        try {
+            // Reduce buffer sizes for lower memory usage
+            if (playerPreferences.isBufferOptimizationEnabled()) {
+                val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        15000,
+                        30000,
+                        1500,
+                        5000
+                    )
+                    .setTargetBufferBytes(-1)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build()
+                    
+                playerBuilder.setLoadControl(loadControl)
+                Log.d("PlayerUtils", "Applied reduced buffer sizes for battery optimization")
+            }
+            
+            // Set lower wake mode for battery saving
+            playerBuilder.setWakeMode(C.WAKE_MODE_NONE)
+            
+        } catch (e: Exception) {
+        }
+    }
+    
+    /**
+     * Create enhanced hardware acceleration
+     */
+    @UnstableApi
+    private fun createHardwareAcceleration(context: Context): HardwareAcceleration {
+        return HardwareAcceleration(context)
     }
     
     /**
@@ -145,12 +188,11 @@ object PlayerUtils {
     }
     
     /**
-     * Configure ExoPlayer spatial audio based on content format (auto-detection)
-     * This method is now primarily for internal use since spatial audio is always enabled
+     * Configure ExoPlayer spatial audio based on content format and user preferences
+     * This method allows dynamic control of spatial audio during playback
      */
     @UnstableApi
     fun configureSpatialAudio(exoPlayer: ExoPlayer, context: Context, enabled: Boolean) {
-        Log.d("PlayerUtils", "Configuring spatial audio: $enabled")
         
         try {
             // Get current track selection parameters
@@ -192,23 +234,22 @@ object PlayerUtils {
                         contentHasDolbyAtmos = true,
                         contentHasSurround = true
                     )
+                    
+                    // Apply compatibility enhancements and effects only when enabled
+                    manager.applyCompatibilityEnhancements()
+                    manager.forceApplyEffects()
+                    
+                    // Schedule player ready callback
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        manager.onPlayerReady()
+                    }, 1000)
                 } else {
                     manager.configureAudioForContent(
                         contentHasDolbyAtmos = false,
                         contentHasSurround = false
                     )
+                    manager.disableSpatialEffects()
                 }
-                
-                // Apply compatibility enhancements
-                manager.applyCompatibilityEnhancements()
-                
-                // Apply effects
-                manager.forceApplyEffects()
-                
-                // Schedule player ready callback
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    manager.onPlayerReady()
-                }, 1000)
                 
                 val audioStatus = manager.getAudioStatus()
             }
@@ -222,8 +263,8 @@ object PlayerUtils {
     }
     
     /**
-     * Configure spatial audio based on actual content detection results
-     * Content-aware approach: effects work for compatible formats regardless of device limitations
+     * Configure spatial audio based on actual content detection results and user preferences
+     * Respects user's spatial audio toggle setting
      */
     @UnstableApi
     fun configureSpatialAudioForContent(
@@ -232,6 +273,16 @@ object PlayerUtils {
         spatializationResult: com.jellycine.detail.SpatializationResult?
     ) {
         Log.d("PlayerUtils", "Configuring spatial audio based on content analysis")
+        
+        // First check user preference
+        val playerPreferences = PlayerPreferences(context)
+        val userSpatialAudioEnabled = playerPreferences.isSpatialAudioEnabled()
+        
+        if (!userSpatialAudioEnabled) {
+            Log.d("PlayerUtils", "Spatial audio disabled by user preference - skipping content-based configuration")
+            spatialAudioManager?.disableSpatialEffects()
+            return
+        }
         
         try {
             val spatialFormat = spatializationResult?.spatialFormat ?: ""
@@ -300,17 +351,21 @@ object PlayerUtils {
                     contentHasSurround = hasSurroundChannels || hasDTSX
                 )
                 
-                // Apply effects
-                manager.applyCompatibilityEnhancements()
-                manager.forceApplyEffects()
-                
-                // Schedule player ready callback
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    manager.onPlayerReady()
-                }, 1000)
-                
-                val audioStatus = manager.getAudioStatus()
-                Log.d("PlayerUtils", "Spatial audio configured for compatible content: $audioStatus")
+                // Only apply effects and enhancements when both user preference AND content compatibility are met
+                if (shouldApplyEffects) {
+                    manager.applyCompatibilityEnhancements()
+                    manager.forceApplyEffects()
+                    
+                    // Schedule player ready callback
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        manager.onPlayerReady()
+                    }, 1000)
+                    
+                    val audioStatus = manager.getAudioStatus()
+                    Log.d("PlayerUtils", "Spatial audio configured for compatible content: $audioStatus")
+                } else {
+                    Log.d("PlayerUtils", "Spatial audio effects disabled - not applying")
+                }
             }
             
             Log.d("PlayerUtils", "Content-aware spatial audio configuration completed")
