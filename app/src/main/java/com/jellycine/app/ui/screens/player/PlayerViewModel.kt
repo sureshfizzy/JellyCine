@@ -16,9 +16,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.model.MediaStream
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
@@ -53,7 +56,12 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var spatializerHelper: SpatializerHelper? = null
     private lateinit var mediaRepository: MediaRepository
     private var playerContext: Context? = null
-    private var apiMediaStreams: List<com.jellycine.data.model.MediaStream>? = null
+    private var apiMediaStreams: List<MediaStream>? = null
+    private var currentMediaId: String? = null
+    private var playSessionId: String? = null
+    private var mediaSourceId: String? = null
+    private var progressReportingJob: kotlinx.coroutines.Job? = null
+    private var hasReportedStart = false
 
     fun initializePlayer(context: Context, mediaId: String) {
         viewModelScope.launch {
@@ -61,6 +69,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
 
                 playerContext = context // Store context for later use
+                currentMediaId = mediaId // Store media ID for session reporting
                 mediaRepository = MediaRepositoryProvider.getInstance(context)
                 
                 // Initialize spatial audio monitoring
@@ -68,6 +77,22 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 setupSpatializerListener()
                 
                 exoPlayer = PlayerUtils.createPlayer(context)
+
+                // Get playback info first to obtain session details and check for resume position
+                val playbackInfoResult = mediaRepository.getPlaybackInfo(mediaId)
+                if (playbackInfoResult.isFailure) {
+                    val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
+                    _playerState.value = _playerState.value.copy(isLoading = false, error = error)
+                    return@launch
+                }
+
+                val playbackInfo = playbackInfoResult.getOrNull()!!
+                playSessionId = playbackInfo.playSessionId
+                mediaSourceId = playbackInfo.mediaSources?.firstOrNull()?.id
+
+                // Get item details to check for resume position
+                val itemResult = mediaRepository.getItemById(mediaId)
+                val resumePositionTicks = itemResult.getOrNull()?.userData?.playbackPositionTicks
 
                 val streamingResult = mediaRepository.getStreamingUrl(mediaId)
                 if (streamingResult.isFailure) {
@@ -80,9 +105,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val mediaItem = MediaItem.fromUri(streamingUrl)
                 
                 // Get media info for spatial audio analysis
-                val playbackInfoResult = mediaRepository.getPlaybackInfo(mediaId)
-
-                apiMediaStreams = playbackInfoResult.getOrNull()?.mediaSources?.firstOrNull()?.mediaStreams
+                apiMediaStreams = playbackInfo.mediaSources?.firstOrNull()?.mediaStreams
 
                 val spatializationResult = apiMediaStreams?.let { streams ->
                     val audioStreams = streams.filter { it.type == "Audio" }
@@ -98,6 +121,13 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 exoPlayer?.apply {
                     setMediaItem(mediaItem)
                     prepare()
+
+                    if (resumePositionTicks != null && resumePositionTicks > 0) {
+                        val resumePositionMs = resumePositionTicks / 10000L // Convert ticks to milliseconds
+                        seekTo(resumePositionMs)
+                        Log.d("PlayerViewModel", "Seeking to resume position: ${resumePositionMs}ms")
+                    }
+                    
                     playWhenReady = true
                     addListener(playerListener)
                 }
@@ -169,6 +199,13 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             } else {
                 player.play()
             }
+            
+            // Report progress on pause/play
+            if (hasReportedStart) {
+                viewModelScope.launch {
+                    reportPlaybackProgress()
+                }
+            }
         }
     }
 
@@ -186,6 +223,11 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     }
 
     fun releasePlayer() {
+        // Report playback stopped before releasing
+        reportPlaybackStopped()
+        progressReportingJob?.cancel()
+        progressReportingJob = null
+        
         exoPlayer?.apply {
             removeListener(playerListener)
             release()
@@ -193,7 +235,133 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         exoPlayer = null
         spatializerHelper?.cleanup()
         spatializerHelper = null
+        
+        // Reset session tracking variables
+        currentMediaId = null
+        playSessionId = null
+        mediaSourceId = null
+        hasReportedStart = false
+        
         _playerState.value = PlayerState()
+    }
+
+    /**
+     * Report playback start to Jellyfin server
+     */
+    private fun reportPlaybackStart() {
+        currentMediaId?.let { mediaId ->
+            if (!hasReportedStart) {
+                viewModelScope.launch {
+                    try {
+                        val currentPos = exoPlayer?.currentPosition ?: 0L
+                        val positionTicks = currentPos * 10000L // Convert ms to ticks
+                        
+                        val result = mediaRepository.reportPlaybackStart(
+                            itemId = mediaId,
+                            playSessionId = playSessionId,
+                            mediaSourceId = mediaSourceId,
+                            positionTicks = positionTicks,
+                            playMethod = "DirectPlay"
+                        )
+                        
+                        if (result.isSuccess) {
+                            hasReportedStart = true
+                            Log.d("PlayerViewModel", "Successfully reported playback start")
+                            startProgressReporting()
+                        } else {
+                            Log.e("PlayerViewModel", "Failed to report playback start: ${result.exceptionOrNull()?.message}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PlayerViewModel", "Error reporting playback start", e)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Start periodic progress reporting
+     */
+    private fun startProgressReporting() {
+        progressReportingJob?.cancel()
+        progressReportingJob = viewModelScope.launch {
+            while (hasReportedStart && exoPlayer != null) {
+                try {
+                    delay(15000L)
+                    reportPlaybackProgress()
+                } catch (e: Exception) {
+                    Log.e("PlayerViewModel", "Error in progress reporting loop", e)
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * Report current playback progress to Jellyfin server
+     */
+    private fun reportPlaybackProgress() {
+        currentMediaId?.let { mediaId ->
+            if (hasReportedStart && exoPlayer != null) {
+                viewModelScope.launch {
+                    try {
+                        val currentPos = exoPlayer?.currentPosition ?: 0L
+                        val positionTicks = currentPos * 10000L
+                        val isPaused = exoPlayer?.playWhenReady != true
+                        
+                        val result = mediaRepository.reportPlaybackProgress(
+                            itemId = mediaId,
+                            positionTicks = positionTicks,
+                            playSessionId = playSessionId,
+                            mediaSourceId = mediaSourceId,
+                            isPaused = isPaused,
+                            playMethod = "DirectPlay"
+                        )
+                        
+                        if (result.isSuccess) {
+                            Log.d("PlayerViewModel", "Progress reported: ${currentPos}ms ($positionTicks ticks)")
+                        } else {
+                            Log.e("PlayerViewModel", "Failed to report progress: ${result.exceptionOrNull()?.message}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PlayerViewModel", "Error reporting playback progress", e)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Report playback stopped to Jellyfin server
+     */
+    private fun reportPlaybackStopped() {
+        currentMediaId?.let { mediaId ->
+            if (hasReportedStart) {
+                viewModelScope.launch {
+                    try {
+                        val currentPos = exoPlayer?.currentPosition ?: 0L
+                        val positionTicks = currentPos * 10000L // Convert ms to ticks
+                        
+                        val result = mediaRepository.reportPlaybackStopped(
+                            itemId = mediaId,
+                            positionTicks = positionTicks,
+                            playSessionId = playSessionId,
+                            mediaSourceId = mediaSourceId
+                        )
+                        
+                        if (result.isSuccess) {
+                            Log.d("PlayerViewModel", "Successfully reported playback stopped")
+                        } else {
+                            Log.e("PlayerViewModel", "Failed to report playback stopped: ${result.exceptionOrNull()?.message}")
+                        }
+                        
+                        hasReportedStart = false
+                    } catch (e: Exception) {
+                        Log.e("PlayerViewModel", "Error reporting playback stopped", e)
+                    }
+                }
+            }
+        }
     }
 
     fun clearError() {
@@ -353,10 +521,25 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val wasPlaying = _playerState.value.isPlaying
+            val isNowPlaying = playbackState == Player.STATE_READY && exoPlayer?.playWhenReady == true
+            
             _playerState.value = _playerState.value.copy(
                 isLoading = playbackState == Player.STATE_BUFFERING,
-                isPlaying = playbackState == Player.STATE_READY && exoPlayer?.playWhenReady == true
+                isPlaying = isNowPlaying
             )
+
+            // Report playback start when player becomes ready and starts playing
+            if (playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart) {
+                reportPlaybackStart()
+            }
+            
+            // Report progress when pause/resume state changes
+            if (hasReportedStart && wasPlaying != isNowPlaying) {
+                viewModelScope.launch {
+                    reportPlaybackProgress()
+                }
+            }
 
             // Update track information when player becomes ready
             if (playbackState == Player.STATE_READY) {
@@ -370,6 +553,21 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 isLoading = false,
                 isPlaying = false
             )
+            
+            // Report playback stopped due to error
+            if (hasReportedStart) {
+                viewModelScope.launch {
+                    currentMediaId?.let { mediaId ->
+                        mediaRepository.reportPlaybackStopped(
+                            itemId = mediaId,
+                            positionTicks = (exoPlayer?.currentPosition ?: 0L) * 10000L,
+                            playSessionId = playSessionId,
+                            mediaSourceId = mediaSourceId,
+                            failed = true
+                        )
+                    }
+                }
+            }
         }
 
         override fun onPositionDiscontinuity(
@@ -381,6 +579,13 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 currentPosition = newPosition.positionMs,
                 duration = exoPlayer?.duration ?: 0L
             )
+            
+            // Report progress on significant position changes (seeking)
+            if (hasReportedStart && reason == Player.DISCONTINUITY_REASON_SEEK) {
+                viewModelScope.launch {
+                    reportPlaybackProgress()
+                }
+            }
         }
     }
 

@@ -2,11 +2,14 @@ package com.jellycine.data.api
 
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
-import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.QueryResult
-import com.jellycine.data.model.UserDto
 import com.jellycine.data.model.PlaybackInfoResponse
+import com.jellycine.data.model.PlaybackProgressRequest
+import com.jellycine.data.model.PlaybackStartRequest
+import com.jellycine.data.model.PlaybackStoppedRequest
+import com.jellycine.data.model.QueryResult
+import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.model.UserDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -160,4 +163,14 @@ interface JellyfinApi {
         @Query("limit") limit: Int? = 50,
         @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
     ): Response<QueryResult<BaseItemDto>>
+
+    // Session reporting endpoints for playback progress tracking
+    @POST("Sessions/Playing")
+    suspend fun reportPlaybackStart(@Body request: PlaybackStartRequest): Response<Unit>
+
+    @POST("Sessions/Playing/Progress")
+    suspend fun reportPlaybackProgress(@Body request: PlaybackProgressRequest): Response<Unit>
+
+    @POST("Sessions/Playing/Stopped")
+    suspend fun reportPlaybackStopped(@Body request: PlaybackStoppedRequest): Response<Unit>
 }

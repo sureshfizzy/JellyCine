@@ -734,6 +734,121 @@ class MediaRepository(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    // Session reporting methods for playback progress tracking
+
+    /**
+     * Report playback start to Jellyfin server
+     */
+    suspend fun reportPlaybackStart(
+        itemId: String,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        positionTicks: Long? = null,
+        playMethod: String? = null
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+
+            val request = com.jellycine.data.model.PlaybackStartRequest(
+                itemId = itemId,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                positionTicks = positionTicks,
+                playMethod = playMethod
+            )
+
+            val response = api.reportPlaybackStart(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to report playback start: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Report playback progress to Jellyfin server
+     */
+    suspend fun reportPlaybackProgress(
+        itemId: String,
+        positionTicks: Long,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        isPaused: Boolean = false,
+        isMuted: Boolean = false,
+        volumeLevel: Int? = null,
+        playMethod: String? = null
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+
+            val request = com.jellycine.data.model.PlaybackProgressRequest(
+                itemId = itemId,
+                positionTicks = positionTicks,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                isPaused = isPaused,
+                isMuted = isMuted,
+                volumeLevel = volumeLevel,
+                playMethod = playMethod
+            )
+
+            val response = api.reportPlaybackProgress(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to report playback progress: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Report playback stopped to Jellyfin server
+     */
+    suspend fun reportPlaybackStopped(
+        itemId: String,
+        positionTicks: Long? = null,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        failed: Boolean = false
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+
+            val request = com.jellycine.data.model.PlaybackStoppedRequest(
+                itemId = itemId,
+                positionTicks = positionTicks,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                failed = failed
+            )
+
+            val response = api.reportPlaybackStopped(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to report playback stopped: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
 
 // Extension functions for BaseItemDto
@@ -773,5 +888,53 @@ fun BaseItemDto.getYearAndGenre(): String {
 fun BaseItemDto.getFormattedRating(): String? {
     return communityRating?.let { rating ->
         String.format("%.1f", rating)
+    }
+}
+
+/**
+ * Get resume position in ticks from user data
+ */
+fun BaseItemDto.getResumePositionTicks(): Long? {
+    return userData?.playbackPositionTicks
+}
+
+/**
+ * Check if item is resumable (has a saved position and is not finished)
+ */
+fun BaseItemDto.isResumable(): Boolean {
+    val positionTicks = userData?.playbackPositionTicks ?: return false
+    val totalTicks = runTimeTicks ?: return false
+    
+    // Consider item resumable if position is > 0 and < 95% of total runtime
+    return positionTicks > 0 && positionTicks < (totalTicks * 0.95)
+}
+
+/**
+ * Get resume position as percentage (0.0 to 1.0)
+ */
+fun BaseItemDto.getResumePercentage(): Double {
+    val positionTicks = userData?.playbackPositionTicks ?: return 0.0
+    val totalTicks = runTimeTicks ?: return 0.0
+    
+    return if (totalTicks > 0) {
+        (positionTicks.toDouble() / totalTicks.toDouble()).coerceIn(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+/**
+ * Get formatted resume position as time string (e.g., "15:30")
+ */
+fun BaseItemDto.getFormattedResumePosition(): String? {
+    val positionTicks = userData?.playbackPositionTicks ?: return null
+    val seconds = (positionTicks / 10_000_000).toInt()
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes % 60, seconds % 60)
+    } else {
+        String.format("%d:%02d", minutes, seconds % 60)
     }
 }
