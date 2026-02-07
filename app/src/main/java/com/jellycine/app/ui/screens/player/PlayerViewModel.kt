@@ -850,7 +850,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                                 if (isContentHdr) {
                                     currentFormat = when {
                                         colorInfo?.contains("Dolby Vision", ignoreCase = true) == true -> "Dolby Vision"
-                                        codecs?.contains("dvhe", ignoreCase = true) || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
+                                        codecs?.contains("dvhe", ignoreCase = true) == true || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
                                         colorInfo?.contains("HDR10+", ignoreCase = true) == true -> "HDR10+"
                                         colorInfo?.contains("HDR10", ignoreCase = true) == true || colorInfo?.contains("SMPTE2084", ignoreCase = true) == true -> "HDR10"
                                         colorInfo?.contains("HLG", ignoreCase = true) == true -> "HLG"

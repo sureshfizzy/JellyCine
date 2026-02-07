@@ -6,6 +6,19 @@ plugins {
     id 'kotlin-kapt'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def signingValue = { String key, String envKey ->
+    def prop = keystoreProperties.getProperty(key)
+    if (prop != null && !prop.trim().isEmpty()) return prop.trim()
+    def env = System.getenv(envKey)
+    return (env != null && !env.trim().isEmpty()) ? env.trim() : null
+}
+
 android {
     namespace = 'com.jellycine.app'
     compileSdk = 35
@@ -23,10 +36,27 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            def storeFilePath = signingValue("storeFile", "JELLYCINE_STORE_FILE") ?: "jellycine-release.keystore"
+            def storePasswordValue = signingValue("storePassword", "JELLYCINE_STORE_PASSWORD")
+            def keyAliasValue = signingValue("keyAlias", "JELLYCINE_KEY_ALIAS")
+            def keyPasswordValue = signingValue("keyPassword", "JELLYCINE_KEY_PASSWORD")
+
+            if (storePasswordValue != null && keyAliasValue != null && keyPasswordValue != null) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 

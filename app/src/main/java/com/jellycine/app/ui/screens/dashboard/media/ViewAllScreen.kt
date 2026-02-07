@@ -243,7 +243,7 @@ fun ViewAllScreen(
                         ) {
                             items(
                                 items = items,
-                                key = { item -> item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: System.currentTimeMillis()}" }
+                                key = { item -> item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: 0}" }
                             ) { item ->
                                 PosterCard(
                                     item = item,

@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.jellycine.data.api.JellyfinApi
+import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -20,17 +21,50 @@ class MediaRepository(private val context: Context) {
     
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
+        private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
         private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
+
+    private data class ImageAuthState(
+        val serverUrl: String?,
+        val accessToken: String?
+    )
+
+    private data class ApiSession(
+        val api: MediaServerApi,
+        val userId: String
+    )
+
+    @Volatile
+    private var cachedSession: ApiSession? = null
+
+    @Volatile
+    private var cachedSessionKey: String? = null
+
+    private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
+        .map { preferences ->
+            ImageAuthState(
+                serverUrl = preferences[SERVER_URL_KEY],
+                accessToken = preferences[ACCESS_TOKEN_KEY]
+            )
+        }
+        .distinctUntilChanged()
     
-    private suspend fun getApi(): JellyfinApi? {
+    private suspend fun getApi(): MediaServerApi? {
         val preferences = dataStore.data.first()
         val serverUrl = preferences[SERVER_URL_KEY]
+        val serverType = preferences[SERVER_TYPE_KEY]?.let {
+            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+        }
         val accessToken = preferences[ACCESS_TOKEN_KEY]
 
         return if (serverUrl != null) {
-            NetworkModule.createJellyfinApi(serverUrl, accessToken)
+            NetworkModule.createMediaServerApi(
+                baseUrl = serverUrl,
+                accessToken = accessToken,
+                serverType = serverType
+            )
         } else {
             null
         }
@@ -40,6 +74,43 @@ class MediaRepository(private val context: Context) {
         val preferences = dataStore.data.first()
         return preferences[USER_ID_KEY]
     }
+
+    private suspend fun getApiSession(): ApiSession? {
+        val preferences = dataStore.data.first()
+        val serverUrl = preferences[SERVER_URL_KEY] ?: return null
+        val serverTypeRaw = preferences[SERVER_TYPE_KEY]
+        val serverType = serverTypeRaw?.let {
+            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+        }
+        val accessToken = preferences[ACCESS_TOKEN_KEY]
+        val userId = preferences[USER_ID_KEY] ?: return null
+        val newSessionKey = "$serverUrl|${serverTypeRaw ?: ""}|${accessToken ?: ""}|$userId"
+
+        cachedSession?.let { session ->
+            if (cachedSessionKey == newSessionKey) {
+                return session
+            }
+        }
+
+        synchronized(this) {
+            cachedSession?.let { session ->
+                if (cachedSessionKey == newSessionKey) {
+                    return session
+                }
+            }
+
+            val api = NetworkModule.createMediaServerApi(
+                baseUrl = serverUrl,
+                accessToken = accessToken,
+                serverType = serverType
+            )
+
+            val session = ApiSession(api = api, userId = userId)
+            cachedSession = session
+            cachedSessionKey = newSessionKey
+            return session
+        }
+    }
     
     suspend fun getLatestItems(
         parentId: String? = null,
@@ -48,11 +119,10 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
 
-            val response = api.getLatestItems(
-                userId = userId,
+            val response = session.api.getLatestItems(
+                userId = session.userId,
                 parentId = parentId,
                 includeItemTypes = includeItemTypes,
                 limit = limit,
@@ -128,10 +198,8 @@ class MediaRepository(private val context: Context) {
     
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
-            
-            val response = api.getUserViews(userId)
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val response = session.api.getUserViews(session.userId)
             
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -150,9 +218,9 @@ class MediaRepository(private val context: Context) {
         height: Int? = null,
         quality: Int? = 90
     ): Flow<String?> {
-        return dataStore.data.map { preferences ->
-            val serverUrl = preferences[SERVER_URL_KEY]
-            val accessToken = preferences[ACCESS_TOKEN_KEY]
+        return imageAuthStateFlow.map { authState ->
+            val serverUrl = authState.serverUrl
+            val accessToken = authState.accessToken
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val params = mutableListOf<String>()
                 accessToken?.let { params.add("api_key=$it") }
@@ -174,9 +242,9 @@ class MediaRepository(private val context: Context) {
         height: Int? = null,
         quality: Int? = 90
     ): Flow<String?> {
-        return dataStore.data.map { preferences ->
-            val serverUrl = preferences[SERVER_URL_KEY]
-            val accessToken = preferences[ACCESS_TOKEN_KEY]
+        return imageAuthStateFlow.map { authState ->
+            val serverUrl = authState.serverUrl
+            val accessToken = authState.accessToken
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val params = mutableListOf<String>()
                 accessToken?.let { params.add("api_key=$it") }
@@ -378,11 +446,10 @@ class MediaRepository(private val context: Context) {
         limit: Int? = 20
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
 
-            val response = api.getItemsByGenre(
-                userId = userId,
+            val response = session.api.getItemsByGenre(
+                userId = session.userId,
                 genreIds = genreId,
                 includeItemTypes = includeItemTypes,
                 recursive = true,
@@ -452,11 +519,10 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
 
-            val response = api.getResumeItems(
-                userId = userId,
+            val response = session.api.getResumeItems(
+                userId = session.userId,
                 parentId = parentId,
                 includeItemTypes = includeItemTypes,
                 limit = limit,

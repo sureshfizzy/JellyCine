@@ -24,10 +24,7 @@ import com.jellycine.auth.AuthStateManager
 import com.jellycine.data.repository.MediaRepositoryProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @UnstableApi
 @AndroidEntryPoint
@@ -47,41 +44,27 @@ class JellyCineActivity : ComponentActivity() {
 
             if (isAuthenticated) {
                 val mediaRepository = MediaRepositoryProvider.getInstance(this@JellyCineActivity)
+                // Keep splash minimal; perform heavy preloading in background.
+                kotlinx.coroutines.delay(150)
+                isReady = true
 
-                try {
-                    withContext(Dispatchers.IO) {
-                        val preloadJobs = listOf(
-                            async {
-                                mediaRepository.getResumeItems(limit = 12)
-                            },
-                            async {
-                                mediaRepository.getLatestItems(
-                                    includeItemTypes = "Movie,Series",
-                                    limit = 5
-                                )
-                            },
-                            async {
-                                mediaRepository.getUserViews()
-                            },
-                            async {
-                                mediaRepository.getRecentlyAddedMovies(limit = 5)
-                            },
-                            async {
-                                mediaRepository.getRecentlyAddedSeries(limit = 5)
-                            }
+                launch(Dispatchers.IO) {
+                    try {
+                        mediaRepository.getResumeItems(limit = 12)
+                        mediaRepository.getLatestItems(
+                            includeItemTypes = "Movie,Series",
+                            limit = 5
                         )
-
-                        preloadJobs.awaitAll()
+                        mediaRepository.getUserViews()
+                        mediaRepository.getRecentlyAddedMovies(limit = 5)
+                        mediaRepository.getRecentlyAddedSeries(limit = 5)
+                    } catch (_: Exception) {
                     }
-                } catch (e: Exception) {
                 }
-
-                kotlinx.coroutines.delay(600)
             } else {
-                kotlinx.coroutines.delay(300)
+                kotlinx.coroutines.delay(120)
+                isReady = true
             }
-
-            isReady = true
         }
 
         // Use modern edge-to-edge approach

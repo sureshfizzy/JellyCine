@@ -24,6 +24,7 @@ object ImageLoaderConfig {
     private const val DEVICE_NAME = "Android"
 
     private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
+    private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
 
     // Generate device ID once and reuse it
     private val deviceId by lazy { UUID.randomUUID().toString() }
@@ -64,32 +65,29 @@ object ImageLoaderConfig {
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
         val dataStore = DataStoreProvider.getDataStore(context)
+        val preferences = runBlocking {
+            runCatching { dataStore.data.first() }.getOrNull()
+        }
+        val accessToken = preferences?.get(ACCESS_TOKEN_KEY)
+        val serverType = preferences?.get(SERVER_TYPE_KEY)
+        val headerPrefix = if (serverType.equals("EMBY", ignoreCase = true)) "Emby" else "MediaBrowser"
+        val authHeader = buildString {
+            append("$headerPrefix ")
+            append("Client=\"$CLIENT_NAME\", ")
+            append("Device=\"$DEVICE_NAME\", ")
+            append("DeviceId=\"$deviceId\", ")
+            append("Version=\"$CLIENT_VERSION\"")
+
+            if (!accessToken.isNullOrEmpty()) {
+                append(", Token=\"$accessToken\"")
+            }
+        }
 
         val authInterceptor = Interceptor { chain ->
             val originalRequest = chain.request()
-
-            val accessToken = runBlocking {
-                try {
-                    dataStore.data.first()[ACCESS_TOKEN_KEY]
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            val authHeader = buildString {
-                append("MediaBrowser ")
-                append("Client=\"$CLIENT_NAME\", ")
-                append("Device=\"$DEVICE_NAME\", ")
-                append("DeviceId=\"$deviceId\", ")
-                append("Version=\"$CLIENT_VERSION\"")
-
-                if (!accessToken.isNullOrEmpty()) {
-                    append(", Token=\"$accessToken\"")
-                }
-            }
-
             val newRequest = originalRequest.newBuilder()
                 .addHeader("Authorization", authHeader)
+                .addHeader("X-Emby-Authorization", authHeader)
                 .addHeader("Content-Type", "application/json")
                 .build()
 

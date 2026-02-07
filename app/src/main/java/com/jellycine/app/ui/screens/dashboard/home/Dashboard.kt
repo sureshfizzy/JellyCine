@@ -4,16 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -50,7 +48,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
@@ -60,7 +57,6 @@ import com.jellycine.app.ui.screens.dashboard.LibrarySkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import androidx.compose.foundation.gestures.ScrollableDefaults
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Immutable
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -127,7 +123,7 @@ class QueryManager(private val scope: CoroutineScope) {
     private val maxConcurrentRequests = mapOf(
         QueryPriority.HIGH to 4,
         QueryPriority.MEDIUM to 3,
-        QueryPriority.LOW to 2
+        QueryPriority.LOW to 3
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -182,10 +178,10 @@ class QueryManager(private val scope: CoroutineScope) {
         setQuery(key, newState)
 
         jobs[key] = scope.launch {
-            var waitTime = 50L
+            var waitTime = 20L
             while (!canExecuteRequest(config.priority)) {
                 delay(waitTime)
-                waitTime = if (waitTime * 1.5 > 500.0) 500L else (waitTime * 1.5).toLong()
+                waitTime = if (waitTime * 1.5 > 250.0) 250L else (waitTime * 1.5).toLong()
             }
 
             incrementActiveRequests(config.priority)
@@ -298,7 +294,7 @@ fun <T> useQuery(
 
             // Listen for state changes
             while (true) {
-                delay(50)
+                delay(80)
                 val currentState = queryManager.getQuery<T>(key)
                 if (currentState != state) {
                     state = currentState
@@ -369,82 +365,45 @@ fun ImageLoader(
         }
     }
 
-    var blurImageUrl by remember(actualItemId) { mutableStateOf<String?>(null) }
-    var highQualityImageUrl by remember(actualItemId) { mutableStateOf<String?>(null) }
-    var isHighQualityLoaded by remember(actualItemId) { mutableStateOf(false) }
+    var imageUrl by remember(actualItemId) { mutableStateOf<String?>(null) }
     var hasError by remember(actualItemId) { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(actualItemId) {
         if (actualItemId != null) {
-            withContext(Dispatchers.IO) {
-                try {
-                    val blurUrl = mediaRepository.getImageUrl(
-                        itemId = actualItemId,
-                        imageType = imageType,
-                        width = if (imageType == "Thumb") 80 else 60,
-                        height = if (imageType == "Thumb") 50 else 90,
-                        quality = 20
-                    ).first()
-
-                    withContext(Dispatchers.Main) {
-                        blurImageUrl = blurUrl
-                    }
-
-                    delay(50)
-
-                    val highQualityUrl = mediaRepository.getImageUrl(
+            hasError = false
+            imageUrl = null
+            try {
+                val resolvedUrl = withContext(Dispatchers.IO) {
+                    mediaRepository.getImageUrl(
                         itemId = actualItemId,
                         imageType = imageType,
                         width = if (imageType == "Thumb") 400 else 300,
                         height = if (imageType == "Thumb") 240 else 450,
-                        quality = 95
+                        quality = 90
                     ).first()
-
-                    withContext(Dispatchers.Main) {
-                        highQualityImageUrl = highQualityUrl
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        hasError = true
-                    }
                 }
+                imageUrl = resolvedUrl
+            } catch (e: Exception) {
+                hasError = true
             }
+        } else {
+            imageUrl = null
+            hasError = true
         }
     }
 
     Box(modifier = modifier) {
-        // Show blur image first for instant visual feedback
-        if (!blurImageUrl.isNullOrEmpty() && !hasError) {
+        if (!imageUrl.isNullOrEmpty() && !hasError) {
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(blurImageUrl)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .allowHardware(true)
-                    .allowRgb565(false)
-                    .crossfade(0)
-                    .build(),
-                contentDescription = contentDescription,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .blur(radius = 4.dp),
-                contentScale = contentScale
-            )
-        }
-
-        // Show high quality image on top when loaded
-        if (!highQualityImageUrl.isNullOrEmpty() && !hasError) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(highQualityImageUrl)
+                    .data(imageUrl)
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
                     .allowRgb565(false)
-                    .crossfade(200)
+                    .crossfade(120)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -454,7 +413,6 @@ fun ImageLoader(
                 onState = { state ->
                     when (state) {
                         is AsyncImagePainter.State.Success -> {
-                            isHighQualityLoaded = true
                             hasError = false
                         }
                         is AsyncImagePainter.State.Error -> {
@@ -466,8 +424,7 @@ fun ImageLoader(
             )
         }
 
-        // Placeholder only if no blur image is available yet
-        if (blurImageUrl.isNullOrEmpty() && !hasError) {
+        if (imageUrl.isNullOrEmpty() && !hasError) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -476,7 +433,6 @@ fun ImageLoader(
             )
         }
 
-        // Error state
         if (hasError) {
             Box(
                 modifier = Modifier
@@ -605,15 +561,8 @@ fun Dashboard(
         }
     }
 
-    // Optimize LazyColumn state for better performance
+    // Keep only visible sections composed while scrolling
     val lazyColumnState = rememberLazyListState()
-
-    // Use derivedStateOf to prevent unnecessary recompositions during scrolling
-    val isScrolling by remember {
-        derivedStateOf {
-            lazyColumnState.isScrollInProgress
-        }
-    }
 
     // Progressive loading state to control when secondary content loads
     var primaryContentLoaded by remember { mutableStateOf(false) }
@@ -677,7 +626,7 @@ fun Dashboard(
                 retryDelay = 1000L
             )
         ) {
-            val result = mediaRepository.getResumeItems(limit = 12)
+            val result = mediaRepository.getResumeItems(limit = 8)
             result.fold(
                 onSuccess = { items ->
                     items.filter { item ->
@@ -758,22 +707,6 @@ fun Dashboard(
             }
         }
 
-        val mainScrollState = rememberScrollState()
-
-        // Track if user is actively scrolling to pause non-essential API calls
-        var isScrolling by remember { mutableStateOf(false) }
-        var scrollDebounceJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-
-        // Detect scrolling state changes
-        LaunchedEffect(mainScrollState.value) {
-            isScrolling = true
-            scrollDebounceJob?.cancel()
-            scrollDebounceJob = launch {
-                delay(150)
-                isScrolling = false
-            }
-        }
-
         // Lifecycle-aware query refresh
         LaunchedEffect(isTabActive) {
             if (isTabActive) {
@@ -781,47 +714,49 @@ fun Dashboard(
             }
         }
 
-        Column(
+        LazyColumn(
+            state = lazyColumnState,
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(
-                    state = mainScrollState,
-                    flingBehavior = ScrollableDefaults.flingBehavior()
-                ),
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+            contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            FeatureTab(
-                featuredItems = featuredQuery.data ?: emptyList(),
-                isLoading = featuredQuery.isLoading,
-                error = featuredQuery.error,
-                selectedCategory = selectedCategory,
-                onItemClick = onNavigateToDetail,
-                onLogout = onLogout,
-                onCategorySelected = { category ->
-                    selectedCategory = category
-                }
-            )
+            item(key = "feature_tab") {
+                FeatureTab(
+                    featuredItems = featuredQuery.data ?: emptyList(),
+                    isLoading = featuredQuery.isLoading,
+                    error = featuredQuery.error,
+                    selectedCategory = selectedCategory,
+                    onItemClick = onNavigateToDetail,
+                    onLogout = onLogout,
+                    onCategorySelected = { category ->
+                        selectedCategory = category
+                    }
+                )
+            }
 
             // Continue Watching section - only show on Home tab
             if (selectedCategory == "Home" && (continueWatchingQuery.isLoading || !continueWatchingQuery.data.isNullOrEmpty() || (continueWatchingQuery.data == null && !continueWatchingQuery.isError))) {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    if (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError)) {
-                        Text(
-                            text = "Continue Watching",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                        ContinueWatchingSkeleton()
-                    } else {
-                        ContinueWatchingSection(
-                            items = continueWatchingQuery.data ?: emptyList(),
-                            isLoading = continueWatchingQuery.isLoading,
-                            error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
-                            onItemClick = onNavigateToDetail
-                        )
+                item(key = "continue_watching_section") {
+                    Column(
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        if (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError)) {
+                            Text(
+                                text = "Continue Watching",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                            ContinueWatchingSkeleton()
+                        } else {
+                            ContinueWatchingSection(
+                                items = continueWatchingQuery.data ?: emptyList(),
+                                isLoading = continueWatchingQuery.isLoading,
+                                error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
+                                onItemClick = onNavigateToDetail
+                            )
+                        }
                     }
                 }
             }
@@ -830,40 +765,70 @@ fun Dashboard(
             if (selectedCategory == "Home") {
                 val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    LibrarySections(
-                        libraryViews = libraryViewsQuery.data ?: emptyList(),
-                        isLoading = libraryViewsQuery.isLoading,
-                        onItemClick = onNavigateToDetail,
-                        onNavigateToViewAll = onNavigateToViewAll
-                    )
+                if (topPadding > 0.dp) {
+                    item(key = "home_libraries_top_padding") {
+                        Spacer(modifier = Modifier.height(topPadding))
+                    }
+                }
+
+                val libraries = libraryViewsQuery.data ?: emptyList()
+                if (libraryViewsQuery.isLoading && libraries.isEmpty()) {
+                    item(key = "home_libraries_loading") {
+                        LibrarySections(
+                            libraryViews = emptyList(),
+                            isLoading = true,
+                            onItemClick = onNavigateToDetail,
+                            onNavigateToViewAll = onNavigateToViewAll
+                        )
+                    }
+                } else {
+                    itemsIndexed(
+                        items = libraries,
+                        key = { index, library -> library.id ?: "library_$index" }
+                    ) { index, library ->
+                        ProgressiveLibrarySection(
+                            library = library,
+                            mediaRepository = mediaRepository,
+                            onItemClick = onNavigateToDetail,
+                            onNavigateToViewAll = onNavigateToViewAll,
+                            loadPriority = when {
+                                index < 4 -> QueryPriority.HIGH
+                                else -> QueryPriority.LOW
+                            }
+                        )
+
+                        if (index < libraries.lastIndex) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
                 }
             } else if (selectedCategory == "Movies") {
                 val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    MovieGenreSections(
-                        onItemClick = onNavigateToDetail,
-                        onNavigateToViewAll = onNavigateToViewAll
-                    )
+                item(key = "movies_genres") {
+                    Column(
+                        modifier = Modifier.padding(top = topPadding)
+                    ) {
+                        MovieGenreSections(
+                            onItemClick = onNavigateToDetail,
+                            onNavigateToViewAll = onNavigateToViewAll
+                        )
+                    }
                 }
             } else if (selectedCategory == "TV Shows") {
                 val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
-                Column(
-                    modifier = Modifier.padding(top = topPadding)
-                ) {
-                    TVShowGenreSections(
-                        onItemClick = onNavigateToDetail,
-                        onNavigateToViewAll = onNavigateToViewAll
-                    )
+                item(key = "tv_genres") {
+                    Column(
+                        modifier = Modifier.padding(top = topPadding)
+                    ) {
+                        TVShowGenreSections(
+                            onItemClick = onNavigateToDetail,
+                            onNavigateToViewAll = onNavigateToViewAll
+                        )
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
@@ -942,7 +907,7 @@ private fun ContinueWatchingSection(
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
                     items(
-                        count = minOf(items.size, 8),
+                        count = minOf(items.size, 6),
                         key = { index ->
                             // Ultra-stable keys for smooth scrolling
                             items[index].id ?: "item_$index"
@@ -1002,7 +967,7 @@ private fun ContinueWatchingCard(
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             onClick = onClick
         ) {
             Box(
@@ -1162,14 +1127,8 @@ private fun StableLibraryList(
                 onItemClick = onItemClick,
                 onNavigateToViewAll = onNavigateToViewAll,
                 loadPriority = when {
-                    index < 2 -> QueryPriority.HIGH
-                    index < 4 -> QueryPriority.MEDIUM
+                    index < 4 -> QueryPriority.HIGH
                     else -> QueryPriority.LOW
-                },
-                loadDelay = when {
-                    index == 0 -> 0L
-                    index == 1 -> 200L
-                    else -> (index * 300L).coerceAtMost(1500L)
                 }
             )
         }
@@ -1185,35 +1144,18 @@ private fun ProgressiveLibrarySection(
     mediaRepository: MediaRepository,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
-    loadPriority: QueryPriority = QueryPriority.MEDIUM,
-    loadDelay: Long = 0L
+    loadPriority: QueryPriority = QueryPriority.MEDIUM
 ) {
     val libraryId = library.id ?: return
-
-    val isEssentialLibrary = remember(library.name) {
-        library.name?.lowercase()?.contains("movie") == true ||
-        library.name?.lowercase()?.contains("tv") == true ||
-        library.name?.lowercase()?.contains("series") == true
-    }
-
-    // Progressive loading
-    var shouldLoad by remember { mutableStateOf(loadDelay == 0L) }
-    
-    LaunchedEffect(libraryId) {
-        if (loadDelay > 0L) {
-            delay(loadDelay)
-            shouldLoad = true
-        }
-    }
 
     val libraryQuery = useQuery(
         key = "library_$libraryId",
         config = QueryConfig(
             staleTime = 60_000L,
-            enabled = shouldLoad,
+            enabled = true,
             priority = loadPriority,
-            retryCount = 3,
-            retryDelay = 1000L
+            retryCount = 2,
+            retryDelay = 300L
         )
     ) {
         val includeItemTypes = when (library.collectionType) {
@@ -1225,7 +1167,7 @@ private fun ProgressiveLibrarySection(
         val result = mediaRepository.getLatestItems(
             parentId = libraryId,
             includeItemTypes = includeItemTypes,
-            limit = 12,
+            limit = 8,
             fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
         )
 
@@ -1293,11 +1235,6 @@ private fun ProgressiveLibrarySection(
 
             libraryQuery.isSuccess && !libraryQuery.data.isNullOrEmpty() -> {
                 val items = libraryQuery.data!!
-
-                // Preload images for better performance
-                LaunchedEffect(items) {
-                    ImagePreloader.preloadImages(items, mediaRepository, this)
-                }
 
                 val libraryRowState = rememberLazyListState()
                 val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
@@ -1410,7 +1347,7 @@ internal fun LibraryItemCard(
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             onClick = onClick
         ) {
             Box(
@@ -2117,7 +2054,10 @@ private fun ProgressiveTVShowGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(genreShows) { show ->
+                    items(
+                        items = genreShows,
+                        key = { show -> show.id ?: "${show.name}_${show.type}" }
+                    ) { show ->
                         LibraryItemCard(
                             item = show,
                             mediaRepository = mediaRepository,

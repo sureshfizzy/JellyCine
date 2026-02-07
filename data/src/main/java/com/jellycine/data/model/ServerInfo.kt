@@ -6,6 +6,9 @@ data class ServerInfo(
     @SerializedName("ServerName")
     val serverName: String,
 
+    @SerializedName("ProductName")
+    val productName: String? = null,
+
     @SerializedName("Version")
     val version: String? = null,
 

@@ -253,7 +253,7 @@ private fun WelcomeSection() {
     )
     
     Text(
-        text = "Connect to your Jellyfin server to start streaming your favorite movies and series.",
+        text = "Connect to your Jellyfin or Emby server to start streaming your favorite movies and series.",
         fontSize = 16.sp,
         color = Color.White.copy(alpha = 0.8f),
         textAlign = TextAlign.Center,
@@ -303,7 +303,7 @@ private fun LoginWelcomeSection(serverName: String?) {
         )
 
         Text(
-            text = serverName ?: "Jellyfin Server",
+            text = serverName ?: "Media Server",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = JellyBlue,

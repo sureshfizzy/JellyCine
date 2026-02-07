@@ -17,7 +17,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-interface JellyfinApi {
+interface MediaServerApi {
 
     @GET("System/Info/Public")
     suspend fun getPublicSystemInfo(): Response<ServerInfo>
@@ -174,3 +174,6 @@ interface JellyfinApi {
     @POST("Sessions/Playing/Stopped")
     suspend fun reportPlaybackStopped(@Body request: PlaybackStoppedRequest): Response<Unit>
 }
+
+typealias JellyfinApi = MediaServerApi
+typealias EmbyApi = MediaServerApi
