@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -55,7 +56,85 @@ import com.jellycine.data.repository.getFormattedRuntime
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.repository.getFormattedRating
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.SearchResultsSkeleton
+import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import java.util.concurrent.ConcurrentHashMap
+
+private object SearchBurstImagePrefetcher {
+    private val prefetchedPrimary = ConcurrentHashMap.newKeySet<String>()
+    private val prefetchedBackdrop = ConcurrentHashMap.newKeySet<String>()
+
+    suspend fun preload(
+        items: List<BaseItemDto>,
+        mediaRepository: com.jellycine.data.repository.MediaRepository,
+        context: android.content.Context
+    ) = coroutineScope {
+        if (items.isEmpty()) return@coroutineScope
+        val imageLoader = context.imageLoader
+        items.asSequence()
+            .mapNotNull { it.id }
+            .distinct()
+            .take(120)
+            .map { itemId ->
+                async(Dispatchers.IO) {
+                    if (prefetchedPrimary.add(itemId)) {
+                        val primaryUrl = mediaRepository.getImageUrlString(
+                            itemId = itemId,
+                            imageType = "Primary",
+                            width = 300,
+                            height = 450,
+                            quality = 80
+                        )
+                        if (!primaryUrl.isNullOrBlank()) {
+                            imageLoader.enqueue(
+                                ImageRequest.Builder(context)
+                                    .data(primaryUrl)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                    .crossfade(false)
+                                    .allowHardware(true)
+                                    .allowRgb565(true)
+                                    .build()
+                            )
+                        }
+                    }
+
+                    if (prefetchedBackdrop.add(itemId)) {
+                        val backdropUrl = mediaRepository.getImageUrlString(
+                            itemId = itemId,
+                            imageType = "Backdrop",
+                            width = 1280,
+                            height = 720,
+                            quality = 85
+                        )
+                        if (!backdropUrl.isNullOrBlank()) {
+                            imageLoader.enqueue(
+                                ImageRequest.Builder(context)
+                                    .data(backdropUrl)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                    .networkCachePolicy(CachePolicy.ENABLED)
+                                    .crossfade(false)
+                                    .allowHardware(true)
+                                    .allowRgb565(true)
+                                    .build()
+                            )
+                        }
+                    }
+                }
+            }
+            .toList()
+            .awaitAll()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,10 +145,39 @@ fun SearchContainer(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    
+
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val isSearchActive = searchQuery.isNotEmpty()
+    val burstPrefetchItems = remember(
+        uiState.trendingMovies,
+        uiState.popularMovies,
+        uiState.searchResults,
+        uiState.movieResults,
+        uiState.showResults,
+        uiState.episodeResults
+    ) {
+        buildList {
+            addAll(uiState.trendingMovies.take(24))
+            addAll(uiState.popularMovies.take(24))
+            addAll(uiState.searchResults.take(30))
+            addAll(uiState.movieResults.take(30))
+            addAll(uiState.showResults.take(30))
+            addAll(uiState.episodeResults.take(30))
+        }.filter { it.id != null && !it.name.isNullOrBlank() }
+            .distinctBy { it.id }
+    }
+
+    LaunchedEffect(burstPrefetchItems.hashCode()) {
+        if (burstPrefetchItems.isEmpty()) return@LaunchedEffect
+        SearchBurstImagePrefetcher.preload(
+            items = burstPrefetchItems,
+            mediaRepository = mediaRepository,
+            context = context
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -83,7 +191,6 @@ fun SearchContainer(
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                // Search Bar
                 SearchBar(
                     query = searchQuery,
                     onQueryChange = viewModel::updateSearchQuery,
@@ -95,17 +202,14 @@ fun SearchContainer(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Search Results
                 if (uiState.isSearching) {
                     SearchResultsSkeleton()
                 } else if (uiState.isSearchExecuted) {
-                    // Show categorized search results using new SearchResults component
                     SearchResultsView(
                         uiState = uiState,
                         onItemClick = onNavigateToDetail
                     )
                 } else {
-                    // Show live search suggestions
                     LiveSearchResults(
                         searchResults = uiState.searchResults,
                         onItemClick = onNavigateToDetail
@@ -113,7 +217,6 @@ fun SearchContainer(
                 }
             }
         } else {
-            // Vertical pager
             val pagerState = rememberPagerState(
                 initialPage = 0,
                 pageCount = { 2 }

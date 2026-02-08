@@ -10,6 +10,10 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -36,11 +40,39 @@ class MediaRepository(private val context: Context) {
         val userId: String
     )
 
+    private data class SessionConfig(
+        val serverUrl: String,
+        val serverTypeRaw: String?,
+        val serverType: NetworkModule.ServerType?,
+        val accessToken: String?,
+        val userId: String
+    )
+
+    data class HomeLibrarySectionData(
+        val library: BaseItemDto,
+        val items: List<BaseItemDto>
+    )
+
     @Volatile
     private var cachedSession: ApiSession? = null
 
     @Volatile
     private var cachedSessionKey: String? = null
+
+    @Volatile
+    private var cachedSessionConfig: SessionConfig? = null
+
+    @Volatile
+    private var cachedSessionConfigAt: Long = 0L
+
+    private val sessionConfigTtlMs = 1500L
+    private val imageAuthCacheTtlMs = 1500L
+
+    @Volatile
+    private var cachedImageAuthState: ImageAuthState? = null
+
+    @Volatile
+    private var cachedImageAuthAt: Long = 0L
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->
@@ -51,40 +83,42 @@ class MediaRepository(private val context: Context) {
         }
         .distinctUntilChanged()
     
-    private suspend fun getApi(): MediaServerApi? {
-        val preferences = dataStore.data.first()
-        val serverUrl = preferences[SERVER_URL_KEY]
-        val serverType = preferences[SERVER_TYPE_KEY]?.let {
-            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+    private suspend fun getApi(): MediaServerApi? = getApiSession()?.api
+
+    private suspend fun getUserId(): String? = getApiSession()?.userId
+
+    private suspend fun getSessionConfig(): SessionConfig? {
+        val now = System.currentTimeMillis()
+        cachedSessionConfig?.let { config ->
+            if (now - cachedSessionConfigAt < sessionConfigTtlMs) {
+                return config
+            }
         }
-        val accessToken = preferences[ACCESS_TOKEN_KEY]
 
-        return if (serverUrl != null) {
-            NetworkModule.createMediaServerApi(
-                baseUrl = serverUrl,
-                accessToken = accessToken,
-                serverType = serverType
-            )
-        } else {
-            null
-        }
-    }
-
-    private suspend fun getUserId(): String? {
-        val preferences = dataStore.data.first()
-        return preferences[USER_ID_KEY]
-    }
-
-    private suspend fun getApiSession(): ApiSession? {
         val preferences = dataStore.data.first()
         val serverUrl = preferences[SERVER_URL_KEY] ?: return null
+        val userId = preferences[USER_ID_KEY] ?: return null
         val serverTypeRaw = preferences[SERVER_TYPE_KEY]
         val serverType = serverTypeRaw?.let {
             runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
         }
         val accessToken = preferences[ACCESS_TOKEN_KEY]
-        val userId = preferences[USER_ID_KEY] ?: return null
-        val newSessionKey = "$serverUrl|${serverTypeRaw ?: ""}|${accessToken ?: ""}|$userId"
+
+        return SessionConfig(
+            serverUrl = serverUrl,
+            serverTypeRaw = serverTypeRaw,
+            serverType = serverType,
+            accessToken = accessToken,
+            userId = userId
+        ).also {
+            cachedSessionConfig = it
+            cachedSessionConfigAt = now
+        }
+    }
+
+    private suspend fun getApiSession(): ApiSession? {
+        val config = getSessionConfig() ?: return null
+        val newSessionKey = "${config.serverUrl}|${config.serverTypeRaw ?: ""}|${config.accessToken ?: ""}|${config.userId}"
 
         cachedSession?.let { session ->
             if (cachedSessionKey == newSessionKey) {
@@ -100,12 +134,12 @@ class MediaRepository(private val context: Context) {
             }
 
             val api = NetworkModule.createMediaServerApi(
-                baseUrl = serverUrl,
-                accessToken = accessToken,
-                serverType = serverType
+                baseUrl = config.serverUrl,
+                accessToken = config.accessToken,
+                serverType = config.serverType
             )
 
-            val session = ApiSession(api = api, userId = userId)
+            val session = ApiSession(api = api, userId = config.userId)
             cachedSession = session
             cachedSessionKey = newSessionKey
             return session
@@ -209,6 +243,132 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun getHomeLibrarySections(
+        maxLibraries: Int = 32,
+        itemsPerLibrary: Int = 30
+    ): Result<List<HomeLibrarySectionData>> = coroutineScope {
+        val viewsResult = getUserViews()
+        viewsResult.fold(
+            onSuccess = { queryResult ->
+                val libraries = queryResult.items
+                    .orEmpty()
+                    .asSequence()
+                    .filter { library ->
+                        val libraryId = library.id
+                        val libraryName = library.name
+                        val type = library.type
+                        val collectionType = library.collectionType
+                        libraryId != null &&
+                            !libraryName.isNullOrBlank() &&
+                            collectionType != "boxsets" &&
+                            collectionType != "playlists" &&
+                            collectionType != "folders" &&
+                            (type == "CollectionFolder" || type == "Folder") &&
+                            (collectionType == "movies" || collectionType == "tvshows" || collectionType == null)
+                    }
+                    .distinctBy { it.id }
+                    .take(maxLibraries)
+                    .toList()
+
+                if (libraries.isEmpty()) {
+                    return@fold Result.success(emptyList<HomeLibrarySectionData>())
+                }
+
+                val session = getApiSession() ?: return@fold Result.failure(
+                    Exception("Session not available")
+                )
+                val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber"
+
+                val sections = libraries.map { library ->
+                    async(Dispatchers.IO) {
+                        val libraryId = library.id ?: return@async null
+                        val includeItemTypes = when (library.collectionType) {
+                            "movies" -> "Movie"
+                            "tvshows" -> "Series"
+                            else -> "Movie,Series"
+                        }
+
+                        val latestItemsResponse = runCatching {
+                            session.api.getLatestItems(
+                                userId = session.userId,
+                                parentId = libraryId,
+                                includeItemTypes = includeItemTypes,
+                                limit = itemsPerLibrary,
+                                fields = fields
+                            )
+                        }.getOrNull()
+
+                        val latestItems: List<BaseItemDto> =
+                            if (latestItemsResponse?.isSuccessful == true) {
+                                latestItemsResponse.body().orEmpty()
+                            } else {
+                                emptyList()
+                            }
+
+                        val items = latestItems
+                            .asSequence()
+                            .filter { it.id != null && !it.name.isNullOrBlank() }
+                            .distinctBy { it.id }
+                            .toList()
+
+                        HomeLibrarySectionData(
+                            library = library,
+                            items = items
+                        )
+                    }
+                }.awaitAll()
+                    .filterNotNull()
+                    .filter { it.items.isNotEmpty() }
+
+                Result.success(sections)
+            },
+            onFailure = { error ->
+                Result.failure(error)
+            }
+        )
+    }
+
+    private suspend fun getImageAuthState(): ImageAuthState {
+        val now = System.currentTimeMillis()
+        cachedImageAuthState?.let { cached ->
+            if (now - cachedImageAuthAt < imageAuthCacheTtlMs) {
+                return cached
+            }
+        }
+
+        val config = getSessionConfig()
+        val state = ImageAuthState(
+            serverUrl = config?.serverUrl,
+            accessToken = config?.accessToken
+        )
+        cachedImageAuthState = state
+        cachedImageAuthAt = now
+        return state
+    }
+
+    suspend fun getImageUrlString(
+        itemId: String,
+        imageType: String = "Primary",
+        width: Int? = null,
+        height: Int? = null,
+        quality: Int? = 90
+    ): String? {
+        val authState = getImageAuthState()
+        val serverUrl = authState.serverUrl
+        val accessToken = authState.accessToken
+        if (serverUrl.isNullOrEmpty() || itemId.isBlank()) {
+            return null
+        }
+
+        val params = mutableListOf<String>()
+        accessToken?.let { params.add("api_key=$it") }
+        width?.let { params.add("width=$it") }
+        height?.let { params.add("height=$it") }
+        quality?.let { params.add("quality=$it") }
+        val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
+        return "${serverUrl.trimEnd('/')}/Items/$itemId/Images/$imageType$queryString"
     }
     
     fun getImageUrl(
@@ -454,9 +614,9 @@ class MediaRepository(private val context: Context) {
                 includeItemTypes = includeItemTypes,
                 recursive = true,
                 limit = limit,
-                sortBy = "Random",
-                sortOrder = null,
-                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount"
+                sortBy = "DateCreated",
+                sortOrder = "Descending",
+                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount,ProductionYear,PremiereDate,EndDate,SeriesName,SeriesId"
             )
 
             if (response.isSuccessful && response.body() != null) {
@@ -614,10 +774,10 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getUserProfileImageUrl(): String? {
-        val preferences = dataStore.data.first()
-        val serverUrl = preferences[SERVER_URL_KEY]
-        val userId = preferences[USER_ID_KEY]
-        val accessToken = preferences[ACCESS_TOKEN_KEY]
+        val config = getSessionConfig()
+        val serverUrl = config?.serverUrl
+        val userId = config?.userId
+        val accessToken = config?.accessToken
 
         return if (serverUrl != null && userId != null) {
             val apiKeyParam = if (accessToken != null) "?api_key=$accessToken" else ""
@@ -654,9 +814,9 @@ class MediaRepository(private val context: Context) {
      */
     suspend fun getStreamingUrl(itemId: String): Result<String> {
         return try {
-            val preferences = dataStore.data.first()
-            val serverUrl = preferences[SERVER_URL_KEY]
-            val accessToken = preferences[ACCESS_TOKEN_KEY]
+            val config = getSessionConfig()
+            val serverUrl = config?.serverUrl
+            val accessToken = config?.accessToken
 
             if (serverUrl == null) {
                 return Result.failure(Exception("Server URL not available"))
@@ -945,7 +1105,7 @@ fun BaseItemDto.getFormattedRuntime(): String {
 fun BaseItemDto.getYearAndGenre(): String {
     val year = productionYear?.toString() ?: "Unknown"
     val genre = genres?.firstOrNull() ?: "Unknown"
-    return "$year • $genre"
+    return "$year | $genre"
 }
 
 /**

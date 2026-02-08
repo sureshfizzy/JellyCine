@@ -8,6 +8,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -26,7 +28,6 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
-    // Search cache for performance optimization
     private val searchCache = mutableMapOf<String, SearchCacheEntry>()
     private val cacheExpirationTime = 300_000L // 5 minutes
 
@@ -64,101 +65,96 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    private fun searchMovies(query: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSearching = true)
-            
-            try {
-                val searchResult = mediaRepository.searchItems(
-                    searchTerm = query,
-                    includeItemTypes = "Movie,Series,Episode",
-                    limit = 50
-                )
-                
-                searchResult.fold(
-                    onSuccess = { items ->
-                        val sortedItems = items.sortedWith(compareBy<BaseItemDto> { item ->
-                            when (item.type) {
-                                "Movie" -> 0
-                                "Series" -> 1
-                                "Episode" -> 2
-                                else -> 3
-                            }
-                        }.thenBy { it.name })
+    private suspend fun searchMovies(query: String) {
+        _uiState.value = _uiState.value.copy(isSearching = true)
 
-                        _uiState.value = _uiState.value.copy(
-                            searchResults = sortedItems,
-                            isSearching = false,
-                            error = null
-                        )
-                    },
-                    onFailure = { exception ->
-                        performClientSideSearch(query)
-                    }
-                )
-                
-            } catch (e: Exception) {
-                performClientSideSearch(query)
-            }
+        try {
+            val searchResult = mediaRepository.searchItems(
+                searchTerm = query,
+                includeItemTypes = "Movie,Series,Episode",
+                limit = 50
+            )
+
+            searchResult.fold(
+                onSuccess = { items ->
+                    val sortedItems = items.sortedWith(compareBy<BaseItemDto> { item ->
+                        when (item.type) {
+                            "Movie" -> 0
+                            "Series" -> 1
+                            "Episode" -> 2
+                            else -> 3
+                        }
+                    }.thenBy { it.name })
+
+                    _uiState.value = _uiState.value.copy(
+                        searchResults = sortedItems,
+                        isSearching = false,
+                        error = null
+                    )
+                },
+                onFailure = {
+                    performClientSideSearch(query)
+                }
+            )
+        } catch (e: Exception) {
+            performClientSideSearch(query)
         }
     }
 
-    private fun searchAndCategorize(query: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSearching = true, isSearchExecuted = false)
+    private suspend fun searchAndCategorize(query: String) {
+        _uiState.value = _uiState.value.copy(isSearching = true, isSearchExecuted = false)
 
-            val cacheKey = query.lowercase().trim()
-            val cachedEntry = searchCache[cacheKey]
-            val currentTime = System.currentTimeMillis()
+        val cacheKey = query.lowercase().trim()
+        val cachedEntry = searchCache[cacheKey]
+        val currentTime = System.currentTimeMillis()
 
-            if (cachedEntry != null && (currentTime - cachedEntry.timestamp) < cacheExpirationTime) {
-                _uiState.value = _uiState.value.copy(
-                    movieResults = cachedEntry.movieResults,
-                    showResults = cachedEntry.showResults,
-                    episodeResults = cachedEntry.episodeResults,
-                    isSearching = false,
-                    isSearchExecuted = true,
-                    error = null
-                )
-                return@launch
-            }
+        if (cachedEntry != null && (currentTime - cachedEntry.timestamp) < cacheExpirationTime) {
+            _uiState.value = _uiState.value.copy(
+                movieResults = cachedEntry.movieResults,
+                showResults = cachedEntry.showResults,
+                episodeResults = cachedEntry.episodeResults,
+                isSearching = false,
+                isSearchExecuted = true,
+                error = null
+            )
+            return
+        }
 
-            try {
-                val searchResult = mediaRepository.searchItems(
-                    searchTerm = query,
-                    includeItemTypes = "Movie,Series,Episode",
-                    limit = 60
-                )
+        try {
+            val searchResult = mediaRepository.searchItems(
+                searchTerm = query,
+                includeItemTypes = "Movie,Series,Episode",
+                limit = 60
+            )
 
-                val allItems = searchResult.getOrNull() ?: emptyList()
+            val allItems = searchResult.getOrNull() ?: emptyList()
 
-                val movies = allItems.filter { it.type == "Movie" }.take(20)
-                val shows = allItems.filter { it.type == "Series" }.take(20)
-                val episodes = allItems.filter { it.type == "Episode" }.take(20)
+            val movies = allItems.filter { it.type == "Movie" }.take(20)
+            val shows = allItems.filter { it.type == "Series" }.take(20)
+            val episodes = allItems.filter { it.type == "Episode" }.take(20)
 
-                searchCache[cacheKey] = SearchCacheEntry(
-                    movieResults = movies,
-                    showResults = shows,
-                    episodeResults = episodes,
-                    timestamp = currentTime
-                )
+            searchCache[cacheKey] = SearchCacheEntry(
+                movieResults = movies,
+                showResults = shows,
+                episodeResults = episodes,
+                timestamp = currentTime
+            )
 
-                _uiState.value = _uiState.value.copy(
-                    movieResults = movies,
-                    showResults = shows,
-                    episodeResults = episodes,
-                    isSearching = false,
-                    isSearchExecuted = true,
-                    error = null
-                )
+            _uiState.value = _uiState.value.copy(
+                movieResults = movies,
+                showResults = shows,
+                episodeResults = episodes,
+                isSearching = false,
+                isSearchExecuted = true,
+                error = null
+            )
 
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isSearching = false,
-                    isSearchExecuted = true,
-                    error = e.message
-                )
-            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(
+                isSearching = false,
+                isSearchExecuted = true,
+                error = e.message
+            )
         }
     }
     
@@ -230,50 +226,65 @@ class SearchViewModel @Inject constructor(
     private fun loadPopularMovies() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            
+
             try {
-                var popularItems: List<BaseItemDto> = emptyList()
-                val recentMoviesResult = mediaRepository.getRecentlyAddedMovies(limit = 12)
-                val recentMovies = recentMoviesResult.getOrNull() ?: emptyList()
-                val recentSeriesResult = mediaRepository.getUserItems(
-                    includeItemTypes = "Series",
-                    recursive = true,
-                    limit = 8,
-                    sortBy = "DateCreated",
-                    sortOrder = "Descending",
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                )
-                val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
-                popularItems = (recentMovies + recentSeries).take(20)
+                val popularItems = coroutineScope {
+                    val recentMoviesDeferred = async {
+                        mediaRepository.getRecentlyAddedMovies(limit = 14).getOrNull().orEmpty()
+                    }
+                    val recentSeriesDeferred = async {
+                        mediaRepository.getUserItems(
+                            includeItemTypes = "Series",
+                            recursive = true,
+                            limit = 10,
+                            sortBy = "DateCreated",
+                            sortOrder = "Descending",
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull()?.items.orEmpty()
+                    }
 
-                if (popularItems.size < 10) {
-                    val latestResult = mediaRepository.getLatestItems(
-                        includeItemTypes = "Movie,Series",
-                        limit = 20,
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                    val primaryBurst = mergeAndNormalize(
+                        recentMoviesDeferred.await(),
+                        recentSeriesDeferred.await(),
+                        limit = 24
                     )
-                    val latestItems = latestResult.getOrNull() ?: emptyList()
-                    popularItems = (popularItems + latestItems).distinctBy { it.id }.take(20)
+
+                    if (primaryBurst.size >= 20) {
+                        return@coroutineScope primaryBurst.take(20)
+                    }
+
+                    val latestDeferred = async {
+                        mediaRepository.getLatestItems(
+                            includeItemTypes = "Movie,Series",
+                            limit = 28,
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull().orEmpty()
+                    }
+                    val fallbackDeferred = async {
+                        mediaRepository.getUserItems(
+                            includeItemTypes = "Movie,Series",
+                            recursive = true,
+                            limit = 28,
+                            sortBy = "DateCreated",
+                            sortOrder = "Descending",
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull()?.items.orEmpty()
+                    }
+
+                    mergeAndNormalize(
+                        primaryBurst,
+                        latestDeferred.await(),
+                        fallbackDeferred.await(),
+                        limit = 20
+                    )
                 }
 
-                if (popularItems.isEmpty()) {
-                    val allItemsResult = mediaRepository.getUserItems(
-                        includeItemTypes = "Movie,Series",
-                        recursive = true,
-                        limit = 20,
-                        sortBy = "DateCreated",
-                        sortOrder = "Descending",
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                    )
-                    popularItems = allItemsResult.getOrNull()?.items ?: emptyList()
-                }
-                
                 _uiState.value = _uiState.value.copy(
                     popularMovies = popularItems,
                     isLoading = false,
                     error = null
                 )
-                
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -290,90 +301,74 @@ class SearchViewModel @Inject constructor(
     private fun loadTrendingMovies() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isTrendingLoading = true)
-            
+
             try {
-                var trendingMovies: List<BaseItemDto> = emptyList()
-
-                try {
-                    val moviesResult = mediaRepository.getUserItems(
-                        includeItemTypes = "Movie",
-                        recursive = true,
-                        limit = 8,
-                        sortBy = "PlayCount,CommunityRating,DateCreated",
-                        sortOrder = "Descending",
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                    )
-                    
-                    val seriesResult = mediaRepository.getUserItems(
-                        includeItemTypes = "Series",
-                        recursive = true,
-                        limit = 7,
-                        sortBy = "PlayCount,CommunityRating,DateCreated",
-                        sortOrder = "Descending",
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                    )
-                    
-                    val movies = moviesResult.getOrNull()?.items ?: emptyList()
-                    val series = seriesResult.getOrNull()?.items ?: emptyList()
-                    val combined = mutableListOf<BaseItemDto>()
-                    val maxSize = maxOf(movies.size, series.size)
-                    
-                    for (i in 0 until maxSize) {
-                        if (i < movies.size) combined.add(movies[i])
-                        if (i < series.size) combined.add(series[i])
+                val trendingMovies = coroutineScope {
+                    val moviesDeferred = async {
+                        mediaRepository.getUserItems(
+                            includeItemTypes = "Movie",
+                            recursive = true,
+                            limit = 10,
+                            sortBy = "PlayCount,CommunityRating,DateCreated",
+                            sortOrder = "Descending",
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull()?.items.orEmpty()
                     }
-                    
-                    trendingMovies = combined.take(15)
-                } catch (e: Exception) {
-                }
-
-                if (trendingMovies.size < 5) {
-                    try {
-                        val recentMoviesResult = mediaRepository.getRecentlyAddedMovies(limit = 8)
-                        val recentMovies = recentMoviesResult.getOrNull() ?: emptyList()
-                        
-                        val recentSeriesResult = mediaRepository.getUserItems(
+                    val seriesDeferred = async {
+                        mediaRepository.getUserItems(
                             includeItemTypes = "Series",
                             recursive = true,
-                            limit = 7,
+                            limit = 10,
+                            sortBy = "PlayCount,CommunityRating,DateCreated",
+                            sortOrder = "Descending",
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull()?.items.orEmpty()
+                    }
+
+                    val primaryBurst = mergeAndNormalize(
+                        interleaveLists(moviesDeferred.await(), seriesDeferred.await()),
+                        limit = 18
+                    )
+
+                    if (primaryBurst.size >= 12) {
+                        return@coroutineScope primaryBurst.take(15)
+                    }
+
+                    val recentMoviesDeferred = async {
+                        mediaRepository.getRecentlyAddedMovies(limit = 12).getOrNull().orEmpty()
+                    }
+                    val recentSeriesDeferred = async {
+                        mediaRepository.getUserItems(
+                            includeItemTypes = "Series",
+                            recursive = true,
+                            limit = 12,
                             sortBy = "DateCreated",
                             sortOrder = "Descending",
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        )
-                        val recentSeries = recentSeriesResult.getOrNull()?.items ?: emptyList()
-                        
-                        trendingMovies = (recentMovies + recentSeries).take(15)
-                    } catch (e: Exception) {
+                        ).getOrNull()?.items.orEmpty()
                     }
+                    val latestDeferred = async {
+                        mediaRepository.getLatestItems(
+                            includeItemTypes = "Movie,Series",
+                            limit = 20,
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+                        ).getOrNull().orEmpty()
+                    }
+
+                    mergeAndNormalize(
+                        primaryBurst,
+                        interleaveLists(recentMoviesDeferred.await(), recentSeriesDeferred.await()),
+                        latestDeferred.await(),
+                        limit = 15
+                    )
                 }
 
-                if (trendingMovies.isEmpty()) {
-                    val latestResult = mediaRepository.getLatestItems(
-                        includeItemTypes = "Movie,Series",
-                        limit = 15,
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                    )
-                    trendingMovies = latestResult.getOrNull() ?: emptyList()
-                }
-
-                if (trendingMovies.isEmpty()) {
-                    val allItemsResult = mediaRepository.getUserItems(
-                        includeItemTypes = "Movie,Series",
-                        recursive = true,
-                        limit = 15,
-                        sortBy = "DateCreated",
-                        sortOrder = "Descending",
-                        fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                    )
-                    trendingMovies = allItemsResult.getOrNull()?.items ?: emptyList()
-                }
-                
                 _uiState.value = _uiState.value.copy(
                     trendingMovies = trendingMovies,
                     isTrendingLoading = false,
                     error = null
                 )
-                
+
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isTrendingLoading = false,
@@ -385,6 +380,35 @@ class SearchViewModel @Inject constructor(
 
     fun clearSearchCache() {
         searchCache.clear()
+    }
+
+    private fun interleaveLists(
+        first: List<BaseItemDto>,
+        second: List<BaseItemDto>
+    ): List<BaseItemDto> {
+        if (first.isEmpty()) return second
+        if (second.isEmpty()) return first
+
+        val merged = ArrayList<BaseItemDto>(first.size + second.size)
+        val maxSize = maxOf(first.size, second.size)
+        for (index in 0 until maxSize) {
+            if (index < first.size) merged.add(first[index])
+            if (index < second.size) merged.add(second[index])
+        }
+        return merged
+    }
+
+    private fun mergeAndNormalize(
+        vararg groups: List<BaseItemDto>,
+        limit: Int
+    ): List<BaseItemDto> {
+        return groups
+            .asSequence()
+            .flatten()
+            .filter { item -> item.id != null && !item.name.isNullOrBlank() }
+            .distinctBy { it.id }
+            .take(limit)
+            .toList()
     }
 }
 

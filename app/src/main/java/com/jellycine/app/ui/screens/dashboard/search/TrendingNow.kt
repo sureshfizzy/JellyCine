@@ -73,7 +73,6 @@ fun TrendingStoriesView(
             cornerRadius = 0
         )
         
-        // Gradient overlay for better depth and color grading
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -89,7 +88,6 @@ fun TrendingStoriesView(
                 )
         )
         
-        // Vertical gradient for better contrast
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -106,7 +104,6 @@ fun TrendingStoriesView(
                 )
         )
         
-        // Horizontal Pager for cards with rotation effects
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(), // No top padding - cards should be perfectly centered
@@ -123,18 +120,25 @@ fun TrendingStoriesView(
             )
         }
 
-        // Genre labels for the current tab
         val typeText = when (currentMovie.type) {
             "Movie" -> "Movie"
             "Series" -> "TV Series"
             else -> currentMovie.type ?: "Media"
         }
 
-        val genreText = currentMovie.genres?.take(3)?.joinToString(" • ") ?: ""
-        val displayText = if (genreText.isNotEmpty()) {
-            "$typeText • $genreText"
-        } else {
-            typeText
+        val yearText = currentMovie.productionYear
+            ?: currentMovie.premiereDate?.take(4)?.toIntOrNull()
+        val genreText = currentMovie.genres?.take(3)?.joinToString(" | ").orEmpty()
+        val displayText = buildString {
+            yearText?.let { append(it) }
+            if (typeText.isNotBlank()) {
+                if (isNotEmpty()) append(" | ")
+                append(typeText)
+            }
+            if (genreText.isNotBlank()) {
+                if (isNotEmpty()) append(" | ")
+                append(genreText)
+            }
         }
 
         Box(

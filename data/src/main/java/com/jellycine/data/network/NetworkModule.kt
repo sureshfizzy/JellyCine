@@ -1,12 +1,16 @@
 package com.jellycine.data.network
 
+import android.util.Log
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.model.ServerInfo
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 object NetworkModule {
@@ -14,7 +18,9 @@ object NetworkModule {
     private const val CLIENT_NAME = "JellyCine"
     private const val CLIENT_VERSION = "1.0.0"
     private const val DEVICE_NAME = "Android"
+    private const val NETWORK_LOG_TAG = "JellyCineNetwork"
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
+    private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
 
     enum class ServerType {
         JELLYFIN,
@@ -32,16 +38,19 @@ object NetworkModule {
         accessToken: String? = null,
         serverType: ServerType? = null
     ): MediaServerApi {
-        val resolvedType = serverType ?: inferServerType(baseUrl)
-        val okHttpClient = createOkHttpClient(accessToken, resolvedType)
+        val normalizedBaseUrl = ensureTrailingSlash(baseUrl)
+        val resolvedType = serverType ?: inferServerType(normalizedBaseUrl)
+        val cacheKey = "${normalizedBaseUrl.trimEnd('/')}|${accessToken.orEmpty()}|${resolvedType.name}"
+        apiCache[cacheKey]?.let { return it }
 
+        val okHttpClient = createOkHttpClient(accessToken, resolvedType)
         val retrofit = Retrofit.Builder()
-            .baseUrl(ensureTrailingSlash(baseUrl))
+            .baseUrl(normalizedBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        return retrofit.create(MediaServerApi::class.java)
+        return retrofit.create(MediaServerApi::class.java).also { apiCache[cacheKey] = it }
     }
 
     fun createJellyfinApi(baseUrl: String, accessToken: String? = null): MediaServerApi {
@@ -81,10 +90,18 @@ object NetworkModule {
         accessToken: String? = null,
         serverType: ServerType
     ): OkHttpClient {
+        val dispatcher = Dispatcher().apply {
+            maxRequests = 128
+            maxRequestsPerHost = 32
+        }
+
         val builder = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
+            .dispatcher(dispatcher)
+            .connectionPool(ConnectionPool(32, 5, TimeUnit.MINUTES))
+            .retryOnConnectionFailure(true)
 
         val authInterceptor = Interceptor { chain ->
             val originalRequest = chain.request()
@@ -99,7 +116,31 @@ object NetworkModule {
             chain.proceed(newRequest)
         }
 
+        val timingInterceptor = Interceptor { chain ->
+            val request = chain.request()
+            val startNanos = System.nanoTime()
+            try {
+                val response = chain.proceed(request)
+                val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+                val endpoint = request.url.encodedPath
+                Log.d(
+                    NETWORK_LOG_TAG,
+                    "${request.method} $endpoint -> ${response.code} in ${durationMs}ms"
+                )
+                response
+            } catch (e: Exception) {
+                val durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos)
+                val endpoint = request.url.encodedPath
+                Log.w(
+                    NETWORK_LOG_TAG,
+                    "${request.method} $endpoint failed in ${durationMs}ms: ${e.message}"
+                )
+                throw e
+            }
+        }
+
         builder.addInterceptor(authInterceptor)
+        builder.addInterceptor(timingInterceptor)
 
         return builder.build()
     }

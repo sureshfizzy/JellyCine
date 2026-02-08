@@ -10,6 +10,8 @@ import coil.request.CachePolicy
 import com.jellycine.data.datastore.DataStoreProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import java.util.UUID
@@ -26,7 +28,6 @@ object ImageLoaderConfig {
     private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
 
-    // Generate device ID once and reuse it
     private val deviceId by lazy { UUID.randomUUID().toString() }
 
     private fun getOptimalMemoryPercent(context: Context): Double {
@@ -37,7 +38,6 @@ object ImageLoaderConfig {
         val totalRamMB = memoryInfo.totalMem
         val isLargeHeap = activityManager.memoryClass != activityManager.largeMemoryClass
 
-        // Reduced memory allocation to prevent lag from GC pressure
         val basePercent = when {
             totalRamMB >= 8192 -> if (isLargeHeap) 0.15 else 0.12
             totalRamMB >= 4096 -> if (isLargeHeap) 0.12 else 0.10
@@ -91,11 +91,10 @@ object ImageLoaderConfig {
                 .addHeader("Content-Type", "application/json")
                 .build()
 
-            // Simple retry logic for failed requests
             var response = chain.proceed(newRequest)
             var retryCount = 0
 
-            while (!response.isSuccessful && retryCount < 2) {
+            while (!response.isSuccessful && response.code >= 500 && retryCount < 2) {
                 response.close()
                 retryCount++
                 response = chain.proceed(newRequest)
@@ -104,11 +103,17 @@ object ImageLoaderConfig {
             response
         }
 
+        val dispatcher = Dispatcher().apply {
+            maxRequests = 128
+            maxRequestsPerHost = 32
+        }
+
         return OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
-            .connectionPool(okhttp3.ConnectionPool(8, 3, TimeUnit.MINUTES))
+            .dispatcher(dispatcher)
+            .connectionPool(ConnectionPool(24, 5, TimeUnit.MINUTES))
             .addInterceptor(authInterceptor)
             .build()
     }
@@ -133,7 +138,7 @@ object ImageLoaderConfig {
             .networkCachePolicy(CachePolicy.ENABLED)
             .respectCacheHeaders(false)
             .allowHardware(true)
-            .crossfade(200)
+            .crossfade(false)
             .build()
     }
 }

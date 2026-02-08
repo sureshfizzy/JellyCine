@@ -39,10 +39,11 @@ import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
@@ -50,11 +51,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.ContinueWatchingSkeleton
-import com.jellycine.app.ui.screens.dashboard.LibrarySkeleton
-import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.runtime.Stable
@@ -65,22 +63,22 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.gestures.FlingBehavior
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.rememberPagerState
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
+import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.CachePolicy
+import coil.size.Precision
+import java.util.concurrent.ConcurrentHashMap
 
-// Data fetching state management
 @Stable
 @Immutable
 data class QueryState<T>(
@@ -95,36 +93,18 @@ data class QueryState<T>(
     val isEmpty: Boolean get() = data == null && !isLoading && !isError
 }
 
-// Query priority levels
-enum class QueryPriority {
-    HIGH,
-    MEDIUM,
-    LOW
-}
-
-// Query configuration
 @Stable
 @Immutable
 data class QueryConfig(
     val staleTime: Long = 300_000L,
-    val cacheTime: Long = 600_000L,
-    val retryCount: Int = 3,
-    val retryDelay: Long = 1000L,
-    val enabled: Boolean = true,
-    val priority: QueryPriority = QueryPriority.MEDIUM
+    val retryCount: Int = 1,
+    val retryDelay: Long = 250L,
+    val enabled: Boolean = true
 )
 
-// Query manager for efficient data fetching with priority and concurrency control
 class QueryManager(private val scope: CoroutineScope) {
     private val queries = mutableMapOf<String, QueryState<Any>>()
     private val jobs = mutableMapOf<String, Job>()
-    private val activeRequests = mutableMapOf<QueryPriority, Int>()
-    // Concurrency limits per priority
-    private val maxConcurrentRequests = mapOf(
-        QueryPriority.HIGH to 4,
-        QueryPriority.MEDIUM to 3,
-        QueryPriority.LOW to 3
-    )
 
     @Suppress("UNCHECKED_CAST")
     fun <T> getQuery(key: String): QueryState<T> {
@@ -135,21 +115,6 @@ class QueryManager(private val scope: CoroutineScope) {
         queries[key] = state as QueryState<Any>
     }
 
-    private fun canExecuteRequest(priority: QueryPriority): Boolean {
-        val currentCount = activeRequests[priority] ?: 0
-        val maxCount = maxConcurrentRequests[priority] ?: 1
-        return currentCount < maxCount
-    }
-
-    private fun incrementActiveRequests(priority: QueryPriority) {
-        activeRequests[priority] = (activeRequests[priority] ?: 0) + 1
-    }
-
-    private fun decrementActiveRequests(priority: QueryPriority) {
-        val current = activeRequests[priority] ?: 0
-        activeRequests[priority] = maxOf(0, current - 1)
-    }
-
     fun <T> executeQuery(
         key: String,
         config: QueryConfig = QueryConfig(),
@@ -157,42 +122,35 @@ class QueryManager(private val scope: CoroutineScope) {
     ): QueryState<T> {
         val currentState = getQuery<T>(key)
 
-        // Return cached data if not stale and enabled
         if (!config.enabled) {
             return currentState
         }
 
         val isStale = System.currentTimeMillis() - currentState.lastFetched > config.staleTime
-        if (currentState.data != null && !isStale) {
+        val hasNonEmptyData = when (val data = currentState.data) {
+            is Collection<*> -> data.isNotEmpty()
+            is Map<*, *> -> data.isNotEmpty()
+            else -> data != null
+        }
+        if (hasNonEmptyData && !isStale) {
             return currentState
         }
 
-        // Prevent duplicate requests for the same key
         val isAlreadyFetching = jobs[key]?.isActive == true
         if (isAlreadyFetching) {
             return currentState
         }
 
-        // Start new fetch with priority handling
         val newState = currentState.copy(isLoading = true, isError = false, error = null)
         setQuery(key, newState)
 
         jobs[key] = scope.launch {
-            var waitTime = 20L
-            while (!canExecuteRequest(config.priority)) {
-                delay(waitTime)
-                waitTime = if (waitTime * 1.5 > 250.0) 250L else (waitTime * 1.5).toLong()
-            }
-
-            incrementActiveRequests(config.priority)
-
-            // Retry logic for failed requests
             var lastException: Exception? = null
             var retryCount = 0
 
             while (retryCount <= config.retryCount) {
                 try {
-                    val result = fetcher()
+                    val result = withContext(Dispatchers.IO) { fetcher() }
                     setQuery(key, QueryState(
                         data = result,
                         isLoading = false,
@@ -229,8 +187,6 @@ class QueryManager(private val scope: CoroutineScope) {
                     }
                 }
             }
-
-            decrementActiveRequests(config.priority)
         }
 
         return newState
@@ -248,11 +204,10 @@ class QueryManager(private val scope: CoroutineScope) {
         jobs.remove(key)
     }
 
-    // Refresh stale queries when app comes back to foreground
     fun refreshStaleQueries() {
         val currentTime = System.currentTimeMillis()
         queries.forEach { (key, state) ->
-            val isStale = currentTime - state.lastFetched > 60_000L // 60 seconds
+            val isStale = currentTime - state.lastFetched > 300_000L
             if (isStale && !state.isLoading) {
                 invalidateQuery(key)
             }
@@ -266,16 +221,6 @@ class QueryManager(private val scope: CoroutineScope) {
     }
 }
 
-// Stable data class to prevent unnecessary recompositions
-@Stable
-@Immutable
-private data class StableLibraryState(
-    val libraryViews: List<BaseItemDto>,
-    val isLoading: Boolean
-)
-
-
-// Composable hook for using queries
 @Composable
 fun <T> useQuery(
     key: String,
@@ -292,9 +237,8 @@ fun <T> useQuery(
             val newState = queryManager.executeQuery(key, config, fetcher)
             state = newState
 
-            // Listen for state changes
             while (true) {
-                delay(80)
+                delay(24)
                 val currentState = queryManager.getQuery<T>(key)
                 if (currentState != state) {
                     state = currentState
@@ -311,40 +255,113 @@ fun <T> useQuery(
     }
 }
 
-// Image preloader for better performance
 object ImagePreloader {
-    private val preloadedUrls = mutableSetOf<String>()
+    private val preloadedUrls = ConcurrentHashMap.newKeySet<String>()
+    private val imageUrlCache = ConcurrentHashMap<String, String>()
+    private val prefetchSemaphore = Semaphore(64)
+    private const val posterWidth = 240
+    private const val posterHeight = 360
+    private const val posterQuality = 80
 
-    fun preloadImages(
+    private fun imageCacheKey(
+        itemId: String,
+        imageType: String,
+        width: Int,
+        height: Int,
+        quality: Int
+    ): String = "$itemId|$imageType|$width|$height|$quality"
+
+    fun getCachedImageUrl(
+        itemId: String,
+        imageType: String,
+        width: Int,
+        height: Int,
+        quality: Int
+    ): String? {
+        return imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)]
+    }
+
+    suspend fun preloadCriticalImages(
         items: List<BaseItemDto>,
         mediaRepository: MediaRepository,
-        scope: CoroutineScope
-    ) {
-        scope.launch(Dispatchers.IO) {
-            items.take(6).forEach { item ->
-                val itemId = item.id ?: return@forEach
-                val key = "preload_$itemId"
+        context: android.content.Context,
+        maxItems: Int = 8
+    ) = coroutineScope {
+        val imageLoader = context.imageLoader
+        items
+            .asSequence()
+            .mapNotNull { it.id }
+            .distinct()
+            .take(maxItems)
+            .map { itemId ->
+                async(Dispatchers.IO) {
+                    prefetchSemaphore.withPermit {
+                        val key = "preload_$itemId"
+                        if (!preloadedUrls.add(key)) return@withPermit
 
-                if (!preloadedUrls.contains(key)) {
-                    try {
-                        delay(100)
-                        mediaRepository.getImageUrl(
-                            itemId = itemId,
-                            imageType = "Primary",
-                            width = 300,
-                            height = 450,
-                            quality = 100
-                        ).first()
-                        preloadedUrls.add(key)
-                    } catch (e: Exception) {
+                        try {
+                            val imageUrl = mediaRepository.getImageUrlString(
+                                itemId = itemId,
+                                imageType = "Primary",
+                                width = posterWidth,
+                                height = posterHeight,
+                                quality = posterQuality
+                            )
+                            if (!imageUrl.isNullOrBlank()) {
+                                imageUrlCache[
+                                    imageCacheKey(
+                                        itemId = itemId,
+                                        imageType = "Primary",
+                                        width = posterWidth,
+                                        height = posterHeight,
+                                        quality = posterQuality
+                                    )
+                                ] = imageUrl
+                                imageLoader.enqueue(
+                                    ImageRequest.Builder(context)
+                                        .data(imageUrl)
+                                        .memoryCachePolicy(CachePolicy.ENABLED)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .networkCachePolicy(CachePolicy.ENABLED)
+                                        .precision(Precision.INEXACT)
+                                        .allowHardware(true)
+                                        .allowRgb565(true)
+                                        .crossfade(false)
+                                        .build()
+                                )
+                            }
+                        } catch (e: Exception) {
+                            preloadedUrls.remove(key)
+                        }
                     }
                 }
             }
+            .toList()
+            .awaitAll()
+    }
+
+    fun preloadRemainingImages(
+        items: List<BaseItemDto>,
+        mediaRepository: MediaRepository,
+        context: android.content.Context,
+        scope: CoroutineScope,
+        skipFirst: Int = 8,
+        maxItems: Int = 20
+    ) {
+        val remainingItems = items.drop(skipFirst).take(maxItems)
+        if (remainingItems.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            preloadCriticalImages(
+                items = remainingItems,
+                mediaRepository = mediaRepository,
+                context = context,
+                maxItems = remainingItems.size
+            )
         }
     }
+
 }
 
-// Image loading
 @Composable
 fun ImageLoader(
     itemId: String?,
@@ -354,6 +371,7 @@ fun ImageLoader(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
     cornerRadius: Int = 8,
+    crossfadeMillis: Int = 60,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     itemType: String? = null // Add item type to handle episodes properly
 ) {
@@ -367,21 +385,37 @@ fun ImageLoader(
 
     var imageUrl by remember(actualItemId) { mutableStateOf<String?>(null) }
     var hasError by remember(actualItemId) { mutableStateOf(false) }
+    var isImageLoaded by remember(actualItemId) { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(actualItemId) {
         if (actualItemId != null) {
             hasError = false
+            isImageLoaded = false
             imageUrl = null
             try {
+                val width = if (imageType == "Thumb") 320 else 240
+                val height = if (imageType == "Thumb") 180 else 360
+                val quality = 80
+                val cachedUrl = ImagePreloader.getCachedImageUrl(
+                    itemId = actualItemId,
+                    imageType = imageType,
+                    width = width,
+                    height = height,
+                    quality = quality
+                )
+                if (!cachedUrl.isNullOrBlank()) {
+                    imageUrl = cachedUrl
+                    return@LaunchedEffect
+                }
                 val resolvedUrl = withContext(Dispatchers.IO) {
-                    mediaRepository.getImageUrl(
+                    mediaRepository.getImageUrlString(
                         itemId = actualItemId,
                         imageType = imageType,
-                        width = if (imageType == "Thumb") 400 else 300,
-                        height = if (imageType == "Thumb") 240 else 450,
-                        quality = 90
-                    ).first()
+                        width = width,
+                        height = height,
+                        quality = quality
+                    )
                 }
                 imageUrl = resolvedUrl
             } catch (e: Exception) {
@@ -401,9 +435,10 @@ fun ImageLoader(
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .networkCachePolicy(CachePolicy.ENABLED)
+                    .precision(Precision.INEXACT)
                     .allowHardware(true)
-                    .allowRgb565(false)
-                    .crossfade(120)
+                    .allowRgb565(true)
+                    .crossfade(crossfadeMillis)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -414,22 +449,26 @@ fun ImageLoader(
                     when (state) {
                         is AsyncImagePainter.State.Success -> {
                             hasError = false
+                            isImageLoaded = true
                         }
                         is AsyncImagePainter.State.Error -> {
                             hasError = true
+                            isImageLoaded = false
                         }
-                        else -> { /* Loading states */ }
+                        else -> {
+                            isImageLoaded = false
+                        }
                     }
                 }
             )
         }
 
-        if (imageUrl.isNullOrEmpty() && !hasError) {
+        if (!isImageLoaded) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                    .background(Color(0xFF2A2E37))
             )
         }
 
@@ -438,18 +477,39 @@ fun ImageLoader(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(cornerRadius.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(Color(0xFF242833))
             )
         }
     }
 }
 
-// CompositionLocal for QueryManager
 val LocalQueryManager = compositionLocalOf<QueryManager> {
     error("QueryManager not provided")
 }
 
-// Scroll configuration for buttery smooth performance
+private object DashboardHomeQueryStore {
+    private var ownerUsername: String? = null
+    private var manager: QueryManager? = null
+
+    @Synchronized
+    fun get(username: String?): QueryManager {
+        val existing = manager
+        if (existing != null) {
+            if (username == null) {
+                return existing
+            }
+            if (ownerUsername == username) {
+                return existing
+            }
+        }
+        manager?.cleanup()
+        ownerUsername = username
+        manager = QueryManager(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+        return manager!!
+    }
+
+}
+
 @Stable
 object ScrollOptimization {
     @Composable
@@ -457,21 +517,16 @@ object ScrollOptimization {
         return ScrollableDefaults.flingBehavior()
     }
 
-    // Optimized content padding for smooth edge scrolling
     val optimizedContentPadding = PaddingValues(horizontal = 16.dp)
 
-    // Reduced spacing for better performance
     val optimizedSpacing = 12.dp
 
-    // Optimized item spacing for lists
     val listItemSpacing = 8.dp
 
-    // Performance-optimized modifier for scroll containers
     fun getScrollContainerModifier(): Modifier = Modifier
         .fillMaxWidth()
 }
 
-// Sample movie data for demonstration
 data class Movie(
     val id: String,
     val title: String,
@@ -479,7 +534,6 @@ data class Movie(
     val posterUrl: String? = null
 )
 
-// Stable wrapper for BaseItemDto to prevent recomposition
 @Stable
 @Immutable
 data class StableBaseItem(
@@ -494,7 +548,6 @@ data class StableBaseItem(
     val recursiveItemCount: Int?,
     val collectionType: String?
 ) {
-    // Memoized computed properties to reduce recomposition
     val displayName: String by lazy {
         name ?: "Unknown Title"
     }
@@ -532,51 +585,32 @@ fun Dashboard(
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     isTabActive: Boolean = true
 ) {
-    var selectedCategory by remember { mutableStateOf("Home") }
+    var selectedCategory by rememberSaveable { mutableStateOf("Home") }
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
 
-    // Track current user to detect user changes
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
-    var lastKnownUsername by remember { mutableStateOf<String?>(null) }
-
-    // Create QueryManager with proper scope
-    val queryManager = remember {
-        QueryManager(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+    val queryManager = remember(currentUsername) {
+        DashboardHomeQueryStore.get(currentUsername)
     }
-
+    var previousUsername by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentUsername) {
-        if (lastKnownUsername != null && lastKnownUsername != currentUsername) {
-            queryManager.cleanup()
+        if (previousUsername != null && previousUsername != currentUsername) {
             Cache.clear()
         }
-        lastKnownUsername = currentUsername
+        previousUsername = currentUsername
     }
 
-    // Cleanup on disposal
-    DisposableEffect(Unit) {
-        onDispose {
-            queryManager.cleanup()
-        }
-    }
-
-    // Keep only visible sections composed while scrolling
     val lazyColumnState = rememberLazyListState()
 
-    // Progressive loading state to control when secondary content loads
-    var primaryContentLoaded by remember { mutableStateOf(false) }
-
-    // Provide QueryManager to child components
     CompositionLocalProvider(LocalQueryManager provides queryManager) {
 
-        // Featured items query - loads based on selected category (HIGH priority)
         val featuredQuery = useQuery(
             key = "featured_$selectedCategory",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive,
-                priority = QueryPriority.HIGH
+                enabled = isTabActive
             )
         ) {
             val result = when (selectedCategory) {
@@ -584,19 +618,19 @@ fun Dashboard(
                     parentId = null,
                     includeItemTypes = "Movie",
                     limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
                 )
                 "TV Shows" -> mediaRepository.getLatestItems(
                     parentId = null,
                     includeItemTypes = "Series",
                     limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
                 )
                 else -> mediaRepository.getLatestItems(
                     parentId = null,
                     includeItemTypes = "Movie,Series",
                     limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
                 )
             }
 
@@ -608,110 +642,86 @@ fun Dashboard(
             )
         }
 
-        // Track when primary content is loaded
-        LaunchedEffect(featuredQuery.isSuccess) {
-            if (featuredQuery.isSuccess) {
-                primaryContentLoaded = true
-            }
-        }
-
-        // Continue watching query - with lifecycle awareness (HIGH priority)
         val continueWatchingQuery = useQuery(
             key = "continue_watching",
             config = QueryConfig(
                 staleTime = 60_000L,
-                enabled = selectedCategory == "Home",
-                priority = QueryPriority.HIGH,
-                retryCount = 3,
-                retryDelay = 1000L
+                enabled = isTabActive && selectedCategory == "Home",
+                retryCount = 2,
+                retryDelay = 250L
             )
         ) {
             val result = mediaRepository.getResumeItems(limit = 8)
             result.fold(
                 onSuccess = { items ->
                     items.filter { item ->
-                        val userData = item.userData
                         item.id != null &&
-                        !item.name.isNullOrBlank() &&
-                        userData?.playedPercentage != null &&
-                        userData.playedPercentage!! > 0 &&
-                        userData.playedPercentage!! < 95
+                        !item.name.isNullOrBlank()
                     }
                 },
                 onFailure = { throw it }
             )
         }
 
-        // Library views query
-         val libraryViewsQuery = useQuery(
-             key = "library_views", 
-             config = QueryConfig(
-                                staleTime = 600_000L,
-               enabled = isTabActive && featuredQuery.isSuccess,
-               priority = QueryPriority.MEDIUM
-             )
+        val homeLibraryBurstQuery = useQuery(
+            key = "home_library_burst",
+            config = QueryConfig(
+                staleTime = 300_000L,
+                enabled = isTabActive && selectedCategory == "Home",
+                retryCount = 1,
+                retryDelay = 200L
+            )
         ) {
-            val result = mediaRepository.getUserViews()
+            val result = mediaRepository.getHomeLibrarySections(
+                maxLibraries = 36,
+                itemsPerLibrary = 30
+            )
             result.fold(
-                onSuccess = { queryResult ->
-                    queryResult.items?.filter {
-                        it.id != null &&
-                        !it.name.isNullOrBlank() &&
-                        it.collectionType != "boxsets" &&
-                        it.collectionType != "playlists" &&
-                        it.collectionType != "folders" &&
-                        (it.type == "CollectionFolder" || it.type == "Folder") &&
-                        (it.collectionType == "movies" || it.collectionType == "tvshows" ||
-                         it.collectionType == null)
-                    } ?: emptyList()
+                onSuccess = { sections ->
+                    sections.mapNotNull { section ->
+                        val libraryId = section.library.id ?: return@mapNotNull null
+                        HomeLibrarySectionUi(
+                            libraryId = libraryId,
+                            libraryName = section.library.name ?: "Library",
+                            collectionType = section.library.collectionType,
+                            items = section.items
+                        )
+                    }
                 },
                 onFailure = { throw it }
             )
         }
 
-        LaunchedEffect(featuredQuery.isSuccess) {
-            if (featuredQuery.isSuccess && primaryContentLoaded) {
-                launch {
-                    if (selectedCategory != "Movies") {
-                        queryManager.executeQuery("featured_Movies", QueryConfig(
-                            staleTime = 300_000L,
-                            priority = QueryPriority.MEDIUM
-                        )) {
-                            val result = mediaRepository.getLatestItems(
-                                parentId = null,
-                                includeItemTypes = "Movie",
-                                limit = 5,
-                                fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
-                            )
-                            result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
-                        }
-                    }
-                }
-                
-                launch {
-                    if (selectedCategory != "TV Shows") {
-                        queryManager.executeQuery("featured_TV Shows", QueryConfig(
-                            staleTime = 300_000L,
-                            priority = QueryPriority.MEDIUM
-                        )) {
-                            val result = mediaRepository.getLatestItems(
-                                parentId = null,
-                                includeItemTypes = "Series",
-                                limit = 5,
-                                fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating"
-                            )
-                            result.getOrThrow().filter { it.id != null && !it.name.isNullOrBlank() }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Lifecycle-aware query refresh
         LaunchedEffect(isTabActive) {
             if (isTabActive) {
                 queryManager.refreshStaleQueries()
             }
+        }
+        LaunchedEffect(isTabActive, selectedCategory) {
+            if (isTabActive && selectedCategory == "Home") {
+                val cachedContinueWatching =
+                    queryManager.getQuery<List<BaseItemDto>>("continue_watching")
+                if (cachedContinueWatching.data.isNullOrEmpty()) {
+                    queryManager.invalidateQuery("continue_watching")
+                }
+            }
+        }
+
+        LaunchedEffect(homeLibraryBurstQuery.data?.hashCode()) {
+            val sections = homeLibraryBurstQuery.data ?: return@LaunchedEffect
+            if (sections.isEmpty()) return@LaunchedEffect
+
+            val orderedItems = sections
+                .flatMap { section -> section.items }
+                .distinctBy { it.id }
+            if (orderedItems.isEmpty()) return@LaunchedEffect
+
+            ImagePreloader.preloadCriticalImages(
+                items = orderedItems,
+                mediaRepository = mediaRepository,
+                context = context,
+                maxItems = orderedItems.size
+            )
         }
 
         LazyColumn(
@@ -735,8 +745,12 @@ fun Dashboard(
                 )
             }
 
-            // Continue Watching section - only show on Home tab
-            if (selectedCategory == "Home" && (continueWatchingQuery.isLoading || !continueWatchingQuery.data.isNullOrEmpty() || (continueWatchingQuery.data == null && !continueWatchingQuery.isError))) {
+            if (selectedCategory == "Home" && (
+                continueWatchingQuery.isLoading ||
+                    continueWatchingQuery.data != null ||
+                    continueWatchingQuery.isError
+                )
+            ) {
                 item(key = "continue_watching_section") {
                     Column(
                         modifier = Modifier.padding(top = 8.dp)
@@ -761,7 +775,6 @@ fun Dashboard(
                 }
             }
 
-            // Only show library sections on Home tab
             if (selectedCategory == "Home") {
                 val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
@@ -771,34 +784,35 @@ fun Dashboard(
                     }
                 }
 
-                val libraries = libraryViewsQuery.data ?: emptyList()
-                if (libraryViewsQuery.isLoading && libraries.isEmpty()) {
-                    item(key = "home_libraries_loading") {
-                        LibrarySections(
-                            libraryViews = emptyList(),
-                            isLoading = true,
+                val libraries = homeLibraryBurstQuery.data ?: emptyList()
+                if (homeLibraryBurstQuery.isError && libraries.isEmpty()) {
+                    item(key = "home_libraries_error") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "Failed to load libraries",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else if (libraries.isNotEmpty()) {
+                    itemsIndexed(
+                        items = libraries,
+                        key = { index, section -> section.libraryId.ifBlank { "library_$index" } }
+                    ) { index, section ->
+                        BurstLibrarySection(
+                            section = section,
+                            mediaRepository = mediaRepository,
                             onItemClick = onNavigateToDetail,
                             onNavigateToViewAll = onNavigateToViewAll
                         )
-                    }
-                } else {
-                    itemsIndexed(
-                        items = libraries,
-                        key = { index, library -> library.id ?: "library_$index" }
-                    ) { index, library ->
-                        ProgressiveLibrarySection(
-                            library = library,
-                            mediaRepository = mediaRepository,
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = onNavigateToViewAll,
-                            loadPriority = when {
-                                index < 4 -> QueryPriority.HIGH
-                                else -> QueryPriority.LOW
-                            }
-                        )
 
                         if (index < libraries.lastIndex) {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                         }
                     }
                 }
@@ -848,7 +862,6 @@ private fun ContinueWatchingSection(
             .fillMaxWidth()
             .background(Color.Black) // AMOLED black background
     ) {
-        // Section Header
         Text(
             text = "Continue Watching",
             fontSize = 18.sp,
@@ -874,7 +887,7 @@ private fun ContinueWatchingSection(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "⚠️",
+                            text = "!",
                             fontSize = 24.sp,
                             color = Color.White.copy(alpha = 0.6f)
                         )
@@ -909,15 +922,12 @@ private fun ContinueWatchingSection(
                     items(
                         count = minOf(items.size, 6),
                         key = { index ->
-                            // Ultra-stable keys for smooth scrolling
                             items[index].id ?: "item_$index"
                         }
                     ) { index ->
-                        // Memoize item for ultra-smooth scrolling
                         val item = remember(items[index].id) { items[index] }
                         val stableOnClick = remember(item.id) { { onItemClick(item) } }
 
-                        // Wrap in graphics layer for hardware acceleration
                         Box {
                             ContinueWatchingCard(
                                 item = item,
@@ -951,7 +961,12 @@ private fun ContinueWatchingCard(
         }
     }
     val yearText = remember(stableItem.productionYear, typeText) {
-        "${stableItem.productionYear ?: ""} • $typeText"
+        val year = stableItem.productionYear?.toString().orEmpty()
+        if (year.isNotBlank()) {
+            "$year | $typeText"
+        } else {
+            typeText
+        }
     }
 
     Column(
@@ -985,7 +1000,6 @@ private fun ContinueWatchingCard(
                     itemType = stableItem.type // Pass item type for proper episode handling
                 )
 
-                // Progress bar at bottom - memoized
                 stableItem.userData?.playedPercentage?.let { percentage ->
                     val progress = remember(percentage) {
                         (percentage.toFloat() / 100f).coerceIn(0f, 1f)
@@ -1001,7 +1015,6 @@ private fun ContinueWatchingCard(
                     )
                 }
 
-                // Play button overlay
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -1021,7 +1034,6 @@ private fun ContinueWatchingCard(
             }
         }
 
-        // Title and info below the image with fixed height container
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1056,155 +1068,50 @@ private fun ContinueWatchingCard(
     }
 }
 
-@Composable
-private fun LibrarySections(
-    libraryViews: List<BaseItemDto>,
-    isLoading: Boolean,
-    onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
-) {
-    // Use a stable composition approach
-    StableLibrarySectionsContent(
-        libraryViews = libraryViews,
-        isLoading = isLoading,
-        onItemClick = onItemClick,
-        onNavigateToViewAll = onNavigateToViewAll
-    )
-}
+@Stable
+@Immutable
+private data class HomeLibrarySectionUi(
+    val libraryId: String,
+    val libraryName: String,
+    val collectionType: String?,
+    val items: List<BaseItemDto>
+)
+
 
 @Composable
-private fun StableLibrarySectionsContent(
-    libraryViews: List<BaseItemDto>,
-    isLoading: Boolean,
-    onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
-) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-
-    // Create a stable key based on actual content
-    val contentKey = remember(libraryViews) {
-        libraryViews.map { it.id }.hashCode()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-    ) {
-        when {
-            isLoading -> {
-                GenreSectionSkeleton(sectionCount = 2)
-            }
-            libraryViews.isNotEmpty() -> {
-                // Use a stable list approach instead of forEachIndexed
-                StableLibraryList(
-                    libraries = libraryViews,
-                    mediaRepository = mediaRepository,
-                    onItemClick = onItemClick,
-                    onNavigateToViewAll = onNavigateToViewAll
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StableLibraryList(
-    libraries: List<BaseItemDto>,
+private fun BurstLibrarySection(
+    section: HomeLibrarySectionUi,
     mediaRepository: MediaRepository,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
-    // Create a stable list that only changes when content changes
-    val stableLibraries = remember(libraries.map { it.id }.hashCode()) { libraries }
-
-    stableLibraries.forEachIndexed { index, library ->
-        key(library.id ?: index) {
-            ProgressiveLibrarySection(
-                library = library,
-                mediaRepository = mediaRepository,
-                onItemClick = onItemClick,
-                onNavigateToViewAll = onNavigateToViewAll,
-                loadPriority = when {
-                    index < 4 -> QueryPriority.HIGH
-                    else -> QueryPriority.LOW
-                }
-            )
-        }
-        if (index < stableLibraries.size - 1) {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun ProgressiveLibrarySection(
-    library: BaseItemDto,
-    mediaRepository: MediaRepository,
-    onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
-    loadPriority: QueryPriority = QueryPriority.MEDIUM
-) {
-    val libraryId = library.id ?: return
-
-    val libraryQuery = useQuery(
-        key = "library_$libraryId",
-        config = QueryConfig(
-            staleTime = 60_000L,
-            enabled = true,
-            priority = loadPriority,
-            retryCount = 2,
-            retryDelay = 300L
-        )
-    ) {
-        val includeItemTypes = when (library.collectionType) {
-            "tvshows" -> "Episode"
-            "movies" -> "Movie"
-            else -> "Movie,Series,Episode"
-        }
-
-        val result = mediaRepository.getLatestItems(
-            parentId = libraryId,
-            includeItemTypes = includeItemTypes,
-            limit = 8,
-            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
-        )
-
-        result.fold(
-            onSuccess = { items ->
-                items.filter { it.id != null && !it.name.isNullOrBlank() }
-            },
-            onFailure = { throw it }
-        )
-    }
+    val libraryRowState = rememberLazyListState()
+    val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
 
     Column {
-        // Section header with View All button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recently Added • ${library.name ?: "Library"}",
+                text = "Recently Added - ${section.libraryName}",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 modifier = Modifier.weight(1f)
             )
-            
-            // View All button
+
             IconButton(
                 onClick = {
-                    val contentType = when (library.collectionType) {
+                    val contentType = when (section.collectionType) {
                         "movies" -> "MOVIES"
                         "tvshows" -> "SERIES"
                         else -> "ALL"
                     }
-                    onNavigateToViewAll(contentType, library.id, library.name ?: "Library")
+                    onNavigateToViewAll(contentType, section.libraryId, section.libraryName)
                 },
                 modifier = Modifier.size(32.dp)
             ) {
@@ -1217,102 +1124,65 @@ private fun ProgressiveLibrarySection(
             }
         }
 
-        when {
-            libraryQuery.isLoading -> {
-                // Show actual blur placeholders instead of generic skeletons
-                // We need to get some sample items to show blur placeholders
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                ) {
-                    items(4) {
-                        PosterSkeleton()
-                    }
-                }
+        if (section.items.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No items found",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 12.sp
+                )
             }
+            return
+        }
 
-            libraryQuery.isSuccess && !libraryQuery.data.isNullOrEmpty() -> {
-                val items = libraryQuery.data!!
-
-                val libraryRowState = rememberLazyListState()
-                val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
-
-                LazyRow(
-                    state = libraryRowState,
-                    horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
-                    contentPadding = ScrollOptimization.optimizedContentPadding,
-                    flingBehavior = libraryFlingBehavior,
-                    modifier = ScrollOptimization.getScrollContainerModifier()
-                ) {
-                    items(
-                        count = items.size,
-                        key = { index ->
-                            // Simple, stable keys for optimal performance
-                            items[index].id ?: "lib_item_$index"
-                        }
-                    ) { index ->
-                        // Memoize item for ultra-smooth scrolling
-                        val item = remember(items[index].id) { items[index] }
-                        val stableOnClick = remember(item.id) { { onItemClick(item) } }
-
-                        // Wrap in graphics layer for hardware acceleration
-                        Box {
-                            LibraryItemCard(
-                                item = item,
-                                mediaRepository = mediaRepository,
-                                onClick = stableOnClick
-                            )
-                        }
+        LazyRow(
+            state = libraryRowState,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            flingBehavior = libraryFlingBehavior,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            itemsIndexed(
+                items = section.items,
+                key = { index, item -> item.id ?: "${section.libraryId}_$index" }
+            ) { index, item ->
+                val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
+                val isVisible by remember(libraryRowState, index) {
+                    derivedStateOf {
+                        libraryRowState.layoutInfo.visibleItemsInfo.any { it.index == index }
                     }
                 }
-            }
-
-            libraryQuery.isError -> {
-                // Error state
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Failed to load items",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 12.sp
-                    )
+                var hasEntered by remember(item.id ?: "${section.libraryId}_$index") {
+                    mutableStateOf(false)
                 }
-            }
-
-            else -> {
-                if (libraryQuery.data == null && !libraryQuery.isError) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        items(4) {
-                            PosterSkeleton()
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp)
-                            .background(Color.Black),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No items found",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp
-                        )
+                LaunchedEffect(isVisible) {
+                    if (isVisible && !hasEntered) {
+                        hasEntered = true
                     }
                 }
+                val entranceProgress by animateFloatAsState(
+                    targetValue = if (hasEntered) 1f else 0.88f,
+                    animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+                    label = "burst_library_item_entrance"
+                )
+
+                LibraryItemCard(
+                    item = item,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = entranceProgress
+                        translationX = (1f - entranceProgress) * 26f
+                        val scale = 0.96f + (0.04f * entranceProgress)
+                        scaleX = scale
+                        scaleY = scale
+                    },
+                    mediaRepository = mediaRepository,
+                    onClick = stableOnClick
+                )
             }
         }
     }
@@ -1322,12 +1192,12 @@ private fun ProgressiveLibrarySection(
 @Composable
 internal fun LibraryItemCard(
     item: BaseItemDto,
+    modifier: Modifier = Modifier,
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
 
-    // Show series name for episodes, otherwise show item name
     val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
         item.seriesName!!
     } else {
@@ -1335,15 +1205,15 @@ internal fun LibraryItemCard(
     }
 
     Column(
-        modifier = Modifier
-            .width(140.dp)
-            .height(260.dp) // Fixed total height to prevent recomposition issues
+        modifier = modifier
+            .width(112.dp)
+            .height(214.dp)
     ) {
         Card(
             modifier = Modifier
-                .width(140.dp)
-                .height(210.dp),
-            shape = RoundedCornerShape(16.dp),
+                .width(112.dp)
+                .height(166.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -1353,8 +1223,6 @@ internal fun LibraryItemCard(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Poster image
-                // Episodes will automatically use series poster
                 ImageLoader(
                     itemId = stableItem.id,
                     seriesId = stableItem.seriesId,
@@ -1362,12 +1230,12 @@ internal fun LibraryItemCard(
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    cornerRadius = 16,
+                    cornerRadius = 12,
+                    crossfadeMillis = 0,
                     mediaRepository = mediaRepository,
                     itemType = stableItem.type // Pass item type for proper episode handling
                 )
 
-                // Episode count badge for series (top-right corner)
                 val episodeCount = when {
                     item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
                     item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
@@ -1375,11 +1243,11 @@ internal fun LibraryItemCard(
                 }
 
                 episodeCount?.let { count ->
-                    EpisodeCountBadge(
+                    LibraryCountBadge(
                         count = count,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(12.dp)
+                            .padding(top = 8.dp, end = 8.dp)
                     )
                 }
 
@@ -1387,22 +1255,21 @@ internal fun LibraryItemCard(
             }
         }
 
-        // Title and metadata below the image with fixed height container
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
-                .padding(top = 8.dp, start = 4.dp, end = 4.dp),
+                .height(42.dp)
+                .padding(top = 2.dp, start = 2.dp, end = 2.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = displayName,
                     color = Color.White,
-                    fontSize = 13.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1410,13 +1277,13 @@ internal fun LibraryItemCard(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Additional metadata
                 val metadataText = buildMetadataText(item)
                 if (metadataText.isNotEmpty()) {
                     Text(
                         text = metadataText,
                         color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 11.sp,
+                        fontSize = 9.sp,
+                        lineHeight = 10.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
@@ -1428,40 +1295,34 @@ internal fun LibraryItemCard(
     }
 }
 
-/**
- * Build metadata text for library items
- */
 private fun buildMetadataText(item: BaseItemDto): String {
+    val resolvedStartYear = item.productionYear ?: item.premiereDate
+        ?.take(4)
+        ?.toIntOrNull()
     return buildString {
         when (item.type) {
             "Series" -> {
-                // For series, show year range if available
-                item.productionYear?.let { startYear ->
+                resolvedStartYear?.let { startYear ->
                     append(startYear.toString())
                     item.endDate?.let { endDate ->
-                        val endYear = endDate.substring(0, 4).toIntOrNull()
+                        val endYear = endDate.take(4).toIntOrNull()
                         if (endYear != null && endYear != startYear) {
                             append(" - $endYear")
                         }
                     } ?: run {
-                        // If no end date and series is ongoing, show start year only
-                        // Could add " - Present" for ongoing series if needed
                     }
                 }
             }
             "Movie" -> {
-                // For movies, show year
-                item.productionYear?.let { year ->
+                resolvedStartYear?.let { year ->
                     append(year.toString())
                 }
             }
             "Episode" -> {
-                // For episodes, show season and episode info
                 val seasonNumber = item.parentIndexNumber
                 val episodeNumber = item.indexNumber
                 if (seasonNumber != null && episodeNumber != null) {
                     append("S${seasonNumber}:E${episodeNumber}")
-                    // Add episode title if different from series name
                     item.name?.let { episodeName ->
                         if (episodeName != item.seriesName) {
                             append(" - ${episodeName.take(20)}")
@@ -1471,8 +1332,7 @@ private fun buildMetadataText(item: BaseItemDto): String {
                 }
             }
             else -> {
-                // For other types, show year if available
-                item.productionYear?.let { year ->
+                resolvedStartYear?.let { year ->
                     append(year.toString())
                 }
             }
@@ -1481,23 +1341,26 @@ private fun buildMetadataText(item: BaseItemDto): String {
 }
 
 @Composable
-private fun EpisodeCountBadge(
+private fun LibraryCountBadge(
     count: Int,
     modifier: Modifier = Modifier
 ) {
     if (count > 0) {
+        val badgeSize = if (count >= 100) 22.dp else 20.dp
+        val displayCount = if (count >= 100) "99+" else count.toString()
         Surface(
-            modifier = modifier,
-            shape = RoundedCornerShape(12.dp),
-            color = Color.Black.copy(alpha = 0.8f)
+            modifier = modifier.size(badgeSize),
+            shape = CircleShape,
+            color = Color(0xFF4B62BE).copy(alpha = 0.96f)
         ) {
-            Text(
-                text = count.toString(),
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = displayCount,
+                    color = Color.White,
+                    fontSize = if (count >= 100) 7.sp else 8.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -1514,7 +1377,6 @@ fun DashboardPreview() {
     }
 }
 
-// cache with memory management and background refresh
 private object Cache {
     private val cache = mutableMapOf<String, CacheEntry<Any>>()
     private const val MAX_CACHE_SIZE = 50
@@ -1535,7 +1397,6 @@ private object Cache {
         cleanupIfNeeded()
         val entry = cache[key] as? CacheEntry<T>
         if (entry != null) {
-            // Update access statistics
             cache[key] = entry.copy(
                 accessCount = entry.accessCount + 1,
                 lastAccessed = System.currentTimeMillis()
@@ -1547,7 +1408,6 @@ private object Cache {
     fun <T> put(key: String, data: T) {
         cleanupIfNeeded()
 
-        // Remove oldest entries if cache is full
         if (cache.size >= MAX_CACHE_SIZE) {
             val oldestKey = cache.entries
                 .minByOrNull { it.value.lastAccessed }
@@ -1578,7 +1438,6 @@ private object Cache {
     private fun cleanupIfNeeded() {
         val now = System.currentTimeMillis()
         if (now - lastCleanup > MEMORY_CLEANUP_INTERVAL) {
-            // Remove entries older than 1 hour
             val cutoff = now - 3_600_000L
             val keysToRemove = cache.entries
                 .filter { it.value.lastAccessed < cutoff }
@@ -1597,7 +1456,6 @@ private object Cache {
     }
 }
 
-// Legacy cache objects for backward compatibility (now using Cache internally)
 private object DashboardCache {
     fun shouldRefreshFeaturedItems(category: String): Boolean {
         return Cache.isStale("featured_$category", 300_000L)
@@ -1623,7 +1481,6 @@ private object DashboardCache {
         get() = Cache.get("continue_watching") ?: emptyList()
 }
 
-// Cache for genre data (now using Cache)
 private object GenreCache {
     fun shouldRefreshMovieGenres(): Boolean {
         return Cache.isStale("movie_genres", 600_000L)
@@ -1634,7 +1491,20 @@ private object GenreCache {
     }
 
     fun shouldRefreshGenreItems(genreId: String): Boolean {
-        return Cache.isStale("genre_items_$genreId", 300_000L)
+        val cacheKey = "genre_items_$genreId"
+        if (Cache.isStale(cacheKey, 300_000L)) {
+            return true
+        }
+        val cachedItems = Cache.get<List<BaseItemDto>>(cacheKey) ?: return true
+        if (cachedItems.isEmpty()) {
+            return true
+        }
+        val hasYearMetadata = cachedItems.any { item ->
+            item.productionYear != null ||
+                !item.premiereDate.isNullOrBlank() ||
+                !item.endDate.isNullOrBlank()
+        }
+        return !hasYearMetadata
     }
 
     fun updateMovieGenres(genres: List<BaseItemDto>) {
@@ -1660,7 +1530,6 @@ private object GenreCache {
         get() = Cache.get("tv_genres") ?: emptyList()
 }
 
-// Cache for library data (now using Cache)
 private object LibraryCache {
     fun shouldRefreshLibraryViews(): Boolean {
         return Cache.isStale("library_views", 600_000L)
@@ -1697,7 +1566,6 @@ private fun MovieGenreSections(
     var movieGenres by remember { mutableStateOf(GenreCache.movieGenres) }
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
 
-    // Optimize movie genres loading with background thread
     LaunchedEffect(Unit) {
         if (GenreCache.shouldRefreshMovieGenres()) {
             isLoading = true
@@ -1740,8 +1608,7 @@ private fun MovieGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
-                    onNavigateToViewAll = onNavigateToViewAll,
-                    loadDelay = index * 200L
+                    onNavigateToViewAll = onNavigateToViewAll
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1760,7 +1627,6 @@ private fun TVShowGenreSections(
     var tvGenres by remember { mutableStateOf(GenreCache.tvGenres) }
     var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshTVGenres()) }
 
-    // Load TV show genres with caching
     LaunchedEffect(Unit) {
         if (GenreCache.shouldRefreshTVGenres()) {
             isLoading = true
@@ -1798,8 +1664,7 @@ private fun TVShowGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
-                    onNavigateToViewAll = onNavigateToViewAll,
-                    loadDelay = index * 200L
+                    onNavigateToViewAll = onNavigateToViewAll
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
@@ -1812,46 +1677,37 @@ private fun ProgressiveMovieGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
     onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
-    loadDelay: Long = 0L
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems(genreId)) }
 
-    // Progressive loading with staggered delays
     LaunchedEffect(genreId) {
         if (GenreCache.shouldRefreshGenreItems(genreId)) {
-            // Add longer staggered delay to prevent all genres loading at once
-            if (loadDelay > 0) {
-                delay(loadDelay + 500)
-            }
-
             isLoading = true
             try {
-                withContext(Dispatchers.IO) {
-                    val result = mediaRepository.getItemsByGenre(
+                val result = withContext(Dispatchers.IO) {
+                    mediaRepository.getItemsByGenre(
                         genreId = genreId,
                         includeItemTypes = "Movie",
                         limit = 20
                     )
-
-                    withContext(Dispatchers.Main) {
-                        result.fold(
-                            onSuccess = { items ->
-                                val validItems = items.filter {
-                                    it.id != null && !it.name.isNullOrBlank()
-                                }
-                                GenreCache.updateGenreItems(genreId, validItems)
-                                genreMovies = validItems
-                            },
-                            onFailure = { error ->
-                                genreMovies = emptyList()
-                            }
-                        )
-                        isLoading = false
-                    }
                 }
+
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        }
+                        GenreCache.updateGenreItems(genreId, validItems)
+                        genreMovies = validItems
+                    },
+                    onFailure = {
+                        genreMovies = emptyList()
+                    }
+                )
+                isLoading = false
             } catch (e: Exception) {
                 isLoading = false
             }
@@ -1861,13 +1717,11 @@ private fun ProgressiveMovieGenreSection(
         }
     }
 
-    // Always show the genre section
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Black)
     ) {
-        // Section Header with View All button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1882,7 +1736,6 @@ private fun ProgressiveMovieGenreSection(
                 color = Color.White
             )
 
-            // View All button - positioned right next to the genre name
             IconButton(
                 onClick = {
                     onNavigateToViewAll("MOVIES_GENRE", genre.id, genre.name ?: "Movies")
@@ -1949,47 +1802,38 @@ private fun ProgressiveTVShowGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
     onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
-    loadDelay: Long = 0L
+    onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems("tv_$genreId")) }
 
-    // Progressive loading with staggered delays
     LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
         if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
-            // Add longer staggered delay to prevent all genres loading at once
-            if (loadDelay > 0) {
-                delay(loadDelay + 500)
-            }
-
             isLoading = true
             try {
-                withContext(Dispatchers.IO) {
-                    val result = mediaRepository.getItemsByGenre(
+                val result = withContext(Dispatchers.IO) {
+                    mediaRepository.getItemsByGenre(
                         genreId = genreId,
                         includeItemTypes = "Series",
                         limit = 20
                     )
-
-                    withContext(Dispatchers.Main) {
-                        result.fold(
-                            onSuccess = { items ->
-                                val validItems = items.filter {
-                                    it.id != null && !it.name.isNullOrBlank()
-                                }
-                                GenreCache.updateGenreItems(cacheKey, validItems)
-                                genreShows = validItems
-                            },
-                            onFailure = { error ->
-                                genreShows = emptyList()
-                            }
-                        )
-                        isLoading = false
-                    }
                 }
+
+                result.fold(
+                    onSuccess = { items ->
+                        val validItems = items.filter {
+                            it.id != null && !it.name.isNullOrBlank()
+                        }
+                        GenreCache.updateGenreItems(cacheKey, validItems)
+                        genreShows = validItems
+                    },
+                    onFailure = {
+                        genreShows = emptyList()
+                    }
+                )
+                isLoading = false
             } catch (e: Exception) {
                 isLoading = false
             }
@@ -1999,13 +1843,11 @@ private fun ProgressiveTVShowGenreSection(
         }
     }
 
-    // Always show the genre section
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Black)
     ) {
-        // Section Header with View All button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2020,7 +1862,6 @@ private fun ProgressiveTVShowGenreSection(
                 color = Color.White
             )
 
-            // View All button - positioned right next to the genre name
             IconButton(
                 onClick = {
                     onNavigateToViewAll("TVSHOWS_GENRE", genre.id, genre.name ?: "TV Shows")
