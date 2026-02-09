@@ -16,11 +16,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,6 +60,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
@@ -66,7 +69,6 @@ import coil.imageLoader
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.jellycine.app.R
-import com.jellycine.app.util.image.ImageSkeleton
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -76,6 +78,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
@@ -151,6 +154,7 @@ fun FeatureTab(
     isLoading: Boolean = true,
     error: String? = null,
     selectedCategory: String = "Home",
+    verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
     onCategorySelected: (String) -> Unit = {},
@@ -174,9 +178,10 @@ fun FeatureTab(
         )
     }
 
-    val featuredRowState = rememberLazyListState()
+    val featuredRowState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
+    val density = LocalDensity.current
     val featuredKeys = remember(featuredItems) {
         featuredItems.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
     }
@@ -186,6 +191,9 @@ fun FeatureTab(
     var autoScrollReady by rememberSaveable { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
+    val heroWidthPx = remember(configuration, density) {
+        with(density) { configuration.screenWidthDp.dp.toPx() }
+    }
 
     LaunchedEffect(currentUsername, refreshTrigger) {
         val resolvedUsername = currentUsername ?: CachedData.username
@@ -212,7 +220,12 @@ fun FeatureTab(
 
     LaunchedEffect(featuredKeys, isLoading) {
         if (isLoading || featuredItems.size <= 1) return@LaunchedEffect
-        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
+        val shouldSeed =
+            featuredRowState.firstVisibleItemIndex == 0 &&
+                featuredRowState.firstVisibleItemScrollOffset == 0
+        if (shouldSeed) {
+            runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
+        }
     }
 
     LaunchedEffect(featuredKeys) {
@@ -340,6 +353,10 @@ fun FeatureTab(
                             val cachedImages = item.id?.let { imageCacheByItemId[it] }
                             FeatureHeroCard(
                                 item = item,
+                                itemIndex = index,
+                                listState = featuredRowState,
+                                itemWidthPx = heroWidthPx,
+                                verticalParallaxOffsetPx = verticalParallaxOffsetPx,
                                 images = cachedImages,
                                 onClick = { onItemClick(item) },
                                 heroHeight = heroHeight,
@@ -490,6 +507,10 @@ private fun CategoryChipMenu(
 @Composable
 private fun FeatureHeroCard(
     item: BaseItemDto,
+    itemIndex: Int,
+    listState: LazyListState,
+    itemWidthPx: Float,
+    verticalParallaxOffsetPx: Float,
     images: FeatureCardImages?,
     onClick: () -> Unit,
     heroHeight: Dp,
@@ -519,6 +540,19 @@ private fun FeatureHeroCard(
     val backdropUrl = images?.backdropUrl
     val logoUrl = images?.logoUrl
     var lowResImage by remember(item.id, lowBackdropUrl) { mutableStateOf(false) }
+    val backdropParallaxShift = remember(verticalParallaxOffsetPx) { verticalParallaxOffsetPx * 0.4f }
+    val pageOffset by remember(listState, itemIndex, itemWidthPx) {
+        derivedStateOf {
+            val firstIndex = listState.firstVisibleItemIndex
+            val scrollOffset = listState.firstVisibleItemScrollOffset.toFloat()
+            if (itemWidthPx == 0f) 0f
+            else ((itemIndex - firstIndex) * itemWidthPx - scrollOffset) / itemWidthPx
+        }
+    }
+    val scrollInfluence = abs(pageOffset).coerceIn(0f, 1f)
+    val contentAlpha = 1f - (0.35f * scrollInfluence)
+    val contentScale = 1f - (0.05f * scrollInfluence)
+    val contentShift = 12f * scrollInfluence
 
     Card(
         onClick = onClick,
@@ -557,8 +591,9 @@ private fun FeatureHeroCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
-                            scaleX = 1.04f,
-                            scaleY = 1.04f
+                            translationY = backdropParallaxShift,
+                            scaleX = 1.14f,
+                            scaleY = 1.14f
                         )
                 )
             } else {
@@ -594,9 +629,10 @@ private fun FeatureHeroCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
+                            translationY = backdropParallaxShift,
                             alpha = highAlpha,
-                            scaleX = 1.04f,
-                            scaleY = 1.04f
+                            scaleX = 1.14f,
+                            scaleY = 1.14f
                         )
                 )
             }
@@ -607,20 +643,56 @@ private fun FeatureHeroCard(
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
-                                0.0f to Color.Black.copy(alpha = 0.58f),
-                                0.45f to Color.Transparent,
-                                0.70f to Color.Black.copy(alpha = 0.78f),
-                                1.0f to Color.Black.copy(alpha = 0.98f)
+                                0.0f to Color.Black.copy(alpha = 0.22f),
+                                0.50f to Color.Transparent,
+                                0.78f to Color.Black.copy(alpha = 0.55f),
+                                1.0f to Color.Black.copy(alpha = 0.78f)
                             )
                         )
                     )
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.92f)
+                            )
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        val radius = size.maxDimension * 0.72f
+                        val brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.45f)
+                            ),
+                            center = Offset(size.width / 2f, size.height / 2f),
+                            radius = radius
+                        )
+                        onDrawBehind { drawRect(brush) }
+                    }
             )
 
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                    .graphicsLayer(
+                        alpha = contentAlpha,
+                        scaleX = contentScale,
+                        scaleY = contentScale,
+                        translationY = contentShift
+                    ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -633,7 +705,7 @@ private fun FeatureHeroCard(
                             .networkCachePolicy(CachePolicy.ENABLED)
                             .crossfade(false)
                             .allowHardware(true)
-                            .allowRgb565(true)
+                            .allowRgb565(false)
                             .build(),
                         contentDescription = "${item.name} logo",
                         contentScale = ContentScale.Fit,
@@ -673,71 +745,68 @@ private fun FeatureHeroCard(
                 val genres = item.genres.orEmpty().take(3)
 
                 val certificateText = item.officialRating?.takeIf { it.isNotBlank() }
-                if (!ratingText.isNullOrBlank() || resolvedYear != null || genres.isNotEmpty()) {
+                val hasMetaRow = !ratingText.isNullOrBlank() || resolvedYear != null || genres.isNotEmpty() || !certificateText.isNullOrBlank()
+                if (hasMetaRow) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.graphicsLayer(
                             alpha = metaAlpha,
                             translationY = metaOffset
                         )
                     ) {
-                        if (!ratingText.isNullOrBlank()) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE84B3C),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = ratingText,
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
                         if (resolvedYear != null) {
                             Text(
                                 text = resolvedYear.toString(),
-                                color = Color.White.copy(alpha = 0.92f),
-                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                         if (genres.isNotEmpty()) {
                             Text(
                                 text = genres.joinToString(separator = "/"),
-                                color = Color.White.copy(alpha = 0.88f),
-                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-                }
-                if (!certificateText.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                            .graphicsLayer(
-                                alpha = metaAlpha,
-                                translationY = metaOffset
-                            )
-                    ) {
-                        Text(
-                            text = certificateText,
-                            color = Color.White.copy(alpha = 0.92f),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        if (!ratingText.isNullOrBlank()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE84B3C),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = ratingText,
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        if (!certificateText.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(5.dp))
+                                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = certificateText,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -736,6 +736,16 @@ fun Dashboard(
             )
         }
 
+        val featureParallaxOffsetPx by remember {
+            derivedStateOf {
+                if (lazyColumnState.firstVisibleItemIndex == 0) {
+                    lazyColumnState.firstVisibleItemScrollOffset.toFloat()
+                } else {
+                    0f
+                }
+            }
+        }
+
         LazyColumn(
             state = lazyColumnState,
             modifier = Modifier
@@ -749,6 +759,7 @@ fun Dashboard(
                     isLoading = featuredQuery.isLoading,
                     error = featuredQuery.error,
                     selectedCategory = selectedCategory,
+                    verticalParallaxOffsetPx = featureParallaxOffsetPx,
                     onItemClick = onNavigateToDetail,
                     onLogout = onLogout,
                     onCategorySelected = { category ->
