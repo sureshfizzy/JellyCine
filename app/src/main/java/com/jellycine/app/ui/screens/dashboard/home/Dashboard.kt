@@ -228,10 +228,10 @@ fun <T> useQuery(
     fetcher: suspend () -> T
 ): QueryState<T> {
     val queryManager = LocalQueryManager.current
-    var state by remember(key) { mutableStateOf(queryManager.getQuery<T>(key)) }
-    var hasInitiated by remember(key) { mutableStateOf(false) }
+    var state by remember(key, queryManager) { mutableStateOf(queryManager.getQuery<T>(key)) }
+    var hasInitiated by remember(key, queryManager) { mutableStateOf(false) }
 
-    LaunchedEffect(key, config.enabled) {
+    LaunchedEffect(key, config.enabled, queryManager) {
         if (config.enabled) {
             hasInitiated = true
             val newState = queryManager.executeQuery(key, config, fetcher)
@@ -753,7 +753,9 @@ fun Dashboard(
             ) {
                 item(key = "continue_watching_section") {
                     Column(
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier
+                            .padding(top = 0.dp)
+                            .offset(y = (-12).dp)
                     ) {
                         if (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError)) {
                             Text(

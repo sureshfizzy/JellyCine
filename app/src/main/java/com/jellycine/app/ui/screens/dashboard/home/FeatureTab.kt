@@ -1,29 +1,37 @@
 package com.jellycine.app.ui.screens.dashboard.home
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,21 +46,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
 import coil.imageLoader
 import coil.request.CachePolicy
 import coil.request.ImageRequest
+import com.jellycine.app.R
 import com.jellycine.app.util.image.ImageSkeleton
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -159,6 +172,8 @@ fun FeatureTab(
     val featuredKeys = remember(featuredItems) {
         featuredItems.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
     }
+    val configuration = LocalConfiguration.current
+    val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
 
     LaunchedEffect(currentUsername, refreshTrigger) {
         val resolvedUsername = currentUsername ?: CachedData.username
@@ -271,104 +286,168 @@ fun FeatureTab(
             .fillMaxWidth()
             .background(Color.Black)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 48.dp, bottom = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .height(heroHeight)
         ) {
-            Text(
-                text = "Welcome $displayUsername",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-
-            UserProfileAvatar(
-                imageUrl = userProfileImageUrl,
-                userName = displayUsername,
-                onClick = {},
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .size(34.dp)
-            )
-        }
-
-        CategoryPills(
-            selectedCategory = selectedCategory,
-            onCategorySelected = onCategorySelected,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        when {
-            featuredItems.isNotEmpty() -> {
-                LazyRow(
-                    state = featuredRowState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(
-                        items = featuredItems,
-                        key = { item -> item.id ?: item.name ?: "feature_item" }
-                    ) { item ->
-                        val cachedImages = item.id?.let { imageCacheByItemId[it] }
-                        FeatureHeroCard(
-                            item = item,
-                            images = cachedImages,
-                            onClick = { onItemClick(item) },
-                            modifier = Modifier.fillParentMaxWidth()
-                        )
+            when {
+                featuredItems.isNotEmpty() -> {
+                    LazyRow(
+                        state = featuredRowState,
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        items(
+                            items = featuredItems,
+                            key = { item -> item.id ?: item.name ?: "feature_item" }
+                        ) { item ->
+                            val cachedImages = item.id?.let { imageCacheByItemId[it] }
+                            FeatureHeroCard(
+                                item = item,
+                                images = cachedImages,
+                                onClick = { onItemClick(item) },
+                                heroHeight = heroHeight,
+                                modifier = Modifier.fillParentMaxWidth()
+                            )
+                        }
                     }
                 }
+
+                isLoading -> FeatureHeroSkeleton(heroHeight = heroHeight)
+
+                !error.isNullOrBlank() -> FeatureHeroError(error = error, heroHeight = heroHeight)
+
+                else -> FeatureHeroError(error = "No featured content available", heroHeight = heroHeight)
             }
 
-            isLoading -> FeatureHeroSkeleton()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .align(Alignment.TopStart),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CategoryChipMenu(
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = onCategorySelected
+                )
 
-            !error.isNullOrBlank() -> FeatureHeroError(error = error)
-
-            else -> FeatureHeroError(error = "No featured content available")
+                UserProfileAvatar(
+                    imageUrl = userProfileImageUrl,
+                    userName = displayUsername,
+                    onClick = {},
+                    modifier = Modifier.size(34.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 
 @Composable
-private fun CategoryPills(
+private fun CategoryChipMenu(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val categories = listOf("Home", "Movies", "TV Shows")
+    val menuOptions = remember(selectedCategory) { categories.filterNot { it == selectedCategory } }
+    var expanded by remember { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "category_arrow"
+    )
+    val pillShape = RoundedCornerShape(18.dp)
+    val glassGradient = Brush.horizontalGradient(
+        colors = listOf(
+            Color.White.copy(alpha = 0.12f),
+            Color.White.copy(alpha = 0.05f)
+        )
+    )
+    val glassBorder = Color.White.copy(alpha = 0.22f)
 
-    LazyRow(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(categories) { category ->
-            Surface(
-                color = if (category == selectedCategory) Color.White else Color.Transparent,
-                border = if (category == selectedCategory) null else BorderStroke(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.45f)
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.clickable { onCategorySelected(category) }
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .clip(pillShape)
+                .background(glassGradient)
+                .border(1.dp, glassBorder, pillShape)
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.jellycine_logo),
+                contentDescription = "JellyCine",
+                modifier = Modifier.size(28.dp),
+                contentScale = ContentScale.Fit
+            )
+            Text(
+                text = selectedCategory,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(18.dp)
+                    .graphicsLayer(rotationZ = arrowRotation)
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color.Transparent,
+            shadowElevation = 0.dp,
+            tonalElevation = 0.dp,
+            border = null,
+            modifier = Modifier.background(Color.Transparent)
+        ) {
+            Column(
+                modifier = Modifier.padding(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = category,
-                    color = if (category == selectedCategory) Color.Black else Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = if (category == selectedCategory) FontWeight.SemiBold else FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                menuOptions.forEach { category ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(pillShape)
+                            .background(glassGradient)
+                            .border(1.dp, glassBorder, pillShape)
+                            .clickable {
+                                expanded = false
+                                onCategorySelected(category)
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = category,
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.55f),
+                            modifier = Modifier
+                                .size(16.dp)
+                                .graphicsLayer(rotationZ = -90f)
+                        )
+                    }
+                }
             }
         }
     }
@@ -379,6 +458,7 @@ private fun FeatureHeroCard(
     item: BaseItemDto,
     images: FeatureCardImages?,
     onClick: () -> Unit,
+    heroHeight: Dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -390,8 +470,8 @@ private fun FeatureHeroCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(390.dp),
-        shape = RoundedCornerShape(16.dp),
+            .height(heroHeight),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -408,12 +488,17 @@ private fun FeatureHeroCard(
                         .build(),
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = 1.04f,
+                            scaleY = 1.04f
+                        )
                 )
             } else {
                 ImageSkeleton(
                     modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(0.dp)
                 )
             }
 
@@ -422,10 +507,11 @@ private fun FeatureHeroCard(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.28f),
-                                Color.Black.copy(alpha = 0.86f)
+                            colorStops = arrayOf(
+                                0.0f to Color.Black.copy(alpha = 0.58f),
+                                0.45f to Color.Transparent,
+                                0.70f to Color.Black.copy(alpha = 0.78f),
+                                1.0f to Color.Black.copy(alpha = 0.98f)
                             )
                         )
                     )
@@ -567,19 +653,18 @@ private fun UserProfileAvatar(
 }
 
 @Composable
-private fun FeatureHeroSkeleton() {
+private fun FeatureHeroSkeleton(heroHeight: Dp) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(390.dp)
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
+            .height(heroHeight),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             ImageSkeleton(
                 modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(0.dp)
             )
 
             Column(
@@ -607,13 +692,12 @@ private fun FeatureHeroSkeleton() {
 }
 
 @Composable
-private fun FeatureHeroError(error: String) {
+private fun FeatureHeroError(error: String, heroHeight: Dp) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(390.dp)
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
+            .height(heroHeight),
+        shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF141414))
     ) {
         Box(
