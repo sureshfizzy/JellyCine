@@ -755,24 +755,6 @@ private fun FeatureHeroCard(
                             translationY = metaOffset
                         )
                     ) {
-                        if (resolvedYear != null) {
-                            Text(
-                                text = resolvedYear.toString(),
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        if (genres.isNotEmpty()) {
-                            Text(
-                                text = genres.joinToString(separator = "/"),
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
                         if (!ratingText.isNullOrBlank()) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -791,6 +773,24 @@ private fun FeatureHeroCard(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
+                        }
+                        if (resolvedYear != null) {
+                            Text(
+                                text = resolvedYear.toString(),
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if (genres.isNotEmpty()) {
+                            Text(
+                                text = genres.joinToString(separator = "/"),
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                         if (!certificateText.isNullOrBlank()) {
                             Box(
