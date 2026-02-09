@@ -614,29 +614,41 @@ fun Dashboard(
             )
         ) {
             val result = when (selectedCategory) {
-                "Movies" -> mediaRepository.getLatestItems(
+                "Movies" -> mediaRepository.getUserItems(
                     parentId = null,
                     includeItemTypes = "Movie",
-                    limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
+                    sortBy = "Random",
+                    sortOrder = null,
+                    limit = 10,
+                    startIndex = 0,
+                    recursive = true,
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
                 )
-                "TV Shows" -> mediaRepository.getLatestItems(
+                "TV Shows" -> mediaRepository.getUserItems(
                     parentId = null,
                     includeItemTypes = "Series",
-                    limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
+                    sortBy = "Random",
+                    sortOrder = null,
+                    limit = 10,
+                    startIndex = 0,
+                    recursive = true,
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
                 )
-                else -> mediaRepository.getLatestItems(
+                else -> mediaRepository.getUserItems(
                     parentId = null,
                     includeItemTypes = "Movie,Series",
-                    limit = 5,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,Overview"
+                    sortBy = "Random",
+                    sortOrder = null,
+                    limit = 10,
+                    startIndex = 0,
+                    recursive = true,
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
                 )
             }
 
             result.fold(
-                onSuccess = { items ->
-                    items.filter { it.id != null && !it.name.isNullOrBlank() }
+                onSuccess = { query ->
+                    query.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
                 },
                 onFailure = { throw it }
             )

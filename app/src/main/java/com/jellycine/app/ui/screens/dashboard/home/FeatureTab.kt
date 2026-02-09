@@ -21,10 +21,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import coil.imageLoader
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -132,12 +137,14 @@ internal object CachedData {
 }
 
 private data class FeatureCardImages(
+    val lowBackdropUrl: String?,
     val backdropUrl: String?,
     val logoUrl: String?
 )
 
 @Composable
 @Suppress("UNUSED_PARAMETER")
+@OptIn(ExperimentalFoundationApi::class)
 fun FeatureTab(
     modifier: Modifier = Modifier,
     featuredItems: List<BaseItemDto> = emptyList(),
@@ -168,10 +175,15 @@ fun FeatureTab(
     }
 
     val featuredRowState = rememberLazyListState()
+    val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     val featuredKeys = remember(featuredItems) {
         featuredItems.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
     }
+    val infiniteStartIndex = remember(featuredKeys) {
+        if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
+    }
+    var autoScrollReady by rememberSaveable { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
 
@@ -200,16 +212,7 @@ fun FeatureTab(
 
     LaunchedEffect(featuredKeys, isLoading) {
         if (isLoading || featuredItems.size <= 1) return@LaunchedEffect
-        runCatching { featuredRowState.scrollToItem(0) }
-        while (true) {
-            delay(6500L)
-            val currentIndex = featuredRowState.firstVisibleItemIndex
-                .coerceIn(0, featuredItems.lastIndex)
-            val nextIndex = (currentIndex + 1) % featuredItems.size
-            runCatching {
-                featuredRowState.animateScrollToItem(index = nextIndex)
-            }
-        }
+        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
     }
 
     LaunchedEffect(featuredKeys) {
@@ -227,25 +230,40 @@ fun FeatureTab(
                 if (imageCacheByItemId[itemId] != null) return@forEach
 
                 launch(Dispatchers.IO) {
+                    val lowBackdropUrl = mediaRepository.getImageUrlString(
+                        itemId = itemId,
+                        imageType = "Backdrop",
+                        width = 640,
+                        height = 360,
+                        quality = 70
+                    )
                     val backdropUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Backdrop",
-                        width = 1280,
-                        height = 720,
+                        width = 1600,
+                        height = 900,
                         quality = 90
                     )
                     val logoUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Logo",
-                        width = 520,
-                        height = 240,
+                        width = 720,
+                        height = 320,
                         quality = 90
                     )
 
-                    if (!backdropUrl.isNullOrBlank()) {
+                    withContext(Dispatchers.Main) {
+                        imageCacheByItemId[itemId] = FeatureCardImages(
+                            lowBackdropUrl = lowBackdropUrl,
+                            backdropUrl = backdropUrl,
+                            logoUrl = logoUrl
+                        )
+                    }
+
+                    if (!lowBackdropUrl.isNullOrBlank()) {
                         imageLoader.enqueue(
                             ImageRequest.Builder(context)
-                                .data(backdropUrl)
+                                .data(lowBackdropUrl)
                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                 .diskCachePolicy(CachePolicy.ENABLED)
                                 .networkCachePolicy(CachePolicy.ENABLED)
@@ -269,14 +287,25 @@ fun FeatureTab(
                                 .build()
                         )
                     }
-
-                    withContext(Dispatchers.Main) {
-                        imageCacheByItemId[itemId] = FeatureCardImages(
-                            backdropUrl = backdropUrl,
-                            logoUrl = logoUrl
-                        )
-                    }
                 }
+            }
+        }
+    }
+
+    LaunchedEffect(featuredKeys, isLoading, imageCacheByItemId.size) {
+        if (autoScrollReady || isLoading) return@LaunchedEffect
+        if (imageCacheByItemId.isNotEmpty()) {
+            autoScrollReady = true
+        }
+    }
+
+    LaunchedEffect(featuredKeys, isLoading, autoScrollReady) {
+        if (isLoading || featuredItems.size <= 1 || !autoScrollReady) return@LaunchedEffect
+        while (true) {
+            delay(6500L)
+            val nextIndex = featuredRowState.firstVisibleItemIndex + 1
+            runCatching {
+                featuredRowState.animateScrollToItem(index = nextIndex)
             }
         }
     }
@@ -297,12 +326,17 @@ fun FeatureTab(
                         state = featuredRowState,
                         modifier = Modifier
                             .fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp)
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        flingBehavior = featuredFlingBehavior
                     ) {
                         items(
-                            items = featuredItems,
-                            key = { item -> item.id ?: item.name ?: "feature_item" }
-                        ) { item ->
+                            count = Int.MAX_VALUE,
+                            key = { index ->
+                                val item = featuredItems[index % featuredItems.size]
+                                "${item.id ?: item.name ?: "feature_item"}_$index"
+                            }
+                        ) { index ->
+                            val item = featuredItems[index % featuredItems.size]
                             val cachedImages = item.id?.let { imageCacheByItemId[it] }
                             FeatureHeroCard(
                                 item = item,
@@ -462,9 +496,29 @@ private fun FeatureHeroCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var contentVisible by remember(item.id) { mutableStateOf(false) }
+    LaunchedEffect(item.id) { contentVisible = true }
+    val logoAlpha by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0f,
+        label = "hero_logo_alpha"
+    )
+    val logoScale by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0.96f,
+        label = "hero_logo_scale"
+    )
+    val metaAlpha by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0f,
+        label = "hero_meta_alpha"
+    )
+    val metaOffset by animateFloatAsState(
+        targetValue = if (contentVisible) 0f else 10f,
+        label = "hero_meta_offset"
+    )
 
+    val lowBackdropUrl = images?.lowBackdropUrl ?: images?.backdropUrl
     val backdropUrl = images?.backdropUrl
     val logoUrl = images?.logoUrl
+    var lowResImage by remember(item.id, lowBackdropUrl) { mutableStateOf(false) }
 
     Card(
         onClick = onClick,
@@ -475,17 +529,29 @@ private fun FeatureHeroCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (!backdropUrl.isNullOrBlank()) {
-                AsyncImage(
+            if (!lowBackdropUrl.isNullOrBlank()) {
+                val lowPainter = rememberAsyncImagePainter(
                     model = ImageRequest.Builder(context)
-                        .data(backdropUrl)
+                        .data(lowBackdropUrl)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .networkCachePolicy(CachePolicy.ENABLED)
-                        .crossfade(false)
+                        .crossfade(true)
                         .allowHardware(true)
                         .allowRgb565(true)
-                        .build(),
+                        .build()
+                )
+                val lowState = lowPainter.state
+                LaunchedEffect(lowState) {
+                    if (lowState is AsyncImagePainter.State.Success ||
+                        lowState is AsyncImagePainter.State.Error
+                    ) {
+                        lowResImage = true
+                    }
+                }
+
+                Image(
+                    painter = lowPainter,
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -496,9 +562,42 @@ private fun FeatureHeroCard(
                         )
                 )
             } else {
-                ImageSkeleton(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(0.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                )
+            }
+
+            if (!backdropUrl.isNullOrBlank() && lowResImage) {
+                val highPainter = rememberAsyncImagePainter(
+                    model = ImageRequest.Builder(context)
+                        .data(backdropUrl)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
+                        .crossfade(true)
+                        .allowHardware(true)
+                        .allowRgb565(true)
+                        .build()
+                )
+                val highResImage = highPainter.state is AsyncImagePainter.State.Success
+                val highAlpha by animateFloatAsState(
+                    targetValue = if (highResImage) 1f else 0f,
+                    label = "hero_backdrop_high_alpha"
+                )
+
+                Image(
+                    painter = highPainter,
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            alpha = highAlpha,
+                            scaleX = 1.04f,
+                            scaleY = 1.04f
+                        )
                 )
             }
 
@@ -519,10 +618,11 @@ private fun FeatureHeroCard(
 
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (!logoUrl.isNullOrBlank()) {
                     AsyncImage(
@@ -538,8 +638,13 @@ private fun FeatureHeroCard(
                         contentDescription = "${item.name} logo",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .height(72.dp)
-                            .fillMaxWidth(0.78f)
+                            .height(96.dp)
+                            .fillMaxWidth(0.82f)
+                            .graphicsLayer(
+                                alpha = logoAlpha,
+                                scaleX = logoScale,
+                                scaleY = logoScale
+                            )
                     )
                 } else if (images != null || item.id == null) {
                     Text(
@@ -549,53 +654,91 @@ private fun FeatureHeroCard(
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
                         lineHeight = 31.sp,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.72f)
                             .height(30.dp)
-                            .background(Color(0xFF2C2D32), RoundedCornerShape(4.dp))
+                            .background(Color.Black, RoundedCornerShape(4.dp))
                     )
                 }
 
-                val metadataText = buildString {
-                    val resolvedYear = item.productionYear ?: item.premiereDate
-                        ?.take(4)
-                        ?.toIntOrNull()
-                    resolvedYear?.let { append(it.toString()) }
-                    if (!item.type.isNullOrBlank()) {
-                        if (isNotEmpty()) append(" | ")
-                        append(
-                            when (item.type) {
-                                "Series" -> "TV Series"
-                                else -> item.type
-                            }
+                val ratingText = item.communityRating?.let { String.format("%.1f", it) }
+                val resolvedYear = item.productionYear ?: item.premiereDate
+                    ?.take(4)
+                    ?.toIntOrNull()
+                val genres = item.genres.orEmpty().take(3)
+
+                val certificateText = item.officialRating?.takeIf { it.isNotBlank() }
+                if (!ratingText.isNullOrBlank() || resolvedYear != null || genres.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.graphicsLayer(
+                            alpha = metaAlpha,
+                            translationY = metaOffset
                         )
+                    ) {
+                        if (!ratingText.isNullOrBlank()) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Star,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE84B3C),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = ratingText,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        if (resolvedYear != null) {
+                            Text(
+                                text = resolvedYear.toString(),
+                                color = Color.White.copy(alpha = 0.92f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if (genres.isNotEmpty()) {
+                            Text(
+                                text = genres.joinToString(separator = "/"),
+                                color = Color.White.copy(alpha = 0.88f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
-
-                if (metadataText.isNotBlank()) {
-                    Text(
-                        text = metadataText,
-                        color = Color.White.copy(alpha = 0.82f),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                val genres = item.genres.orEmpty().take(3)
-                if (genres.isNotEmpty()) {
-                    Text(
-                        text = genres.joinToString(separator = " | "),
-                        color = Color.White.copy(alpha = 0.72f),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                if (!certificateText.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .graphicsLayer(
+                                alpha = metaAlpha,
+                                translationY = metaOffset
+                            )
+                    ) {
+                        Text(
+                            text = certificateText,
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
@@ -661,33 +804,11 @@ private fun FeatureHeroSkeleton(heroHeight: Dp) {
         shape = RoundedCornerShape(0.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            ImageSkeleton(
-                modifier = Modifier.fillMaxSize(),
-                shape = RoundedCornerShape(0.dp)
-            )
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.72f)
-                        .height(30.dp)
-                        .background(Color(0xFF2C2D32), RoundedCornerShape(4.dp))
-                )
-                Box(
-                    modifier = Modifier
-                        .width(140.dp)
-                        .height(14.dp)
-                        .background(Color(0xFF2C2D32), RoundedCornerShape(4.dp))
-                )
-            }
-        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        )
     }
 }
 

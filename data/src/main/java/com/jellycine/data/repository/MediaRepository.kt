@@ -150,7 +150,7 @@ class MediaRepository(private val context: Context) {
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series",
         limit: Int? = 20,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
@@ -202,7 +202,7 @@ class MediaRepository(private val context: Context) {
         sortOrder: String? = null,
         limit: Int? = null,
         startIndex: Int? = null,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
