@@ -245,12 +245,29 @@ fun DetailContent(
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     var backdropImageUrl by remember { mutableStateOf<String?>(null) }
-    var posterImageUrl by remember { mutableStateOf<String?>(null) }
+    var logoImageUrl by remember { mutableStateOf<String?>(null) }
     var isFavorite by remember { mutableStateOf(item.userData?.isFavorite == true) }
-    var showFullOverview by remember { mutableStateOf(false) }
-
-    // Get device audio capabilities
-    val deviceCapabilities = rememberAudioCapabilities(context)
+    var selectedVideo by remember { mutableStateOf("") }
+    var selectedAudio by remember { mutableStateOf("") }
+    var selectedSubtitle by remember { mutableStateOf("Off") }
+    val effectiveMediaStreams = remember(item.mediaStreams, item.mediaSources) {
+        val fromSources = item.mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
+        if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
+    }
+    val runtimeTicks = item.runTimeTicks
+    val playbackPositionTicks = item.userData?.playbackPositionTicks ?: 0L
+    val isPartiallyWatched = runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
+    val playButtonText = if (isPartiallyWatched) {
+        val remainingTicks = (runtimeTicks - playbackPositionTicks).coerceAtLeast(0L)
+        "Resume ${CodecUtils.formatRuntime(remainingTicks)} left"
+    } else {
+        "Play"
+    }
+    val resumeProgress = if (runtimeTicks != null && runtimeTicks > 0) {
+        (playbackPositionTicks.toFloat() / runtimeTicks.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
 
     LaunchedEffect(item.id) {
         val itemId = item.id
@@ -262,13 +279,30 @@ fun DetailContent(
                 quality = 95
             ).first()
 
-            posterImageUrl = mediaRepository.getImageUrl(
+            logoImageUrl = mediaRepository.getImageUrl(
                 itemId = itemId,
-                imageType = "Primary",
-                width = 400,
-                height = 600,
+                imageType = "Logo",
+                width = 800,
+                height = 300,
                 quality = 95
             ).first()
+        }
+    }
+
+    val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
+    val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
+    val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
+    val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
+
+    LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
+        if (selectedVideo !in videoOptions) {
+            selectedVideo = videoOptions.firstOrNull().orEmpty()
+        }
+        if (selectedAudio !in audioOptions) {
+            selectedAudio = audioOptions.firstOrNull().orEmpty()
+        }
+        if (selectedSubtitle !in subtitleOptions || selectedSubtitle == "Off") {
+            selectedSubtitle = defaultSubtitleOption
         }
     }
 
@@ -283,7 +317,7 @@ fun DetailContent(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp)
+                    .height(330.dp)
             ) {
 
                 JellyfinPosterImage(
@@ -358,177 +392,279 @@ fun DetailContent(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .offset(y = (-85).dp)
+                    .padding(horizontal = 14.dp)
+                    .offset(y = (-58).dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-
-                    AnimatedCard(
+                if (!logoImageUrl.isNullOrBlank()) {
+                    Box(
                         modifier = Modifier
-                            .width(120.dp)
-                            .height(180.dp),
-                        enabled = !isLoading,
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                            .heightIn(min = 50.dp, max = 78.dp)
+                            .fillMaxWidth(0.62f)
                     ) {
                         JellyfinPosterImage(
-                            imageUrl = if (isLoading) null else posterImageUrl,
+                            imageUrl = if (isLoading) null else logoImageUrl,
                             contentDescription = item.name,
                             modifier = Modifier.fillMaxSize(),
                             context = context,
-                            contentScale = ContentScale.Crop
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                } else {
+                    item.name?.takeIf { it.isNotBlank() }?.let { title ->
+                        Text(
+                            text = title,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            lineHeight = 30.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item.communityRating?.let { rating ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Star,
+                                contentDescription = "Rating",
+                                tint = Color(0xFFFF4D4F),
+                                modifier = Modifier.size(17.dp)
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.1f", rating),
+                                fontSize = 14.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    item.productionYear?.let { year ->
+                        Text(
+                            text = year.toString(),
+                            fontSize = 14.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
                         )
                     }
 
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    item.runTimeTicks?.let { ticks ->
                         Text(
-                            text = item.name ?: "Unknown Title",
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = CodecUtils.formatRuntime(ticks),
+                            fontSize = 14.sp,
                             color = Color.White,
-                            lineHeight = 32.sp
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
                         )
+                    }
 
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                    item.officialRating?.let { rating ->
+                        Surface(
+                            color = Color(0xFF1A1A1A),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
                         ) {
-
-                            item.productionYear?.let { year ->
-                                Text(
-                                    text = year.toString(),
-                                    fontSize = 16.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1
-                                )
-                            }
-
-                            item.runTimeTicks?.let { ticks ->
-                                Text(
-                                    text = CodecUtils.formatRuntime(ticks),
-                                    fontSize = 16.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-
-                        // Rating on separate line to prevent layout breaking
-                        item.officialRating?.let { rating ->
-                            Surface(
-                                color = Color(0xFF1A1A1A),
-                                shape = RoundedCornerShape(4.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                                modifier = Modifier.padding(top = 8.dp)
-                            ) {
-                                Text(
-                                    text = rating,
-                                    fontSize = 14.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    maxLines = 1
-                                )
-                            }
-                        }
-
-                        item.communityRating?.let { rating ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(top = 8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Star,
-                                    contentDescription = "Rating",
-                                    tint = Color(0xFFFFD700),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = String.format(Locale.US, "%.1f", rating),
-                                    fontSize = 16.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1
-                                )
-                            }
+                            Text(
+                                text = rating,
+                                fontSize = 13.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
+                                maxLines = 1
+                            )
                         }
                     }
                 }
 
                 item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 0.dp),
+                    Text(
+                        text = genres.joinToString(", "),
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp)
+                            .padding(top = 6.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (videoOptions.isNotEmpty()) {
+                    if (videoOptions.size > 1) {
+                        OptionSelectorRow(
+                            label = "Video",
+                            selectedOption = selectedVideo,
+                            options = videoOptions,
+                            onOptionSelected = { selectedVideo = it }
+                        )
+                    } else {
+                        DetailInfoRow(
+                            label = "Video",
+                            value = videoOptions.first()
+                        )
+                    }
+                }
+
+                if (videoOptions.isNotEmpty() && audioOptions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                if (audioOptions.isNotEmpty()) {
+                    if (audioOptions.size > 1) {
+                        OptionSelectorRow(
+                            label = "Audio",
+                            selectedOption = selectedAudio,
+                            options = audioOptions,
+                            onOptionSelected = { selectedAudio = it }
+                        )
+                    } else {
+                        DetailInfoRow(
+                            label = "Audio",
+                            value = audioOptions.first()
+                        )
+                    }
+                }
+
+                if (subtitleOptions.size > 1) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                if (subtitleOptions.size > 1) {
+                    OptionSelectorRow(
+                        label = "Subtitles",
+                        selectedOption = selectedSubtitle,
+                        options = subtitleOptions,
+                        onOptionSelected = { selectedSubtitle = it }
+                    )
+                }
+
+                if (item.type != "Series") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(genres) { genre ->
-                            Surface(
-                                color = Color(0xFF2A2A2A),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                        ) {
+                            Button(
+                                onClick = onPlayClick,
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(24.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black
+                                ),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                             ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = if (isPartiallyWatched) "Resume" else "Play",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = genre,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontWeight = FontWeight.Medium
+                                    text = playButtonText,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
+
+                            if (isPartiallyWatched) {
+                                LinearProgressIndicator(
+                                    progress = { resumeProgress },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                                    color = Color(0xFF2196F3),
+                                    trackColor = Color.Black.copy(alpha = 0.15f)
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = { /* TODO: Download */ },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color(0xFF1F1F24),
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Download,
+                                contentDescription = "Download",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Download",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
 
-                // Codec Information Section
-                item.mediaStreams?.let { streams ->
-                    Text(
-                        text = "Codecs Info",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 12.dp)
-                    )
-                    CodecInfoSection(mediaStreams = streams)
-                }
-
-                // Technical Information Section (Play button with quality selection)
-                if (item.type != "Series") {
-                    TechnicalInfoSection(
-                        item = item,
-                        onPlayClick = onPlayClick,
-                        onDownloadClick = { /* TODO: Download */ }
-                    )
-                }
-
-                // Overview Section
                 item.overview?.let { overview ->
-                    OverviewSection(overview = overview)
+                    OverviewSection(
+                        overview = overview,
+                        title = "Description",
+                        modifier = Modifier.padding(top = 18.dp)
+                    )
                 }
 
-                // Seasons Section for TV Series
                 if (item.type == "Series") {
-                    // Download button for series
-                    DownloadOnlyButton(
+                    OutlinedButton(
                         onClick = { /* TODO: Download series */ },
-                        text = "Download Series",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp)
-                    )
-                    
+                            .padding(top = 14.dp)
+                            .height(46.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color(0xFF1F1F24),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Download series",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Download Series",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
                     item.id?.let { seriesId ->
                         SeasonsSection(
                             seriesId = seriesId,
@@ -538,13 +674,176 @@ fun DetailContent(
                     }
                 }
 
-                // Cast Section
                 CastSection(
                     item = item,
                     mediaRepository = mediaRepository
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DetailInfoRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label  ",
+            fontSize = 14.sp,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            color = Color.White.copy(alpha = 0.78f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OptionSelectorRow(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    onOptionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label  ",
+            fontSize = 14.sp,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Surface(
+                modifier = Modifier
+                    .menuAnchor(
+                        type = MenuAnchorType.PrimaryNotEditable,
+                        enabled = true
+                    )
+                    .fillMaxWidth(),
+                color = Color(0xFF1F1F24),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = selectedOption.ifBlank { options.firstOrNull().orEmpty() },
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = "Select $label",
+                        tint = Color.White
+                    )
+                }
+            }
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            onOptionSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun buildVideoOptions(streams: List<MediaStream>): List<String> {
+    return uniquifyOptionLabels(
+        streams
+        .filter { it.type == "Video" }
+        .mapNotNull { stream ->
+            val display = stream.displayTitle?.takeIf { it.isNotBlank() }
+            display?.takeIf { it.isNotBlank() }
+        }
+    )
+}
+
+private fun buildAudioOptions(streams: List<MediaStream>): List<String> {
+    val options = uniquifyOptionLabels(
+        streams
+        .filter { it.type == "Audio" }
+        .mapNotNull { stream ->
+            val display = stream.displayTitle?.takeIf { it.isNotBlank() }
+            display?.takeIf { it.isNotBlank() }
+        }
+    )
+
+    val defaultLabel = streams
+        .firstOrNull { it.type == "Audio" && it.isDefault == true }
+        ?.let { stream ->
+            stream.displayTitle?.takeIf { it.isNotBlank() }
+        }
+
+    return if (!defaultLabel.isNullOrBlank() && options.contains(defaultLabel)) {
+        listOf(defaultLabel) + options.filter { it != defaultLabel }
+    } else {
+        options
+    }
+}
+
+private fun buildSubtitleOptions(streams: List<MediaStream>): List<String> {
+    val options = mutableListOf("Off")
+    streams
+        .filter { it.type == "Subtitle" }
+        .forEach { stream ->
+            val subtitleLabel = stream.displayTitle?.takeIf { it.isNotBlank() }
+            subtitleLabel?.let { options.add(it) }
+        }
+    return uniquifyOptionLabels(options)
+}
+
+private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
+    return streams
+        .firstOrNull { it.type == "Subtitle" && it.isDefault == true }
+        ?.let { stream ->
+            stream.displayTitle?.takeIf { it.isNotBlank() }
+        }
+        ?: "Off"
+}
+
+private fun uniquifyOptionLabels(options: List<String>): List<String> {
+    val counts = mutableMapOf<String, Int>()
+    return options.map { option ->
+        val seen = (counts[option] ?: 0) + 1
+        counts[option] = seen
+        if (seen == 1) option else "$option ($seen)"
     }
 }
 
@@ -838,17 +1137,17 @@ fun DetailScreenLongRatingPreview() {
 
 @Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-fun DetailScreenNoGenresPreview() {
+fun DetailScreenSeriesPreview() {
     MaterialTheme {
         val mockItem = BaseItemDto(
             id = "mock-id",
-            name = "Mystery Movie",
-            overview = "A mysterious film with no genre information available.",
-            productionYear = 2023,
-            runTimeTicks = 5400000000L, // 1h 30m
-            communityRating = 6.5f,
-            officialRating = "PG-13",
-            genres = null, // No genres
+            name = "Planet Earth",
+            type = "Series",
+            overview = "A landmark documentary series showcasing Earth's natural wonders and wildlife.",
+            productionYear = 2006,
+            communityRating = 9.4f,
+            officialRating = "TV-PG",
+            genres = listOf("Documentary", "Nature"),
             userData = null,
             people = null,
             studios = null
@@ -933,7 +1232,7 @@ fun DetailScreenSkeleton(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp)
+                    .height(330.dp)
             ) {
                 ShimmerEffect(
                     modifier = Modifier.fillMaxSize(),
@@ -987,93 +1286,81 @@ fun DetailScreenSkeleton(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .offset(y = (-85).dp)
+                    .padding(horizontal = 14.dp)
+                    .offset(y = (-58).dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    AnimatedCard(
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth(0.62f)
+                        .height(62.dp),
+                    cornerRadius = 10f
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ShimmerEffect(modifier = Modifier.width(56.dp).height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier.width(42.dp).height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier.width(64.dp).height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier.width(50.dp).height(18.dp), cornerRadius = 8f)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ShimmerEffect(
+                    modifier = Modifier.fillMaxWidth(0.78f).height(14.dp),
+                    cornerRadius = 8f
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                repeat(2) {
+                    ShimmerEffect(
+                        modifier = Modifier.fillMaxWidth(0.82f).height(18.dp),
+                        cornerRadius = 8f
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    cornerRadius = 18f
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ShimmerEffect(
                         modifier = Modifier
-                            .width(120.dp)
-                            .height(180.dp),
-                        enabled = false,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        ShimmerEffect(
-                            modifier = Modifier.fillMaxSize(),
-                            cornerRadius = 16f
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .fillMaxWidth(0.8f)
-                                .height(32.dp),
-                            cornerRadius = 4f
-                        )
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            ShimmerEffect(
-                                modifier = Modifier
-                                    .width(60.dp)
-                                    .height(16.dp),
-                                cornerRadius = 4f
-                            )
-                            ShimmerEffect(
-                                modifier = Modifier
-                                    .width(80.dp)
-                                    .height(16.dp),
-                                cornerRadius = 4f
-                            )
-                        }
-
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .width(50.dp)
-                                .height(20.dp),
-                            cornerRadius = 4f
-                        )
-                    }
+                            .weight(1f)
+                            .height(46.dp),
+                        cornerRadius = 24f
+                    )
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        cornerRadius = 24f
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
-                ) {
-                    items(4) {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .width((60..100).random().dp)
-                                .height(24.dp),
-                            cornerRadius = 12f
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(3) {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .fillMaxWidth(if (it == 2) 0.7f else 1f)
-                                .height(16.dp),
-                            cornerRadius = 4f
-                        )
-                    }
+                ShimmerEffect(
+                    modifier = Modifier.width(110.dp).height(22.dp),
+                    cornerRadius = 10f
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                repeat(3) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(if (it == 2) 0.72f else 1f)
+                            .height(14.dp),
+                        cornerRadius = 8f
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
