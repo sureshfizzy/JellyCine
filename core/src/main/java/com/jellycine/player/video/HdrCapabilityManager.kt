@@ -5,15 +5,12 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.util.Log
 import android.view.Display
-import androidx.annotation.RequiresApi
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
 
 /**
  * Manages HDR capability detection and format fallback logic
  * Provides intelligent fallback from Dolby Vision to HDR10 to SDR
  */
-@UnstableApi
 object HdrCapabilityManager {
     
     private const val TAG = "HdrCapabilityManager"
