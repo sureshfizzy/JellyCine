@@ -11,13 +11,16 @@
   </a>
 </p>
 
-JellyCine is a modern, Jetpack Compose–based Android client for Jellyfin. It focuses on a fast, fluid UI, smooth playback.
+JellyCine is a modern, Jetpack Compose-based Android client for Jellyfin and Emby. It focuses on a fast, fluid UI and smooth playback.
 
 ## Features
 
 - Clean, Compose-first UI with Material 3
+- Jellyfin + Emby server support
 - Browse, search, and view details for Movies and Series
 - Search Screen: flexible, instant matching with an immersive layout
+- Optimized dashboard/library loading with more stable metadata rendering
+- Modernized detail screen layout with improved content presentation
 - Efficient image loading with Coil
 - Video playback powered by Media3 ExoPlayer (HLS/DASH/SmoothStreaming)
 - Gesture-driven player controls (seek/volume/brightness) with custom overlay
@@ -27,7 +30,7 @@ JellyCine is a modern, Jetpack Compose–based Android client for Jellyfin. It f
 <div align="center">
   <img src="docs/screenshots/home.jpg" alt="Home" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
   <img src="docs/screenshots/viewall.jpg" alt="View All" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/search-immersive.jpg" alt="Search — immersive" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
+  <img src="docs/screenshots/search-immersive.jpg" alt="Search - immersive" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
 </div>
 
 <div align="center">
@@ -46,10 +49,10 @@ JellyCine is a modern, Jetpack Compose–based Android client for Jellyfin. It f
 
 The app uses a modular MVVM architecture with Hilt DI and Kotlin coroutines.
 
-- `app` — UI layer (Compose screens, navigation), view models, and app configuration
-- `data` — Networking (Retrofit/OkHttp), repositories, DataStore persistence, Jellyfin API models
-- `core` — Player utilities and shared primitives (e.g., `PlayerUtils` for ExoPlayer setup)
-- `setup` — First-run and onboarding helpers (server URL, sign-in flows)
+- `app` - UI layer (Compose screens, navigation), view models, and app configuration
+- `data` - Networking (Retrofit/OkHttp), repositories, DataStore persistence, Jellyfin/Emby API models
+- `core` - Player utilities and shared primitives (e.g., `PlayerUtils` for ExoPlayer setup)
+- `setup` - First-run and onboarding helpers (server URL, sign-in flows)
 
 Key technologies:
 
@@ -57,7 +60,7 @@ Key technologies:
 - Jetpack Compose + Material 3 + Navigation Compose
 - Hilt for dependency injection
 - DataStore (Preferences) for lightweight persistence
-- Retrofit + OkHttp (+ logging) for Jellyfin API
+- Retrofit + OkHttp (+ logging) for Jellyfin/Emby APIs
 - Coil for image loading
 - Media3 ExoPlayer for playback (`exoplayer`, `ui`, `dash`, `hls`, `smoothstreaming`)
 
