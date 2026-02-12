@@ -69,7 +69,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 onFailure = { error ->
                     _uiState.value = _uiState.value.copy(
                         isServerLoading = false,
-                        serverErrorMessage = error.message ?: "Connection failed"
+                        serverErrorMessage = mapServerError(error)
                     )
                 }
             )
@@ -108,7 +108,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 onFailure = { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoginLoading = false,
-                        loginErrorMessage = error.message ?: "Login failed"
+                        loginErrorMessage = mapLoginError(error)
                     )
                 }
             )
@@ -130,6 +130,54 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             // Reset UI state
             _uiState.value = AuthScreenUiState()
         }
+    }
+
+    private fun mapLoginError(error: Throwable): String {
+        val message = error.message?.trim().orEmpty()
+        val code = extractHttpCode(message)
+
+        return when (code) {
+            400 -> "Invalid request. Please check your username and password."
+            401 -> "Incorrect username or password."
+            403 -> "Access denied. Your account does not have permission to sign in."
+            404 -> "Sign-in service not found. Please check your server URL."
+            429 -> "Too many attempts. Please wait a moment and try again."
+            500, 502, 503, 504 -> "Server error while signing in. Please try again in a moment."
+            else -> when {
+                message.equals("401") -> "Incorrect username or password."
+                message.contains("authentication failed", ignoreCase = true) -> "Incorrect username or password."
+                message.contains("timeout", ignoreCase = true) -> "Login timed out. Please try again."
+                message.contains("unable to resolve host", ignoreCase = true) -> "Cannot reach server. Check your URL and network connection."
+                message.contains("failed to connect", ignoreCase = true) -> "Cannot connect to the server. Please check if it is online."
+                message.isBlank() -> "Login failed. Please try again."
+                else -> message
+            }
+        }
+    }
+
+    private fun mapServerError(error: Throwable): String {
+        val message = error.message?.trim().orEmpty()
+        val code = extractHttpCode(message)
+
+        return when (code) {
+            400 -> "Invalid server request. Please check the server URL."
+            401, 403 -> "The server rejected the request. Please verify server access settings."
+            404 -> "Server endpoint not found. Please verify the server URL."
+            500, 502, 503, 504 -> "Server is temporarily unavailable. Please try again."
+            else -> when {
+                message.equals("401") -> "The server rejected the request. Please verify server access settings."
+                message.contains("timeout", ignoreCase = true) -> "Connection timed out. Please try again."
+                message.contains("unable to resolve host", ignoreCase = true) -> "Cannot find this server. Check the URL and your network."
+                message.contains("failed to connect", ignoreCase = true) -> "Cannot connect to the server. Check if it is online."
+                message.isBlank() -> "Connection failed. Please try again."
+                else -> message
+            }
+        }
+    }
+
+    private fun extractHttpCode(message: String): Int? {
+        val match = """\b([1-5]\d{2})\b""".toRegex().find(message) ?: return null
+        return match.groupValues.getOrNull(1)?.toIntOrNull()
     }
 }
 
