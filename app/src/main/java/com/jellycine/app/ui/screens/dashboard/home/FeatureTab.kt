@@ -182,8 +182,36 @@ fun FeatureTab(
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     val density = LocalDensity.current
-    val featuredKeys = remember(featuredItems) {
-        featuredItems.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
+    val metadataQualifiedFeaturedItems = remember(featuredItems) {
+        derivedStateOf {
+            featuredItems.filter(::hasFeatureHeroAssets)
+        }
+    }
+    val displayFeaturedItems = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
+        derivedStateOf {
+            metadataQualifiedFeaturedItems.value.filter { item ->
+                val itemId = item.id ?: return@filter false
+                val cachedImages = imageCacheByItemId[itemId] ?: return@filter false
+                val hasBackdrop = !cachedImages.backdropUrl.isNullOrBlank() ||
+                    !cachedImages.lowBackdropUrl.isNullOrBlank()
+                val hasLogo = !cachedImages.logoUrl.isNullOrBlank()
+                hasBackdrop && hasLogo
+            }
+        }
+    }
+    val featuredKeys = remember(displayFeaturedItems.value) {
+        displayFeaturedItems.value.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
+    }
+    val isResolvingFeatureAssets = remember(
+        isLoading,
+        featuredItems,
+        metadataQualifiedFeaturedItems.value,
+        displayFeaturedItems.value
+    ) {
+        !isLoading &&
+            featuredItems.isNotEmpty() &&
+            metadataQualifiedFeaturedItems.value.isNotEmpty() &&
+            displayFeaturedItems.value.isEmpty()
     }
     val infiniteStartIndex = remember(featuredKeys) {
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
@@ -219,7 +247,7 @@ fun FeatureTab(
     }
 
     LaunchedEffect(featuredKeys, isLoading) {
-        if (isLoading || featuredItems.size <= 1) return@LaunchedEffect
+        if (isLoading || displayFeaturedItems.value.size <= 1) return@LaunchedEffect
         val shouldSeed =
             featuredRowState.firstVisibleItemIndex == 0 &&
                 featuredRowState.firstVisibleItemScrollOffset == 0
@@ -228,17 +256,17 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys) {
-        val validIds = featuredItems.mapNotNull { it.id }.toSet()
+    LaunchedEffect(metadataQualifiedFeaturedItems.value) {
+        val validIds = metadataQualifiedFeaturedItems.value.mapNotNull { it.id }.toSet()
         imageCacheByItemId.keys
             .filter { it !in validIds }
             .forEach { imageCacheByItemId.remove(it) }
 
-        if (featuredItems.isEmpty()) return@LaunchedEffect
+        if (metadataQualifiedFeaturedItems.value.isEmpty()) return@LaunchedEffect
 
         val imageLoader = context.imageLoader
         coroutineScope {
-            featuredItems.forEach { item ->
+            metadataQualifiedFeaturedItems.value.forEach { item ->
                 val itemId = item.id ?: return@forEach
                 if (imageCacheByItemId[itemId] != null) return@forEach
 
@@ -305,15 +333,21 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading, imageCacheByItemId.size) {
+    LaunchedEffect(featuredKeys) {
+        if (featuredKeys.isEmpty()) {
+            autoScrollReady = false
+        }
+    }
+
+    LaunchedEffect(featuredKeys, isLoading, displayFeaturedItems.value.size) {
         if (autoScrollReady || isLoading) return@LaunchedEffect
-        if (imageCacheByItemId.isNotEmpty()) {
+        if (displayFeaturedItems.value.isNotEmpty()) {
             autoScrollReady = true
         }
     }
 
     LaunchedEffect(featuredKeys, isLoading, autoScrollReady) {
-        if (isLoading || featuredItems.size <= 1 || !autoScrollReady) return@LaunchedEffect
+        if (isLoading || displayFeaturedItems.value.size <= 1 || !autoScrollReady) return@LaunchedEffect
         while (true) {
             delay(6500L)
             val nextIndex = featuredRowState.firstVisibleItemIndex + 1
@@ -334,7 +368,7 @@ fun FeatureTab(
                 .height(heroHeight)
         ) {
             when {
-                featuredItems.isNotEmpty() -> {
+                displayFeaturedItems.value.isNotEmpty() -> {
                     LazyRow(
                         state = featuredRowState,
                         modifier = Modifier
@@ -345,11 +379,11 @@ fun FeatureTab(
                         items(
                             count = Int.MAX_VALUE,
                             key = { index ->
-                                val item = featuredItems[index % featuredItems.size]
+                                val item = displayFeaturedItems.value[index % displayFeaturedItems.value.size]
                                 "${item.id ?: item.name ?: "feature_item"}_$index"
                             }
                         ) { index ->
-                            val item = featuredItems[index % featuredItems.size]
+                            val item = displayFeaturedItems.value[index % displayFeaturedItems.value.size]
                             val cachedImages = item.id?.let { imageCacheByItemId[it] }
                             FeatureHeroCard(
                                 item = item,
@@ -366,7 +400,7 @@ fun FeatureTab(
                     }
                 }
 
-                isLoading -> FeatureHeroSkeleton(heroHeight = heroHeight)
+                isLoading || isResolvingFeatureAssets -> FeatureHeroSkeleton(heroHeight = heroHeight)
 
                 !error.isNullOrBlank() -> FeatureHeroError(error = error, heroHeight = heroHeight)
 
@@ -398,6 +432,19 @@ fun FeatureTab(
 
         Spacer(modifier = Modifier.height(6.dp))
     }
+}
+
+private fun hasFeatureHeroAssets(item: BaseItemDto): Boolean {
+    val hasLogo = item.parentLogoImageTag?.isNotBlank() == true ||
+        item.imageTags
+            ?.any { (type, tag) -> type.equals("Logo", ignoreCase = true) && tag.isNotBlank() } == true
+
+    val hasBackdrop = item.backdropImageTags?.any { it.isNotBlank() } == true ||
+        item.parentBackdropImageTags?.any { it.isNotBlank() } == true ||
+        item.imageTags
+            ?.any { (type, tag) -> type.equals("Backdrop", ignoreCase = true) && tag.isNotBlank() } == true
+
+    return hasLogo && hasBackdrop
 }
 
 @Composable
@@ -717,17 +764,6 @@ private fun FeatureHeroCard(
                                 scaleX = logoScale,
                                 scaleY = logoScale
                             )
-                    )
-                } else if (images != null || item.id == null) {
-                    Text(
-                        text = item.name ?: "Unknown title",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        lineHeight = 31.sp,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
                     )
                 } else {
                     Box(
