@@ -138,6 +138,7 @@ fun DashboardContainer(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val density = LocalDensity.current
+    val bottomBarHeight = 68.dp
 
 
 
@@ -270,15 +271,12 @@ fun DashboardContainer(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(bottomBarHeight)
                         .background(Color.Black)
                         .graphicsLayer(
                             rotationX = -3f,
                             transformOrigin = TransformOrigin(0.5f, 1f),
-                            scaleY = when (currentRoute) {
-                                DashboardDestination.Search.route -> 1.2f
-                                else -> 1f
-                            },
+                            scaleY = 1f,
                             cameraDistance = 8f * density.density
                         )
                         .drawBehind {
@@ -294,14 +292,14 @@ fun DashboardContainer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
+                        .height(bottomBarHeight)
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left side items
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         sideDestinations.take(2).forEach { destination ->
@@ -326,7 +324,7 @@ fun DashboardContainer(
 
                     // Right side items
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         sideDestinations.drop(2).forEach { destination ->
@@ -441,24 +439,12 @@ private fun FloatingSearchButton(
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    
-    // Animation states with breathing effect
-    val infiniteTransition = rememberInfiniteTransition(label = "search_breathing")
-    val breathingScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "breathing_scale"
-    )
-    
+
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.1f * breathingScale else 1f,
+        targetValue = if (isSelected) 1.05f else 1f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
         )
     )
 
@@ -511,46 +497,20 @@ private fun NavigationItem(
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-
-    // animations for selection state
-    val color by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+    val iconTint by animateColorAsState(
+        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.76f),
+        animationSpec = tween(durationMillis = 220),
+        label = "nav_icon_tint"
     )
-    
-    val iconSize by animateDpAsState(
-        targetValue = if (isSelected) 26.dp else 22.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0.55f,
+        animationSpec = tween(durationMillis = 220),
+        label = "nav_label_alpha"
     )
-    
-    val textAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(400, easing = LinearOutSlowInEasing)
-    )
-    
-    // transformation effects
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.1f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val rotationX by animateFloatAsState(
-        targetValue = if (isSelected) -10f else 0f,
-        animationSpec = tween(500, easing = FastOutSlowInEasing)
-    )
-    
-    val translationY by animateFloatAsState(
-        targetValue = if (isSelected) -2f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
+    val textTint by animateColorAsState(
+        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.76f),
+        animationSpec = tween(durationMillis = 220),
+        label = "nav_text_tint"
     )
 
     Column(
@@ -563,58 +523,38 @@ private fun NavigationItem(
                     onClick()
                 }
             )
-            .height(60.dp)
+            .height(64.dp)
             .padding(horizontal = 8.dp)
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                rotationX = rotationX,
-                translationY = translationY,
-                transformOrigin = TransformOrigin.Center
-            ),
+            .width(44.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
     ) {
-        // Icon with glow effect when selected
-        Box(
-            contentAlignment = Alignment.Center
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent
         ) {
-            // Glow effect background
-            if (isSelected) {
+            Box(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    imageVector = destination.selectedIcon,
-                    contentDescription = null,
-                    tint = color.copy(alpha = 0.3f),
-                    modifier = Modifier
-                        .size(iconSize + 8.dp)
-                        .blur(4.dp)
+                    imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                    contentDescription = destination.title,
+                    tint = iconTint,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-            
-            // Main icon
-            Icon(
-                imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                contentDescription = destination.title,
-                tint = color,
-                modifier = Modifier.size(iconSize)
-            )
         }
 
-        if (isSelected) {
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = destination.title,
-                color = color,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .alpha(textAlpha)
-                    .graphicsLayer(
-                        scaleX = textAlpha,
-                        scaleY = textAlpha
-                    )
-            )
-        }
+        Text(
+            text = destination.title,
+            color = textTint,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.alpha(labelAlpha)
+        )
     }
 }
 
