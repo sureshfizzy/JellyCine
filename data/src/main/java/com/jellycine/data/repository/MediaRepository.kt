@@ -675,7 +675,8 @@ class MediaRepository(private val context: Context) {
     suspend fun getResumeItems(
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series,Episode",
-        limit: Int? = 20,
+        limit: Int? = null,
+        startIndex: Int? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
     ): Result<List<BaseItemDto>> {
         return try {
@@ -686,7 +687,7 @@ class MediaRepository(private val context: Context) {
                 parentId = parentId,
                 includeItemTypes = includeItemTypes,
                 limit = limit,
-                filters = "IsResumable",
+                startIndex = startIndex,
                 recursive = true,
                 sortBy = "DatePlayed",
                 sortOrder = "Descending",

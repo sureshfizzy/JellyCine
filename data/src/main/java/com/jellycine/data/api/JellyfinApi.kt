@@ -50,13 +50,13 @@ interface MediaServerApi {
     @GET("Users/{userId}/Views")
     suspend fun getUserViews(@Path("userId") userId: String): Response<QueryResult<BaseItemDto>>
 
-    @GET("Users/{userId}/Items")
+    @GET("Users/{userId}/Items/Resume")
     suspend fun getResumeItems(
         @Path("userId") userId: String,
         @Query("parentId") parentId: String? = null,
         @Query("includeItemTypes") includeItemTypes: String? = null,
         @Query("limit") limit: Int? = null,
-        @Query("filters") filters: String = "IsResumable",
+        @Query("startIndex") startIndex: Int? = null,
         @Query("recursive") recursive: Boolean = true,
         @Query("sortBy") sortBy: String = "DatePlayed",
         @Query("sortOrder") sortOrder: String = "Descending",

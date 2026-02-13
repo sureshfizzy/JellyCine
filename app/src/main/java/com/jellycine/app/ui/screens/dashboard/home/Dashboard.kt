@@ -264,10 +264,14 @@ fun <T> useQuery(
 object ImagePreloader {
     private val preloadedUrls = ConcurrentHashMap.newKeySet<String>()
     private val imageUrlCache = ConcurrentHashMap<String, String>()
+    private val preferredImageTypeCache = ConcurrentHashMap<String, String>()
     private val prefetchSemaphore = Semaphore(64)
     private const val posterWidth = 240
     private const val posterHeight = 360
     private const val posterQuality = 80
+    private const val continueWatchingWidth = 640
+    private const val continueWatchingHeight = 360
+    private const val continueWatchingQuality = 92
 
     private fun imageCacheKey(
         itemId: String,
@@ -285,6 +289,64 @@ object ImagePreloader {
         quality: Int
     ): String? {
         return imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)]
+    }
+
+    fun putCachedImageUrl(
+        itemId: String,
+        imageType: String,
+        width: Int,
+        height: Int,
+        quality: Int,
+        imageUrl: String
+    ) {
+        imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)] = imageUrl
+    }
+
+    private fun imageTypePreferenceKey(
+        itemId: String?,
+        seriesId: String?,
+        itemType: String?,
+        imageType: String,
+        fallbackImageType: String?
+    ): String {
+        return "${itemId.orEmpty()}|${seriesId.orEmpty()}|${itemType.orEmpty()}|$imageType|${fallbackImageType.orEmpty()}"
+    }
+
+    fun getPreferredImageType(
+        itemId: String?,
+        seriesId: String?,
+        itemType: String?,
+        imageType: String,
+        fallbackImageType: String?
+    ): String? {
+        return preferredImageTypeCache[
+            imageTypePreferenceKey(
+                itemId = itemId,
+                seriesId = seriesId,
+                itemType = itemType,
+                imageType = imageType,
+                fallbackImageType = fallbackImageType
+            )
+        ]
+    }
+
+    fun setPreferredImageType(
+        itemId: String?,
+        seriesId: String?,
+        itemType: String?,
+        imageType: String,
+        fallbackImageType: String?,
+        preferredImageType: String
+    ) {
+        preferredImageTypeCache[
+            imageTypePreferenceKey(
+                itemId = itemId,
+                seriesId = seriesId,
+                itemType = itemType,
+                imageType = imageType,
+                fallbackImageType = fallbackImageType
+            )
+        ] = preferredImageType
     }
 
     suspend fun preloadCriticalImages(
@@ -366,6 +428,135 @@ object ImagePreloader {
         }
     }
 
+    suspend fun preloadContinueWatchingImages(
+        items: List<BaseItemDto>,
+        mediaRepository: MediaRepository,
+        context: android.content.Context,
+        maxItems: Int = 24,
+        priorityCount: Int = 8
+    ) = coroutineScope {
+        val imageLoader = context.imageLoader
+        val orderedItems = items
+            .asSequence()
+            .distinctBy { it.id }
+            .take(maxItems)
+            .toList()
+
+        if (orderedItems.isEmpty()) return@coroutineScope
+
+        val prioritized = orderedItems.take(priorityCount.coerceAtLeast(0))
+        val remaining = orderedItems.drop(prioritized.size)
+
+        // Prioritize first visible cards in order for faster perceived load.
+        for (item in prioritized) {
+            preloadContinueWatchingItem(
+                item = item,
+                mediaRepository = mediaRepository,
+                imageLoader = imageLoader,
+                context = context
+            )
+        }
+
+        remaining
+            .map { item ->
+                async(Dispatchers.IO) {
+                    prefetchSemaphore.withPermit {
+                        preloadContinueWatchingItem(
+                            item = item,
+                            mediaRepository = mediaRepository,
+                            imageLoader = imageLoader,
+                            context = context
+                        )
+                    }
+                }
+            }
+            .toList()
+            .awaitAll()
+    }
+
+    private suspend fun preloadContinueWatchingItem(
+        item: BaseItemDto,
+        mediaRepository: MediaRepository,
+        imageLoader: coil.ImageLoader,
+        context: android.content.Context
+    ) {
+        val itemId = item.id ?: return
+        val itemType = item.type
+        val requestIds = listOfNotNull(itemId, item.seriesId).distinct()
+        val preloadKey = "cw_preload_${itemId}_${item.seriesId.orEmpty()}"
+        if (!preloadedUrls.add(preloadKey)) return
+
+        try {
+            val imageTypes = listOf("Thumb", "Backdrop")
+            var selectedType: String? = null
+            var selectedUrl: String? = null
+
+            for (type in imageTypes) {
+                for (requestId in requestIds) {
+                    val cached = getCachedImageUrl(
+                        itemId = requestId,
+                        imageType = type,
+                        width = continueWatchingWidth,
+                        height = continueWatchingHeight,
+                        quality = continueWatchingQuality
+                    )
+                    if (!cached.isNullOrBlank()) {
+                        selectedType = type
+                        selectedUrl = cached
+                        break
+                    }
+
+                    val resolvedUrl = mediaRepository.getImageUrlString(
+                        itemId = requestId,
+                        imageType = type,
+                        width = continueWatchingWidth,
+                        height = continueWatchingHeight,
+                        quality = continueWatchingQuality
+                    )
+                    if (!resolvedUrl.isNullOrBlank()) {
+                        putCachedImageUrl(
+                            itemId = requestId,
+                            imageType = type,
+                            width = continueWatchingWidth,
+                            height = continueWatchingHeight,
+                            quality = continueWatchingQuality,
+                            imageUrl = resolvedUrl
+                        )
+                        selectedType = type
+                        selectedUrl = resolvedUrl
+                        break
+                    }
+                }
+                if (!selectedType.isNullOrBlank()) break
+            }
+
+            if (!selectedType.isNullOrBlank() && !selectedUrl.isNullOrBlank()) {
+                setPreferredImageType(
+                    itemId = item.id,
+                    seriesId = item.seriesId,
+                    itemType = itemType,
+                    imageType = "Thumb",
+                    fallbackImageType = "Backdrop",
+                    preferredImageType = selectedType
+                )
+                imageLoader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(selectedUrl)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
+                        .precision(Precision.INEXACT)
+                        .allowHardware(true)
+                        .allowRgb565(false)
+                        .crossfade(false)
+                        .build()
+                )
+            }
+        } catch (_: Exception) {
+            preloadedUrls.remove(preloadKey)
+        }
+    }
+
 }
 
 @Composable
@@ -373,6 +564,9 @@ fun ImageLoader(
     itemId: String?,
     seriesId: String? = null,
     imageType: String = "Primary",
+    fallbackImageType: String? = null,
+    preferSeriesIdForThumbBackdrop: Boolean = true,
+    allowRgb565: Boolean = true,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
@@ -381,55 +575,138 @@ fun ImageLoader(
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     itemType: String? = null // Add item type to handle episodes properly
 ) {
-    val actualItemId = remember(itemId, seriesId, itemType) {
+    val imageTypes = remember(imageType, fallbackImageType) {
+        buildList {
+            add(imageType)
+            if (!fallbackImageType.isNullOrBlank() && !fallbackImageType.equals(imageType, ignoreCase = true)) {
+                add(fallbackImageType)
+            }
+        }
+    }
+    val preferredImageType = remember(itemId, seriesId, itemType, imageType, fallbackImageType) {
+        ImagePreloader.getPreferredImageType(
+            itemId = itemId,
+            seriesId = seriesId,
+            itemType = itemType,
+            imageType = imageType,
+            fallbackImageType = fallbackImageType
+        )
+    }
+    var imageTypeIndex by remember(itemId, seriesId, itemType, imageType, fallbackImageType) {
+        val preferredIndex = imageTypes.indexOfFirst { it.equals(preferredImageType, ignoreCase = true) }
+        mutableStateOf(if (preferredIndex >= 0) preferredIndex else 0)
+    }
+    val currentImageType = imageTypes.getOrElse(imageTypeIndex) { imageType }
+    val hasMoreFallbacks = imageTypeIndex < imageTypes.lastIndex
+
+    val actualItemId = remember(itemId, seriesId, itemType, currentImageType, preferSeriesIdForThumbBackdrop) {
         when {
-            itemType == "Episode" && imageType == "Primary" && !seriesId.isNullOrBlank() -> seriesId
-            imageType == "Thumb" && !seriesId.isNullOrBlank() -> seriesId
+            itemType == "Episode" && currentImageType == "Primary" && !seriesId.isNullOrBlank() -> seriesId
+            (currentImageType == "Thumb" || currentImageType == "Backdrop") &&
+                preferSeriesIdForThumbBackdrop &&
+                !seriesId.isNullOrBlank() -> seriesId
             else -> itemId
         }
     }
 
-    var imageUrl by remember(actualItemId) { mutableStateOf<String?>(null) }
-    var hasError by remember(actualItemId) { mutableStateOf(false) }
-    var isImageLoaded by remember(actualItemId) { mutableStateOf(false) }
+    val (width, height, quality) = remember(currentImageType) {
+        when (currentImageType) {
+            "Thumb", "Backdrop" -> Triple(640, 360, 92)
+            else -> Triple(240, 360, 80)
+        }
+    }
+    val initialCachedUrl = remember(actualItemId, currentImageType, width, height) {
+        if (actualItemId.isNullOrBlank()) {
+            null
+        } else {
+            ImagePreloader.getCachedImageUrl(
+                itemId = actualItemId,
+                imageType = currentImageType,
+                width = width,
+                height = height,
+                quality = quality
+            )
+        }
+    }
+    var imageUrl by remember(actualItemId, currentImageType) { mutableStateOf(initialCachedUrl) }
+    var hasError by remember(actualItemId, currentImageType) { mutableStateOf(false) }
+    var isImageLoaded by remember(actualItemId, currentImageType) { mutableStateOf(!initialCachedUrl.isNullOrBlank()) }
     val context = LocalContext.current
 
-    LaunchedEffect(actualItemId) {
+    LaunchedEffect(actualItemId, currentImageType) {
         if (actualItemId != null) {
             hasError = false
+            if (!imageUrl.isNullOrBlank()) {
+                isImageLoaded = true
+                return@LaunchedEffect
+            }
             isImageLoaded = false
-            imageUrl = null
             try {
-                val width = if (imageType == "Thumb") 320 else 240
-                val height = if (imageType == "Thumb") 180 else 360
-                val quality = 80
                 val cachedUrl = ImagePreloader.getCachedImageUrl(
                     itemId = actualItemId,
-                    imageType = imageType,
+                    imageType = currentImageType,
                     width = width,
                     height = height,
                     quality = quality
                 )
                 if (!cachedUrl.isNullOrBlank()) {
                     imageUrl = cachedUrl
+                    ImagePreloader.setPreferredImageType(
+                        itemId = itemId,
+                        seriesId = seriesId,
+                        itemType = itemType,
+                        imageType = imageType,
+                        fallbackImageType = fallbackImageType,
+                        preferredImageType = currentImageType
+                    )
                     return@LaunchedEffect
                 }
                 val resolvedUrl = withContext(Dispatchers.IO) {
                     mediaRepository.getImageUrlString(
                         itemId = actualItemId,
-                        imageType = imageType,
+                        imageType = currentImageType,
                         width = width,
                         height = height,
                         quality = quality
                     )
                 }
-                imageUrl = resolvedUrl
+                if (!resolvedUrl.isNullOrBlank()) {
+                    imageUrl = resolvedUrl
+                    ImagePreloader.putCachedImageUrl(
+                        itemId = actualItemId,
+                        imageType = currentImageType,
+                        width = width,
+                        height = height,
+                        quality = quality,
+                        imageUrl = resolvedUrl
+                    )
+                    ImagePreloader.setPreferredImageType(
+                        itemId = itemId,
+                        seriesId = seriesId,
+                        itemType = itemType,
+                        imageType = imageType,
+                        fallbackImageType = fallbackImageType,
+                        preferredImageType = currentImageType
+                    )
+                } else if (hasMoreFallbacks) {
+                    imageTypeIndex += 1
+                } else {
+                    hasError = true
+                }
             } catch (e: Exception) {
-                hasError = true
+                if (hasMoreFallbacks) {
+                    imageTypeIndex += 1
+                } else {
+                    hasError = true
+                }
             }
         } else {
-            imageUrl = null
-            hasError = true
+            if (hasMoreFallbacks) {
+                imageTypeIndex += 1
+            } else {
+                imageUrl = null
+                hasError = true
+            }
         }
     }
 
@@ -443,7 +720,7 @@ fun ImageLoader(
                     .networkCachePolicy(CachePolicy.ENABLED)
                     .precision(Precision.INEXACT)
                     .allowHardware(true)
-                    .allowRgb565(true)
+                    .allowRgb565(allowRgb565)
                     .crossfade(crossfadeMillis)
                     .build(),
                 contentDescription = contentDescription,
@@ -458,8 +735,15 @@ fun ImageLoader(
                             isImageLoaded = true
                         }
                         is AsyncImagePainter.State.Error -> {
-                            hasError = true
-                            isImageLoaded = false
+                            if (hasMoreFallbacks) {
+                                imageUrl = null
+                                imageTypeIndex += 1
+                                hasError = false
+                                isImageLoaded = false
+                            } else {
+                                hasError = true
+                                isImageLoaded = false
+                            }
                         }
                         else -> {
                             isImageLoaded = false
@@ -661,7 +945,7 @@ fun Dashboard(
         }
 
         val continueWatchingQuery = useQuery(
-            key = "continue_watching",
+            key = "continue_watching_resume_api_v2",
             config = QueryConfig(
                 staleTime = 60_000L,
                 enabled = isTabActive && selectedCategory == "Home",
@@ -669,13 +953,23 @@ fun Dashboard(
                 retryDelay = 250L
             )
         ) {
-            val result = mediaRepository.getResumeItems(limit = 8)
+            val result = mediaRepository.getResumeItems()
             result.fold(
                 onSuccess = { items ->
-                    items.filter { item ->
+                    val validItems = items.filter { item ->
                         item.id != null &&
                         !item.name.isNullOrBlank()
                     }
+                    if (validItems.isNotEmpty()) {
+                        ImagePreloader.preloadContinueWatchingImages(
+                            items = validItems,
+                            mediaRepository = mediaRepository,
+                            context = context,
+                            maxItems = minOf(validItems.size, 12),
+                            priorityCount = minOf(validItems.size, 6)
+                        )
+                    }
+                    validItems
                 },
                 onFailure = { throw it }
             )
@@ -718,11 +1012,21 @@ fun Dashboard(
         LaunchedEffect(isTabActive, selectedCategory) {
             if (isTabActive && selectedCategory == "Home") {
                 val cachedContinueWatching =
-                    queryManager.getQuery<List<BaseItemDto>>("continue_watching")
+                    queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
                 if (cachedContinueWatching.data.isNullOrEmpty()) {
-                    queryManager.invalidateQuery("continue_watching")
+                    queryManager.invalidateQuery("continue_watching_resume_api_v2")
                 }
             }
+        }
+        LaunchedEffect(continueWatchingQuery.data?.hashCode()) {
+            val items = continueWatchingQuery.data ?: return@LaunchedEffect
+            if (items.isEmpty()) return@LaunchedEffect
+            ImagePreloader.preloadContinueWatchingImages(
+                items = items,
+                mediaRepository = mediaRepository,
+                context = context,
+                maxItems = items.size.coerceAtMost(30)
+            )
         }
 
         LaunchedEffect(homeLibraryBurstQuery.data?.hashCode()) {
@@ -952,10 +1256,8 @@ private fun ContinueWatchingSection(
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
                     items(
-                        count = minOf(items.size, 6),
-                        key = { index ->
-                            items[index].id ?: "item_$index"
-                        }
+                        count = items.size,
+                        key = { index -> items[index].id ?: "item_$index" }
                     ) { index ->
                         val item = remember(items[index].id) { items[index] }
                         val stableOnClick = remember(item.id) { { onItemClick(item) } }
@@ -1024,10 +1326,14 @@ private fun ContinueWatchingCard(
                     itemId = stableItem.id,
                     seriesId = stableItem.seriesId,
                     imageType = "Thumb",
+                    fallbackImageType = "Backdrop",
+                    preferSeriesIdForThumbBackdrop = false,
+                    allowRgb565 = false,
                     contentDescription = stableItem.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     cornerRadius = 12,
+                    crossfadeMillis = 0,
                     mediaRepository = mediaRepository,
                     itemType = stableItem.type // Pass item type for proper episode handling
                 )
