@@ -10,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -22,50 +21,30 @@ import com.jellycine.app.ui.navigation.AppNavigation
 import com.jellycine.app.ui.splash.SplashScreen
 import com.jellycine.app.ui.splash.SplashViewModel
 import com.jellycine.auth.AuthStateManager
-import com.jellycine.data.repository.MediaRepositoryProvider
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
+import java.util.concurrent.atomic.AtomicBoolean
 
 @UnstableApi
 @AndroidEntryPoint
 class JellyCineActivity : ComponentActivity() {
 
-        override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
 
         super.onCreate(savedInstanceState)
 
         val authStateManager = AuthStateManager.getInstance(this)
-        var isReady = false
-        splashScreen.setKeepOnScreenCondition { !isReady }
+        val authCheckCompleted = AtomicBoolean(false)
+        val firstComposeCommitted = AtomicBoolean(false)
+        splashScreen.setKeepOnScreenCondition {
+            !authCheckCompleted.get() ||
+                !firstComposeCommitted.get()
+        }
 
         lifecycleScope.launch {
-            val isAuthenticated = authStateManager.checkAuthenticationState()
-
-            if (isAuthenticated) {
-                val mediaRepository = MediaRepositoryProvider.getInstance(this@JellyCineActivity)
-                // Keep splash minimal; perform heavy preloading in background.
-                kotlinx.coroutines.delay(150)
-                isReady = true
-
-                launch(Dispatchers.IO) {
-                    try {
-                        mediaRepository.getResumeItems(limit = 12)
-                        mediaRepository.getLatestItems(
-                            includeItemTypes = "Movie,Series",
-                            limit = 5
-                        )
-                        mediaRepository.getUserViews()
-                        mediaRepository.getRecentlyAddedMovies(limit = 5)
-                        mediaRepository.getRecentlyAddedSeries(limit = 5)
-                    } catch (_: Exception) {
-                    }
-                }
-            } else {
-                kotlinx.coroutines.delay(120)
-                isReady = true
-            }
+            authStateManager.checkAuthenticationState()
+            authCheckCompleted.set(true)
         }
 
         // Use modern edge-to-edge approach
@@ -73,6 +52,11 @@ class JellyCineActivity : ComponentActivity() {
 
         setContent {
             JellyCineTheme {
+                LaunchedEffect(Unit) {
+                    withFrameNanos { }
+                    firstComposeCommitted.set(true)
+                }
+
                 // Handle system bar colors for edge-to-edge
                 val view = LocalView.current
                 SideEffect {
@@ -89,6 +73,7 @@ class JellyCineActivity : ComponentActivity() {
                 ) {
                     val splashViewModel: SplashViewModel = hiltViewModel()
                     val shouldShowSplash by splashViewModel.shouldShowSplash.collectAsState()
+
                     Box(modifier = Modifier.fillMaxSize()) {
                         AppNavigation()
                         if (shouldShowSplash) {

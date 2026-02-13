@@ -59,7 +59,10 @@ class AuthRepository(private val context: Context) {
                 return Result.failure(Exception("Invalid URL format. URL must start with http:// or https://"))
             }
 
-            val resolved = NetworkModule.resolveServerEndpoint(serverUrl).getOrElse { error ->
+            val resolved = NetworkModule.resolveServerEndpoint(
+                serverUrl = serverUrl,
+                storageDir = context.filesDir
+            ).getOrElse { error ->
                 return Result.failure(Exception(error.message ?: "Unable to connect to server"))
             }
 
@@ -125,14 +128,18 @@ class AuthRepository(private val context: Context) {
                     )
                 )
             } else {
-                NetworkModule.resolveServerEndpoint(serverUrl).getOrElse { error ->
+                NetworkModule.resolveServerEndpoint(
+                    serverUrl = serverUrl,
+                    storageDir = context.filesDir
+                ).getOrElse { error ->
                     return Result.failure(Exception(error.message ?: "Unable to resolve server endpoint"))
                 }
             }
 
             val api = NetworkModule.createMediaServerApi(
                 baseUrl = endpoint.baseUrl,
-                serverType = endpoint.serverType
+                serverType = endpoint.serverType,
+                storageDir = context.filesDir
             )
 
             val response = api.authenticateByName(AuthenticationRequest(username, password))

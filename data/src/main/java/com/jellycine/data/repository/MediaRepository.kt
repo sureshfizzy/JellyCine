@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.google.gson.Gson
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.BaseItemDto
@@ -18,6 +19,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 class MediaRepository(private val context: Context) {
 
@@ -53,6 +57,14 @@ class MediaRepository(private val context: Context) {
         val items: List<BaseItemDto>
     )
 
+    data class PersistedHomeSnapshot(
+        val snapshotKey: String,
+        val updatedAt: Long,
+        val featuredHomeItems: List<BaseItemDto>,
+        val continueWatchingItems: List<BaseItemDto>,
+        val homeLibrarySections: List<HomeLibrarySectionData>
+    )
+
     @Volatile
     private var cachedSession: ApiSession? = null
 
@@ -73,6 +85,9 @@ class MediaRepository(private val context: Context) {
 
     @Volatile
     private var cachedImageAuthAt: Long = 0L
+
+    private val gson = Gson()
+    private val homeSnapshotFileName = "home_snapshot_v1.json"
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->
@@ -136,13 +151,67 @@ class MediaRepository(private val context: Context) {
             val api = NetworkModule.createMediaServerApi(
                 baseUrl = config.serverUrl,
                 accessToken = config.accessToken,
-                serverType = config.serverType
+                serverType = config.serverType,
+                storageDir = context.filesDir
             )
 
             val session = ApiSession(api = api, userId = config.userId)
             cachedSession = session
             cachedSessionKey = newSessionKey
             return session
+        }
+    }
+
+    private fun getHomeSnapshotFile() = context.filesDir.resolve(homeSnapshotFileName)
+
+    private fun buildSnapshotKey(config: SessionConfig): String {
+        return "${config.serverUrl.trimEnd('/')}|${config.userId}"
+    }
+
+    suspend fun loadPersistedHomeSnapshot(
+        maxAgeMs: Long? = null
+    ): PersistedHomeSnapshot? {
+        val config = getSessionConfig() ?: return null
+        val expectedSnapshotKey = buildSnapshotKey(config)
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val file = getHomeSnapshotFile()
+                if (!file.exists()) return@runCatching null
+                val parsed = gson.fromJson(file.readText(), PersistedHomeSnapshot::class.java)
+                    ?: return@runCatching null
+                val isExpired = maxAgeMs?.let { ttl ->
+                    System.currentTimeMillis() - parsed.updatedAt > ttl
+                } ?: false
+                val keyMismatch = parsed.snapshotKey != expectedSnapshotKey
+                if (isExpired || keyMismatch) null else parsed
+            }.getOrNull()
+        }
+    }
+
+    suspend fun persistHomeSnapshot(
+        featuredHomeItems: List<BaseItemDto>? = null,
+        continueWatchingItems: List<BaseItemDto>? = null,
+        homeLibrarySections: List<HomeLibrarySectionData>? = null
+    ) {
+        val config = getSessionConfig() ?: return
+        val snapshotKey = buildSnapshotKey(config)
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val file = getHomeSnapshotFile()
+                val existing = if (file.exists()) {
+                    gson.fromJson(file.readText(), PersistedHomeSnapshot::class.java)
+                } else {
+                    null
+                }
+                val next = PersistedHomeSnapshot(
+                    snapshotKey = snapshotKey,
+                    updatedAt = System.currentTimeMillis(),
+                    featuredHomeItems = featuredHomeItems ?: existing?.featuredHomeItems.orEmpty(),
+                    continueWatchingItems = continueWatchingItems ?: existing?.continueWatchingItems.orEmpty(),
+                    homeLibrarySections = homeLibrarySections ?: existing?.homeLibrarySections.orEmpty()
+                )
+                file.writeText(gson.toJson(next))
+            }
         }
     }
     
@@ -246,8 +315,8 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getHomeLibrarySections(
-        maxLibraries: Int = 32,
-        itemsPerLibrary: Int = 30
+        maxLibraries: Int? = null,
+        itemsPerLibrary: Int = 20
     ): Result<List<HomeLibrarySectionData>> = coroutineScope {
         val viewsResult = getUserViews()
         viewsResult.fold(
@@ -269,7 +338,9 @@ class MediaRepository(private val context: Context) {
                             (collectionType == "movies" || collectionType == "tvshows" || collectionType == null)
                     }
                     .distinctBy { it.id }
-                    .take(maxLibraries)
+                    .let { sequence ->
+                        if (maxLibraries != null) sequence.take(maxLibraries) else sequence
+                    }
                     .toList()
 
                 if (libraries.isEmpty()) {
@@ -280,43 +351,46 @@ class MediaRepository(private val context: Context) {
                     Exception("Session not available")
                 )
                 val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber"
+                val sectionFetchSemaphore = Semaphore(4)
 
                 val sections = libraries.map { library ->
                     async(Dispatchers.IO) {
-                        val libraryId = library.id ?: return@async null
-                        val includeItemTypes = when (library.collectionType) {
-                            "movies" -> "Movie"
-                            "tvshows" -> "Series"
-                            else -> "Movie,Series"
-                        }
-
-                        val latestItemsResponse = runCatching {
-                            session.api.getLatestItems(
-                                userId = session.userId,
-                                parentId = libraryId,
-                                includeItemTypes = includeItemTypes,
-                                limit = itemsPerLibrary,
-                                fields = fields
-                            )
-                        }.getOrNull()
-
-                        val latestItems: List<BaseItemDto> =
-                            if (latestItemsResponse?.isSuccessful == true) {
-                                latestItemsResponse.body().orEmpty()
-                            } else {
-                                emptyList()
+                        sectionFetchSemaphore.withPermit {
+                            val libraryId = library.id ?: return@withPermit null
+                            val includeItemTypes = when (library.collectionType) {
+                                "movies" -> "Movie"
+                                "tvshows" -> "Series"
+                                else -> "Movie,Series"
                             }
 
-                        val items = latestItems
-                            .asSequence()
-                            .filter { it.id != null && !it.name.isNullOrBlank() }
-                            .distinctBy { it.id }
-                            .toList()
+                            val latestItemsResponse = runCatching {
+                                session.api.getLatestItems(
+                                    userId = session.userId,
+                                    parentId = libraryId,
+                                    includeItemTypes = includeItemTypes,
+                                    limit = itemsPerLibrary,
+                                    fields = fields
+                                )
+                            }.getOrNull()
 
-                        HomeLibrarySectionData(
-                            library = library,
-                            items = items
-                        )
+                            val latestItems: List<BaseItemDto> =
+                                if (latestItemsResponse?.isSuccessful == true) {
+                                    latestItemsResponse.body().orEmpty()
+                                } else {
+                                    emptyList()
+                                }
+
+                            val items = latestItems
+                                .asSequence()
+                                .filter { it.id != null && !it.name.isNullOrBlank() }
+                                .distinctBy { it.id }
+                                .toList()
+
+                            HomeLibrarySectionData(
+                                library = library,
+                                items = items
+                            )
+                        }
                     }
                 }.awaitAll()
                     .filterNotNull()

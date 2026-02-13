@@ -199,19 +199,28 @@ fun FeatureTab(
             }
         }
     }
-    val featuredKeys = remember(displayFeaturedItems.value) {
-        displayFeaturedItems.value.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
+    val resolvedFeaturedItems = remember(metadataQualifiedFeaturedItems.value, displayFeaturedItems.value) {
+        derivedStateOf {
+            if (displayFeaturedItems.value.isNotEmpty()) {
+                displayFeaturedItems.value
+            } else {
+                metadataQualifiedFeaturedItems.value
+            }
+        }
+    }
+    val featuredKeys = remember(resolvedFeaturedItems.value) {
+        resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
     }
     val isResolvingFeatureAssets = remember(
         isLoading,
         featuredItems,
         metadataQualifiedFeaturedItems.value,
-        displayFeaturedItems.value
+        resolvedFeaturedItems.value
     ) {
         !isLoading &&
             featuredItems.isNotEmpty() &&
             metadataQualifiedFeaturedItems.value.isNotEmpty() &&
-            displayFeaturedItems.value.isEmpty()
+            resolvedFeaturedItems.value.isEmpty()
     }
     val infiniteStartIndex = remember(featuredKeys) {
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
@@ -247,7 +256,7 @@ fun FeatureTab(
     }
 
     LaunchedEffect(featuredKeys, isLoading) {
-        if (isLoading || displayFeaturedItems.value.size <= 1) return@LaunchedEffect
+        if (isLoading || resolvedFeaturedItems.value.size <= 1) return@LaunchedEffect
         val shouldSeed =
             featuredRowState.firstVisibleItemIndex == 0 &&
                 featuredRowState.firstVisibleItemScrollOffset == 0
@@ -339,15 +348,15 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading, displayFeaturedItems.value.size) {
+    LaunchedEffect(featuredKeys, isLoading, resolvedFeaturedItems.value.size) {
         if (autoScrollReady || isLoading) return@LaunchedEffect
-        if (displayFeaturedItems.value.isNotEmpty()) {
+        if (resolvedFeaturedItems.value.isNotEmpty()) {
             autoScrollReady = true
         }
     }
 
     LaunchedEffect(featuredKeys, isLoading, autoScrollReady) {
-        if (isLoading || displayFeaturedItems.value.size <= 1 || !autoScrollReady) return@LaunchedEffect
+        if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScrollReady) return@LaunchedEffect
         while (true) {
             delay(6500L)
             val nextIndex = featuredRowState.firstVisibleItemIndex + 1
@@ -368,7 +377,7 @@ fun FeatureTab(
                 .height(heroHeight)
         ) {
             when {
-                displayFeaturedItems.value.isNotEmpty() -> {
+                resolvedFeaturedItems.value.isNotEmpty() -> {
                     LazyRow(
                         state = featuredRowState,
                         modifier = Modifier
@@ -379,11 +388,11 @@ fun FeatureTab(
                         items(
                             count = Int.MAX_VALUE,
                             key = { index ->
-                                val item = displayFeaturedItems.value[index % displayFeaturedItems.value.size]
+                                val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
                                 "${item.id ?: item.name ?: "feature_item"}_$index"
                             }
                         ) { index ->
-                            val item = displayFeaturedItems.value[index % displayFeaturedItems.value.size]
+                            val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
                             val cachedImages = item.id?.let { imageCacheByItemId[it] }
                             FeatureHeroCard(
                                 item = item,

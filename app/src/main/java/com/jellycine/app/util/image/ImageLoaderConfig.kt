@@ -15,6 +15,7 @@ import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
@@ -29,6 +30,15 @@ object ImageLoaderConfig {
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
 
     private val deviceId by lazy { UUID.randomUUID().toString() }
+    private const val IMAGE_STORE_DIR = "media_store/image_cache"
+
+    private fun persistentImageCacheDir(context: Context): File {
+        val dir = File(context.filesDir, IMAGE_STORE_DIR)
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
 
     private fun getOptimalMemoryPercent(context: Context): Double {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -50,7 +60,7 @@ object ImageLoaderConfig {
     }
 
     private fun getOptimalDiskCacheSize(context: Context): Long {
-        val availableBytes = context.cacheDir.usableSpace
+        val availableBytes = context.filesDir.usableSpace
         val percent = when {
             availableBytes > 32L * 1024 * 1024 * 1024 -> 0.02
             availableBytes > 8L * 1024 * 1024 * 1024 -> 0.04
@@ -128,7 +138,7 @@ object ImageLoaderConfig {
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(context.cacheDir.resolve("image_cache"))
+                    .directory(persistentImageCacheDir(context))
                     .maxSizeBytes(getOptimalDiskCacheSize(context))
                     .build()
             }

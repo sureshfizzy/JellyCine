@@ -35,7 +35,11 @@ class LogManager(private val context: Context) {
      */
     suspend fun generateLogFile(): File? {
         return try {
-            val logFile = File(context.cacheDir, LOG_FILE_NAME)
+            val logsDir = File(context.filesDir, "logs")
+            if (!logsDir.exists()) {
+                logsDir.mkdirs()
+            }
+            val logFile = File(logsDir, LOG_FILE_NAME)
             val writer = FileWriter(logFile)
             
             writer.use { w ->

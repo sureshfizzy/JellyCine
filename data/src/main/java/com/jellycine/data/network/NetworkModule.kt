@@ -4,12 +4,14 @@ import android.util.Log
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.BuildConfig
 import com.jellycine.data.model.ServerInfo
+import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -36,14 +38,15 @@ object NetworkModule {
     fun createMediaServerApi(
         baseUrl: String,
         accessToken: String? = null,
-        serverType: ServerType? = null
+        serverType: ServerType? = null,
+        storageDir: File? = null
     ): MediaServerApi {
         val normalizedBaseUrl = ensureTrailingSlash(baseUrl)
         val resolvedType = serverType ?: inferServerType(normalizedBaseUrl)
         val cacheKey = "${normalizedBaseUrl.trimEnd('/')}|${accessToken.orEmpty()}|${resolvedType.name}"
         apiCache[cacheKey]?.let { return it }
 
-        val okHttpClient = createOkHttpClient(accessToken, resolvedType)
+        val okHttpClient = createOkHttpClient(accessToken, resolvedType, storageDir)
         val retrofit = Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
             .client(okHttpClient)
@@ -53,17 +56,24 @@ object NetworkModule {
         return retrofit.create(MediaServerApi::class.java).also { apiCache[cacheKey] = it }
     }
 
-    fun createJellyfinApi(baseUrl: String, accessToken: String? = null): MediaServerApi {
-        return createMediaServerApi(baseUrl, accessToken, ServerType.JELLYFIN)
+    fun createJellyfinApi(
+        baseUrl: String,
+        accessToken: String? = null,
+        storageDir: File? = null
+    ): MediaServerApi {
+        return createMediaServerApi(baseUrl, accessToken, ServerType.JELLYFIN, storageDir)
     }
 
-    suspend fun resolveServerEndpoint(serverUrl: String): Result<ResolvedServerEndpoint> {
+    suspend fun resolveServerEndpoint(
+        serverUrl: String,
+        storageDir: File? = null
+    ): Result<ResolvedServerEndpoint> {
         val candidates = buildBaseUrlCandidates(serverUrl)
         var lastError: Exception? = null
 
         for (candidate in candidates) {
             try {
-                val api = createMediaServerApi(candidate)
+                val api = createMediaServerApi(candidate, storageDir = storageDir)
                 val response = api.getPublicSystemInfo()
                 if (response.isSuccessful && response.body() != null) {
                     val serverInfo = response.body()!!
@@ -88,7 +98,8 @@ object NetworkModule {
 
     private fun createOkHttpClient(
         accessToken: String? = null,
-        serverType: ServerType
+        serverType: ServerType,
+        storageDir: File? = null
     ): OkHttpClient {
         val dispatcher = Dispatcher().apply {
             maxRequests = 128
@@ -103,6 +114,14 @@ object NetworkModule {
             .connectionPool(ConnectionPool(32, 5, TimeUnit.MINUTES))
             .retryOnConnectionFailure(true)
 
+        if (storageDir != null) {
+            val networkStore = File(storageDir, "media_store/network_http_cache")
+            if (!networkStore.exists()) {
+                networkStore.mkdirs()
+            }
+            builder.cache(Cache(networkStore, 64L * 1024L * 1024L))
+        }
+
         val authInterceptor = Interceptor { chain ->
             val originalRequest = chain.request()
             val authHeader = buildAuthHeader(accessToken, deviceId, serverType)
@@ -114,6 +133,25 @@ object NetworkModule {
                 .build()
 
             chain.proceed(newRequest)
+        }
+
+        val cacheInterceptor = Interceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+            val isGet = request.method.equals("GET", ignoreCase = true)
+            val cacheControl = response.header("Cache-Control").orEmpty()
+            val hasExplicitCaching =
+                cacheControl.contains("max-age", ignoreCase = true) ||
+                    cacheControl.contains("no-store", ignoreCase = true) ||
+                    cacheControl.contains("no-cache", ignoreCase = true)
+
+            if (isGet && response.isSuccessful && !hasExplicitCaching) {
+                response.newBuilder()
+                    .header("Cache-Control", "public, max-age=60")
+                    .build()
+            } else {
+                response
+            }
         }
 
         val timingInterceptor = Interceptor { chain ->
@@ -140,6 +178,7 @@ object NetworkModule {
         }
 
         builder.addInterceptor(authInterceptor)
+        builder.addNetworkInterceptor(cacheInterceptor)
         builder.addInterceptor(timingInterceptor)
 
         return builder.build()

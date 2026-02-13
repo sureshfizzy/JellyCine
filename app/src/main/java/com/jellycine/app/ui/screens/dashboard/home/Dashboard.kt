@@ -265,6 +265,7 @@ object ImagePreloader {
     private val preloadedUrls = ConcurrentHashMap.newKeySet<String>()
     private val imageUrlCache = ConcurrentHashMap<String, String>()
     private val preferredImageTypeCache = ConcurrentHashMap<String, String>()
+    private val lastRenderedImageUrlCache = ConcurrentHashMap<String, String>()
     private val prefetchSemaphore = Semaphore(64)
     private const val posterWidth = 240
     private const val posterHeight = 360
@@ -300,6 +301,27 @@ object ImagePreloader {
         imageUrl: String
     ) {
         imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)] = imageUrl
+    }
+
+    fun getLastRenderedImageUrl(
+        itemId: String,
+        imageType: String,
+        width: Int,
+        height: Int,
+        quality: Int
+    ): String? {
+        return lastRenderedImageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)]
+    }
+
+    fun putLastRenderedImageUrl(
+        itemId: String,
+        imageType: String,
+        width: Int,
+        height: Int,
+        quality: Int,
+        imageUrl: String
+    ) {
+        lastRenderedImageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)] = imageUrl
     }
 
     private fun imageTypePreferenceKey(
@@ -628,9 +650,26 @@ fun ImageLoader(
             )
         }
     }
-    var imageUrl by remember(actualItemId, currentImageType) { mutableStateOf(initialCachedUrl) }
+    val initialRenderedUrl = remember(actualItemId, currentImageType, width, height) {
+        if (actualItemId.isNullOrBlank()) {
+            null
+        } else {
+            ImagePreloader.getLastRenderedImageUrl(
+                itemId = actualItemId,
+                imageType = currentImageType,
+                width = width,
+                height = height,
+                quality = quality
+            )
+        }
+    }
+    val initialUrl = remember(initialRenderedUrl, initialCachedUrl) {
+        initialRenderedUrl ?: initialCachedUrl
+    }
+    var imageUrl by remember(actualItemId, currentImageType) { mutableStateOf(initialUrl) }
     var hasError by remember(actualItemId, currentImageType) { mutableStateOf(false) }
-    var isImageLoaded by remember(actualItemId, currentImageType) { mutableStateOf(!initialCachedUrl.isNullOrBlank()) }
+    var isImageLoaded by remember(actualItemId, currentImageType) { mutableStateOf(!initialUrl.isNullOrBlank()) }
+    var hasRenderedSuccess by remember(actualItemId, currentImageType) { mutableStateOf(!initialUrl.isNullOrBlank()) }
     val context = LocalContext.current
 
     LaunchedEffect(actualItemId, currentImageType) {
@@ -733,6 +772,19 @@ fun ImageLoader(
                         is AsyncImagePainter.State.Success -> {
                             hasError = false
                             isImageLoaded = true
+                            hasRenderedSuccess = true
+                            val renderedItemId = actualItemId
+                            val renderedUrl = imageUrl
+                            if (!renderedItemId.isNullOrBlank() && !renderedUrl.isNullOrBlank()) {
+                                ImagePreloader.putLastRenderedImageUrl(
+                                    itemId = renderedItemId,
+                                    imageType = currentImageType,
+                                    width = width,
+                                    height = height,
+                                    quality = quality,
+                                    imageUrl = renderedUrl
+                                )
+                            }
                         }
                         is AsyncImagePainter.State.Error -> {
                             if (hasMoreFallbacks) {
@@ -740,13 +792,18 @@ fun ImageLoader(
                                 imageTypeIndex += 1
                                 hasError = false
                                 isImageLoaded = false
+                                hasRenderedSuccess = false
                             } else {
                                 hasError = true
                                 isImageLoaded = false
+                                hasRenderedSuccess = false
                             }
                         }
-                        else -> {
-                            isImageLoaded = false
+                        is AsyncImagePainter.State.Loading,
+                        is AsyncImagePainter.State.Empty -> {
+                            if (!hasRenderedSuccess) {
+                                isImageLoaded = false
+                            }
                         }
                     }
                 }
@@ -884,12 +941,16 @@ fun Dashboard(
     val queryManager = remember(currentUsername) {
         DashboardHomeQueryStore.get(currentUsername)
     }
+    var persistedHomeSnapshot by remember(currentUsername) {
+        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(null)
+    }
     var previousUsername by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentUsername) {
         if (previousUsername != null && previousUsername != currentUsername) {
             Cache.clear()
         }
         previousUsername = currentUsername
+        persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
     }
 
     val lazyColumnState = rememberLazyListState()
@@ -938,7 +999,9 @@ fun Dashboard(
 
             result.fold(
                 onSuccess = { query ->
-                    query.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
+                    query.items
+                        .orEmpty()
+                        .filter { it.id != null && !it.name.isNullOrBlank() }
                 },
                 onFailure = { throw it }
             )
@@ -953,7 +1016,7 @@ fun Dashboard(
                 retryDelay = 250L
             )
         ) {
-            val result = mediaRepository.getResumeItems()
+            val result = mediaRepository.getResumeItems(limit = 24)
             result.fold(
                 onSuccess = { items ->
                     val validItems = items.filter { item ->
@@ -985,8 +1048,8 @@ fun Dashboard(
             )
         ) {
             val result = mediaRepository.getHomeLibrarySections(
-                maxLibraries = 36,
-                itemsPerLibrary = 30
+                maxLibraries = null,
+                itemsPerLibrary = 14
             )
             result.fold(
                 onSuccess = { sections ->
@@ -1004,6 +1067,29 @@ fun Dashboard(
             )
         }
 
+        val persistedFeaturedItems = if (selectedCategory == "Home") {
+            persistedHomeSnapshot?.featuredHomeItems.orEmpty()
+        } else {
+            emptyList()
+        }
+        val resolvedFeaturedItems = featuredQuery.data ?: persistedFeaturedItems
+
+        val persistedContinueWatchingItems = if (selectedCategory == "Home") {
+            persistedHomeSnapshot?.continueWatchingItems.orEmpty()
+        } else {
+            emptyList()
+        }
+        val resolvedContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
+
+        val persistedLibrarySections = if (selectedCategory == "Home") {
+            persistedHomeSnapshot?.homeLibrarySections
+                .orEmpty()
+                .map { it.toUiSection() }
+        } else {
+            emptyList()
+        }
+        val resolvedLibrarySections = homeLibraryBurstQuery.data ?: persistedLibrarySections
+
         LaunchedEffect(isTabActive) {
             if (isTabActive) {
                 queryManager.refreshStaleQueries()
@@ -1020,18 +1106,29 @@ fun Dashboard(
         }
         LaunchedEffect(continueWatchingQuery.data?.hashCode()) {
             val items = continueWatchingQuery.data ?: return@LaunchedEffect
+            mediaRepository.persistHomeSnapshot(continueWatchingItems = items)
             if (items.isEmpty()) return@LaunchedEffect
             ImagePreloader.preloadContinueWatchingImages(
                 items = items,
                 mediaRepository = mediaRepository,
                 context = context,
-                maxItems = items.size.coerceAtMost(30)
+                maxItems = items.size.coerceAtMost(4),
+                priorityCount = 4
             )
+        }
+
+        LaunchedEffect(featuredQuery.data?.hashCode(), selectedCategory) {
+            if (selectedCategory != "Home") return@LaunchedEffect
+            val items = featuredQuery.data ?: return@LaunchedEffect
+            mediaRepository.persistHomeSnapshot(featuredHomeItems = items)
         }
 
         LaunchedEffect(homeLibraryBurstQuery.data?.hashCode()) {
             val sections = homeLibraryBurstQuery.data ?: return@LaunchedEffect
             if (sections.isEmpty()) return@LaunchedEffect
+            mediaRepository.persistHomeSnapshot(
+                homeLibrarySections = sections.map { it.toPersistedSection() }
+            )
 
             val orderedItems = sections
                 .flatMap { section -> section.items }
@@ -1065,8 +1162,8 @@ fun Dashboard(
         ) {
             item(key = "feature_tab") {
                 FeatureTab(
-                    featuredItems = featuredQuery.data ?: emptyList(),
-                    isLoading = featuredQuery.isLoading,
+                    featuredItems = resolvedFeaturedItems,
+                    isLoading = featuredQuery.isLoading && resolvedFeaturedItems.isEmpty(),
                     error = featuredQuery.error,
                     selectedCategory = selectedCategory,
                     verticalParallaxOffsetPx = featureParallaxOffsetPx,
@@ -1080,7 +1177,7 @@ fun Dashboard(
 
             if (selectedCategory == "Home" && (
                 continueWatchingQuery.isLoading ||
-                    continueWatchingQuery.data != null ||
+                    resolvedContinueWatchingItems.isNotEmpty() ||
                     continueWatchingQuery.isError
                 )
             ) {
@@ -1090,29 +1187,18 @@ fun Dashboard(
                             .padding(top = 0.dp)
                             .offset(y = (-12).dp)
                     ) {
-                        val hasContinueWatchingData = !continueWatchingQuery.data.isNullOrEmpty()
-                        if (!hasContinueWatchingData && (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError))) {
-                            Text(
-                                text = "Continue Watching",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                            )
-                            ContinueWatchingSkeleton()
-                        } else {
-                            ContinueWatchingSection(
-                                items = continueWatchingQuery.data ?: emptyList(),
-                                isLoading = continueWatchingQuery.isLoading,
-                                error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
-                                onItemClick = onNavigateToDetail
-                            )
-                        }
+                        ContinueWatchingSection(
+                            items = resolvedContinueWatchingItems,
+                            isLoading = continueWatchingQuery.isLoading && resolvedContinueWatchingItems.isEmpty(),
+                            error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
+                            onItemClick = onNavigateToDetail
+                        )
                     }
                 }
             }
 
             if (selectedCategory == "Home") {
-                val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                 if (topPadding > 0.dp) {
                     item(key = "home_libraries_top_padding") {
@@ -1120,7 +1206,7 @@ fun Dashboard(
                     }
                 }
 
-                val libraries = homeLibraryBurstQuery.data ?: emptyList()
+                val libraries = resolvedLibrarySections
                 if (homeLibraryBurstQuery.isError && libraries.isEmpty()) {
                     item(key = "home_libraries_error") {
                         Box(
@@ -1153,7 +1239,7 @@ fun Dashboard(
                     }
                 }
             } else if (selectedCategory == "Movies") {
-                val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                 item(key = "movies_genres") {
                     Column(
@@ -1166,7 +1252,7 @@ fun Dashboard(
                     }
                 }
             } else if (selectedCategory == "TV Shows") {
-                val topPadding = if (continueWatchingQuery.data.isNullOrEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                 item(key = "tv_genres") {
                     Column(
@@ -1247,6 +1333,23 @@ private fun ContinueWatchingSection(
             items.isNotEmpty() -> {
                 val lazyRowState = rememberLazyListState()
                 val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+                var renderedCount by remember(items) {
+                    mutableIntStateOf(items.size.coerceAtMost(4))
+                }
+
+                LaunchedEffect(items) {
+                    renderedCount = items.size.coerceAtMost(4)
+                }
+
+                LaunchedEffect(lazyRowState, items) {
+                    snapshotFlow {
+                        lazyRowState.firstVisibleItemIndex + lazyRowState.layoutInfo.visibleItemsInfo.size
+                    }.collect { visibleEnd ->
+                        if (visibleEnd >= renderedCount - 2 && renderedCount < items.size) {
+                            renderedCount = (renderedCount + 4).coerceAtMost(items.size)
+                        }
+                    }
+                }
 
                 LazyRow(
                     state = lazyRowState,
@@ -1256,7 +1359,7 @@ private fun ContinueWatchingSection(
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
                     items(
-                        count = items.size,
+                        count = renderedCount,
                         key = { index -> items[index].id ?: "item_$index" }
                     ) { index ->
                         val item = remember(items[index].id) { items[index] }
@@ -1414,6 +1517,28 @@ private data class HomeLibrarySectionUi(
     val collectionType: String?,
     val items: List<BaseItemDto>
 )
+
+private fun HomeLibrarySectionUi.toPersistedSection(): MediaRepository.HomeLibrarySectionData {
+    val library = BaseItemDto(
+        id = libraryId,
+        name = libraryName,
+        collectionType = collectionType,
+        type = "CollectionFolder"
+    )
+    return MediaRepository.HomeLibrarySectionData(
+        library = library,
+        items = items
+    )
+}
+
+private fun MediaRepository.HomeLibrarySectionData.toUiSection(): HomeLibrarySectionUi {
+    return HomeLibrarySectionUi(
+        libraryId = library.id.orEmpty(),
+        libraryName = library.name ?: "Library",
+        collectionType = library.collectionType,
+        items = items
+    )
+}
 
 
 @Composable

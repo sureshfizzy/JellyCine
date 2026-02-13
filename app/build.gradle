@@ -130,6 +130,7 @@ dependencies {
 
     // DataStore
     implementation 'androidx.datastore:datastore-preferences:1.1.1'
+    implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
 
     // Media3 ExoPlayer for video playback
     implementation 'androidx.media3:media3-exoplayer:1.8.0'
