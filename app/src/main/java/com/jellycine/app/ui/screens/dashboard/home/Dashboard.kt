@@ -1388,21 +1388,45 @@ private fun ContinueWatchingCard(
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
 
-    val itemName = remember(stableItem.name) { stableItem.name ?: "Unknown" }
-    val typeText = remember(stableItem.type) {
-        when (stableItem.type) {
-            "Movie" -> "Movie"
-            "Series" -> "TV Series"
-            "Episode" -> "Episode"
-            else -> stableItem.type ?: "Media"
-        }
-    }
-    val yearText = remember(stableItem.productionYear, typeText) {
-        val year = stableItem.productionYear?.toString().orEmpty()
-        if (year.isNotBlank()) {
-            "$year | $typeText"
+    val itemName = remember(item.type, item.seriesName, stableItem.name) {
+        if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
+            item.seriesName
         } else {
-            typeText
+            stableItem.name
+        } ?: "Unknown"
+    }
+    val metadataText = remember(
+        item.type,
+        item.productionYear,
+        item.parentIndexNumber,
+        item.indexNumber,
+        item.episodeTitle,
+        item.name,
+        item.seriesName
+    ) {
+        when (item.type) {
+            "Movie" -> {
+                item.productionYear?.toString().orEmpty()
+            }
+            "Episode" -> {
+                val seasonNumber = item.parentIndexNumber
+                val episodeNumber = item.indexNumber
+                if (seasonNumber != null && episodeNumber != null) {
+                    val episodeLabel = when {
+                        !item.episodeTitle.isNullOrBlank() -> item.episodeTitle
+                        !item.name.isNullOrBlank() && item.name != item.seriesName -> item.name
+                        else -> "Episode $episodeNumber"
+                    }
+                    "S${seasonNumber}:E${episodeNumber} - $episodeLabel"
+                } else {
+                    ""
+                }
+            }
+            "Series" -> {
+                val year = item.productionYear ?: item.premiereDate?.take(4)?.toIntOrNull()
+                year?.toString().orEmpty()
+            }
+            else -> ""
         }
     }
 
@@ -1488,7 +1512,7 @@ private fun ContinueWatchingCard(
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 16.sp,
                 textAlign = TextAlign.Center,
@@ -1496,15 +1520,17 @@ private fun ContinueWatchingCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = yearText,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (metadataText.isNotBlank()) {
+                Text(
+                    text = metadataText,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

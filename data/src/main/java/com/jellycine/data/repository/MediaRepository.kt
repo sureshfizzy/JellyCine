@@ -751,7 +751,7 @@ class MediaRepository(private val context: Context) {
         includeItemTypes: String? = "Movie,Series,Episode",
         limit: Int? = null,
         startIndex: Int? = null,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear"
     ): Result<List<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
