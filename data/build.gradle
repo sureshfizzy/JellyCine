@@ -10,6 +10,7 @@ android {
     defaultConfig {
         minSdk = 27
         targetSdk = 34
+        buildConfigField "String", "CLIENT_VERSION", "\"${rootProject.ext.appVersionName}\""
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -29,6 +30,10 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 }
 

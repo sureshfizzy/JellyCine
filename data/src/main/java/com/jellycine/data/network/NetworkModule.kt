@@ -2,6 +2,7 @@ package com.jellycine.data.network
 
 import android.util.Log
 import com.jellycine.data.api.MediaServerApi
+import com.jellycine.data.BuildConfig
 import com.jellycine.data.model.ServerInfo
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
@@ -16,7 +17,6 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     private const val CLIENT_NAME = "JellyCine"
-    private const val CLIENT_VERSION = "1.0.0"
     private const val DEVICE_NAME = "Android"
     private const val NETWORK_LOG_TAG = "JellyCineNetwork"
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
@@ -156,7 +156,7 @@ object NetworkModule {
             append("Client=\"$CLIENT_NAME\", ")
             append("Device=\"$DEVICE_NAME\", ")
             append("DeviceId=\"$deviceId\", ")
-            append("Version=\"$CLIENT_VERSION\"")
+            append("Version=\"${BuildConfig.CLIENT_VERSION}\"")
 
             if (!accessToken.isNullOrEmpty()) {
                 append(", Token=\"$accessToken\"")

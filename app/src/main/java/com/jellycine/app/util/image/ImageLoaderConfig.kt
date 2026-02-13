@@ -7,6 +7,7 @@ import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
+import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -22,7 +23,6 @@ import kotlin.math.min
 object ImageLoaderConfig {
 
     private const val CLIENT_NAME = "JellyCine"
-    private const val CLIENT_VERSION = "1.0.0"
     private const val DEVICE_NAME = "Android"
 
     private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
@@ -76,7 +76,7 @@ object ImageLoaderConfig {
             append("Client=\"$CLIENT_NAME\", ")
             append("Device=\"$DEVICE_NAME\", ")
             append("DeviceId=\"$deviceId\", ")
-            append("Version=\"$CLIENT_VERSION\"")
+            append("Version=\"${BuildConfig.VERSION_NAME}\"")
 
             if (!accessToken.isNullOrEmpty()) {
                 append(", Token=\"$accessToken\"")

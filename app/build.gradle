@@ -27,8 +27,8 @@ android {
         applicationId = "com.jellycine.app"
         minSdk = 27
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = rootProject.ext.appVersionCode as Integer
+        versionName = rootProject.ext.appVersionName as String
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -70,6 +70,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     
