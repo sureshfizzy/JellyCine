@@ -44,6 +44,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
@@ -99,7 +101,8 @@ data class QueryConfig(
     val staleTime: Long = 300_000L,
     val retryCount: Int = 1,
     val retryDelay: Long = 250L,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val requestTimeoutMs: Long = 12_000L
 )
 
 class QueryManager(private val scope: CoroutineScope) {
@@ -150,7 +153,9 @@ class QueryManager(private val scope: CoroutineScope) {
 
             while (retryCount <= config.retryCount) {
                 try {
-                    val result = withContext(Dispatchers.IO) { fetcher() }
+                    val result = withTimeout(config.requestTimeoutMs) {
+                        withContext(Dispatchers.IO) { fetcher() }
+                    }
                     setQuery(key, QueryState(
                         data = result,
                         isLoading = false,
@@ -169,6 +174,7 @@ class QueryManager(private val scope: CoroutineScope) {
                         e.message?.contains("network", ignoreCase = true) == true -> true
                         e.message?.contains("failed to connect", ignoreCase = true) == true -> true
                         e.message?.contains("unable to resolve host", ignoreCase = true) == true -> true
+                        e is TimeoutCancellationException -> false
                         retryCount <= config.retryCount -> true
                         else -> false
                     }
@@ -780,7 +786,8 @@ fun Dashboard(
                             .padding(top = 0.dp)
                             .offset(y = (-12).dp)
                     ) {
-                        if (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError)) {
+                        val hasContinueWatchingData = !continueWatchingQuery.data.isNullOrEmpty()
+                        if (!hasContinueWatchingData && (continueWatchingQuery.isLoading || (continueWatchingQuery.data == null && !continueWatchingQuery.isError))) {
                             Text(
                                 text = "Continue Watching",
                                 style = MaterialTheme.typography.headlineSmall,
