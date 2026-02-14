@@ -509,12 +509,19 @@ object ImagePreloader {
         if (!preloadedUrls.add(preloadKey)) return
 
         try {
-            val imageTypes = listOf("Thumb", "Backdrop")
+            val imageTypes = listOf("Thumb", "Backdrop", "Primary")
             var selectedType: String? = null
             var selectedUrl: String? = null
 
             for (type in imageTypes) {
-                for (requestId in requestIds) {
+                val requestIdsForType = when {
+                    itemType == "Episode" &&
+                        (type == "Thumb" || type == "Backdrop" || type == "Primary") -> {
+                        listOfNotNull(item.seriesId, itemId).distinct()
+                    }
+                    else -> requestIds
+                }
+                for (requestId in requestIdsForType) {
                     val cached = getCachedImageUrl(
                         itemId = requestId,
                         imageType = type,
@@ -587,6 +594,7 @@ fun ImageLoader(
     seriesId: String? = null,
     imageType: String = "Primary",
     fallbackImageType: String? = null,
+    extraFallbackImageTypes: List<String> = emptyList(),
     preferSeriesIdForThumbBackdrop: Boolean = true,
     allowRgb565: Boolean = true,
     contentDescription: String?,
@@ -597,12 +605,19 @@ fun ImageLoader(
     mediaRepository: com.jellycine.data.repository.MediaRepository,
     itemType: String? = null // Add item type to handle episodes properly
 ) {
-    val imageTypes = remember(imageType, fallbackImageType) {
+    val imageTypes = remember(imageType, fallbackImageType, extraFallbackImageTypes) {
         buildList {
             add(imageType)
             if (!fallbackImageType.isNullOrBlank() && !fallbackImageType.equals(imageType, ignoreCase = true)) {
                 add(fallbackImageType)
             }
+            extraFallbackImageTypes
+                .filter { it.isNotBlank() }
+                .forEach { fallbackType ->
+                    if (none { it.equals(fallbackType, ignoreCase = true) }) {
+                        add(fallbackType)
+                    }
+                }
         }
     }
     val preferredImageType = remember(itemId, seriesId, itemType, imageType, fallbackImageType) {
@@ -634,6 +649,13 @@ fun ImageLoader(
     val (width, height, quality) = remember(currentImageType) {
         when (currentImageType) {
             "Thumb", "Backdrop" -> Triple(640, 360, 92)
+            "Primary" -> {
+                if (imageType == "Thumb" || imageType == "Backdrop") {
+                    Triple(640, 360, 92)
+                } else {
+                    Triple(240, 360, 80)
+                }
+            }
             else -> Triple(240, 360, 80)
         }
     }
@@ -1454,7 +1476,8 @@ private fun ContinueWatchingCard(
                     seriesId = stableItem.seriesId,
                     imageType = "Thumb",
                     fallbackImageType = "Backdrop",
-                    preferSeriesIdForThumbBackdrop = false,
+                    extraFallbackImageTypes = listOf("Primary"),
+                    preferSeriesIdForThumbBackdrop = true,
                     allowRgb565 = false,
                     contentDescription = stableItem.name,
                     modifier = Modifier.fillMaxSize(),
