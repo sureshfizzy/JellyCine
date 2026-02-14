@@ -66,6 +66,7 @@ import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
+import androidx.activity.compose.BackHandler
 
 
 @UnstableApi
@@ -90,6 +91,22 @@ fun DetailScreenContainer(
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
     var episodeError by remember { mutableStateOf<String?>(null) }
+
+    val handleBackNavigation: () -> Unit = {
+        when {
+            showPlayer -> {
+                showPlayer = false
+                playbackItemId = null
+            }
+            currentScreen == "episode" && seasonDetailData != null -> {
+                currentScreen = "season"
+            }
+            currentScreen == "season" -> {
+                currentScreen = "detail"
+            }
+            else -> onBackPressed()
+        }
+    }
 
     LaunchedEffect(itemId) {
         try {
@@ -143,6 +160,10 @@ fun DetailScreenContainer(
         }
     }
 
+    BackHandler {
+        handleBackNavigation()
+    }
+
     if (error != null) {
         LaunchedEffect(Unit) {
             onBackPressed()
@@ -176,7 +197,7 @@ fun DetailScreenContainer(
                                 DetailScreen(
                                     item = currentItem,
                                     isLoading = isLoading,
-                                    onBackPressed = onBackPressed,
+                                    onBackPressed = handleBackNavigation,
                                     onPlayClick = {
                                         playbackItemId = itemId
                                         showPlayer = true
@@ -187,7 +208,7 @@ fun DetailScreenContainer(
                                     }
                                 )
                             } else {
-                                DetailScreenSkeleton(onBackPressed = onBackPressed)
+                                DetailScreenSkeleton(onBackPressed = handleBackNavigation)
                             }
                         }
                     }
@@ -198,10 +219,7 @@ fun DetailScreenContainer(
                                     seriesId = seriesId,
                                     seasonId = seasonId,
                                     seasonName = seasonName,
-                                    onBackPressed = {
-                                        currentScreen = "detail"
-                                        seasonDetailData = null
-                                    },
+                                    onBackPressed = handleBackNavigation,
                                     onEpisodeClick = { episodeId ->
                                         episodeDetailId = episodeId
                                         currentScreen = "episode"
@@ -218,7 +236,6 @@ fun DetailScreenContainer(
                                         LaunchedEffect(episodeError) {
                                             if (seasonDetailData != null) {
                                                 currentScreen = "season"
-                                                episodeDetailId = null
                                                 episodeError = null
                                             } else {
                                                 onBackPressed()
@@ -229,14 +246,7 @@ fun DetailScreenContainer(
                                         DetailScreen(
                                             item = episodeItem!!,
                                             isLoading = isEpisodeLoading,
-                                            onBackPressed = {
-                                                if (seasonDetailData != null) {
-                                                    currentScreen = "season"
-                                                    episodeDetailId = null
-                                                } else {
-                                                    onBackPressed()
-                                                }
-                                            },
+                                            onBackPressed = handleBackNavigation,
                                             onPlayClick = {
                                                 playbackItemId = episodeItem?.id ?: episodeId
                                                 showPlayer = true
@@ -249,14 +259,7 @@ fun DetailScreenContainer(
                                     }
                                     else -> {
                                         DetailScreenSkeleton(
-                                            onBackPressed = {
-                                                if (seasonDetailData != null) {
-                                                    currentScreen = "season"
-                                                    episodeDetailId = null
-                                                } else {
-                                                    onBackPressed()
-                                                }
-                                            }
+                                            onBackPressed = handleBackNavigation
                                         )
                                     }
                                 }
