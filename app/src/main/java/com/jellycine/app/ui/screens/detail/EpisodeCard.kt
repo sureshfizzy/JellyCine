@@ -56,14 +56,16 @@ fun EpisodeCard(
                 imageType = "Primary",
                 width = 400,
                 height = 225,
-                quality = 90
+                quality = 90,
+                enableImageEnhancers = false
             ).first() ?: episode.seriesId?.let { seriesId ->
                 mediaRepository.getBackdropImageUrl(
                     itemId = seriesId,
                     imageIndex = 0,
                     width = 400,
                     height = 225,
-                    quality = 90
+                    quality = 90,
+                    enableImageEnhancers = false
                 ).first()
             }
         }

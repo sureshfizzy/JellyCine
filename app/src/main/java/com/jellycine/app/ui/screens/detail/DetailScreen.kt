@@ -18,8 +18,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -87,6 +87,9 @@ fun DetailScreenContainer(
     var currentScreen by remember { mutableStateOf("detail") }
     var seasonDetailData by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
     var episodeDetailId by remember { mutableStateOf<String?>(null) }
+    var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    var isEpisodeLoading by remember { mutableStateOf(false) }
+    var episodeError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(itemId) {
         try {
@@ -97,10 +100,6 @@ fun DetailScreenContainer(
             result.fold(
                 onSuccess = { fetchedItem ->
                     item = fetchedItem
-                    if (fetchedItem.type == "Episode") {
-                        episodeDetailId = itemId
-                        currentScreen = "episode"
-                    }
                     isLoading = false
                 },
                 onFailure = { exception ->
@@ -111,6 +110,36 @@ fun DetailScreenContainer(
         } catch (e: Exception) {
             error = e.message
             isLoading = false
+        }
+    }
+
+    LaunchedEffect(currentScreen, episodeDetailId) {
+        val targetEpisodeId = episodeDetailId
+        if (currentScreen != "episode" || targetEpisodeId.isNullOrBlank()) {
+            return@LaunchedEffect
+        }
+
+        try {
+            isEpisodeLoading = true
+            episodeError = null
+            episodeItem = null
+
+            val result = mediaRepository.getItemById(targetEpisodeId)
+            result.fold(
+                onSuccess = { fetchedEpisode ->
+                    episodeItem = fetchedEpisode
+                    isEpisodeLoading = false
+                },
+                onFailure = { exception ->
+                    episodeError = exception.message
+                    episodeItem = null
+                    isEpisodeLoading = false
+                }
+            )
+        } catch (e: Exception) {
+            episodeError = e.message
+            episodeItem = null
+            isEpisodeLoading = false
         }
     }
 
@@ -144,27 +173,19 @@ fun DetailScreenContainer(
                         ScreenWrapper(isActive = true) {
                             val currentItem = item
                             if (currentItem != null) {
-                                if (currentItem.type == "Episode") {
-                                    LaunchedEffect(Unit) {
-                                        episodeDetailId = itemId
-                                        currentScreen = "episode"
+                                DetailScreen(
+                                    item = currentItem,
+                                    isLoading = isLoading,
+                                    onBackPressed = onBackPressed,
+                                    onPlayClick = {
+                                        playbackItemId = itemId
+                                        showPlayer = true
+                                    },
+                                    onSeasonClick = { seriesId, seasonId, seasonName ->
+                                        seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                        currentScreen = "season"
                                     }
-                                    EpisodeDetailSkeleton(onBackPressed = onBackPressed)
-                                } else {
-                                    DetailScreen(
-                                        item = currentItem,
-                                        isLoading = isLoading,
-                                        onBackPressed = onBackPressed,
-                                        onPlayClick = {
-                                            playbackItemId = itemId
-                                            showPlayer = true
-                                        },
-                                        onSeasonClick = { seriesId, seasonId, seasonName ->
-                                            seasonDetailData = Triple(seriesId, seasonId, seasonName)
-                                            currentScreen = "season"
-                                        }
-                                    )
-                                }
+                                )
                             } else {
                                 DetailScreenSkeleton(onBackPressed = onBackPressed)
                             }
@@ -192,21 +213,53 @@ fun DetailScreenContainer(
                     "episode" -> {
                         episodeDetailId?.let { episodeId ->
                             ScreenWrapper(isActive = true) {
-                                EpisodeDetailScreen(
-                                    episodeId = episodeId,
-                                    onBackPressed = {
-                                        if (seasonDetailData != null) {
-                                            currentScreen = "season"
-                                            episodeDetailId = null
-                                        } else {
-                                            onBackPressed()
+                                when {
+                                    episodeError != null -> {
+                                        LaunchedEffect(episodeError) {
+                                            if (seasonDetailData != null) {
+                                                currentScreen = "season"
+                                                episodeDetailId = null
+                                                episodeError = null
+                                            } else {
+                                                onBackPressed()
+                                            }
                                         }
-                                    },
-                                    onPlayClick = {
-                                        playbackItemId = episodeId
-                                        showPlayer = true
                                     }
-                                )
+                                    episodeItem != null -> {
+                                        DetailScreen(
+                                            item = episodeItem!!,
+                                            isLoading = isEpisodeLoading,
+                                            onBackPressed = {
+                                                if (seasonDetailData != null) {
+                                                    currentScreen = "season"
+                                                    episodeDetailId = null
+                                                } else {
+                                                    onBackPressed()
+                                                }
+                                            },
+                                            onPlayClick = {
+                                                playbackItemId = episodeItem?.id ?: episodeId
+                                                showPlayer = true
+                                            },
+                                            onSeasonClick = { seriesId, seasonId, seasonName ->
+                                                seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                                currentScreen = "season"
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        DetailScreenSkeleton(
+                                            onBackPressed = {
+                                                if (seasonDetailData != null) {
+                                                    currentScreen = "season"
+                                                    episodeDetailId = null
+                                                } else {
+                                                    onBackPressed()
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -244,7 +297,18 @@ fun DetailContent(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    var backdropImageUrl by remember { mutableStateOf<String?>(null) }
+    val isEpisode = item.type == "Episode"
+    val episodeHeaderText = remember(
+        item.type,
+        item.parentIndexNumber,
+        item.indexNumber,
+        item.name
+    ) {
+        episodeHeaderText(item)
+    }
+    var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var heroImageIndex by remember(item.id) { mutableStateOf(0) }
+    val backdropImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
     var logoImageUrl by remember { mutableStateOf<String?>(null) }
     var selectedVideo by remember { mutableStateOf("") }
     var selectedAudio by remember { mutableStateOf("") }
@@ -271,19 +335,16 @@ fun DetailContent(
     LaunchedEffect(item.id) {
         val itemId = item.id
         if (itemId != null) {
-            backdropImageUrl = mediaRepository.getBackdropImageUrl(
-                itemId = itemId,
-                width = 1200,
-                height = 675,
-                quality = 95
-            ).first()
+            heroImageCandidates = heroImageCandidates(
+                item = item,
+                mediaRepository = mediaRepository
+            )
+            heroImageIndex = 0
 
-            logoImageUrl = mediaRepository.getImageUrl(
-                itemId = itemId,
-                imageType = "Logo",
-                width = 1200,
-                quality = 95
-            ).first()
+            logoImageUrl = logoImage(
+                item = item,
+                mediaRepository = mediaRepository
+            )
         }
     }
 
@@ -316,6 +377,7 @@ fun DetailContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(330.dp)
+                    .clipToBounds()
             ) {
 
                 JellyfinPosterImage(
@@ -323,7 +385,17 @@ fun DetailContent(
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
                     context = context,
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
+                    onErrorStateChange = { hasError ->
+                        if (
+                            hasError &&
+                            backdropImageUrl == heroImageCandidates.getOrNull(heroImageIndex) &&
+                            heroImageIndex < heroImageCandidates.lastIndex
+                        ) {
+                            heroImageIndex += 1
+                        }
+                    }
                 )
 
                 Box(
@@ -393,23 +465,25 @@ fun DetailContent(
                     .padding(horizontal = 14.dp)
                     .offset(y = (-42).dp)
             ) {
-                if (!logoImageUrl.isNullOrBlank()) {
+                if (!logoImageUrl.isNullOrBlank() || isEpisode) {
                     Box(
                         modifier = Modifier
                             .height(78.dp)
                             .fillMaxWidth()
                     ) {
-                        JellyfinPosterImage(
-                            imageUrl = if (isLoading) null else logoImageUrl,
-                            contentDescription = item.name,
-                            modifier = Modifier
-                                .fillMaxWidth(0.94f)
-                                .height(78.dp)
-                                .align(Alignment.CenterStart),
-                            context = context,
-                            contentScale = ContentScale.Fit,
-                            alignment = Alignment.CenterStart
-                        )
+                        if (!logoImageUrl.isNullOrBlank()) {
+                            JellyfinPosterImage(
+                                imageUrl = if (isLoading) null else logoImageUrl,
+                                contentDescription = item.name,
+                                modifier = Modifier
+                                    .fillMaxWidth(0.94f)
+                                    .height(78.dp)
+                                    .align(Alignment.CenterStart),
+                                context = context,
+                                contentScale = ContentScale.Fit,
+                                alignment = Alignment.CenterStart
+                            )
+                        }
                     }
                 } else {
                     item.name?.takeIf { it.isNotBlank() }?.let { title ->
@@ -419,6 +493,19 @@ fun DetailContent(
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             lineHeight = 30.sp
+                        )
+                    }
+                }
+
+                if (isEpisode) {
+                    episodeHeaderText?.let { header ->
+                        Text(
+                            text = header,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.88f),
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -838,6 +925,106 @@ private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
             stream.displayTitle?.takeIf { it.isNotBlank() }
         }
         ?: "Off"
+}
+
+private suspend fun heroImageCandidates(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+): List<String> {
+    val itemId = item.id ?: return emptyList()
+    val seriesId = item.seriesId
+    val candidates = mutableListOf<String>()
+
+    fun addCandidate(url: String?) {
+        if (!url.isNullOrBlank() && !candidates.contains(url)) {
+            candidates.add(url)
+        }
+    }
+
+    if (item.type == "Episode") {
+        addCandidate(mediaRepository.getBackdropImageUrl(
+            itemId = itemId,
+            width = 1200,
+            height = 675,
+            quality = 95,
+            enableImageEnhancers = false
+        ).first())
+
+        addCandidate(mediaRepository.getImageUrl(
+            itemId = itemId,
+            imageType = "Primary",
+            width = 1200,
+            height = 675,
+            quality = 95,
+            enableImageEnhancers = false
+        ).first())
+
+        addCandidate(mediaRepository.getImageUrl(
+            itemId = itemId,
+            imageType = "Thumb",
+            width = 1200,
+            height = 675,
+            quality = 95,
+            enableImageEnhancers = false
+        ).first())
+
+        if (!seriesId.isNullOrBlank()) {
+            addCandidate(mediaRepository.getBackdropImageUrl(
+                itemId = seriesId,
+                width = 1200,
+                height = 675,
+                quality = 95,
+                enableImageEnhancers = false
+            ).first())
+        }
+    } else {
+        addCandidate(mediaRepository.getBackdropImageUrl(
+            itemId = itemId,
+            width = 1200,
+            height = 675,
+            quality = 95
+        ).first())
+
+        addCandidate(mediaRepository.getImageUrl(
+            itemId = itemId,
+            imageType = "Primary",
+            width = 1200,
+            height = 675,
+            quality = 95
+        ).first())
+    }
+
+    return candidates
+}
+
+private suspend fun logoImage(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+): String? {
+    val logoItemId = if (item.type == "Episode") {
+        item.seriesId ?: item.id
+    } else {
+        item.id
+    } ?: return null
+
+    return mediaRepository.getImageUrl(
+        itemId = logoItemId,
+        imageType = "Logo",
+        width = 1200,
+        quality = 95
+    ).first()
+}
+
+private fun episodeHeaderText(item: BaseItemDto): String? {
+    if (item.type != "Episode") return null
+    val title = item.name?.takeIf { it.isNotBlank() } ?: "Unknown"
+    val season = item.parentIndexNumber
+    val episode = item.indexNumber
+    return when {
+        season != null && episode != null -> "S${season}:E${episode} - $title"
+        episode != null -> "Episode $episode - $title"
+        else -> title
+    }
 }
 
 private fun uniquifyOptionLabels(options: List<String>): List<String> {
@@ -1382,3 +1569,4 @@ private fun getPersonImageUrl(personId: String?, mediaRepository: MediaRepositor
         flowOf(null)
     }
 }
+

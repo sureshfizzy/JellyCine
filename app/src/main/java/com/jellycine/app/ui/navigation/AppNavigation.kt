@@ -21,10 +21,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
-import com.jellycine.app.ui.screens.detail.DetailScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
-import com.jellycine.app.ui.screens.detail.EpisodeDetailScreen
-import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.data.model.BaseItemDto
 import com.google.gson.Gson
@@ -122,11 +119,7 @@ fun AppNavigation() {
                     },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
-                            if (item.type == "Episode") {
-                                navController.navigate("episode/$itemId")
-                            } else {
-                                navController.navigate("detail/$itemId")
-                            }
+                            navController.navigate("detail/$itemId")
                         }
                     },
                     onNavigateToViewAll = { contentType, parentId, title ->
@@ -178,29 +171,12 @@ fun AppNavigation() {
                 val episodeId = backStackEntry.arguments?.getString("episodeId")
 
                 if (episodeId != null) {
-                    var showPlayer by remember { mutableStateOf(false) }
-                    var playbackItemId by remember { mutableStateOf<String?>(null) }
-
-                    if (showPlayer) {
-                        PlayerScreen(
-                            mediaId = playbackItemId ?: episodeId,
-                            onBackPressed = {
-                                showPlayer = false
-                                playbackItemId = null
-                            }
-                        )
-                    } else {
-                        EpisodeDetailScreen(
-                            episodeId = episodeId,
-                            onBackPressed = {
-                                navController.popBackStack()
-                            },
-                            onPlayClick = {
-                                playbackItemId = episodeId
-                                showPlayer = true
-                            }
-                        )
-                    }
+                    DetailScreenContainer(
+                        itemId = episodeId,
+                        onBackPressed = {
+                            navController.popBackStack()
+                        }
+                    )
                 } else {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
@@ -256,12 +232,7 @@ fun AppNavigation() {
                     },
                     onItemClick = { item ->
                         item.id?.let { itemId ->
-                            // Route episodes directly to episode screen
-                            if (item.type == "Episode") {
-                                navController.navigate("episode/$itemId")
-                            } else {
-                                navController.navigate("detail/$itemId")
-                            }
+                            navController.navigate("detail/$itemId")
                         }
                     }
                 )
