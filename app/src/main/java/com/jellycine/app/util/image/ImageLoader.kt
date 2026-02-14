@@ -66,6 +66,7 @@ fun JellyfinPosterImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    alignment: Alignment = Alignment.Center,
     context: Context,
     onLoadingStateChange: (Boolean) -> Unit = {},
     onErrorStateChange: (Boolean) -> Unit = {}
@@ -112,6 +113,7 @@ fun JellyfinPosterImage(
             renderEffect = null
         },
         contentScale = contentScale,
+        alignment = alignment,
         onState = { state ->
             imageState = state
         }

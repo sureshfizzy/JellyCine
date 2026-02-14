@@ -246,7 +246,6 @@ fun DetailContent(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     var backdropImageUrl by remember { mutableStateOf<String?>(null) }
     var logoImageUrl by remember { mutableStateOf<String?>(null) }
-    var isFavorite by remember { mutableStateOf(item.userData?.isFavorite == true) }
     var selectedVideo by remember { mutableStateOf("") }
     var selectedAudio by remember { mutableStateOf("") }
     var selectedSubtitle by remember { mutableStateOf("Off") }
@@ -282,8 +281,7 @@ fun DetailContent(
             logoImageUrl = mediaRepository.getImageUrl(
                 itemId = itemId,
                 imageType = "Logo",
-                width = 800,
-                height = 300,
+                width = 1200,
                 quality = 95
             ).first()
         }
@@ -333,11 +331,28 @@ fun DetailContent(
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.3f),
-                                    Color.Black.copy(alpha = 0.5f),
-                                    Color.Black.copy(alpha = 0.8f),
-                                    Color.Black
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.82f to Color.Transparent,
+                                    0.90f to Color.Black.copy(alpha = 0.25f),
+                                    0.96f to Color.Black.copy(alpha = 0.52f),
+                                    1.0f to Color.Black.copy(alpha = 0.72f)
+                                )
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.78f to Color.Transparent,
+                                    0.92f to Color.Black.copy(alpha = 0.86f),
+                                    1.0f to Color.Black
                                 )
                             )
                         )
@@ -345,11 +360,11 @@ fun DetailContent(
 
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .wrapContentWidth()
                         .statusBarsPadding()
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
                 ) {
                     IconButton(
                         onClick = onBackPressed,
@@ -367,23 +382,6 @@ fun DetailContent(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-
-                    IconButton(
-                        onClick = { isFavorite = !isFavorite },
-                        modifier = Modifier
-                            .background(
-                                Color.Black.copy(alpha = 0.6f),
-                                CircleShape
-                            )
-                            .size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite) Color.Red else Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
             }
         }
@@ -393,20 +391,24 @@ fun DetailContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp)
-                    .offset(y = (-58).dp)
+                    .offset(y = (-42).dp)
             ) {
                 if (!logoImageUrl.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
-                            .heightIn(min = 50.dp, max = 78.dp)
-                            .fillMaxWidth(0.62f)
+                            .height(78.dp)
+                            .fillMaxWidth()
                     ) {
                         JellyfinPosterImage(
                             imageUrl = if (isLoading) null else logoImageUrl,
                             contentDescription = item.name,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxWidth(0.94f)
+                                .height(78.dp)
+                                .align(Alignment.CenterStart),
                             context = context,
-                            contentScale = ContentScale.Fit
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart
                         )
                     }
                 } else {
