@@ -16,7 +16,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.rounded.ExitToApp
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -1503,22 +1502,6 @@ private fun ContinueWatchingCard(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .background(
-                            Color.Black.copy(alpha = 0.6f),
-                            shape = CircleShape
-                        )
-                        .padding(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = "Continue Watching",
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
             }
         }
 
