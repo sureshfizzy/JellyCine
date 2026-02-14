@@ -1200,12 +1200,14 @@ fun Dashboard(
                 )
             }
 
-            if (selectedCategory == "Home" && (
-                continueWatchingQuery.isLoading ||
+            val shouldShowContinueWatchingSection =
+                selectedCategory == "Home" && (
                     resolvedContinueWatchingItems.isNotEmpty() ||
-                    continueWatchingQuery.isError
-                )
-            ) {
+                        continueWatchingQuery.isError ||
+                        (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
+                    )
+
+            if (shouldShowContinueWatchingSection) {
                 item(key = "continue_watching_section") {
                     Column(
                         modifier = Modifier
