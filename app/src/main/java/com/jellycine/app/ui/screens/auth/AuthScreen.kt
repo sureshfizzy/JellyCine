@@ -332,7 +332,12 @@ private fun ConnectionForm(
                 value = serverUrl,
                 onValueChange = onServerUrlChange,
                 label = { Text("Server URL") },
-                placeholder = { Text("http://192.168.1.100:8096") },
+                placeholder = {
+                    Text(
+                        "http://192.168.1.100:8096",
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .bringIntoViewRequester(serverUrlBringIntoView)
