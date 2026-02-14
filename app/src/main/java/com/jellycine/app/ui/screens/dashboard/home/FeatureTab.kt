@@ -85,6 +85,7 @@ internal object CachedData {
     var continueWatchingItems: List<BaseItemDto> = emptyList()
     var username: String? = null
     var userImageUrl: String? = null
+    var userSessionKey: String? = null
     var lastLoadTime: Long = 0
     var continueWatchingLastLoadTime: Long = 0
     private var _isCurrentlyLoading: Boolean = false
@@ -111,9 +112,10 @@ internal object CachedData {
         continueWatchingLastLoadTime = System.currentTimeMillis()
     }
 
-    fun updateUserData(name: String?, imageUrl: String?) {
+    fun updateUserData(name: String?, imageUrl: String?, sessionKey: String?) {
         username = name
         userImageUrl = imageUrl
+        userSessionKey = sessionKey
     }
 
     fun clearCache() {
@@ -129,6 +131,7 @@ internal object CachedData {
         continueWatchingItems = emptyList()
         username = null
         userImageUrl = null
+        userSessionKey = null
         lastLoadTime = 0
         continueWatchingLastLoadTime = 0
         _isCurrentlyLoading = false
@@ -165,12 +168,16 @@ fun FeatureTab(
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = CachedData.username)
-    var displayUsername by rememberSaveable(currentUsername) {
+    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
+    val userSessionKey = remember(currentServerUrl, currentUsername) {
+        "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
+    }
+    var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
         mutableStateOf(currentUsername ?: CachedData.username ?: "User")
     }
-    var userProfileImageUrl by rememberSaveable(currentUsername) {
+    var userProfileImageUrl by rememberSaveable(currentUsername, currentServerUrl) {
         mutableStateOf(
-            if (currentUsername == CachedData.username) {
+            if (CachedData.userSessionKey == userSessionKey && currentUsername == CachedData.username) {
                 CachedData.userImageUrl
             } else {
                 null
@@ -232,11 +239,14 @@ fun FeatureTab(
         with(density) { configuration.screenWidthDp.dp.toPx() }
     }
 
-    LaunchedEffect(currentUsername, refreshTrigger) {
+    LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
         val resolvedUsername = currentUsername ?: CachedData.username
         displayUsername = resolvedUsername?.takeIf { it.isNotBlank() } ?: "User"
 
-        if (CachedData.username == displayUsername && !CachedData.userImageUrl.isNullOrBlank()) {
+        if (CachedData.userSessionKey == userSessionKey &&
+            CachedData.username == displayUsername &&
+            !CachedData.userImageUrl.isNullOrBlank()
+        ) {
             userProfileImageUrl = CachedData.userImageUrl
             return@LaunchedEffect
         }
@@ -245,7 +255,7 @@ fun FeatureTab(
             runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
         }
         userProfileImageUrl = profileUrl
-        CachedData.updateUserData(displayUsername, profileUrl)
+        CachedData.updateUserData(displayUsername, profileUrl, userSessionKey)
     }
 
     LaunchedEffect(featuredItems, isLoading) {

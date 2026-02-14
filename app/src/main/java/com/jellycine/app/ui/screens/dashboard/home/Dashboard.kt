@@ -856,22 +856,22 @@ val LocalQueryManager = compositionLocalOf<QueryManager> {
 }
 
 private object DashboardHomeQueryStore {
-    private var ownerUsername: String? = null
+    private var ownerSessionKey: String? = null
     private var manager: QueryManager? = null
 
     @Synchronized
-    fun get(username: String?): QueryManager {
+    fun get(sessionKey: String?): QueryManager {
         val existing = manager
         if (existing != null) {
-            if (username == null) {
+            if (sessionKey == null) {
                 return existing
             }
-            if (ownerUsername == username) {
+            if (ownerSessionKey == sessionKey) {
                 return existing
             }
         }
         manager?.cleanup()
-        ownerUsername = username
+        ownerSessionKey = sessionKey
         manager = QueryManager(CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
         return manager!!
     }
@@ -959,18 +959,22 @@ fun Dashboard(
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
-    val queryManager = remember(currentUsername) {
-        DashboardHomeQueryStore.get(currentUsername)
+    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
+    val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
+        "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
     }
-    var persistedHomeSnapshot by remember(currentUsername) {
+    val queryManager = remember(dashboardSessionKey) {
+        DashboardHomeQueryStore.get(dashboardSessionKey)
+    }
+    var persistedHomeSnapshot by remember(dashboardSessionKey) {
         mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(null)
     }
-    var previousUsername by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(currentUsername) {
-        if (previousUsername != null && previousUsername != currentUsername) {
+    var previousSessionKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(dashboardSessionKey) {
+        if (previousSessionKey != null && previousSessionKey != dashboardSessionKey) {
             Cache.clear()
         }
-        previousUsername = currentUsername
+        previousSessionKey = dashboardSessionKey
         persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
     }
 

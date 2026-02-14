@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,6 +12,7 @@ import kotlinx.coroutines.launch
 class AuthScreenViewModel(application: Application) : AndroidViewModel(application) {
     
     private val authRepository = AuthRepositoryProvider.getInstance(application)
+    private val mediaRepository = MediaRepositoryProvider.getInstance(application)
     
     private val _uiState = MutableStateFlow(AuthScreenUiState())
     val uiState: StateFlow<AuthScreenUiState> = _uiState.asStateFlow()
@@ -126,6 +128,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
+            mediaRepository.clearPersistedHomeSnapshot()
             CachedData.clearAllCache()
             // Reset UI state
             _uiState.value = AuthScreenUiState()

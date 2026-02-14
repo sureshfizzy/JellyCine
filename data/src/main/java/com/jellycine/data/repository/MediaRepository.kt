@@ -203,14 +203,26 @@ class MediaRepository(private val context: Context) {
                 } else {
                     null
                 }
+                val sameSessionSnapshot = existing?.takeIf { it.snapshotKey == snapshotKey }
                 val next = PersistedHomeSnapshot(
                     snapshotKey = snapshotKey,
                     updatedAt = System.currentTimeMillis(),
-                    featuredHomeItems = featuredHomeItems ?: existing?.featuredHomeItems.orEmpty(),
-                    continueWatchingItems = continueWatchingItems ?: existing?.continueWatchingItems.orEmpty(),
-                    homeLibrarySections = homeLibrarySections ?: existing?.homeLibrarySections.orEmpty()
+                    featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
+                    continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
+                    homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty()
                 )
                 file.writeText(gson.toJson(next))
+            }
+        }
+    }
+
+    suspend fun clearPersistedHomeSnapshot() {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val file = getHomeSnapshotFile()
+                if (file.exists()) {
+                    file.delete()
+                }
             }
         }
     }

@@ -76,6 +76,7 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             try {
                 authRepository.logout()
+                mediaRepository.clearPersistedHomeSnapshot()
                 CachedData.clearAllCache()
                 onLogoutComplete()
             } catch (e: Exception) {
