@@ -50,19 +50,34 @@ fun SeasonCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var seasonImageUrl by remember(season.id) { mutableStateOf<String?>(null) }
-    var imageLoadingFailed by remember(season.id) { mutableStateOf(false) }
+    var seasonImageCandidates by remember(season.id, season.seriesId) { mutableStateOf<List<String>>(emptyList()) }
+    var seasonImageIndex by remember(season.id, season.seriesId) { mutableIntStateOf(0) }
+    var hasImageLoadError by remember(season.id, season.seriesId) { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
+    val seasonImageUrl = seasonImageCandidates.getOrNull(seasonImageIndex)
 
-    LaunchedEffect(season.id) {
+    LaunchedEffect(season.id, season.seriesId) {
+        hasImageLoadError = false
+        seasonImageIndex = 0
         season.id?.let { seasonId ->
-            seasonImageUrl = mediaRepository.getImageUrl(
-                itemId = seasonId,
-                imageType = "Primary",
-                width = 200,
-                height = 300,
-                quality = 90
-            ).first()
+            seasonImageCandidates = listOfNotNull(
+                mediaRepository.getImageUrl(
+                    itemId = seasonId,
+                    imageType = "Primary",
+                    width = 200,
+                    height = 300,
+                    quality = 90
+                ).first(),
+                season.seriesId?.let { seriesId ->
+                    mediaRepository.getImageUrl(
+                        itemId = seriesId,
+                        imageType = "Primary",
+                        width = 200,
+                        height = 300,
+                        quality = 90
+                    ).first()
+                }
+            ).distinct()
         }
     }
 
@@ -95,15 +110,21 @@ fun SeasonCard(
                         .height(210.dp)
                         .clip(RoundedCornerShape(12.dp))
                 ) {
-                    if (seasonImageUrl != null && !imageLoadingFailed) {
+                    if (seasonImageUrl != null && !hasImageLoadError) {
                         JellyfinPosterImage(
                             context = context,
-                            imageUrl = seasonImageUrl!!,
+                            imageUrl = seasonImageUrl,
                             contentDescription = season.name,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop,
                             onErrorStateChange = { hasError ->
-                                imageLoadingFailed = hasError
+                                if (!hasError) {
+                                    hasImageLoadError = false
+                                } else if (seasonImageIndex < seasonImageCandidates.lastIndex) {
+                                    seasonImageIndex += 1
+                                } else {
+                                    hasImageLoadError = true
+                                }
                             }
                         )
                     } else {

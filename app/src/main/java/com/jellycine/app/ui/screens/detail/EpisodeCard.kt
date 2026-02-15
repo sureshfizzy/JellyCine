@@ -45,7 +45,7 @@ fun EpisodeCard(
 ) {
     val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
-    var imageLoadingFailed by remember(episode.id) { mutableStateOf(false) }
+    var hasImageLoadError by remember(episode.id) { mutableStateOf(false) }
 
 
     LaunchedEffect(episode.id) {
@@ -54,17 +54,17 @@ fun EpisodeCard(
             episodeImageUrl = mediaRepository.getImageUrl(
                 itemId = episodeId,
                 imageType = "Primary",
-                width = 400,
-                height = 225,
-                quality = 90,
+                width = 960,
+                height = 540,
+                quality = 95,
                 enableImageEnhancers = false
             ).first() ?: episode.seriesId?.let { seriesId ->
                 mediaRepository.getBackdropImageUrl(
                     itemId = seriesId,
                     imageIndex = 0,
-                    width = 400,
-                    height = 225,
-                    quality = 90,
+                    width = 960,
+                    height = 540,
+                    quality = 95,
                     enableImageEnhancers = false
                 ).first()
             }
@@ -92,7 +92,7 @@ fun EpisodeCard(
                     .height(68.dp)
                     .clip(RoundedCornerShape(8.dp))
             ) {
-                if (episodeImageUrl != null && !imageLoadingFailed) {
+                if (episodeImageUrl != null && !hasImageLoadError) {
                     JellyfinPosterImage(
                         context = context,
                         imageUrl = episodeImageUrl!!,
@@ -100,7 +100,7 @@ fun EpisodeCard(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
                         onErrorStateChange = { hasError ->
-                            imageLoadingFailed = hasError
+                            hasImageLoadError = hasError
                         }
                     )
                 } else {

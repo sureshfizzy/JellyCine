@@ -42,10 +42,13 @@ fun SeasonDetailScreen(
     var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember { mutableIntStateOf(0) }
     var logoImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var logoImageIndex by remember { mutableIntStateOf(0) }
+    var logoCandidateLookup by remember(seasonId, seriesId) { mutableStateOf(true) }
+    var logoLoadError by remember(seasonId, seriesId) { mutableStateOf(false) }
 
     // Load episodes for this season
     LaunchedEffect(seasonId) {
@@ -69,6 +72,20 @@ fun SeasonDetailScreen(
         } catch (e: Exception) {
             error = e.message
             isLoading = false
+        }
+    }
+
+    LaunchedEffect(seriesId) {
+        seriesTitle = null
+        try {
+            mediaRepository.getItemById(seriesId).fold(
+                onSuccess = { seriesItem ->
+                    seriesTitle = seriesItem.name?.takeIf { it.isNotBlank() }
+                },
+                onFailure = { }
+            )
+        } catch (_: Exception) {
+            seriesTitle = null
         }
     }
 
@@ -114,6 +131,8 @@ fun SeasonDetailScreen(
 
     // Prepare logo candidates (season first, then series)
     LaunchedEffect(seasonId, seriesId) {
+        logoCandidateLookup = true
+        logoLoadError = false
         try {
             logoImageCandidates = listOfNotNull(
                 mediaRepository.getImageUrl(
@@ -133,11 +152,19 @@ fun SeasonDetailScreen(
         } catch (e: Exception) {
             logoImageCandidates = emptyList()
             logoImageIndex = 0
+        } finally {
+            logoCandidateLookup = false
         }
     }
 
     val currentHeroImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
     val currentLogoImageUrl = logoImageCandidates.getOrNull(logoImageIndex)
+    val showLogoImage = currentLogoImageUrl != null && !logoLoadError
+    val reserveLogoSpace = showLogoImage || logoCandidateLookup
+    val fallbackHeaderTitle = seriesTitle
+        ?: episodes.firstOrNull()?.seriesName?.takeIf { it.isNotBlank() }
+        ?: seasonName
+        ?: "Season"
 
     when {
         error != null -> {
@@ -169,7 +196,7 @@ fun SeasonDetailScreen(
                                     contentScale = ContentScale.Crop,
                                     onErrorStateChange = { hasError ->
                                         if (hasError) {
-                                            if (heroImageIndex <= heroImageCandidates.lastIndex) {
+                                            if (heroImageIndex < heroImageCandidates.lastIndex) {
                                                 heroImageIndex += 1
                                             }
                                         }
@@ -221,34 +248,43 @@ fun SeasonDetailScreen(
                                 .padding(horizontal = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (currentLogoImageUrl != null) {
-                                JellyfinPosterImage(
-                                    context = context,
-                                    imageUrl = currentLogoImageUrl,
-                                    contentDescription = seasonName,
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.86f)
-                                        .height(58.dp),
-                                    contentScale = ContentScale.Fit,
-                                    alignment = Alignment.CenterStart,
-                                    onErrorStateChange = { hasError ->
-                                        if (hasError) {
-                                            if (logoImageIndex <= logoImageCandidates.lastIndex) {
-                                                logoImageIndex += 1
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.86f)
+                                    .height(58.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (showLogoImage) {
+                                    JellyfinPosterImage(
+                                        context = context,
+                                        imageUrl = currentLogoImageUrl,
+                                        contentDescription = seasonName,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit,
+                                        alignment = Alignment.CenterStart,
+                                        onErrorStateChange = { hasError ->
+                                            if (hasError) {
+                                                if (logoImageIndex < logoImageCandidates.lastIndex) {
+                                                    logoImageIndex += 1
+                                                } else {
+                                                    logoLoadError = true
+                                                }
+                                            } else {
+                                                logoLoadError = false
                                             }
                                         }
-                                    }
-                                )
-                            } else {
-                                Text(
-                                    text = seasonName ?: "Season",
-                                    fontSize = 17.sp,
-                                    lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                    )
+                                } else if (!reserveLogoSpace) {
+                                    Text(
+                                        text = fallbackHeaderTitle,
+                                        fontSize = 17.sp,
+                                        lineHeight = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
                             Text(
@@ -349,17 +385,17 @@ private fun EpisodeListItem(
             episodeImageUrl = mediaRepository.getImageUrl(
                 itemId = episodeId,
                 imageType = "Primary",
-                width = 640,
-                height = 360,
-                quality = 90,
+                width = 1280,
+                height = 720,
+                quality = 95,
                 enableImageEnhancers = false
             ).first() ?: episode.seriesId?.let { series ->
                 mediaRepository.getBackdropImageUrl(
                     itemId = series,
                     imageIndex = 0,
-                    width = 640,
-                    height = 360,
-                    quality = 90,
+                    width = 1280,
+                    height = 720,
+                    quality = 95,
                     enableImageEnhancers = false
                 ).first()
             }

@@ -312,7 +312,9 @@ fun DetailContent(
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember(item.id) { mutableStateOf(0) }
     val backdropImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
-    var logoImageUrl by remember { mutableStateOf<String?>(null) }
+    var logoImageUrl by remember(item.id) { mutableStateOf<String?>(null) }
+    var logoLookup by remember(item.id) { mutableStateOf(true) }
+    var logoLoadError by remember(item.id) { mutableStateOf(false) }
     var selectedVideo by remember { mutableStateOf("") }
     var selectedAudio by remember { mutableStateOf("") }
     var selectedSubtitle by remember { mutableStateOf("Off") }
@@ -334,20 +336,36 @@ fun DetailContent(
     } else {
         0f
     }
+    val logoFallbackTitle = if (isEpisode) {
+        item.seriesName?.takeIf { it.isNotBlank() }
+            ?: item.name?.takeIf { it.isNotBlank() }
+            ?: "Unknown"
+    } else {
+        item.name?.takeIf { it.isNotBlank() } ?: "Unknown"
+    }
+    val reserveLogoSpace = (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
+    val showTitleFallback = !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
 
     LaunchedEffect(item.id) {
-        val itemId = item.id
-        if (itemId != null) {
-            heroImageCandidates = heroImageCandidates(
-                item = item,
-                mediaRepository = mediaRepository
-            )
-            heroImageIndex = 0
+        if (item.id == null) {
+            logoLookup = false
+            return@LaunchedEffect
+        }
+        heroImageCandidates = heroImageCandidates(
+            item = item,
+            mediaRepository = mediaRepository
+        )
+        heroImageIndex = 0
 
+        logoLookup = true
+        logoLoadError = false
+        try {
             logoImageUrl = logoImage(
                 item = item,
                 mediaRepository = mediaRepository
             )
+        } finally {
+            logoLookup = false
         }
     }
 
@@ -468,7 +486,7 @@ fun DetailContent(
                     .padding(horizontal = 14.dp)
                     .offset(y = (-42).dp)
             ) {
-                if (!logoImageUrl.isNullOrBlank() || isEpisode) {
+                if (reserveLogoSpace) {
                     Box(
                         modifier = Modifier
                             .height(78.dp)
@@ -484,20 +502,21 @@ fun DetailContent(
                                     .align(Alignment.CenterStart),
                                 context = context,
                                 contentScale = ContentScale.Fit,
-                                alignment = Alignment.CenterStart
+                                alignment = Alignment.CenterStart,
+                                onErrorStateChange = { hasError ->
+                                    logoLoadError = hasError
+                                }
                             )
                         }
                     }
-                } else {
-                    item.name?.takeIf { it.isNotBlank() }?.let { title ->
-                        Text(
-                            text = title,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            lineHeight = 30.sp
-                        )
-                    }
+                } else if (showTitleFallback) {
+                    Text(
+                        text = logoFallbackTitle,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        lineHeight = 30.sp
+                    )
                 }
 
                 if (isEpisode) {
@@ -947,36 +966,44 @@ private suspend fun heroImageCandidates(
     if (item.type == "Episode") {
         addCandidate(mediaRepository.getBackdropImageUrl(
             itemId = itemId,
-            width = 1200,
-            height = 675,
-            quality = 95,
+            width = 1920,
+            height = 1080,
+            quality = 100,
             enableImageEnhancers = false
         ).first())
 
         addCandidate(mediaRepository.getImageUrl(
             itemId = itemId,
             imageType = "Primary",
-            width = 1200,
-            height = 675,
-            quality = 95,
+            width = 1920,
+            height = 1080,
+            quality = 100,
             enableImageEnhancers = false
         ).first())
 
         addCandidate(mediaRepository.getImageUrl(
             itemId = itemId,
             imageType = "Thumb",
-            width = 1200,
-            height = 675,
-            quality = 95,
+            width = 1920,
+            height = 1080,
+            quality = 100,
             enableImageEnhancers = false
         ).first())
 
         if (!seriesId.isNullOrBlank()) {
             addCandidate(mediaRepository.getBackdropImageUrl(
                 itemId = seriesId,
-                width = 1200,
-                height = 675,
-                quality = 95,
+                width = 1920,
+                height = 1080,
+                quality = 100,
+                enableImageEnhancers = false
+            ).first())
+            addCandidate(mediaRepository.getImageUrl(
+                itemId = seriesId,
+                imageType = "Primary",
+                width = 1920,
+                height = 1080,
+                quality = 100,
                 enableImageEnhancers = false
             ).first())
         }
