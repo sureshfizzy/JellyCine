@@ -26,6 +26,8 @@ data class PlayerState(
     val isSpatialAudioEnabled: Boolean = false,
     val spatialAudioFormat: String = "",
     val hasHeadTracking: Boolean = false,
+    // HDR related fields
+    val isHdrEnabled: Boolean = false,
     // Lock and track selection fields
     val isLocked: Boolean = false,
     val currentAudioTrack: AudioTrackInfo? = null,

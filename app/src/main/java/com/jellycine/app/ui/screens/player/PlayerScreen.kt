@@ -350,6 +350,7 @@ fun PlayerScreen(
                 // Media info parameters
                 spatializationResult = playerState.spatializationResult,
                 isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
+                isHdrEnabled = playerState.isHdrEnabled,
                 onShowMediaInfo = {
                     resetAutoHideTimer()
                     showMediaInfo = true

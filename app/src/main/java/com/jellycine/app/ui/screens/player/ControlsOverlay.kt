@@ -47,6 +47,7 @@ fun ControlsOverlay(
     modifier: Modifier = Modifier,
     spatializationResult: SpatializationResult? = null,
     isSpatialAudioEnabled: Boolean = false,
+    isHdrEnabled: Boolean = false,
     onShowMediaInfo: () -> Unit = {},
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
@@ -262,31 +263,57 @@ fun ControlsOverlay(
                     fontWeight = FontWeight.Medium
                 )
                 
-                if (isSpatialAudioEnabled) {
+                if (isSpatialAudioEnabled || isHdrEnabled) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(
-                                color = Color(0xFF4CAF50).copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
-                            contentDescription = null,
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        
-                        Text(
-                            text = "Spatial Audio",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF4CAF50),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        if (isHdrEnabled) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(
+                                        color = Color(0xFFFFB300).copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(999.dp)
+                                    )
+                                    .padding(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.HdrOn,
+                                    contentDescription = "HDR",
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
+                        if (isSpatialAudioEnabled) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(
+                                        color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(14.dp)
+                                )
+
+                                Text(
+                                    text = "Spatial Audio",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF4CAF50),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }

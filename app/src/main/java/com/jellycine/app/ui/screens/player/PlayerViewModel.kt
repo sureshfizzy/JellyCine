@@ -176,6 +176,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 // Update track information after player is ready
                 updateTrackInformation()
+                val isHdrPlayback = isCurrentPlaybackHdr()
                 
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
@@ -187,7 +188,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     // Enable based on content format compatibility
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
-                    hasHeadTracking = spatializationResult?.hasHeadTracking == true
+                    hasHeadTracking = spatializationResult?.hasHeadTracking == true,
+                    isHdrEnabled = isHdrPlayback
                 )
 
             } catch (e: Exception) {
@@ -405,18 +407,59 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val videoTracks = PlayerUtils.getAvailableVideoTracks(player)
                 val currentAudio = PlayerUtils.getCurrentAudioTrack(player)
                 val currentSubtitle = PlayerUtils.getCurrentSubtitleTrack(player)
+                val isHdrPlayback = isCurrentPlaybackHdr()
 
                 _playerState.value = _playerState.value.copy(
                     availableAudioTracks = audioTracks,
                     currentAudioTrack = currentAudio,
                     availableSubtitleTracks = subtitleTracks,
                     currentSubtitleTrack = currentSubtitle,
-                    availableVideoTracks = videoTracks
+                    availableVideoTracks = videoTracks,
+                    isHdrEnabled = isHdrPlayback
                 )
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Failed to update track information", e)
             }
         }
+    }
+
+    private fun isCurrentPlaybackHdr(): Boolean {
+        exoPlayer?.currentTracks?.let { tracks ->
+            tracks.groups.forEach { group ->
+                if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
+                    for (i in 0 until group.mediaTrackGroup.length) {
+                        if (group.isTrackSelected(i)) {
+                            val format = group.mediaTrackGroup.getFormat(i)
+                            val colorInfo = format.colorInfo?.toString()
+                            val mimeType = format.sampleMimeType
+                            val codecs = format.codecs
+
+                            val isHdrByColorInfo = colorInfo?.contains("HDR", ignoreCase = true) == true ||
+                                colorInfo?.contains("Dolby Vision", ignoreCase = true) == true ||
+                                colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
+                                colorInfo?.contains("BT.2020", ignoreCase = true) == true ||
+                                colorInfo?.contains("PQ", ignoreCase = true) == true
+
+                            val isHdrByMimeType = mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
+                                mimeType?.contains("hdr", ignoreCase = true) == true
+
+                            val isHdrByCodec = codecs?.contains("dvhe", ignoreCase = true) == true ||
+                                codecs?.contains("dvh1", ignoreCase = true) == true ||
+                                codecs?.contains("hev1", ignoreCase = true) == true ||
+                                codecs?.contains("hvc1", ignoreCase = true) == true
+
+                            val videoFormatAnalysis = HdrCapabilityManager.analyzeVideoFormat(mimeType, codecs, colorInfo)
+                            val isHdr = isHdrByColorInfo || isHdrByMimeType || isHdrByCodec ||
+                                videoFormatAnalysis.hdrSupport != HdrCapabilityManager.HdrSupport.SDR
+
+                            return isHdr
+                        }
+                    }
+                }
+            }
+        }
+
+        return false
     }
 
     /**
