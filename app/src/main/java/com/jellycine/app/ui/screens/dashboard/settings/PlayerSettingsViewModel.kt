@@ -14,8 +14,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.player.audio.SpatializerHelper
-import com.jellycine.player.video.HdrCapabilityManager
-import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.player.audio.AudioDeviceManager
 import com.jellycine.player.audio.ExternalAudioDevice
 
@@ -32,8 +30,6 @@ data class PlayerSettingsUiState(
     val headTrackingSupported: Boolean = false,
 
     // Video
-    val hdrEnabled: Boolean = true,
-    val hdrSupported: Boolean = false,
     val decoderPriority: String = "Auto",
     val startMaximized: Boolean = false,
     
@@ -72,7 +68,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 spatialAudioEnabled = playerPreferences.isSpatialAudioEnabled(),
                 headTrackingEnabled = playerPreferences.isHeadTrackingEnabled(),
-                hdrEnabled = playerPreferences.isHdrEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 bufferOptimizationEnabled = playerPreferences.isBufferOptimizationEnabled(),
@@ -92,14 +87,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                         spatialInfo.hasHeadTracker
                     } else false
                     
-                    // Detect HDR capabilities
-                    val hdrSupported = try {
-                        val hdrCapability = HdrCapabilityManager.getDeviceHdrSupport(context)
-                        hdrCapability != HdrCapabilityManager.HdrSupport.SDR
-                    } catch (e: Exception) {
-                        false
-                    }
-                    
                     // Get supported codecs
                     val supportedCodecs = getSupportedCodecs()
                     
@@ -110,7 +97,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                         _uiState.value = _uiState.value.copy(
                             spatialAudioSupported = spatialSupported,
                             headTrackingSupported = headTrackingSupported,
-                            hdrSupported = hdrSupported,
                             supportedCodecs = supportedCodecs,
                             hardwareStatus = hardwareStatus
                         )
@@ -248,12 +234,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setHeadTrackingEnabled(enabled: Boolean) {
         playerPreferences.setHeadTrackingEnabled(enabled)
         _uiState.value = _uiState.value.copy(headTrackingEnabled = enabled)
-    }
-    
-
-    fun setHdrEnabled(enabled: Boolean) {
-        playerPreferences.setHdrEnabled(enabled)
-        _uiState.value = _uiState.value.copy(hdrEnabled = enabled)
     }
     
     fun setDecoderPriority(priority: String) {

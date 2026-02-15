@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Speed
@@ -176,17 +175,6 @@ fun PlayerSettingsScreen(
             item { SectionLabel("Video") }
             item {
                 SettingsSection {
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.HighQuality,
-                        title = "HDR Support",
-                        subtitle = "Enable HDR and Dolby Vision content",
-                        checked = uiState.hdrEnabled,
-                        onCheckedChange = viewModel::setHdrEnabled,
-                        enabled = uiState.hdrSupported,
-                        accentColor = videoColor
-                    )
-
-                    SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.VideoSettings,
                         title = "Video Decoder Priority",

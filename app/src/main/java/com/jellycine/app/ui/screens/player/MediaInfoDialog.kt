@@ -1,47 +1,44 @@
 package com.jellycine.app.ui.screens.player
 
-import com.jellycine.app.R
-import androidx.compose.animation.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import java.util.Locale
 
 data class MediaMetadataInfo(
-    val spatialAudio: SpatialAudioInfo? = null,
     val hdrFormat: HdrFormatInfo? = null,
     val videoFormat: VideoFormatInfo? = null,
     val audioFormat: AudioFormatInfo? = null,
-    val hardwareAcceleration: HardwareAccelerationInfo? = null
-)
-
-data class SpatialAudioInfo(
-    val isActive: Boolean,
-    val format: String,
-    val hasHeadTracking: Boolean,
-    val deviceEnhancement: Boolean,
-    val reason: String? = null
+    val hardwareAcceleration: HardwareAccelerationInfo? = null,
+    val streamContainer: String? = null,
+    val streamBitrateKbps: Int? = null,
+    val playMethod: String = "Direct Play"
 )
 
 data class HdrFormatInfo(
@@ -55,21 +52,27 @@ data class VideoFormatInfo(
     val codec: String,
     val resolution: String,
     val mimeType: String,
-    val colorInfo: String? = null
+    val colorInfo: String? = null,
+    val profile: String? = null,
+    val frameRate: Float? = null,
+    val bitrateKbps: Int? = null,
+    val bitDepth: Int? = null
 )
 
 data class AudioFormatInfo(
     val codec: String,
     val channels: String,
     val bitrate: String? = null,
-    val sampleRate: String? = null
+    val sampleRate: String? = null,
+    val language: String? = null,
+    val isDefault: Boolean = false
 )
 
 data class HardwareAccelerationInfo(
     val isHardwareDecoding: Boolean,
     val activeVideoCodec: String? = null,
     val activeAudioCodec: String? = null,
-    val decoderType: String, // "Hardware" or "Software"
+    val decoderType: String,
     val asyncModeEnabled: Boolean,
     val performanceMetrics: String? = null
 )
@@ -80,290 +83,86 @@ fun MediaInfoDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Dialog(
+    Popup(
+        alignment = Alignment.CenterStart,
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
+        properties = PopupProperties(
+            focusable = false,
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            clippingEnabled = false
         )
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = modifier
-                    .fillMaxWidth(0.9f)
-                    .fillMaxHeight(0.8f),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Black
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val compact = maxWidth < 700.dp
+            val panelWidthFraction = if (compact) 0.80f else 0.31f
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = if (compact) 14.dp else 34.dp, end = 10.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize()
+                Card(
+                    modifier = modifier
+                        .fillMaxWidth(panelWidthFraction)
+                        .widthIn(min = 240.dp, max = 390.dp)
+                        .heightIn(max = if (compact) 170.dp else 190.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0x9916191F)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    // Header
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFF2A2A2A),
-                                        Color(0xFF1E1E1E)
-                                    )
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            SectionTitle("Stream")
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable(onClick = onDismiss),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "\u2715",
+                                    color = Color(0xFFF2F2F2),
+                                    fontSize = 14.sp,
+                                    lineHeight = 14.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
-                            )
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Media Information",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    
-                    // Content - Side by side layout
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(20.dp)
-                        ) {
-                            // Spatial Audio Section
-                            mediaInfo.spatialAudio?.let { spatialInfo ->
-                                MediaInfoSection(
-                                    title = "Spatial Audio",
-                                    icon = Icons.Outlined.SurroundSound,
-                                    iconTint = if (spatialInfo.isActive) Color(0xFF4CAF50) else Color(0xFF757575)
-                                ) {
-                                    MediaInfo(
-                                        label = "Status",
-                                        value = if (spatialInfo.isActive) "ACTIVE" else "INACTIVE",
-                                        valueColor = if (spatialInfo.isActive) Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Format",
-                                        value = spatialInfo.format
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Head Tracking",
-                                        value = if (spatialInfo.hasHeadTracking) "Yes" else "No",
-                                        valueColor = if (spatialInfo.hasHeadTracking) Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Enhancement",
-                                        value = if (spatialInfo.deviceEnhancement) "Active" else "Inactive",
-                                        valueColor = if (spatialInfo.deviceEnhancement) Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    if (!spatialInfo.isActive && spatialInfo.reason != null) {
-                                        MediaInfo(
-                                            label = "Reason",
-                                            value = spatialInfo.reason,
-                                            valueColor = Color(0xFF757575)
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            // Audio Format Section
-                            mediaInfo.audioFormat?.let { audioInfo ->
-                                MediaInfoSection(
-                                    title = "Audio Stream",
-                                    icon = Icons.Rounded.VolumeUp,
-                                    iconTint = Color(0xFF9C27B0)
-                                ) {
-                                    MediaInfo(
-                                        label = "Codec",
-                                        value = audioInfo.codec
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Channels",
-                                        value = audioInfo.channels
-                                    )
-                                    
-                                    audioInfo.bitrate?.let { bitrate ->
-                                        MediaInfo(
-                                            label = "Bitrate",
-                                            value = bitrate
-                                        )
-                                    }
-                                    
-                                    audioInfo.sampleRate?.let { sampleRate ->
-                                        MediaInfo(
-                                            label = "Sample Rate",
-                                            value = sampleRate
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            // Hardware Acceleration Section
-                            mediaInfo.hardwareAcceleration?.let { hwInfo ->
-                                MediaInfoSection(
-                                    title = "Hardware Acceleration",
-                                    icon = Icons.Rounded.Speed,
-                                    iconTint = if (hwInfo.isHardwareDecoding) Color(0xFF4CAF50) else Color(0xFF757575)
-                                ) {
-                                    MediaInfo(
-                                        label = "Status",
-                                        value = if (hwInfo.isHardwareDecoding) "ENABLED" else "DISABLED",
-                                        valueColor = if (hwInfo.isHardwareDecoding) Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Decoder Type",
-                                        value = hwInfo.decoderType,
-                                        valueColor = if (hwInfo.decoderType == "Hardware") Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    hwInfo.activeVideoCodec?.let { codec ->
-                                        MediaInfo(
-                                            label = "Video Decoder",
-                                            value = codec
-                                        )
-                                    }
-                                    
-                                    hwInfo.activeAudioCodec?.let { codec ->
-                                        MediaInfo(
-                                            label = "Audio Decoder",
-                                            value = codec
-                                        )
-                                    }
-                                    
-                                    MediaInfo(
-                                        label = "Async Mode",
-                                        value = if (hwInfo.asyncModeEnabled) "Yes" else "No",
-                                        valueColor = if (hwInfo.asyncModeEnabled) Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    hwInfo.performanceMetrics?.let { metrics ->
-                                        MediaInfo(
-                                            label = "Performance",
-                                            value = metrics,
-                                            valueColor = Color(0xFF03DAC6)
-                                        )
-                                    }
-                                }
                             }
                         }
-                        
-                        // Right Column - Video & HDR Info
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(20.dp)
-                        ) {
-                            // HDR Format Section  
-                            mediaInfo.hdrFormat?.let { hdrInfo ->
-                                MediaInfoSection(
-                                    title = "HDR Information",
-                                    icon = Icons.Outlined.HighQuality,
-                                    iconTint = if (hdrInfo.isSupported) Color(0xFFFF9800) else Color(0xFF757575)
-                                ) {
-                                    MediaInfo(
-                                        label = "Content HDR",
-                                        value = if (hdrInfo.isSupported) "Yes" else "No",
-                                        valueColor = if (hdrInfo.isSupported) Color(0xFFFF9800) else Color(0xFF757575)
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Device Support",
-                                        value = hdrInfo.deviceCapabilities,
-                                        valueColor = if (hdrInfo.deviceCapabilities == "Yes") Color(0xFF4CAF50) else Color(0xFF757575)
-                                    )
-                                    
-                                    if (hdrInfo.isSupported && hdrInfo.currentFormat != null) {
-                                        MediaInfo(
-                                            label = "HDR Format",
-                                            value = hdrInfo.currentFormat,
-                                            valueColor = Color(0xFFFF9800)
-                                        )
-                                    }
-                                    
-                                    // Show analysis result (fallback info or status)
-                                    hdrInfo.analysisResult?.let { analysis ->
-                                        val isFallback = analysis.contains("fallback", ignoreCase = true)
-                                        MediaInfo(
-                                            label = if (isFallback) "Playback" else "Status",
-                                            value = analysis,
-                                            valueColor = if (isFallback) Color(0xFFFFA726) else if (hdrInfo.isSupported) Color(0xFF4CAF50) else Color(0xFF757575)
-                                        )
-                                    }
-                                    
-                                    if (!hdrInfo.isSupported && hdrInfo.analysisResult == null) {
-                                        MediaInfo(
-                                            label = "Status",
-                                            value = "Standard Dynamic Range (SDR)",
-                                            valueColor = Color(0xFF757575)
-                                        )
-                                    }
-                                }
-                            }
-                            
-                            // Video Format Section
-                            mediaInfo.videoFormat?.let { videoInfo ->
-                                MediaInfoSection(
-                                    title = "Video Stream",
-                                    icon = Icons.Rounded.VideoFile,
-                                    iconTint = Color(0xFF2196F3)
-                                ) {
-                                    MediaInfo(
-                                        label = "Codec",
-                                        value = videoInfo.codec
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "Resolution",
-                                        value = videoInfo.resolution
-                                    )
-                                    
-                                    MediaInfo(
-                                        label = "MIME Type",
-                                        value = videoInfo.mimeType
-                                    )
-                                    
-                                    videoInfo.colorInfo?.let { colorInfo ->
-                                        MediaInfo(
-                                            label = "Color Info",
-                                            value = colorInfo
-                                        )
-                                    }
-                                }
+
+                        PrimaryLine(buildStreamLine(mediaInfo))
+                        SecondaryLine("-> ${mediaInfo.playMethod}")
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        SectionTitle("Video")
+                        PrimaryLine(buildVideoTitle(mediaInfo.videoFormat, mediaInfo.hdrFormat))
+                        buildVideoDetails(mediaInfo.videoFormat)?.let { PrimaryLine(it) }
+                        SecondaryLine("-> ${mediaInfo.playMethod}")
+                        mediaInfo.hardwareAcceleration?.let {
+                            MixedLine("Renderer", if (it.isHardwareDecoding) "MediaCodec" else "Software")
+                            buildDisplayMode(mediaInfo.videoFormat)?.let { mode ->
+                                MixedLine("Display Mode", mode)
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        SectionTitle("Audio")
+                        PrimaryLine(buildAudioTitle(mediaInfo.audioFormat))
+                        mediaInfo.audioFormat?.sampleRate?.let { PrimaryLine(it) }
+                        mediaInfo.audioFormat?.bitrate?.let { PrimaryLine(it) }
+                        SecondaryLine("-> ${mediaInfo.playMethod}")
                     }
                 }
             }
@@ -372,96 +171,140 @@ fun MediaInfoDialog(
 }
 
 @Composable
-private fun MediaInfoSection(
-    title: String,
-    icon: ImageVector,
-    iconTint: Color = Color.White,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Section Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = CircleShape,
-                color = iconTint.copy(alpha = 0.15f)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        
-        // Section Content
-        Column(
-            modifier = Modifier.padding(start = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            content = content
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        color = Color(0xFFF3F3F3),
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+private fun PrimaryLine(text: String) {
+    if (text.isBlank()) return
+    Text(
+        text = text,
+        color = Color(0xFFF3F3F3),
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+private fun SecondaryLine(text: String) {
+    Text(
+        text = text,
+        color = Color(0xFFD4D4D4),
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.Normal
+    )
+}
+
+@Composable
+private fun MixedLine(label: String, value: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            color = Color(0xFFF3F3F3),
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = value,
+            color = Color(0xFFD4D4D4),
+            fontSize = 10.sp,
+            lineHeight = 12.sp,
+            fontWeight = FontWeight.Normal
         )
     }
 }
 
-@Composable
-private fun MediaInfo(
-    label: String,
-    value: String,
-    valueColor: Color = Color.White,
-    modifier: Modifier = Modifier
-) {
-    // Use the same dark transparent background as unselected track items
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.Black.copy(alpha = 0.4f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.8f),
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = valueColor,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1.5f)
-            )
-        }
+private fun buildStreamLine(mediaInfo: MediaMetadataInfo): String {
+    val container = mediaInfo.streamContainer?.uppercase(Locale.US)
+        ?: mediaInfo.videoFormat?.mimeType?.substringAfter("/", "")?.uppercase(Locale.US)
+        ?: "STREAM"
+
+    val bitrateKbps = mediaInfo.streamBitrateKbps ?: mediaInfo.videoFormat?.bitrateKbps
+    return if (bitrateKbps != null && bitrateKbps > 0) {
+        "$container (${formatMbps(bitrateKbps)} mbps)"
+    } else {
+        container
     }
 }
+
+private fun buildVideoTitle(videoInfo: VideoFormatInfo?, hdrInfo: HdrFormatInfo?): String {
+    if (videoInfo == null) return "Unknown"
+
+    val resolutionTag = when {
+        videoInfo.resolution.startsWith("3840x", true) || videoInfo.resolution.startsWith("4096x", true) -> "4K"
+        videoInfo.resolution.startsWith("2560x", true) -> "1440p"
+        videoInfo.resolution.startsWith("1920x", true) -> "1080p"
+        else -> videoInfo.resolution
+    }
+
+    val hdrTag = hdrInfo?.currentFormat?.takeIf { !it.isNullOrBlank() }
+        ?: if (hdrInfo?.isSupported == true) "HDR" else null
+
+    val codecTag = mapCodecForDisplay(videoInfo.codec)
+
+    return listOfNotNull(resolutionTag, hdrTag, codecTag)
+        .joinToString(" ")
+        .trim()
+}
+
+private fun buildVideoDetails(videoInfo: VideoFormatInfo?): String? {
+    if (videoInfo == null) return null
+
+    val parts = mutableListOf<String>()
+    videoInfo.profile?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+    videoInfo.bitDepth?.let { parts.add("${it}bit") }
+    videoInfo.bitrateKbps?.takeIf { it > 0 }?.let { parts.add("${formatMbps(it)} mbps") }
+    videoInfo.frameRate?.takeIf { it > 0f }?.let { parts.add(String.format(Locale.US, "%.3f fps", it)) }
+
+    return parts.joinToString(" ").takeIf { it.isNotBlank() }
+}
+
+private fun buildDisplayMode(videoInfo: VideoFormatInfo?): String? {
+    if (videoInfo == null) return null
+
+    val width = videoInfo.resolution.substringBefore("x", "").trim().takeIf { it.isNotBlank() }
+    val fps = videoInfo.frameRate?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.2f", it) }
+
+    return when {
+        width != null && fps != null -> "$width/$fps"
+        videoInfo.resolution.isNotBlank() && fps != null -> "${videoInfo.resolution}/$fps"
+        else -> null
+    }
+}
+
+private fun buildAudioTitle(audioInfo: AudioFormatInfo?): String {
+    if (audioInfo == null) return "Unknown"
+
+    val lang = audioInfo.language?.takeIf { it.isNotBlank() }?.replaceFirstChar {
+        if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString()
+    }
+    val defaultTag = if (audioInfo.isDefault) " (Default)" else ""
+
+    return listOfNotNull(lang, audioInfo.codec, audioInfo.channels)
+        .joinToString(" ")
+        .trim() + defaultTag
+}
+
+private fun mapCodecForDisplay(codec: String): String {
+    return when (codec.uppercase(Locale.US)) {
+        "H.265", "H265", "HEVC" -> "HEVC"
+        "H.264", "H264", "AVC" -> "AVC"
+        else -> codec.uppercase(Locale.US)
+    }
+}
+
+private fun formatMbps(kbps: Int): String {
+    val mbps = kbps / 1000f
+    return if (mbps >= 10f) String.format(Locale.US, "%.0f", mbps) else String.format(Locale.US, "%.1f", mbps)
+}
+

@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
 import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -27,12 +26,8 @@ import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.audio.SpatializerStateListener
 import com.jellycine.detail.CodecCapabilityManager
-import com.jellycine.detail.CodecUtils
-import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.video.HdrCapabilityManager
-import android.media.Spatializer
 import com.jellycine.app.ui.screens.player.MediaMetadataInfo
-import com.jellycine.app.ui.screens.player.SpatialAudioInfo
 import com.jellycine.app.ui.screens.player.HdrFormatInfo
 import com.jellycine.app.ui.screens.player.VideoFormatInfo
 import com.jellycine.app.ui.screens.player.AudioFormatInfo
@@ -47,9 +42,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
-    
-    private val _showSpatialAudioInfo = MutableStateFlow(false)
-    val showSpatialAudioInfo: StateFlow<Boolean> = _showSpatialAudioInfo.asStateFlow()
 
     var exoPlayer: ExoPlayer? = null
         private set
@@ -61,6 +53,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var currentMediaId: String? = null
     private var playSessionId: String? = null
     private var mediaSourceId: String? = null
+    private var mediaSourceContainer: String? = null
+    private var mediaSourceBitrateKbps: Int? = null
+    private var currentPlayMethod: String = "Direct Play"
     private var progressReportingJob: kotlinx.coroutines.Job? = null
     private var hasReportedStart = false
 
@@ -88,8 +83,16 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 }
 
                 val playbackInfo = playbackInfoResult.getOrNull()!!
+                val primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
                 playSessionId = playbackInfo.playSessionId
-                mediaSourceId = playbackInfo.mediaSources?.firstOrNull()?.id
+                mediaSourceId = primaryMediaSource?.id
+                mediaSourceContainer = primaryMediaSource?.container
+                mediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
+                currentPlayMethod = when {
+                    primaryMediaSource?.supportsDirectPlay == true -> "Direct Play"
+                    primaryMediaSource?.supportsDirectStream == true -> "Direct Stream"
+                    else -> "Transcode"
+                }
 
                 // Get item details to check for resume position
                 val itemResult = mediaRepository.getItemById(mediaId)
@@ -106,7 +109,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val mediaItem = MediaItem.fromUri(streamingUrl)
                 
                 // Get media info for spatial audio analysis
-                apiMediaStreams = playbackInfo.mediaSources?.firstOrNull()?.mediaStreams
+                apiMediaStreams = primaryMediaSource?.mediaStreams
 
                 val spatializationResult = apiMediaStreams?.let { streams ->
                     val audioStreams = streams.filter { it.type == "Audio" }
@@ -250,6 +253,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         currentMediaId = null
         playSessionId = null
         mediaSourceId = null
+        mediaSourceContainer = null
+        mediaSourceBitrateKbps = null
+        currentPlayMethod = "Direct Play"
         hasReportedStart = false
         
         _playerState.value = PlayerState()
@@ -375,14 +381,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     fun clearError() {
         _playerState.value = _playerState.value.copy(error = null)
-    }
-    
-    fun showSpatialAudioInfo() {
-        _showSpatialAudioInfo.value = true
-    }
-    
-    fun hideSpatialAudioInfo() {
-        _showSpatialAudioInfo.value = false
     }
 
     /**
@@ -791,20 +789,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Get unified media metadata information for the modern bubble dialog
      */
     fun getMediaMetadataInfo(): MediaMetadataInfo {
-        val currentState = _playerState.value
-        val spatializationResult = currentState.spatializationResult
-
-        // Spatial Audio Info
-        val spatialAudioInfo = SpatialAudioInfo(
-            isActive = currentState.isSpatialAudioEnabled,
-            format = currentState.spatialAudioFormat,
-            hasHeadTracking = currentState.hasHeadTracking,
-            deviceEnhancement = spatializerHelper?.getSpatialAudioInfo()?.isAvailable == true,
-            reason = if (!currentState.isSpatialAudioEnabled) {
-                spatializationResult?.reason ?: "Content does not support spatial audio"
-            } else null
-        )
-
         // HDR Format Info
         val hdrFormatInfo = playerContext?.let { context ->
             val deviceHdrInfo = PlayerUtils.getHdrCapabilityInfo(context)
@@ -896,7 +880,11 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     videoStream.colorSpace,
                     videoStream.colorTransfer,
                     videoStream.colorPrimaries
-                ).joinToString(", ").takeIf { it.isNotEmpty() }
+                ).joinToString(", ").takeIf { it.isNotEmpty() },
+                profile = videoStream.profile,
+                frameRate = videoStream.realFrameRate ?: videoStream.averageFrameRate,
+                bitrateKbps = videoStream.bitRate?.div(1000),
+                bitDepth = videoStream.bitDepth
             )
         }
 
@@ -919,7 +907,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 codec = displayCodec,
                 channels = channels,
                 bitrate = audioStream.bitRate?.let { "${it / 1000} kbps" },
-                sampleRate = audioStream.sampleRate?.let { "${it / 1000} kHz" }
+                sampleRate = audioStream.sampleRate?.let { "${it} Hz" },
+                language = audioStream.language,
+                isDefault = audioStream.isDefault == true
             )
         }
 
@@ -981,11 +971,13 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         }
 
         return MediaMetadataInfo(
-            spatialAudio = spatialAudioInfo,
             hdrFormat = hdrFormatInfo,
             videoFormat = videoFormatInfo,
             audioFormat = audioFormatInfo,
-            hardwareAcceleration = hardwareAccelerationInfo
+            hardwareAcceleration = hardwareAccelerationInfo,
+            streamContainer = mediaSourceContainer,
+            streamBitrateKbps = mediaSourceBitrateKbps,
+            playMethod = currentPlayMethod
         )
     }
 
