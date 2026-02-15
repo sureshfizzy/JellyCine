@@ -52,7 +52,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -148,6 +147,12 @@ private data class FeatureCardImages(
     val logoUrl: String?
 )
 
+private fun FeatureCardImages?.isHeroReady(): Boolean {
+    val hasBackdrop = !this?.backdropUrl.isNullOrBlank() || !this?.lowBackdropUrl.isNullOrBlank()
+    val hasLogo = !this?.logoUrl.isNullOrBlank()
+    return hasBackdrop && hasLogo
+}
+
 @Composable
 @Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalFoundationApi::class)
@@ -188,7 +193,7 @@ fun FeatureTab(
     val featuredRowState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
-    val density = LocalDensity.current
+    var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val metadataQualifiedFeaturedItems = remember(featuredItems) {
         derivedStateOf {
             featuredItems.filter(::hasFeatureHeroAssets)
@@ -206,17 +211,51 @@ fun FeatureTab(
             }
         }
     }
-    val resolvedFeaturedItems = remember(metadataQualifiedFeaturedItems.value, displayFeaturedItems.value) {
-        derivedStateOf {
-            if (displayFeaturedItems.value.isNotEmpty()) {
-                displayFeaturedItems.value
-            } else {
-                metadataQualifiedFeaturedItems.value
+    val CurrentAssetsReady = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
+        metadataQualifiedFeaturedItems.value.isNotEmpty() &&
+            metadataQualifiedFeaturedItems.value.all { candidate ->
+                imageCacheByItemId[candidate.id.orEmpty()].isHeroReady()
             }
+    }
+    val resolvedFeaturedItems = remember(
+        metadataQualifiedFeaturedItems.value,
+        displayFeaturedItems.value,
+        stableFeaturedItems,
+        CurrentAssetsReady
+    ) {
+        derivedStateOf {
+            val targetItems = metadataQualifiedFeaturedItems.value
+            if (targetItems.isEmpty()) return@derivedStateOf stableFeaturedItems
+
+            val fallbackItems = if (stableFeaturedItems.isNotEmpty()) stableFeaturedItems else targetItems
+            if (CurrentAssetsReady || fallbackItems.isEmpty()) return@derivedStateOf targetItems
+
+            buildList {
+                targetItems.forEachIndexed { index, targetItem ->
+                    val fallbackAtIndex = fallbackItems.getOrNull(index)
+                    val isTargetReady = imageCacheByItemId[targetItem.id.orEmpty()].isHeroReady()
+
+                    when {
+                        index < 2 && fallbackAtIndex != null -> add(fallbackAtIndex)
+                        isTargetReady -> add(targetItem)
+                        fallbackAtIndex != null -> add(fallbackAtIndex)
+                        else -> add(targetItem)
+                    }
+                }
+            }.distinctBy { it.id ?: it.name.orEmpty() }
         }
     }
+
+    LaunchedEffect(CurrentAssetsReady, metadataQualifiedFeaturedItems.value) {
+        if (CurrentAssetsReady && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
+            stableFeaturedItems = metadataQualifiedFeaturedItems.value
+        } else if (stableFeaturedItems.isEmpty() && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
+            stableFeaturedItems = metadataQualifiedFeaturedItems.value
+        }
+    }
+
     val featuredKeys = remember(resolvedFeaturedItems.value) {
-        resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: "${item.name ?: "item"}_$index" }
+        resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: item.name ?: index.toString() }
     }
     val isResolvingFeatureAssets = remember(
         isLoading,
@@ -235,9 +274,6 @@ fun FeatureTab(
     var autoScrollReady by rememberSaveable { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
-    val heroWidthPx = remember(configuration, density) {
-        with(density) { configuration.screenWidthDp.dp.toPx() }
-    }
 
     LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
         val resolvedUsername = currentUsername ?: CachedData.username
@@ -276,11 +312,6 @@ fun FeatureTab(
     }
 
     LaunchedEffect(metadataQualifiedFeaturedItems.value) {
-        val validIds = metadataQualifiedFeaturedItems.value.mapNotNull { it.id }.toSet()
-        imageCacheByItemId.keys
-            .filter { it !in validIds }
-            .forEach { imageCacheByItemId.remove(it) }
-
         if (metadataQualifiedFeaturedItems.value.isEmpty()) return@LaunchedEffect
 
         val imageLoader = context.imageLoader
@@ -399,7 +430,7 @@ fun FeatureTab(
                             count = Int.MAX_VALUE,
                             key = { index ->
                                 val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
-                                "${item.id ?: item.name ?: "feature_item"}_$index"
+                                item.id ?: item.name ?: index.toString()
                             }
                         ) { index ->
                             val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
@@ -408,7 +439,6 @@ fun FeatureTab(
                                 item = item,
                                 itemIndex = index,
                                 listState = featuredRowState,
-                                itemWidthPx = heroWidthPx,
                                 verticalParallaxOffsetPx = verticalParallaxOffsetPx,
                                 images = cachedImages,
                                 onClick = { onItemClick(item) },
@@ -575,7 +605,6 @@ private fun FeatureHeroCard(
     item: BaseItemDto,
     itemIndex: Int,
     listState: LazyListState,
-    itemWidthPx: Float,
     verticalParallaxOffsetPx: Float,
     images: FeatureCardImages?,
     onClick: () -> Unit,
@@ -588,10 +617,6 @@ private fun FeatureHeroCard(
     val logoAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
         label = "hero_logo_alpha"
-    )
-    val logoScale by animateFloatAsState(
-        targetValue = if (contentVisible) 1f else 0.96f,
-        label = "hero_logo_scale"
     )
     val metaAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
@@ -607,12 +632,14 @@ private fun FeatureHeroCard(
     val logoUrl = images?.logoUrl
     var lowResImage by remember(item.id, lowBackdropUrl) { mutableStateOf(false) }
     val backdropParallaxShift = remember(verticalParallaxOffsetPx) { verticalParallaxOffsetPx * 0.4f }
-    val pageOffset by remember(listState, itemIndex, itemWidthPx) {
+    val pageOffset by remember(listState, itemIndex) {
         derivedStateOf {
-            val firstIndex = listState.firstVisibleItemIndex
-            val scrollOffset = listState.firstVisibleItemScrollOffset.toFloat()
-            if (itemWidthPx == 0f) 0f
-            else ((itemIndex - firstIndex) * itemWidthPx - scrollOffset) / itemWidthPx
+            val visibleItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }
+            if (visibleItemInfo == null || visibleItemInfo.size == 0) {
+                1f
+            } else {
+                visibleItemInfo.offset.toFloat() / visibleItemInfo.size.toFloat()
+            }
         }
     }
     val scrollInfluence = abs(pageOffset).coerceIn(0f, 1f)
@@ -779,9 +806,7 @@ private fun FeatureHeroCard(
                             .height(96.dp)
                             .fillMaxWidth(0.82f)
                             .graphicsLayer(
-                                alpha = logoAlpha,
-                                scaleX = logoScale,
-                                scaleY = logoScale
+                                alpha = logoAlpha
                             )
                     )
                 } else {
