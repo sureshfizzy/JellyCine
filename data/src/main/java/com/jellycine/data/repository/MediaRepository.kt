@@ -62,7 +62,8 @@ class MediaRepository(private val context: Context) {
         val updatedAt: Long,
         val featuredHomeItems: List<BaseItemDto>,
         val continueWatchingItems: List<BaseItemDto>,
-        val homeLibrarySections: List<HomeLibrarySectionData>
+        val homeLibrarySections: List<HomeLibrarySectionData>,
+        val myMediaLibraries: List<BaseItemDto>? = null
     )
 
     @Volatile
@@ -191,7 +192,8 @@ class MediaRepository(private val context: Context) {
     suspend fun persistHomeSnapshot(
         featuredHomeItems: List<BaseItemDto>? = null,
         continueWatchingItems: List<BaseItemDto>? = null,
-        homeLibrarySections: List<HomeLibrarySectionData>? = null
+        homeLibrarySections: List<HomeLibrarySectionData>? = null,
+        myMediaLibraries: List<BaseItemDto>? = null
     ) {
         val config = getSessionConfig() ?: return
         val snapshotKey = buildSnapshotKey(config)
@@ -209,7 +211,8 @@ class MediaRepository(private val context: Context) {
                     updatedAt = System.currentTimeMillis(),
                     featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
                     continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
-                    homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty()
+                    homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty(),
+                    myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty()
                 )
                 file.writeText(gson.toJson(next))
             }

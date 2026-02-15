@@ -53,7 +53,6 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
-import com.jellycine.app.ui.screens.dashboard.ContinueWatchingSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.runtime.Stable
@@ -105,7 +104,7 @@ data class QueryConfig(
 )
 
 class QueryManager(private val scope: CoroutineScope) {
-    private val queries = mutableMapOf<String, QueryState<Any>>()
+    private val queries = mutableMapOf<String, QueryState<*>>()
     private val jobs = mutableMapOf<String, Job>()
 
     @Suppress("UNCHECKED_CAST")
@@ -114,7 +113,7 @@ class QueryManager(private val scope: CoroutineScope) {
     }
 
     fun <T> setQuery(key: String, state: QueryState<T>) {
-        queries[key] = state as QueryState<Any>
+        queries[key] = state
     }
 
     fun <T> executeQuery(
@@ -167,7 +166,7 @@ class QueryManager(private val scope: CoroutineScope) {
                     lastException = e
                     retryCount++
 
-                    val shouldRetry = when {
+                    val Retry = when {
                         e.message?.contains("timeout", ignoreCase = true) == true -> true
                         e.message?.contains("connection", ignoreCase = true) == true -> true
                         e.message?.contains("network", ignoreCase = true) == true -> true
@@ -178,7 +177,7 @@ class QueryManager(private val scope: CoroutineScope) {
                         else -> false
                     }
 
-                    if (shouldRetry && retryCount <= config.retryCount) {
+                    if (Retry && retryCount <= config.retryCount) {
                         delay(config.retryDelay * retryCount)
                     } else {
                         setQuery(key, QueryState<T>(
@@ -272,6 +271,9 @@ object ImagePreloader {
     private const val continueWatchingWidth = 640
     private const val continueWatchingHeight = 360
     private const val continueWatchingQuality = 92
+    private const val libraryLandscapeWidth = 640
+    private const val libraryLandscapeHeight = 360
+    private const val libraryLandscapeQuality = 92
 
     private fun imageCacheKey(
         itemId: String,
@@ -495,6 +497,96 @@ object ImagePreloader {
             .awaitAll()
     }
 
+    suspend fun MyMedia(
+        libraries: List<BaseItemDto>,
+        mediaRepository: MediaRepository,
+        context: android.content.Context,
+        maxItems: Int = 32
+    ) = coroutineScope {
+        val imageLoader = context.imageLoader
+        libraries
+            .asSequence()
+            .distinctBy { it.id }
+            .mapNotNull { it.id?.let { id -> id to it } }
+            .take(maxItems)
+            .map { (itemId, item) ->
+                async(Dispatchers.IO) {
+                    prefetchSemaphore.withPermit {
+                        val preloadKey = "my_media_landscape_preload_$itemId"
+                        if (!preloadedUrls.add(preloadKey)) return@withPermit
+                        try {
+                            val imageTypes = listOf("Thumb", "Backdrop", "Primary")
+                            var selectedType: String? = null
+                            var selectedUrl: String? = null
+
+                            for (type in imageTypes) {
+                                val cached = getCachedImageUrl(
+                                    itemId = itemId,
+                                    imageType = type,
+                                    width = libraryLandscapeWidth,
+                                    height = libraryLandscapeHeight,
+                                    quality = libraryLandscapeQuality
+                                )
+                                if (!cached.isNullOrBlank()) {
+                                    selectedType = type
+                                    selectedUrl = cached
+                                    break
+                                }
+
+                                val Url = mediaRepository.getImageUrlString(
+                                    itemId = itemId,
+                                    imageType = type,
+                                    width = libraryLandscapeWidth,
+                                    height = libraryLandscapeHeight,
+                                    quality = libraryLandscapeQuality
+                                )
+                                if (!Url.isNullOrBlank()) {
+                                    putCachedImageUrl(
+                                        itemId = itemId,
+                                        imageType = type,
+                                        width = libraryLandscapeWidth,
+                                        height = libraryLandscapeHeight,
+                                        quality = libraryLandscapeQuality,
+                                        imageUrl = Url
+                                    )
+                                    selectedType = type
+                                    selectedUrl = Url
+                                    break
+                                }
+                            }
+
+                            if (!selectedType.isNullOrBlank() && !selectedUrl.isNullOrBlank()) {
+                                setPreferredImageType(
+                                    itemId = item.id,
+                                    seriesId = item.seriesId,
+                                    itemType = item.type,
+                                    imageType = "Thumb",
+                                    fallbackImageType = "Backdrop",
+                                    preferredImageType = selectedType
+                                )
+                                imageLoader.enqueue(
+                                    ImageRequest.Builder(context)
+                                        .data(selectedUrl)
+                                        .memoryCachePolicy(CachePolicy.ENABLED)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .networkCachePolicy(CachePolicy.ENABLED)
+                                        .precision(Precision.INEXACT)
+                                        .allowHardware(true)
+                                        .allowRgb565(false)
+                                        .crossfade(false)
+                                        .build()
+                                )
+                            }
+                        } catch (_: Exception) {
+                            preloadedUrls.remove(preloadKey)
+                        }
+                    }
+                }
+            }
+            .toList()
+            .awaitAll()
+    }
+
     private suspend fun preloadContinueWatchingItem(
         item: BaseItemDto,
         mediaRepository: MediaRepository,
@@ -534,24 +626,24 @@ object ImagePreloader {
                         break
                     }
 
-                    val resolvedUrl = mediaRepository.getImageUrlString(
+                    val Url = mediaRepository.getImageUrlString(
                         itemId = requestId,
                         imageType = type,
                         width = continueWatchingWidth,
                         height = continueWatchingHeight,
                         quality = continueWatchingQuality
                     )
-                    if (!resolvedUrl.isNullOrBlank()) {
+                    if (!Url.isNullOrBlank()) {
                         putCachedImageUrl(
                             itemId = requestId,
                             imageType = type,
                             width = continueWatchingWidth,
                             height = continueWatchingHeight,
                             quality = continueWatchingQuality,
-                            imageUrl = resolvedUrl
+                            imageUrl = Url
                         )
                         selectedType = type
-                        selectedUrl = resolvedUrl
+                        selectedUrl = Url
                         break
                     }
                 }
@@ -721,7 +813,7 @@ fun ImageLoader(
                     )
                     return@LaunchedEffect
                 }
-                val resolvedUrl = withContext(Dispatchers.IO) {
+                val Url = withContext(Dispatchers.IO) {
                     mediaRepository.getImageUrlString(
                         itemId = actualItemId,
                         imageType = currentImageType,
@@ -730,15 +822,15 @@ fun ImageLoader(
                         quality = quality
                     )
                 }
-                if (!resolvedUrl.isNullOrBlank()) {
-                    imageUrl = resolvedUrl
+                if (!Url.isNullOrBlank()) {
+                    imageUrl = Url
                     ImagePreloader.putCachedImageUrl(
                         itemId = actualItemId,
                         imageType = currentImageType,
                         width = width,
                         height = height,
                         quality = quality,
-                        imageUrl = resolvedUrl
+                        imageUrl = Url
                     )
                     ImagePreloader.setPreferredImageType(
                         itemId = itemId,
@@ -831,23 +923,6 @@ fun ImageLoader(
             )
         }
 
-        if (!isImageLoaded) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .background(Color(0xFF2A2E37))
-            )
-        }
-
-        if (hasError) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(cornerRadius.dp))
-                    .background(Color(0xFF242833))
-            )
-        }
     }
 }
 
@@ -1092,19 +1167,54 @@ fun Dashboard(
             )
         }
 
+        val homeMyMediaLibrariesQuery = useQuery(
+            key = "home_my_media_libraries",
+            config = QueryConfig(
+                staleTime = 300_000L,
+                enabled = isTabActive && selectedCategory == "Home",
+                retryCount = 1,
+                retryDelay = 200L
+            )
+        ) {
+            val result = mediaRepository.getUserViews()
+            result.fold(
+                onSuccess = { queryResult ->
+                    queryResult.items
+                        .orEmpty()
+                        .asSequence()
+                        .filter { library ->
+                            val libraryId = library.id
+                            val libraryName = library.name
+                            val type = library.type
+                            val collectionType = library.collectionType
+                            libraryId != null &&
+                                !libraryName.isNullOrBlank() &&
+                                collectionType != "boxsets" &&
+                                collectionType != "playlists" &&
+                                collectionType != "folders" &&
+                                (type == "CollectionFolder" || type == "Folder")
+                        }
+                        .distinctBy { it.id }
+                        .sortedBy { it.sortName ?: it.name ?: "" }
+                        .toList()
+                },
+                onFailure = { throw it }
+            )
+        }
+
         val persistedFeaturedItems = if (selectedCategory == "Home") {
             persistedHomeSnapshot?.featuredHomeItems.orEmpty()
         } else {
             emptyList()
         }
-        val resolvedFeaturedItems = featuredQuery.data ?: persistedFeaturedItems
+        val FeaturedItems = featuredQuery.data ?: persistedFeaturedItems
 
         val persistedContinueWatchingItems = if (selectedCategory == "Home") {
             persistedHomeSnapshot?.continueWatchingItems.orEmpty()
         } else {
             emptyList()
         }
-        val resolvedContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
+        val ContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
 
         val persistedLibrarySections = if (selectedCategory == "Home") {
             persistedHomeSnapshot?.homeLibrarySections
@@ -1113,7 +1223,18 @@ fun Dashboard(
         } else {
             emptyList()
         }
-        val resolvedLibrarySections = homeLibraryBurstQuery.data ?: persistedLibrarySections
+        val LibrarySections = homeLibraryBurstQuery.data ?: persistedLibrarySections
+
+        val persistedMyMediaLibraries = if (selectedCategory == "Home") {
+            persistedHomeSnapshot?.myMediaLibraries.orEmpty()
+        } else {
+            emptyList()
+        }
+        val MyMediaLibraries = if (selectedCategory == "Home") {
+            homeMyMediaLibrariesQuery.data ?: persistedMyMediaLibraries
+        } else {
+            emptyList()
+        }
 
         LaunchedEffect(isTabActive) {
             if (isTabActive) {
@@ -1168,6 +1289,25 @@ fun Dashboard(
             )
         }
 
+        LaunchedEffect(homeMyMediaLibrariesQuery.data?.hashCode()) {
+            val libraries = homeMyMediaLibrariesQuery.data ?: return@LaunchedEffect
+            mediaRepository.persistHomeSnapshot(myMediaLibraries = libraries)
+        }
+
+        LaunchedEffect(
+            selectedCategory,
+            MyMediaLibraries.hashCode()
+        ) {
+            if (selectedCategory != "Home") return@LaunchedEffect
+            if (MyMediaLibraries.isEmpty()) return@LaunchedEffect
+            ImagePreloader.MyMedia(
+                libraries = MyMediaLibraries,
+                mediaRepository = mediaRepository,
+                context = context,
+                maxItems = MyMediaLibraries.size
+            )
+        }
+
         val featureParallaxOffsetPx by remember {
             derivedStateOf {
                 if (lazyColumnState.firstVisibleItemIndex == 0) {
@@ -1187,8 +1327,8 @@ fun Dashboard(
         ) {
             item(key = "feature_tab") {
                 FeatureTab(
-                    featuredItems = resolvedFeaturedItems,
-                    isLoading = featuredQuery.isLoading && resolvedFeaturedItems.isEmpty(),
+                    featuredItems = FeaturedItems,
+                    isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
                     error = featuredQuery.error,
                     selectedCategory = selectedCategory,
                     verticalParallaxOffsetPx = featureParallaxOffsetPx,
@@ -1200,14 +1340,43 @@ fun Dashboard(
                 )
             }
 
-            val shouldShowContinueWatchingSection =
+            val ShowMyMediaSection =
                 selectedCategory == "Home" && (
-                    resolvedContinueWatchingItems.isNotEmpty() ||
+                    MyMediaLibraries.isNotEmpty() ||
+                        (homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty())
+                    )
+
+            val ShowContinueWatchingSection =
+                selectedCategory == "Home" && (
+                    ContinueWatchingItems.isNotEmpty() ||
                         continueWatchingQuery.isError ||
                         (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
                     )
 
-            if (shouldShowContinueWatchingSection) {
+            if (ShowMyMediaSection) {
+                item(key = "my_media_section") {
+                    HomeMyMediaSection(
+                        libraries = MyMediaLibraries,
+                        isLoading = homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty(),
+                        error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
+                        mediaRepository = mediaRepository,
+                        onLibraryClick = { library ->
+                            val contentType = when (library.collectionType) {
+                                "movies" -> "MOVIES"
+                                "tvshows" -> "SERIES"
+                                else -> "ALL"
+                            }
+                            onNavigateToViewAll(
+                                contentType,
+                                library.id,
+                                library.name ?: "Library"
+                            )
+                        }
+                    )
+                }
+            }
+
+            if (ShowContinueWatchingSection) {
                 item(key = "continue_watching_section") {
                     Column(
                         modifier = Modifier
@@ -1215,8 +1384,8 @@ fun Dashboard(
                             .offset(y = (-12).dp)
                     ) {
                         ContinueWatchingSection(
-                            items = resolvedContinueWatchingItems,
-                            isLoading = continueWatchingQuery.isLoading && resolvedContinueWatchingItems.isEmpty(),
+                            items = ContinueWatchingItems,
+                            isLoading = continueWatchingQuery.isLoading && ContinueWatchingItems.isEmpty(),
                             error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
                             onItemClick = onNavigateToDetail
                         )
@@ -1225,7 +1394,7 @@ fun Dashboard(
             }
 
             if (selectedCategory == "Home") {
-                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection) 16.dp else 0.dp
 
                 if (topPadding > 0.dp) {
                     item(key = "home_libraries_top_padding") {
@@ -1233,7 +1402,7 @@ fun Dashboard(
                     }
                 }
 
-                val libraries = resolvedLibrarySections
+                val libraries = LibrarySections
                 if (homeLibraryBurstQuery.isError && libraries.isEmpty()) {
                     item(key = "home_libraries_error") {
                         Box(
@@ -1266,7 +1435,7 @@ fun Dashboard(
                     }
                 }
             } else if (selectedCategory == "Movies") {
-                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                 item(key = "movies_genres") {
                     Column(
@@ -1279,7 +1448,7 @@ fun Dashboard(
                     }
                 }
             } else if (selectedCategory == "TV Shows") {
-                val topPadding = if (resolvedContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+                val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                 item(key = "tv_genres") {
                     Column(
@@ -1288,6 +1457,71 @@ fun Dashboard(
                         TVShowGenreSections(
                             onItemClick = onNavigateToDetail,
                             onNavigateToViewAll = onNavigateToViewAll
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeMyMediaSection(
+    libraries: List<BaseItemDto>,
+    isLoading: Boolean,
+    error: String?,
+    mediaRepository: MediaRepository,
+    onLibraryClick: (BaseItemDto) -> Unit = {}
+) {
+    val lazyRowState = rememberLazyListState()
+    val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        Text(
+            text = "My Media",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+
+        when {
+            isLoading -> Unit
+            error != null && libraries.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Failed to load My Media",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+            libraries.isNotEmpty() -> {
+                LazyRow(
+                    state = lazyRowState,
+                    horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
+                    contentPadding = ScrollOptimization.optimizedContentPadding,
+                    flingBehavior = flingBehavior,
+                    modifier = ScrollOptimization.getScrollContainerModifier()
+                ) {
+                    items(
+                        items = libraries,
+                        key = { library -> library.id ?: library.name ?: "library_item" }
+                    ) { library ->
+                        val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
+                        LibraryItemCard(
+                            item = library,
+                            mediaRepository = mediaRepository,
+                            useLandscapeLayout = true,
+                            onClick = stableOnClick
                         )
                     }
                 }
@@ -1320,9 +1554,7 @@ private fun ContinueWatchingSection(
         )
 
         when {
-            isLoading -> {
-                ContinueWatchingSkeleton()
-            }
+            isLoading -> Unit
 
             error != null -> {
                 Box(
@@ -1695,6 +1927,7 @@ internal fun LibraryItemCard(
     item: BaseItemDto,
     modifier: Modifier = Modifier,
     mediaRepository: MediaRepository,
+    useLandscapeLayout: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
@@ -1705,15 +1938,26 @@ internal fun LibraryItemCard(
         item.name ?: "Unknown"
     }
 
+    val cardWidth = if (useLandscapeLayout) 200.dp else 112.dp
+    val cardHeight = if (useLandscapeLayout) 182.dp else 214.dp
+    val imageHeight = if (useLandscapeLayout) 120.dp else 166.dp
+    val titleAreaHeight = if (useLandscapeLayout) 62.dp else 42.dp
+    val titleTopPadding = if (useLandscapeLayout) 8.dp else 2.dp
+    val titleFontSize = if (useLandscapeLayout) 13.sp else 10.sp
+    val titleLineHeight = if (useLandscapeLayout) 15.sp else 12.sp
+    val titleMaxLines = if (useLandscapeLayout) 2 else 1
+    val metadataFontSize = if (useLandscapeLayout) 11.sp else 9.sp
+    val metadataLineHeight = if (useLandscapeLayout) 13.sp else 10.sp
+
     Column(
         modifier = modifier
-            .width(112.dp)
-            .height(214.dp)
+            .width(cardWidth)
+            .height(cardHeight)
     ) {
         Card(
             modifier = Modifier
-                .width(112.dp)
-                .height(166.dp),
+                .width(cardWidth)
+                .height(imageHeight),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
@@ -1727,7 +1971,10 @@ internal fun LibraryItemCard(
                 ImageLoader(
                     itemId = stableItem.id,
                     seriesId = stableItem.seriesId,
-                    imageType = "Primary",
+                    imageType = if (useLandscapeLayout) "Thumb" else "Primary",
+                    fallbackImageType = if (useLandscapeLayout) "Backdrop" else null,
+                    extraFallbackImageTypes = if (useLandscapeLayout) listOf("Primary") else emptyList(),
+                    preferSeriesIdForThumbBackdrop = useLandscapeLayout,
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -1759,8 +2006,8 @@ internal fun LibraryItemCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
-                .padding(top = 2.dp, start = 2.dp, end = 2.dp),
+                .height(titleAreaHeight)
+                .padding(top = titleTopPadding, start = 4.dp, end = 4.dp),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
@@ -1770,10 +2017,11 @@ internal fun LibraryItemCard(
                 Text(
                     text = displayName,
                     color = Color.White,
-                    fontSize = 10.sp,
+                    fontSize = titleFontSize,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    maxLines = titleMaxLines,
                     overflow = TextOverflow.Ellipsis,
+                    lineHeight = titleLineHeight,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1783,8 +2031,8 @@ internal fun LibraryItemCard(
                     Text(
                         text = metadataText,
                         color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 9.sp,
-                        lineHeight = 10.sp,
+                        fontSize = metadataFontSize,
+                        lineHeight = metadataLineHeight,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
@@ -1797,13 +2045,13 @@ internal fun LibraryItemCard(
 }
 
 private fun buildMetadataText(item: BaseItemDto): String {
-    val resolvedStartYear = item.productionYear ?: item.premiereDate
+    val StartYear = item.productionYear ?: item.premiereDate
         ?.take(4)
         ?.toIntOrNull()
     return buildString {
         when (item.type) {
             "Series" -> {
-                resolvedStartYear?.let { startYear ->
+                StartYear?.let { startYear ->
                     append(startYear.toString())
                     item.endDate?.let { endDate ->
                         val endYear = endDate.take(4).toIntOrNull()
@@ -1815,7 +2063,7 @@ private fun buildMetadataText(item: BaseItemDto): String {
                 }
             }
             "Movie" -> {
-                resolvedStartYear?.let { year ->
+                StartYear?.let { year ->
                     append(year.toString())
                 }
             }
@@ -1833,7 +2081,7 @@ private fun buildMetadataText(item: BaseItemDto): String {
                 }
             }
             else -> {
-                resolvedStartYear?.let { year ->
+                StartYear?.let { year ->
                     append(year.toString())
                 }
             }
@@ -1958,7 +2206,7 @@ private object Cache {
 }
 
 private object DashboardCache {
-    fun shouldRefreshFeaturedItems(category: String): Boolean {
+    fun RefreshFeaturedItems(category: String): Boolean {
         return Cache.isStale("featured_$category", 300_000L)
     }
 
@@ -1970,7 +2218,7 @@ private object DashboardCache {
         Cache.put("featured_$category", items)
     }
 
-    fun shouldRefreshContinueWatching(): Boolean {
+    fun RefreshContinueWatching(): Boolean {
         return Cache.isStale("continue_watching", 120_000L)
     }
 
@@ -1983,15 +2231,15 @@ private object DashboardCache {
 }
 
 private object GenreCache {
-    fun shouldRefreshMovieGenres(): Boolean {
+    fun RefreshMovieGenres(): Boolean {
         return Cache.isStale("movie_genres", 600_000L)
     }
 
-    fun shouldRefreshTVGenres(): Boolean {
+    fun RefreshTVGenres(): Boolean {
         return Cache.isStale("tv_genres", 600_000L)
     }
 
-    fun shouldRefreshGenreItems(genreId: String): Boolean {
+    fun RefreshGenreItems(genreId: String): Boolean {
         val cacheKey = "genre_items_$genreId"
         if (Cache.isStale(cacheKey, 300_000L)) {
             return true
@@ -2032,7 +2280,7 @@ private object GenreCache {
 }
 
 private object LibraryCache {
-    fun shouldRefreshLibraryViews(): Boolean {
+    fun RefreshLibraryViews(): Boolean {
         return Cache.isStale("library_views", 600_000L)
     }
 
@@ -2040,7 +2288,7 @@ private object LibraryCache {
         Cache.put("library_views", views)
     }
 
-    fun shouldRefreshLibraryItems(libraryId: String): Boolean {
+    fun RefreshLibraryItems(libraryId: String): Boolean {
         return Cache.isStale("library_$libraryId", 300_000L)
     }
 
@@ -2065,10 +2313,10 @@ private fun MovieGenreSections(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     var movieGenres by remember { mutableStateOf(GenreCache.movieGenres) }
-    var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshMovieGenres()) }
+    var isLoading by remember { mutableStateOf(GenreCache.RefreshMovieGenres()) }
 
     LaunchedEffect(Unit) {
-        if (GenreCache.shouldRefreshMovieGenres()) {
+        if (GenreCache.RefreshMovieGenres()) {
             isLoading = true
             try {
                 withContext(Dispatchers.IO) {
@@ -2126,10 +2374,10 @@ private fun TVShowGenreSections(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
 
     var tvGenres by remember { mutableStateOf(GenreCache.tvGenres) }
-    var isLoading by remember { mutableStateOf(GenreCache.shouldRefreshTVGenres()) }
+    var isLoading by remember { mutableStateOf(GenreCache.RefreshTVGenres()) }
 
     LaunchedEffect(Unit) {
-        if (GenreCache.shouldRefreshTVGenres()) {
+        if (GenreCache.RefreshTVGenres()) {
             isLoading = true
             try {
                 val result = mediaRepository.getFilteredGenres(includeItemTypes = "Series")
@@ -2182,10 +2430,10 @@ private fun ProgressiveMovieGenreSection(
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
-    var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems(genreId)) }
+    var isLoading by remember(genreId) { mutableStateOf(GenreCache.RefreshGenreItems(genreId)) }
 
     LaunchedEffect(genreId) {
-        if (GenreCache.shouldRefreshGenreItems(genreId)) {
+        if (GenreCache.RefreshGenreItems(genreId)) {
             isLoading = true
             try {
                 val result = withContext(Dispatchers.IO) {
@@ -2307,11 +2555,11 @@ private fun ProgressiveTVShowGenreSection(
 ) {
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
-    var isLoading by remember(genreId) { mutableStateOf(GenreCache.shouldRefreshGenreItems("tv_$genreId")) }
+    var isLoading by remember(genreId) { mutableStateOf(GenreCache.RefreshGenreItems("tv_$genreId")) }
 
     LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
-        if (GenreCache.shouldRefreshGenreItems(cacheKey)) {
+        if (GenreCache.RefreshGenreItems(cacheKey)) {
             isLoading = true
             try {
                 val result = withContext(Dispatchers.IO) {
