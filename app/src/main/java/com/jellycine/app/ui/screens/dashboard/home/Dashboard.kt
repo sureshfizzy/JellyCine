@@ -1430,7 +1430,7 @@ fun Dashboard(
                         )
 
                         if (index < libraries.lastIndex) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                         }
                     }
                 }
@@ -1941,13 +1941,13 @@ internal fun LibraryItemCard(
     val cardWidth = if (useLandscapeLayout) 200.dp else 112.dp
     val cardHeight = if (useLandscapeLayout) 182.dp else 214.dp
     val imageHeight = if (useLandscapeLayout) 120.dp else 166.dp
-    val titleAreaHeight = if (useLandscapeLayout) 62.dp else 42.dp
-    val titleTopPadding = if (useLandscapeLayout) 8.dp else 2.dp
-    val titleFontSize = if (useLandscapeLayout) 13.sp else 10.sp
-    val titleLineHeight = if (useLandscapeLayout) 15.sp else 12.sp
+    val titleAreaHeight = if (useLandscapeLayout) 64.dp else 46.dp
+    val titleTopPadding = if (useLandscapeLayout) 10.dp else 4.dp
+    val titleFontSize = if (useLandscapeLayout) 16.sp else 13.sp
+    val titleLineHeight = if (useLandscapeLayout) 18.sp else 15.sp
     val titleMaxLines = if (useLandscapeLayout) 2 else 1
-    val metadataFontSize = if (useLandscapeLayout) 11.sp else 9.sp
-    val metadataLineHeight = if (useLandscapeLayout) 13.sp else 10.sp
+    val metadataFontSize = if (useLandscapeLayout) 14.sp else 12.sp
+    val metadataLineHeight = if (useLandscapeLayout) 16.sp else 13.sp
 
     Column(
         modifier = modifier
@@ -2011,7 +2011,7 @@ internal fun LibraryItemCard(
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
