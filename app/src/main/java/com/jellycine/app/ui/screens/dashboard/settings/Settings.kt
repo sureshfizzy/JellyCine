@@ -1,7 +1,8 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
-import android.content.Context
-import android.content.Intent
+import android.media.MediaCodecList
+import android.os.Build
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,142 +26,123 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
-import com.jellycine.app.util.logging.LogManager
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.first
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Settings(
     onLogout: () -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
+    val supportedCodecs = remember { getSupportedCodecsSummary() }
 
     var offlineMode by remember { mutableStateOf(false) }
-    var appLanguage by remember { mutableStateOf("English") }
-    var isDownloadingLogs by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Settings",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 8.dp)
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Settings") },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
-
-        item {
-            UserProfileSection(
-                user = uiState.user,
-                username = uiState.username ?: "Unknown User",
-                serverName = uiState.serverName ?: "Unknown Server",
-                serverUrl = uiState.serverUrl,
-                viewModel = viewModel,
-                isLoading = uiState.isLoading
-            )
-        }
-
-        item {
-            SettingsSection {
-                SettingsItem(
-                    icon = Icons.Rounded.Language,
-                    title = "Language",
-                    subtitle = appLanguage,
-                    onClick = { /* TODO: Open language selector */ }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
+            item {
+                UserProfileSection(
+                    user = uiState.user,
+                    username = uiState.username ?: "Unknown User",
+                    serverName = uiState.serverName ?: "Unknown Server",
+                    serverUrl = uiState.serverUrl,
+                    viewModel = viewModel
                 )
             }
-        }
 
-        item {
-            SettingsSection {
-                SettingsItem(
-                    icon = Icons.Rounded.PlayArrow,
-                    title = "Player Settings",
-                    subtitle = "Audio & Subtitle preferences",
-                    onClick = onNavigateToPlayerSettings
+            item {
+                QuickActionsRow(
+                    onNavigateToPlayerSettings = onNavigateToPlayerSettings
                 )
             }
-        }
 
-        item {
-            SettingsSection {
-                SettingsItem(
-                    icon = Icons.Rounded.PhoneAndroid,
-                    title = "Device Name",
-                    subtitle = android.os.Build.MODEL,
-                    onClick = { /* TODO: Edit device name */ }
-                )
-
-                SettingsItem(
-                    icon = Icons.Rounded.CloudOff,
-                    title = "Offline Mode",
-                    subtitle = if (offlineMode) "Enabled" else "Disabled",
-                    trailing = {
-                        Switch(
-                            checked = offlineMode,
-                            onCheckedChange = { offlineMode = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            item { SectionLabel("Preferences") }
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.CloudOff,
+                        title = "Offline Mode",
+                        subtitle = if (offlineMode) "Enabled" else "Disabled",
+                        accentColor = Color(0xFF3B82F6),
+                        trailing = {
+                            Switch(
+                                checked = offlineMode,
+                                onCheckedChange = { offlineMode = it }
                             )
-                        )
-                    }
-                )
-            }
-        }
-
-        item {
-            SettingsSection {
-                SettingsItem(
-                    icon = Icons.Rounded.BugReport,
-                    title = "Download Logs",
-                    subtitle = "Export app logs for debugging",
-                    isLoading = isDownloadingLogs,
-                    onClick = {
-                        scope.launch {
-                            downloadLogs(context) { isLoading ->
-                                isDownloadingLogs = isLoading
-                            }
                         }
-                    }
-                )
+                    )
+                }
             }
-        }
 
-        item {
-            SettingsSection {
-                SettingsItem(
-                    icon = Icons.AutoMirrored.Rounded.Logout,
-                    title = "Sign Out",
-                    subtitle = "Sign out of your account",
-                    onClick = { viewModel.logout(onLogout) },
-                    isDestructive = true
-                )
+            item { SectionLabel("Account") }
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Rounded.Logout,
+                        title = "Sign Out",
+                        subtitle = "Sign out of your account",
+                        onClick = { viewModel.logout(onLogout) },
+                        isDestructive = true,
+                        accentColor = Color(0xFFEF4444)
+                    )
+                }
             }
-        }
 
-        item {
-            Spacer(modifier = Modifier.height(100.dp))
+            item { SectionLabel("Device Info") }
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.Smartphone,
+                        title = "Device Model",
+                        subtitle = "${Build.MANUFACTURER} ${Build.MODEL}",
+                        accentColor = Color(0xFF14B8A6)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Android,
+                        title = "Android Version",
+                        subtitle = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                        accentColor = Color(0xFF10B981)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.VideoLibrary,
+                        title = "Video Codecs",
+                        subtitle = supportedCodecs,
+                        accentColor = Color(0xFFF59E0B)
+                    )
+                }
+            }
         }
     }
 
@@ -176,18 +159,21 @@ private fun UserProfileSection(
     username: String,
     serverName: String,
     serverUrl: String?,
-    viewModel: SettingsViewModel,
-    isLoading: Boolean
+    viewModel: SettingsViewModel
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+            containerColor = Color.Transparent
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -202,7 +188,7 @@ private fun UserProfileSection(
 
             Text(
                 text = user?.name ?: username,
-                fontSize = 20.sp,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -211,7 +197,7 @@ private fun UserProfileSection(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Administrator",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
@@ -222,7 +208,11 @@ private fun UserProfileSection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    containerColor = Color.Transparent
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -242,7 +232,7 @@ private fun UserProfileSection(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Server",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
                     }
@@ -251,15 +241,14 @@ private fun UserProfileSection(
 
                     Text(
                         text = user?.serverName ?: serverName,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     if (serverUrl != null) {
                         Text(
                             text = serverUrl,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     }
@@ -270,16 +259,99 @@ private fun UserProfileSection(
 }
 
 @Composable
+private fun QuickActionsRow(
+    onNavigateToPlayerSettings: () -> Unit
+) {
+    ActionTile(
+        modifier = Modifier.fillMaxWidth(),
+        icon = Icons.Rounded.PlayArrow,
+        title = "Player Settings",
+        subtitle = "Playback and decoder options",
+        accentColor = Color(0xFF3B82F6),
+        onClick = onNavigateToPlayerSettings
+    )
+}
+
+@Composable
+private fun ActionTile(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(
+                        color = accentColor.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp)
+    )
+}
+
+@Composable
 private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+            containerColor = Color.Transparent
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
         ),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column {
             content()
@@ -294,6 +366,7 @@ private fun SettingsItem(
     subtitle: String,
     isLoading: Boolean = false,
     isDestructive: Boolean = false,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -307,18 +380,17 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(clickableModifier)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon with background
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(42.dp)
                 .background(
-                    color = if (isDestructive) 
+                    color = if (isDestructive)
                         MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                    else 
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    else
+                        accentColor.copy(alpha = 0.12f),
                     shape = RoundedCornerShape(12.dp)
                 ),
             contentAlignment = Alignment.Center
@@ -326,29 +398,28 @@ private fun SettingsItem(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isDestructive) 
-                    MaterialTheme.colorScheme.error 
-                else 
-                    MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(22.dp)
+                tint = if (isDestructive)
+                    MaterialTheme.colorScheme.error
+                else
+                    accentColor,
+                modifier = Modifier.size(20.dp)
             )
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isDestructive) 
-                    MaterialTheme.colorScheme.error 
-                else 
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isDestructive)
+                    MaterialTheme.colorScheme.error
+                else
                     MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = subtitle,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
@@ -448,43 +519,46 @@ private fun ProfileImageLoader(
     }
 }
 
-private suspend fun downloadLogs(
-    context: Context,
-    onLoadingChange: (Boolean) -> Unit
-) {
-    try {
-        onLoadingChange(true)
-
-        val logManager = LogManager(context)
-        val logFile = logManager.generateLogFile()
-
-        if (logFile != null) {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                logFile
-            )
-
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "JellyCine Debug Logs")
-                putExtra(Intent.EXTRA_TEXT, "JellyCine debug logs generated on ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            val chooserIntent = Intent.createChooser(shareIntent, "Share Logs")
-            context.startActivity(chooserIntent)
-        }
-    } catch (e: Exception) {
-        android.util.Log.e("Settings", "Failed to download logs", e)
-    } finally {
-        onLoadingChange(false)
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun SettingsPreview() {
     Settings()
+}
+
+private fun getSupportedCodecsSummary(): String {
+    return try {
+        val mediaCodecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
+        val videoCodecs = mutableSetOf<String>()
+        mediaCodecList.codecInfos.forEach { codecInfo ->
+            if (!codecInfo.isEncoder) {
+                codecInfo.supportedTypes.forEach { type ->
+                    if (type.startsWith("video/")) {
+                        videoCodecs.add(readableCodecName(type))
+                    }
+                }
+            }
+        }
+
+        if (videoCodecs.isEmpty()) "Unavailable" else videoCodecs.sorted().joinToString(", ")
+    } catch (_: Exception) {
+        "Unavailable"
+    }
+}
+
+private fun readableCodecName(mimeType: String): String {
+    return when (mimeType.lowercase()) {
+        "video/avc" -> "H.264"
+        "video/hevc" -> "H.265"
+        "video/x-vnd.on2.vp9" -> "VP9"
+        "video/av01" -> "AV1"
+        "video/dolby-vision" -> "Dolby Vision"
+        "video/mp4v-es" -> "MPEG-4"
+        "video/3gpp" -> "H.263"
+        "video/mpeg2" -> "MPEG-2"
+        "video/raw" -> "RAW"
+        else -> {
+            val subtype = mimeType.substringAfter('/', mimeType)
+            subtype.substringAfterLast('.').uppercase()
+        }
+    }
 }
