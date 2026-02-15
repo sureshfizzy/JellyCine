@@ -82,7 +82,12 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     return@launch
                 }
 
-                val playbackInfo = playbackInfoResult.getOrNull()!!
+                val playbackInfo = playbackInfoResult.getOrNull()
+                if (playbackInfo == null) {
+                    _playerState.value = _playerState.value.copy(isLoading = false, error = "Playback info is null")
+                    return@launch
+                }
+
                 val primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
                 playSessionId = playbackInfo.playSessionId
                 mediaSourceId = primaryMediaSource?.id
@@ -105,7 +110,12 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     return@launch
                 }
 
-                val streamingUrl = streamingResult.getOrNull()!!
+                val streamingUrl = streamingResult.getOrNull()
+                if (streamingUrl.isNullOrEmpty()) {
+                    _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get streaming URL")
+                    return@launch
+                }
+
                 val mediaItem = MediaItem.fromUri(streamingUrl)
                 
                 // Get media info for spatial audio analysis
@@ -170,7 +180,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val deviceEnhancementAvailable = deviceSupportsSpatialization
                 
                 // Configure spatial audio effects based on content compatibility
-                if (shouldEnableSpatialAudio) {
+                if (shouldEnableSpatialAudio && exoPlayer != null) {
                     PlayerUtils.configureSpatialAudioForContent(exoPlayer!!, context, spatializationResult)
                 }
 

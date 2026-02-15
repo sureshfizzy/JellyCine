@@ -311,7 +311,7 @@ private fun RecentlyAddedCard(
         if (itemId != null) {
             try {
                 val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                    item.seriesId!!
+                    item.seriesId ?: itemId
                 } else {
                     itemId
                 }
@@ -401,7 +401,7 @@ private fun PosterCard(
         if (itemId != null) {
             try {
                 val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                    item.seriesId!!
+                    item.seriesId ?: itemId
                 } else {
                     itemId
                 }
@@ -495,9 +495,9 @@ private fun PosterCard(
                 val itemCount = when {
                     item.type == "Series" -> {
                         when {
-                            item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
-                            item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
-                            item.childCount != null && item.childCount!! > 0 -> item.childCount!!
+                            item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount
+                            item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount
+                            item.childCount != null && item.childCount!! > 0 -> item.childCount
                             else -> null
                         }
                     }

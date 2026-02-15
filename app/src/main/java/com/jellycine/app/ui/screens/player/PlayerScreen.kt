@@ -155,29 +155,17 @@ fun PlayerScreen(
             }
         }
     }
-    
-    // Backup initialization approach
-    LaunchedEffect(Unit) {
-        delay(1000)
-        if (!hasInitialized) {
-            try {
-                viewModel.initializePlayer(context, mediaId)
-                hasInitialized = true
-            } catch (e: Exception) {
-            }
-        }
-    }
 
     // Update position and playing state
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel.exoPlayer) {
         while (true) {
-            delay(300)
             viewModel.exoPlayer?.let { player ->
                 uiState = uiState.copy(
                     currentPosition = player.currentPosition,
                     isPlaying = player.isPlaying
                 )
             }
+            delay(100)
         }
     }
     // Fetch media title

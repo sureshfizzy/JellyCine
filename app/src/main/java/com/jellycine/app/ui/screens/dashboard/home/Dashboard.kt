@@ -1618,18 +1618,22 @@ private fun ContinueWatchingSection(
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
                     items(
-                        count = renderedCount,
-                        key = { index -> items[index].id ?: "item_$index" }
+                        count = renderedCount.coerceAtMost(items.size),
+                        key = { index -> 
+                            items.getOrNull(index)?.id ?: "item_$index"
+                        }
                     ) { index ->
-                        val item = remember(items[index].id) { items[index] }
-                        val stableOnClick = remember(item.id) { { onItemClick(item) } }
+                        val item = items.getOrNull(index)
+                        if (item != null) {
+                            val stableOnClick = remember(item.id) { { onItemClick(item) } }
 
-                        Box {
-                            ContinueWatchingCard(
-                                item = item,
-                                mediaRepository = mediaRepository,
-                                onClick = stableOnClick
-                            )
+                            Box {
+                                ContinueWatchingCard(
+                                    item = item,
+                                    mediaRepository = mediaRepository,
+                                    onClick = stableOnClick
+                                )
+                            }
                         }
                     }
                 }
