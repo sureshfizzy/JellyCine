@@ -34,7 +34,6 @@ import com.jellycine.detail.CodecUtils
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,26 +50,13 @@ fun EpisodePreviewCard(
     var showPreviewOverlay by remember { mutableStateOf(false) }
 
     LaunchedEffect(episode.id) {
-        episode.id?.let { episodeId ->
-            // Try to get episode thumbnail first, fallback to series backdrop
-            episodeImageUrl = mediaRepository.getImageUrl(
-                itemId = episodeId,
-                imageType = "Primary",
-                width = 400,
-                height = 225,
-                quality = 90,
-                enableImageEnhancers = false
-            ).first() ?: episode.seriesId?.let { seriesId ->
-                mediaRepository.getBackdropImageUrl(
-                    itemId = seriesId,
-                    imageIndex = 0,
-                    width = 400,
-                    height = 225,
-                    quality = 90,
-                    enableImageEnhancers = false
-                ).first()
-            }
-        }
+        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+            episode = episode,
+            mediaRepository = mediaRepository,
+            width = 400,
+            height = 225,
+            quality = 90
+        )
     }
 
     // Auto-hide preview overlay after 3 seconds

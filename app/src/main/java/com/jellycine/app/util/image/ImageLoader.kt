@@ -30,7 +30,7 @@ import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
+import com.jellycine.app.ui.components.common.ShimmerEffect
 
 // Skeleton loading animation with optional placeholder
 @Composable

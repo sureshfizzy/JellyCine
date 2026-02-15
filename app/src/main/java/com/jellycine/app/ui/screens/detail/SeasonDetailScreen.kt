@@ -381,25 +381,13 @@ private fun EpisodeListItem(
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(episode.id) {
-        episode.id?.let { episodeId ->
-            episodeImageUrl = mediaRepository.getImageUrl(
-                itemId = episodeId,
-                imageType = "Primary",
-                width = 1280,
-                height = 720,
-                quality = 95,
-                enableImageEnhancers = false
-            ).first() ?: episode.seriesId?.let { series ->
-                mediaRepository.getBackdropImageUrl(
-                    itemId = series,
-                    imageIndex = 0,
-                    width = 1280,
-                    height = 720,
-                    quality = 95,
-                    enableImageEnhancers = false
-                ).first()
-            }
-        }
+        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+            episode = episode,
+            mediaRepository = mediaRepository,
+            width = 1280,
+            height = 720,
+            quality = 95
+        )
     }
 
     Card(

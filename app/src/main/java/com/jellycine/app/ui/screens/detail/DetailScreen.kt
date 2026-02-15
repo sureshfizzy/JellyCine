@@ -63,7 +63,7 @@ import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.AnimatedCard
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
+import com.jellycine.app.ui.components.common.ShimmerEffect
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler

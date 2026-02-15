@@ -29,11 +29,10 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.AnimatedCard
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
+import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecUtils
-import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,26 +48,13 @@ fun EpisodeCard(
 
 
     LaunchedEffect(episode.id) {
-        episode.id?.let { episodeId ->
-            // Try to get episode thumbnail first, fallback to series backdrop
-            episodeImageUrl = mediaRepository.getImageUrl(
-                itemId = episodeId,
-                imageType = "Primary",
-                width = 960,
-                height = 540,
-                quality = 95,
-                enableImageEnhancers = false
-            ).first() ?: episode.seriesId?.let { seriesId ->
-                mediaRepository.getBackdropImageUrl(
-                    itemId = seriesId,
-                    imageIndex = 0,
-                    width = 960,
-                    height = 540,
-                    quality = 95,
-                    enableImageEnhancers = false
-                ).first()
-            }
-        }
+        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+            episode = episode,
+            mediaRepository = mediaRepository,
+            width = 960,
+            height = 540,
+            quality = 95
+        )
     }
 
     AnimatedCard(

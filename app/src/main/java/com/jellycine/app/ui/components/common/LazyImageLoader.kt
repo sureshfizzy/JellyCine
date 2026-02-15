@@ -16,7 +16,6 @@ import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.request.CachePolicy
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 @Composable
 fun LazyImageLoader(

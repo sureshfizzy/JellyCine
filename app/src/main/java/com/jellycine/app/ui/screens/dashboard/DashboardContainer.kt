@@ -44,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
@@ -61,7 +62,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -70,13 +70,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 
@@ -755,35 +752,6 @@ fun ListItem(
 @Composable
 fun DashboardContainerPreview() {
     DashboardContainer()
-}
-
-@Composable
-fun ShimmerEffect(
-    modifier: Modifier = Modifier,
-    cornerRadius: Float = 12f,
-    shape: Shape = RoundedCornerShape(cornerRadius.dp)
-) {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val alpha = transition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmer_alpha"
-    )
-
-    Canvas(
-        modifier = modifier.graphicsLayer(
-            compositingStrategy = CompositingStrategy.Offscreen
-        )
-    ) {
-        drawRoundRect(
-            color = Color(0xFF1A1A1A).copy(alpha = alpha.value),
-            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-        )
-    }
 }
 
 /**

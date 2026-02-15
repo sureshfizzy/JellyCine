@@ -35,7 +35,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.AnimatedCard
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
+import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.flow.first

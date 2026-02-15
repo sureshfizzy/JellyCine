@@ -18,7 +18,6 @@ import coil.compose.AsyncImagePainter
 import coil.request.ImageRequest
 import coil.request.CachePolicy
 import com.jellycine.app.util.image.ImageUrlViewModel
-import com.jellycine.app.ui.screens.dashboard.ShimmerEffect
 
 @Composable
 fun JellyfinImageLoader(
