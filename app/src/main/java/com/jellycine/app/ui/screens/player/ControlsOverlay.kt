@@ -7,12 +7,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -167,73 +167,65 @@ fun ControlsOverlay(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-            // Previous track
-            IconButton(
-                onClick = onPrevious,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.SkipPrevious,
-                    contentDescription = "Previous",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
             // Fast rewind
             IconButton(
                 onClick = onSeekBackward,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(58.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.FastRewind,
-                    contentDescription = "Fast Rewind",
+                    imageVector = Icons.Filled.Replay30,
+                    contentDescription = "Replay 30 seconds",
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(44.dp)
                 )
             }
 
             // Play/Pause button
             IconButton(
                 onClick = onPlayPause,
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(Color.White, CircleShape)
+                modifier = Modifier.size(74.dp)
             ) {
-                Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.Black,
-                    modifier = Modifier.size(32.dp)
-                )
+                if (isPlaying) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(10.dp)
+                                .height(42.dp)
+                                .background(Color.White, RoundedCornerShape(7.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(10.dp)
+                                .height(42.dp)
+                                .background(Color.White, RoundedCornerShape(7.dp))
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play",
+                        tint = Color.White,
+                        modifier = Modifier.size(64.dp)
+                    )
+                }
             }
 
-            // Fast forward
+            // Fast Forward
             IconButton(
                 onClick = onSeekForward,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(58.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.FastForward,
-                    contentDescription = "Fast Forward",
+                    imageVector = Icons.Filled.Forward30,
+                    contentDescription = "Forward 30 seconds",
                     tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            // Next track
-            IconButton(
-                onClick = onNext,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.SkipNext,
-                    contentDescription = "Next",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(44.dp)
                 )
             }
         }
@@ -350,45 +342,31 @@ private fun SeekBar(
             }
     ) {
         val yOffset = size.height / 2
-        val trackHeight = size.height * 0.4f
-        val thumbRadius = size.height * 0.6f
+        val trackInset = 2.dp.toPx()
+        val trackStart = Offset(trackInset, yOffset)
+        val trackEnd = Offset(size.width - trackInset, yOffset)
+        val trackHeight = size.height * 0.55f
 
         // Background track
         drawLine(
-            color = Color.White.copy(alpha = 0.3f),
-            start = Offset(thumbRadius, yOffset),
-            end = Offset(size.width - thumbRadius, yOffset),
+            color = Color.White.copy(alpha = 0.35f),
+            start = trackStart,
+            end = trackEnd,
             strokeWidth = trackHeight,
             cap = StrokeCap.Round
         )
 
         // Progress track
         if (progress > 0f) {
+            val progressX = trackStart.x + (trackEnd.x - trackStart.x) * progress
             drawLine(
                 color = Color.White.copy(alpha = 0.95f),
-                start = Offset(thumbRadius, yOffset),
-                end = Offset((size.width - 2 * thumbRadius) * progress + thumbRadius, yOffset),
+                start = trackStart,
+                end = Offset(progressX, yOffset),
                 strokeWidth = trackHeight,
                 cap = StrokeCap.Round
             )
         }
-
-        // Thumb -  style with subtle shadow effect
-        val thumbX = (size.width - 2 * thumbRadius) * progress + thumbRadius
-
-        // Shadow
-        drawCircle(
-            color = Color.Black.copy(alpha = 0.2f),
-            radius = thumbRadius * 1.1f,
-            center = Offset(thumbX + 1.dp.toPx(), yOffset + 1.dp.toPx())
-        )
-
-        // Main thumb
-        drawCircle(
-            color = Color.White,
-            radius = thumbRadius,
-            center = Offset(thumbX, yOffset)
-        )
     }
 }
 

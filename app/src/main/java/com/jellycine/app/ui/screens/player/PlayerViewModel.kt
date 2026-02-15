@@ -634,10 +634,16 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             val wasPlaying = _playerState.value.isPlaying
-            val isNowPlaying = playbackState == Player.STATE_READY && exoPlayer?.playWhenReady == true
+            val playWhenReady = exoPlayer?.playWhenReady == true
+            val isNowPlaying = playbackState == Player.STATE_READY && playWhenReady
+            val shouldShowLoading = when (playbackState) {
+                Player.STATE_IDLE -> !hasReportedStart
+                Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
+                else -> false
+            }
             
             _playerState.value = _playerState.value.copy(
-                isLoading = playbackState == Player.STATE_BUFFERING,
+                isLoading = shouldShowLoading,
                 isPlaying = isNowPlaying
             )
 
@@ -657,6 +663,19 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             if (playbackState == Player.STATE_READY) {
                 updateTrackInformation()
             }
+        }
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            val playbackState = exoPlayer?.playbackState ?: Player.STATE_IDLE
+            val shouldShowLoading = when (playbackState) {
+                Player.STATE_IDLE -> !hasReportedStart
+                Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
+                else -> false
+            }
+            _playerState.value = _playerState.value.copy(
+                isPlaying = playWhenReady && playbackState == Player.STATE_READY,
+                isLoading = shouldShowLoading
+            )
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {

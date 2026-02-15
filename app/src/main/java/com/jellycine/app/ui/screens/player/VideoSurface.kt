@@ -8,9 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -135,32 +133,5 @@ fun VideoSurface(
                 )
         )
 
-        // Smooth loading indicator
-        if (player?.isLoading == true) {
-            LoadingIndicator(
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-    }
-}
-
-@Composable
-private fun LoadingIndicator(
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(80.dp)
-            .background(
-                Color.Black.copy(alpha = 0.8f),
-                RoundedCornerShape(40.dp)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(
-            color = Color.White,
-            strokeWidth = 3.dp,
-            modifier = Modifier.size(40.dp)
-        )
     }
 }

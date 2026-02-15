@@ -47,7 +47,6 @@ data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
     val isPlaying: Boolean = false,
-    val isLoading: Boolean = true,
     val mediaTitle: String = "Loading...",
     val volumeLevel: Float? = null,
     val brightnessLevel: Float? = null,
@@ -176,9 +175,7 @@ fun PlayerScreen(
             viewModel.exoPlayer?.let { player ->
                 uiState = uiState.copy(
                     currentPosition = player.currentPosition,
-                    isPlaying = player.isPlaying,
-                    isLoading = player.playbackState == androidx.media3.exoplayer.ExoPlayer.STATE_BUFFERING ||
-                               player.playbackState == androidx.media3.exoplayer.ExoPlayer.STATE_IDLE
+                    isPlaying = player.isPlaying
                 )
             }
         }
@@ -246,8 +243,7 @@ fun PlayerScreen(
 
     // Back handler
     BackHandler {
-        viewModel.exoPlayer?.stop()
-        viewModel.exoPlayer?.release()
+        viewModel.releasePlayer()
         onBackPressed?.invoke()
     }
 
@@ -330,8 +326,7 @@ fun PlayerScreen(
                 currentPosition = uiState.currentPosition,
                 duration = viewModel.exoPlayer?.duration ?: 0L,
                 onBackClick = {
-                    viewModel.exoPlayer?.stop()
-                    viewModel.exoPlayer?.release()
+                    viewModel.releasePlayer()
                     onBackPressed?.invoke()
                 },
                 onPlayPause = {
@@ -426,7 +421,7 @@ fun PlayerScreen(
         )
 
         // Loading indicator
-        if (uiState.isLoading) {
+        if (playerState.isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
