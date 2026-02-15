@@ -1,6 +1,5 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.request.CachePolicy
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -48,6 +46,7 @@ fun MyMedia(
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
+    val libraryImageUrls = remember { mutableStateMapOf<String, String?>() }
 
     // Loading function
     suspend fun loadLibraries(showRefreshIndicator: Boolean = false) {
@@ -91,6 +90,29 @@ fun MyMedia(
     // Load library views
     LaunchedEffect(Unit) {
         loadLibraries()
+    }
+
+    // Resolve and cache library image URLs once per library id to avoid recycle flicker/jank.
+    LaunchedEffect(libraryViews) {
+        val idsToLoad = libraryViews
+            .mapNotNull { it.id }
+            .filterNot { libraryImageUrls.containsKey(it) }
+
+        if (idsToLoad.isEmpty()) return@LaunchedEffect
+
+        for (itemId in idsToLoad) {
+            val url = withContext(Dispatchers.IO) {
+                runCatching {
+                    mediaRepository.getImageUrl(
+                        itemId = itemId,
+                        width = 400,
+                        height = 300,
+                        quality = 90
+                    ).first()
+                }.getOrNull()
+            }
+            libraryImageUrls[itemId] = url
+        }
     }
 
     Box(
@@ -255,10 +277,13 @@ fun MyMedia(
                         ) {
                             items(
                                 items = libraryViews,
-                                key = { library -> library.id ?: "${library.name}_${library.collectionType}_${library.hashCode()}_${System.nanoTime()}" }
+                                key = { library ->
+                                    library.id ?: "${library.name.orEmpty()}_${library.collectionType.orEmpty()}"
+                                }
                             ) { library ->
                                 VisualLibraryCard(
                                     library = library,
+                                    imageUrl = library.id?.let { id -> libraryImageUrls[id] },
                                     onClick = {
                                         val contentType = when (library.collectionType) {
                                             "movies" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES
@@ -281,11 +306,10 @@ fun MyMedia(
 @Composable
 private fun VisualLibraryCard(
     library: com.jellycine.data.model.BaseItemDto,
+    imageUrl: String?,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
-    val libraryColor = getLibraryColor(library.collectionType)
 
     val itemCount = when {
         library.childCount != null && library.childCount!! > 0 -> library.childCount!!
@@ -293,39 +317,8 @@ private fun VisualLibraryCard(
         else -> 0
     }
     
-    // Load library image
-    var imageUrl by remember(library.id) { mutableStateOf<String?>(null) }
-    var isImageLoading by remember(library.id) { mutableStateOf(true) }
-    
-    LaunchedEffect(library.id) {
-        val itemId = library.id
-        if (itemId != null) {
-            try {
-                val url = mediaRepository.getImageUrl(
-                    itemId = itemId,
-                    width = 400,
-                    height = 300,
-                    quality = 90
-                ).first()
-                imageUrl = url
-                isImageLoading = false
-            } catch (e: Exception) {
-                imageUrl = null
-                isImageLoading = false
-            }
-        }
-    }
-
-    var isVisible by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        delay(50)
-        isVisible = true
-    }
-
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing))
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Card(
             modifier = Modifier
@@ -336,24 +329,25 @@ private fun VisualLibraryCard(
                 containerColor = Color.Transparent
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 8.dp,
-                pressedElevation = 12.dp
+                defaultElevation = 3.dp,
+                pressedElevation = 5.dp
             ),
             onClick = onClick
         ) {
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (imageUrl != null && !isImageLoading) {
+                if (imageUrl != null) {
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(imageUrl)
-                            .crossfade(true)
+                            .crossfade(false)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .networkCachePolicy(CachePolicy.ENABLED)
                             .build(),
                         contentDescription = library.name,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp)),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -361,20 +355,46 @@ private fun VisualLibraryCard(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        libraryColor.copy(alpha = 0.8f),
-                                        libraryColor.copy(alpha = 0.95f)
-                                    ),
-                                    startY = 0f,
-                                    endY = Float.POSITIVE_INFINITY
-                                ),
+                                color = Color(0xFF161616),
                                 shape = RoundedCornerShape(16.dp)
-                            )
-                    )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = getLibraryIcon(library.collectionType),
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
                 }
             }
         }
+
+        val libraryName = library.name ?: "Library"
+        val subtitle = if (itemCount > 0) {
+            "$itemCount ${if (itemCount == 1) "item" else "items"}"
+        } else {
+            getLibraryTypeText(library.collectionType)
+        }
+
+        Text(
+            text = libraryName,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp)
+        )
+        Text(
+            text = subtitle,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp, start = 2.dp, end = 2.dp)
+        )
     }
 }
 
@@ -499,10 +519,3 @@ private fun getLibraryTypeText(collectionType: String?): String {
     }
 }
 
-private fun getLibraryColor(collectionType: String?): Color {
-    return when (collectionType) {
-        "movies" -> Color(0xFF0080FF)
-        "tvshows" -> Color(0xFF00C851)
-        else -> Color(0xFF0080FF)
-    }
-}
