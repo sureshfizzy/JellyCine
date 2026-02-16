@@ -20,8 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -693,43 +695,85 @@ fun DetailContent(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp)
+                                .clip(RoundedCornerShape(24.dp))
                         ) {
                             Button(
                                 onClick = onPlayClick,
                                 modifier = Modifier.fillMaxSize(),
                                 shape = RoundedCornerShape(24.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
+                                    containerColor = if (isPartiallyWatched) Color(0xFF1F1F24) else Color.White,
                                     contentColor = Color.Black
                                 ),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                                contentPadding = PaddingValues(0.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = if (isPartiallyWatched) "Resume" else "Play",
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = playButtonText,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    val progressFraction = resumeProgress.coerceIn(0f, 1f)
 
-                            if (isPartiallyWatched) {
-                                LinearProgressIndicator(
-                                    progress = { resumeProgress },
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
-                                    color = Color(0xFF2196F3),
-                                    trackColor = Color.Black.copy(alpha = 0.15f)
-                                )
+                                    if (isPartiallyWatched) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .fillMaxWidth(progressFraction)
+                                                .background(Color.White)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 14.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = if (isPartiallyWatched) "Resume" else "Play",
+                                            modifier = Modifier.size(22.dp),
+                                            tint = if (isPartiallyWatched) Color.White else Color.Black
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = playButtonText,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = if (isPartiallyWatched) Color.White else Color.Black
+                                        )
+                                    }
+
+                                    if (isPartiallyWatched) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 14.dp)
+                                                .drawWithContent {
+                                                    clipRect(right = size.width * progressFraction) {
+                                                        this@drawWithContent.drawContent()
+                                                    }
+                                                },
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.PlayArrow,
+                                                contentDescription = if (isPartiallyWatched) "Resume" else "Play",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = Color.Black
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = playButtonText,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                color = Color.Black
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
