@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,14 +38,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun Settings(
     onLogout: () -> Unit = {},
-    onNavigateToPlayerSettings: () -> Unit = {}
+    onNavigateToPlayerSettings: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
     val supportedCodecs = remember { getSupportedCodecsSummary() }
+    val listState = rememberLazyListState()
 
     var offlineMode by remember { mutableStateOf(false) }
+    val openDownloadsPreferences: () -> Unit = onNavigateToDownloads
 
     Scaffold(
         topBar = {
@@ -61,6 +65,7 @@ fun Settings(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp),
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
@@ -70,7 +75,8 @@ fun Settings(
                     username = uiState.username ?: "Unknown User",
                     serverName = uiState.serverName ?: "Unknown Server",
                     serverUrl = uiState.serverUrl,
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onNavigateToDownloads = openDownloadsPreferences
                 )
             }
 
@@ -92,6 +98,22 @@ fun Settings(
                             Switch(
                                 checked = offlineMode,
                                 onCheckedChange = { offlineMode = it }
+                            )
+                        }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Wifi,
+                        title = "Wi-Fi Only Downloads",
+                        subtitle = if (uiState.wifiOnlyDownloads) "Enabled" else "Disabled",
+                        accentColor = Color(0xFF0EA5E9),
+                        trailing = {
+                            Switch(
+                                checked = uiState.wifiOnlyDownloads,
+                                onCheckedChange = { viewModel.setWifiOnlyDownloads(it) }
                             )
                         }
                     )
@@ -159,7 +181,8 @@ private fun UserProfileSection(
     username: String,
     serverName: String,
     serverUrl: String?,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    onNavigateToDownloads: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -250,6 +273,39 @@ private fun UserProfileSection(
                             text = serverUrl,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onNavigateToDownloads),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = null,
+                            tint = Color(0xFF06B6D4),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Downloads",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

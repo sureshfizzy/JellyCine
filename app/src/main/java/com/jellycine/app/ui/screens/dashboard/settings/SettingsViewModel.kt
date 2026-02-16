@@ -3,6 +3,7 @@ package com.jellycine.app.ui.screens.dashboard.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jellycine.app.preferences.DownloadPreferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -16,6 +17,7 @@ data class SettingsUiState(
     val serverName: String? = null,
     val serverUrl: String? = null,
     val username: String? = null,
+    val wifiOnlyDownloads: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -24,12 +26,20 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
     
     private val authRepository = AuthRepositoryProvider.getInstance(context)
     private val mediaRepository = MediaRepository(context)
+    private val downloadPreferences = DownloadPreferences(context)
     
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
     init {
+        loadDownloadPreferences()
         loadUserData()
+    }
+
+    private fun loadDownloadPreferences() {
+        _uiState.value = _uiState.value.copy(
+            wifiOnlyDownloads = downloadPreferences.isWifiOnlyDownloadsEnabled()
+        )
     }
     
     private fun loadUserData() {
@@ -87,6 +97,11 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun setWifiOnlyDownloads(enabled: Boolean) {
+        downloadPreferences.setWifiOnlyDownloadsEnabled(enabled)
+        _uiState.value = _uiState.value.copy(wifiOnlyDownloads = enabled)
     }
     
     suspend fun getUserProfileImageUrl(): String? {

@@ -22,6 +22,7 @@ import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
+import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.data.model.BaseItemDto
 import com.google.gson.Gson
@@ -116,6 +117,9 @@ fun AppNavigation() {
                     },
                     onNavigateToPlayerSettings = {
                         navController.navigate("player_settings")
+                    },
+                    onNavigateToDownloads = {
+                        navController.navigate("downloads")
                     },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
@@ -244,6 +248,18 @@ fun AppNavigation() {
                 exitTransition = { create3DExitTransition(350) }
             ) {
                 PlayerSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "downloads",
+                enterTransition = { create3DEnterTransition(450) },
+                exitTransition = { create3DExitTransition(350) }
+            ) {
+                DownloadsScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }

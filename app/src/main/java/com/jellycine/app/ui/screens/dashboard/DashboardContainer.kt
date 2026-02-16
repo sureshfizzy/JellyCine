@@ -129,7 +129,8 @@ fun DashboardContainer(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
-    onNavigateToPlayerSettings: () -> Unit = {}
+    onNavigateToPlayerSettings: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -254,7 +255,8 @@ fun DashboardContainer(
                     ) {
                         Settings(
                             onLogout = onLogout,
-                            onNavigateToPlayerSettings = onNavigateToPlayerSettings
+                            onNavigateToPlayerSettings = onNavigateToPlayerSettings,
+                            onNavigateToDownloads = onNavigateToDownloads
                         )
                     }
                 }

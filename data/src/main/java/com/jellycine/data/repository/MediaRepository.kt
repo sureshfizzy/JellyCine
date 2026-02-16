@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 class MediaRepository(private val context: Context) {
 
@@ -64,6 +66,14 @@ class MediaRepository(private val context: Context) {
         val continueWatchingItems: List<BaseItemDto>,
         val homeLibrarySections: List<HomeLibrarySectionData>,
         val myMediaLibraries: List<BaseItemDto>? = null
+    )
+
+    data class ItemDownloadRequest(
+        val itemId: String,
+        val displayName: String,
+        val downloadUrl: String,
+        val authToken: String?,
+        val fileExtension: String?
     )
 
     @Volatile
@@ -925,6 +935,53 @@ class MediaRepository(private val context: Context) {
             } else {
                 Result.failure(Exception("Failed to fetch playback info: ${response.code()}"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Build authenticated direct-download request data for DownloadManager.
+     */
+    suspend fun getItemDownloadRequest(itemId: String): Result<ItemDownloadRequest> {
+        return try {
+            val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
+            val serverUrl = config.serverUrl.trimEnd('/')
+            val accessToken = config.accessToken
+            if (accessToken.isNullOrBlank()) {
+                return Result.failure(Exception("Access token not available"))
+            }
+
+            val item = getItemById(itemId).getOrNull()
+            val playbackInfo = getPlaybackInfo(itemId).getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+
+            val displayName = item?.name
+                ?.takeIf { it.isNotBlank() }
+                ?: mediaSource?.name?.takeIf { it.isNotBlank() }
+                ?: "jellycine_$itemId"
+
+            val extension = when {
+                !mediaSource?.container.isNullOrBlank() -> mediaSource?.container
+                !item?.container.isNullOrBlank() -> item?.container
+                else -> item?.path
+                    ?.substringAfterLast('.', missingDelimiterValue = "")
+                    ?.takeIf { it.isNotBlank() }
+            }?.trimStart('.')
+                ?.lowercase()
+
+            val encodedName = URLEncoder.encode(displayName, StandardCharsets.UTF_8.toString())
+            val downloadUrl = "$serverUrl/Items/$itemId/Download?api_key=$accessToken&name=$encodedName"
+
+            Result.success(
+                ItemDownloadRequest(
+                    itemId = itemId,
+                    displayName = displayName,
+                    downloadUrl = downloadUrl,
+                    authToken = accessToken,
+                    fileExtension = extension
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }

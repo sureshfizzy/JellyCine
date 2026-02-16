@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,17 +22,15 @@ import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.MediaSource
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.audio.SpatializerStateListener
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.player.video.HdrCapabilityManager
-import com.jellycine.app.ui.screens.player.MediaMetadataInfo
-import com.jellycine.app.ui.screens.player.HdrFormatInfo
-import com.jellycine.app.ui.screens.player.VideoFormatInfo
-import com.jellycine.app.ui.screens.player.AudioFormatInfo
-import com.jellycine.app.ui.screens.player.HardwareAccelerationInfo
+import com.jellycine.app.download.DownloadRepositoryProvider
+import java.io.File
 
 /**
  * Player ViewModel
@@ -58,6 +57,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var currentPlayMethod: String = "Direct Play"
     private var progressReportingJob: kotlinx.coroutines.Job? = null
     private var hasReportedStart = false
+    private var isOfflinePlayback = false
 
     fun initializePlayer(context: Context, mediaId: String) {
         viewModelScope.launch {
@@ -74,49 +74,67 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 
                 exoPlayer = PlayerUtils.createPlayer(context)
 
-                // Get playback info first to obtain session details and check for resume position
-                val playbackInfoResult = mediaRepository.getPlaybackInfo(mediaId)
-                if (playbackInfoResult.isFailure) {
-                    val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
-                    _playerState.value = _playerState.value.copy(isLoading = false, error = error)
-                    return@launch
-                }
-
-                val playbackInfo = playbackInfoResult.getOrNull()
-                if (playbackInfo == null) {
-                    _playerState.value = _playerState.value.copy(isLoading = false, error = "Playback info is null")
-                    return@launch
-                }
-
-                val primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
-                playSessionId = playbackInfo.playSessionId
-                mediaSourceId = primaryMediaSource?.id
-                mediaSourceContainer = primaryMediaSource?.container
-                mediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
-                currentPlayMethod = when {
-                    primaryMediaSource?.supportsDirectPlay == true -> "Direct Play"
-                    primaryMediaSource?.supportsDirectStream == true -> "Direct Stream"
-                    else -> "Transcode"
-                }
-
                 // Get item details to check for resume position
                 val itemResult = mediaRepository.getItemById(mediaId)
                 val resumePositionTicks = itemResult.getOrNull()?.userData?.playbackPositionTicks
 
-                val streamingResult = mediaRepository.getStreamingUrl(mediaId)
-                if (streamingResult.isFailure) {
-                    val error = streamingResult.exceptionOrNull()?.message ?: "Failed to get streaming URL"
-                    _playerState.value = _playerState.value.copy(isLoading = false, error = error)
-                    return@launch
-                }
+                val downloadRepository = DownloadRepositoryProvider.getInstance(context)
+                val offlinePath = downloadRepository.getOfflineFilePath(mediaId)
+                val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
 
-                val streamingUrl = streamingResult.getOrNull()
-                if (streamingUrl.isNullOrEmpty()) {
-                    _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get streaming URL")
-                    return@launch
-                }
+                var primaryMediaSource: MediaSource? = null
+                val mediaItem = if (hasOfflineFile) {
+                    val localFilePath = requireNotNull(offlinePath)
+                    isOfflinePlayback = true
+                    playSessionId = null
+                    mediaSourceId = null
+                    mediaSourceContainer = null
+                    mediaSourceBitrateKbps = null
+                    currentPlayMethod = "Offline"
+                    MediaItem.fromUri(Uri.fromFile(File(localFilePath)))
+                } else {
+                    isOfflinePlayback = false
 
-                val mediaItem = MediaItem.fromUri(streamingUrl)
+                    // Get playback info first to obtain session details
+                    val playbackInfoResult = mediaRepository.getPlaybackInfo(mediaId)
+                    if (playbackInfoResult.isFailure) {
+                        val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
+                        _playerState.value = _playerState.value.copy(isLoading = false, error = error)
+                        return@launch
+                    }
+
+                    val playbackInfo = playbackInfoResult.getOrNull()
+                    if (playbackInfo == null) {
+                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Playback info is null")
+                        return@launch
+                    }
+
+                    primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
+                    playSessionId = playbackInfo.playSessionId
+                    mediaSourceId = primaryMediaSource?.id
+                    mediaSourceContainer = primaryMediaSource?.container
+                    mediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
+                    currentPlayMethod = when {
+                        primaryMediaSource?.supportsDirectPlay == true -> "Direct Play"
+                        primaryMediaSource?.supportsDirectStream == true -> "Direct Stream"
+                        else -> "Transcode"
+                    }
+
+                    val streamingResult = mediaRepository.getStreamingUrl(mediaId)
+                    if (streamingResult.isFailure) {
+                        val error = streamingResult.exceptionOrNull()?.message ?: "Failed to get streaming URL"
+                        _playerState.value = _playerState.value.copy(isLoading = false, error = error)
+                        return@launch
+                    }
+
+                    val streamingUrl = streamingResult.getOrNull()
+                    if (streamingUrl.isNullOrEmpty()) {
+                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get streaming URL")
+                        return@launch
+                    }
+
+                    MediaItem.fromUri(streamingUrl)
+                }
                 
                 // Get media info for spatial audio analysis
                 apiMediaStreams = primaryMediaSource?.mediaStreams
@@ -269,6 +287,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         mediaSourceBitrateKbps = null
         currentPlayMethod = "Direct Play"
         hasReportedStart = false
+        isOfflinePlayback = false
         
         _playerState.value = PlayerState()
     }
@@ -277,6 +296,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Report playback start to Jellyfin server
      */
     private fun reportPlaybackStart() {
+        if (isOfflinePlayback) return
         currentMediaId?.let { mediaId ->
             if (!hasReportedStart) {
                 viewModelScope.launch {
@@ -328,6 +348,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Report current playback progress to Jellyfin server
      */
     private fun reportPlaybackProgress() {
+        if (isOfflinePlayback) return
         currentMediaId?.let { mediaId ->
             if (hasReportedStart && exoPlayer != null) {
                 viewModelScope.launch {
@@ -362,6 +383,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Report playback stopped to Jellyfin server
      */
     private fun reportPlaybackStopped() {
+        if (isOfflinePlayback) return
         currentMediaId?.let { mediaId ->
             if (hasReportedStart) {
                 viewModelScope.launch {

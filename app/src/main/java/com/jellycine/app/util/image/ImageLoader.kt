@@ -131,14 +131,16 @@ class ImageUrlViewModel @Inject constructor(
         imageType: String = "Primary",
         width: Int? = null,
         height: Int? = null,
-        quality: Int? = 90
+        quality: Int? = 90,
+        enableImageEnhancers: Boolean = true
     ): Flow<String?> {
         return mediaRepository.getImageUrl(
             itemId = itemId,
             imageType = imageType,
             width = width,
             height = height,
-            quality = quality
+            quality = quality,
+            enableImageEnhancers = enableImageEnhancers
         )
     }
 }
@@ -148,11 +150,19 @@ class ImageUrlViewModel @Inject constructor(
 fun rememberImageUrl(
     itemId: String?,
     imageType: String = "Primary",
+    width: Int? = null,
+    height: Int? = null,
+    quality: Int? = 90,
+    enableImageEnhancers: Boolean = true,
     mediaRepository: MediaRepository
 ): String? {
     val imageUrl by mediaRepository.getImageUrl(
         itemId = itemId ?: "",
-        imageType = imageType
+        imageType = imageType,
+        width = width,
+        height = height,
+        quality = quality,
+        enableImageEnhancers = enableImageEnhancers
     ).collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl
@@ -162,11 +172,19 @@ fun rememberImageUrl(
 fun rememberImageUrl(
     itemId: String?,
     imageType: String = "Primary",
+    width: Int? = null,
+    height: Int? = null,
+    quality: Int? = 90,
+    enableImageEnhancers: Boolean = true,
     viewModel: ImageUrlViewModel = hiltViewModel()
 ): String? {
     val imageUrl by viewModel.getImageUrl(
         itemId = itemId ?: "",
-        imageType = imageType
+        imageType = imageType,
+        width = width,
+        height = height,
+        quality = quality,
+        enableImageEnhancers = enableImageEnhancers
     ).collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl

@@ -57,16 +57,19 @@ import com.jellycine.app.ui.components.common.rememberAudioCapabilities
 import com.jellycine.app.ui.components.common.ActionButtonsSection
 import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.CodecInfoSection
-import com.jellycine.app.ui.components.common.DownloadOnlyButton
 import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.TechnicalInfoSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.app.download.DownloadRepositoryProvider
+import com.jellycine.app.download.DownloadStatus
+import com.jellycine.app.download.ItemDownloadState
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 
 
 @UnstableApi
@@ -300,6 +303,8 @@ fun DetailContent(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
         item.type,
@@ -345,6 +350,21 @@ fun DetailContent(
     }
     val reserveLogoSpace = (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
     val showTitleFallback = !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
+    val canDownloadItem = item.id != null && item.canDownload != false
+    val itemDownloadStateFlow = remember(item.id) { item.id?.let { downloadRepository.observeItemDownload(it) } }
+    val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
+        ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
+    var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
+    val animatedDownloadProgress by animateFloatAsState(
+        targetValue = when (itemDownloadState.status) {
+            DownloadStatus.QUEUED -> 0.05f
+            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0.05f, 0.99f)
+            DownloadStatus.COMPLETED -> 1f
+            else -> 0f
+        },
+        animationSpec = tween(durationMillis = 350),
+        label = "detail_download_progress"
+    )
 
     LaunchedEffect(item.id) {
         if (item.id == null) {
@@ -714,7 +734,13 @@ fun DetailContent(
                         }
 
                         OutlinedButton(
-                            onClick = { /* TODO: Download */ },
+                            onClick = {
+                                if (canDownloadItem) {
+                                    coroutineScope.launch {
+                                        downloadRepository.enqueueItemDownload(item)
+                                    }
+                                }
+                            },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp),
@@ -726,17 +752,117 @@ fun DetailContent(
                             ),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Download,
-                                contentDescription = "Download",
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Download",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            val buttonState = when {
+                                !canDownloadItem -> "unavailable"
+                                itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
+                                itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
+                                itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
+                                itemDownloadState.status == DownloadStatus.FAILED -> "failed"
+                                else -> "idle"
+                            }
+                            AnimatedContent(
+                                targetState = buttonState,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(220)) togetherWith
+                                        fadeOut(animationSpec = tween(180))
+                                },
+                                label = "download_button_state"
+                            ) { state ->
+                                when (state) {
+                                    "downloading", "queued" -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                progress = { animatedDownloadProgress.coerceIn(0.05f, 0.99f) },
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color(0xFF03A9F4)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "${(animatedDownloadProgress * 100).toInt()}%",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    "completed" -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.CheckCircle,
+                                                contentDescription = "Downloaded",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = Color(0xFF4CAF50)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Downloaded",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    "failed" -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Refresh,
+                                                contentDescription = "Retry download",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Retry",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    "unavailable" -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Download,
+                                                contentDescription = "Download unavailable",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Unavailable",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    else -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Download,
+                                                contentDescription = "Download",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Download",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -751,7 +877,20 @@ fun DetailContent(
 
                 if (item.type == "Series") {
                     OutlinedButton(
-                        onClick = { /* TODO: Download series */ },
+                        onClick = {
+                            coroutineScope.launch {
+                                val seriesId = item.id
+                                if (seriesId.isNullOrBlank()) {
+                                    return@launch
+                                }
+                                seriesQueueInProgress = true
+                                try {
+                                    downloadRepository.enqueueSeriesDownload(seriesId)
+                                } finally {
+                                    seriesQueueInProgress = false
+                                }
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp)
@@ -763,17 +902,50 @@ fun DetailContent(
                             contentColor = Color.White
                         )
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = "Download series",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Download Series",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        AnimatedContent(
+                            targetState = seriesQueueInProgress,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(220)) togetherWith
+                                    fadeOut(animationSpec = tween(180))
+                            },
+                            label = "download_series_state"
+                        ) { inProgress ->
+                            if (inProgress) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color(0xFF03A9F4)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Queuing...",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = "Download series",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Download Series",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     item.id?.let { seriesId ->
