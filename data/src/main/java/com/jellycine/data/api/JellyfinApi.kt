@@ -44,6 +44,7 @@ interface MediaServerApi {
         @Query("sortOrder") sortOrder: String? = null,
         @Query("limit") limit: Int? = null,
         @Query("startIndex") startIndex: Int? = null,
+        @Query("filters") filters: String? = null,
         @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 

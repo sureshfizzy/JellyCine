@@ -286,6 +286,7 @@ class MediaRepository(private val context: Context) {
         sortOrder: String? = null,
         limit: Int? = null,
         startIndex: Int? = null,
+        filters: String? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
@@ -301,6 +302,7 @@ class MediaRepository(private val context: Context) {
                 sortOrder = sortOrder,
                 limit = limit,
                 startIndex = startIndex,
+                filters = filters,
                 fields = fields
             )
 
@@ -312,6 +314,23 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun getFavoriteItems(
+        includeItemTypes: String? = "Movie,Series,Episode",
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): Result<QueryResult<BaseItemDto>> {
+        return getUserItems(
+            includeItemTypes = includeItemTypes,
+            recursive = true,
+            sortBy = "DateCreated",
+            sortOrder = "Descending",
+            limit = limit,
+            startIndex = startIndex,
+            filters = "IsFavorite",
+            fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,IndexNumber,ParentIndexNumber,ProductionYear,RunTimeTicks,Overview,DateCreated"
+        )
     }
     
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {

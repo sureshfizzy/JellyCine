@@ -238,7 +238,9 @@ fun DashboardContainer(
                         isActive = currentRoute == DashboardDestination.Favorites.route,
                         route = DashboardDestination.Favorites.route
                     ) {
-                        Favorites()
+                        Favorites(
+                            onItemClick = onNavigateToDetail
+                        )
                     }
                 }
                 composable(
