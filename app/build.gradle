@@ -26,7 +26,7 @@ android {
     defaultConfig {
         applicationId = "com.jellycine.app"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 35
         versionCode = rootProject.ext.appVersionCode as Integer
         versionName = rootProject.ext.appVersionName as String
 
