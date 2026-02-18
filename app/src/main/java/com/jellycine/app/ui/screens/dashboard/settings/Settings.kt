@@ -127,7 +127,7 @@ fun Settings(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
-                        icon = Icons.Rounded.Wifi,
+                        icon = Icons.Rounded.SettingsEthernet,
                         title = "Network",
                         subtitle = "Request, connection, and socket timeout",
                         accentColor = Color(0xFF06B6D4),
