@@ -42,7 +42,8 @@ import kotlinx.coroutines.withContext
 fun Settings(
     onLogout: () -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
-    onNavigateToDownloads: () -> Unit = {}
+    onNavigateToDownloads: () -> Unit = {},
+    onNavigateToCacheSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
@@ -53,7 +54,6 @@ fun Settings(
     var offlineMode by remember { mutableStateOf(false) }
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
-    val openDownloadsPreferences: () -> Unit = onNavigateToDownloads
 
     Scaffold(
         topBar = {
@@ -81,7 +81,7 @@ fun Settings(
                     serverName = uiState.serverName ?: "Unknown Server",
                     serverUrl = uiState.serverUrl,
                     viewModel = viewModel,
-                    onNavigateToDownloads = openDownloadsPreferences
+                    onNavigateToDownloads = onNavigateToDownloads
                 )
             }
 
@@ -132,6 +132,17 @@ fun Settings(
                         subtitle = "Request, connection, and socket timeout",
                         accentColor = Color(0xFF06B6D4),
                         onClick = { showNetworkDialog = true }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Storage,
+                        title = "Cache",
+                        subtitle = "Cache image and cache size",
+                        accentColor = Color(0xFF22D3EE),
+                        onClick = onNavigateToCacheSettings
                     )
                 }
             }

@@ -23,6 +23,7 @@ import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.data.model.BaseItemDto
 import com.google.gson.Gson
@@ -120,6 +121,9 @@ fun AppNavigation() {
                     },
                     onNavigateToDownloads = {
                         navController.navigate("downloads")
+                    },
+                    onNavigateToCacheSettings = {
+                        navController.navigate("cache_settings")
                     },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
@@ -260,6 +264,18 @@ fun AppNavigation() {
                 exitTransition = { create3DExitTransition(350) }
             ) {
                 DownloadsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "cache_settings",
+                enterTransition = { create3DEnterTransition(450) },
+                exitTransition = { create3DExitTransition(350) }
+            ) {
+                CacheSettingsScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }

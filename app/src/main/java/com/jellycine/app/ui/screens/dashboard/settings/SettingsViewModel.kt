@@ -22,6 +22,8 @@ data class SettingsUiState(
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
     val connectionTimeoutMs: Int = NetworkPreferences.DEFAULT_CONNECTION_TIMEOUT_MS,
     val socketTimeoutMs: Int = NetworkPreferences.DEFAULT_SOCKET_TIMEOUT_MS,
+    val imageMemoryCacheMb: Int = NetworkPreferences.DEFAULT_IMAGE_MEMORY_CACHE_MB,
+    val imageCachingEnabled: Boolean = NetworkPreferences.DEFAULT_IMAGE_CACHING_ENABLED,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -53,7 +55,9 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         _uiState.value = _uiState.value.copy(
             requestTimeoutMs = networkConfig.requestTimeoutMs,
             connectionTimeoutMs = networkConfig.connectionTimeoutMs,
-            socketTimeoutMs = networkConfig.socketTimeoutMs
+            socketTimeoutMs = networkConfig.socketTimeoutMs,
+            imageMemoryCacheMb = networkPreferences.getImageMemoryCacheMb(),
+            imageCachingEnabled = networkPreferences.isImageCachingEnabled()
         )
     }
     
@@ -137,6 +141,20 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         networkPreferences.setSocketTimeoutMs(milliseconds)
         _uiState.value = _uiState.value.copy(
             socketTimeoutMs = networkPreferences.getTimeoutConfig().socketTimeoutMs
+        )
+    }
+
+    fun setImageMemoryCacheMb(megabytes: Int) {
+        networkPreferences.setImageMemoryCacheMb(megabytes)
+        _uiState.value = _uiState.value.copy(
+            imageMemoryCacheMb = networkPreferences.getImageMemoryCacheMb()
+        )
+    }
+
+    fun setImageCachingEnabled(enabled: Boolean) {
+        networkPreferences.setImageCachingEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            imageCachingEnabled = networkPreferences.isImageCachingEnabled()
         )
     }
     

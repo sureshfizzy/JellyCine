@@ -9,6 +9,7 @@ import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
+import com.jellycine.data.preferences.NetworkPreferences
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.ConnectionPool
@@ -40,6 +41,20 @@ object ImageLoaderConfig {
         return dir
     }
 
+    private fun DiskCacheSize(context: Context): Long {
+        val availableBytes = context.filesDir.usableSpace
+        val percent = when {
+            availableBytes > 32L * 1024 * 1024 * 1024 -> 0.02
+            availableBytes > 8L * 1024 * 1024 * 1024 -> 0.04
+            else -> 0.05
+        }
+
+        val calculatedSize = (availableBytes * percent).toLong()
+        val finalSize = max(50L * 1024 * 1024, min(500L * 1024 * 1024, calculatedSize))
+
+        return finalSize
+    }
+
     private fun getOptimalMemoryPercent(context: Context): Double {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
@@ -55,22 +70,15 @@ object ImageLoaderConfig {
             else -> if (isLargeHeap) 0.08 else 0.06
         }
 
-        val finalPercent = max(0.08, min(0.30, basePercent))
-        return finalPercent
+        return max(0.08, min(0.30, basePercent))
     }
 
-    private fun getOptimalDiskCacheSize(context: Context): Long {
-        val availableBytes = context.filesDir.usableSpace
-        val percent = when {
-            availableBytes > 32L * 1024 * 1024 * 1024 -> 0.02
-            availableBytes > 8L * 1024 * 1024 * 1024 -> 0.04
-            else -> 0.05
+    private fun ImageMemoryCacheBytes(context: Context): Int? {
+        val configuredMb = NetworkPreferences(context).getImageMemoryCacheMb()
+        if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
+            return null
         }
-
-        val calculatedSize = (availableBytes * percent).toLong()
-        val finalSize = max(50L * 1024 * 1024, min(500L * 1024 * 1024, calculatedSize))
-
-        return finalSize
+        return configuredMb * 1024 * 1024
     }
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
@@ -129,26 +137,42 @@ object ImageLoaderConfig {
     }
 
     fun createOptimizedImageLoader(context: Context): ImageLoader {
-        return ImageLoader.Builder(context)
+        val networkPreferences = NetworkPreferences(context)
+        val imageCachingEnabled = networkPreferences.isImageCachingEnabled()
+        val configuredMemoryCacheBytes = ImageMemoryCacheBytes(context)
+        val builder = ImageLoader.Builder(context)
             .memoryCache {
-                MemoryCache.Builder(context)
-                    .maxSizePercent(getOptimalMemoryPercent(context))
+                val memoryCacheBuilder = MemoryCache.Builder(context)
                     .strongReferencesEnabled(true)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(persistentImageCacheDir(context))
-                    .maxSizeBytes(getOptimalDiskCacheSize(context))
-                    .build()
+                if (configuredMemoryCacheBytes != null) {
+                    memoryCacheBuilder.maxSizeBytes(configuredMemoryCacheBytes)
+                } else {
+                    memoryCacheBuilder.maxSizePercent(getOptimalMemoryPercent(context))
+                }
+                memoryCacheBuilder.build()
             }
             .okHttpClient(createAuthenticatedOkHttpClient(context))
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
             .respectCacheHeaders(false)
             .allowHardware(true)
             .crossfade(false)
-            .build()
+
+        builder.diskCache {
+            DiskCache.Builder()
+                .directory(persistentImageCacheDir(context))
+                .maxSizeBytes(DiskCacheSize(context))
+                .build()
+        }
+
+        if (imageCachingEnabled) {
+            builder.memoryCachePolicy(CachePolicy.ENABLED)
+            builder.diskCachePolicy(CachePolicy.ENABLED)
+            builder.networkCachePolicy(CachePolicy.ENABLED)
+        } else {
+            builder.memoryCachePolicy(CachePolicy.DISABLED)
+            builder.diskCachePolicy(CachePolicy.DISABLED)
+            builder.networkCachePolicy(CachePolicy.DISABLED)
+        }
+
+        return builder.build()
     }
 }
