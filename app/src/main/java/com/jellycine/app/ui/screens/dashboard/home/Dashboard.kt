@@ -35,6 +35,7 @@ import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.UserItemDataDto
+import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.delay
@@ -100,7 +101,7 @@ data class QueryConfig(
     val retryCount: Int = 1,
     val retryDelay: Long = 250L,
     val enabled: Boolean = true,
-    val requestTimeoutMs: Long = 12_000L
+    val requestTimeoutMs: Long = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS.toLong()
 )
 
 class QueryManager(private val scope: CoroutineScope) {
@@ -1032,6 +1033,7 @@ fun Dashboard(
     val context = LocalContext.current
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
+    val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
@@ -1061,7 +1063,8 @@ fun Dashboard(
             key = "featured_$selectedCategory",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive
+                enabled = isTabActive,
+                requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
             val result = when (selectedCategory) {
@@ -1113,7 +1116,8 @@ fun Dashboard(
                 staleTime = 60_000L,
                 enabled = isTabActive && selectedCategory == "Home",
                 retryCount = 2,
-                retryDelay = 250L
+                retryDelay = 250L,
+                requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
             val result = mediaRepository.getResumeItems(limit = 24)
@@ -1144,7 +1148,8 @@ fun Dashboard(
                 staleTime = 300_000L,
                 enabled = isTabActive && selectedCategory == "Home",
                 retryCount = 1,
-                retryDelay = 200L
+                retryDelay = 200L,
+                requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
             val result = mediaRepository.getHomeLibrarySections(
@@ -1173,7 +1178,8 @@ fun Dashboard(
                 staleTime = 300_000L,
                 enabled = isTabActive && selectedCategory == "Home",
                 retryCount = 1,
-                retryDelay = 200L
+                retryDelay = 200L,
+                requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
             val result = mediaRepository.getUserViews()

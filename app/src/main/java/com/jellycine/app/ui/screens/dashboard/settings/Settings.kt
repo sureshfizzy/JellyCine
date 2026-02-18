@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
@@ -25,12 +26,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
+import com.jellycine.data.preferences.NetworkPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -48,6 +51,8 @@ fun Settings(
     val listState = rememberLazyListState()
 
     var offlineMode by remember { mutableStateOf(false) }
+    var showNetworkDialog by remember { mutableStateOf(false) }
+    var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
     val openDownloadsPreferences: () -> Unit = onNavigateToDownloads
 
     Scaffold(
@@ -117,6 +122,17 @@ fun Settings(
                             )
                         }
                     )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Wifi,
+                        title = "Network",
+                        subtitle = "Request, connection, and socket timeout",
+                        accentColor = Color(0xFF06B6D4),
+                        onClick = { showNetworkDialog = true }
+                    )
                 }
             }
 
@@ -172,6 +188,40 @@ fun Settings(
         LaunchedEffect(error) {
             viewModel.clearError()
         }
+    }
+
+    if (showNetworkDialog) {
+        NetworkSettingsDialog(
+            requestTimeoutMs = uiState.requestTimeoutMs,
+            connectionTimeoutMs = uiState.connectionTimeoutMs,
+            socketTimeoutMs = uiState.socketTimeoutMs,
+            onDismiss = { showNetworkDialog = false },
+            onSelectField = { field ->
+                showNetworkDialog = false
+                editingNetworkTimeout = field
+            }
+        )
+    }
+
+    editingNetworkTimeout?.let { field ->
+        val initialValue = when (field) {
+            NetworkTimeoutField.REQUEST -> uiState.requestTimeoutMs
+            NetworkTimeoutField.CONNECTION -> uiState.connectionTimeoutMs
+            NetworkTimeoutField.SOCKET -> uiState.socketTimeoutMs
+        }
+        TimeoutValueDialog(
+            field = field,
+            initialValue = initialValue,
+            onDismiss = { editingNetworkTimeout = null },
+            onSave = { value ->
+                when (field) {
+                    NetworkTimeoutField.REQUEST -> viewModel.setRequestTimeoutMs(value)
+                    NetworkTimeoutField.CONNECTION -> viewModel.setConnectionTimeoutMs(value)
+                    NetworkTimeoutField.SOCKET -> viewModel.setSocketTimeoutMs(value)
+                }
+                editingNetworkTimeout = null
+            }
+        )
     }
 }
 
@@ -579,6 +629,161 @@ private fun ProfileImageLoader(
 @Composable
 fun SettingsPreview() {
     Settings()
+}
+
+private enum class NetworkTimeoutField(val title: String) {
+    REQUEST("Request Timeout"),
+    CONNECTION("Connection Timeout"),
+    SOCKET("Socket Timeout")
+}
+
+@Composable
+private fun NetworkSettingsDialog(
+    requestTimeoutMs: Int,
+    connectionTimeoutMs: Int,
+    socketTimeoutMs: Int,
+    onDismiss: () -> Unit,
+    onSelectField: (NetworkTimeoutField) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        title = { Text("Network") },
+        text = {
+            Column {
+                NetworkDialogItem(
+                    title = "Request Timeout",
+                    value = "$requestTimeoutMs ms",
+                    onClick = { onSelectField(NetworkTimeoutField.REQUEST) }
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
+                NetworkDialogItem(
+                    title = "Connection Timeout",
+                    value = "$connectionTimeoutMs ms",
+                    onClick = { onSelectField(NetworkTimeoutField.CONNECTION) }
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
+                NetworkDialogItem(
+                    title = "Socket Timeout",
+                    value = "$socketTimeoutMs ms",
+                    onClick = { onSelectField(NetworkTimeoutField.SOCKET) }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF22D3EE))
+            }
+        }
+    )
+}
+
+@Composable
+private fun NetworkDialogItem(
+    title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.72f)
+            )
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.72f)
+        )
+    }
+}
+
+@Composable
+private fun TimeoutValueDialog(
+    field: NetworkTimeoutField,
+    initialValue: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    var textValue by remember(initialValue) { mutableStateOf(initialValue.toString()) }
+    val parsedValue = textValue.toIntOrNull()
+    val isValid = parsedValue != null &&
+        parsedValue in NetworkPreferences.MIN_TIMEOUT_MS..NetworkPreferences.MAX_TIMEOUT_MS
+    val hasValidationError = textValue.isNotBlank() && !isValid
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        title = { Text(field.title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = textValue,
+                    onValueChange = { input ->
+                        textValue = input.filter { it.isDigit() }.take(6)
+                    },
+                    label = { Text("Milliseconds") },
+                    singleLine = true,
+                    isError = hasValidationError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedLabelColor = Color.White.copy(alpha = 0.9f),
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        focusedBorderColor = Color(0xFF22D3EE),
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.35f),
+                        cursorColor = Color(0xFF22D3EE),
+                        errorBorderColor = Color(0xFFFF6B6B),
+                        errorLabelColor = Color(0xFFFF6B6B),
+                        errorCursorColor = Color(0xFFFF6B6B)
+                    )
+                )
+                Text(
+                    text = "Allowed range: ${NetworkPreferences.MIN_TIMEOUT_MS}-${NetworkPreferences.MAX_TIMEOUT_MS} ms",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                if (hasValidationError) {
+                    Text(
+                        text = "Enter a valid value in milliseconds.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFFF6B6B)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = isValid,
+                onClick = { parsedValue?.let(onSave) }
+            ) {
+                Text("Apply", color = Color(0xFF22D3EE))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+            }
+        }
+    )
 }
 
 private fun getSupportedCodecsSummary(): String {

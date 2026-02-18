@@ -11,6 +11,8 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.preferences.NetworkPreferences
+import com.jellycine.data.preferences.NetworkTimeoutConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -28,6 +30,7 @@ import java.nio.charset.StandardCharsets
 class MediaRepository(private val context: Context) {
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
+    private val networkPreferences = NetworkPreferences(context)
     
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
@@ -51,7 +54,8 @@ class MediaRepository(private val context: Context) {
         val serverTypeRaw: String?,
         val serverType: NetworkModule.ServerType?,
         val accessToken: String?,
-        val userId: String
+        val userId: String,
+        val timeoutConfig: NetworkTimeoutConfig
     )
 
     data class HomeLibrarySectionData(
@@ -135,7 +139,8 @@ class MediaRepository(private val context: Context) {
             serverTypeRaw = serverTypeRaw,
             serverType = serverType,
             accessToken = accessToken,
-            userId = userId
+            userId = userId,
+            timeoutConfig = networkPreferences.getTimeoutConfig()
         ).also {
             cachedSessionConfig = it
             cachedSessionConfigAt = now
@@ -144,7 +149,21 @@ class MediaRepository(private val context: Context) {
 
     private suspend fun getApiSession(): ApiSession? {
         val config = getSessionConfig() ?: return null
-        val newSessionKey = "${config.serverUrl}|${config.serverTypeRaw ?: ""}|${config.accessToken ?: ""}|${config.userId}"
+        val newSessionKey = buildString {
+            append(config.serverUrl)
+            append("|")
+            append(config.serverTypeRaw ?: "")
+            append("|")
+            append(config.accessToken ?: "")
+            append("|")
+            append(config.userId)
+            append("|")
+            append(config.timeoutConfig.requestTimeoutMs)
+            append("|")
+            append(config.timeoutConfig.connectionTimeoutMs)
+            append("|")
+            append(config.timeoutConfig.socketTimeoutMs)
+        }
 
         cachedSession?.let { session ->
             if (cachedSessionKey == newSessionKey) {
@@ -163,7 +182,8 @@ class MediaRepository(private val context: Context) {
                 baseUrl = config.serverUrl,
                 accessToken = config.accessToken,
                 serverType = config.serverType,
-                storageDir = context.filesDir
+                storageDir = context.filesDir,
+                timeoutConfig = config.timeoutConfig
             )
 
             val session = ApiSession(api = api, userId = config.userId)

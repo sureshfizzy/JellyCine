@@ -4,6 +4,7 @@ import android.util.Log
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.BuildConfig
 import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.preferences.NetworkTimeoutConfig
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
@@ -39,14 +40,33 @@ object NetworkModule {
         baseUrl: String,
         accessToken: String? = null,
         serverType: ServerType? = null,
-        storageDir: File? = null
+        storageDir: File? = null,
+        timeoutConfig: NetworkTimeoutConfig? = null
     ): MediaServerApi {
         val normalizedBaseUrl = ensureTrailingSlash(baseUrl)
         val resolvedType = serverType ?: inferServerType(normalizedBaseUrl)
-        val cacheKey = "${normalizedBaseUrl.trimEnd('/')}|${accessToken.orEmpty()}|${resolvedType.name}"
+        val resolvedTimeoutConfig = timeoutConfig ?: defaultTimeoutConfig()
+        val cacheKey = buildString {
+            append(normalizedBaseUrl.trimEnd('/'))
+            append("|")
+            append(accessToken.orEmpty())
+            append("|")
+            append(resolvedType.name)
+            append("|")
+            append(resolvedTimeoutConfig.requestTimeoutMs)
+            append("|")
+            append(resolvedTimeoutConfig.connectionTimeoutMs)
+            append("|")
+            append(resolvedTimeoutConfig.socketTimeoutMs)
+        }
         apiCache[cacheKey]?.let { return it }
 
-        val okHttpClient = createOkHttpClient(accessToken, resolvedType, storageDir)
+        val okHttpClient = createOkHttpClient(
+            accessToken = accessToken,
+            serverType = resolvedType,
+            storageDir = storageDir,
+            timeoutConfig = resolvedTimeoutConfig
+        )
         val retrofit = Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
             .client(okHttpClient)
@@ -59,21 +79,33 @@ object NetworkModule {
     fun createJellyfinApi(
         baseUrl: String,
         accessToken: String? = null,
-        storageDir: File? = null
+        storageDir: File? = null,
+        timeoutConfig: NetworkTimeoutConfig? = null
     ): MediaServerApi {
-        return createMediaServerApi(baseUrl, accessToken, ServerType.JELLYFIN, storageDir)
+        return createMediaServerApi(
+            baseUrl = baseUrl,
+            accessToken = accessToken,
+            serverType = ServerType.JELLYFIN,
+            storageDir = storageDir,
+            timeoutConfig = timeoutConfig
+        )
     }
 
     suspend fun resolveServerEndpoint(
         serverUrl: String,
-        storageDir: File? = null
+        storageDir: File? = null,
+        timeoutConfig: NetworkTimeoutConfig? = null
     ): Result<ResolvedServerEndpoint> {
         val candidates = buildBaseUrlCandidates(serverUrl)
         var lastError: Exception? = null
 
         for (candidate in candidates) {
             try {
-                val api = createMediaServerApi(candidate, storageDir = storageDir)
+                val api = createMediaServerApi(
+                    baseUrl = candidate,
+                    storageDir = storageDir,
+                    timeoutConfig = timeoutConfig
+                )
                 val response = api.getPublicSystemInfo()
                 if (response.isSuccessful && response.body() != null) {
                     val serverInfo = response.body()!!
@@ -99,7 +131,8 @@ object NetworkModule {
     private fun createOkHttpClient(
         accessToken: String? = null,
         serverType: ServerType,
-        storageDir: File? = null
+        storageDir: File? = null,
+        timeoutConfig: NetworkTimeoutConfig
     ): OkHttpClient {
         val dispatcher = Dispatcher().apply {
             maxRequests = 128
@@ -107,9 +140,10 @@ object NetworkModule {
         }
 
         val builder = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(timeoutConfig.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .connectTimeout(timeoutConfig.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .readTimeout(timeoutConfig.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .writeTimeout(timeoutConfig.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .dispatcher(dispatcher)
             .connectionPool(ConnectionPool(32, 5, TimeUnit.MINUTES))
             .retryOnConnectionFailure(true)
@@ -182,6 +216,14 @@ object NetworkModule {
         builder.addInterceptor(timingInterceptor)
 
         return builder.build()
+    }
+
+    private fun defaultTimeoutConfig(): NetworkTimeoutConfig {
+        return NetworkTimeoutConfig(
+            requestTimeoutMs = 30000,
+            connectionTimeoutMs = 6000,
+            socketTimeoutMs = 10000
+        )
     }
 
     private fun buildAuthHeader(

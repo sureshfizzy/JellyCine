@@ -11,6 +11,7 @@ import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.preferences.NetworkPreferences
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.map
 class AuthRepository(private val context: Context) {
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
+    private val networkPreferences = NetworkPreferences(context)
 
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
@@ -61,7 +63,8 @@ class AuthRepository(private val context: Context) {
 
             val resolved = NetworkModule.resolveServerEndpoint(
                 serverUrl = serverUrl,
-                storageDir = context.filesDir
+                storageDir = context.filesDir,
+                timeoutConfig = networkPreferences.getTimeoutConfig()
             ).getOrElse { error ->
                 return Result.failure(Exception(error.message ?: "Unable to connect to server"))
             }
@@ -130,7 +133,8 @@ class AuthRepository(private val context: Context) {
             } else {
                 NetworkModule.resolveServerEndpoint(
                     serverUrl = serverUrl,
-                    storageDir = context.filesDir
+                    storageDir = context.filesDir,
+                    timeoutConfig = networkPreferences.getTimeoutConfig()
                 ).getOrElse { error ->
                     return Result.failure(Exception(error.message ?: "Unable to resolve server endpoint"))
                 }
@@ -139,7 +143,8 @@ class AuthRepository(private val context: Context) {
             val api = NetworkModule.createMediaServerApi(
                 baseUrl = endpoint.baseUrl,
                 serverType = endpoint.serverType,
-                storageDir = context.filesDir
+                storageDir = context.filesDir,
+                timeoutConfig = networkPreferences.getTimeoutConfig()
             )
 
             val response = api.authenticateByName(AuthenticationRequest(username, password))
