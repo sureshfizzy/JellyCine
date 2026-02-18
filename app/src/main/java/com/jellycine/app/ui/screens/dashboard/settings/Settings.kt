@@ -120,20 +120,6 @@ fun Settings(
                 }
             }
 
-            item { SectionLabel("Account") }
-            item {
-                SettingsSection {
-                    SettingsItem(
-                        icon = Icons.AutoMirrored.Rounded.Logout,
-                        title = "Sign Out",
-                        subtitle = "Sign out of your account",
-                        onClick = { viewModel.logout(onLogout) },
-                        isDestructive = true,
-                        accentColor = Color(0xFFEF4444)
-                    )
-                }
-            }
-
             item { SectionLabel("Device Info") }
             item {
                 SettingsSection {
@@ -162,6 +148,20 @@ fun Settings(
                         title = "Video Codecs",
                         subtitle = supportedCodecs,
                         accentColor = Color(0xFFF59E0B)
+                    )
+                }
+            }
+
+            item { SectionLabel("Account") }
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Rounded.Logout,
+                        title = "Sign Out",
+                        subtitle = "Sign out of your account",
+                        onClick = { viewModel.logout(onLogout) },
+                        isDestructive = true,
+                        accentColor = Color(0xFFEF4444)
                     )
                 }
             }
