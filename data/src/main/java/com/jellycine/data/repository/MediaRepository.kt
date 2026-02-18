@@ -423,8 +423,8 @@ class MediaRepository(private val context: Context) {
                             val libraryId = library.id ?: return@withPermit null
                             val includeItemTypes = when (library.collectionType) {
                                 "movies" -> "Movie"
-                                "tvshows" -> "Series"
-                                else -> "Movie,Series"
+                                "tvshows" -> "Episode,Series"
+                                else -> "Movie,Series,Episode"
                             }
 
                             val latestItemsResponse = runCatching {
