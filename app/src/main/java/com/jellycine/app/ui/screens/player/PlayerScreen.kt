@@ -105,6 +105,7 @@ fun PlayerScreen(
     DisposableEffect(Unit) {
         currentView.keepScreenOn = true
         val activity = context as? Activity
+        val originalRequestedOrientation = activity?.requestedOrientation
         activity?.let { act ->
             act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -118,7 +119,7 @@ fun PlayerScreen(
         onDispose {
             currentView.keepScreenOn = false
             activity?.let { act ->
-                act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                act.requestedOrientation = originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
                 val layoutParams = act.window.attributes
