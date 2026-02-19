@@ -800,10 +800,31 @@ fun DetailContent(
                                 !canDownloadItem -> "unavailable"
                                 itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
                                 itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
+                                itemDownloadState.status == DownloadStatus.QUEUED && itemDownloadState.message == "Paused" -> "paused"
                                 itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
                                 itemDownloadState.status == DownloadStatus.FAILED -> "failed"
                                 else -> "idle"
                             }
+                            val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?) -> Unit =
+                                { icon, label, contentDescription, tint ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = contentDescription,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = tint ?: LocalContentColor.current
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = label,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             AnimatedContent(
                                 targetState = buttonState,
                                 transitionSpec = {
@@ -833,77 +854,19 @@ fun DetailContent(
                                         }
                                     }
                                     "completed" -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.CheckCircle,
-                                                contentDescription = "Downloaded",
-                                                modifier = Modifier.size(18.dp),
-                                                tint = Color(0xFF4CAF50)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Downloaded",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
+                                        iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50))
+                                    }
+                                    "paused" -> {
+                                        iconLabel(Icons.Rounded.PauseCircle, "Paused", "Paused", Color(0xFFFFC107))
                                     }
                                     "failed" -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Refresh,
-                                                contentDescription = "Retry download",
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Retry",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
+                                        iconLabel(Icons.Rounded.Refresh, "Retry", "Retry download", null)
                                     }
                                     "unavailable" -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Download,
-                                                contentDescription = "Download unavailable",
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Unavailable",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
+                                        iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null)
                                     }
                                     else -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Download,
-                                                contentDescription = "Download",
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Download",
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
+                                        iconLabel(Icons.Rounded.Download, "Download", "Download", null)
                                     }
                                 }
                             }
