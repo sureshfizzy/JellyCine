@@ -1,20 +1,13 @@
 package com.jellycine.player.core
 
 import android.content.Context
-import android.media.AudioFormat
-import android.media.MediaFormat
-import android.os.Build
 import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.TrackSelectionOverride
-import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.common.audio.AudioProcessor
 import com.jellycine.player.audio.SpatialAudioManager
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.video.HardwareAcceleration
@@ -26,6 +19,7 @@ import com.jellycine.player.preferences.PlayerPreferences
  */
 @UnstableApi
 object PlayerUtils {
+    private const val MAX_MULTICHANNEL_AUDIO_CHANNELS = 16
     
     // Spatial audio manager instance
     private var spatialAudioManager: SpatialAudioManager? = null
@@ -57,13 +51,8 @@ object PlayerUtils {
             
             val trackSelector = DefaultTrackSelector(context).apply {
                 parameters = buildUponParameters()
-                    // Set channel count based on user preference and device capability
-                    .setMaxAudioChannelCount(
-                        if (spatialAudioEnabled && canSpatializeMultiChannel) 16 else 2
-                    )
-                    // Prefer multi-channel tracks only if spatial audio is enabled
+                    .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
                     .setPreferredAudioLanguages("original", "und")
-                    // Enable HDR track selection based on device capabilities and user preference
                     .apply {
                         when (effectiveHdrSupport) {
                             HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
@@ -83,7 +72,8 @@ object PlayerUtils {
             
             Log.d(
                 "PlayerUtils", 
-                "Track selector configured with max channels: ${if (spatialAudioEnabled && canSpatializeMultiChannel) 16 else 2}"
+                "Track selector configured with max channels: $MAX_MULTICHANNEL_AUDIO_CHANNELS " +
+                    "(spatial enabled: $spatialAudioEnabled, device multi-channel: $canSpatializeMultiChannel)"
             )
 
             // Configure AudioAttributes based on spatial audio preference
@@ -94,14 +84,6 @@ object PlayerUtils {
             
             Log.d("PlayerUtils", "Audio attributes configured. Spatial audio: $spatialAudioEnabled")
 
-            // No audio processors needed
-            val audioProcessors = emptyArray<AudioProcessor>()
-            
-            // Configure audio sink
-            val audioSink = DefaultAudioSink.Builder()
-                .setAudioProcessors(audioProcessors)
-                .build()
-            
             // Create hardware acceleration
             val renderersFactory = createHardwareAcceleration(context)
             
@@ -203,14 +185,12 @@ object PlayerUtils {
                 Log.d("PlayerUtils", "Enabling spatial audio - multi-channel tracks")
                 // Allow high-channel content for spatial processing
                 currentParams.buildUpon()
-                    .setMaxAudioChannelCount(16) // Support Dolby Atmos
+                    .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
                     .setPreferredAudioLanguages("original", "und")
                     .build()
             } else {
-                Log.d("PlayerUtils", "Disabling spatial audio - stereo mode")
-                // Limit to stereo for non-spatial experience
                 currentParams.buildUpon()
-                    .setMaxAudioChannelCount(2)
+                    .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
                     .build()
             }
             
@@ -332,7 +312,7 @@ object PlayerUtils {
             // Configure track selection for spatial content
             val currentParams = exoPlayer.trackSelectionParameters
             val newParams = currentParams.buildUpon()
-                .setMaxAudioChannelCount(if (shouldApplyEffects) 16 else 2)
+                .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
                 .setPreferredAudioLanguages("original", "und")
                 .build()
             exoPlayer.trackSelectionParameters = newParams

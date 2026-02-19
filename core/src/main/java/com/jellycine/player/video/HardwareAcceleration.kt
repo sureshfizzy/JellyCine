@@ -29,6 +29,9 @@ class HardwareAcceleration(
     }
     
     private fun setupRenderersFactory() {
+        // Prefer extension decoders
+        setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+
         // Enable decoder fallback by default for better HDR/Dolby Vision compatibility
         setEnableDecoderFallback(true)
         
