@@ -77,6 +77,11 @@ private data class PersistedDownloadMetadata(
     val fullItemJson: String? = null
 )
 
+private data class RecoveryDecision(
+    val status: DownloadStatus,
+    val message: String?
+)
+
 class DownloadRepository(context: Context) {
     private val appContext = context.applicationContext
     private val mediaRepository = MediaRepositoryProvider.getInstance(appContext)
@@ -137,7 +142,7 @@ class DownloadRepository(context: Context) {
         prefs.edit()
             .remove(downloadKey(itemId))
             .remove(metadataKey(itemId))
-            .apply()
+            .commit()
         stateFlows.remove(itemId)
         lastMetadataPersistAt.remove(itemId)
         lastTrackedRefreshAt.remove(itemId)
@@ -521,26 +526,14 @@ class DownloadRepository(context: Context) {
             )
 
             stateFlows[itemId] = MutableStateFlow(fallbackState)
-
-            val path = metadata.localPath
-            val available = path?.let { File(it).exists() } == true
-            val recoveredStatus = when {
-                available -> DownloadStatus.COMPLETED
-                fallbackStatus == DownloadStatus.DOWNLOADING || fallbackStatus == DownloadStatus.QUEUED -> DownloadStatus.FAILED
-                else -> fallbackStatus
-            }
-            val recoveredMessage = when {
-                !available && (fallbackStatus == DownloadStatus.DOWNLOADING || fallbackStatus == DownloadStatus.QUEUED) ->
-                    "Download interrupted"
-                else -> metadata.message
-            }
-            val recoveredState = fallbackState.copy(status = recoveredStatus, message = recoveredMessage)
+            val decision = RecoveredState(metadata, fallbackStatus)
+            val recoveredState = fallbackState.copy(status = decision.status, message = decision.message)
             setFlowState(itemId, recoveredState)
             persistMetadata(
                 metadata.copy(
-                    status = recoveredStatus.name,
-                    message = recoveredMessage,
-                    completedAt = if (recoveredStatus == DownloadStatus.COMPLETED) {
+                    status = decision.status.name,
+                    message = decision.message,
+                    completedAt = if (decision.status == DownloadStatus.COMPLETED) {
                         metadata.completedAt ?: System.currentTimeMillis()
                     } else {
                         metadata.completedAt
@@ -549,6 +542,34 @@ class DownloadRepository(context: Context) {
             )
         }
         refreshTrackedDownloads()
+    }
+
+    private fun RecoveredState(
+        metadata: PersistedDownloadMetadata,
+        fallbackStatus: DownloadStatus
+    ): RecoveryDecision {
+        val file = metadata.localPath?.let(::File)
+        val available = file?.exists() == true
+        val wasPaused = fallbackStatus == DownloadStatus.QUEUED && metadata.message == "Paused"
+        val wasInFlight = fallbackStatus == DownloadStatus.DOWNLOADING ||
+            (fallbackStatus == DownloadStatus.QUEUED && !wasPaused)
+
+        val RecoverAsCompleted = if (fallbackStatus != DownloadStatus.COMPLETED || !available) {
+            false
+        } else if (metadata.totalBytes > 0L) {
+            (file?.length() ?: 0L) >= metadata.totalBytes
+        } else {
+            metadata.completedAt != null || metadata.progress >= 1f
+        }
+
+        return when {
+            RecoverAsCompleted -> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
+            wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, "Paused")
+            wasInFlight -> RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
+            fallbackStatus == DownloadStatus.COMPLETED && !available ->
+                RecoveryDecision(DownloadStatus.FAILED, "Download incomplete")
+            else -> RecoveryDecision(fallbackStatus, metadata.message)
+        }
     }
 
     private fun refreshTrackedDownloads() {
@@ -720,4 +741,3 @@ class DownloadRepository(context: Context) {
         private val ID_GENERATOR = AtomicLong(System.currentTimeMillis())
     }
 }
-

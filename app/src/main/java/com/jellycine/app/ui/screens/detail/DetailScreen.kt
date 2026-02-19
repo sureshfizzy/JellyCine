@@ -359,7 +359,10 @@ fun DetailContent(
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
-            DownloadStatus.QUEUED -> 0.05f
+            DownloadStatus.QUEUED -> {
+                if (itemDownloadState.message == "Paused") 0.05f
+                else itemDownloadState.progress.coerceIn(0.05f, 0.99f)
+            }
             DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0.05f, 0.99f)
             DownloadStatus.COMPLETED -> 1f
             else -> 0f
@@ -802,7 +805,6 @@ fun DetailContent(
                                 itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
                                 itemDownloadState.status == DownloadStatus.QUEUED && itemDownloadState.message == "Paused" -> "paused"
                                 itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
-                                itemDownloadState.status == DownloadStatus.FAILED -> "failed"
                                 else -> "idle"
                             }
                             val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?) -> Unit =
@@ -858,9 +860,6 @@ fun DetailContent(
                                     }
                                     "paused" -> {
                                         iconLabel(Icons.Rounded.PauseCircle, "Paused", "Paused", Color(0xFFFFC107))
-                                    }
-                                    "failed" -> {
-                                        iconLabel(Icons.Rounded.Refresh, "Retry", "Retry download", null)
                                     }
                                     "unavailable" -> {
                                         iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null)

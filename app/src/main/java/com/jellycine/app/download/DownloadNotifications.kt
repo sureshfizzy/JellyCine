@@ -32,8 +32,10 @@ class DownloadNotificationManager(private val context: Context) {
 
         val lead = active.first()
         val progress = (lead.state.progress.coerceIn(0f, 1f) * 100f).roundToInt()
-        val isPaused = lead.state.message == "Paused"
-        val title = if (isPaused) {
+        val Downloading= lead.state.status == DownloadStatus.DOWNLOADING
+        val Paused= isPausedState(lead.state)
+        val allPaused = active.all { isPausedState(it.state) }
+        val title = if (allPaused) {
             "Paused ${active.size} item" + if (active.size > 1) "s" else ""
         } else {
             "Downloading ${active.size} item" + if (active.size > 1) "s" else ""
@@ -56,7 +58,7 @@ class DownloadNotificationManager(private val context: Context) {
                 actionIntent(DownloadNotificationContract.ACTION_CANCEL, lead.itemId)
             )
 
-        if (isPaused) {
+        if (!Downloading|| Paused) {
             summaryBuilder.addAction(
                 0,
                 "Resume",
@@ -86,6 +88,11 @@ class DownloadNotificationManager(private val context: Context) {
         return tracked.filter {
             it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
         }
+    }
+
+    private fun isPausedState(state: ItemDownloadState): Boolean {
+        return state.status == DownloadStatus.QUEUED &&
+            state.message?.trim()?.equals("Paused", ignoreCase = true) == true
     }
 
     private fun actionIntent(action: String, itemId: String): PendingIntent {
