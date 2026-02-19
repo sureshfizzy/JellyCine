@@ -85,7 +85,6 @@ class DownloadRepository(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
     private val httpClient = OkHttpClient.Builder().retryOnConnectionFailure(true).build()
-    private val notificationManager = DownloadNotificationManager(appContext)
 
     private val stateFlows = ConcurrentHashMap<String, MutableStateFlow<ItemDownloadState>>()
     private val activeJobs = ConcurrentHashMap<String, Job>()
@@ -95,6 +94,8 @@ class DownloadRepository(context: Context) {
     private val lastMetadataPersistAt = ConcurrentHashMap<String, Long>()
     private val lastTrackedRefreshAt = ConcurrentHashMap<String, Long>()
     private val trackedDownloadsFlow = MutableStateFlow<List<TrackedDownload>>(emptyList())
+    @Volatile
+    private var lastForegroundSyncActive = false
 
     init {
         restoreDownloads()
@@ -105,6 +106,7 @@ class DownloadRepository(context: Context) {
     }
 
     fun observeTrackedDownloads(): StateFlow<List<TrackedDownload>> = trackedDownloadsFlow.asStateFlow()
+    fun trackedDownloadsSnapshot(): List<TrackedDownload> = trackedDownloadsFlow.value
 
     fun getOfflineFilePath(itemId: String): String? {
         val statePath = stateFlows[itemId]?.value?.filePath
@@ -611,7 +613,16 @@ class DownloadRepository(context: Context) {
         )
 
         trackedDownloadsFlow.value = tracked
-        notificationManager.render(tracked)
+        val hasActiveDownloads = tracked.any {
+            it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
+        }
+        if (hasActiveDownloads != lastForegroundSyncActive) {
+            lastForegroundSyncActive = hasActiveDownloads
+            DownloadForegroundService.sync(
+                context = appContext,
+                hasActiveDownloads = hasActiveDownloads
+            )
+        }
     }
 
     private fun buildSubtitle(item: BaseItemDto?): String? {
@@ -709,6 +720,4 @@ class DownloadRepository(context: Context) {
         private val ID_GENERATOR = AtomicLong(System.currentTimeMillis())
     }
 }
-
-
 

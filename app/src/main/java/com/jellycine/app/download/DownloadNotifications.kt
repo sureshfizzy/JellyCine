@@ -1,21 +1,19 @@
 package com.jellycine.app.download
 
-import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import com.jellycine.app.R
 import kotlin.math.roundToInt
 
-private object DownloadNotificationContract {
+internal object DownloadNotificationContract {
     const val EXTRA_ITEM_ID = "item_id"
     const val ACTION_PAUSE = "com.jellycine.app.download.PAUSE"
     const val ACTION_RESUME = "com.jellycine.app.download.RESUME"
@@ -27,18 +25,10 @@ private object DownloadNotificationContract {
 class DownloadNotificationManager(private val context: Context) {
     private val notificationManager = NotificationManagerCompat.from(context)
 
-    fun render(tracked: List<TrackedDownload>) {
+    fun buildSummaryNotification(tracked: List<TrackedDownload>): Notification? {
         ensureChannel()
-        if (!canPostNotifications()) return
-
-        val active = tracked.filter {
-            it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
-        }
-
-        if (active.isEmpty()) {
-            notificationManager.cancel(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID)
-            return
-        }
+        val active = activeDownloads(tracked)
+        if (active.isEmpty()) return null
 
         val lead = active.first()
         val progress = (lead.state.progress.coerceIn(0f, 1f) * 100f).roundToInt()
@@ -79,8 +69,23 @@ class DownloadNotificationManager(private val context: Context) {
                 actionIntent(DownloadNotificationContract.ACTION_PAUSE, lead.itemId)
             )
         }
+        return summaryBuilder.build()
+    }
 
-        notificationManager.notify(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID, summaryBuilder.build())
+    fun notifySummary(notification: Notification) {
+        notificationManager.notify(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID, notification)
+    }
+
+    fun cancelSummary() {
+        notificationManager.cancel(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID)
+    }
+
+    fun hasActiveDownloads(tracked: List<TrackedDownload>): Boolean = activeDownloads(tracked).isNotEmpty()
+
+    private fun activeDownloads(tracked: List<TrackedDownload>): List<TrackedDownload> {
+        return tracked.filter {
+            it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
+        }
     }
 
     private fun actionIntent(action: String, itemId: String): PendingIntent {
@@ -111,14 +116,6 @@ class DownloadNotificationManager(private val context: Context) {
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
-    }
-
-    private fun canPostNotifications(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun formatSizeProgress(downloaded: Long, total: Long): String {
