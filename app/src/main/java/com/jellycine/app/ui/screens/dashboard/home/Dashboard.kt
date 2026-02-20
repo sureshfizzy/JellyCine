@@ -1481,6 +1481,15 @@ private fun HomeMyMediaSection(
 ) {
     val lazyRowState = rememberLazyListState()
     val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+    val firstLibraryId = libraries.firstOrNull()?.id
+
+    LaunchedEffect(firstLibraryId, libraries.size) {
+        val hasScrolled = lazyRowState.firstVisibleItemIndex > 0 ||
+            lazyRowState.firstVisibleItemScrollOffset > 0
+        if (hasScrolled) {
+            lazyRowState.scrollToItem(0)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -1598,12 +1607,21 @@ private fun ContinueWatchingSection(
             items.isNotEmpty() -> {
                 val lazyRowState = rememberLazyListState()
                 val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+                val firstItemId = items.firstOrNull()?.id
                 var renderedCount by remember(items) {
                     mutableIntStateOf(items.size.coerceAtMost(4))
                 }
 
                 LaunchedEffect(items) {
                     renderedCount = items.size.coerceAtMost(4)
+                }
+
+                LaunchedEffect(firstItemId, items.size) {
+                    val hasScrolled = lazyRowState.firstVisibleItemIndex > 0 ||
+                        lazyRowState.firstVisibleItemScrollOffset > 0
+                    if (hasScrolled) {
+                        lazyRowState.scrollToItem(0)
+                    }
                 }
 
                 LaunchedEffect(lazyRowState, items) {
@@ -1830,6 +1848,15 @@ private fun BurstLibrarySection(
 ) {
     val libraryRowState = rememberLazyListState()
     val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+    val firstSectionItemId = section.items.firstOrNull()?.id
+
+    LaunchedEffect(firstSectionItemId, section.items.size) {
+        val hasScrolled = libraryRowState.firstVisibleItemIndex > 0 ||
+            libraryRowState.firstVisibleItemScrollOffset > 0
+        if (hasScrolled) {
+            libraryRowState.scrollToItem(0)
+        }
+    }
 
     Column {
         Row(
