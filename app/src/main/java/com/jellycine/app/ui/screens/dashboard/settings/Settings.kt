@@ -34,8 +34,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
 import com.jellycine.data.preferences.NetworkPreferences
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +78,7 @@ fun Settings(
                     username = uiState.username ?: "Unknown User",
                     serverName = uiState.serverName ?: "Unknown Server",
                     serverUrl = uiState.serverUrl,
-                    viewModel = viewModel,
+                    profileImageUrl = uiState.profileImageUrl,
                     onNavigateToDownloads = onNavigateToDownloads
                 )
             }
@@ -242,7 +240,7 @@ private fun UserProfileSection(
     username: String,
     serverName: String,
     serverUrl: String?,
-    viewModel: SettingsViewModel,
+    profileImageUrl: String?,
     onNavigateToDownloads: () -> Unit
 ) {
     Card(
@@ -264,7 +262,7 @@ private fun UserProfileSection(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             ProfileImageLoader(
-                viewModel = viewModel,
+                imageUrl = profileImageUrl,
                 modifier = Modifier.size(120.dp)
             )
 
@@ -566,27 +564,24 @@ private fun SettingsItem(
 
 @Composable
 private fun ProfileImageLoader(
-    viewModel: SettingsViewModel,
+    imageUrl: String?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var imageUrl by remember { mutableStateOf<String?>(null) }
     var hasError by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                val url = viewModel.getUserProfileImageUrl()
-                withContext(Dispatchers.Main) {
-                    imageUrl = url
-                    hasError = false
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    hasError = true
-                }
-            }
+    val profileRequest = remember(imageUrl) {
+        imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            ImageRequest.Builder(context)
+                .data(url)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .crossfade(300)
+                .build()
         }
+    }
+
+    LaunchedEffect(profileRequest) {
+        hasError = false
     }
 
     Box(
@@ -615,14 +610,9 @@ private fun ProfileImageLoader(
             )
         }
 
-        if (!imageUrl.isNullOrEmpty() && !hasError) {
+        if (profileRequest != null && !hasError) {
             AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(imageUrl)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .crossfade(300)
-                    .build(),
+                model = profileRequest,
                 contentDescription = "Profile picture",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

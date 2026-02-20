@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.jellycine.app.preferences.DownloadPreferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.preferences.NetworkPreferences
-import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
@@ -17,7 +16,8 @@ data class SettingsUiState(
     val user: UserDto? = null,
     val serverName: String? = null,
     val serverUrl: String? = null,
-    val username: String? = null,
+    val username: String? = CachedData.username,
+    val profileImageUrl: String? = CachedData.userImageUrl,
     val wifiOnlyDownloads: Boolean = true,
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
     val connectionTimeoutMs: Int = NetworkPreferences.DEFAULT_CONNECTION_TIMEOUT_MS,
@@ -34,6 +34,7 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
     private val mediaRepository = MediaRepository(context)
     private val downloadPreferences = DownloadPreferences(context)
     private val networkPreferences = NetworkPreferences(context)
+    private var activeUserSessionKey: String? = null
     
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -63,44 +64,82 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
     
     private fun loadUserData() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            
-            try {
-                combine(
-                    authRepository.getServerName(),
-                    authRepository.getServerUrl(),
-                    authRepository.getUsername()
-                ) { serverName, serverUrl, username ->
-                    Triple(serverName, serverUrl, username)
-                }.collect { (serverName, serverUrl, username) ->
+            combine(
+                authRepository.getServerName(),
+                authRepository.getServerUrl(),
+                authRepository.getUsername()
+            ) { serverName, serverUrl, username ->
+                Triple(serverName, serverUrl, username)
+            }.distinctUntilChanged()
+                .collectLatest { (serverName, serverUrl, username) ->
+                    val sessionKey = buildSessionKey(serverUrl, username)
+                    val currentState = _uiState.value
+                    val isSameSession = activeUserSessionKey == sessionKey
+                    val cachedProfileUrl = if (
+                        CachedData.userSessionKey == sessionKey &&
+                        CachedData.username == username
+                    ) {
+                        CachedData.userImageUrl
+                    } else {
+                        null
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         serverName = serverName,
                         serverUrl = serverUrl,
-                        username = username
+                        username = username ?: currentState.username ?: CachedData.username,
+                        profileImageUrl = when {
+                            !cachedProfileUrl.isNullOrBlank() -> cachedProfileUrl
+                            isSameSession -> currentState.profileImageUrl
+                            else -> null
+                        },
+                        user = if (isSameSession) currentState.user else null,
+                        isLoading = !isSameSession || currentState.user == null,
+                        error = null
                     )
-                }
 
-                val userResult = mediaRepository.getCurrentUser()
-                if (userResult.isSuccess) {
-                    _uiState.value = _uiState.value.copy(
-                        user = userResult.getOrNull(),
-                        isLoading = false
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = userResult.exceptionOrNull()?.message
-                    )
+                    if (activeUserSessionKey == sessionKey && _uiState.value.user != null) {
+                        return@collectLatest
+                    }
+
+                    activeUserSessionKey = sessionKey
+                    refreshCurrentUserAndProfile(sessionKey, username)
                 }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message
-                )
-            }
         }
     }
-    
+
+    private fun buildSessionKey(serverUrl: String?, username: String?): String {
+        return "${serverUrl?.trimEnd('/').orEmpty()}|${username.orEmpty()}"
+    }
+
+    private suspend fun refreshCurrentUserAndProfile(sessionKey: String, username: String?) {
+        val profileUrl = runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
+        if (!profileUrl.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(profileImageUrl = profileUrl)
+            CachedData.updateUserData(
+                name = username ?: CachedData.username,
+                imageUrl = profileUrl,
+                sessionKey = sessionKey
+            )
+        }
+
+        val userResult = runCatching { mediaRepository.getCurrentUser() }
+            .getOrElse { Result.failure(it) }
+
+        if (userResult.isSuccess) {
+            _uiState.value = _uiState.value.copy(
+                user = userResult.getOrNull(),
+                isLoading = false,
+                error = null
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = userResult.exceptionOrNull()?.message
+            )
+        }
+    }
+
     fun logout(onLogoutComplete: () -> Unit) {
         viewModelScope.launch {
             try {
@@ -156,13 +195,5 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         _uiState.value = _uiState.value.copy(
             imageCachingEnabled = networkPreferences.isImageCachingEnabled()
         )
-    }
-    
-    suspend fun getUserProfileImageUrl(): String? {
-        return try {
-            mediaRepository.getUserProfileImageUrl()
-        } catch (e: Exception) {
-            null
-        }
     }
 }
