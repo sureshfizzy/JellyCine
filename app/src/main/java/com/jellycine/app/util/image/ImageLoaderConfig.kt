@@ -29,6 +29,7 @@ object ImageLoaderConfig {
 
     private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
+    private const val BYTES_PER_MB = 1024L * 1024L
 
     private val deviceId by lazy { UUID.randomUUID().toString() }
     private const val IMAGE_STORE_DIR = "media_store/image_cache"
@@ -55,6 +56,14 @@ object ImageLoaderConfig {
         return finalSize
     }
 
+    private fun configuredImageCacheBytes(context: Context): Long? {
+        val configuredMb = NetworkPreferences(context).getImageMemoryCacheMb()
+        if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
+            return null
+        }
+        return configuredMb * BYTES_PER_MB
+    }
+
     private fun getOptimalMemoryPercent(context: Context): Double {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
@@ -78,7 +87,7 @@ object ImageLoaderConfig {
         if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
             return null
         }
-        return configuredMb * 1024 * 1024
+        return (configuredMb * BYTES_PER_MB).toInt()
     }
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
@@ -159,7 +168,7 @@ object ImageLoaderConfig {
         builder.diskCache {
             DiskCache.Builder()
                 .directory(persistentImageCacheDir(context))
-                .maxSizeBytes(DiskCacheSize(context))
+                .maxSizeBytes(configuredImageCacheBytes(context) ?: DiskCacheSize(context))
                 .build()
         }
 
@@ -175,4 +184,5 @@ object ImageLoaderConfig {
 
         return builder.build()
     }
+
 }

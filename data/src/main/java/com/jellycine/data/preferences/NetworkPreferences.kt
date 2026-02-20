@@ -78,7 +78,7 @@ class NetworkPreferences(context: Context) {
         const val MIN_IMAGE_MEMORY_CACHE_MB = 32
         const val MAX_IMAGE_MEMORY_CACHE_MB = 512
         const val AUTO_IMAGE_MEMORY_CACHE_MB = 0
-        const val DEFAULT_IMAGE_MEMORY_CACHE_MB = AUTO_IMAGE_MEMORY_CACHE_MB
+        const val DEFAULT_IMAGE_MEMORY_CACHE_MB = 120
         const val DEFAULT_IMAGE_CACHING_ENABLED = true
 
         private const val PREFS_NAME = "jellycine_network_prefs"
