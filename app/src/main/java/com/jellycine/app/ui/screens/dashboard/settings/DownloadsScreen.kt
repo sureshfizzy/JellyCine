@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,16 +16,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
@@ -158,6 +165,16 @@ fun DownloadsScreen(
                     },
                     onPlayEpisode = { entry ->
                         playbackItemId = entry.item?.id ?: entry.itemId
+                    },
+                    onPause = { entry ->
+                        if (isPausedState(entry)) {
+                            downloadRepository.resumeDownload(entry.itemId)
+                        } else {
+                            downloadRepository.pauseDownload(entry.itemId)
+                        }
+                    },
+                    onCancel = { entry ->
+                        downloadRepository.cancelDownload(entry.itemId)
                     }
                 )
             }
@@ -179,6 +196,16 @@ fun DownloadsScreen(
                     },
                     onPlayMovie = { entry ->
                         playbackItemId = entry.item?.id ?: entry.itemId
+                    },
+                    onPause = { entry ->
+                        if (isPausedState(entry)) {
+                            downloadRepository.resumeDownload(entry.itemId)
+                        } else {
+                            downloadRepository.pauseDownload(entry.itemId)
+                        }
+                    },
+                    onCancel = { entry ->
+                        downloadRepository.cancelDownload(entry.itemId)
                     }
                 )
             }
@@ -219,7 +246,9 @@ private fun DownloadsRootContent(
     deletingState: Map<String, Boolean>,
     onSeriesClick: (OfflineSeriesGroup) -> Unit,
     onDeleteMovie: (TrackedDownload) -> Unit,
-    onPlayMovie: (TrackedDownload) -> Unit
+    onPlayMovie: (TrackedDownload) -> Unit,
+    onPause: (TrackedDownload) -> Unit,
+    onCancel: (TrackedDownload) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -248,7 +277,9 @@ private fun DownloadsRootContent(
                     mediaRepository = mediaRepository,
                     deleting = deletingState[entry.itemId] == true,
                     onDelete = { onDeleteMovie(entry) },
-                    onPlay = { onPlayMovie(entry) }
+                    onPlay = { onPlayMovie(entry) },
+                    onPauseAction = { onPause(entry) },
+                    onCancelAction = { onCancel(entry) }
                 )
             }
         }
@@ -336,7 +367,7 @@ private fun SeriesSummaryRow(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = progressLabel,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -359,7 +390,9 @@ private fun MovieRow(
     mediaRepository: MediaRepository,
     deleting: Boolean,
     onDelete: () -> Unit,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    onPauseAction: () -> Unit,
+    onCancelAction: () -> Unit
 ) {
     val posterId = entry.item?.id ?: entry.itemId
     val primaryImageUrl = rememberImageUrl(
@@ -429,7 +462,7 @@ private fun MovieRow(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = statusLabel,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     color = statusColor,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -437,21 +470,13 @@ private fun MovieRow(
                 )
             }
         }
-        IconButton(onClick = onDelete, enabled = !deleting) {
-            if (deleting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Delete",
-                    tint = Color.White.copy(alpha = 0.86f)
-                )
-            }
-        }
+        DownloadRowAction(
+            entry = entry,
+            deleting = deleting,
+            onDelete = onDelete,
+            onPause = onPauseAction,
+            onCancel = onCancelAction
+        )
     }
 }
 
@@ -462,7 +487,9 @@ private fun SeriesDetailContent(
     mediaRepository: MediaRepository,
     deletingState: Map<String, Boolean>,
     onDeleteEpisode: (TrackedDownload) -> Unit,
-    onPlayEpisode: (TrackedDownload) -> Unit
+    onPlayEpisode: (TrackedDownload) -> Unit,
+    onPause: (TrackedDownload) -> Unit,
+    onCancel: (TrackedDownload) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -473,13 +500,13 @@ private fun SeriesDetailContent(
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
     ) {
         items(group.seasons, key = { it.id }) { season ->
-            Text(
-                text = season.label,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
+                Text(
+                    text = season.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
 
             season.episodes.forEach { entry ->
                 EpisodeRow(
@@ -487,7 +514,9 @@ private fun SeriesDetailContent(
                     mediaRepository = mediaRepository,
                     deleting = deletingState[entry.itemId] == true,
                     onDelete = { onDeleteEpisode(entry) },
-                    onPlay = { onPlayEpisode(entry) }
+                    onPlay = { onPlayEpisode(entry) },
+                    onPauseAction = { onPause(entry) },
+                    onCancelAction = { onCancel(entry) }
                 )
             }
         }
@@ -500,7 +529,9 @@ private fun EpisodeRow(
     mediaRepository: MediaRepository,
     deleting: Boolean,
     onDelete: () -> Unit,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    onPauseAction: () -> Unit,
+    onCancelAction: () -> Unit
 ) {
     val item = entry.item
     val primaryImageUrl = rememberImageUrl(
@@ -548,8 +579,8 @@ private fun EpisodeRow(
     ) {
         Box(
             modifier = Modifier
-                .width(150.dp)
-                .height(80.dp)
+                .width(136.dp)
+                .height(74.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.White.copy(alpha = 0.08f))
         ) {
@@ -561,11 +592,11 @@ private fun EpisodeRow(
                 contentScale = ContentScale.Crop
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = "$episodeNumber. ${entry.title}",
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
@@ -574,14 +605,14 @@ private fun EpisodeRow(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "$runtime | $size",
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
             if (!statusLabel.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = statusLabel,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                     color = statusColor,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -590,20 +621,131 @@ private fun EpisodeRow(
             }
         }
 
-        IconButton(onClick = onDelete, enabled = !deleting) {
-            if (deleting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White
+        DownloadRowAction(
+            entry = entry,
+            deleting = deleting,
+            onDelete = onDelete,
+            onPause = onPauseAction,
+            onCancel = onCancelAction
+        )
+    }
+}
+
+@Composable
+private fun DownloadRowAction(
+    entry: TrackedDownload,
+    deleting: Boolean,
+    onDelete: () -> Unit,
+    onPause: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isActive = entry.state.status == DownloadStatus.DOWNLOADING || entry.state.status == DownloadStatus.QUEUED
+    val isPaused = isPausedState(entry)
+    var menuExpanded by remember(entry.itemId, entry.state.status, entry.state.message) { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = {
+                if (isActive) {
+                    menuExpanded = true
+                } else {
+                    onDelete()
+                }
+            },
+            enabled = !deleting
+        ) {
+            when {
+                deleting -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                }
+
+                entry.state.status == DownloadStatus.DOWNLOADING -> {
+                    val progress = entry.state.progress.coerceIn(0.02f, 1f)
+                    Box(
+                        modifier = Modifier.size(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxSize(),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.Stop,
+                            contentDescription = "Download options",
+                            tint = Color.White.copy(alpha = 0.92f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                entry.state.status == DownloadStatus.QUEUED -> {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .border(
+                                width = 1.3.dp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Stop,
+                            contentDescription = "Queue options",
+                            tint = Color.White.copy(alpha = 0.92f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                else -> {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Delete",
+                        tint = Color.White.copy(alpha = 0.88f)
+                    )
+                }
+            }
+        }
+
+        DropdownMenu(
+            modifier = Modifier.widthIn(min = 108.dp, max = 136.dp),
+            expanded = menuExpanded && isActive,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            if (entry.state.status == DownloadStatus.DOWNLOADING) {
+                DropdownMenuItem(
+                    text = { Text("Pause", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    onClick = {
+                        menuExpanded = false
+                        onPause()
+                    }
                 )
-            } else {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Delete episode",
-                    tint = Color.White.copy(alpha = 0.9f)
+            } else if (isPaused) {
+                DropdownMenuItem(
+                    text = { Text("Resume", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    onClick = {
+                        menuExpanded = false
+                        onPause()
+                    }
                 )
             }
+            DropdownMenuItem(
+                text = { Text("Cancel download", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                onClick = {
+                    menuExpanded = false
+                    onCancel()
+                }
+            )
         }
     }
 }
@@ -708,6 +850,11 @@ private fun TrackedDownload.displayBytes(): Long? {
     return fileSizeBytes
         ?: state.totalBytes.takeIf { it > 0L }
         ?: state.downloadedBytes.takeIf { it > 0L }
+}
+
+private fun isPausedState(entry: TrackedDownload): Boolean {
+    return entry.state.status == DownloadStatus.QUEUED &&
+        entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true
 }
 
 private fun downloadStatusLabel(entry: TrackedDownload): String? {
