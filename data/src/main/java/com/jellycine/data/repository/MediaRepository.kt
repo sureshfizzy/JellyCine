@@ -1,10 +1,12 @@
 package com.jellycine.data.repository
 
 import android.content.Context
+import android.util.AtomicFile
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.BaseItemDto
@@ -21,8 +23,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -102,7 +106,8 @@ class MediaRepository(private val context: Context) {
     private var cachedImageAuthAt: Long = 0L
 
     private val gson = Gson()
-    private val homeSnapshotFileName = "home_snapshot_v1.json"
+    private val homeSnapshotFileName = "JellyCineSnapshot.json"
+    private val homeSnapshotMutex = Mutex()
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->
@@ -199,23 +204,52 @@ class MediaRepository(private val context: Context) {
         return "${config.serverUrl.trimEnd('/')}|${config.userId}"
     }
 
+    private fun HomeSnapshot(file: java.io.File): PersistedHomeSnapshot? {
+        if (!file.exists()) return null
+        return runCatching {
+            val rawJson = file.readText()
+            val jsonElement = JsonParser.parseString(rawJson)
+            gson.fromJson(jsonElement, PersistedHomeSnapshot::class.java)
+        }.getOrElse {
+            file.delete()
+            null
+        }
+    }
+
+    private fun writePersistedHomeSnapshotAtomically(
+        file: java.io.File,
+        snapshot: PersistedHomeSnapshot
+    ) {
+        val atomicFile = AtomicFile(file)
+        var stream: java.io.FileOutputStream? = null
+        try {
+            stream = atomicFile.startWrite()
+            stream.write(gson.toJson(snapshot).toByteArray(StandardCharsets.UTF_8))
+            stream.flush()
+            atomicFile.finishWrite(stream)
+        } catch (error: Exception) {
+            stream?.let { atomicFile.failWrite(it) }
+            throw error
+        }
+    }
+
     suspend fun loadPersistedHomeSnapshot(
         maxAgeMs: Long? = null
     ): PersistedHomeSnapshot? {
         val config = getSessionConfig() ?: return null
         val expectedSnapshotKey = buildSnapshotKey(config)
         return withContext(Dispatchers.IO) {
-            runCatching {
-                val file = getHomeSnapshotFile()
-                if (!file.exists()) return@runCatching null
-                val parsed = gson.fromJson(file.readText(), PersistedHomeSnapshot::class.java)
-                    ?: return@runCatching null
-                val isExpired = maxAgeMs?.let { ttl ->
-                    System.currentTimeMillis() - parsed.updatedAt > ttl
-                } ?: false
-                val keyMismatch = parsed.snapshotKey != expectedSnapshotKey
-                if (isExpired || keyMismatch) null else parsed
-            }.getOrNull()
+            homeSnapshotMutex.withLock {
+                runCatching {
+                    val file = getHomeSnapshotFile()
+                    val parsed = HomeSnapshot(file) ?: return@runCatching null
+                    val isExpired = maxAgeMs?.let { ttl ->
+                        System.currentTimeMillis() - parsed.updatedAt > ttl
+                    } ?: false
+                    val keyMismatch = parsed.snapshotKey != expectedSnapshotKey
+                    if (isExpired || keyMismatch) null else parsed
+                }.getOrNull()
+            }
         }
     }
 
@@ -228,33 +262,33 @@ class MediaRepository(private val context: Context) {
         val config = getSessionConfig() ?: return
         val snapshotKey = buildSnapshotKey(config)
         withContext(Dispatchers.IO) {
-            runCatching {
-                val file = getHomeSnapshotFile()
-                val existing = if (file.exists()) {
-                    gson.fromJson(file.readText(), PersistedHomeSnapshot::class.java)
-                } else {
-                    null
+            homeSnapshotMutex.withLock {
+                runCatching {
+                    val file = getHomeSnapshotFile()
+                    val existing = HomeSnapshot(file)
+                    val sameSessionSnapshot = existing?.takeIf { it.snapshotKey == snapshotKey }
+                    val next = PersistedHomeSnapshot(
+                        snapshotKey = snapshotKey,
+                        updatedAt = System.currentTimeMillis(),
+                        featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
+                        continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
+                        homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty(),
+                        myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty()
+                    )
+                    writePersistedHomeSnapshotAtomically(file, next)
                 }
-                val sameSessionSnapshot = existing?.takeIf { it.snapshotKey == snapshotKey }
-                val next = PersistedHomeSnapshot(
-                    snapshotKey = snapshotKey,
-                    updatedAt = System.currentTimeMillis(),
-                    featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
-                    continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
-                    homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty(),
-                    myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty()
-                )
-                file.writeText(gson.toJson(next))
             }
         }
     }
 
     suspend fun clearPersistedHomeSnapshot() {
         withContext(Dispatchers.IO) {
-            runCatching {
-                val file = getHomeSnapshotFile()
-                if (file.exists()) {
-                    file.delete()
+            homeSnapshotMutex.withLock {
+                runCatching {
+                    val file = getHomeSnapshotFile()
+                    if (file.exists()) {
+                        file.delete()
+                    }
                 }
             }
         }

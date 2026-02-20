@@ -190,7 +190,7 @@ fun FeatureTab(
         )
     }
 
-    val featuredRowState = rememberSaveable(saver = LazyListState.Saver) { LazyListState() }
+    val featuredRowState = remember(selectedCategory) { LazyListState() }
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
@@ -271,7 +271,8 @@ fun FeatureTab(
     val infiniteStartIndex = remember(featuredKeys) {
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
     }
-    var autoScrollReady by rememberSaveable { mutableStateOf(false) }
+    var autoScroll by rememberSaveable(selectedCategory) { mutableStateOf(false) }
+    var hasSeededCarousel by rememberSaveable(selectedCategory) { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
 
@@ -301,14 +302,10 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading) {
-        if (isLoading || resolvedFeaturedItems.value.size <= 1) return@LaunchedEffect
-        val shouldSeed =
-            featuredRowState.firstVisibleItemIndex == 0 &&
-                featuredRowState.firstVisibleItemScrollOffset == 0
-        if (shouldSeed) {
-            runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
-        }
+    LaunchedEffect(featuredKeys, isLoading, selectedCategory) {
+        if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
+        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
+        hasSeededCarousel = true
     }
 
     LaunchedEffect(metadataQualifiedFeaturedItems.value) {
@@ -385,19 +382,20 @@ fun FeatureTab(
 
     LaunchedEffect(featuredKeys) {
         if (featuredKeys.isEmpty()) {
-            autoScrollReady = false
+            autoScroll = false
+            hasSeededCarousel = false
         }
     }
 
     LaunchedEffect(featuredKeys, isLoading, resolvedFeaturedItems.value.size) {
-        if (autoScrollReady || isLoading) return@LaunchedEffect
+        if (autoScroll || isLoading) return@LaunchedEffect
         if (resolvedFeaturedItems.value.isNotEmpty()) {
-            autoScrollReady = true
+            autoScroll = true
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading, autoScrollReady) {
-        if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScrollReady) return@LaunchedEffect
+    LaunchedEffect(featuredKeys, isLoading, autoScroll) {
+        if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
         while (true) {
             delay(6500L)
             val nextIndex = featuredRowState.firstVisibleItemIndex + 1
