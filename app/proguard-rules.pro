@@ -56,3 +56,7 @@
 -keepclassmembers,allowobfuscation class * {
   @com.google.gson.annotations.SerializedName <fields>;
 }
+
+# Preserve snapshot DTO generic metadata used by Gson during home cache restore.
+-keep class com.jellycine.data.repository.MediaRepository$PersistedHomeSnapshot { *; }
+-keep class com.jellycine.data.repository.MediaRepository$HomeLibrarySectionData { *; }
