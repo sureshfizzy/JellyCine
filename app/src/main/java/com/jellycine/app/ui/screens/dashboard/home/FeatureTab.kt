@@ -397,7 +397,7 @@ fun FeatureTab(
     LaunchedEffect(featuredKeys, isLoading, autoScroll) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
         while (true) {
-            delay(6500L)
+            delay(10_000L)
             val nextIndex = featuredRowState.firstVisibleItemIndex + 1
             runCatching {
                 featuredRowState.animateScrollToItem(index = nextIndex)
