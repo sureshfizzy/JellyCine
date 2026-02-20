@@ -21,6 +21,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.ArrayDeque
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -82,6 +83,13 @@ private data class RecoveryDecision(
     val message: String?
 )
 
+private data class QueuedDownloadRequest(
+    val item: BaseItemDto,
+    val requestData: ItemDownloadRequest,
+    val destination: File,
+    val downloadId: Long
+)
+
 class DownloadRepository(context: Context) {
     private val appContext = context.applicationContext
     private val mediaRepository = MediaRepositoryProvider.getInstance(appContext)
@@ -96,6 +104,9 @@ class DownloadRepository(context: Context) {
     private val activeCalls = ConcurrentHashMap<String, Call>()
     private val pausedItems = CopyOnWriteArraySet<String>()
     private val canceledItems = CopyOnWriteArraySet<String>()
+    private val queueLock = Any()
+    private val pendingQueue = ArrayDeque<QueuedDownloadRequest>()
+    private val pendingItemIds = mutableSetOf<String>()
     private val lastMetadataPersistAt = ConcurrentHashMap<String, Long>()
     private val lastTrackedRefreshAt = ConcurrentHashMap<String, Long>()
     private val trackedDownloadsFlow = MutableStateFlow<List<TrackedDownload>>(emptyList())
@@ -126,6 +137,7 @@ class DownloadRepository(context: Context) {
         val state = stateFlows[itemId]?.value
         pausedItems.remove(itemId)
         canceledItems.add(itemId)
+        removePendingQueue(itemId)
         activeCalls.remove(itemId)?.cancel()
         activeJobs.remove(itemId)?.cancel()
 
@@ -147,6 +159,7 @@ class DownloadRepository(context: Context) {
         lastMetadataPersistAt.remove(itemId)
         lastTrackedRefreshAt.remove(itemId)
         refreshTrackedDownloads()
+        drainPendingQueue()
 
         deleteFileResult.fold(
             onSuccess = { Result.success(Unit) },
@@ -157,12 +170,13 @@ class DownloadRepository(context: Context) {
     suspend fun enqueueItemDownload(item: BaseItemDto): Result<Long> = withContext(Dispatchers.IO) {
         val itemId = item.id ?: return@withContext Result.failure(Exception("Item ID unavailable"))
         val current = stateFlows.getOrPut(itemId) { MutableStateFlow(ItemDownloadState()) }.value
+        val existingMeta = readMetadata(itemId)
         if (current.status == DownloadStatus.COMPLETED && current.downloadId != null) {
             return@withContext Result.success(current.downloadId)
         }
 
-        if (activeJobs[itemId]?.isActive == true) {
-            return@withContext Result.success(current.downloadId ?: readMetadata(itemId)?.downloadId ?: nextDownloadId())
+        if (isQueued(itemId)) {
+            return@withContext Result.success(current.downloadId ?: existingMeta?.downloadId ?: nextDownloadId())
         }
 
         val requestData = mediaRepository.getItemDownloadRequest(itemId).getOrElse {
@@ -187,7 +201,6 @@ class DownloadRepository(context: Context) {
             return@withContext Result.failure(it)
         }
 
-        val existingMeta = readMetadata(itemId)
         val destination = existingMeta?.localPath
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
@@ -233,7 +246,14 @@ class DownloadRepository(context: Context) {
             filePath = destination.absolutePath
         )
         setFlowState(itemId, queuedState)
-        startTransfer(item, requestData, destination, downloadId)
+        enqueuePendingTransfer(
+            QueuedDownloadRequest(
+                item = item,
+                requestData = requestData,
+                destination = destination,
+                downloadId = downloadId
+            )
+        )
         Result.success(downloadId)
     }
 
@@ -263,9 +283,11 @@ class DownloadRepository(context: Context) {
     fun pauseDownload(itemId: String) {
         canceledItems.remove(itemId)
         pausedItems.add(itemId)
+        removePendingQueue(itemId)
         activeCalls.remove(itemId)?.cancel()
         activeJobs.remove(itemId)?.cancel()
         Paused(itemId)
+        drainPendingQueue()
     }
 
     fun resumeDownload(itemId: String) {
@@ -281,8 +303,72 @@ class DownloadRepository(context: Context) {
     fun cancelDownload(itemId: String) {
         pausedItems.remove(itemId)
         canceledItems.add(itemId)
+        removePendingQueue(itemId)
         scope.launch {
             deleteDownloadedItem(itemId)
+        }
+    }
+
+    private fun isQueued(itemId: String): Boolean {
+        if (activeJobs[itemId]?.isActive == true) {
+            return true
+        }
+        return synchronized(queueLock) { pendingItemIds.contains(itemId) }
+    }
+
+    private fun enqueuePendingTransfer(request: QueuedDownloadRequest) {
+        val itemId = request.item.id ?: return
+        var added = false
+        synchronized(queueLock) {
+            if (!pendingItemIds.contains(itemId)) {
+                pendingQueue.addLast(request)
+                pendingItemIds.add(itemId)
+                added = true
+            }
+        }
+        if (added) {
+            drainPendingQueue()
+        }
+    }
+
+    private fun removePendingQueue(itemId: String) {
+        synchronized(queueLock) {
+            if (pendingItemIds.remove(itemId)) {
+                val iterator = pendingQueue.iterator()
+                while (iterator.hasNext()) {
+                    if (iterator.next().item.id == itemId) {
+                        iterator.remove()
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private fun drainPendingQueue() {
+        synchronized(queueLock) {
+            val activeCount = activeJobs.values.count { it.isActive }
+            if (activeCount >= MAX_CONCURRENT_DOWNLOADS || pendingQueue.isEmpty()) {
+                return
+            }
+
+            var nextRequest: QueuedDownloadRequest? = null
+            while (pendingQueue.isNotEmpty() && nextRequest == null) {
+                val candidate = pendingQueue.removeFirst()
+                val candidateId = candidate.item.id ?: continue
+                pendingItemIds.remove(candidateId)
+                if (canceledItems.contains(candidateId) || pausedItems.contains(candidateId)) {
+                    continue
+                }
+                nextRequest = candidate
+            }
+            val request = nextRequest ?: return
+            startTransfer(
+                item = request.item,
+                requestData = request.requestData,
+                destination = request.destination,
+                downloadId = request.downloadId
+            )
         }
     }
 
@@ -335,6 +421,7 @@ class DownloadRepository(context: Context) {
             } finally {
                 activeCalls.remove(itemId)
                 activeJobs.remove(itemId)
+                drainPendingQueue()
             }
         }
     }
@@ -510,9 +597,13 @@ class DownloadRepository(context: Context) {
     }
 
     private fun restoreDownloads() {
-        val itemIds = allTrackedItemIds()
-        itemIds.forEach { itemId ->
-            val metadata = readMetadata(itemId) ?: return@forEach
+        val trackedMetadata = allTrackedItemIds()
+            .mapNotNull { itemId ->
+                readMetadata(itemId)?.let { metadata -> itemId to metadata }
+            }
+            .sortedBy { (_, metadata) -> metadata.requestedAt }
+        val itemsToResume = mutableListOf<BaseItemDto>()
+        trackedMetadata.forEach { (itemId, metadata) ->
             val downloadId = prefs.getLong(downloadKey(itemId), -1L).takeIf { it > 0L } ?: metadata.downloadId
             val fallbackStatus = parseStatus(metadata.status)
             val fallbackState = ItemDownloadState(
@@ -540,8 +631,20 @@ class DownloadRepository(context: Context) {
                     }
                 )
             )
+            if (decision.status == DownloadStatus.QUEUED && decision.message != "Paused") {
+                parseItem(metadata.fullItemJson)?.let { parsed ->
+                    itemsToResume.add(parsed)
+                }
+            }
         }
         refreshTrackedDownloads()
+        if (itemsToResume.isNotEmpty()) {
+            scope.launch {
+                itemsToResume.forEach { item ->
+                    enqueueItemDownload(item)
+                }
+            }
+        }
     }
 
     private fun RecoveredState(
@@ -554,7 +657,7 @@ class DownloadRepository(context: Context) {
         val wasInFlight = fallbackStatus == DownloadStatus.DOWNLOADING ||
             (fallbackStatus == DownloadStatus.QUEUED && !wasPaused)
 
-        val RecoverAsCompleted = if (fallbackStatus != DownloadStatus.COMPLETED || !available) {
+        val RecoveredState= if (fallbackStatus != DownloadStatus.COMPLETED || !available) {
             false
         } else if (metadata.totalBytes > 0L) {
             (file?.length() ?: 0L) >= metadata.totalBytes
@@ -563,7 +666,7 @@ class DownloadRepository(context: Context) {
         }
 
         return when {
-            RecoverAsCompleted -> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
+            RecoveredState-> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
             wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, "Paused")
             wasInFlight -> RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
             fallbackStatus == DownloadStatus.COMPLETED && !available ->
@@ -735,6 +838,7 @@ class DownloadRepository(context: Context) {
         private const val PREFS_NAME = "jellycine_download_state"
         private const val DOWNLOAD_PREFIX = "download_item_"
         private const val METADATA_PREFIX = "download_meta_"
+        private const val MAX_CONCURRENT_DOWNLOADS = 1
         private const val PROGRESS_EMIT_INTERVAL_MS = 300L
         private const val METADATA_PERSIST_INTERVAL_MS = 1500L
         private const val TRACKED_REFRESH_INTERVAL_MS = 1000L

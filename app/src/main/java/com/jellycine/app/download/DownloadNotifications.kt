@@ -30,47 +30,54 @@ class DownloadNotificationManager(private val context: Context) {
         val active = activeDownloads(tracked)
         if (active.isEmpty()) return null
 
-        val lead = active.first()
+        val lead = selectLead(active)
         val progress = (lead.state.progress.coerceIn(0f, 1f) * 100f).roundToInt()
-        val Downloading= lead.state.status == DownloadStatus.DOWNLOADING
-        val Paused= isPausedState(lead.state)
-        val allPaused = active.all { isPausedState(it.state) }
-        val title = if (allPaused) {
-            "Paused ${active.size} item" + if (active.size > 1) "s" else ""
-        } else {
-            "Downloading ${active.size} item" + if (active.size > 1) "s" else ""
+        val downloading = active.count { it.state.status == DownloadStatus.DOWNLOADING }
+        val queued = active.count { isWaitingState(it.state) }
+        val paused = active.count { isPausedState(it.state) }
+
+        val title = when {
+            downloading > 0 && queued > 0 ->
+                "Downloading $downloading item" +
+                    if (downloading > 1) "s" else "" +
+                    " ($queued queued)"
+            downloading > 0 ->
+                "Downloading $downloading item" + if (downloading > 1) "s" else ""
+            queued > 0 ->
+                "Queued $queued item" + if (queued > 1) "s" else ""
+            else ->
+                "Paused $paused item" + if (paused > 1) "s" else ""
         }
+
         val sizeText = formatSizeProgress(lead.state.downloadedBytes, lead.state.totalBytes)
-        val content = "${lead.title}\n$progress%$sizeText"
+        val stateText = when {
+            lead.state.status == DownloadStatus.DOWNLOADING -> "$progress%$sizeText"
+            isPausedState(lead.state) -> "Paused$sizeText"
+            else -> "Queued"
+        }
+        val content = "${lead.title}\n$stateText"
 
         val summaryBuilder = NotificationCompat.Builder(context, DownloadNotificationContract.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText("${lead.title} - $progress%")
+            .setContentText("${lead.title} - $stateText")
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setProgress(100, progress, lead.state.totalBytes <= 0L)
-            .addAction(
-                0,
-                "Cancel",
-                actionIntent(DownloadNotificationContract.ACTION_CANCEL, lead.itemId)
-            )
+            .setProgress(100, progress, lead.state.status != DownloadStatus.DOWNLOADING || lead.state.totalBytes <= 0L)
+            .addAction(0, "Cancel", actionIntent(DownloadNotificationContract.ACTION_CANCEL, lead.itemId))
 
-        if (!Downloading|| Paused) {
-            summaryBuilder.addAction(
-                0,
-                "Resume",
-                actionIntent(DownloadNotificationContract.ACTION_RESUME, lead.itemId)
+        val isPaused = isPausedState(lead.state)
+        summaryBuilder.addAction(
+            0,
+            if (isPaused) "Resume" else "Pause",
+            actionIntent(
+                if (isPaused) DownloadNotificationContract.ACTION_RESUME
+                else DownloadNotificationContract.ACTION_PAUSE,
+                lead.itemId
             )
-        } else {
-            summaryBuilder.addAction(
-                0,
-                "Pause",
-                actionIntent(DownloadNotificationContract.ACTION_PAUSE, lead.itemId)
-            )
-        }
+        )
         return summaryBuilder.build()
     }
 
@@ -88,6 +95,20 @@ class DownloadNotificationManager(private val context: Context) {
         return tracked.filter {
             it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
         }
+    }
+
+    private fun selectLead(active: List<TrackedDownload>): TrackedDownload {
+        active.filter { it.state.status == DownloadStatus.DOWNLOADING }
+            .maxByOrNull { it.state.progress }
+            ?.let { return it }
+        active.filter { isWaitingState(it.state) }
+            .minByOrNull { it.requestedAt }
+            ?.let { return it }
+        return active.minByOrNull { it.requestedAt } ?: active.first()
+    }
+
+    private fun isWaitingState(state: ItemDownloadState): Boolean {
+        return state.status == DownloadStatus.QUEUED && !isPausedState(state)
     }
 
     private fun isPausedState(state: ItemDownloadState): Boolean {
