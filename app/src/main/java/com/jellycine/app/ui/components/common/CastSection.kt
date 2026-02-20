@@ -4,11 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,24 +34,34 @@ fun CastSection(
     title: String = "Cast & Crew",
     maxItems: Int = 8
 ) {
-    val actors = item.people?.filter { it.type == "Actor" }?.take(maxItems) ?: emptyList()
-    
-    if (actors.isNotEmpty()) {
+    val castAndCrew = remember(item.people, maxItems) {
+        prioritizeCastAndCrew(
+            people = item.people,
+            maxItems = maxItems
+        )
+    }
+
+    if (castAndCrew.isNotEmpty()) {
         Column(modifier = modifier) {
             Text(
                 text = title,
-                fontSize = 20.sp,
+                fontSize = 21.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-                modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)
+                modifier = Modifier.padding(top = 24.dp, bottom = 12.dp)
             )
 
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 0.dp)
             ) {
-                items(actors) { person ->
-                    ModernCastMemberCard(
+                items(
+                    items = castAndCrew,
+                    key = { person ->
+                        person.id ?: "${person.name}-${person.role}-${person.type}"
+                    }
+                ) { person ->
+                    CastCrewMemberCard(
                         person = person,
                         mediaRepository = mediaRepository
                     )
@@ -62,7 +72,7 @@ fun CastSection(
 }
 
 @Composable
-private fun ModernCastMemberCard(
+private fun CastCrewMemberCard(
     person: BaseItemPerson,
     mediaRepository: MediaRepository
 ) {
@@ -76,13 +86,13 @@ private fun ModernCastMemberCard(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(100.dp)
+        modifier = Modifier.width(116.dp)
     ) {
-        // Profile Image
         Box(
             modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
+                .fillMaxWidth()
+                .height(166.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(Color(0xFF2A2A2A)),
             contentAlignment = Alignment.Center
         ) {
@@ -103,41 +113,59 @@ private fun ModernCastMemberCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Name
         Text(
             text = person.name ?: "Unknown",
             fontSize = 12.sp,
             color = Color.White,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Medium,
             lineHeight = 14.sp
         )
 
-        // Role
-        person.role?.let { role ->
+        val roleLabel = person.role?.takeIf { it.isNotBlank() }
+            ?: person.type?.takeIf { !it.equals("Actor", ignoreCase = true) && it.isNotBlank() }
+
+        roleLabel?.let { role ->
             Text(
                 text = role,
                 fontSize = 10.sp,
-                color = Color.White.copy(alpha = 0.6f),
+                color = Color.White.copy(alpha = 0.62f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp)
+                modifier = Modifier.padding(top = 1.dp)
             )
         }
     }
+}
+
+private fun prioritizeCastAndCrew(
+    people: List<BaseItemPerson>?,
+    maxItems: Int
+): List<BaseItemPerson> {
+    if (people.isNullOrEmpty() || maxItems <= 0) return emptyList()
+
+    val clean = people.filter { !it.name.isNullOrBlank() }
+    if (clean.isEmpty()) return emptyList()
+
+    val actors = clean.filter { it.type.equals("Actor", ignoreCase = true) }
+    val crew = clean.filterNot { it.type.equals("Actor", ignoreCase = true) }
+
+    return (actors + crew)
+        .distinctBy { it.id ?: "${it.name}-${it.role}-${it.type}" }
+        .take(maxItems)
 }
 
 private suspend fun getPersonImageUrl(personId: String, mediaRepository: MediaRepository): String? {
     return mediaRepository.getImageUrl(
         itemId = personId,
         imageType = "Primary",
-        width = 120,
-        height = 120,
+        width = 320,
+        height = 480,
         quality = 90
     ).first()
 }

@@ -35,16 +35,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -1304,87 +1300,6 @@ private fun uniquifyOptionLabels(options: List<String>): List<String> {
 }
 
 @Composable
-fun CastMemberCard(
-    person: BaseItemPerson,
-    mediaRepository: MediaRepository
-) {
-    var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(person.id) {
-        if (person.id != null) {
-            personImageUrl = getPersonImageUrl(person.id, mediaRepository).first()
-        }
-    }
-
-    Card(
-        modifier = Modifier.width(120.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A1A1A)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Card(
-                modifier = Modifier.size(80.dp),
-                shape = CircleShape,
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                if (personImageUrl != null) {
-                    AsyncImage(
-                        model = personImageUrl,
-                        contentDescription = person.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFF2A2A2A)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Person,
-                            contentDescription = person.name,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = person.name ?: "Unknown",
-                fontSize = 13.sp,
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.Medium
-            )
-
-            person.role?.let { role ->
-                Text(
-                    text = role,
-                    fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun FileInfoRow(
     label: String,
     value: String,
@@ -1823,17 +1738,4 @@ fun DetailScreenSkeleton(
     }
 }
 
-private fun getPersonImageUrl(personId: String?, mediaRepository: MediaRepository): Flow<String?> {
-    return if (personId != null) {
-        mediaRepository.getImageUrl(
-            itemId = personId,
-            imageType = "Primary",
-            width = 120,
-            height = 120,
-            quality = 90
-        )
-    } else {
-        flowOf(null)
-    }
-}
 
