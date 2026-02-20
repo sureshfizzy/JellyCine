@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,12 +23,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun SeasonDetailScreen(
@@ -38,10 +42,13 @@ fun SeasonDetailScreen(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()
     
     var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var seasonQueueInProgress by remember(seasonId) { mutableStateOf(false) }
     var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember { mutableIntStateOf(0) }
@@ -304,32 +311,91 @@ fun SeasonDetailScreen(
                                 color = Color.White.copy(alpha = 0.86f)
                             )
 
-                            Button(
-                                onClick = {
-                                    episodes.firstOrNull()?.id?.let { firstEpisodeId ->
-                                        onEpisodeClick(firstEpisodeId)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(46.dp),
-                                shape = RoundedCornerShape(23.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color.Black
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = "Play season",
-                                    modifier = Modifier.size(22.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Play",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Button(
+                                    onClick = {
+                                        episodes.firstOrNull()?.id?.let { firstEpisodeId ->
+                                            onEpisodeClick(firstEpisodeId)
+                                        }
+                                    },
+                                    enabled = episodes.isNotEmpty(),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(23.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = Color.Black
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = "Play season",
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Play",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            seasonQueueInProgress = true
+                                            try {
+                                                downloadRepository.enqueueSeasonDownload(
+                                                    seriesId = seriesId,
+                                                    seasonId = seasonId
+                                                )
+                                            } finally {
+                                                seasonQueueInProgress = false
+                                            }
+                                        }
+                                    },
+                                    enabled = episodes.isNotEmpty() && !seasonQueueInProgress,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp),
+                                    shape = RoundedCornerShape(23.dp),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = Color(0xFF1F1F24),
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    if (seasonQueueInProgress) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF03A9F4)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Queuing...",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Download,
+                                            contentDescription = "Download season",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Download",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

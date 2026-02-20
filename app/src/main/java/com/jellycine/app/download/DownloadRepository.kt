@@ -261,23 +261,23 @@ class DownloadRepository(context: Context) {
         val episodes = mediaRepository.getEpisodes(seriesId).getOrElse {
             return@withContext Result.failure(it)
         }
-        if (episodes.isEmpty()) {
-            return@withContext Result.failure(Exception("No episodes found for this series"))
-        }
+        enqueueEpisodeBatch(
+            episodes = episodes,
+            emptyError = "No episodes found for this series"
+        )
+    }
 
-        var queued = 0
-        episodes.forEach { episode ->
-            val result = enqueueItemDownload(episode)
-            if (result.isSuccess) {
-                queued += 1
-            }
+    suspend fun enqueueSeasonDownload(seriesId: String, seasonId: String): Result<Int> = withContext(Dispatchers.IO) {
+        val episodes = mediaRepository.getEpisodes(
+            seriesId = seriesId,
+            seasonId = seasonId
+        ).getOrElse {
+            return@withContext Result.failure(it)
         }
-
-        if (queued == 0) {
-            Result.failure(Exception("No episodes could be queued"))
-        } else {
-            Result.success(queued)
-        }
+        enqueueEpisodeBatch(
+            episodes = episodes,
+            emptyError = "No episodes found for this season"
+        )
     }
 
     fun pauseDownload(itemId: String) {
@@ -314,6 +314,29 @@ class DownloadRepository(context: Context) {
             return true
         }
         return synchronized(queueLock) { pendingItemIds.contains(itemId) }
+    }
+
+    private suspend fun enqueueEpisodeBatch(
+        episodes: List<BaseItemDto>,
+        emptyError: String
+    ): Result<Int> {
+        if (episodes.isEmpty()) {
+            return Result.failure(Exception(emptyError))
+        }
+
+        var queued = 0
+        episodes.forEach { episode ->
+            val result = enqueueItemDownload(episode)
+            if (result.isSuccess) {
+                queued += 1
+            }
+        }
+
+        return if (queued == 0) {
+            Result.failure(Exception("No episodes could be queued"))
+        } else {
+            Result.success(queued)
+        }
     }
 
     private fun enqueuePendingTransfer(request: QueuedDownloadRequest) {
