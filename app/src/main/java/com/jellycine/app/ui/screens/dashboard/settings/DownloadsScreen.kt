@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
 import com.jellycine.app.ui.screens.player.PlayerScreen
@@ -69,14 +70,25 @@ fun DownloadsScreen(
     val downloads by downloadRepository.observeTrackedDownloads().collectAsState()
     val scope = rememberCoroutineScope()
 
-    val offlineAvailable = remember(downloads) { downloads.filter { it.isOfflineAvailable } }
-    val movieEntries = remember(offlineAvailable) {
-        offlineAvailable.filter { (it.item?.type ?: it.mediaType).equals("Movie", ignoreCase = true) }
-            .sortedBy { it.title.lowercase(Locale.getDefault()) }
+    val visibleDownloads = remember(downloads) {
+        downloads.filter {
+            it.isOfflineAvailable ||
+                it.state.status == DownloadStatus.DOWNLOADING ||
+                it.state.status == DownloadStatus.QUEUED
+        }
     }
-    val seriesGroups = remember(offlineAvailable) {
+    val movieEntries = remember(visibleDownloads) {
+        visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Movie", ignoreCase = true) }
+            .sortedWith(
+                compareByDescending<TrackedDownload> {
+                    it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
+                }
+                    .thenBy { it.title.lowercase(Locale.getDefault()) }
+            )
+    }
+    val seriesGroups = remember(visibleDownloads) {
         buildSeriesGroups(
-            offlineAvailable.filter { (it.item?.type ?: it.mediaType).equals("Episode", ignoreCase = true) }
+            visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Episode", ignoreCase = true) }
         )
     }
 
@@ -127,7 +139,7 @@ fun DownloadsScreen(
         }
     ) { innerPadding ->
         when {
-            offlineAvailable.isEmpty() -> {
+            visibleDownloads.isEmpty() -> {
                 EmptyDownloadsState(innerPadding = innerPadding)
             }
             selectedSeries != null -> {
@@ -191,7 +203,7 @@ private fun EmptyDownloadsState(innerPadding: PaddingValues) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "No offline downloads",
+                text = "No downloads available",
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
@@ -285,14 +297,14 @@ private fun SeriesSummaryRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .width(170.dp)
-                .height(94.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .width(148.dp)
+                .height(84.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(Color.White.copy(alpha = 0.08f))
         ) {
             JellyfinPosterImage(
@@ -303,28 +315,40 @@ private fun SeriesSummaryRow(
                 contentScale = ContentScale.Crop
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = group.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${group.totalEpisodes} Episodes | ${formatBytes(group.totalSizeBytes)}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
+            val progressLabel = groupProgressLabel(group)
+            if (!progressLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = progressLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Icon(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.size(30.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
@@ -357,19 +381,24 @@ private fun MovieRow(
         mediaRepository = mediaRepository
     )
     val imageUrl = primaryImageUrl ?: backdropImageUrl
+    val canPlay = entry.isOfflineAvailable
+    val statusLabel = downloadStatusLabel(entry)
+    val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
+    val metaText = "${entry.item?.productionYear ?: entry.year ?: ""} | ${formatBytes(entry.displayBytes())}"
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onPlay)
-            .padding(vertical = 8.dp),
+            .clickable(enabled = canPlay, onClick = onPlay)
+            .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .width(170.dp)
-                .height(94.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .width(148.dp)
+                .height(84.dp)
+                .clip(RoundedCornerShape(10.dp))
                 .background(Color.White.copy(alpha = 0.08f))
         ) {
             JellyfinPosterImage(
@@ -380,22 +409,33 @@ private fun MovieRow(
                 contentScale = ContentScale.Crop
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${entry.item?.productionYear ?: entry.year ?: ""} | ${formatBytes(entry.fileSizeBytes)}",
-                style = MaterialTheme.typography.bodyMedium,
+                text = metaText,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
+            if (!statusLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         IconButton(onClick = onDelete, enabled = !deleting) {
             if (deleting) {
@@ -493,13 +533,16 @@ private fun EpisodeRow(
     val imageUrl = primaryImageUrl ?: backdropImageUrl ?: seriesPrimaryImageUrl
     val episodeNumber = item?.indexNumber ?: 0
     val runtime = item?.runTimeTicks?.let { ticksToMinutes(it) } ?: "-"
-    val size = formatBytes(entry.fileSizeBytes)
+    val size = formatBytes(entry.displayBytes())
+    val canPlay = entry.isOfflineAvailable
+    val statusLabel = downloadStatusLabel(entry)
+    val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onPlay)
+            .clickable(enabled = canPlay, onClick = onPlay)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -534,6 +577,17 @@ private fun EpisodeRow(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
+            if (!statusLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = statusColor,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         IconButton(onClick = onDelete, enabled = !deleting) {
@@ -608,10 +662,20 @@ private fun buildSeriesGroups(entries: List<TrackedDownload>): List<OfflineSerie
                 posterItemId = posterItemId,
                 seasons = seasons,
                 totalEpisodes = episodes.size,
-                totalSizeBytes = episodes.sumOf { it.fileSizeBytes ?: 0L }
+                totalSizeBytes = episodes.sumOf { it.displayBytes() ?: 0L }
             )
         }
-        .sortedBy { it.title.lowercase(Locale.getDefault()) }
+        .sortedWith(
+            compareByDescending<OfflineSeriesGroup> { group ->
+                group.seasons.any { season ->
+                    season.episodes.any { episode ->
+                        episode.state.status == DownloadStatus.DOWNLOADING ||
+                            episode.state.status == DownloadStatus.QUEUED
+                    }
+                }
+            }
+                .thenBy { it.title.lowercase(Locale.getDefault()) }
+        )
 }
 
 private fun formatBytes(bytes: Long?): String {
@@ -637,6 +701,61 @@ private fun ticksToMinutes(ticks: Long): String {
         hours > 0L -> "${hours}h"
         minutes > 0L -> "${minutes}m"
         else -> "-"
+    }
+}
+
+private fun TrackedDownload.displayBytes(): Long? {
+    return fileSizeBytes
+        ?: state.totalBytes.takeIf { it > 0L }
+        ?: state.downloadedBytes.takeIf { it > 0L }
+}
+
+private fun downloadStatusLabel(entry: TrackedDownload): String? {
+    return when (entry.state.status) {
+        DownloadStatus.DOWNLOADING -> {
+            val percent = (entry.state.progress.coerceIn(0f, 1f) * 100f).toInt()
+            val size = if (entry.state.totalBytes > 0L) {
+                " | ${formatProgressBytes(entry.state.downloadedBytes)} / ${formatProgressBytes(entry.state.totalBytes)}"
+            } else if (entry.state.downloadedBytes > 0L) {
+                " | ${formatProgressBytes(entry.state.downloadedBytes)}"
+            } else {
+                ""
+            }
+            "Downloading $percent%$size"
+        }
+        DownloadStatus.QUEUED -> {
+            if (entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true) {
+                "Paused"
+            } else {
+                "Queued"
+            }
+        }
+        else -> null
+    }
+}
+
+private fun formatProgressBytes(bytes: Long): String {
+    return if (bytes <= 0L) "0 B" else formatBytes(bytes)
+}
+
+private fun groupProgressLabel(group: OfflineSeriesGroup): String? {
+    val episodes = group.seasons.flatMap { it.episodes }
+    val totalEpisodes = episodes.size
+    val completedEpisodes = episodes.count { it.isOfflineAvailable }
+    val downloadingEpisodes = episodes.count { it.state.status == DownloadStatus.DOWNLOADING }
+    val pausedEpisodes = episodes.count {
+        it.state.status == DownloadStatus.QUEUED && it.state.message?.trim()?.equals("Paused", ignoreCase = true) == true
+    }
+    val queuedEpisodes = episodes.count { it.state.status == DownloadStatus.QUEUED } - pausedEpisodes
+
+    return when {
+        downloadingEpisodes > 0 ->
+            "Downloading ${completedEpisodes + downloadingEpisodes} of $totalEpisodes"
+        queuedEpisodes > 0 ->
+            "Queued $queuedEpisodes episode" + if (queuedEpisodes > 1) "s" else ""
+        pausedEpisodes > 0 ->
+            "Paused $pausedEpisodes episode" + if (pausedEpisodes > 1) "s" else ""
+        else -> null
     }
 }
 
