@@ -173,13 +173,15 @@ object NetworkModule {
             val request = chain.request()
             val response = chain.proceed(request)
             val isGet = request.method.equals("GET", ignoreCase = true)
+            val path = request.url.encodedPath
+            val isUserScopedData = path.contains("/Users/", ignoreCase = true)
             val cacheControl = response.header("Cache-Control").orEmpty()
             val hasExplicitCaching =
                 cacheControl.contains("max-age", ignoreCase = true) ||
                     cacheControl.contains("no-store", ignoreCase = true) ||
                     cacheControl.contains("no-cache", ignoreCase = true)
 
-            if (isGet && response.isSuccessful && !hasExplicitCaching) {
+            if (isGet && response.isSuccessful && !hasExplicitCaching && !isUserScopedData) {
                 response.newBuilder()
                     .header("Cache-Control", "public, max-age=60")
                     .build()

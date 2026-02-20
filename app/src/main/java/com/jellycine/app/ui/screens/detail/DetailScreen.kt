@@ -357,6 +357,22 @@ fun DetailContent(
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
+    var isFavorite by remember(item.id, item.userData?.isFavorite) {
+        mutableStateOf(item.userData?.isFavorite == true)
+    }
+    fun toggleFavorite() {
+        val currentItemId = item.id ?: return
+        val targetState = !isFavorite
+        coroutineScope.launch {
+            val result = mediaRepository.setFavoriteStatus(
+                itemId = currentItemId,
+                isFavorite = targetState
+            )
+            if (result.isSuccess) {
+                isFavorite = targetState
+            }
+        }
+    }
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
             DownloadStatus.QUEUED -> {
@@ -870,6 +886,11 @@ fun DetailContent(
                                 }
                             }
                         }
+
+                        FavoriteActionButton(
+                            isFavorite = isFavorite,
+                            onClick = ::toggleFavorite
+                        )
                     }
                 }
 
@@ -882,76 +903,88 @@ fun DetailContent(
                 }
 
                 if (item.type == "Series") {
-                    OutlinedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                val seriesId = item.id
-                                if (seriesId.isNullOrBlank()) {
-                                    return@launch
-                                }
-                                seriesQueueInProgress = true
-                                try {
-                                    downloadRepository.enqueueSeriesDownload(seriesId)
-                                } finally {
-                                    seriesQueueInProgress = false
-                                }
-                            }
-                        },
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 14.dp)
-                            .height(46.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color(0xFF1F1F24),
-                            contentColor = Color.White
-                        )
+                            .padding(top = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        AnimatedContent(
-                            targetState = seriesQueueInProgress,
-                            transitionSpec = {
-                                fadeIn(animationSpec = tween(220)) togetherWith
-                                    fadeOut(animationSpec = tween(180))
-                            },
-                            label = "download_series_state"
-                        ) { inProgress ->
-                            if (inProgress) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = Color(0xFF03A9F4)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Queuing...",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val seriesId = item.id
+                                    if (seriesId.isNullOrBlank()) {
+                                        return@launch
+                                    }
+                                    seriesQueueInProgress = true
+                                    try {
+                                        downloadRepository.enqueueSeriesDownload(seriesId)
+                                    } finally {
+                                        seriesQueueInProgress = false
+                                    }
                                 }
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Download,
-                                        contentDescription = "Download series",
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Download Series",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color(0xFF1F1F24),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            AnimatedContent(
+                                targetState = seriesQueueInProgress,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(220)) togetherWith
+                                        fadeOut(animationSpec = tween(180))
+                                },
+                                label = "download_series_state"
+                            ) { inProgress ->
+                                if (inProgress) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF03A9F4)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Queuing...",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Download,
+                                            contentDescription = "Download series",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Download Series",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
                                 }
                             }
                         }
+
+                        FavoriteActionButton(
+                            isFavorite = isFavorite,
+                            onClick = ::toggleFavorite
+                        )
                     }
 
                     item.id?.let { seriesId ->
@@ -1070,6 +1103,32 @@ private fun OptionSelectorRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FavoriteActionButton(
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.size(46.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color(0xFF1F1F24),
+            contentColor = Color.White
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
+            modifier = Modifier.size(20.dp),
+            tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White
+        )
     }
 }
 

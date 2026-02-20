@@ -12,6 +12,7 @@ import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.UserDto
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -71,8 +72,20 @@ interface MediaServerApi {
     suspend fun getItemById(
         @Path("userId") userId: String,
         @Path("itemId") itemId: String,
-        @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+        @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData"
     ): Response<BaseItemDto>
+
+    @POST("Users/{userId}/FavoriteItems/{itemId}")
+    suspend fun markAsFavorite(
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String
+    ): Response<Unit>
+
+    @DELETE("Users/{userId}/FavoriteItems/{itemId}")
+    suspend fun unmarkAsFavorite(
+        @Path("userId") userId: String,
+        @Path("itemId") itemId: String
+    ): Response<Unit>
 
     @GET("Genres")
     suspend fun getGenres(

@@ -295,7 +295,7 @@ class MediaRepository(private val context: Context) {
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,
-                fields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId"
+                fields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData"
             )
 
             if (response.isSuccessful && response.body() != null) {
@@ -361,6 +361,31 @@ class MediaRepository(private val context: Context) {
             filters = "IsFavorite",
             fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,IndexNumber,ParentIndexNumber,ProductionYear,RunTimeTicks,Overview,DateCreated"
         )
+    }
+
+    suspend fun setFavoriteStatus(itemId: String, isFavorite: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = if (isFavorite) {
+                api.markAsFavorite(userId = userId, itemId = itemId)
+            } else {
+                api.unmarkAsFavorite(userId = userId, itemId = itemId)
+            }
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to ${if (isFavorite) "favorite" else "unfavorite"} item: ${response.code()} - ${response.message()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
     
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
