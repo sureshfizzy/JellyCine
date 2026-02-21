@@ -209,7 +209,7 @@ class DownloadRepository(context: Context) {
         prefs.edit().putLong(downloadKey(itemId), downloadId).apply()
 
         val title = item.name?.takeIf { it.isNotBlank() }
-            ?: requestData.displayName
+            ?: requestData.displayName.takeIf { it.isNotBlank() }
             ?: "Item $itemId"
 
         persistMetadata(
@@ -510,7 +510,7 @@ class DownloadRepository(context: Context) {
                 throw IllegalStateException("Server error ${response.code}")
             }
 
-            val body = response.body ?: throw IllegalStateException("Empty response body")
+            val body = response.body
             val append = response.code == 206 && resumeFrom > 0L
             val downloadedStart = if (append) resumeFrom else 0L
             if (!append && destination.exists() && destination.length() > 0L) {
@@ -675,21 +675,21 @@ class DownloadRepository(context: Context) {
         fallbackStatus: DownloadStatus
     ): RecoveryDecision {
         val file = metadata.localPath?.let(::File)
-        val available = file?.exists() == true
+        val available = file != null && file.exists()
         val wasPaused = fallbackStatus == DownloadStatus.QUEUED && metadata.message == "Paused"
         val wasInFlight = fallbackStatus == DownloadStatus.DOWNLOADING ||
             (fallbackStatus == DownloadStatus.QUEUED && !wasPaused)
 
-        val RecoveredState= if (fallbackStatus != DownloadStatus.COMPLETED || !available) {
+        val recoveredState = if (fallbackStatus != DownloadStatus.COMPLETED || !available) {
             false
         } else if (metadata.totalBytes > 0L) {
-            (file?.length() ?: 0L) >= metadata.totalBytes
+            file.length() >= metadata.totalBytes
         } else {
             metadata.completedAt != null || metadata.progress >= 1f
         }
 
         return when {
-            RecoveredState-> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
+            recoveredState -> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
             wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, "Paused")
             wasInFlight -> RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
             fallbackStatus == DownloadStatus.COMPLETED && !available ->
@@ -748,7 +748,7 @@ class DownloadRepository(context: Context) {
                 year = resolvedYear,
                 state = state,
                 isOfflineAvailable = isOffline,
-                fileSizeBytes = if (isOffline) file?.length() else state.totalBytes.takeIf { it > 0L },
+                fileSizeBytes = if (isOffline) file.length() else state.totalBytes.takeIf { it > 0L },
                 requestedAt = metadata.requestedAt,
                 completedAt = metadata.completedAt
             )

@@ -61,8 +61,6 @@ class JellyCineActivity : ComponentActivity() {
                 val view = LocalView.current
                 SideEffect {
                     val window = (view.context as ComponentActivity).window
-                    window.statusBarColor = android.graphics.Color.TRANSPARENT
-                    window.navigationBarColor = android.graphics.Color.BLACK
                     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
                     WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
                 }

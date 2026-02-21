@@ -25,8 +25,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
@@ -792,3 +792,4 @@ private data class SortOption(
     val sortOrder: String,
     val emoji: String
 )
+

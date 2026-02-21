@@ -1,14 +1,15 @@
 package com.jellycine.app
 
 import android.app.Application
-import coil.ImageLoader
-import coil.ImageLoaderFactory
+import coil3.PlatformContext
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import com.jellycine.app.util.logging.CrashHandler
 import com.jellycine.app.util.image.ImageLoaderConfig
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class JellyCineApplication : Application(), ImageLoaderFactory {
+class JellyCineApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
@@ -17,7 +18,8 @@ class JellyCineApplication : Application(), ImageLoaderFactory {
         CrashHandler.initialize(this)
     }
 
-    override fun newImageLoader(): ImageLoader {
-        return ImageLoaderConfig.createOptimizedImageLoader(this)
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        return ImageLoaderConfig.createOptimizedImageLoader(context)
     }
 }
+

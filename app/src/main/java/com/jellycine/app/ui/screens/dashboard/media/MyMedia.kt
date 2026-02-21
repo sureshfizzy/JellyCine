@@ -19,9 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.request.CachePolicy
+import coil3.compose.AsyncImage
+import coil3.request.*
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -518,4 +517,5 @@ private fun getLibraryTypeText(collectionType: String?): String {
         else -> "Library"
     }
 }
+
 

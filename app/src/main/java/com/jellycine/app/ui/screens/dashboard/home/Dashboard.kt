@@ -72,12 +72,11 @@ import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.ExperimentalFoundationApi
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.CachePolicy
-import coil.size.Precision
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.imageLoader
+import coil3.request.*
+import coil3.size.Precision
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable
@@ -591,7 +590,7 @@ object ImagePreloader {
     private suspend fun preloadContinueWatchingItem(
         item: BaseItemDto,
         mediaRepository: MediaRepository,
-        imageLoader: coil.ImageLoader,
+        imageLoader: coil3.ImageLoader,
         context: android.content.Context
     ) {
         val itemId = item.id ?: return
@@ -1595,7 +1594,7 @@ private fun ContinueWatchingSection(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = error ?: "Unknown error",
+                            text = error,
                             color = Color.White.copy(alpha = 0.5f),
                             fontSize = 12.sp
                         )
@@ -2706,3 +2705,4 @@ private fun ProgressiveTVShowGenreSection(
         }
     }
 }
+

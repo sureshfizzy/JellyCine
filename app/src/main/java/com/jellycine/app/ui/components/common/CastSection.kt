@@ -20,7 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
@@ -169,3 +169,4 @@ private suspend fun getPersonImageUrl(personId: String, mediaRepository: MediaRe
         quality = 90
     ).first()
 }
+

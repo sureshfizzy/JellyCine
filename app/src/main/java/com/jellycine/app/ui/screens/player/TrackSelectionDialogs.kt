@@ -67,7 +67,7 @@ fun AudioTrackSelectionDialog(
         onDismiss = onDismiss,
         trackDisplayInfo = { track ->
             val trackIndex = audioTracks.indexOf(track) + 1
-            val label = track.label?.takeIf { it.isNotBlank() } ?: "Audio Track $trackIndex"
+            val label = track.label.takeIf { it.isNotBlank() } ?: "Audio Track $trackIndex"
             TrackDisplayInfo(
                 title = label,
                 subtitle = buildAudioTrackSubtitle(track),
@@ -98,7 +98,7 @@ fun SubtitleTrackSelectionDialog(
         onDismiss = onDismiss,
         trackDisplayInfo = { track ->
             val trackIndex = subtitleTracks.indexOf(track) + 1
-            val label = track.label?.takeIf { it.isNotBlank() } ?: "Subtitle Track $trackIndex"
+            val label = track.label.takeIf { it.isNotBlank() } ?: "Subtitle Track $trackIndex"
             TrackDisplayInfo(
                 title = label,
                 subtitle = buildSubtitleTrackSubtitle(track),

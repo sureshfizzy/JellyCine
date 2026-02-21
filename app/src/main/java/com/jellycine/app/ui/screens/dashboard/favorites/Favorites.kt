@@ -55,8 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -586,3 +586,4 @@ private fun formatRuntime(ticks: Long?): String? {
 fun FavoritesPreview() {
     Favorites()
 }
+

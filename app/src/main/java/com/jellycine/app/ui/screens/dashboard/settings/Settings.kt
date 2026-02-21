@@ -30,9 +30,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.request.CachePolicy
+import coil3.compose.AsyncImage
+import coil3.request.*
 import com.jellycine.data.preferences.NetworkPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +56,7 @@ fun Settings(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Settings") },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
             )
@@ -824,3 +823,4 @@ private fun readableCodecName(mimeType: String): String {
         }
     }
 }
+

@@ -786,7 +786,7 @@ private fun buildSeriesGroups(entries: List<TrackedDownload>): List<OfflineSerie
                 .map { (_, seasonEpisodes) ->
                     val first = seasonEpisodes.firstOrNull()?.item
                     val label = when {
-                        !first?.seasonName.isNullOrBlank() -> first?.seasonName.orEmpty()
+                        !first?.seasonName.isNullOrBlank() -> first.seasonName.orEmpty()
                         first?.parentIndexNumber != null -> "Season ${first.parentIndexNumber}"
                         else -> "Season"
                     }

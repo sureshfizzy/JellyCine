@@ -19,9 +19,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import coil.request.CachePolicy
+import coil3.compose.AsyncImage
+import coil3.request.*
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -1079,3 +1078,4 @@ fun GenreSectionSkeleton(
         }
     }
 }
+

@@ -61,12 +61,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
-import coil.imageLoader
-import coil.request.CachePolicy
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.compose.rememberAsyncImagePainter
+import coil3.imageLoader
+import coil3.request.*
 import com.jellycine.app.R
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -666,7 +665,7 @@ private fun FeatureHeroCard(
                         .allowRgb565(true)
                         .build()
                 )
-                val lowState = lowPainter.state
+                val lowState by lowPainter.state.collectAsState()
                 LaunchedEffect(lowState) {
                     if (lowState is AsyncImagePainter.State.Success ||
                         lowState is AsyncImagePainter.State.Error
@@ -707,7 +706,8 @@ private fun FeatureHeroCard(
                         .allowRgb565(true)
                         .build()
                 )
-                val highResImage = highPainter.state is AsyncImagePainter.State.Success
+                val highState by highPainter.state.collectAsState()
+                val highResImage = highState is AsyncImagePainter.State.Success
                 val highAlpha by animateFloatAsState(
                     targetValue = if (highResImage) 1f else 0f,
                     label = "hero_backdrop_high_alpha"
@@ -982,3 +982,4 @@ private fun FeatureHeroError(error: String, heroHeight: Dp) {
         }
     }
 }
+

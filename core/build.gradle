@@ -1,15 +1,14 @@
 plugins {
     id 'com.android.library'
-    id 'org.jetbrains.kotlin.android'
 }
 
 android {
     namespace = 'com.jellycine.core'
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 36
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -27,34 +26,36 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = '17'
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
     }
 }
 
 dependencies {
     // Core Android
-    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.core:core-ktx:1.16.0'
 
     // Lifecycle & ViewModel
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0'
 
     // Coroutines
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 
     // Media3 for player
-    implementation 'androidx.media3:media3-exoplayer:1.4.1'
-    implementation 'androidx.media3:media3-common:1.4.1'
+    implementation 'androidx.media3:media3-exoplayer:1.9.0'
+    implementation 'androidx.media3:media3-common:1.9.0'
 
     // Hilt for dependency injection
-    implementation 'com.google.dagger:hilt-android:2.52'
+    implementation 'com.google.dagger:hilt-android:2.59.1'
 
     // Data module dependency
     implementation project(':data')
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }

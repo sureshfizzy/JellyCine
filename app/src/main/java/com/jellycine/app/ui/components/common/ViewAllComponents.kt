@@ -14,7 +14,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material3.*
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,7 +72,7 @@ fun SortDropdown(
                 unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
             ),
             modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
                 .fillMaxWidth()
         )
 

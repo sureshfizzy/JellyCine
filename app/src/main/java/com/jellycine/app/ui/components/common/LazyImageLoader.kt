@@ -12,10 +12,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.request.ImageRequest
-import coil.request.CachePolicy
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.*
 
 @Composable
 fun LazyImageLoader(
@@ -64,7 +63,7 @@ fun LazyImageLoader(
                     .allowHardware(true)
                     .allowRgb565(true)
                     .crossfade(if (blurImageUrl != null) 300 else 150)
-                    .size(coil.size.Size.ORIGINAL)
+                    .size(coil3.size.Size.ORIGINAL)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -175,7 +174,7 @@ fun ProgressiveImageLoader(
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .allowHardware(true)
                     .allowRgb565(true)
-                    .size(coil.size.Size(100, 150))
+                    .size(coil3.size.Size(100, 150))
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
@@ -236,3 +235,4 @@ fun ProgressiveImageLoader(
         }
     }
 }
+

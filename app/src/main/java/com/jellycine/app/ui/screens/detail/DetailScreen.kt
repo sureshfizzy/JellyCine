@@ -1202,7 +1202,7 @@ private fun OptionSelectorRow(
             Surface(
                 modifier = Modifier
                     .menuAnchor(
-                        type = MenuAnchorType.PrimaryNotEditable,
+                        type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                         enabled = true
                     )
                     .fillMaxWidth(),
@@ -1884,5 +1884,6 @@ fun DetailScreenSkeleton(
         }
     }
 }
+
 
 

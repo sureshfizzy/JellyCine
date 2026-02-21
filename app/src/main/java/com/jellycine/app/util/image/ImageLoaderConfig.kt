@@ -3,10 +3,12 @@ package com.jellycine.app.util.image
 import android.app.ActivityManager
 import android.content.Context
 import androidx.datastore.preferences.core.stringPreferencesKey
-import coil.ImageLoader
-import coil.disk.DiskCache
-import coil.memory.MemoryCache
-import coil.request.CachePolicy
+import coil3.ComponentRegistry
+import coil3.ImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.request.CachePolicy
 import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.preferences.NetworkPreferences
@@ -16,6 +18,7 @@ import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -82,12 +85,12 @@ object ImageLoaderConfig {
         return max(0.08, min(0.30, basePercent))
     }
 
-    private fun ImageMemoryCacheBytes(context: Context): Int? {
+    private fun ImageMemoryCacheBytes(context: Context): Long? {
         val configuredMb = NetworkPreferences(context).getImageMemoryCacheMb()
         if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
             return null
         }
-        return (configuredMb * BYTES_PER_MB).toInt()
+        return configuredMb * BYTES_PER_MB
     }
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
@@ -149,25 +152,30 @@ object ImageLoaderConfig {
         val networkPreferences = NetworkPreferences(context)
         val imageCachingEnabled = networkPreferences.isImageCachingEnabled()
         val configuredMemoryCacheBytes = ImageMemoryCacheBytes(context)
+
+        val componentRegistry = ComponentRegistry.Builder()
+            .add(
+                OkHttpNetworkFetcherFactory(
+                    callFactory = { createAuthenticatedOkHttpClient(context) }
+                )
+            )
+            .build()
+
         val builder = ImageLoader.Builder(context)
+            .components(componentRegistry)
             .memoryCache {
-                val memoryCacheBuilder = MemoryCache.Builder(context)
-                    .strongReferencesEnabled(true)
+                val memoryCacheBuilder = MemoryCache.Builder()
                 if (configuredMemoryCacheBytes != null) {
                     memoryCacheBuilder.maxSizeBytes(configuredMemoryCacheBytes)
                 } else {
-                    memoryCacheBuilder.maxSizePercent(getOptimalMemoryPercent(context))
+                    memoryCacheBuilder.maxSizePercent(context, getOptimalMemoryPercent(context))
                 }
                 memoryCacheBuilder.build()
             }
-            .okHttpClient(createAuthenticatedOkHttpClient(context))
-            .respectCacheHeaders(false)
-            .allowHardware(true)
-            .crossfade(false)
 
         builder.diskCache {
             DiskCache.Builder()
-                .directory(persistentImageCacheDir(context))
+                .directory(persistentImageCacheDir(context).toOkioPath())
                 .maxSizeBytes(configuredImageCacheBytes(context) ?: DiskCacheSize(context))
                 .build()
         }
@@ -186,3 +194,4 @@ object ImageLoaderConfig {
     }
 
 }
+

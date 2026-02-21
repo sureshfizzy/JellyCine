@@ -58,9 +58,8 @@ import com.jellycine.data.repository.getFormattedRating
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.SearchResultsSkeleton
-import coil.imageLoader
-import coil.request.CachePolicy
-import coil.request.ImageRequest
+import coil3.imageLoader
+import coil3.request.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -366,4 +365,5 @@ private fun SearchBar(
         }
     }
 }
+
 
