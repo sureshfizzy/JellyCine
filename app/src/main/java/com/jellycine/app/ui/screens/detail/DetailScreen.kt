@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
@@ -837,8 +838,8 @@ fun DetailContent(
                                 itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
                                 else -> "idle"
                             }
-                            val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?) -> Unit =
-                                { icon, label, contentDescription, tint ->
+                            val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?, TextUnit) -> Unit =
+                                { icon, label, contentDescription, tint, textSize ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.Center
@@ -852,7 +853,7 @@ fun DetailContent(
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = label,
-                                            fontSize = 14.sp,
+                                            fontSize = textSize,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
@@ -886,16 +887,16 @@ fun DetailContent(
                                         }
                                     }
                                     "completed" -> {
-                                        iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50))
+                                        iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50), 12.sp)
                                     }
                                     "paused" -> {
-                                        iconLabel(Icons.Rounded.PauseCircle, "Paused", "Paused", Color(0xFFFFC107))
+                                        iconLabel(Icons.Rounded.PauseCircle, "Paused", "Paused", Color(0xFFFFC107), 14.sp)
                                     }
                                     "unavailable" -> {
-                                        iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null)
+                                        iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null, 14.sp)
                                     }
                                     else -> {
-                                        iconLabel(Icons.Rounded.Download, "Download", "Download", null)
+                                        iconLabel(Icons.Rounded.Download, "Download", "Download", null, 14.sp)
                                     }
                                 }
                             }
