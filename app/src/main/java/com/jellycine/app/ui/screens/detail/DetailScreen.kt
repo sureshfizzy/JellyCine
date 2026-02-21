@@ -356,6 +356,7 @@ fun DetailContent(
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
+    var similarItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     fun toggleFavorite() {
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
@@ -404,6 +405,23 @@ fun DetailContent(
         } finally {
             logoLookup = false
         }
+    }
+
+    LaunchedEffect(item.id) {
+        val currentItemId = item.id
+        if (currentItemId.isNullOrBlank()) {
+            similarItems = emptyList()
+            return@LaunchedEffect
+        }
+
+        mediaRepository.getSimilarItems(itemId = currentItemId, limit = 16).fold(
+            onSuccess = { items ->
+                similarItems = items.filter { !it.id.isNullOrBlank() }
+            },
+            onFailure = {
+                similarItems = emptyList()
+            }
+        )
     }
 
     val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
@@ -996,7 +1014,136 @@ fun DetailContent(
                     item = item,
                     mediaRepository = mediaRepository
                 )
+
+                SimilarItemsSection(
+                    similarItems = similarItems,
+                    mediaRepository = mediaRepository
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun SimilarItemsSection(
+    similarItems: List<BaseItemDto>,
+    mediaRepository: MediaRepository,
+    modifier: Modifier = Modifier,
+    title: String = "Similar Titles"
+) {
+    if (similarItems.isEmpty()) return
+
+    Column(
+        modifier = modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
+        ) {
+            items(
+                items = similarItems,
+                key = { similarItem -> similarItem.id ?: "${similarItem.name}-${similarItem.type}" }
+            ) { similarItem ->
+                SimilarItemCard(
+                    item = similarItem,
+                    mediaRepository = mediaRepository
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarItemCard(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+) {
+    val context = LocalContext.current
+    var imageUrl by remember(item.id, item.type, item.seriesId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(item.id, item.type, item.seriesId) {
+        val imageItemId = when {
+            item.type == "Episode" && !item.seriesId.isNullOrBlank() -> item.seriesId
+            else -> item.id
+        }
+        imageUrl = imageItemId?.let { id ->
+            mediaRepository.getImageUrl(
+                itemId = id,
+                imageType = "Primary",
+                width = 320,
+                height = 480,
+                quality = 90
+            ).first()
+        }
+    }
+
+    Column(
+        modifier = Modifier.width(116.dp)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(166.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF2A2A2A)
+            )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!imageUrl.isNullOrBlank()) {
+                    JellyfinPosterImage(
+                        imageUrl = imageUrl,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        context = context,
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Movie,
+                        contentDescription = item.name,
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = item.name ?: "Unknown",
+            fontSize = 12.sp,
+            color = Color.White,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 14.sp
+        )
+
+        val subtitle = item.productionYear?.toString()
+            ?: item.type?.takeIf { it.isNotBlank() }
+
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.62f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 1.dp)
+            )
         }
     }
 }

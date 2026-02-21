@@ -342,6 +342,33 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    suspend fun getSimilarItems(
+        itemId: String,
+        limit: Int = 12,
+        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getSimilarItems(
+                itemId = itemId,
+                userId = userId,
+                limit = limit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items.orEmpty().filter { it.id != itemId })
+            } else {
+                Result.failure(Exception("Failed to fetch similar items: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserItems(
         parentId: String? = null,
         includeItemTypes: String? = null,

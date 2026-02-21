@@ -75,6 +75,14 @@ interface MediaServerApi {
         @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData"
     ): Response<BaseItemDto>
 
+    @GET("Items/{itemId}/Similar")
+    suspend fun getSimilarItems(
+        @Path("itemId") itemId: String,
+        @Query("userId") userId: String,
+        @Query("limit") limit: Int? = null,
+        @Query("fields") fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+    ): Response<QueryResult<BaseItemDto>>
+
     @POST("Users/{userId}/FavoriteItems/{itemId}")
     suspend fun markAsFavorite(
         @Path("userId") userId: String,
