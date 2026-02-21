@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,14 +25,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import com.jellycine.app.R
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.jellycine.app.util.image.JellyfinPosterImage
@@ -42,25 +38,12 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.first
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.graphics.drawscope.rotate
-import kotlin.math.cos
-import kotlin.math.sin
-import android.content.Context
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
-import com.jellycine.detail.CodecCapabilityManager
-import com.jellycine.app.ui.components.common.rememberAudioCapabilities
-import com.jellycine.app.ui.components.common.ActionButtonsSection
 import com.jellycine.app.ui.components.common.CastSection
-import com.jellycine.app.ui.components.common.CodecInfoSection
-import com.jellycine.app.ui.components.common.ModernFileInfoRow
 import com.jellycine.app.ui.components.common.OverviewSection
-import com.jellycine.app.ui.components.common.TechnicalInfoSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
-import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.DownloadStatus
@@ -429,6 +412,11 @@ fun DetailContent(
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
     val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
     val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
+    val codecBadges = CodecBadges(
+        streams = effectiveMediaStreams,
+        selectedVideo = selectedVideo,
+        selectedAudio = selectedAudio
+    )
 
     LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
         if (selectedVideo !in videoOptions) {
@@ -636,22 +624,22 @@ fun DetailContent(
                         )
                     }
 
-                    item.officialRating?.let { rating ->
-                        Surface(
-                            color = Color(0xFF1A1A1A),
-                            shape = RoundedCornerShape(6.dp),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f))
-                        ) {
-                            Text(
-                                text = rating,
-                                fontSize = 13.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                                maxLines = 1
-                            )
-                        }
+                    val officialRatingLabel = item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
+                    Surface(
+                        color = Color.Transparent,
+                        shape = RoundedCornerShape(5.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                    ) {
+                        Text(
+                            text = officialRatingLabel,
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                            maxLines = 1
+                        )
                     }
+
                 }
 
                 item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
@@ -665,6 +653,62 @@ fun DetailContent(
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                     )
+                }
+
+                if (codecBadges.hasAnyBadges) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        contentPadding = PaddingValues(0.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp)
+                    ) {
+                        if (codecBadges.has4K) {
+                            item {
+                                CapabilityBadge(text = "4K")
+                            }
+                        }
+
+                        if (codecBadges.hdrBadgeText.isNotBlank()) {
+                            item {
+                                CapabilityBadge(
+                                    text = codecBadges.hdrBadgeText,
+                                    icon = if (codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)) null else Icons.Rounded.HdrOn,
+                                    customIcon = if (codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)) R.drawable.ic_dolby_logo else null,
+                                    iconTintUnspecified = codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)
+                                )
+                            }
+                        }
+
+                        if (codecBadges.hasSpatialAudio) {
+                            item {
+                                CapabilityBadge(
+                                    text = "Spatial Audio",
+                                    customIcon = R.drawable.ic_spatial_audio,
+                                    customIconTint = Color(0xFF8DFFB3)
+                                )
+                            }
+                        }
+
+                        if (codecBadges.dolbyAudioBadgeText.isNotBlank()) {
+                            item {
+                                CapabilityBadge(
+                                    text = codecBadges.dolbyAudioBadgeText,
+                                    customIcon = if (codecBadges.hasDolbyAtmos) R.drawable.ic_dolby_atmos else R.drawable.ic_dolby_logo,
+                                    iconTintUnspecified = true
+                                )
+                            }
+                        }
+
+                        if (codecBadges.audioChannelBadgeText.isNotBlank()) {
+                            item {
+                                CapabilityBadge(
+                                    text = codecBadges.audioChannelBadgeText
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1448,47 +1492,6 @@ private fun uniquifyOptionLabels(options: List<String>): List<String> {
 }
 
 @Composable
-private fun FileInfoRow(
-    label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = label,
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Medium
-            )
-        }
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.End
-        )
-    }
-}
-
-@Composable
 private fun SeasonsSection(
     seriesId: String,
     mediaRepository: MediaRepository,
@@ -1885,6 +1888,3 @@ fun DetailScreenSkeleton(
         }
     }
 }
-
-
-
