@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,10 +32,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.download.DownloadRepositoryProvider
+import com.jellycine.app.download.TrackedDownload
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.UserItemDataDto
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -47,12 +51,13 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.res.painterResource
+import com.jellycine.app.R
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import androidx.compose.foundation.gestures.ScrollableDefaults
@@ -1030,11 +1035,21 @@ fun Dashboard(
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf("Home") }
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
+    val networkAvailabilityFlow = remember(appContext) {
+        NetworkModule.observeNetworkAvailability(appContext)
+    }
+    val isNetworkAvailable by networkAvailabilityFlow.collectAsState(
+        initial = NetworkModule.isInternetAvailable(appContext)
+    )
+    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
+    val currentServerName by authRepository.getServerName().collectAsState(initial = null)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
         "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
@@ -1046,12 +1061,16 @@ fun Dashboard(
         mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(null)
     }
     var previousSessionKey by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(dashboardSessionKey) {
+    LaunchedEffect(dashboardSessionKey, isNetworkAvailable) {
         if (previousSessionKey != null && previousSessionKey != dashboardSessionKey) {
             Cache.clear()
         }
         previousSessionKey = dashboardSessionKey
-        persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
+        persistedHomeSnapshot = if (isNetworkAvailable) {
+            mediaRepository.loadPersistedHomeSnapshot()
+        } else {
+            null
+        }
     }
 
     val lazyColumnState = rememberLazyListState()
@@ -1062,7 +1081,7 @@ fun Dashboard(
             key = "featured_$selectedCategory",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive,
+                enabled = isTabActive && isNetworkAvailable,
                 requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
@@ -1113,7 +1132,7 @@ fun Dashboard(
             key = "continue_watching_resume_api_v2",
             config = QueryConfig(
                 staleTime = 60_000L,
-                enabled = isTabActive && selectedCategory == "Home",
+                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
                 retryCount = 2,
                 retryDelay = 250L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1145,7 +1164,7 @@ fun Dashboard(
             key = "home_library_burst",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive && selectedCategory == "Home",
+                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
                 retryCount = 1,
                 retryDelay = 200L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1175,7 +1194,7 @@ fun Dashboard(
             key = "home_my_media_libraries",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive && selectedCategory == "Home",
+                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
                 retryCount = 1,
                 retryDelay = 200L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1207,21 +1226,21 @@ fun Dashboard(
             )
         }
 
-        val persistedFeaturedItems = if (selectedCategory == "Home") {
+        val persistedFeaturedItems = if (selectedCategory == "Home" && isNetworkAvailable) {
             persistedHomeSnapshot?.featuredHomeItems.orEmpty()
         } else {
             emptyList()
         }
         val FeaturedItems = featuredQuery.data ?: persistedFeaturedItems
 
-        val persistedContinueWatchingItems = if (selectedCategory == "Home") {
+        val persistedContinueWatchingItems = if (selectedCategory == "Home" && isNetworkAvailable) {
             persistedHomeSnapshot?.continueWatchingItems.orEmpty()
         } else {
             emptyList()
         }
         val ContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
 
-        val persistedLibrarySections = if (selectedCategory == "Home") {
+        val persistedLibrarySections = if (selectedCategory == "Home" && isNetworkAvailable) {
             persistedHomeSnapshot?.homeLibrarySections
                 .orEmpty()
                 .map { it.toUiSection() }
@@ -1230,7 +1249,7 @@ fun Dashboard(
         }
         val LibrarySections = homeLibraryBurstQuery.data ?: persistedLibrarySections
 
-        val persistedMyMediaLibraries = if (selectedCategory == "Home") {
+        val persistedMyMediaLibraries = if (selectedCategory == "Home" && isNetworkAvailable) {
             persistedHomeSnapshot?.myMediaLibraries.orEmpty()
         } else {
             emptyList()
@@ -1241,13 +1260,13 @@ fun Dashboard(
             emptyList()
         }
 
-        LaunchedEffect(isTabActive) {
-            if (isTabActive) {
+        LaunchedEffect(isTabActive, isNetworkAvailable) {
+            if (isTabActive && isNetworkAvailable) {
                 queryManager.refreshStaleQueries()
             }
         }
-        LaunchedEffect(isTabActive, selectedCategory) {
-            if (isTabActive && selectedCategory == "Home") {
+        LaunchedEffect(isTabActive, selectedCategory, isNetworkAvailable) {
+            if (isTabActive && selectedCategory == "Home" && isNetworkAvailable) {
                 val cachedContinueWatching =
                     queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
                 if (cachedContinueWatching.data.isNullOrEmpty()) {
@@ -1255,7 +1274,8 @@ fun Dashboard(
                 }
             }
         }
-        LaunchedEffect(continueWatchingQuery.data?.hashCode()) {
+        LaunchedEffect(continueWatchingQuery.data?.hashCode(), isNetworkAvailable) {
+            if (!isNetworkAvailable) return@LaunchedEffect
             val items = continueWatchingQuery.data ?: return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(continueWatchingItems = items)
             if (items.isEmpty()) return@LaunchedEffect
@@ -1268,13 +1288,14 @@ fun Dashboard(
             )
         }
 
-        LaunchedEffect(featuredQuery.data?.hashCode(), selectedCategory) {
-            if (selectedCategory != "Home") return@LaunchedEffect
+        LaunchedEffect(featuredQuery.data?.hashCode(), selectedCategory, isNetworkAvailable) {
+            if (selectedCategory != "Home" || !isNetworkAvailable) return@LaunchedEffect
             val items = featuredQuery.data ?: return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(featuredHomeItems = items)
         }
 
-        LaunchedEffect(homeLibraryBurstQuery.data?.hashCode()) {
+        LaunchedEffect(homeLibraryBurstQuery.data?.hashCode(), isNetworkAvailable) {
+            if (!isNetworkAvailable) return@LaunchedEffect
             val sections = homeLibraryBurstQuery.data ?: return@LaunchedEffect
             if (sections.isEmpty()) return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(
@@ -1294,16 +1315,18 @@ fun Dashboard(
             )
         }
 
-        LaunchedEffect(homeMyMediaLibrariesQuery.data?.hashCode()) {
+        LaunchedEffect(homeMyMediaLibrariesQuery.data?.hashCode(), isNetworkAvailable) {
+            if (!isNetworkAvailable) return@LaunchedEffect
             val libraries = homeMyMediaLibrariesQuery.data ?: return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(myMediaLibraries = libraries)
         }
 
         LaunchedEffect(
             selectedCategory,
-            MyMediaLibraries.hashCode()
+            MyMediaLibraries.hashCode(),
+            isNetworkAvailable
         ) {
-            if (selectedCategory != "Home") return@LaunchedEffect
+            if (selectedCategory != "Home" || !isNetworkAvailable) return@LaunchedEffect
             if (MyMediaLibraries.isEmpty()) return@LaunchedEffect
             ImagePreloader.MyMedia(
                 libraries = MyMediaLibraries,
@@ -1330,142 +1353,383 @@ fun Dashboard(
             verticalArrangement = Arrangement.spacedBy(1.dp),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            item(key = "feature_tab") {
-                FeatureTab(
-                    featuredItems = FeaturedItems,
-                    isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
-                    error = featuredQuery.error,
-                    selectedCategory = selectedCategory,
-                    verticalParallaxOffsetPx = featureParallaxOffsetPx,
-                    onItemClick = onNavigateToDetail,
-                    onLogout = onLogout,
-                    onCategorySelected = { category ->
-                        selectedCategory = category
-                    }
-                )
-            }
-
-            val ShowMyMediaSection =
-                selectedCategory == "Home" && (
-                    MyMediaLibraries.isNotEmpty() ||
-                        (homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty())
-                    )
-
-            val ShowContinueWatchingSection =
-                selectedCategory == "Home" && (
-                    ContinueWatchingItems.isNotEmpty() ||
-                        continueWatchingQuery.isError ||
-                        (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
-                    )
-
-            if (ShowMyMediaSection) {
-                item(key = "my_media_section") {
-                    HomeMyMediaSection(
-                        libraries = MyMediaLibraries,
-                        isLoading = homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty(),
-                        error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
-                        mediaRepository = mediaRepository,
-                        onLibraryClick = { library ->
-                            val contentType = when (library.collectionType) {
-                                "movies" -> "MOVIES"
-                                "tvshows" -> "SERIES"
-                                else -> "ALL"
-                            }
-                            onNavigateToViewAll(
-                                contentType,
-                                library.id,
-                                library.name ?: "Library"
-                            )
-                        }
-                    )
-                }
-            }
-
-            if (ShowContinueWatchingSection) {
-                item(key = "continue_watching_section") {
-                    Column(
-                        modifier = Modifier
-                            .padding(top = 0.dp)
-                            .offset(y = (-12).dp)
-                    ) {
-                        ContinueWatchingSection(
-                            items = ContinueWatchingItems,
-                            isLoading = continueWatchingQuery.isLoading && ContinueWatchingItems.isEmpty(),
-                            error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
+            if (!isNetworkAvailable) {
+                if (trackedDownloads.any { it.isOfflineAvailable }) {
+                    item(key = "offline_downloads_section") {
+                        OfflineDownloadsSection(
+                            trackedDownloads = trackedDownloads,
+                            mediaRepository = mediaRepository,
+                            serverName = currentServerName,
                             onItemClick = onNavigateToDetail
                         )
                     }
+                } else {
+                    item(key = "offline_empty_state") {
+                        Box(
+                            modifier = Modifier
+                                .fillParentMaxHeight()
+                                .fillMaxWidth()
+                        ) {
+                            OfflineNoDownloadsState(serverName = currentServerName)
+                        }
+                    }
                 }
-            }
+            } else {
+                item(key = "feature_tab") {
+                    FeatureTab(
+                        featuredItems = FeaturedItems,
+                        isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
+                        error = featuredQuery.error,
+                        selectedCategory = selectedCategory,
+                        verticalParallaxOffsetPx = featureParallaxOffsetPx,
+                        onItemClick = onNavigateToDetail,
+                        onLogout = onLogout,
+                        onCategorySelected = { category ->
+                            selectedCategory = category
+                        }
+                    )
+                }
 
-            if (selectedCategory == "Home") {
-                val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection) 16.dp else 0.dp
+                val ShowMyMediaSection =
+                    selectedCategory == "Home" && (
+                        MyMediaLibraries.isNotEmpty() ||
+                            (homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty())
+                        )
 
-                if (topPadding > 0.dp) {
-                    item(key = "home_libraries_top_padding") {
-                        Spacer(modifier = Modifier.height(topPadding))
+                val ShowContinueWatchingSection =
+                    selectedCategory == "Home" && (
+                        ContinueWatchingItems.isNotEmpty() ||
+                            continueWatchingQuery.isError ||
+                            (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
+                        )
+
+                if (ShowMyMediaSection) {
+                    item(key = "my_media_section") {
+                        HomeMyMediaSection(
+                            libraries = MyMediaLibraries,
+                            isLoading = homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty(),
+                            error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
+                            mediaRepository = mediaRepository,
+                            onLibraryClick = { library ->
+                                val contentType = when (library.collectionType) {
+                                    "movies" -> "MOVIES"
+                                    "tvshows" -> "SERIES"
+                                    else -> "ALL"
+                                }
+                                onNavigateToViewAll(
+                                    contentType,
+                                    library.id,
+                                    library.name ?: "Library"
+                                )
+                            }
+                        )
                     }
                 }
 
-                val libraries = LibrarySections
-                if (homeLibraryBurstQuery.isError && libraries.isEmpty()) {
-                    item(key = "home_libraries_error") {
-                        Box(
+                if (ShowContinueWatchingSection) {
+                    item(key = "continue_watching_section") {
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .padding(top = 0.dp)
+                                .offset(y = (-12).dp)
                         ) {
-                            Text(
-                                text = "Failed to load libraries",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 13.sp
+                            ContinueWatchingSection(
+                                items = ContinueWatchingItems,
+                                isLoading = continueWatchingQuery.isLoading && ContinueWatchingItems.isEmpty(),
+                                error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
+                                onItemClick = onNavigateToDetail
                             )
                         }
                     }
-                } else if (libraries.isNotEmpty()) {
-                    itemsIndexed(
-                        items = libraries,
-                        key = { index, section -> section.libraryId.ifBlank { "library_$index" } }
-                    ) { index, section ->
-                        BurstLibrarySection(
-                            section = section,
-                            mediaRepository = mediaRepository,
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = onNavigateToViewAll
-                        )
+                }
 
-                        if (index < libraries.lastIndex) {
-                            Spacer(modifier = Modifier.height(6.dp))
+                if (selectedCategory == "Home") {
+                    val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection) 16.dp else 0.dp
+
+                    if (topPadding > 0.dp) {
+                        item(key = "home_libraries_top_padding") {
+                            Spacer(modifier = Modifier.height(topPadding))
+                        }
+                    }
+
+                    val libraries = LibrarySections
+                    if (homeLibraryBurstQuery.isError && libraries.isEmpty()) {
+                        item(key = "home_libraries_error") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = "Failed to load libraries",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    } else if (libraries.isNotEmpty()) {
+                        itemsIndexed(
+                            items = libraries,
+                            key = { index, section -> section.libraryId.ifBlank { "library_$index" } }
+                        ) { index, section ->
+                            BurstLibrarySection(
+                                section = section,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onNavigateToDetail,
+                                onNavigateToViewAll = onNavigateToViewAll
+                            )
+
+                            if (index < libraries.lastIndex) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                            }
+                        }
+                    }
+                } else if (selectedCategory == "Movies") {
+                    val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+
+                    item(key = "movies_genres") {
+                        Column(
+                            modifier = Modifier.padding(top = topPadding)
+                        ) {
+                            MovieGenreSections(
+                                onItemClick = onNavigateToDetail,
+                                onNavigateToViewAll = onNavigateToViewAll
+                            )
+                        }
+                    }
+                } else if (selectedCategory == "TV Shows") {
+                    val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
+
+                    item(key = "tv_genres") {
+                        Column(
+                            modifier = Modifier.padding(top = topPadding)
+                        ) {
+                            TVShowGenreSections(
+                                onItemClick = onNavigateToDetail,
+                                onNavigateToViewAll = onNavigateToViewAll
+                            )
                         }
                     }
                 }
-            } else if (selectedCategory == "Movies") {
-                val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
-
-                item(key = "movies_genres") {
-                    Column(
-                        modifier = Modifier.padding(top = topPadding)
-                    ) {
-                        MovieGenreSections(
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = onNavigateToViewAll
-                        )
-                    }
-                }
-            } else if (selectedCategory == "TV Shows") {
-                val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
-
-                item(key = "tv_genres") {
-                    Column(
-                        modifier = Modifier.padding(top = topPadding)
-                    ) {
-                        TVShowGenreSections(
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = onNavigateToViewAll
-                        )
-                    }
-                }
             }
+        }
+    }
+}
+
+@Composable
+private fun OfflineNoDownloadsState(
+    serverName: String?
+) {
+    val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: "Server"
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(top = 12.dp, bottom = 70.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.jellycine_logo),
+                contentDescription = "JellyCine",
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "JellyCine",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Text(
+                    text = displayServerName,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No Offline Downloads Yet",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Download movies or episodes while online and they will appear here.",
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OfflineDownloadsSection(
+    trackedDownloads: List<TrackedDownload>,
+    mediaRepository: MediaRepository,
+    serverName: String?,
+    onItemClick: (BaseItemDto) -> Unit = {}
+) {
+    val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: "Server"
+    val offlineItems = remember(trackedDownloads) {
+        trackedDownloads.toOfflineBaseItems()
+    }
+    val categorizedItems = remember(offlineItems) {
+        listOf(
+            "Movies" to offlineItems.filter { it.type.equals("Movie", ignoreCase = true) },
+            "Series" to offlineItems.filter {
+                it.type.equals("Series", ignoreCase = true) ||
+                    it.type.equals("Episode", ignoreCase = true)
+            }
+        ).filter { (_, items) -> items.isNotEmpty() }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(top = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.jellycine_logo),
+                contentDescription = "JellyCine",
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "JellyCine",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Text(
+                    text = displayServerName,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Offline Downloads",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Text(
+            text = "No network connection. Showing downloaded media only.",
+            color = Color.White.copy(alpha = 0.68f),
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+        )
+
+        categorizedItems.forEach { (title, items) ->
+            OfflineDownloadsCategoryRow(
+                title = title,
+                items = items,
+                mediaRepository = mediaRepository,
+                onItemClick = onItemClick
+            )
+        }
+    }
+}
+
+private fun List<TrackedDownload>.toOfflineBaseItems(): List<BaseItemDto> {
+    return this
+        .asSequence()
+        .filter { it.isOfflineAvailable }
+        .sortedByDescending { it.completedAt ?: it.requestedAt }
+        .map { tracked ->
+            tracked.item?.copy(
+                id = tracked.item.id ?: tracked.itemId,
+                name = tracked.item.name ?: tracked.title,
+                type = tracked.item.type ?: tracked.mediaType,
+                productionYear = tracked.item.productionYear ?: tracked.year
+            ) ?: BaseItemDto(
+                id = tracked.itemId,
+                name = tracked.title,
+                type = tracked.mediaType,
+                productionYear = tracked.year
+            )
+        }
+        .distinctBy { it.id ?: "${it.name.orEmpty()}|${it.type.orEmpty()}|${it.productionYear ?: 0}" }
+        .toList()
+}
+
+@Composable
+private fun OfflineDownloadsCategoryRow(
+    title: String,
+    items: List<BaseItemDto>,
+    mediaRepository: MediaRepository,
+    onItemClick: (BaseItemDto) -> Unit = {}
+) {
+    val lazyRowState = rememberLazyListState()
+    val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
+
+    Text(
+        text = title,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color.White,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+
+    LazyRow(
+        state = lazyRowState,
+        horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
+        contentPadding = ScrollOptimization.optimizedContentPadding,
+        flingBehavior = flingBehavior,
+        modifier = ScrollOptimization.getScrollContainerModifier()
+    ) {
+        items(
+            items = items,
+            key = { item -> item.id ?: item.name ?: "offline_item" }
+        ) { item ->
+            LibraryItemCard(
+                item = item,
+                mediaRepository = mediaRepository,
+                useLandscapeLayout = true,
+                onClick = { onItemClick(item) }
+            )
         }
     }
 }

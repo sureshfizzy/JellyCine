@@ -48,7 +48,6 @@ fun Settings(
     val supportedCodecs = remember { getSupportedCodecsSummary() }
     val listState = rememberLazyListState()
 
-    var offlineMode by remember { mutableStateOf(false) }
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
 
@@ -91,22 +90,6 @@ fun Settings(
             item { SectionLabel("Preferences") }
             item {
                 SettingsSection {
-                    SettingsItem(
-                        icon = Icons.Rounded.CloudOff,
-                        title = "Offline Mode",
-                        subtitle = if (offlineMode) "Enabled" else "Disabled",
-                        accentColor = Color(0xFF3B82F6),
-                        trailing = {
-                            Switch(
-                                checked = offlineMode,
-                                onCheckedChange = { offlineMode = it }
-                            )
-                        }
-                    )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
                     SettingsItem(
                         icon = Icons.Rounded.Wifi,
                         title = "Wi-Fi Only Downloads",

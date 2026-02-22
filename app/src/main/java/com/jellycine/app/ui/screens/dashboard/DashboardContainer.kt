@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.sqrt
@@ -86,6 +87,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
+import com.jellycine.data.network.NetworkModule
 
 private fun DashboardEnterTransition(): EnterTransition {
     return fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing))
@@ -146,6 +148,14 @@ fun DashboardContainer(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
+    val networkAvailabilityFlow = remember(appContext) {
+        NetworkModule.observeNetworkAvailability(appContext)
+    }
+    val isNetworkAvailable by networkAvailabilityFlow.collectAsState(
+        initial = NetworkModule.isInternetAvailable(appContext)
+    )
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
@@ -166,9 +176,10 @@ fun DashboardContainer(
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
 
-    val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx) {
+    val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!isNetworkAvailable) return Offset.Zero
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
                 val deltaY = available.y
@@ -194,6 +205,7 @@ fun DashboardContainer(
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
+                if (!isNetworkAvailable) return Velocity.Zero
                 if (available.y < -500f) {
                     isBottomBarVisible = false
                 } else if (available.y > 500f) {
@@ -209,6 +221,12 @@ fun DashboardContainer(
         isBottomBarVisible = true
         accumulatedScrollPx = 0f
     }
+    LaunchedEffect(isNetworkAvailable) {
+        if (!isNetworkAvailable) {
+            isBottomBarVisible = true
+            accumulatedScrollPx = 0f
+        }
+    }
 
     val animatedBottomBarTranslationPx by animateFloatAsState(
         targetValue = if (isBottomBarVisible) 0f else bottomBarHideDistancePx,
@@ -220,12 +238,49 @@ fun DashboardContainer(
 
 
 
-    val sideDestinations = listOf(
-        DashboardDestination.Home,
-        DashboardDestination.MyMedia,
-        DashboardDestination.Favorites,
-        DashboardDestination.Settings
-    )
+    val sideDestinations = if (isNetworkAvailable) {
+        listOf(
+            DashboardDestination.Home,
+            DashboardDestination.MyMedia,
+            DashboardDestination.Favorites,
+            DashboardDestination.Settings
+        )
+    } else {
+        listOf(
+            DashboardDestination.Home,
+            DashboardDestination.Settings
+        )
+    }
+    val isOfflineTwoTabMode = !isNetworkAvailable && sideDestinations.size == 2
+    val offlineItemSlotWidth = 72.dp
+    val offlineItemSpacing = 18.dp
+    val offlineRowHorizontalPadding = 12.dp
+    val offlineBarWidth = (offlineRowHorizontalPadding * 2) +
+        (offlineItemSlotWidth * sideDestinations.size) +
+        (offlineItemSpacing * (sideDestinations.size - 1).coerceAtLeast(0))
+    val offlineAllowedRoutes = remember {
+        setOf(
+            DashboardDestination.Home.route,
+            DashboardDestination.Settings.route
+        )
+    }
+    val navigateToDestination: (DashboardDestination) -> Unit = { destination ->
+        if (currentRoute != destination.route) {
+            navController.navigate(destination.route) {
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    LaunchedEffect(isNetworkAvailable, currentRoute) {
+        if (!isNetworkAvailable && currentRoute != null && !offlineAllowedRoutes.contains(currentRoute)) {
+            navigateToDestination(DashboardDestination.Home)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -241,7 +296,13 @@ fun DashboardContainer(
                 startDestination = DashboardDestination.Home.route,
                 modifier = Modifier
                     .fillMaxSize()
-                    .nestedScroll(bottomBarScrollConnection)
+                    .then(
+                        if (isNetworkAvailable) {
+                            Modifier.nestedScroll(bottomBarScrollConnection)
+                        } else {
+                            Modifier
+                        }
+                    )
                     .graphicsLayer(
                         translationY = when (currentRoute) {
                             DashboardDestination.Search.route -> -2f
@@ -348,7 +409,9 @@ fun DashboardContainer(
             Box(
                 modifier = Modifier
                     .then(
-                        if (shouldUseMobileBarWidth) {
+                        if (isOfflineTwoTabMode) {
+                            Modifier.width(offlineBarWidth)
+                        } else if (shouldUseMobileBarWidth) {
                             Modifier.width(mobileLikeBarWidth)
                         } else {
                             Modifier.fillMaxWidth()
@@ -356,7 +419,10 @@ fun DashboardContainer(
                     )
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = barOuterHorizontalPadding, vertical = 10.dp)
+                    .padding(
+                        horizontal = if (isOfflineTwoTabMode) 0.dp else barOuterHorizontalPadding,
+                        vertical = 10.dp
+                    )
                     .graphicsLayer { translationY = animatedBottomBarTranslationPx }
             ) {
                 Box(
@@ -369,109 +435,111 @@ fun DashboardContainer(
                             clip = false
                         )
                         .graphicsLayer(
-                            rotationX = -3f,
+                            rotationX = if (isOfflineTwoTabMode) 0f else -3f,
                             transformOrigin = TransformOrigin(0.5f, 1f),
                             scaleY = 1f,
                             cameraDistance = 8f * density.density
                         )
                         .drawBehind {
-                            draw3DCurvedNavigationBar(
-                                width = size.width,
-                                height = size.height
-                            )
+                            if (isOfflineTwoTabMode) {
+                                drawSimpleNavigationBar(
+                                    width = size.width,
+                                    height = size.height
+                                )
+                            } else {
+                                draw3DCurvedNavigationBar(
+                                    width = size.width,
+                                    height = size.height
+                                )
+                            }
                         }
                 )
 
                 // Navigation items container
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(bottomBarHeight)
-                        .padding(horizontal = barInnerHorizontalPadding),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Left side items
+                if (isNetworkAvailable) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(bottomBarHeight)
+                            .padding(horizontal = barInnerHorizontalPadding),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        sideDestinations.take(2).forEach { destination ->
-                            val isSelected = currentRoute == destination.route
-                            NavigationItem(
-                                modifier = when (destination.route) {
-                                    DashboardDestination.MyMedia.route -> Modifier.offset(x = -innerItemOffset)
-                                    else -> Modifier.offset(x = -outerItemOffset)
-                                },
-                                destination = destination,
-                                isSelected = isSelected,
-                                onClick = {
-                                    if (currentRoute != destination.route) {
-                                        navController.navigate(destination.route) {
-                                            popUpTo(navController.graph.startDestinationId) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-
-                    // Right side items
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        sideDestinations.drop(2).forEach { destination ->
-                            val isSelected = currentRoute == destination.route
-                            NavigationItem(
-                                modifier = when (destination.route) {
-                                    DashboardDestination.Favorites.route -> Modifier.offset(x = innerItemOffset)
-                                    else -> Modifier.offset(x = outerItemOffset)
-                                },
-                                destination = destination,
-                                isSelected = isSelected,
-                                onClick = {
-                                    if (currentRoute != destination.route) {
-                                        navController.navigate(destination.route) {
-                                            popUpTo(navController.graph.startDestinationId) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Center search button positioned in the curve
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .offset(y = (-22).dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    FloatingSearchButton(
-                        isSelected = currentRoute == DashboardDestination.Search.route,
-                        onClick = {
-                            if (currentRoute != DashboardDestination.Search.route) {
-                                navController.navigate(DashboardDestination.Search.route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                        // Left side items
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            sideDestinations.take(2).forEach { destination ->
+                                val isSelected = currentRoute == destination.route
+                                NavigationItem(
+                                    modifier = when (destination.route) {
+                                        DashboardDestination.MyMedia.route -> Modifier.offset(x = -innerItemOffset)
+                                        else -> Modifier.offset(x = -outerItemOffset)
+                                    },
+                                    destination = destination,
+                                    isSelected = isSelected,
+                                    onClick = { navigateToDestination(destination) }
+                                )
                             }
                         }
-                    )
+
+                        // Right side items
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            sideDestinations.drop(2).forEach { destination ->
+                                val isSelected = currentRoute == destination.route
+                                NavigationItem(
+                                    modifier = when (destination.route) {
+                                        DashboardDestination.Favorites.route -> Modifier.offset(x = innerItemOffset)
+                                        else -> Modifier.offset(x = outerItemOffset)
+                                    },
+                                    destination = destination,
+                                    isSelected = isSelected,
+                                    onClick = { navigateToDestination(destination) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Center search button positioned in the curve
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .offset(y = (-22).dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        FloatingSearchButton(
+                            isSelected = currentRoute == DashboardDestination.Search.route,
+                            onClick = { navigateToDestination(DashboardDestination.Search) }
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(bottomBarHeight)
+                            .padding(horizontal = offlineRowHorizontalPadding),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        sideDestinations.forEachIndexed { index, destination ->
+                            val isSelected = currentRoute == destination.route
+                            NavigationItem(
+                                modifier = Modifier.width(offlineItemSlotWidth),
+                                destination = destination,
+                                isSelected = isSelected,
+                                itemWidth = 56.dp,
+                                onClick = { navigateToDestination(destination) }
+                            )
+                            if (index < sideDestinations.lastIndex) {
+                                Spacer(modifier = Modifier.width(offlineItemSpacing))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -599,6 +667,24 @@ private fun DrawScope.draw3DCurvedNavigationBar(
     )
 }
 
+private fun DrawScope.drawSimpleNavigationBar(
+    width: Float,
+    height: Float
+) {
+    val corner = 26.dp.toPx()
+    drawRoundRect(
+        color = Color.Black,
+        size = androidx.compose.ui.geometry.Size(width, height),
+        cornerRadius = CornerRadius(corner, corner)
+    )
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.05f),
+        size = androidx.compose.ui.geometry.Size(width, height),
+        cornerRadius = CornerRadius(corner, corner),
+        style = Stroke(width = 1.dp.toPx())
+    )
+}
+
 @Composable
 private fun FloatingSearchButton(
     isSelected: Boolean,
@@ -664,6 +750,7 @@ private fun NavigationItem(
     modifier: Modifier = Modifier,
     destination: DashboardDestination,
     isSelected: Boolean,
+    itemWidth: Dp = 44.dp,
     onClick: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -695,7 +782,7 @@ private fun NavigationItem(
             )
             .height(64.dp)
             .padding(horizontal = 8.dp)
-            .width(44.dp),
+            .width(itemWidth),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
     ) {

@@ -1,11 +1,10 @@
 ﻿package com.jellycine.app.download
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import com.google.gson.Gson
 import com.jellycine.app.preferences.DownloadPreferences
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.CancellationException
@@ -230,7 +229,7 @@ class DownloadRepository(context: Context) {
 
         pausedItems.remove(itemId)
         canceledItems.remove(itemId)
-        if (downloadPreferences.isWifiOnlyDownloadsEnabled() && !isWifiConnected()) {
+        if (downloadPreferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
             Failed(
                 itemId = itemId,
                 message = "Wi-Fi required for downloads",
@@ -816,13 +815,6 @@ class DownloadRepository(context: Context) {
         val encryptedName = UUID.randomUUID().toString()
         val fileName = if (safeExtension != null) "$encryptedName.$safeExtension" else encryptedName
         return File(baseDir, fileName)
-    }
-
-    private fun isWifiConnected(): Boolean {
-        val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
 
     private fun parseStatus(raw: String?): DownloadStatus {
