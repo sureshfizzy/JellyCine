@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.TransformOrigin
@@ -551,6 +552,51 @@ private fun DrawScope.draw3DCurvedNavigationBar(
         color = Color.White.copy(alpha = 0.05f),
         style = Stroke(width = 1.dp.toPx())
     )
+
+    val notchGlowPath = Path().apply {
+        moveTo(curveStartX, 0f)
+        cubicTo(
+            x1 = controlPoint1X, y1 = 0f,
+            x2 = controlPoint2X, y2 = curveDepth,
+            x3 = notchCenterX, y3 = curveDepth
+        )
+        cubicTo(
+            x1 = controlPoint3X, y1 = curveDepth,
+            x2 = controlPoint4X, y2 = 0f,
+            x3 = curveEndX, y3 = 0f
+        )
+    }
+
+    val glowCenterColor = Color(0xFFBEE8FF)
+    val glowBrush = Brush.horizontalGradient(
+        colors = listOf(
+            Color.Transparent,
+            glowCenterColor.copy(alpha = 0.14f),
+            Color.Transparent
+        ),
+        startX = curveStartX,
+        endX = curveEndX
+    )
+    val glowCoreBrush = Brush.horizontalGradient(
+        colors = listOf(
+            Color.Transparent,
+            glowCenterColor.copy(alpha = 0.28f),
+            Color.Transparent
+        ),
+        startX = curveStartX,
+        endX = curveEndX
+    )
+
+    drawPath(
+        path = notchGlowPath,
+        brush = glowBrush,
+        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+    )
+    drawPath(
+        path = notchGlowPath,
+        brush = glowCoreBrush,
+        style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round)
+    )
 }
 
 @Composable
@@ -595,9 +641,12 @@ private fun FloatingSearchButton(
                 color = backgroundColor,
                 shape = CircleShape
             )
-            .clickable { 
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick() 
+                onClick()
             },
         contentAlignment = Alignment.Center
     ) {
