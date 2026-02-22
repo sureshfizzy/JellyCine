@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -57,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.*
@@ -69,12 +71,20 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.round
 
 private fun DashboardEnterTransition(): EnterTransition {
     return fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing))
@@ -136,7 +146,76 @@ fun DashboardContainer(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isTablet = configuration.screenWidthDp >= 600
+    val shouldUseMobileBarWidth = isLandscape || isTablet
+    val mobileLikeBarWidth = (min(configuration.screenWidthDp, configuration.screenHeightDp) - 32)
+        .dp
+        .coerceIn(320.dp, 390.dp)
+    val barOuterHorizontalPadding = if (shouldUseMobileBarWidth) 0.dp else 16.dp
+    val barInnerHorizontalPadding = if (shouldUseMobileBarWidth) 10.dp else 16.dp
+    val navGroupSpacing = if (shouldUseMobileBarWidth) 12.dp else 20.dp
+    val innerItemOffset = if (shouldUseMobileBarWidth) 16.dp else 22.dp
+    val outerItemOffset = if (shouldUseMobileBarWidth) 0.dp else 10.dp
+    val bottomBarHideDistancePx = with(density) { (bottomBarHeight + 36.dp).toPx() }
+    val hideThresholdPx = with(density) { 22.dp.toPx() }
+    val showThresholdPx = with(density) { 14.dp.toPx() }
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+    var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
+
+    val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.Drag) return Offset.Zero
+
+                val deltaY = available.y
+                if (deltaY == 0f) return Offset.Zero
+
+                if (abs(available.y) < abs(available.x)) return Offset.Zero
+
+                if (deltaY < 0f) {
+                    accumulatedScrollPx = min(0f, accumulatedScrollPx + deltaY)
+                    if (isBottomBarVisible && -accumulatedScrollPx >= hideThresholdPx) {
+                        isBottomBarVisible = false
+                        accumulatedScrollPx = 0f
+                    }
+                } else {
+                    accumulatedScrollPx = max(0f, accumulatedScrollPx + deltaY)
+                    if (!isBottomBarVisible && accumulatedScrollPx >= showThresholdPx) {
+                        isBottomBarVisible = true
+                        accumulatedScrollPx = 0f
+                    }
+                }
+
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (available.y < -500f) {
+                    isBottomBarVisible = false
+                } else if (available.y > 500f) {
+                    isBottomBarVisible = true
+                }
+                accumulatedScrollPx = 0f
+                return Velocity.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(currentRoute) {
+        isBottomBarVisible = true
+        accumulatedScrollPx = 0f
+    }
+
+    val animatedBottomBarTranslationPx by animateFloatAsState(
+        targetValue = if (isBottomBarVisible) 0f else bottomBarHideDistancePx,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        )
+    )
 
 
 
@@ -161,6 +240,7 @@ fun DashboardContainer(
                 startDestination = DashboardDestination.Home.route,
                 modifier = Modifier
                     .fillMaxSize()
+                    .nestedScroll(bottomBarScrollConnection)
                     .graphicsLayer(
                         translationY = when (currentRoute) {
                             DashboardDestination.Search.route -> -2f
@@ -266,15 +346,27 @@ fun DashboardContainer(
             // Curved Bottom Navigation
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .then(
+                        if (shouldUseMobileBarWidth) {
+                            Modifier.width(mobileLikeBarWidth)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        }
+                    )
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = barOuterHorizontalPadding, vertical = 10.dp)
+                    .graphicsLayer { translationY = animatedBottomBarTranslationPx }
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(bottomBarHeight)
-                        .background(Color.Black)
+                        .shadow(
+                            elevation = 18.dp,
+                            shape = RoundedCornerShape(30.dp),
+                            clip = false
+                        )
                         .graphicsLayer(
                             rotationX = -3f,
                             transformOrigin = TransformOrigin(0.5f, 1f),
@@ -284,8 +376,7 @@ fun DashboardContainer(
                         .drawBehind {
                             draw3DCurvedNavigationBar(
                                 width = size.width,
-                                height = size.height,
-                                currentRoute = currentRoute
+                                height = size.height
                             )
                         }
                 )
@@ -295,18 +386,22 @@ fun DashboardContainer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(bottomBarHeight)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = barInnerHorizontalPadding),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left side items
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         sideDestinations.take(2).forEach { destination ->
                             val isSelected = currentRoute == destination.route
                             NavigationItem(
+                                modifier = when (destination.route) {
+                                    DashboardDestination.MyMedia.route -> Modifier.offset(x = -innerItemOffset)
+                                    else -> Modifier.offset(x = -outerItemOffset)
+                                },
                                 destination = destination,
                                 isSelected = isSelected,
                                 onClick = {
@@ -326,12 +421,16 @@ fun DashboardContainer(
 
                     // Right side items
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         sideDestinations.drop(2).forEach { destination ->
                             val isSelected = currentRoute == destination.route
                             NavigationItem(
+                                modifier = when (destination.route) {
+                                    DashboardDestination.Favorites.route -> Modifier.offset(x = innerItemOffset)
+                                    else -> Modifier.offset(x = outerItemOffset)
+                                },
                                 destination = destination,
                                 isSelected = isSelected,
                                 onClick = {
@@ -381,33 +480,49 @@ fun DashboardContainer(
 // Function to draw curved navigation bar with dynamic effects
 private fun DrawScope.draw3DCurvedNavigationBar(
     width: Float,
-    height: Float,
-    currentRoute: String?
+    height: Float
 ) {
     val centerWidth = width / 2f
+    val topCornerRadius = 24.dp.toPx()
+    val bottomCornerRadius = 26.dp.toPx()
 
     // Use dimensions that are proportional to the FAB size for a good fit
     val fabRadius = 28.dp.toPx()
     val curveDepth = fabRadius + (fabRadius / 3f)
-    val curveWidth = (fabRadius * 2) + (fabRadius * 1.5f)
+    val targetCurveWidth = (fabRadius * 2) + (fabRadius * 1.5f)
+    val sideInset = topCornerRadius + 6.dp.toPx()
+    val targetHalfWidth = targetCurveWidth / 2f
+    fun snapX(value: Float): Float = round(value * 2f) / 2f
+    val notchCenterX = snapX(centerWidth)
+    val availableHalfWidth = min(
+        notchCenterX - sideInset,
+        (width - sideInset) - notchCenterX
+    ).coerceAtLeast(0f)
+    val curveHalfWidth = min(targetHalfWidth, availableHalfWidth)
+    var curveStartX = snapX(notchCenterX - curveHalfWidth)
+    var curveEndX = snapX(notchCenterX + (notchCenterX - curveStartX))
+    val maxRightX = width - sideInset
+    if (curveEndX > maxRightX) {
+        curveEndX = maxRightX
+        curveStartX = snapX(notchCenterX - (curveEndX - notchCenterX))
+    }
+    val adjustedCurveWidth = curveEndX - curveStartX
 
-    val curveStartX = centerWidth - (curveWidth / 2)
-    val curveEndX = centerWidth + (curveWidth / 2)
-
-    // Control points for smoother curve
-    val controlPoint1X = curveStartX + curveWidth * 0.12f
-    val controlPoint2X = centerWidth - curveWidth * 0.35f
-    val controlPoint3X = centerWidth + curveWidth * 0.35f
-    val controlPoint4X = curveEndX - curveWidth * 0.12f
+    // Build left control points first, then reflect for perfect symmetry.
+    val controlPoint1X = snapX(curveStartX + adjustedCurveWidth * 0.12f)
+    val controlPoint2X = snapX(notchCenterX - adjustedCurveWidth * 0.35f)
+    val controlPoint3X = snapX(notchCenterX + (notchCenterX - controlPoint2X))
+    val controlPoint4X = snapX(notchCenterX + (notchCenterX - controlPoint1X))
     
     val backgroundPath = Path().apply {
-        moveTo(0f, 0f)
+        moveTo(0f, topCornerRadius)
+        quadraticTo(0f, 0f, topCornerRadius, 0f)
         lineTo(curveStartX, 0f)
 
         cubicTo(
             x1 = controlPoint1X, y1 = 0f,
             x2 = controlPoint2X, y2 = curveDepth,
-            x3 = centerWidth, y3 = curveDepth
+            x3 = notchCenterX, y3 = curveDepth
         )
         
         cubicTo(
@@ -416,9 +531,12 @@ private fun DrawScope.draw3DCurvedNavigationBar(
             x3 = curveEndX, y3 = 0f
         )
         
-        lineTo(width, 0f)
-        lineTo(width, height)
-        lineTo(0f, height)
+        lineTo(width - topCornerRadius, 0f)
+        quadraticTo(width, 0f, width, topCornerRadius)
+        lineTo(width, height - bottomCornerRadius)
+        quadraticTo(width, height, width - bottomCornerRadius, height)
+        lineTo(bottomCornerRadius, height)
+        quadraticTo(0f, height, 0f, height - bottomCornerRadius)
         close()
     }
 
@@ -494,6 +612,7 @@ private fun FloatingSearchButton(
 
 @Composable
 private fun NavigationItem(
+    modifier: Modifier = Modifier,
     destination: DashboardDestination,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -516,7 +635,7 @@ private fun NavigationItem(
     )
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
