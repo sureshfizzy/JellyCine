@@ -33,10 +33,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import com.jellycine.app.preferences.DownloadPreferences
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.flow.first
 
@@ -50,13 +52,19 @@ fun SeasonCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val downloadPreferences = remember { DownloadPreferences(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val currentServerType by authRepository.getServerType().collectAsState(initial = null)
+    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
+        .collectAsState(initial = downloadPreferences.isPosterEnhancersEnabled())
+    val disableImageEnhancers = currentServerType.equals("EMBY", ignoreCase = true) && posterEnhancersEnabled
     var seasonImageCandidates by remember(season.id, season.seriesId) { mutableStateOf<List<String>>(emptyList()) }
     var seasonImageIndex by remember(season.id, season.seriesId) { mutableIntStateOf(0) }
     var hasImageLoadError by remember(season.id, season.seriesId) { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
     val seasonImageUrl = seasonImageCandidates.getOrNull(seasonImageIndex)
 
-    LaunchedEffect(season.id, season.seriesId) {
+    LaunchedEffect(season.id, season.seriesId, disableImageEnhancers) {
         hasImageLoadError = false
         seasonImageIndex = 0
         season.id?.let { seasonId ->
@@ -66,7 +74,8 @@ fun SeasonCard(
                     imageType = "Primary",
                     width = 200,
                     height = 300,
-                    quality = 90
+                    quality = 90,
+                    enableImageEnhancers = !disableImageEnhancers
                 ).first(),
                 season.seriesId?.let { seriesId ->
                     mediaRepository.getImageUrl(
@@ -74,7 +83,8 @@ fun SeasonCard(
                         imageType = "Primary",
                         width = 200,
                         height = 300,
-                        quality = 90
+                        quality = 90,
+                        enableImageEnhancers = !disableImageEnhancers
                     ).first()
                 }
             ).distinct()

@@ -15,6 +15,7 @@ class DownloadPreferences(context: Context) {
         private const val PREFS_NAME = "jellycine_download_prefs"
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
         private const val KEY_FEATURE_CAROUSEL_ENABLED = "feature_carousel_enabled"
+        private const val KEY_POSTER_ENHANCERS_ENABLED = "poster_enhancers_enabled"
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
@@ -39,6 +40,27 @@ class DownloadPreferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_FEATURE_CAROUSEL_ENABLED) {
                 trySend(isFeatureCarouselEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isPosterEnhancersEnabled(): Boolean {
+        return prefs.getBoolean(KEY_POSTER_ENHANCERS_ENABLED, true)
+    }
+
+    fun setPosterEnhancersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_POSTER_ENHANCERS_ENABLED, enabled).apply()
+    }
+
+    fun PosterEnhancersEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isPosterEnhancersEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_POSTER_ENHANCERS_ENABLED) {
+                trySend(isPosterEnhancersEnabled())
             }
         }
 

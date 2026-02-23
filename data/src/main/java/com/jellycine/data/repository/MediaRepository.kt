@@ -593,6 +593,7 @@ class MediaRepository(private val context: Context) {
         height?.let { params.add("height=$it") }
         quality?.let { params.add("quality=$it") }
         if (!enableImageEnhancers) {
+            params.add("HasImageEnhancers=false")
             params.add("EnableImageEnhancers=false")
         }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
@@ -617,6 +618,7 @@ class MediaRepository(private val context: Context) {
                 height?.let { params.add("height=$it") }
                 quality?.let { params.add("quality=$it") }
                 if (!enableImageEnhancers) {
+                    params.add("HasImageEnhancers=false")
                     params.add("EnableImageEnhancers=false")
                 }
                 val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
@@ -645,6 +647,7 @@ class MediaRepository(private val context: Context) {
                 height?.let { params.add("height=$it") }
                 quality?.let { params.add("quality=$it") }
                 if (!enableImageEnhancers) {
+                    params.add("HasImageEnhancers=false")
                     params.add("EnableImageEnhancers=false")
                 }
                 val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""

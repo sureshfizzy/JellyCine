@@ -10,6 +10,7 @@ import com.jellycine.data.model.PlaybackStoppedRequest
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.UserDto
+import com.google.gson.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -22,6 +23,9 @@ interface MediaServerApi {
 
     @GET("System/Info/Public")
     suspend fun getPublicSystemInfo(): Response<ServerInfo>
+
+    @GET("System/Info")
+    suspend fun getSystemInfo(): Response<JsonObject>
 
     @POST("Users/AuthenticateByName")
     suspend fun authenticateByName(@Body request: AuthenticationRequest): Response<AuthenticationResult>

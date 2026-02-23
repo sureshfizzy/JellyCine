@@ -16,11 +16,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.preferences.DownloadPreferences
+import com.jellycine.data.repository.AuthRepositoryProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,9 +51,16 @@ fun InterfaceSettingsScreen(
 ) {
     val context = LocalContext.current
     val downloadPreferences = remember { DownloadPreferences(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
+    val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val featureCarouselEnabled by downloadPreferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
             initialValue = downloadPreferences.isFeatureCarouselEnabled()
+        )
+    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = downloadPreferences.isPosterEnhancersEnabled()
         )
 
     Scaffold(
@@ -94,6 +104,20 @@ fun InterfaceSettingsScreen(
                         onCheckedChange = downloadPreferences::setFeatureCarouselEnabled,
                         accentColor = Color(0xFF8B5CF6)
                     )
+                    if (isEmbyServer) {
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                        InterfaceSwitchItem(
+                            icon = Icons.Rounded.AutoFixHigh,
+                            title = "Emby Poster Overlays",
+                            subtitle = "Disable emby poster overlays.",
+                            checked = posterEnhancersEnabled,
+                            onCheckedChange = downloadPreferences::setPosterEnhancersEnabled,
+                            accentColor = Color(0xFF10B981)
+                        )
+                    }
                 }
             }
         }

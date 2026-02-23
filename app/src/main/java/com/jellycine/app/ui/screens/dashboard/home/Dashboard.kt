@@ -287,17 +287,28 @@ object ImagePreloader {
         imageType: String,
         width: Int,
         height: Int,
-        quality: Int
-    ): String = "$itemId|$imageType|$width|$height|$quality"
+        quality: Int,
+        hasImageEnhancers: Boolean = true
+    ): String = "$itemId|$imageType|$width|$height|$quality|enhancers=$hasImageEnhancers"
 
     fun getCachedImageUrl(
         itemId: String,
         imageType: String,
         width: Int,
         height: Int,
-        quality: Int
+        quality: Int,
+        hasImageEnhancers: Boolean = true
     ): String? {
-        return imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)]
+        return imageUrlCache[
+            imageCacheKey(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
+            )
+        ]
     }
 
     fun putCachedImageUrl(
@@ -306,9 +317,19 @@ object ImagePreloader {
         width: Int,
         height: Int,
         quality: Int,
+        hasImageEnhancers: Boolean = true,
         imageUrl: String
     ) {
-        imageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)] = imageUrl
+        imageUrlCache[
+            imageCacheKey(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
+            )
+        ] = imageUrl
     }
 
     fun getLastRenderedImageUrl(
@@ -316,9 +337,19 @@ object ImagePreloader {
         imageType: String,
         width: Int,
         height: Int,
-        quality: Int
+        quality: Int,
+        hasImageEnhancers: Boolean = true
     ): String? {
-        return lastRenderedImageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)]
+        return lastRenderedImageUrlCache[
+            imageCacheKey(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
+            )
+        ]
     }
 
     fun putLastRenderedImageUrl(
@@ -327,9 +358,19 @@ object ImagePreloader {
         width: Int,
         height: Int,
         quality: Int,
+        hasImageEnhancers: Boolean = true,
         imageUrl: String
     ) {
-        lastRenderedImageUrlCache[imageCacheKey(itemId, imageType, width, height, quality)] = imageUrl
+        lastRenderedImageUrlCache[
+            imageCacheKey(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
+            )
+        ] = imageUrl
     }
 
     private fun imageTypePreferenceKey(
@@ -701,7 +742,8 @@ fun ImageLoader(
     cornerRadius: Int = 8,
     crossfadeMillis: Int = 60,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
-    itemType: String? = null // Add item type to handle episodes properly
+    itemType: String? = null, // Add item type to handle episodes properly
+    hasImageEnhancers: Boolean = true
 ) {
     val imageTypes = remember(imageType, fallbackImageType, extraFallbackImageTypes) {
         buildList {
@@ -757,7 +799,7 @@ fun ImageLoader(
             else -> Triple(240, 360, 80)
         }
     }
-    val initialCachedUrl = remember(actualItemId, currentImageType, width, height) {
+    val initialCachedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers) {
         if (actualItemId.isNullOrBlank()) {
             null
         } else {
@@ -766,11 +808,12 @@ fun ImageLoader(
                 imageType = currentImageType,
                 width = width,
                 height = height,
-                quality = quality
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
             )
         }
     }
-    val initialRenderedUrl = remember(actualItemId, currentImageType, width, height) {
+    val initialRenderedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers) {
         if (actualItemId.isNullOrBlank()) {
             null
         } else {
@@ -779,20 +822,25 @@ fun ImageLoader(
                 imageType = currentImageType,
                 width = width,
                 height = height,
-                quality = quality
+                quality = quality,
+                hasImageEnhancers = hasImageEnhancers
             )
         }
     }
     val initialUrl = remember(initialRenderedUrl, initialCachedUrl) {
         initialRenderedUrl ?: initialCachedUrl
     }
-    var imageUrl by remember(actualItemId, currentImageType) { mutableStateOf(initialUrl) }
-    var hasError by remember(actualItemId, currentImageType) { mutableStateOf(false) }
-    var isImageLoaded by remember(actualItemId, currentImageType) { mutableStateOf(!initialUrl.isNullOrBlank()) }
-    var hasRenderedSuccess by remember(actualItemId, currentImageType) { mutableStateOf(!initialUrl.isNullOrBlank()) }
+    var imageUrl by remember(actualItemId, currentImageType, hasImageEnhancers) { mutableStateOf(initialUrl) }
+    var hasError by remember(actualItemId, currentImageType, hasImageEnhancers) { mutableStateOf(false) }
+    var isImageLoaded by remember(actualItemId, currentImageType, hasImageEnhancers) {
+        mutableStateOf(!initialUrl.isNullOrBlank())
+    }
+    var hasRenderedSuccess by remember(actualItemId, currentImageType, hasImageEnhancers) {
+        mutableStateOf(!initialUrl.isNullOrBlank())
+    }
     val context = LocalContext.current
 
-    LaunchedEffect(actualItemId, currentImageType) {
+    LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers) {
         if (actualItemId != null) {
             hasError = false
             if (!imageUrl.isNullOrBlank()) {
@@ -806,7 +854,8 @@ fun ImageLoader(
                     imageType = currentImageType,
                     width = width,
                     height = height,
-                    quality = quality
+                    quality = quality,
+                    hasImageEnhancers = hasImageEnhancers
                 )
                 if (!cachedUrl.isNullOrBlank()) {
                     imageUrl = cachedUrl
@@ -826,7 +875,8 @@ fun ImageLoader(
                         imageType = currentImageType,
                         width = width,
                         height = height,
-                        quality = quality
+                        quality = quality,
+                        enableImageEnhancers = hasImageEnhancers
                     )
                 }
                 if (!Url.isNullOrBlank()) {
@@ -837,6 +887,7 @@ fun ImageLoader(
                         width = width,
                         height = height,
                         quality = quality,
+                        hasImageEnhancers = hasImageEnhancers,
                         imageUrl = Url
                     )
                     ImagePreloader.setPreferredImageType(
@@ -902,6 +953,7 @@ fun ImageLoader(
                                     width = width,
                                     height = height,
                                     quality = quality,
+                                    hasImageEnhancers = hasImageEnhancers,
                                     imageUrl = renderedUrl
                                 )
                             }
@@ -1053,6 +1105,10 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = downloadPreferences.isFeatureCarouselEnabled()
         )
+    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = downloadPreferences.isPosterEnhancersEnabled()
+        )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
 
     LaunchedEffect(featureCarouselEnabled) {
@@ -1064,6 +1120,9 @@ fun Dashboard(
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
     val currentServerName by authRepository.getServerName().collectAsState(initial = null)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
+    val currentServerType by authRepository.getServerType().collectAsState(initial = null)
+    val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
+    val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
         "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
     }
@@ -1403,6 +1462,7 @@ fun Dashboard(
                             trackedDownloads = trackedDownloads,
                             mediaRepository = mediaRepository,
                             serverName = currentServerName,
+                            disablePosterEnhancers = disablePosterEnhancers,
                             onItemClick = onNavigateToDetail
                         )
                     }
@@ -1463,6 +1523,7 @@ fun Dashboard(
                             isLoading = homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty(),
                             error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
                             mediaRepository = mediaRepository,
+                            disablePosterEnhancers = disablePosterEnhancers,
                             onLibraryClick = { library ->
                                 val contentType = when (library.collectionType) {
                                     "movies" -> "MOVIES"
@@ -1528,6 +1589,7 @@ fun Dashboard(
                             BurstLibrarySection(
                                 section = section,
                                 mediaRepository = mediaRepository,
+                                disablePosterEnhancers = disablePosterEnhancers,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1545,6 +1607,7 @@ fun Dashboard(
                             modifier = Modifier.padding(top = topPadding)
                         ) {
                             MovieGenreSections(
+                                disablePosterEnhancers = disablePosterEnhancers,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1558,6 +1621,7 @@ fun Dashboard(
                             modifier = Modifier.padding(top = topPadding)
                         ) {
                             TVShowGenreSections(
+                                disablePosterEnhancers = disablePosterEnhancers,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1701,6 +1765,7 @@ private fun OfflineDownloadsSection(
     trackedDownloads: List<TrackedDownload>,
     mediaRepository: MediaRepository,
     serverName: String?,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
     val offlineItems = remember(trackedDownloads) {
@@ -1747,6 +1812,7 @@ private fun OfflineDownloadsSection(
                 title = title,
                 items = items,
                 mediaRepository = mediaRepository,
+                disablePosterEnhancers = disablePosterEnhancers,
                 onItemClick = onItemClick
             )
         }
@@ -1780,6 +1846,7 @@ private fun OfflineDownloadsCategoryRow(
     title: String,
     items: List<BaseItemDto>,
     mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
     val lazyRowState = rememberLazyListState()
@@ -1807,6 +1874,7 @@ private fun OfflineDownloadsCategoryRow(
             LibraryItemCard(
                 item = item,
                 mediaRepository = mediaRepository,
+                disableImageEnhancers = disablePosterEnhancers,
                 useLandscapeLayout = true,
                 onClick = { onItemClick(item) }
             )
@@ -1820,6 +1888,7 @@ private fun HomeMyMediaSection(
     isLoading: Boolean,
     error: String?,
     mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onLibraryClick: (BaseItemDto) -> Unit = {}
 ) {
     val lazyRowState = rememberLazyListState()
@@ -1878,6 +1947,7 @@ private fun HomeMyMediaSection(
                         LibraryItemCard(
                             item = library,
                             mediaRepository = mediaRepository,
+                            disableImageEnhancers = disablePosterEnhancers,
                             useLandscapeLayout = true,
                             onClick = stableOnClick
                         )
@@ -2186,6 +2256,7 @@ private fun MediaRepository.HomeLibrarySectionData.toUiSection(): HomeLibrarySec
 private fun BurstLibrarySection(
     section: HomeLibrarySectionUi,
     mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -2294,6 +2365,7 @@ private fun BurstLibrarySection(
                         scaleY = scale
                     },
                     mediaRepository = mediaRepository,
+                    disableImageEnhancers = disablePosterEnhancers,
                     onClick = stableOnClick
                 )
             }
@@ -2307,6 +2379,7 @@ internal fun LibraryItemCard(
     item: BaseItemDto,
     modifier: Modifier = Modifier,
     mediaRepository: MediaRepository,
+    disableImageEnhancers: Boolean = false,
     useLandscapeLayout: Boolean = false,
     onClick: () -> Unit = {}
 ) {
@@ -2361,7 +2434,8 @@ internal fun LibraryItemCard(
                     cornerRadius = 12,
                     crossfadeMillis = 0,
                     mediaRepository = mediaRepository,
-                    itemType = stableItem.type // Pass item type for proper episode handling
+                    itemType = stableItem.type, // Pass item type for proper episode handling
+                    hasImageEnhancers = !disableImageEnhancers
                 )
 
                 val episodeCount = when {
@@ -2378,7 +2452,6 @@ internal fun LibraryItemCard(
                             .padding(top = 8.dp, end = 8.dp)
                     )
                 }
-
 
             }
         }
@@ -2686,6 +2759,7 @@ private object LibraryCache {
 
 @Composable
 private fun MovieGenreSections(
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -2736,6 +2810,7 @@ private fun MovieGenreSections(
                 ProgressiveMovieGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
+                    disablePosterEnhancers = disablePosterEnhancers,
                     onItemClick = onItemClick,
                     onNavigateToViewAll = onNavigateToViewAll
                 )
@@ -2747,6 +2822,7 @@ private fun MovieGenreSections(
 
 @Composable
 private fun TVShowGenreSections(
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -2792,6 +2868,7 @@ private fun TVShowGenreSections(
                 ProgressiveTVShowGenreSection(
                     genre = genre,
                     mediaRepository = mediaRepository,
+                    disablePosterEnhancers = disablePosterEnhancers,
                     onItemClick = onItemClick,
                     onNavigateToViewAll = onNavigateToViewAll
                 )
@@ -2805,6 +2882,7 @@ private fun TVShowGenreSections(
 private fun ProgressiveMovieGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -2907,6 +2985,7 @@ private fun ProgressiveMovieGenreSection(
                         LibraryItemCard(
                             item = genreMovies[index],
                             mediaRepository = mediaRepository,
+                            disableImageEnhancers = disablePosterEnhancers,
                             onClick = { onItemClick(genreMovies[index]) }
                         )
                     }
@@ -2930,6 +3009,7 @@ private fun ProgressiveMovieGenreSection(
 private fun ProgressiveTVShowGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -3031,6 +3111,7 @@ private fun ProgressiveTVShowGenreSection(
                         LibraryItemCard(
                             item = show,
                             mediaRepository = mediaRepository,
+                            disableImageEnhancers = disablePosterEnhancers,
                             onClick = { onItemClick(show) }
                         )
                     }
@@ -3049,4 +3130,5 @@ private fun ProgressiveTVShowGenreSection(
         }
     }
 }
+
 
