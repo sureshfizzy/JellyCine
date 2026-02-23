@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -153,8 +154,8 @@ fun DashboardContainer(
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
     }
-    val isNetworkAvailable by networkAvailabilityFlow.collectAsState(
-        initial = NetworkModule.isInternetAvailable(appContext)
+    val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
+        initialValue = NetworkModule.isInternetAvailable(appContext)
     )
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current

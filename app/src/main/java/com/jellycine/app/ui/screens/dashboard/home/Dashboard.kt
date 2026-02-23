@@ -77,6 +77,7 @@ import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
@@ -1043,8 +1044,8 @@ fun Dashboard(
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
     }
-    val isNetworkAvailable by networkAvailabilityFlow.collectAsState(
-        initial = NetworkModule.isInternetAvailable(appContext)
+    val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
+        initialValue = NetworkModule.isInternetAvailable(appContext)
     )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
 

@@ -10,10 +10,13 @@ import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.BuildConfig
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
@@ -31,6 +34,7 @@ object NetworkModule {
     private const val CLIENT_NAME = "JellyCine"
     private const val DEVICE_NAME = "Android"
     private const val NETWORK_LOG_TAG = "JellyCineNetwork"
+    private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
 
@@ -68,27 +72,48 @@ object NetworkModule {
         val appContext = context.applicationContext
         val connectivityManager =
             appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        var OfflineEmission: Job? = null
 
         trySend(isInternetAvailable(appContext))
 
+        fun OfflineDebounce() {
+            if (isInternetAvailable(appContext)) {
+                OfflineEmission?.cancel()
+                OfflineEmission = null
+                trySend(true)
+                return
+            }
+
+            if (OfflineEmission?.isActive == true) {
+                return
+            }
+
+            OfflineEmission = launch {
+                delay(OFFLINE_DEBOUNCE_MS)
+                if (!isInternetAvailable(appContext)) {
+                    trySend(false)
+                }
+            }
+        }
+
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                trySend(isInternetAvailable(appContext))
+                OfflineDebounce()
             }
 
             override fun onLost(network: Network) {
-                trySend(isInternetAvailable(appContext))
+                OfflineDebounce()
             }
 
             override fun onCapabilitiesChanged(
                 network: Network,
                 networkCapabilities: NetworkCapabilities
             ) {
-                trySend(isInternetAvailable(appContext))
+                OfflineDebounce()
             }
 
             override fun onUnavailable() {
-                trySend(false)
+                OfflineDebounce()
             }
         }
 
@@ -103,6 +128,7 @@ object NetworkModule {
         }
 
         awaitClose {
+            OfflineEmission?.cancel()
             runCatching { connectivityManager.unregisterNetworkCallback(callback) }
         }
     }.distinctUntilChanged()
