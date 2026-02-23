@@ -39,6 +39,7 @@ import com.jellycine.data.preferences.NetworkPreferences
 fun Settings(
     onLogout: () -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
+    onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {}
 ) {
@@ -90,6 +91,17 @@ fun Settings(
             item { SectionLabel("Preferences") }
             item {
                 SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.DisplaySettings,
+                        title = "Interface",
+                        subtitle = "Visual Options",
+                        accentColor = Color(0xFF8B5CF6),
+                        onClick = onNavigateToInterfaceSettings
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                     SettingsItem(
                         icon = Icons.Rounded.Wifi,
                         title = "Wi-Fi Only Downloads",

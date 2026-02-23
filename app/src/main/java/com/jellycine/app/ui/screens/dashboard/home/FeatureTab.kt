@@ -893,7 +893,7 @@ private fun FeatureHeroCard(
 }
 
 @Composable
-private fun UserProfileAvatar(
+internal fun UserProfileAvatar(
     imageUrl: String?,
     userName: String?,
     onClick: () -> Unit,

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
+import com.jellycine.app.preferences.DownloadPreferences
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
@@ -1039,6 +1040,7 @@ fun Dashboard(
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val downloadPreferences = remember { DownloadPreferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
     val networkAvailabilityFlow = remember(appContext) {
@@ -1047,13 +1049,53 @@ fun Dashboard(
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
         initialValue = NetworkModule.isInternetAvailable(appContext)
     )
+    val featureCarouselEnabled by downloadPreferences.FeatureCarouselEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = downloadPreferences.isFeatureCarouselEnabled()
+        )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
+
+    LaunchedEffect(featureCarouselEnabled) {
+        if (!featureCarouselEnabled && selectedCategory != "Home") {
+            selectedCategory = "Home"
+        }
+    }
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = null)
     val currentServerName by authRepository.getServerName().collectAsState(initial = null)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
         "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
+    }
+    val HeaderUserName = (currentUsername ?: CachedData.username)
+        ?.takeIf { it.isNotBlank() }
+        ?: "User"
+    var noCarouselProfileImageUrl by remember(dashboardSessionKey) {
+        mutableStateOf(
+            if (CachedData.userSessionKey == dashboardSessionKey) {
+                CachedData.userImageUrl
+            } else {
+                null
+            }
+        )
+    }
+    LaunchedEffect(featureCarouselEnabled, dashboardSessionKey, HeaderUserName) {
+        if (featureCarouselEnabled) return@LaunchedEffect
+
+        if (!noCarouselProfileImageUrl.isNullOrBlank()) return@LaunchedEffect
+
+        if (CachedData.userSessionKey == dashboardSessionKey &&
+            !CachedData.userImageUrl.isNullOrBlank()
+        ) {
+            noCarouselProfileImageUrl = CachedData.userImageUrl
+            return@LaunchedEffect
+        }
+
+        val profileUrl = withContext(Dispatchers.IO) {
+            runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
+        }
+        noCarouselProfileImageUrl = profileUrl
+        CachedData.updateUserData(HeaderUserName, profileUrl, dashboardSessionKey)
     }
     val queryManager = remember(dashboardSessionKey) {
         DashboardHomeQueryStore.get(dashboardSessionKey)
@@ -1082,7 +1124,7 @@ fun Dashboard(
             key = "featured_$selectedCategory",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive && isNetworkAvailable,
+                enabled = isTabActive && isNetworkAvailable && featureCarouselEnabled,
                 requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
@@ -1371,24 +1413,34 @@ fun Dashboard(
                                 .fillParentMaxHeight()
                                 .fillMaxWidth()
                         ) {
-                            OfflineNoDownloadsState(serverName = currentServerName)
+                            OfflineState(serverName = currentServerName)
                         }
                     }
                 }
             } else {
-                item(key = "feature_tab") {
-                    FeatureTab(
-                        featuredItems = FeaturedItems,
-                        isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
-                        error = featuredQuery.error,
-                        selectedCategory = selectedCategory,
-                        verticalParallaxOffsetPx = featureParallaxOffsetPx,
-                        onItemClick = onNavigateToDetail,
-                        onLogout = onLogout,
-                        onCategorySelected = { category ->
-                            selectedCategory = category
-                        }
-                    )
+                if (featureCarouselEnabled) {
+                    item(key = "feature_tab") {
+                        FeatureTab(
+                            featuredItems = FeaturedItems,
+                            isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
+                            error = featuredQuery.error,
+                            selectedCategory = selectedCategory,
+                            verticalParallaxOffsetPx = featureParallaxOffsetPx,
+                            onItemClick = onNavigateToDetail,
+                            onLogout = onLogout,
+                            onCategorySelected = { category ->
+                                selectedCategory = category
+                            }
+                        )
+                    }
+                } else {
+                    item(key = "no_carousel_top_header") {
+                        TopHeader(
+                            serverName = currentServerName,
+                            userName = HeaderUserName,
+                            userImageUrl = noCarouselProfileImageUrl
+                        )
+                    }
                 }
 
                 val ShowMyMediaSection =
@@ -1518,10 +1570,88 @@ fun Dashboard(
 }
 
 @Composable
-private fun OfflineNoDownloadsState(
-    serverName: String?
+private fun TopHeader(
+    serverName: String?,
+    userName: String?,
+    userImageUrl: String?
+) {
+    BrandHeader(
+        serverName = serverName,
+        modifier = Modifier
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+            .padding(top = 4.dp),
+        showUserIcon = true,
+        userName = userName,
+        userImageUrl = userImageUrl
+    )
+}
+
+@Composable
+private fun BrandHeader(
+    serverName: String?,
+    modifier: Modifier = Modifier,
+    showUserIcon: Boolean = false,
+    userName: String? = null,
+    userImageUrl: String? = null
 ) {
     val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: "Server"
+    val headerChipShape = RoundedCornerShape(22.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .clip(headerChipShape)
+                .background(Color.White.copy(alpha = 0.14f))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.10f),
+                    shape = headerChipShape
+                )
+                .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.28f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.jellycine_logo),
+                    contentDescription = "JellyCine",
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = displayServerName,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+        }
+
+        if (showUserIcon) {
+            UserProfileAvatar(
+                imageUrl = userImageUrl,
+                userName = userName,
+                onClick = {},
+                modifier = Modifier.size(34.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun OfflineState(
+    serverName: String?
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1530,32 +1660,7 @@ private fun OfflineNoDownloadsState(
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .padding(top = 12.dp, bottom = 70.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.jellycine_logo),
-                contentDescription = "JellyCine",
-                modifier = Modifier.size(36.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "JellyCine",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Text(
-                    text = displayServerName,
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.72f)
-                )
-            }
-        }
+        BrandHeader(serverName = serverName)
 
         Box(
             modifier = Modifier
@@ -1598,7 +1703,6 @@ private fun OfflineDownloadsSection(
     serverName: String?,
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
-    val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: "Server"
     val offlineItems = remember(trackedDownloads) {
         trackedDownloads.toOfflineBaseItems()
     }
@@ -1620,32 +1724,7 @@ private fun OfflineDownloadsSection(
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .padding(top = 12.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.jellycine_logo),
-                contentDescription = "JellyCine",
-                modifier = Modifier.size(36.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "JellyCine",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Text(
-                    text = displayServerName,
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.72f)
-                )
-            }
-        }
+        BrandHeader(serverName = serverName)
 
         Spacer(modifier = Modifier.height(8.dp))
 

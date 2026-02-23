@@ -143,6 +143,7 @@ fun DashboardContainer(
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayerSettings: () -> Unit = {},
+    onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {}
 ) {
@@ -399,6 +400,7 @@ fun DashboardContainer(
                         Settings(
                             onLogout = onLogout,
                             onNavigateToPlayerSettings = onNavigateToPlayerSettings,
+                            onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
                             onNavigateToDownloads = onNavigateToDownloads,
                             onNavigateToCacheSettings = onNavigateToCacheSettings
                         )
