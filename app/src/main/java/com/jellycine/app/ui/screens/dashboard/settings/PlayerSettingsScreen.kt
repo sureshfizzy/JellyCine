@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.SurroundSound
@@ -133,14 +132,6 @@ fun PlayerSettingsScreen(
                         )
                     }
 
-                    SettingsDivider()
-                    ClickableSettingsItem(
-                        icon = Icons.Rounded.Info,
-                        title = "Hardware Status",
-                        subtitle = uiState.hardwareStatus ?: "Detecting...",
-                        onClick = { viewModel.refreshHardwareStatus() },
-                        accentColor = decodingColor
-                    )
                 }
             }
 

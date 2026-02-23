@@ -1027,8 +1027,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                                 if (group.isTrackSelected(i)) {
                                     val format = group.mediaTrackGroup.getFormat(i)
                                     activeVideoCodec = getDisplayVideoCodecName(format.codecs ?: format.sampleMimeType ?: "Unknown")
-                                    // Hardware decoding is likely if HW acceleration is enabled and format supports it
-                                    isUsingHardwareDecoder = isHwAccelEnabled && 
+                                    isUsingHardwareDecoder = isHwAccelEnabled &&
                                         (format.sampleMimeType?.contains("video/") == true)
                                     break
                                 }

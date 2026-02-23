@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.content.Context
-import android.media.MediaCodecInfo
 import android.media.MediaCodecList
 import android.os.Build
 import androidx.lifecycle.ViewModel
@@ -21,7 +20,6 @@ data class PlayerSettingsUiState(
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
     val asyncMediaCodecEnabled: Boolean = false,
-    val hardwareStatus: String? = null,
     
     // Audio
     val spatialAudioEnabled: Boolean = true,
@@ -89,16 +87,12 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                     
                     // Get supported codecs
                     val supportedCodecs = getSupportedCodecs()
-                    
-                    // Get hardware status
-                    val hardwareStatus = getHardwareStatus()
-                    
+
                     withContext(Dispatchers.Main) {
                         _uiState.value = _uiState.value.copy(
                             spatialAudioSupported = spatialSupported,
                             headTrackingSupported = headTrackingSupported,
-                            supportedCodecs = supportedCodecs,
-                            hardwareStatus = hardwareStatus
+                            supportedCodecs = supportedCodecs
                         )
                     }
                 } catch (e: Exception) {
@@ -167,45 +161,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
             "Video: $videoCodecString\nAudio: $audioCodecString"
         } catch (e: Exception) {
             "Unable to detect codecs"
-        }
-    }
-    
-    private fun getHardwareStatus(): String {
-        return try {
-            val mediaCodecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-            val hardwareDecoders = mediaCodecList.codecInfos.count { codecInfo ->
-                !codecInfo.isEncoder && isHardwareDecoder(codecInfo)
-            }
-            val totalDecoders = mediaCodecList.codecInfos.count { !it.isEncoder }
-            
-            "Hardware decoders: $hardwareDecoders/$totalDecoders available"
-        } catch (e: Exception) {
-            "Unable to detect hardware status"
-        }
-    }
-    
-    private fun isHardwareDecoder(codecInfo: MediaCodecInfo): Boolean {
-        val name = codecInfo.name.lowercase()
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                codecInfo.isHardwareAccelerated
-            }
-            else -> {
-                !name.contains("google") && 
-                !name.contains("ffmpeg") &&
-                (name.contains("qcom") || 
-                 name.contains("exynos") || 
-                 name.contains("mtk") ||
-                 name.startsWith("omx.") ||
-                 (name.startsWith("c2.android") && !name.contains("software")))
-            }
-        }
-    }
-    
-    fun refreshHardwareStatus() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(hardwareStatus = "Refreshing...")
-            detectDeviceCapabilities()
         }
     }
     
