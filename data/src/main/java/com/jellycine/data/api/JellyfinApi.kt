@@ -8,7 +8,6 @@ import com.jellycine.data.model.PlaybackProgressRequest
 import com.jellycine.data.model.PlaybackStartRequest
 import com.jellycine.data.model.PlaybackStoppedRequest
 import com.jellycine.data.model.QueryResult
-import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.UserDto
 import com.google.gson.JsonObject
 import retrofit2.Response
@@ -22,7 +21,7 @@ import retrofit2.http.Query
 interface MediaServerApi {
 
     @GET("System/Info/Public")
-    suspend fun getPublicSystemInfo(): Response<ServerInfo>
+    suspend fun getPublicSystemInfo(): Response<JsonObject>
 
     @GET("System/Info")
     suspend fun getSystemInfo(): Response<JsonObject>

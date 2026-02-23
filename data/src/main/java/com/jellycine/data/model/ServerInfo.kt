@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 data class ServerInfo(
     @SerializedName("ServerName")
-    val serverName: String,
+    val serverName: String? = null,
 
     @SerializedName("ProductName")
     val productName: String? = null,

@@ -69,12 +69,18 @@ class AuthRepository(private val context: Context) {
                 return Result.failure(Exception(error.message ?: "Unable to connect to server"))
             }
 
-            val serverName = resolved.serverInfo.serverName.ifBlank {
-                when (resolved.serverType) {
+            val serverName = resolved.serverInfo.serverName
+                ?.takeIf { it.isNotBlank() }
+                ?: resolved.serverInfo.productName?.takeIf { it.isNotBlank() }
+                ?: when (resolved.serverType) {
                     NetworkModule.ServerType.EMBY -> "Emby Server"
                     NetworkModule.ServerType.JELLYFIN -> "Jellyfin Server"
+                    NetworkModule.ServerType.UNKNOWN -> "Media Server"
                 }
-            }
+
+            val normalizedServerInfo = resolved.serverInfo.copy(
+                serverName = serverName
+            )
 
             dataStore.edit { preferences ->
                 preferences[SERVER_URL_KEY] = resolved.baseUrl
@@ -82,7 +88,7 @@ class AuthRepository(private val context: Context) {
                 preferences[SERVER_TYPE_KEY] = resolved.serverType.name
             }
 
-            Result.success(resolved.serverInfo)
+            Result.success(normalizedServerInfo)
         } catch (e: java.net.UnknownHostException) {
             Result.failure(Exception("Cannot reach server. Please check your internet connection and server URL."))
         } catch (e: java.net.ConnectException) {
@@ -127,7 +133,11 @@ class AuthRepository(private val context: Context) {
                     serverType = savedServerType,
                     serverInfo = ServerInfo(
                         serverName = preferences[SERVER_NAME_KEY] ?: "",
-                        productName = if (savedServerType == NetworkModule.ServerType.EMBY) "Emby" else "Jellyfin"
+                        productName = when (savedServerType) {
+                            NetworkModule.ServerType.EMBY -> "Emby"
+                            NetworkModule.ServerType.JELLYFIN -> "Jellyfin"
+                            NetworkModule.ServerType.UNKNOWN -> "Media Server"
+                        }
                     )
                 )
             } else {

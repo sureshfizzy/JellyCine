@@ -8,6 +8,7 @@ import android.net.NetworkRequest
 import android.util.Log
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.BuildConfig
+import com.google.gson.Gson
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
 import kotlinx.coroutines.Job
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -37,8 +39,10 @@ object NetworkModule {
     private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
+    private val gson = Gson()
 
     enum class ServerType {
+        UNKNOWN,
         JELLYFIN,
         EMBY
     }
@@ -205,8 +209,9 @@ object NetworkModule {
                 )
                 val response = api.getPublicSystemInfo()
                 if (response.isSuccessful && response.body() != null) {
-                    val serverInfo = response.body()!!
-                    val detectedType = detectServerType(candidate, serverInfo)
+                    val rawPublicInfo = response.body()!!
+                    val serverInfo = gson.fromJson(rawPublicInfo, ServerInfo::class.java)
+                    val detectedType = detectServerType(serverInfo, response.headers())
                     return Result.success(
                         ResolvedServerEndpoint(
                             baseUrl = ensureTrailingSlash(candidate),
@@ -361,20 +366,30 @@ object NetworkModule {
         return if (baseUrl.trimEnd('/').endsWith("/emby", ignoreCase = true)) {
             ServerType.EMBY
         } else {
-            ServerType.JELLYFIN
+            ServerType.UNKNOWN
         }
     }
 
-    private fun detectServerType(baseUrl: String, serverInfo: ServerInfo): ServerType {
-        val productName = serverInfo.productName.orEmpty()
-        return if (
-            productName.contains("emby", ignoreCase = true) ||
-            baseUrl.trimEnd('/').endsWith("/emby", ignoreCase = true)
-        ) {
-            ServerType.EMBY
-        } else {
-            ServerType.JELLYFIN
+    private fun detectServerType(serverInfo: ServerInfo, headers: Headers? = null): ServerType {
+        val appHeader = headers?.get("X-Application").orEmpty()
+        if (appHeader.contains("jellyfin", ignoreCase = true)) {
+            return ServerType.JELLYFIN
         }
+        if (appHeader.contains("emby", ignoreCase = true)) {
+            return ServerType.EMBY
+        }
+        val productName = serverInfo.productName.orEmpty()
+        if (productName.contains("jellyfin", ignoreCase = true)) {
+            return ServerType.JELLYFIN
+        }
+        if (productName.contains("emby", ignoreCase = true)) {
+            return ServerType.EMBY
+        }
+        val version = serverInfo.version.orEmpty()
+        if (version.startsWith("4.")) {
+            return ServerType.EMBY
+        }
+        return ServerType.UNKNOWN
     }
 
 }
