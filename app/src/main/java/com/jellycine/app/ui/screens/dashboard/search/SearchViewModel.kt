@@ -8,8 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -231,70 +229,23 @@ class SearchViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(SuggestionsLoading = true)
 
             try {
-                val suggestions = coroutineScope {
-                    val moviesDeferred = async {
-                        mediaRepository.getUserItems(
-                            includeItemTypes = "Movie",
-                            recursive = true,
-                            limit = 10,
-                            sortBy = "PlayCount,CommunityRating,DateCreated",
-                            sortOrder = "Descending",
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull()?.items.orEmpty()
+                mediaRepository.getSuggestions(
+                    mediaType = "Movie,Series",
+                    limit = 15
+                ).fold(
+                    onSuccess = { suggestions ->
+                        _uiState.value = _uiState.value.copy(
+                            suggestions = suggestions,
+                            SuggestionsLoading = false,
+                            error = null
+                        )
+                    },
+                    onFailure = { error ->
+                        _uiState.value = _uiState.value.copy(
+                            SuggestionsLoading = false,
+                            error = error.message
+                        )
                     }
-                    val seriesDeferred = async {
-                        mediaRepository.getUserItems(
-                            includeItemTypes = "Series",
-                            recursive = true,
-                            limit = 10,
-                            sortBy = "PlayCount,CommunityRating,DateCreated",
-                            sortOrder = "Descending",
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull()?.items.orEmpty()
-                    }
-
-                    val primaryBurst = mergeAndNormalize(
-                        interleaveLists(moviesDeferred.await(), seriesDeferred.await()),
-                        limit = 18
-                    )
-
-                    if (primaryBurst.size >= 12) {
-                        return@coroutineScope primaryBurst.take(15)
-                    }
-
-                    val recentMoviesDeferred = async {
-                        mediaRepository.getRecentlyAddedMovies(limit = 12).getOrNull().orEmpty()
-                    }
-                    val recentSeriesDeferred = async {
-                        mediaRepository.getUserItems(
-                            includeItemTypes = "Series",
-                            recursive = true,
-                            limit = 12,
-                            sortBy = "DateCreated",
-                            sortOrder = "Descending",
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull()?.items.orEmpty()
-                    }
-                    val latestDeferred = async {
-                        mediaRepository.getLatestItems(
-                            includeItemTypes = "Movie,Series",
-                            limit = 20,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull().orEmpty()
-                    }
-
-                    mergeAndNormalize(
-                        primaryBurst,
-                        interleaveLists(recentMoviesDeferred.await(), recentSeriesDeferred.await()),
-                        latestDeferred.await(),
-                        limit = 15
-                    )
-                }
-
-                _uiState.value = _uiState.value.copy(
-                    suggestions = suggestions,
-                    SuggestionsLoading = false,
-                    error = null
                 )
 
             } catch (e: Exception) {
@@ -308,35 +259,6 @@ class SearchViewModel @Inject constructor(
 
     fun clearSearchCache() {
         searchCache.clear()
-    }
-
-    private fun interleaveLists(
-        first: List<BaseItemDto>,
-        second: List<BaseItemDto>
-    ): List<BaseItemDto> {
-        if (first.isEmpty()) return second
-        if (second.isEmpty()) return first
-
-        val merged = ArrayList<BaseItemDto>(first.size + second.size)
-        val maxSize = maxOf(first.size, second.size)
-        for (index in 0 until maxSize) {
-            if (index < first.size) merged.add(first[index])
-            if (index < second.size) merged.add(second[index])
-        }
-        return merged
-    }
-
-    private fun mergeAndNormalize(
-        vararg groups: List<BaseItemDto>,
-        limit: Int
-    ): List<BaseItemDto> {
-        return groups
-            .asSequence()
-            .flatten()
-            .filter { item -> item.id != null && !item.name.isNullOrBlank() }
-            .distinctBy { it.id }
-            .take(limit)
-            .toList()
     }
 }
 

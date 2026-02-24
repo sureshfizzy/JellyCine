@@ -50,7 +50,14 @@ class MediaRepository(private val context: Context) {
 
     private data class ApiSession(
         val api: MediaServerApi,
-        val userId: String
+        val userId: String,
+        val serverType: NetworkModule.ServerType?,
+        val baseUrl: String
+    )
+
+    private data class SuggestionsRoute(
+        val endpoint: String,
+        val userIdQuery: String?
     )
 
     private data class SessionConfig(
@@ -191,7 +198,12 @@ class MediaRepository(private val context: Context) {
                 timeoutConfig = config.timeoutConfig
             )
 
-            val session = ApiSession(api = api, userId = config.userId)
+            val session = ApiSession(
+                api = api,
+                userId = config.userId,
+                serverType = config.serverType,
+                baseUrl = config.serverUrl
+            )
             cachedSession = session
             cachedSessionKey = newSessionKey
             return session
@@ -318,6 +330,65 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getSuggestions(
+        mediaType: String = "Movie,Series",
+        limit: Int = 15,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val route = SuggestionsEndpoint(
+                serverType = session.serverType,
+                baseUrl = session.baseUrl,
+                userId = session.userId
+            )
+            val isEmby = route.userIdQuery == null
+            val response = session.api.getSuggestions(
+                endpoint = route.endpoint,
+                userId = route.userIdQuery,
+                mediaType = null,
+                type = if (isEmby) null else mediaType,
+                includeItemTypes = if (isEmby) mediaType else null,
+                limit = limit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val items = response.body()!!.items
+                    .orEmpty()
+                    .asSequence()
+                    .filter { it.id != null && !it.name.isNullOrBlank() }
+                    .distinctBy { it.id }
+                    .take(limit)
+                    .toList()
+                Result.success(items)
+            } else {
+                Result.failure(Exception("Failed to fetch suggestions: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun SuggestionsEndpoint(
+        serverType: NetworkModule.ServerType?,
+        baseUrl: String,
+        userId: String
+    ): SuggestionsRoute {
+        val hasEmbyBasePath = baseUrl.trimEnd('/').endsWith("/emby", ignoreCase = true)
+        val isEmby = serverType == NetworkModule.ServerType.EMBY || hasEmbyBasePath
+        return if (isEmby) {
+            val endpoint = if (hasEmbyBasePath) {
+                "Users/$userId/Suggestions"
+            } else {
+                "emby/Users/$userId/Suggestions"
+            }
+            SuggestionsRoute(endpoint = endpoint, userIdQuery = null)
+        } else {
+            SuggestionsRoute(endpoint = "Items/Suggestions", userIdQuery = userId)
         }
     }
 

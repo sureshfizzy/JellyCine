@@ -17,6 +17,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 interface MediaServerApi {
 
@@ -49,6 +50,17 @@ interface MediaServerApi {
         @Query("limit") limit: Int? = null,
         @Query("startIndex") startIndex: Int? = null,
         @Query("filters") filters: String? = null,
+        @Query("fields") fields: String? = null
+    ): Response<QueryResult<BaseItemDto>>
+
+    @GET
+    suspend fun getSuggestions(
+        @Url endpoint: String,
+        @Query("userId") userId: String? = null,
+        @Query("mediaType") mediaType: String? = null,
+        @Query("type") type: String? = null,
+        @Query("IncludeItemTypes") includeItemTypes: String? = null,
+        @Query("limit") limit: Int? = null,
         @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 
