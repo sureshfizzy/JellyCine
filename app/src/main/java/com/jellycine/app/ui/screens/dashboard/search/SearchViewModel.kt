@@ -32,8 +32,7 @@ class SearchViewModel @Inject constructor(
     private val cacheExpirationTime = 300_000L // 5 minutes
 
     init {
-        loadPopularMovies()
-        loadTrendingMovies()
+        loadsuggestions()
     }
 
     fun updateSearchQuery(query: String) {
@@ -223,87 +222,16 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    private fun loadPopularMovies() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-
-            try {
-                val popularItems = coroutineScope {
-                    val recentMoviesDeferred = async {
-                        mediaRepository.getRecentlyAddedMovies(limit = 14).getOrNull().orEmpty()
-                    }
-                    val recentSeriesDeferred = async {
-                        mediaRepository.getUserItems(
-                            includeItemTypes = "Series",
-                            recursive = true,
-                            limit = 10,
-                            sortBy = "DateCreated",
-                            sortOrder = "Descending",
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull()?.items.orEmpty()
-                    }
-
-                    val primaryBurst = mergeAndNormalize(
-                        recentMoviesDeferred.await(),
-                        recentSeriesDeferred.await(),
-                        limit = 24
-                    )
-
-                    if (primaryBurst.size >= 20) {
-                        return@coroutineScope primaryBurst.take(20)
-                    }
-
-                    val latestDeferred = async {
-                        mediaRepository.getLatestItems(
-                            includeItemTypes = "Movie,Series",
-                            limit = 28,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull().orEmpty()
-                    }
-                    val fallbackDeferred = async {
-                        mediaRepository.getUserItems(
-                            includeItemTypes = "Movie,Series",
-                            recursive = true,
-                            limit = 28,
-                            sortBy = "DateCreated",
-                            sortOrder = "Descending",
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
-                        ).getOrNull()?.items.orEmpty()
-                    }
-
-                    mergeAndNormalize(
-                        primaryBurst,
-                        latestDeferred.await(),
-                        fallbackDeferred.await(),
-                        limit = 20
-                    )
-                }
-
-                _uiState.value = _uiState.value.copy(
-                    popularMovies = popularItems,
-                    isLoading = false,
-                    error = null
-                )
-
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message
-                )
-            }
-        }
-    }
-
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    private fun loadTrendingMovies() {
+    private fun loadsuggestions() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isTrendingLoading = true)
+            _uiState.value = _uiState.value.copy(SuggestionsLoading = true)
 
             try {
-                val trendingMovies = coroutineScope {
+                val suggestions = coroutineScope {
                     val moviesDeferred = async {
                         mediaRepository.getUserItems(
                             includeItemTypes = "Movie",
@@ -364,14 +292,14 @@ class SearchViewModel @Inject constructor(
                 }
 
                 _uiState.value = _uiState.value.copy(
-                    trendingMovies = trendingMovies,
-                    isTrendingLoading = false,
+                    suggestions = suggestions,
+                    SuggestionsLoading = false,
                     error = null
                 )
 
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    isTrendingLoading = false,
+                    SuggestionsLoading = false,
                     error = e.message
                 )
             }
@@ -414,14 +342,12 @@ class SearchViewModel @Inject constructor(
 
 data class SearchUiState(
     val searchResults: List<BaseItemDto> = emptyList(),
-    val popularMovies: List<BaseItemDto> = emptyList(),
-    val trendingMovies: List<BaseItemDto> = emptyList(),
+    val suggestions: List<BaseItemDto> = emptyList(),
     val movieResults: List<BaseItemDto> = emptyList(),
     val showResults: List<BaseItemDto> = emptyList(),
     val episodeResults: List<BaseItemDto> = emptyList(),
     val isSearching: Boolean = false,
-    val isLoading: Boolean = false,
-    val isTrendingLoading: Boolean = false,
+    val SuggestionsLoading: Boolean = false,
     val isSearchExecuted: Boolean = false,
     val error: String? = null
 )

@@ -105,7 +105,7 @@ fun SearchHistoryItem(
 }
 
 @Composable
-fun TrendingSearchItem(
+fun SuggestionSearchItem(
     query: String,
     rank: Int,
     onQueryClick: (String) -> Unit
@@ -129,7 +129,7 @@ fun TrendingSearchItem(
         
         Icon(
             imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-            contentDescription = "Trending",
+            contentDescription = "Suggestions",
             tint = Color.Gray,
             modifier = Modifier.size(20.dp)
         )
@@ -206,14 +206,14 @@ fun SearchHistoryItemPreview() {
 
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-fun TrendingSearchItemPreview() {
+fun SuggestionItemPreview() {
     Column {
-        TrendingSearchItem(
+        SuggestionSearchItem(
             query = "Spider-Man",
             rank = 1,
             onQueryClick = {}
         )
-        TrendingSearchItem(
+        SuggestionSearchItem(
             query = "The Batman",
             rank = 2,
             onQueryClick = {}

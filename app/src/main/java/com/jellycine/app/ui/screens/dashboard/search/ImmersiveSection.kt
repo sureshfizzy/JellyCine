@@ -33,8 +33,8 @@ fun ImmersiveSection(
                 CircularProgressIndicator(color = Color.White)
             }
         } else {
-            TrendingStoriesView(
-                trendingMovies = movies,
+            SuggestionsStoriesView(
+                suggestions = movies,
                 onItemClick = onItemClick
             )
         }

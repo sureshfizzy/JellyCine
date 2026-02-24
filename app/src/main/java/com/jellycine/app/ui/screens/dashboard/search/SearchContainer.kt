@@ -151,16 +151,14 @@ fun SearchContainer(
     val keyboardController = LocalSoftwareKeyboardController.current
     val isSearchActive = searchQuery.isNotEmpty()
     val burstPrefetchItems = remember(
-        uiState.trendingMovies,
-        uiState.popularMovies,
+        uiState.suggestions,
         uiState.searchResults,
         uiState.movieResults,
         uiState.showResults,
         uiState.episodeResults
     ) {
         buildList {
-            addAll(uiState.trendingMovies.take(24))
-            addAll(uiState.popularMovies.take(24))
+            addAll(uiState.suggestions.take(24))
             addAll(uiState.searchResults.take(30))
             addAll(uiState.movieResults.take(30))
             addAll(uiState.showResults.take(30))
@@ -216,37 +214,15 @@ fun SearchContainer(
                 }
             }
         } else {
-            val pagerState = rememberPagerState(
-                initialPage = 0,
-                pageCount = { 2 }
-            )
-            val coroutineScope = rememberCoroutineScope()
-
-            VerticalPager(
-                state = pagerState,
+            ImmersiveSection(
+                title = "Suggestions",
+                movies = uiState.suggestions,
+                isLoading = uiState.SuggestionsLoading,
+                onItemClick = onNavigateToDetail,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(top = 20.dp)
-            ) { page ->
-                when (page) {
-                    0 -> {
-                        ImmersiveSection(
-                            title = "Trending Now",
-                            movies = uiState.trendingMovies,
-                            isLoading = uiState.isTrendingLoading,
-                            onItemClick = onNavigateToDetail
-                        )
-                    }
-                    1 -> {
-                        ImmersiveSection(
-                            title = "Popular",
-                            movies = uiState.popularMovies,
-                            isLoading = uiState.isLoading,
-                            onItemClick = onNavigateToDetail
-                        )
-                    }
-                }
-            }
+            )
         }
 
         SearchBar(

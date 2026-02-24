@@ -5,11 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,33 +34,33 @@ import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 
 @Composable
-fun TrendingStoriesView(
-    trendingMovies: List<BaseItemDto>,
+fun SuggestionsStoriesView(
+    suggestions: List<BaseItemDto>,
     onItemClick: (BaseItemDto) -> Unit
 ) {
-    if (trendingMovies.isEmpty()) {
+    if (suggestions.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "No trending movies available",
+                text = "No suggestions available",
                 color = Color.Gray,
                 fontSize = 16.sp
             )
         }
         return
     }
-    
-    val pagerState = rememberPagerState(pageCount = { trendingMovies.size })
+
+    val pagerState = rememberPagerState(pageCount = { suggestions.size })
     val currentPage = pagerState.currentPage
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        val currentMovie = trendingMovies[currentPage]
-        val backgroundImageUrl = rememberImageUrl(itemId = currentMovie.id, imageType = "Primary")
-        
+        val currentItem = suggestions[currentPage]
+        val backgroundImageUrl = rememberImageUrl(itemId = currentItem.id, imageType = "Primary")
+
         LazyImageLoader(
             imageUrl = backgroundImageUrl,
             contentDescription = "Background",
@@ -106,29 +102,29 @@ fun TrendingStoriesView(
         
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize(), // No top padding - cards should be perfectly centered
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 60.dp),
             pageSpacing = 16.dp
         ) { page ->
             val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-            
-            TrendingCard(
-                item = trendingMovies[page],
+
+            SuggestionsCard(
+                item = suggestions[page],
                 isActive = page == currentPage,
                 pageOffset = pageOffset,
-                onItemClick = { onItemClick(trendingMovies[page]) }
+                onItemClick = { onItemClick(suggestions[page]) }
             )
         }
 
-        val typeText = when (currentMovie.type) {
+        val typeText = when (currentItem.type) {
             "Movie" -> "Movie"
             "Series" -> "TV Series"
-            else -> currentMovie.type ?: "Media"
+            else -> currentItem.type ?: "Media"
         }
 
-        val yearText = currentMovie.productionYear
-            ?: currentMovie.premiereDate?.take(4)?.toIntOrNull()
-        val genreText = currentMovie.genres?.take(3)?.joinToString(" | ").orEmpty()
+        val yearText = currentItem.productionYear
+            ?: currentItem.premiereDate?.take(4)?.toIntOrNull()
+        val genreText = currentItem.genres?.take(3)?.joinToString(" | ").orEmpty()
         val displayText = buildString {
             yearText?.let { append(it) }
             if (typeText.isNotBlank()) {
@@ -145,7 +141,7 @@ fun TrendingStoriesView(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 32.dp)
-                .padding(bottom = 160.dp), // Position higher above pagination dots
+                .padding(bottom = 160.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -159,9 +155,9 @@ fun TrendingStoriesView(
             )
         }
 
-        if (trendingMovies.size > 1) {
+        if (suggestions.size > 1) {
             val maxVisibleDots = 7
-            val totalPages = trendingMovies.size
+            val totalPages = suggestions.size
 
             val visibleDots = if (totalPages <= maxVisibleDots) {
                 (0 until totalPages).toList()
@@ -183,7 +179,7 @@ fun TrendingStoriesView(
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 100.dp), // Moved pagination higher for better positioning
+                    .padding(bottom = 100.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 visibleDots.forEach { index ->
@@ -221,7 +217,7 @@ fun TrendingStoriesView(
 }
 
 @Composable
-private fun TrendingCard(
+private fun SuggestionsCard(
     item: BaseItemDto,
     isActive: Boolean,
     pageOffset: Float,
@@ -344,7 +340,7 @@ private fun TrendingCard(
 
 @Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-fun TrendingStoriesViewPreview() {
+fun SuggestionsStoriesViewPreview() {
     val mockMovies = listOf(
         BaseItemDto(
             name = "Guru",
@@ -360,8 +356,8 @@ fun TrendingStoriesViewPreview() {
         )
     )
     
-    TrendingStoriesView(
-        trendingMovies = mockMovies,
+    SuggestionsStoriesView(
+        suggestions = mockMovies,
         onItemClick = {}
     )
 }
