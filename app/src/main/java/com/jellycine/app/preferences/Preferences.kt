@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-class DownloadPreferences(context: Context) {
+class Preferences(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -27,7 +27,7 @@ class DownloadPreferences(context: Context) {
     }
 
     fun isFeatureCarouselEnabled(): Boolean {
-        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, false)
+        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, true)
     }
 
     fun setFeatureCarouselEnabled(enabled: Boolean) {
@@ -48,7 +48,7 @@ class DownloadPreferences(context: Context) {
     }.distinctUntilChanged()
 
     fun isPosterEnhancersEnabled(): Boolean {
-        return prefs.getBoolean(KEY_POSTER_ENHANCERS_ENABLED, true)
+        return prefs.getBoolean(KEY_POSTER_ENHANCERS_ENABLED, false)
     }
 
     fun setPosterEnhancersEnabled(enabled: Boolean) {
@@ -68,3 +68,4 @@ class DownloadPreferences(context: Context) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 }
+

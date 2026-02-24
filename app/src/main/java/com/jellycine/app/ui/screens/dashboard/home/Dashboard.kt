@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
-import com.jellycine.app.preferences.DownloadPreferences
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
@@ -1092,7 +1092,7 @@ fun Dashboard(
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
-    val downloadPreferences = remember { DownloadPreferences(context) }
+    val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
     val networkAvailabilityFlow = remember(appContext) {
@@ -1101,13 +1101,13 @@ fun Dashboard(
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
         initialValue = NetworkModule.isInternetAvailable(appContext)
     )
-    val featureCarouselEnabled by downloadPreferences.FeatureCarouselEnabled()
+    val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
-            initialValue = downloadPreferences.isFeatureCarouselEnabled()
+            initialValue = preferences.isFeatureCarouselEnabled()
         )
-    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
+    val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
-            initialValue = downloadPreferences.isPosterEnhancersEnabled()
+            initialValue = preferences.isPosterEnhancersEnabled()
         )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
 
@@ -3130,5 +3130,6 @@ private fun ProgressiveTVShowGenreSection(
         }
     }
 }
+
 
 

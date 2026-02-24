@@ -33,7 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import com.jellycine.app.preferences.DownloadPreferences
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.components.common.ShimmerEffect
@@ -52,11 +52,11 @@ fun SeasonCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val downloadPreferences = remember { DownloadPreferences(context) }
+    val preferences = remember { Preferences(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val currentServerType by authRepository.getServerType().collectAsState(initial = null)
-    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
-        .collectAsState(initial = downloadPreferences.isPosterEnhancersEnabled())
+    val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
+        .collectAsState(initial = preferences.isPosterEnhancersEnabled())
     val disableImageEnhancers = currentServerType.equals("EMBY", ignoreCase = true) && posterEnhancersEnabled
     var seasonImageCandidates by remember(season.id, season.seriesId) { mutableStateOf<List<String>>(emptyList()) }
     var seasonImageIndex by remember(season.id, season.seriesId) { mutableIntStateOf(0) }
@@ -336,3 +336,4 @@ fun SeasonCardSkeleton(
         }
     }
 }
+

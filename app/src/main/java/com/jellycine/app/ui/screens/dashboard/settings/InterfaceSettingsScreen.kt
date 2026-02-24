@@ -41,7 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jellycine.app.preferences.DownloadPreferences
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,17 +50,17 @@ fun InterfaceSettingsScreen(
     onBackPressed: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val downloadPreferences = remember { DownloadPreferences(context) }
+    val preferences = remember { Preferences(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
-    val featureCarouselEnabled by downloadPreferences.FeatureCarouselEnabled()
+    val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
-            initialValue = downloadPreferences.isFeatureCarouselEnabled()
+            initialValue = preferences.isFeatureCarouselEnabled()
         )
-    val posterEnhancersEnabled by downloadPreferences.PosterEnhancersEnabled()
+    val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
-            initialValue = downloadPreferences.isPosterEnhancersEnabled()
+            initialValue = preferences.isPosterEnhancersEnabled()
         )
 
     Scaffold(
@@ -101,7 +101,7 @@ fun InterfaceSettingsScreen(
                         title = "Feature Carousel",
                         subtitle = "Show featured content carousel on the Home screen.",
                         checked = featureCarouselEnabled,
-                        onCheckedChange = downloadPreferences::setFeatureCarouselEnabled,
+                        onCheckedChange = preferences::setFeatureCarouselEnabled,
                         accentColor = Color(0xFF8B5CF6)
                     )
                     if (isEmbyServer) {
@@ -114,7 +114,7 @@ fun InterfaceSettingsScreen(
                             title = "Emby Poster Overlays",
                             subtitle = "Disable emby poster overlays.",
                             checked = posterEnhancersEnabled,
-                            onCheckedChange = downloadPreferences::setPosterEnhancersEnabled,
+                            onCheckedChange = preferences::setPosterEnhancersEnabled,
                             accentColor = Color(0xFF10B981)
                         )
                     }
@@ -184,3 +184,4 @@ private fun InterfaceSwitchItem(
         )
     }
 }
+

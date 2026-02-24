@@ -1,8 +1,8 @@
-﻿package com.jellycine.app.download
+package com.jellycine.app.download
 
 import android.content.Context
 import com.google.gson.Gson
-import com.jellycine.app.preferences.DownloadPreferences
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
@@ -92,7 +92,7 @@ private data class QueuedDownloadRequest(
 class DownloadRepository(context: Context) {
     private val appContext = context.applicationContext
     private val mediaRepository = MediaRepositoryProvider.getInstance(appContext)
-    private val downloadPreferences = DownloadPreferences(appContext)
+    private val preferences = Preferences(appContext)
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
@@ -229,7 +229,7 @@ class DownloadRepository(context: Context) {
 
         pausedItems.remove(itemId)
         canceledItems.remove(itemId)
-        if (downloadPreferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
+        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
             Failed(
                 itemId = itemId,
                 message = "Wi-Fi required for downloads",
@@ -860,3 +860,4 @@ class DownloadRepository(context: Context) {
         private val ID_GENERATOR = AtomicLong(System.currentTimeMillis())
     }
 }
+
