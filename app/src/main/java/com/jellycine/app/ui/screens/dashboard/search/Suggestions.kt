@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.search
 
 import androidx.compose.animation.core.*
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -52,13 +51,25 @@ fun SuggestionsStoriesView(
         return
     }
 
-    val pagerState = rememberPagerState(pageCount = { suggestions.size })
-    val currentPage = pagerState.currentPage
+    val itemCount = suggestions.size
+    val initialPage = remember(itemCount) {
+        if (itemCount <= 1) {
+            0
+        } else {
+            val midpoint = Int.MAX_VALUE / 2
+            midpoint - (midpoint % itemCount)
+        }
+    }
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { if (itemCount <= 1) 1 else Int.MAX_VALUE }
+    )
+    val currentItemIndex = ((pagerState.currentPage % itemCount) + itemCount) % itemCount
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        val currentItem = suggestions[currentPage]
+        val currentItem = suggestions[currentItemIndex]
         val backgroundImageUrl = rememberImageUrl(itemId = currentItem.id, imageType = "Primary")
 
         LazyImageLoader(
@@ -102,17 +113,20 @@ fun SuggestionsStoriesView(
         
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 72.dp),
             contentPadding = PaddingValues(horizontal = 60.dp),
             pageSpacing = 16.dp
         ) { page ->
             val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+            val itemIndex = ((page % itemCount) + itemCount) % itemCount
 
             SuggestionsCard(
-                item = suggestions[page],
-                isActive = page == currentPage,
+                item = suggestions[itemIndex],
+                isActive = itemIndex == currentItemIndex,
                 pageOffset = pageOffset,
-                onItemClick = { onItemClick(suggestions[page]) }
+                onItemClick = { onItemClick(suggestions[itemIndex]) }
             )
         }
 
@@ -156,61 +170,76 @@ fun SuggestionsStoriesView(
         }
 
         if (suggestions.size > 1) {
+            val totalPages = itemCount
             val maxVisibleDots = 7
-            val totalPages = suggestions.size
+            val visibleCount = minOf(totalPages, maxVisibleDots)
+            val centerSlot = visibleCount / 2
 
-            val visibleDots = if (totalPages <= maxVisibleDots) {
-                (0 until totalPages).toList()
-            } else {
-                val halfVisible = maxVisibleDots / 2
-                when {
-                    currentPage <= halfVisible -> {
-                        (0 until maxVisibleDots).toList()
-                    }
-                    currentPage >= totalPages - halfVisible -> {
-                        (totalPages - maxVisibleDots until totalPages).toList()
-                    }
-                    else -> {
-                        (currentPage - halfVisible..currentPage + halfVisible).toList()
-                    }
-                }
-            }
-            
-            Row(
+            val slotWidth = 10.dp
+            val slotHeight = 6.dp
+            val slotSpacing = 7.dp
+            val step = slotWidth + slotSpacing
+            val offsetFraction = pagerState.currentPageOffsetFraction.coerceIn(-1f, 1f)
+            val trackOffset = step * (-offsetFraction)
+
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 100.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(bottom = 118.dp),
+                contentAlignment = Alignment.Center
             ) {
-                visibleDots.forEach { index ->
-                    val isActive = index == currentPage
-                    val dotSize by animateDpAsState(
-                        targetValue = if (isActive) 10.dp else 6.dp,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessHigh
-                        ),
-                        label = "dotSize"
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(dotSize)
-                            .background(
-                                color = if (isActive) {
-                                    Color.Red
-                                } else {
-                                    Color.White.copy(alpha = 0.4f)
-                                },
-                                shape = CircleShape
+                Row(
+                    modifier = Modifier.offset(x = trackOffset),
+                    horizontalArrangement = Arrangement.spacedBy(slotSpacing)
+                ) {
+                    repeat(visibleCount) { slot ->
+                        val relative = slot - centerSlot
+                        val distanceFromCenter = kotlin.math.abs(relative + offsetFraction)
+                        val dotWidth = when {
+                            distanceFromCenter < 0.6f -> 10.dp
+                            distanceFromCenter < 1.6f -> 8.dp
+                            else -> 6.dp
+                        }
+                        val dotAlpha = when {
+                            distanceFromCenter < 0.6f -> 0.40f
+                            distanceFromCenter < 1.6f -> 0.32f
+                            else -> 0.24f
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .width(slotWidth)
+                                .height(slotHeight)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .width(dotWidth)
+                                    .height(slotHeight)
+                                    .background(
+                                        color = Color.White.copy(alpha = dotAlpha),
+                                        shape = CircleShape
+                                    )
                             )
-                            .graphicsLayer {
-                                if (isActive) {
-                                    shadowElevation = 2.dp.toPx()
-                                }
-                            }
-                    )
+                        }
+                    }
                 }
+
+                Box(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .height(slotHeight)
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFFF2D2D),
+                                    Color(0xFFFF0000)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                        .graphicsLayer { shadowElevation = 6.dp.toPx() }
+                )
             }
         }
     }
