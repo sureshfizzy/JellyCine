@@ -52,6 +52,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
@@ -304,9 +305,10 @@ private fun RecentlyAddedCard(
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val disablePosterEnhancers = DisableEmbyPosterEnhancers()
     var imageUrl by remember(item.id) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(item.id) {
+    LaunchedEffect(item.id, disablePosterEnhancers) {
         val itemId = item.id
         if (itemId != null) {
             try {
@@ -320,7 +322,8 @@ private fun RecentlyAddedCard(
                     itemId = actualItemId,
                     width = 200,
                     height = 300,
-                    quality = 90
+                    quality = 90,
+                    enableImageEnhancers = !disablePosterEnhancers
                 ).first()
                 imageUrl = url
             } catch (e: Exception) {
@@ -393,10 +396,11 @@ private fun PosterCard(
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val disablePosterEnhancers = DisableEmbyPosterEnhancers()
     var imageUrl by remember(item.id) { mutableStateOf<String?>(null) }
     var isLoading by remember(item.id) { mutableStateOf(true) }
 
-    LaunchedEffect(item.id) {
+    LaunchedEffect(item.id, disablePosterEnhancers) {
         val itemId = item.id
         if (itemId != null) {
             try {
@@ -410,7 +414,8 @@ private fun PosterCard(
                     itemId = actualItemId,
                     width = 300,
                     height = 450,
-                    quality = 90
+                    quality = 90,
+                    enableImageEnhancers = !disablePosterEnhancers
                 ).first()
                 imageUrl = url
                 isLoading = false

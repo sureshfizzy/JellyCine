@@ -51,6 +51,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
 import com.jellycine.app.ui.components.common.LazyImageLoader
+import com.jellycine.app.util.image.disableEmbyPosterEnhancers
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.repository.getFormattedRuntime
 import com.jellycine.data.repository.getYearAndGenre
@@ -70,26 +71,39 @@ private object SearchBurstImagePrefetcher {
     private val prefetchedPrimary = ConcurrentHashMap.newKeySet<String>()
     private val prefetchedBackdrop = ConcurrentHashMap.newKeySet<String>()
 
+    fun clear() {
+        prefetchedPrimary.clear()
+        prefetchedBackdrop.clear()
+    }
+
     suspend fun preload(
         items: List<BaseItemDto>,
         mediaRepository: com.jellycine.data.repository.MediaRepository,
-        context: android.content.Context
+        context: android.content.Context,
+        enableImageEnhancers: Boolean
     ) = coroutineScope {
         if (items.isEmpty()) return@coroutineScope
         val imageLoader = context.imageLoader
         items.asSequence()
-            .mapNotNull { it.id }
-            .distinct()
+            .filter { !it.id.isNullOrBlank() }
+            .distinctBy { it.id }
             .take(120)
-            .map { itemId ->
+            .map { item ->
                 async(Dispatchers.IO) {
+                    val itemId = item.id ?: return@async
+                    val itemEnhancersEnabled = if (item.type.equals("Episode", ignoreCase = true)) {
+                        false
+                    } else {
+                        enableImageEnhancers
+                    }
                     if (prefetchedPrimary.add(itemId)) {
                         val primaryUrl = mediaRepository.getImageUrlString(
                             itemId = itemId,
                             imageType = "Primary",
                             width = 300,
                             height = 450,
-                            quality = 80
+                            quality = 80,
+                            enableImageEnhancers = itemEnhancersEnabled
                         )
                         if (!primaryUrl.isNullOrBlank()) {
                             imageLoader.enqueue(
@@ -112,7 +126,8 @@ private object SearchBurstImagePrefetcher {
                             imageType = "Backdrop",
                             width = 1280,
                             height = 720,
-                            quality = 85
+                            quality = 85,
+                            enableImageEnhancers = itemEnhancersEnabled
                         )
                         if (!backdropUrl.isNullOrBlank()) {
                             imageLoader.enqueue(
@@ -147,6 +162,7 @@ fun SearchContainer(
 
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val isSearchActive = searchQuery.isNotEmpty()
@@ -167,12 +183,17 @@ fun SearchContainer(
             .distinctBy { it.id }
     }
 
-    LaunchedEffect(burstPrefetchItems.hashCode()) {
+    LaunchedEffect(disablePosterEnhancers) {
+        SearchBurstImagePrefetcher.clear()
+    }
+
+    LaunchedEffect(burstPrefetchItems.hashCode(), disablePosterEnhancers) {
         if (burstPrefetchItems.isEmpty()) return@LaunchedEffect
         SearchBurstImagePrefetcher.preload(
             items = burstPrefetchItems,
             mediaRepository = mediaRepository,
-            context = context
+            context = context,
+            enableImageEnhancers = !disablePosterEnhancers
         )
     }
 

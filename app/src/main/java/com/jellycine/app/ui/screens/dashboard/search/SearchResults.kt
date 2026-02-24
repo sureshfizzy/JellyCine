@@ -186,7 +186,11 @@ private fun EpisodeResultCard(
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            val imageUrl = rememberImageUrl(itemId = item.id, imageType = "Primary")
+            val imageUrl = rememberImageUrl(
+                itemId = item.id,
+                imageType = "Primary",
+                enableImageEnhancers = false
+            )
             LazyImageLoader(
                 imageUrl = imageUrl,
                 contentDescription = item.name,
@@ -252,7 +256,12 @@ fun LiveSearchResults(
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    val imageUrl = rememberImageUrl(itemId = result.id, imageType = "Primary")
+                    val isEpisode = result.type.equals("Episode", ignoreCase = true)
+                    val imageUrl = rememberImageUrl(
+                        itemId = result.id,
+                        imageType = "Primary",
+                        enableImageEnhancers = !isEpisode
+                    )
                     LazyImageLoader(
                         imageUrl = imageUrl,
                         contentDescription = result.name,

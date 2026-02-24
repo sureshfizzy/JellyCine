@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.jellycine.app.preferences.Preferences
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -146,6 +148,21 @@ class ImageUrlViewModel @Inject constructor(
 
 // Composable functions
 @Composable
+fun disableEmbyPosterEnhancers(): Boolean {
+    val context = LocalContext.current
+    val preferences = remember(context) { Preferences(context) }
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
+    val disablePosterEnhancersToggleEnabled by preferences.PosterEnhancersEnabled()
+        .collectAsStateWithLifecycle(initialValue = preferences.isPosterEnhancersEnabled())
+
+    return currentServerType.equals("EMBY", ignoreCase = true) && disablePosterEnhancersToggleEnabled
+}
+
+@Composable
+fun DisableEmbyPosterEnhancers(): Boolean = disableEmbyPosterEnhancers()
+
+@Composable
 fun rememberImageUrl(
     itemId: String?,
     imageType: String = "Primary",
@@ -155,13 +172,15 @@ fun rememberImageUrl(
     enableImageEnhancers: Boolean = true,
     mediaRepository: MediaRepository
 ): String? {
+    val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val effectiveEnhancersEnabled = enableImageEnhancers && !disablePosterEnhancers
     val imageUrl by mediaRepository.getImageUrl(
         itemId = itemId ?: "",
         imageType = imageType,
         width = width,
         height = height,
         quality = quality,
-        enableImageEnhancers = enableImageEnhancers
+        enableImageEnhancers = effectiveEnhancersEnabled
     ).collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl
@@ -177,13 +196,15 @@ fun rememberImageUrl(
     enableImageEnhancers: Boolean = true,
     viewModel: ImageUrlViewModel = hiltViewModel()
 ): String? {
+    val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val effectiveEnhancersEnabled = enableImageEnhancers && !disablePosterEnhancers
     val imageUrl by viewModel.getImageUrl(
         itemId = itemId ?: "",
         imageType = imageType,
         width = width,
         height = height,
         quality = quality,
-        enableImageEnhancers = enableImageEnhancers
+        enableImageEnhancers = effectiveEnhancersEnabled
     ).collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl

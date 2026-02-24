@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -46,6 +47,11 @@ fun MyMedia(
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
     val libraryImageUrls = remember { mutableStateMapOf<String, String?>() }
+    val disablePosterEnhancers = disableEmbyPosterEnhancers()
+
+    LaunchedEffect(disablePosterEnhancers) {
+        libraryImageUrls.clear()
+    }
 
     // Loading function
     suspend fun loadLibraries(showRefreshIndicator: Boolean = false) {
@@ -92,7 +98,7 @@ fun MyMedia(
     }
 
     // Resolve and cache library image URLs once per library id to avoid recycle flicker/jank.
-    LaunchedEffect(libraryViews) {
+    LaunchedEffect(libraryViews, disablePosterEnhancers) {
         val idsToLoad = libraryViews
             .mapNotNull { it.id }
             .filterNot { libraryImageUrls.containsKey(it) }
@@ -106,7 +112,8 @@ fun MyMedia(
                         itemId = itemId,
                         width = 400,
                         height = 300,
-                        quality = 90
+                        quality = 90,
+                        enableImageEnhancers = !disablePosterEnhancers
                     ).first()
                 }.getOrNull()
             }
