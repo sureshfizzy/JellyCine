@@ -191,19 +191,9 @@ fun PlayerSettingsScreen(
             item {
                 SettingsSection {
                     SwitchSettingsItem(
-                        icon = Icons.Rounded.Memory,
-                        title = "Buffer Optimization",
-                        subtitle = "Optimize buffering for better playback",
-                        checked = uiState.bufferOptimizationEnabled,
-                        onCheckedChange = viewModel::setBufferOptimizationEnabled,
-                        accentColor = performanceColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
                         icon = Icons.Rounded.BatteryStd,
                         title = "Battery Optimization",
-                        subtitle = "Reduce power consumption during playback",
+                        subtitle = "Reduce power and network load during playback",
                         checked = uiState.batteryOptimizationEnabled,
                         onCheckedChange = viewModel::setBatteryOptimizationEnabled,
                         accentColor = performanceColor

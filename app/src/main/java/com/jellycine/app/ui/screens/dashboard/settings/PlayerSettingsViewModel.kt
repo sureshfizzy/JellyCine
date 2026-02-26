@@ -32,7 +32,6 @@ data class PlayerSettingsUiState(
     val startMaximized: Boolean = false,
     
     // Performance
-    val bufferOptimizationEnabled: Boolean = true,
     val batteryOptimizationEnabled: Boolean = false,
     
     // Device Information
@@ -68,7 +67,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 headTrackingEnabled = playerPreferences.isHeadTrackingEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
-                bufferOptimizationEnabled = playerPreferences.isBufferOptimizationEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
         }
@@ -199,11 +197,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setStartMaximized(enabled: Boolean) {
         playerPreferences.setStartMaximizedEnabled(enabled)
         _uiState.value = _uiState.value.copy(startMaximized = enabled)
-    }
-    
-    fun setBufferOptimizationEnabled(enabled: Boolean) {
-        playerPreferences.setBufferOptimizationEnabled(enabled)
-        _uiState.value = _uiState.value.copy(bufferOptimizationEnabled = enabled)
     }
     
     fun setBatteryOptimizationEnabled(enabled: Boolean) {

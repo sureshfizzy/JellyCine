@@ -21,7 +21,6 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SPATIAL_AUDIO = "spatial_audio_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
-        private const val KEY_BUFFER_OPTIMIZATION = "buffer_optimization_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
         private const val KEY_HEAD_TRACKING = "head_tracking_enabled"
@@ -142,20 +141,6 @@ class PlayerPreferences(context: Context) {
      */
     fun setBatteryOptimizationEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BATTERY_OPTIMIZATION, enabled).apply()
-    }
-    
-    /**
-     * Get buffer optimization preference
-     */
-    fun isBufferOptimizationEnabled(): Boolean {
-        return prefs.getBoolean(KEY_BUFFER_OPTIMIZATION, true)
-    }
-    
-    /**
-     * Set buffer optimization preference
-     */
-    fun setBufferOptimizationEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_BUFFER_OPTIMIZATION, enabled).apply()
     }
     
     /**

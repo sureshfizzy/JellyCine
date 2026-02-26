@@ -106,7 +106,7 @@ object PlayerUtils {
             // Apply battery optimization if enabled
             if (playerPreferences.isBatteryOptimizationEnabled()) {
                 Log.d("PlayerUtils", "Applying battery optimization settings")
-                applyBatteryOptimization(playerBuilder, playerPreferences)
+                applyBatteryOptimization(playerBuilder)
             }
 
             Log.d("PlayerUtils", "ExoPlayer builder configured with HDR fallback support")
@@ -133,27 +133,22 @@ object PlayerUtils {
      */
     @UnstableApi
     private fun applyBatteryOptimization(
-        playerBuilder: ExoPlayer.Builder,
-        playerPreferences: PlayerPreferences
+        playerBuilder: ExoPlayer.Builder
     ) {
         try {
-            // Reduce buffer sizes for lower memory usage
-            if (playerPreferences.isBufferOptimizationEnabled()) {
-                val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        15000,
-                        30000,
-                        1500,
-                        5000
-                    )
-                    .setTargetBufferBytes(-1)
-                    .setPrioritizeTimeOverSizeThresholds(true)
-                    .build()
-                    
-                playerBuilder.setLoadControl(loadControl)
-                Log.d("PlayerUtils", "Applied reduced buffer sizes for battery optimization")
-            }
-            
+            // Reduce buffer sizes for lower memory and power usage.
+            val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    15000,
+                    30000,
+                    1500,
+                    5000
+                )
+                .setTargetBufferBytes(-1)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
+            playerBuilder.setLoadControl(loadControl)
+
             // Set lower wake mode for battery saving
             playerBuilder.setWakeMode(C.WAKE_MODE_NONE)
             
