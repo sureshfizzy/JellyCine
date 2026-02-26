@@ -158,7 +158,9 @@ interface MediaServerApi {
     @GET("Items/{itemId}/PlaybackInfo")
     suspend fun getPlaybackInfo(
         @Path("itemId") itemId: String,
-        @Query("userId") userId: String
+        @Query("userId") userId: String,
+        @Query("audioStreamIndex") audioStreamIndex: Int? = null,
+        @Query("subtitleStreamIndex") subtitleStreamIndex: Int? = null
     ): Response<PlaybackInfoResponse>
 
     @GET("Videos/{itemId}/stream")

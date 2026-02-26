@@ -25,6 +25,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
         private const val KEY_HEAD_TRACKING = "head_tracking_enabled"
+        private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
+        private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
     }
     
     /**
@@ -195,5 +197,29 @@ class PlayerPreferences(context: Context) {
      */
     fun setHeadTrackingEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HEAD_TRACKING, enabled).apply()
+    }
+
+    fun getPreferredAudioStreamIndex(itemId: String): Int? {
+        val key = "$KEY_AUDIO_STREAM_INDEX_PREFIX$itemId"
+        return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+    }
+
+    fun setPreferredAudioStreamIndex(itemId: String, streamIndex: Int?) {
+        val key = "$KEY_AUDIO_STREAM_INDEX_PREFIX$itemId"
+        prefs.edit().apply {
+            if (streamIndex == null) remove(key) else putInt(key, streamIndex)
+        }.apply()
+    }
+
+    fun getPreferredSubtitleStreamIndex(itemId: String): Int? {
+        val key = "$KEY_SUBTITLE_STREAM_INDEX_PREFIX$itemId"
+        return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+    }
+
+    fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?) {
+        val key = "$KEY_SUBTITLE_STREAM_INDEX_PREFIX$itemId"
+        prefs.edit().apply {
+            if (streamIndex == null) remove(key) else putInt(key, streamIndex)
+        }.apply()
     }
 }

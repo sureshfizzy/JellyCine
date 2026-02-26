@@ -23,6 +23,14 @@ object PlayerUtils {
     
     // Spatial audio manager instance
     private var spatialAudioManager: SpatialAudioManager? = null
+
+    private fun buildTrackId(
+        prefix: String,
+        groupIndex: Int,
+        trackIndex: Int
+    ): String {
+        return "${prefix}_${groupIndex}_${trackIndex}"
+    }
     
     /**
      * Create ExoPlayer instance with optimal settings including spatial audio support and HDR fallback
@@ -52,7 +60,6 @@ object PlayerUtils {
             val trackSelector = DefaultTrackSelector(context).apply {
                 parameters = buildUponParameters()
                     .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
-                    .setPreferredAudioLanguages("original", "und")
                     .apply {
                         when (effectiveHdrSupport) {
                             HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
@@ -186,7 +193,6 @@ object PlayerUtils {
                 // Allow high-channel content for spatial processing
                 currentParams.buildUpon()
                     .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
-                    .setPreferredAudioLanguages("original", "und")
                     .build()
             } else {
                 currentParams.buildUpon()
@@ -313,7 +319,6 @@ object PlayerUtils {
             val currentParams = exoPlayer.trackSelectionParameters
             val newParams = currentParams.buildUpon()
                 .setMaxAudioChannelCount(MAX_MULTICHANNEL_AUDIO_CHANNELS)
-                .setPreferredAudioLanguages("original", "und")
                 .build()
             exoPlayer.trackSelectionParameters = newParams
             
@@ -447,11 +452,10 @@ object PlayerUtils {
         val tracks = mutableListOf<AudioTrackInfo>()
         val currentTracks = exoPlayer.currentTracks
 
-        currentTracks.groups.forEach { group ->
+        currentTracks.groups.forEachIndexed { groupIndex, group ->
             if (group.type == C.TRACK_TYPE_AUDIO) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     val format = group.mediaTrackGroup.getFormat(i)
-                    val isSelected = group.isTrackSelected(i)
 
                     val language = format.language ?: "Unknown"
                     val label = when {
@@ -463,7 +467,11 @@ object PlayerUtils {
 
                     tracks.add(
                         AudioTrackInfo(
-                            id = "audio_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            id = buildTrackId(
+                                prefix = "audio",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            ),
                             label = label,
                             language = language,
                             channelCount = format.channelCount,
@@ -495,7 +503,7 @@ object PlayerUtils {
         )
 
         val currentTracks = exoPlayer.currentTracks
-        currentTracks.groups.forEach { group ->
+        currentTracks.groups.forEachIndexed { groupIndex, group ->
             if (group.type == C.TRACK_TYPE_TEXT) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     val format = group.mediaTrackGroup.getFormat(i)
@@ -510,7 +518,11 @@ object PlayerUtils {
                     }
                     tracks.add(
                         SubtitleTrackInfo(
-                            id = "subtitle_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            id = buildTrackId(
+                                prefix = "subtitle",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            ),
                             label = label,
                             language = language,
                             isForced = isForced,
@@ -531,7 +543,7 @@ object PlayerUtils {
         val tracks = mutableListOf<VideoTrackInfo>()
         val currentTracks = exoPlayer.currentTracks
 
-        currentTracks.groups.forEach { group ->
+        currentTracks.groups.forEachIndexed { groupIndex, group ->
             if (group.type == C.TRACK_TYPE_VIDEO) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     val format = group.mediaTrackGroup.getFormat(i)
@@ -545,7 +557,11 @@ object PlayerUtils {
 
                     tracks.add(
                         VideoTrackInfo(
-                            id = "video_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            id = buildTrackId(
+                                prefix = "video",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            ),
                             label = label,
                             width = format.width,
                             height = format.height,
@@ -565,7 +581,7 @@ object PlayerUtils {
     fun getCurrentAudioTrack(exoPlayer: ExoPlayer): AudioTrackInfo? {
         val currentTracks = exoPlayer.currentTracks
 
-        currentTracks.groups.forEach { group ->
+        currentTracks.groups.forEachIndexed { groupIndex, group ->
             if (group.type == C.TRACK_TYPE_AUDIO) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     if (group.isTrackSelected(i)) {
@@ -579,7 +595,11 @@ object PlayerUtils {
                         }
 
                         return AudioTrackInfo(
-                            id = "audio_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            id = buildTrackId(
+                                prefix = "audio",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            ),
                             label = label,
                             language = language,
                             channelCount = format.channelCount,
@@ -599,7 +619,7 @@ object PlayerUtils {
     fun getCurrentSubtitleTrack(exoPlayer: ExoPlayer): SubtitleTrackInfo? {
         val currentTracks = exoPlayer.currentTracks
 
-        currentTracks.groups.forEach { group ->
+        currentTracks.groups.forEachIndexed { groupIndex, group ->
             if (group.type == C.TRACK_TYPE_TEXT) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     if (group.isTrackSelected(i)) {
@@ -616,7 +636,11 @@ object PlayerUtils {
                         }
 
                         return SubtitleTrackInfo(
-                            id = "subtitle_${group.mediaTrackGroup.getFormat(i).id ?: i}",
+                            id = buildTrackId(
+                                prefix = "subtitle",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            ),
                             label = label,
                             language = language,
                             isForced = isForced,
@@ -645,11 +669,14 @@ object PlayerUtils {
             val trackSelector = exoPlayer.trackSelector as? DefaultTrackSelector ?: return
             val currentTracks = exoPlayer.currentTracks
 
-            currentTracks.groups.forEach { group ->
+            currentTracks.groups.forEachIndexed { groupIndex, group ->
                 if (group.type == C.TRACK_TYPE_AUDIO) {
                     for (i in 0 until group.mediaTrackGroup.length) {
-                        val format = group.mediaTrackGroup.getFormat(i)
-                        val currentId = "audio_${format.id ?: i}"
+                        val currentId = buildTrackId(
+                            prefix = "audio",
+                            groupIndex = groupIndex,
+                            trackIndex = i
+                        )
 
                         if (currentId == trackId) {
                             val override = TrackSelectionOverride(
@@ -659,6 +686,8 @@ object PlayerUtils {
 
                             val newParams = trackSelector.parameters
                                 .buildUpon()
+                                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
                                 .addOverride(override)
                                 .build()
 
@@ -686,6 +715,7 @@ object PlayerUtils {
             if (trackId == "off") {
                 val newParams = trackSelector.parameters
                     .buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .build()
 
@@ -696,11 +726,14 @@ object PlayerUtils {
 
             val currentTracks = exoPlayer.currentTracks
 
-            currentTracks.groups.forEach { group ->
+            currentTracks.groups.forEachIndexed { groupIndex, group ->
                 if (group.type == C.TRACK_TYPE_TEXT) {
                     for (i in 0 until group.mediaTrackGroup.length) {
-                        val format = group.mediaTrackGroup.getFormat(i)
-                        val currentId = "subtitle_${format.id ?: i}"
+                        val currentId = buildTrackId(
+                            prefix = "subtitle",
+                            groupIndex = groupIndex,
+                            trackIndex = i
+                        )
 
                         if (currentId == trackId) {
                             val override = TrackSelectionOverride(
@@ -710,6 +743,7 @@ object PlayerUtils {
 
                             val newParams = trackSelector.parameters
                                 .buildUpon()
+                                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
                                 .addOverride(override)
                                 .build()

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +49,7 @@ import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.ItemDownloadState
+import com.jellycine.player.preferences.PlayerPreferences
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
@@ -62,12 +64,16 @@ fun DetailScreenContainer(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val playerPreferences = remember { PlayerPreferences(context) }
 
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
     var playbackItemId by remember { mutableStateOf<String?>(null) }
+    var preferredAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var preferredSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var trackSelectionSyncVersion by rememberSaveable { mutableStateOf(0) }
 
     // Navigation state
     var currentScreen by remember { mutableStateOf("detail") }
@@ -80,6 +86,10 @@ fun DetailScreenContainer(
     val handleBackNavigation: () -> Unit = {
         when {
             showPlayer -> {
+                val playedItemId = playbackItemId ?: itemId
+                preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                preferredSubtitleStreamIndex = playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                trackSelectionSyncVersion += 1
                 showPlayer = false
                 playbackItemId = null
             }
@@ -157,7 +167,17 @@ fun DetailScreenContainer(
         if (showPlayer) {
             PlayerScreen(
                 mediaId = playbackItemId ?: itemId,
+                preferredAudioStreamIndex = preferredAudioStreamIndex,
+                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+                onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                    preferredAudioStreamIndex = audioStreamIndex
+                    preferredSubtitleStreamIndex = subtitleStreamIndex
+                },
                 onBackPressed = {
+                    val playedItemId = playbackItemId ?: itemId
+                    preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                    preferredSubtitleStreamIndex = playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                    trackSelectionSyncVersion += 1
                     showPlayer = false
                     playbackItemId = null
                 }
@@ -182,10 +202,17 @@ fun DetailScreenContainer(
                                 DetailScreen(
                                     item = currentItem,
                                     isLoading = isLoading,
+                                    trackSelectionSyncVersion = trackSelectionSyncVersion,
                                     onBackPressed = handleBackNavigation,
-                                    onPlayClick = {
+                                    onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
+                                        preferredAudioStreamIndex = audioStreamIndex
+                                        preferredSubtitleStreamIndex = subtitleStreamIndex
                                         playbackItemId = itemId
                                         showPlayer = true
+                                    },
+                                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                                        preferredAudioStreamIndex = audioStreamIndex
+                                        preferredSubtitleStreamIndex = subtitleStreamIndex
                                     },
                                     onSeasonClick = { seriesId, seasonId, seasonName ->
                                         seasonDetailData = Triple(seriesId, seasonId, seasonName)
@@ -231,10 +258,17 @@ fun DetailScreenContainer(
                                         DetailScreen(
                                             item = episodeItem!!,
                                             isLoading = isEpisodeLoading,
+                                            trackSelectionSyncVersion = trackSelectionSyncVersion,
                                             onBackPressed = handleBackNavigation,
-                                            onPlayClick = {
+                                            onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
+                                                preferredAudioStreamIndex = audioStreamIndex
+                                                preferredSubtitleStreamIndex = subtitleStreamIndex
                                                 playbackItemId = episodeItem?.id ?: episodeId
                                                 showPlayer = true
+                                            },
+                                            onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                                                preferredAudioStreamIndex = audioStreamIndex
+                                                preferredSubtitleStreamIndex = subtitleStreamIndex
                                             },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
                                                 seasonDetailData = Triple(seriesId, seasonId, seasonName)
@@ -262,15 +296,19 @@ fun DetailScreenContainer(
 fun DetailScreen(
     item: BaseItemDto,
     isLoading: Boolean = false,
+    trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {},
+    onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
         item = item,
         isLoading = isLoading,
+        trackSelectionSyncVersion = trackSelectionSyncVersion,
         onBackPressed = onBackPressed,
         onPlayClick = onPlayClick,
+        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSeasonClick = onSeasonClick
     )
 }
@@ -279,13 +317,16 @@ fun DetailScreen(
 fun DetailContent(
     item: BaseItemDto,
     isLoading: Boolean = false,
+    trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
-    onPlayClick: () -> Unit = {},
+    onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val playerPreferences = remember { PlayerPreferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -302,13 +343,36 @@ fun DetailContent(
     var logoImageUrl by remember(item.id) { mutableStateOf<String?>(null) }
     var logoLookup by remember(item.id) { mutableStateOf(true) }
     var logoLoadError by remember(item.id) { mutableStateOf(false) }
-    var selectedVideo by remember { mutableStateOf("") }
-    var selectedAudio by remember { mutableStateOf("") }
-    var selectedSubtitle by remember { mutableStateOf("Off") }
     val effectiveMediaStreams = remember(item.mediaStreams, item.mediaSources) {
         val fromSources = item.mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
         if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
     }
+    val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
+        val currentItemId = item.id ?: return@remember null
+        AudioStreamIndex(
+            streams = effectiveMediaStreams,
+            streamIndex = playerPreferences.getPreferredAudioStreamIndex(currentItemId)
+        )
+    }
+    val savedSubtitleOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
+        val currentItemId = item.id ?: return@remember null
+        SubtitleStreamIndex(
+            streams = effectiveMediaStreams,
+            streamIndex = playerPreferences.getPreferredSubtitleStreamIndex(currentItemId)
+        )
+    }
+    val initialVideoOption = remember(item.id, effectiveMediaStreams) {
+        buildVideoOptions(effectiveMediaStreams).firstOrNull().orEmpty()
+    }
+    val initialAudioOption = remember(item.id, effectiveMediaStreams, savedAudioOption) {
+        savedAudioOption ?: buildAudioOptions(effectiveMediaStreams).firstOrNull().orEmpty()
+    }
+    val initialSubtitleOption = remember(item.id, effectiveMediaStreams, savedSubtitleOption) {
+        savedSubtitleOption ?: buildDefaultSubtitleOption(effectiveMediaStreams)
+    }
+    var selectedVideo by rememberSaveable(item.id) { mutableStateOf(initialVideoOption) }
+    var selectedAudio by rememberSaveable(item.id, trackSelectionSyncVersion) { mutableStateOf(initialAudioOption) }
+    var selectedSubtitle by rememberSaveable(item.id, trackSelectionSyncVersion) { mutableStateOf(initialSubtitleOption) }
     val runtimeTicks = item.runTimeTicks
     val playbackPositionTicks = item.userData?.playbackPositionTicks ?: 0L
     val isPartiallyWatched = runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
@@ -424,9 +488,6 @@ fun DetailContent(
         }
         if (selectedAudio !in audioOptions) {
             selectedAudio = audioOptions.firstOrNull().orEmpty()
-        }
-        if (selectedSubtitle !in subtitleOptions || selectedSubtitle == "Off") {
-            selectedSubtitle = defaultSubtitleOption
         }
     }
 
@@ -739,7 +800,22 @@ fun DetailContent(
                             label = "Audio",
                             selectedOption = selectedAudio,
                             options = audioOptions,
-                            onOptionSelected = { selectedAudio = it }
+                            onOptionSelected = { option ->
+                                selectedAudio = option
+                                val audioStreamIndex = AudioStreamIndex(
+                                    streams = effectiveMediaStreams,
+                                    selectedOption = option
+                                )
+                                val subtitleStreamIndex = SubtitleStreamIndex(
+                                    streams = effectiveMediaStreams,
+                                    selectedOption = selectedSubtitle
+                                )
+                                item.id?.let { currentItemId ->
+                                    playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
+                                    playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
+                                }
+                                onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
+                            }
                         )
                     } else {
                         DetailInfoRow(
@@ -758,7 +834,22 @@ fun DetailContent(
                         label = "Subtitles",
                         selectedOption = selectedSubtitle,
                         options = subtitleOptions,
-                        onOptionSelected = { selectedSubtitle = it }
+                        onOptionSelected = { option ->
+                            selectedSubtitle = option
+                            val audioStreamIndex = AudioStreamIndex(
+                                streams = effectiveMediaStreams,
+                                selectedOption = selectedAudio
+                            )
+                            val subtitleStreamIndex = SubtitleStreamIndex(
+                                streams = effectiveMediaStreams,
+                                selectedOption = option
+                            )
+                            item.id?.let { currentItemId ->
+                                playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
+                                playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
+                            }
+                            onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
+                        }
                     )
                 }
 
@@ -776,7 +867,22 @@ fun DetailContent(
                                 .clip(RoundedCornerShape(24.dp))
                         ) {
                             Button(
-                                onClick = onPlayClick,
+                                onClick = {
+                                    val selectedAudioStreamIndex = AudioStreamIndex(
+                                        streams = effectiveMediaStreams,
+                                        selectedOption = selectedAudio
+                                    )
+                                    val selectedSubtitleStreamIndex = SubtitleStreamIndex(
+                                        streams = effectiveMediaStreams,
+                                        selectedOption = selectedSubtitle
+                                    )
+                                    item.id?.let { currentItemId ->
+                                        playerPreferences.setPreferredAudioStreamIndex(currentItemId, selectedAudioStreamIndex)
+                                        playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, selectedSubtitleStreamIndex)
+                                    }
+                                    onPreferredStreamIndexesChanged(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
+                                    onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
+                                },
                                 modifier = Modifier.fillMaxSize(),
                                 shape = RoundedCornerShape(24.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -1321,7 +1427,7 @@ private fun FavoriteActionButton(
 }
 
 private fun buildVideoOptions(streams: List<MediaStream>): List<String> {
-    return uniquifyOptionLabels(
+    return OptionLabels(
         streams
         .filter { it.type == "Video" }
         .mapNotNull { stream ->
@@ -1332,37 +1438,27 @@ private fun buildVideoOptions(streams: List<MediaStream>): List<String> {
 }
 
 private fun buildAudioOptions(streams: List<MediaStream>): List<String> {
-    val options = uniquifyOptionLabels(
+    return OptionLabels(
         streams
-        .filter { it.type == "Audio" }
-        .mapNotNull { stream ->
-            val display = stream.displayTitle?.takeIf { it.isNotBlank() }
-            display?.takeIf { it.isNotBlank() }
-        }
+            .filter { it.type == "Audio" }
+            .sortedBy { it.index ?: Int.MAX_VALUE }
+            .mapNotNull { stream ->
+                val display = stream.displayTitle?.takeIf { it.isNotBlank() }
+                display?.takeIf { it.isNotBlank() }
+            }
     )
-
-    val defaultLabel = streams
-        .firstOrNull { it.type == "Audio" && it.isDefault == true }
-        ?.let { stream ->
-            stream.displayTitle?.takeIf { it.isNotBlank() }
-        }
-
-    return if (!defaultLabel.isNullOrBlank() && options.contains(defaultLabel)) {
-        listOf(defaultLabel) + options.filter { it != defaultLabel }
-    } else {
-        options
-    }
 }
 
 private fun buildSubtitleOptions(streams: List<MediaStream>): List<String> {
     val options = mutableListOf("Off")
     streams
         .filter { it.type == "Subtitle" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
         .forEach { stream ->
             val subtitleLabel = stream.displayTitle?.takeIf { it.isNotBlank() }
             subtitleLabel?.let { options.add(it) }
         }
-    return uniquifyOptionLabels(options)
+    return OptionLabels(options)
 }
 
 private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
@@ -1372,6 +1468,68 @@ private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
             stream.displayTitle?.takeIf { it.isNotBlank() }
         }
         ?: "Off"
+}
+
+private fun AudioStreamIndex(
+    streams: List<MediaStream>,
+    selectedOption: String
+): Int? {
+    val audioStreams = streams
+        .filter { it.type == "Audio" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    if (audioStreams.isEmpty()) return null
+    if (selectedOption.isBlank()) return audioStreams.firstOrNull()?.index
+    val audioOptions = buildAudioOptions(streams)
+    val optionOrdinal = audioOptions.indexOf(selectedOption)
+    if (optionOrdinal < 0 || optionOrdinal >= audioStreams.size) return null
+    return audioStreams[optionOrdinal].index
+}
+
+private fun SubtitleStreamIndex(
+    streams: List<MediaStream>,
+    selectedOption: String
+): Int? {
+    if (selectedOption == "Off") return -1
+
+    val subtitleStreams = streams
+        .filter { it.type == "Subtitle" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    if (subtitleStreams.isEmpty()) return null
+    if (selectedOption.isBlank()) return subtitleStreams.firstOrNull()?.index
+    val subtitleOptions = buildSubtitleOptions(streams).drop(1)
+    val optionOrdinal = subtitleOptions.indexOf(selectedOption)
+    if (optionOrdinal < 0 || optionOrdinal >= subtitleStreams.size) return null
+    return subtitleStreams[optionOrdinal].index
+}
+
+private fun AudioStreamIndex(
+    streams: List<MediaStream>,
+    streamIndex: Int?
+): String? {
+    if (streamIndex == null) return null
+
+    val audioStreams = streams
+        .filter { it.type == "Audio" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    val streamOrdinal = audioStreams.indexOfFirst { it.index == streamIndex }
+    if (streamOrdinal < 0) return null
+    return buildAudioOptions(streams).getOrNull(streamOrdinal)
+}
+
+private fun SubtitleStreamIndex(
+    streams: List<MediaStream>,
+    streamIndex: Int?
+): String? {
+    if (streamIndex == null) return null
+    if (streamIndex == -1) return "Off"
+
+    val subtitleStreams = streams
+        .filter { it.type == "Subtitle" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    val streamOrdinal = subtitleStreams.indexOfFirst { it.index == streamIndex }
+    if (streamOrdinal < 0) return null
+    val subtitleOptions = buildSubtitleOptions(streams).drop(1)
+    return subtitleOptions.getOrNull(streamOrdinal)
 }
 
 private suspend fun heroImageCandidates(
@@ -1482,7 +1640,7 @@ private fun episodeHeaderText(item: BaseItemDto): String? {
     }
 }
 
-private fun uniquifyOptionLabels(options: List<String>): List<String> {
+private fun OptionLabels(options: List<String>): List<String> {
     val counts = mutableMapOf<String, Int>()
     return options.map { option ->
         val seen = (counts[option] ?: 0) + 1
@@ -1605,7 +1763,7 @@ fun DetailScreenPreview() {
         DetailContent(
             item = mockItem,
             onBackPressed = {},
-            onPlayClick = {}
+            onPlayClick = { _, _ -> }
         )
     }
 }
@@ -1652,7 +1810,7 @@ fun DetailScreenLongRatingPreview() {
         DetailContent(
             item = mockItem,
             onBackPressed = {},
-            onPlayClick = {}
+            onPlayClick = { _, _ -> }
         )
     }
 }
@@ -1678,7 +1836,7 @@ fun DetailScreenSeriesPreview() {
         DetailContent(
             item = mockItem,
             onBackPressed = {},
-            onPlayClick = {}
+            onPlayClick = { _, _ -> }
         )
     }
 }
@@ -1735,7 +1893,7 @@ fun DetailScreenManyGenresPreview() {
         DetailContent(
             item = mockItem,
             onBackPressed = {},
-            onPlayClick = {}
+            onPlayClick = { _, _ -> }
         )
     }
 }

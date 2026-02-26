@@ -64,8 +64,11 @@ data class PlayerUiState(
 @Composable
 fun PlayerScreen(
     mediaId: String,
+    preferredAudioStreamIndex: Int? = null,
+    preferredSubtitleStreamIndex: Int? = null,
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel(),
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onBackPressed: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -89,6 +92,7 @@ fun PlayerScreen(
 
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
+    val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
 
     // System managers
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -149,7 +153,12 @@ fun PlayerScreen(
     LaunchedEffect(mediaId) {
         if (!hasInitialized) {
             try {
-                viewModel.initializePlayer(context, mediaId)
+                viewModel.initializePlayer(
+                    context = context,
+                    mediaId = mediaId,
+                    preferredAudioStreamIndex = preferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+                )
                 hasInitialized = true
             } catch (e: Exception) {
                 // Initialization failed, will be handled by PlayerViewModel
@@ -169,6 +178,20 @@ fun PlayerScreen(
             delay(100)
         }
     }
+
+    LaunchedEffect(
+        hasInitialized,
+        preferredStreamIndexes.audioStreamIndex,
+        preferredStreamIndexes.subtitleStreamIndex
+    ) {
+        if (hasInitialized) {
+            onPreferredStreamIndexesChanged(
+                preferredStreamIndexes.audioStreamIndex,
+                preferredStreamIndexes.subtitleStreamIndex
+            )
+        }
+    }
+
     // Fetch media title
     LaunchedEffect(mediaId) {
         try {

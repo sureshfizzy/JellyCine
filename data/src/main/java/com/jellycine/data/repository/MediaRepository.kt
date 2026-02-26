@@ -1103,12 +1103,21 @@ class MediaRepository(private val context: Context) {
     /**
      * Get playback information for a media item
      */
-    suspend fun getPlaybackInfo(itemId: String): Result<com.jellycine.data.model.PlaybackInfoResponse> {
+    suspend fun getPlaybackInfo(
+        itemId: String,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null
+    ): Result<com.jellycine.data.model.PlaybackInfoResponse> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
             val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
 
-            val response = api.getPlaybackInfo(itemId, userId)
+            val response = api.getPlaybackInfo(
+                itemId = itemId,
+                userId = userId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex
+            )
 
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -1170,7 +1179,11 @@ class MediaRepository(private val context: Context) {
     /**
      * Get direct streaming URL for a media item
      */
-    suspend fun getStreamingUrl(itemId: String): Result<String> {
+    suspend fun getStreamingUrl(
+        itemId: String,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null
+    ): Result<String> {
         return try {
             val config = getSessionConfig()
             val serverUrl = config?.serverUrl
@@ -1181,7 +1194,11 @@ class MediaRepository(private val context: Context) {
             }
 
             // Get playback info first to determine the best streaming method
-            val playbackInfoResult = getPlaybackInfo(itemId)
+            val playbackInfoResult = getPlaybackInfo(
+                itemId = itemId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex
+            )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
             }
