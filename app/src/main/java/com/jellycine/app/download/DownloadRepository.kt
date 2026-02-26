@@ -15,18 +15,28 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.ArrayDeque
+import java.io.EOFException
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InterruptedIOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.ProtocolException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicLong
+import javax.net.ssl.SSLException
 
 enum class DownloadStatus {
     IDLE,
@@ -109,11 +119,13 @@ class DownloadRepository(context: Context) {
     private val lastMetadataPersistAt = ConcurrentHashMap<String, Long>()
     private val lastTrackedRefreshAt = ConcurrentHashMap<String, Long>()
     private val trackedDownloadsFlow = MutableStateFlow<List<TrackedDownload>>(emptyList())
+    private var networkObserverJob: Job? = null
     @Volatile
     private var lastForegroundSyncActive = false
 
     init {
         restoreDownloads()
+        observeNetworkRestoration()
     }
 
     fun observeItemDownload(itemId: String): StateFlow<ItemDownloadState> {
@@ -206,6 +218,19 @@ class DownloadRepository(context: Context) {
             ?: createDestinationFile(requestData.fileExtension)
         val downloadId = existingMeta?.downloadId ?: nextDownloadId()
         prefs.edit().putLong(downloadKey(itemId), downloadId).apply()
+        val existingDownloadedBytes = destination
+            .takeIf { it.exists() }
+            ?.length()
+            ?: current.downloadedBytes.takeIf { it > 0L }
+            ?: existingMeta?.downloadedBytes?.takeIf { it > 0L }
+            ?: 0L
+        val existingTotalBytes = current.totalBytes.takeIf { it > 0L }
+            ?: existingMeta?.totalBytes?.takeIf { it > 0L }
+            ?: 0L
+        val queuedProgress = progressFromBytes(
+            downloadedBytes = existingDownloadedBytes,
+            totalBytes = existingTotalBytes
+        )
 
         val title = item.name?.takeIf { it.isNotBlank() }
             ?: requestData.displayName.takeIf { it.isNotBlank() }
@@ -221,7 +246,9 @@ class DownloadRepository(context: Context) {
                 requestedAt = existingMeta?.requestedAt ?: System.currentTimeMillis(),
                 localPath = destination.absolutePath,
                 status = DownloadStatus.QUEUED.name,
-                progress = 0.05f,
+                progress = queuedProgress,
+                downloadedBytes = existingDownloadedBytes,
+                totalBytes = existingTotalBytes,
                 downloadId = downloadId,
                 fullItemJson = existingMeta?.fullItemJson ?: serializeItem(item)
             )
@@ -240,8 +267,10 @@ class DownloadRepository(context: Context) {
         }
         val queuedState = ItemDownloadState(
             status = DownloadStatus.QUEUED,
-            progress = 0.05f,
+            progress = queuedProgress,
             downloadId = downloadId,
+            downloadedBytes = existingDownloadedBytes,
+            totalBytes = existingTotalBytes,
             filePath = destination.absolutePath
         )
         setFlowState(itemId, queuedState)
@@ -405,16 +434,22 @@ class DownloadRepository(context: Context) {
         activeJobs[itemId] = scope.launch {
             try {
                 val initialBytes = destination.takeIf { it.exists() }?.length() ?: 0L
+                val knownTotalBytes = stateFlows[itemId]?.value?.totalBytes?.takeIf { it > 0L }
+                    ?: readMetadata(itemId)?.totalBytes?.takeIf { it > 0L }
+                    ?: 0L
                 val parent = destination.parentFile
                 if (parent != null && !parent.exists()) {
                     parent.mkdirs()
                 }
                 val startState = ItemDownloadState(
                     status = DownloadStatus.DOWNLOADING,
-                    progress = if (initialBytes > 0L) 0.05f else 0.01f,
+                    progress = progressFromBytes(
+                        downloadedBytes = initialBytes,
+                        totalBytes = knownTotalBytes
+                    ),
                     downloadId = downloadId,
                     downloadedBytes = initialBytes,
-                    totalBytes = stateFlows[itemId]?.value?.totalBytes ?: 0L,
+                    totalBytes = knownTotalBytes,
                     filePath = destination.absolutePath
                 )
                 applyState(itemId, startState, forcePersist = true, forceRefreshTracked = true)
@@ -430,8 +465,12 @@ class DownloadRepository(context: Context) {
                 if (canceledItems.contains(itemId)) {
                     return@launch
                 }
-                if (pausedItems.contains(itemId) || e.message?.contains("Canceled", ignoreCase = true) == true) {
-                    Paused(itemId, downloadId = downloadId, filePath = destination.absolutePath)
+                if (
+                    pausedItems.contains(itemId) ||
+                    e.message?.contains("Canceled", ignoreCase = true) == true ||
+                    isRecoverableInterruption(e)
+                ) {
+                    QueueForAutoResume(itemId, downloadId = downloadId, filePath = destination.absolutePath)
                 } else {
                     Failed(
                         itemId = itemId,
@@ -460,6 +499,20 @@ class DownloadRepository(context: Context) {
             filePath = current?.filePath ?: filePath
         )
         applyState(itemId, pausedState, forcePersist = true, forceRefreshTracked = true)
+    }
+
+    private fun QueueForAutoResume(itemId: String, downloadId: Long? = null, filePath: String? = null) {
+        val current = stateFlows[itemId]?.value
+        val queuedState = (current ?: ItemDownloadState(
+            downloadId = downloadId,
+            filePath = filePath
+        )).copy(
+            status = DownloadStatus.QUEUED,
+            message = "Resuming",
+            downloadId = current?.downloadId ?: downloadId,
+            filePath = current?.filePath ?: filePath
+        )
+        applyState(itemId, queuedState, forcePersist = true, forceRefreshTracked = true)
     }
 
     private fun Failed(
@@ -675,6 +728,7 @@ class DownloadRepository(context: Context) {
     ): RecoveryDecision {
         val file = metadata.localPath?.let(::File)
         val available = file != null && file.exists()
+        val hasPartialData = available && file.length() > 0L
         val wasPaused = fallbackStatus == DownloadStatus.QUEUED && metadata.message == "Paused"
         val wasInFlight = fallbackStatus == DownloadStatus.DOWNLOADING ||
             (fallbackStatus == DownloadStatus.QUEUED && !wasPaused)
@@ -691,9 +745,62 @@ class DownloadRepository(context: Context) {
             recoveredState -> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
             wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, "Paused")
             wasInFlight -> RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
+            fallbackStatus == DownloadStatus.FAILED && hasPartialData ->
+                RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
             fallbackStatus == DownloadStatus.COMPLETED && !available ->
                 RecoveryDecision(DownloadStatus.FAILED, "Download incomplete")
             else -> RecoveryDecision(fallbackStatus, metadata.message)
+        }
+    }
+
+    private fun isRecoverableInterruption(error: Throwable): Boolean {
+        var current: Throwable? = error
+        while (current != null) {
+            when (current) {
+                is UnknownHostException,
+                is ConnectException,
+                is NoRouteToHostException,
+                is SocketTimeoutException,
+                is SocketException,
+                is InterruptedIOException,
+                is EOFException,
+                is ProtocolException,
+                is SSLException -> return true
+            }
+            current = current.cause
+        }
+        return false
+    }
+
+    private fun observeNetworkRestoration() {
+        if (networkObserverJob?.isActive == true) return
+        networkObserverJob = scope.launch {
+            NetworkModule.observeNetworkAvailability(appContext).collect { isAvailable ->
+                if (isAvailable) {
+                    autoResumeQueuedDownloads()
+                }
+            }
+        }
+    }
+
+    private suspend fun autoResumeQueuedDownloads() {
+        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
+            return
+        }
+
+        val candidates = allTrackedItemIds().mapNotNull { itemId ->
+            if (canceledItems.contains(itemId)) return@mapNotNull null
+
+            val state = stateFlows[itemId]?.value
+            if (state?.status != DownloadStatus.QUEUED) return@mapNotNull null
+            if (state.message?.trim()?.equals("Paused", ignoreCase = true) == true) return@mapNotNull null
+            if (isQueued(itemId)) return@mapNotNull null
+
+            readMetadata(itemId)?.fullItemJson?.let(::parseItem)
+        }
+
+        candidates.forEach { item ->
+            enqueueItemDownload(item)
         }
     }
 
@@ -820,6 +927,16 @@ class DownloadRepository(context: Context) {
     private fun parseStatus(raw: String?): DownloadStatus {
         return runCatching { DownloadStatus.valueOf(raw ?: DownloadStatus.IDLE.name) }
             .getOrElse { DownloadStatus.IDLE }
+    }
+
+    private fun progressFromBytes(
+        downloadedBytes: Long,
+        totalBytes: Long
+    ): Float {
+        if (downloadedBytes > 0L && totalBytes > 0L) {
+            return (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+        }
+        return 0f
     }
 
     private fun persistMetadata(metadata: PersistedDownloadMetadata) {

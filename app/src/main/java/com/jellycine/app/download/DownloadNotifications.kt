@@ -31,7 +31,7 @@ class DownloadNotificationManager(private val context: Context) {
         if (active.isEmpty()) return null
 
         val lead = selectLead(active)
-        val progress = (lead.state.progress.coerceIn(0f, 1f) * 100f).roundToInt()
+        val progress = (stateProgress(lead.state) * 100f).roundToInt()
         val downloading = active.count { it.state.status == DownloadStatus.DOWNLOADING }
         val queued = active.count { isWaitingState(it.state) }
         val paused = active.count { isPausedState(it.state) }
@@ -51,7 +51,8 @@ class DownloadNotificationManager(private val context: Context) {
 
         val sizeText = formatSizeProgress(lead.state.downloadedBytes, lead.state.totalBytes)
         val stateText = when {
-            lead.state.status == DownloadStatus.DOWNLOADING -> "$progress%$sizeText"
+            lead.state.status == DownloadStatus.DOWNLOADING && lead.state.totalBytes > 0L -> "$progress%$sizeText"
+            lead.state.status == DownloadStatus.DOWNLOADING -> "Downloading$sizeText"
             isPausedState(lead.state) -> "Paused$sizeText"
             else -> "Queued"
         }
@@ -99,12 +100,21 @@ class DownloadNotificationManager(private val context: Context) {
 
     private fun selectLead(active: List<TrackedDownload>): TrackedDownload {
         active.filter { it.state.status == DownloadStatus.DOWNLOADING }
-            .maxByOrNull { it.state.progress }
+            .maxByOrNull { stateProgress(it.state) }
             ?.let { return it }
         active.filter { isWaitingState(it.state) }
             .minByOrNull { it.requestedAt }
             ?.let { return it }
         return active.minByOrNull { it.requestedAt } ?: active.first()
+    }
+
+    private fun stateProgress(state: ItemDownloadState): Float {
+        val downloadedBytes = state.downloadedBytes
+        val totalBytes = state.totalBytes
+        if (downloadedBytes > 0L && totalBytes > 0L) {
+            return (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+        }
+        return 0f
     }
 
     private fun isWaitingState(state: ItemDownloadState): Boolean {

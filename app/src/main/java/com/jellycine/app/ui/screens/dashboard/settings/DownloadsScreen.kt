@@ -664,17 +664,26 @@ private fun DownloadRowAction(
                 }
 
                 entry.state.status == DownloadStatus.DOWNLOADING -> {
-                    val progress = entry.state.progress.coerceIn(0.02f, 1f)
+                    val progress = downloadProgress(entry).coerceIn(0.02f, 1f)
+                    val hasKnownTotal = entry.state.totalBytes > 0L
                     Box(
                         modifier = Modifier.size(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier.fillMaxSize(),
-                            strokeWidth = 2.dp,
-                            color = Color.White
-                        )
+                        if (hasKnownTotal) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            CircularProgressIndicator(
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        }
                         Icon(
                             imageVector = Icons.Rounded.Stop,
                             contentDescription = "Download options",
@@ -860,7 +869,6 @@ private fun isPausedState(entry: TrackedDownload): Boolean {
 private fun downloadStatusLabel(entry: TrackedDownload): String? {
     return when (entry.state.status) {
         DownloadStatus.DOWNLOADING -> {
-            val percent = (entry.state.progress.coerceIn(0f, 1f) * 100f).toInt()
             val size = if (entry.state.totalBytes > 0L) {
                 " | ${formatProgressBytes(entry.state.downloadedBytes)} / ${formatProgressBytes(entry.state.totalBytes)}"
             } else if (entry.state.downloadedBytes > 0L) {
@@ -868,7 +876,12 @@ private fun downloadStatusLabel(entry: TrackedDownload): String? {
             } else {
                 ""
             }
-            "Downloading $percent%$size"
+            if (entry.state.totalBytes > 0L) {
+                val percent = (downloadProgress(entry) * 100f).toInt()
+                "Downloading $percent%$size"
+            } else {
+                "Downloading$size"
+            }
         }
         DownloadStatus.QUEUED -> {
             if (entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true) {
@@ -879,6 +892,15 @@ private fun downloadStatusLabel(entry: TrackedDownload): String? {
         }
         else -> null
     }
+}
+
+private fun downloadProgress(entry: TrackedDownload): Float {
+    val downloadedBytes = entry.state.downloadedBytes
+    val totalBytes = entry.state.totalBytes
+    if (downloadedBytes > 0L && totalBytes > 0L) {
+        return (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+    }
+    return 0f
 }
 
 private fun formatProgressBytes(bytes: Long): String {
