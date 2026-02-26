@@ -53,7 +53,14 @@ data class ItemDownloadState(
     val message: String? = null,
     val downloadedBytes: Long = 0L,
     val totalBytes: Long = 0L,
-    val filePath: String? = null
+    val filePath: String? = null,
+    val storageShortageInfo: StorageShortageInfo? = null
+)
+
+data class StorageShortageInfo(
+    val fileSizeBytes: Long? = null,
+    val availableBytes: Long,
+    val neededBytes: Long
 )
 
 data class TrackedDownload(
@@ -98,6 +105,12 @@ private data class QueuedDownloadRequest(
     val destination: File,
     val downloadId: Long
 )
+
+private class InsufficientStorageException(
+    val fileSizeBytes: Long? = null,
+    val availableBytes: Long,
+    val neededBytes: Long
+) : IllegalStateException("Insufficient storage space")
 
 class DownloadRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -465,6 +478,20 @@ class DownloadRepository(context: Context) {
                 if (canceledItems.contains(itemId)) {
                     return@launch
                 }
+                if (e is InsufficientStorageException) {
+                    Failed(
+                        itemId = itemId,
+                        message = "Not enough storage space on device",
+                        downloadId = downloadId,
+                        filePath = destination.absolutePath,
+                        storageShortageInfo = StorageShortageInfo(
+                            fileSizeBytes = e.fileSizeBytes,
+                            availableBytes = e.availableBytes,
+                            neededBytes = e.neededBytes
+                        )
+                    )
+                    return@launch
+                }
                 if (
                     pausedItems.contains(itemId) ||
                     e.message?.contains("Canceled", ignoreCase = true) == true ||
@@ -519,7 +546,8 @@ class DownloadRepository(context: Context) {
         itemId: String,
         message: String,
         downloadId: Long? = null,
-        filePath: String? = null
+        filePath: String? = null,
+        storageShortageInfo: StorageShortageInfo? = null
     ) {
         val current = stateFlows[itemId]?.value
         val failedState = ItemDownloadState(
@@ -529,7 +557,8 @@ class DownloadRepository(context: Context) {
             message = message,
             downloadedBytes = current?.downloadedBytes ?: 0L,
             totalBytes = current?.totalBytes ?: 0L,
-            filePath = current?.filePath ?: filePath
+            filePath = current?.filePath ?: filePath,
+            storageShortageInfo = storageShortageInfo
         )
         applyState(itemId, failedState, forcePersist = true, forceRefreshTracked = true)
     }
@@ -569,6 +598,13 @@ class DownloadRepository(context: Context) {
                 FileOutputStream(destination, false).use { /* truncate existing partial */ }
             }
             val totalBytes = if (body.contentLength() > 0L) downloadedStart + body.contentLength() else 0L
+            if (totalBytes > 0L) {
+                val neededBytes = (totalBytes - downloadedStart).coerceAtLeast(0L)
+                ensureStorageCapacity(
+                    fileSizeBytes = totalBytes,
+                    neededBytes = neededBytes
+                )
+            }
 
             body.byteStream().use { input ->
                 FileOutputStream(destination, append).use { output ->
@@ -580,6 +616,18 @@ class DownloadRepository(context: Context) {
                     while (true) {
                         bytesRead = input.read(buffer)
                         if (bytesRead == -1) break
+
+                        val bytesToWrite = bytesRead.toLong()
+                        val neededBytes = if (totalBytes > 0L) {
+                            (totalBytes - downloadedBytes).coerceAtLeast(bytesToWrite)
+                        } else {
+                            bytesToWrite
+                        }
+                        ensureStorageCapacity(
+                            fileSizeBytes = totalBytes.takeIf { it > 0L },
+                            neededBytes = neededBytes
+                        )
+
                         output.write(buffer, 0, bytesRead)
                         downloadedBytes += bytesRead
                         val now = System.currentTimeMillis()
@@ -594,7 +642,7 @@ class DownloadRepository(context: Context) {
                                 itemId,
                                 ItemDownloadState(
                                     status = DownloadStatus.DOWNLOADING,
-                                    progress = if (progress > 0f) progress else 0.01f,
+                                    progress = progress,
                                     downloadId = downloadId,
                                     downloadedBytes = downloadedBytes,
                                     totalBytes = totalBytes,
@@ -840,7 +888,8 @@ class DownloadRepository(context: Context) {
                 message = flowState?.message ?: metadata.message,
                 downloadedBytes = downloadedBytes,
                 totalBytes = totalBytes,
-                filePath = path
+                filePath = path,
+                storageShortageInfo = flowState?.storageShortageInfo
             )
 
             val resolvedTitle = fullItem?.name?.takeIf { it.isNotBlank() } ?: metadata.title
@@ -937,6 +986,21 @@ class DownloadRepository(context: Context) {
             return (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
         }
         return 0f
+    }
+
+    private fun ensureStorageCapacity(
+        fileSizeBytes: Long?,
+        neededBytes: Long
+    ) {
+        if (neededBytes <= 0L) return
+        val availableBytes = appContext.filesDir.usableSpace.coerceAtLeast(0L)
+        if (availableBytes < neededBytes) {
+            throw InsufficientStorageException(
+                fileSizeBytes = fileSizeBytes,
+                availableBytes = availableBytes,
+                neededBytes = neededBytes
+            )
+        }
     }
 
     private fun persistMetadata(metadata: PersistedDownloadMetadata) {

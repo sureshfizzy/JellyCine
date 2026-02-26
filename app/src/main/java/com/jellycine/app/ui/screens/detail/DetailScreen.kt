@@ -411,6 +411,8 @@ fun DetailContent(
     val itemDownloadStateFlow = remember(item.id) { item.id?.let { downloadRepository.observeItemDownload(it) } }
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
+    var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
+    var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
@@ -442,6 +444,16 @@ fun DetailContent(
         animationSpec = tween(durationMillis = 350),
         label = "detail_download_progress"
     )
+
+    LaunchedEffect(itemDownloadState.status) {
+        if (
+            previousDownloadStatus != DownloadStatus.FAILED &&
+            itemDownloadState.status == DownloadStatus.FAILED
+        ) {
+            downloadErrorDialogMessage = downloadFailureDialogMessage(state = itemDownloadState)
+        }
+        previousDownloadStatus = itemDownloadState.status
+    }
 
     LaunchedEffect(item.id) {
         if (item.id == null) {
@@ -977,6 +989,11 @@ fun DetailContent(
                                 if (canDownloadItem) {
                                     coroutineScope.launch {
                                         downloadRepository.enqueueItemDownload(item)
+                                            .onFailure { throwable ->
+                                                downloadErrorDialogMessage = downloadFailureDialogMessage(
+                                                    rawMessage = throwable.message
+                                                )
+                                            }
                                     }
                                 }
                             },
@@ -1184,6 +1201,36 @@ fun DetailContent(
                 )
             }
         }
+    }
+
+    downloadErrorDialogMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { downloadErrorDialogMessage = null },
+            containerColor = Color(0xFF1A1C22),
+            titleContentColor = Color.White,
+            textContentColor = Color.White.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Download Failed",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(text = message)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { downloadErrorDialogMessage = null },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFF22D3EE)
+                    )
+                ) {
+                    Text("OK", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
     }
 }
 
@@ -1490,6 +1537,41 @@ private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
             stream.displayTitle?.takeIf { it.isNotBlank() }
         }
         ?: "Off"
+}
+
+private fun downloadFailureDialogMessage(
+    state: ItemDownloadState? = null,
+    rawMessage: String? = null
+): String {
+    state?.storageShortageInfo?.let { storage ->
+        val fileSize = storage.fileSizeBytes?.let(::formatStorageBytesForDialog) ?: "Unknown"
+        val available = formatStorageBytesForDialog(storage.availableBytes)
+        val needed = formatStorageBytesForDialog(storage.neededBytes)
+        return buildString {
+            appendLine("Not enough storage space on this device.")
+            appendLine()
+            appendLine("File size: $fileSize")
+            appendLine("Available: $available")
+            append("Needed: $needed")
+        }
+    }
+
+    val resolvedMessage = rawMessage?.trim().takeUnless { it.isNullOrBlank() }
+        ?: state?.message?.trim().takeUnless { it.isNullOrBlank() }
+    return resolvedMessage ?: "Download failed. Please try again."
+}
+
+private fun formatStorageBytesForDialog(bytes: Long): String {
+    val value = bytes.coerceAtLeast(0L).toDouble()
+    val kb = 1024.0
+    val mb = kb * 1024.0
+    val gb = mb * 1024.0
+    return when {
+        value >= gb -> String.format(Locale.US, "%.2f GB", value / gb)
+        value >= mb -> String.format(Locale.US, "%.1f MB", value / mb)
+        value >= kb -> String.format(Locale.US, "%.1f KB", value / kb)
+        else -> "${bytes.coerceAtLeast(0L)} B"
+    }
 }
 
 private fun AudioStreamIndex(
