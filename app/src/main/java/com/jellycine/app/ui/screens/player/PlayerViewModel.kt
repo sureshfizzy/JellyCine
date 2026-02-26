@@ -1295,7 +1295,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 activeVideoCodec = activeVideoCodec,
                 activeAudioCodec = activeAudioCodec,
                 decoderType = decoderType,
-                asyncModeEnabled = isAsyncEnabled,
+                asyncModeEnabled = isHwAccelEnabled && isAsyncEnabled,
                 performanceMetrics = if (isHwAccelEnabled) "GPU-accelerated" else "CPU-only"
             )
         }

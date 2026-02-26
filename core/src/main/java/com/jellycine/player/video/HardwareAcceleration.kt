@@ -34,6 +34,16 @@ class HardwareAcceleration(
 
         // Enable decoder fallback by default for better HDR/Dolby Vision compatibility
         setEnableDecoderFallback(true)
+
+        val hardwareAccelerationEnabled = playerPreferences.isHardwareAccelerationEnabled()
+        val asyncMediaCodecEnabled = hardwareAccelerationEnabled && playerPreferences.isAsyncMediaCodecEnabled()
+        if (asyncMediaCodecEnabled) {
+            forceEnableMediaCodecAsynchronousQueueing()
+            experimentalSetMediaCodecAsyncCryptoFlagEnabled(true)
+        } else {
+            forceDisableMediaCodecAsynchronousQueueing()
+            experimentalSetMediaCodecAsyncCryptoFlagEnabled(false)
+        }
         
         // Use custom codec selector for better hardware acceleration control
         setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
