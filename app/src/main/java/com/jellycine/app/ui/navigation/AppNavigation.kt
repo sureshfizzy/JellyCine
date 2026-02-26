@@ -163,6 +163,11 @@ fun AppNavigation() {
                 if (itemId != null) {
                     DetailScreenContainer(
                         itemId = itemId,
+                        onNavigateToDetail = { selectedItemId ->
+                            if (selectedItemId != itemId) {
+                                navController.navigate("detail/$selectedItemId")
+                            }
+                        },
                         onBackPressed = {
                             navController.popBackStack()
                         }
@@ -185,6 +190,11 @@ fun AppNavigation() {
                 if (episodeId != null) {
                     DetailScreenContainer(
                         itemId = episodeId,
+                        onNavigateToDetail = { selectedItemId ->
+                            if (selectedItemId != episodeId) {
+                                navController.navigate("detail/$selectedItemId")
+                            }
+                        },
                         onBackPressed = {
                             navController.popBackStack()
                         }

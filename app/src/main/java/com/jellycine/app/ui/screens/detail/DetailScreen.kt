@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -60,7 +61,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun DetailScreenContainer(
     itemId: String,
-    onBackPressed: () -> Unit = {}
+    onBackPressed: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -214,6 +216,9 @@ fun DetailScreenContainer(
                                         preferredAudioStreamIndex = audioStreamIndex
                                         preferredSubtitleStreamIndex = subtitleStreamIndex
                                     },
+                                    onSimilarItemClick = { selectedItemId ->
+                                        onNavigateToDetail(selectedItemId)
+                                    },
                                     onSeasonClick = { seriesId, seasonId, seasonName ->
                                         seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                         currentScreen = "season"
@@ -270,6 +275,9 @@ fun DetailScreenContainer(
                                                 preferredAudioStreamIndex = audioStreamIndex
                                                 preferredSubtitleStreamIndex = subtitleStreamIndex
                                             },
+                                            onSimilarItemClick = { selectedItemId ->
+                                                onNavigateToDetail(selectedItemId)
+                                            },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
                                                 seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                                 currentScreen = "season"
@@ -300,6 +308,7 @@ fun DetailScreen(
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onSimilarItemClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
@@ -309,6 +318,7 @@ fun DetailScreen(
         onBackPressed = onBackPressed,
         onPlayClick = onPlayClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        onSimilarItemClick = onSimilarItemClick,
         onSeasonClick = onSeasonClick
     )
 }
@@ -321,6 +331,7 @@ fun DetailContent(
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onSimilarItemClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -1168,7 +1179,8 @@ fun DetailContent(
 
                 SimilarItemsSection(
                     similarItems = similarItems,
-                    mediaRepository = mediaRepository
+                    mediaRepository = mediaRepository,
+                    onItemClick = onSimilarItemClick
                 )
             }
         }
@@ -1179,6 +1191,7 @@ fun DetailContent(
 private fun SimilarItemsSection(
     similarItems: List<BaseItemDto>,
     mediaRepository: MediaRepository,
+    onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     title: String = "Similar Titles"
 ) {
@@ -1205,7 +1218,10 @@ private fun SimilarItemsSection(
             ) { similarItem ->
                 SimilarItemCard(
                     item = similarItem,
-                    mediaRepository = mediaRepository
+                    mediaRepository = mediaRepository,
+                    onClick = {
+                        similarItem.id?.let(onItemClick)
+                    }
                 )
             }
         }
@@ -1215,7 +1231,8 @@ private fun SimilarItemsSection(
 @Composable
 private fun SimilarItemCard(
     item: BaseItemDto,
-    mediaRepository: MediaRepository
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
 ) {
     val context = LocalContext.current
     var imageUrl by remember(item.id, item.type, item.seriesId) { mutableStateOf<String?>(null) }
@@ -1237,7 +1254,12 @@ private fun SimilarItemCard(
     }
 
     Column(
-        modifier = Modifier.width(116.dp)
+        modifier = Modifier
+            .width(116.dp)
+            .clickable(
+                enabled = !item.id.isNullOrBlank(),
+                onClick = onClick
+            )
     ) {
         Card(
             modifier = Modifier
