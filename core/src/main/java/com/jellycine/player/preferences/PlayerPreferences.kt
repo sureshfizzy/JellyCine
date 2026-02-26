@@ -27,6 +27,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_HEAD_TRACKING = "head_tracking_enabled"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
         private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
+        private const val KEY_STREAM_INDEX_UPDATED_AT_PREFIX = "stream_index_updated_at_"
+        private const val MAX_PREFERRED_STREAM_ITEMS = 500
     }
     
     /**
@@ -200,26 +202,92 @@ class PlayerPreferences(context: Context) {
     }
 
     fun getPreferredAudioStreamIndex(itemId: String): Int? {
-        val key = "$KEY_AUDIO_STREAM_INDEX_PREFIX$itemId"
+        val key = audioStreamKey(itemId)
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
     }
 
     fun setPreferredAudioStreamIndex(itemId: String, streamIndex: Int?) {
-        val key = "$KEY_AUDIO_STREAM_INDEX_PREFIX$itemId"
+        val key = audioStreamKey(itemId)
+        val subtitleExists = prefs.contains(subtitleStreamKey(itemId))
         prefs.edit().apply {
-            if (streamIndex == null) remove(key) else putInt(key, streamIndex)
+            if (streamIndex == null) {
+                remove(key)
+            } else {
+                putInt(key, streamIndex)
+            }
+            if (streamIndex == null && !subtitleExists) {
+                remove(streamUpdatedAtKey(itemId))
+            } else {
+                putLong(streamUpdatedAtKey(itemId), System.currentTimeMillis())
+            }
         }.apply()
+        prunePreferredStreamIndexesIfNeeded()
     }
 
     fun getPreferredSubtitleStreamIndex(itemId: String): Int? {
-        val key = "$KEY_SUBTITLE_STREAM_INDEX_PREFIX$itemId"
+        val key = subtitleStreamKey(itemId)
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
     }
 
     fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?) {
-        val key = "$KEY_SUBTITLE_STREAM_INDEX_PREFIX$itemId"
+        val key = subtitleStreamKey(itemId)
+        val audioExists = prefs.contains(audioStreamKey(itemId))
         prefs.edit().apply {
-            if (streamIndex == null) remove(key) else putInt(key, streamIndex)
+            if (streamIndex == null) {
+                remove(key)
+            } else {
+                putInt(key, streamIndex)
+            }
+            if (streamIndex == null && !audioExists) {
+                remove(streamUpdatedAtKey(itemId))
+            } else {
+                putLong(streamUpdatedAtKey(itemId), System.currentTimeMillis())
+            }
+        }.apply()
+        prunePreferredStreamIndexesIfNeeded()
+    }
+
+    private fun audioStreamKey(itemId: String): String {
+        return "$KEY_AUDIO_STREAM_INDEX_PREFIX$itemId"
+    }
+
+    private fun subtitleStreamKey(itemId: String): String {
+        return "$KEY_SUBTITLE_STREAM_INDEX_PREFIX$itemId"
+    }
+
+    private fun streamUpdatedAtKey(itemId: String): String {
+        return "$KEY_STREAM_INDEX_UPDATED_AT_PREFIX$itemId"
+    }
+
+    private fun prunePreferredStreamIndexesIfNeeded() {
+        val itemIds = mutableSetOf<String>()
+        prefs.all.keys.forEach { key ->
+            when {
+                key.startsWith(KEY_AUDIO_STREAM_INDEX_PREFIX) -> {
+                    itemIds.add(key.removePrefix(KEY_AUDIO_STREAM_INDEX_PREFIX))
+                }
+                key.startsWith(KEY_SUBTITLE_STREAM_INDEX_PREFIX) -> {
+                    itemIds.add(key.removePrefix(KEY_SUBTITLE_STREAM_INDEX_PREFIX))
+                }
+            }
+        }
+
+        if (itemIds.size <= MAX_PREFERRED_STREAM_ITEMS) return
+
+        val toRemoveCount = itemIds.size - MAX_PREFERRED_STREAM_ITEMS
+        val oldestItems = itemIds
+            .map { itemId ->
+                itemId to prefs.getLong(streamUpdatedAtKey(itemId), 0L)
+            }
+            .sortedBy { it.second }
+            .take(toRemoveCount)
+
+        prefs.edit().apply {
+            oldestItems.forEach { (itemId, _) ->
+                remove(audioStreamKey(itemId))
+                remove(subtitleStreamKey(itemId))
+                remove(streamUpdatedAtKey(itemId))
+            }
         }.apply()
     }
 }
