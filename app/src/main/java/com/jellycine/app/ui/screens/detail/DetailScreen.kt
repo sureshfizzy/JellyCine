@@ -1299,7 +1299,7 @@ private fun SimilarItemCard(
             text = item.name ?: "Unknown",
             fontSize = 12.sp,
             color = Color.White,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Medium,
             lineHeight = 14.sp
