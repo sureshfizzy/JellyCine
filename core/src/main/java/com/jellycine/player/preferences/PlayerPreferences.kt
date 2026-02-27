@@ -18,12 +18,10 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PLAYER_VOLUME = "player_volume"
         private const val KEY_HARDWARE_ACCELERATION = "hardware_acceleration_enabled"
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
-        private const val KEY_SPATIAL_AUDIO = "spatial_audio_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
-        private const val KEY_HEAD_TRACKING = "head_tracking_enabled"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
         private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
         private const val KEY_STREAM_INDEX_UPDATED_AT_PREFIX = "stream_index_updated_at_"
@@ -102,20 +100,6 @@ class PlayerPreferences(context: Context) {
     }
     
     /**
-     * Get spatial audio preference
-     */
-    fun isSpatialAudioEnabled(): Boolean {
-        return prefs.getBoolean(KEY_SPATIAL_AUDIO, true)
-    }
-    
-    /**
-     * Set spatial audio preference
-     */
-    fun setSpatialAudioEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, enabled).apply()
-    }
-    
-    /**
      * Get decoder priority preference
      */
     fun getDecoderPriority(): String {
@@ -170,22 +154,6 @@ class PlayerPreferences(context: Context) {
     fun setHdrEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HDR_ENABLED, enabled).apply()
     }
-    
-
-    /**
-     * Get head tracking preference
-     */
-    fun isHeadTrackingEnabled(): Boolean {
-        return prefs.getBoolean(KEY_HEAD_TRACKING, false)
-    }
-    
-    /**
-     * Set head tracking preference
-     */
-    fun setHeadTrackingEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_HEAD_TRACKING, enabled).apply()
-    }
-
     fun getPreferredAudioStreamIndex(itemId: String): Int? {
         val key = audioStreamKey(itemId)
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null

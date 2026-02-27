@@ -29,7 +29,6 @@ import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.core.SubtitleTrackInfo
 import com.jellycine.player.audio.SpatializerHelper
-import com.jellycine.player.audio.SpatializerStateListener
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.player.video.HdrCapabilityManager
 import com.jellycine.app.download.DownloadRepositoryProvider
@@ -98,9 +97,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                 )
                 
-                // Initialize spatial audio monitoring
+                // Initialize spatializer helper for capability checks
                 spatializerHelper = SpatializerHelper(context)
-                setupSpatializerListener()
                 
                 exoPlayer = PlayerUtils.createPlayer(context)
 
@@ -204,40 +202,11 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 // Spatial audio analysis and device capabilities
                 val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
                 val contentSupportsSpatialization = spatializationResult?.canSpatialize == true
-                val deviceSupportsSpatialization = spatialInfo?.isAvailable == true
-                
-                // Primary condition: Content format-based detection
-                val hasCompatibleAudioFormat = spatializationResult?.let { result ->
-                    val format = result.spatialFormat.lowercase()
-                    // Check for specific spatial audio formats
-                    format.contains("dolby atmos") || 
-                    format.contains("atmos") ||
-                    format.contains("dts:x") || 
-                    format.contains("dts-x") ||
-                    format.contains("5.1") || 
-                    format.contains("7.1") ||
-                    format.contains("360 reality") ||
-                    format.contains("mpeg-h") ||
-                    format.contains("auro-3d") ||
-                    format.contains("ch") && result.spatialFormat.contains(Regex("\\d+ch")) // Multi-channel detection
-                } ?: false
-                
-                // Enhanced condition: Content format OR successful spatialization detection
-                val contentBasedSpatialAudio = hasCompatibleAudioFormat || contentSupportsSpatialization
-                
-                // Check user preference for spatial audio
-                val userPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
-                val userSpatialAudioEnabled = userPreferences.isSpatialAudioEnabled()
-                
-                // Final decision: Content supports AND user has enabled spatial audio
-                val shouldEnableSpatialAudio = contentBasedSpatialAudio && userSpatialAudioEnabled
-                
-                // Additional enhancement when device supports spatial audio
-                val deviceEnhancementAvailable = deviceSupportsSpatialization
-                
-                // Configure spatial audio effects based on content compatibility
-                if (shouldEnableSpatialAudio && exoPlayer != null) {
-                    PlayerUtils.configureSpatialAudioForContent(exoPlayer!!, context, spatializationResult)
+                val deviceSpatializerEnabled = spatialInfo?.let { it.isAvailable && it.isEnabled } == true
+                val shouldEnableSpatialAudio =
+                    contentSupportsSpatialization && deviceSpatializerEnabled
+                if (exoPlayer != null) {
+                    PlayerUtils.configureSpatialAudioForContent(exoPlayer!!, spatializationResult)
                 }
 
                 // Update track information after player is ready
@@ -251,10 +220,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     isLoading = false,
                     isPlaying = true,
                     spatializationResult = spatializationResult,
-                    // Enable based on content format compatibility
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
-                    hasHeadTracking = spatializationResult?.hasHeadTracking == true,
                     isHdrEnabled = isHdrPlayback
                 )
 
@@ -989,40 +956,6 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         return null
     }
 
-    private fun setupSpatializerListener() {
-        spatializerHelper?.addSpatializerStateListener(object : SpatializerStateListener {
-            override fun onSpatializerAvailabilityChanged(isAvailable: Boolean) {
-                val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
-                val currentState = _playerState.value
-                
-                // Enhanced content-aware detection
-                val contentSupportsSpatialization = currentState.spatializationResult?.canSpatialize == true
-                val hasCompatibleAudioFormat = currentState.spatializationResult?.let { result ->
-                    val format = result.spatialFormat.lowercase()
-                    format.contains("dolby atmos") || format.contains("atmos") ||
-                    format.contains("dts:x") || format.contains("dts-x") ||
-                    format.contains("5.1") || format.contains("7.1") ||
-                    format.contains("360 reality") || format.contains("mpeg-h") ||
-                    format.contains("auro-3d") || 
-                    (format.contains("ch") && result.spatialFormat.contains(Regex("\\d+ch")))
-                } ?: false
-                
-                // Primary: Content format compatibility
-                val shouldEnable = hasCompatibleAudioFormat || contentSupportsSpatialization
-                
-                _playerState.value = _playerState.value.copy(
-                    isSpatialAudioEnabled = shouldEnable,
-                    hasHeadTracking = spatialInfo?.hasHeadTracker == true
-                )
-            }
-            
-            override fun onSpatializerEnabledChanged(isEnabled: Boolean) {
-                val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
-                _playerState.value = _playerState.value.copy(hasHeadTracking = spatialInfo?.hasHeadTracker == true)
-            }
-        })
-    }
-    
     override fun onCleared() {
         super.onCleared()
         releasePlayer()
@@ -1031,23 +964,19 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     fun getSpatialAudioStatusInfo(): String {
         val currentState = _playerState.value
         val spatializationResult = currentState.spatializationResult
-        
+
         return if (currentState.isSpatialAudioEnabled) {
             buildString {
                 appendLine("Spatial Audio: ACTIVE")
                 appendLine("")
                 appendLine("Format: ${currentState.spatialAudioFormat}")
-                appendLine("Head Tracking: ${if (currentState.hasHeadTracking) "Yes" else "No"}")
                 appendLine("")
-                appendLine("Content contains compatible spatial")
-                appendLine("audio format. Effects are applied")
-                appendLine("based on content characteristics.")
-                
-                // Show device enhancement status
+                appendLine("Playback is using Android device spatializer.")
+
                 spatializerHelper?.getSpatialAudioInfo()?.let { spatialInfo ->
                     if (spatialInfo.isAvailable && spatialInfo.isEnabled) {
                         appendLine("")
-                        appendLine("+ Device spatial enhancement: Active")
+                        appendLine("System spatializer: Enabled")
                     }
                 }
             }
@@ -1060,10 +989,10 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 appendLine("")
                 appendLine("Spatial audio requires compatible")
                 appendLine("content formats like:")
-                appendLine("• Dolby Atmos / E-AC-3 JOC")
-                appendLine("• DTS:X")
-                appendLine("• Multi-channel (5.1+)")
-                appendLine("• Object-based audio")
+                appendLine("- Dolby Atmos / E-AC-3 JOC")
+                appendLine("- DTS:X")
+                appendLine("- Multi-channel (5.1+)")
+                appendLine("- Object-based audio")
             }
         }
     }
@@ -1175,7 +1104,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                                 // Get detailed analysis including fallback information
                                 analysisResult = if (videoFormatAnalysis.hdrSupport != bestFormat.hdrSupport) {
-                                    "Content: ${originalContentFormat} → Playing: ${bestFormat.hdrSupport.displayName} (fallback applied)"
+                                    "Content: ${originalContentFormat} -> Playing: ${bestFormat.hdrSupport.displayName}"
                                 } else if (isContentHdr) {
                                     "Playing in native ${currentFormat} format"
                                 } else {

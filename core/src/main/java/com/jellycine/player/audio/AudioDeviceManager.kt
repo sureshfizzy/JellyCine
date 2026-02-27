@@ -278,7 +278,7 @@ class AudioDeviceManager(private val context: Context) {
             AudioDeviceInfo.TYPE_HDMI -> 8
             AudioDeviceInfo.TYPE_USB_DEVICE,
             AudioDeviceInfo.TYPE_USB_HEADSET -> {
-                device.channelMasks?.maxOrNull()?.let { mask ->
+                device.channelMasks.maxOrNull()?.let { mask ->
                     Integer.bitCount(mask)
                 } ?: 2
             }
@@ -291,7 +291,7 @@ class AudioDeviceManager(private val context: Context) {
      */
     @RequiresApi(Build.VERSION_CODES.M)
     private fun getSupportedSampleRates(device: AudioDeviceInfo): List<Int> {
-        val rates = device.sampleRates?.toList() ?: listOf(44100, 48000)
+        val rates = device.sampleRates.toList().ifEmpty { listOf(44100, 48000) }
         return rates.sorted()
     }
     
@@ -304,7 +304,7 @@ class AudioDeviceManager(private val context: Context) {
             AudioDeviceInfo.TYPE_HDMI -> true
             AudioDeviceInfo.TYPE_USB_DEVICE,
             AudioDeviceInfo.TYPE_USB_HEADSET -> {
-                device.sampleRates?.any { it >= 96000 } ?: false
+                device.sampleRates.any { it >= 96000 }
             }
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

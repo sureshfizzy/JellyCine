@@ -15,7 +15,6 @@ class SpatializerHelper(private val context: Context) {
     
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var spatializer: Spatializer? = null
-    private val listeners = mutableListOf<SpatializerStateListener>()
     
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -35,14 +34,11 @@ class SpatializerHelper(private val context: Context) {
             if (spatializer != null) {
                 android.util.Log.d("SpatializerHelper", "Spatializer obtained successfully")
                 
-                // Log current spatializer state for debugging (but don't warn about disabled state)
+                // Log current spatializer state for debugging
                 spatializer?.let { s ->
                     android.util.Log.d("SpatializerHelper", "Spatializer immersive level: ${s.immersiveAudioLevel}")
                     android.util.Log.d("SpatializerHelper", "Spatializer available: ${s.isAvailable}")
                     android.util.Log.d("SpatializerHelper", "Spatializer enabled: ${s.isEnabled}")
-                    android.util.Log.d("SpatializerHelper", "Head tracker available: ${s.isHeadTrackerAvailable}")
-                    
-                    android.util.Log.d("SpatializerHelper", "*** DOLBY APPROACH: System settings don't matter for content-based spatial audio ***")
                 }
             } else {
                 android.util.Log.w("SpatializerHelper", "Spatializer is null - device may not support spatial audio")
@@ -55,7 +51,6 @@ class SpatializerHelper(private val context: Context) {
     
     /**
      * Check whether the current route supports spatialization for the given format.
-     * This does not require the system spatializer toggle to be enabled.
      */
     fun canSpatializeOnTrack(
         audioFormat: AudioFormat,
@@ -68,15 +63,19 @@ class SpatializerHelper(private val context: Context) {
             return spatializer?.let { spatializer ->
                 val hasImmersiveLevel = spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
                 val isAvailable = spatializer.isAvailable
-                val canBeSpatialized = spatializer.canBeSpatialized(audioAttributes, audioFormat)
+                val canBeSpatialized = if (isOplusDevice()) {
+                    // Oplus framework may spam AudioEffect getParameter warnings for this probe.
+                    // Use route availability + immersive support instead.
+                    true
+                } else {
+                    spatializer.canBeSpatialized(audioAttributes, audioFormat)
+                }
                 
                 android.util.Log.d(
                     "SpatializerHelper",
                     "Spatial Route Check: immersiveLevel=$hasImmersiveLevel, available=$isAvailable, canBeSpatialized=$canBeSpatialized")
 
-                // Some OEM builds report unavailable when system toggle is off.
-                // Compatibility processing only requires route-capable content.
-                hasImmersiveLevel && canBeSpatialized
+                hasImmersiveLevel && isAvailable && canBeSpatialized
             } ?: false
         }
         return false
@@ -96,12 +95,13 @@ class SpatializerHelper(private val context: Context) {
             return spatializer?.let { spatializer ->
                 val routeSupportsSpatialization = canSpatializeOnTrack(audioFormat, audioAttributes)
                 val isEnabled = spatializer.isEnabled
+                val isAvailable = spatializer.isAvailable
 
                 android.util.Log.d(
                     "SpatializerHelper",
-                    "Spatial Active Check: routeSupports=$routeSupportsSpatialization, enabled=$isEnabled")
+                    "Spatial Active Check: routeSupports=$routeSupportsSpatialization, available=$isAvailable, enabled=$isEnabled")
 
-                routeSupportsSpatialization && isEnabled
+                routeSupportsSpatialization && isAvailable && isEnabled
             } ?: false
         }
         return false
@@ -121,6 +121,18 @@ class SpatializerHelper(private val context: Context) {
             val audioFormat = getRecommendedAudioFormat(channelCount) ?: return@any false
             canSpatializeOnTrack(audioFormat)
         }
+    }
+
+    /**
+     * Check whether device spatializer is currently enabled in system settings for active route.
+     */
+    fun isSpatializerEnabled(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return false
+        }
+
+        val info = getSpatialAudioInfo()
+        return info.isSupported && info.isAvailable && info.isEnabled
     }
     
     /**
@@ -145,17 +157,6 @@ class SpatializerHelper(private val context: Context) {
     }
     
     /**
-     * Check if head tracking is available
-     */
-    fun isHeadTrackerAvailable(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            spatializer?.isHeadTrackerAvailable ?: false
-        } else {
-            false
-        }
-    }
-    
-    /**
      * Get spatial audio capabilities info
      */
     fun getSpatialAudioInfo(): SpatialAudioInfo {
@@ -165,7 +166,6 @@ class SpatializerHelper(private val context: Context) {
                     isSupported = spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE,
                     isAvailable = spatializer.isAvailable,
                     isEnabled = spatializer.isEnabled,
-                    hasHeadTracker = spatializer.isHeadTrackerAvailable,
                     immersiveLevel = spatializer.immersiveAudioLevel
                 )
             }
@@ -174,25 +174,21 @@ class SpatializerHelper(private val context: Context) {
     }
     
     /**
-     * Add listener for spatializer state changes
-     */
-    fun addSpatializerStateListener(listener: SpatializerStateListener) {
-        listeners.add(listener)
-    }
-    
-    /**
-     * Remove listener
-     */
-    fun removeSpatializerStateListener(listener: SpatializerStateListener) {
-        listeners.remove(listener)
-    }
-    
-    /**
      * Clean up resources
      */
     fun cleanup() {
-        listeners.clear()
-        // Note: Spatializer listeners are automatically removed when spatializer is GC'd
+        // No resources to clean up currently.
+    }
+
+    private fun isOplusDevice(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val brand = Build.BRAND.lowercase()
+        return manufacturer.contains("oneplus") ||
+            manufacturer.contains("oppo") ||
+            manufacturer.contains("realme") ||
+            brand.contains("oneplus") ||
+            brand.contains("oppo") ||
+            brand.contains("realme")
     }
 }
 
@@ -203,14 +199,5 @@ data class SpatialAudioInfo(
     val isSupported: Boolean = false,
     val isAvailable: Boolean = false,
     val isEnabled: Boolean = false,
-    val hasHeadTracker: Boolean = false,
     val immersiveLevel: Int = 0
 )
-
-/**
- * Listener interface for spatializer state changes
- */
-interface SpatializerStateListener {
-    fun onSpatializerAvailabilityChanged(isAvailable: Boolean)
-    fun onSpatializerEnabledChanged(isEnabled: Boolean)
-}

@@ -14,9 +14,7 @@ data class AudioCapabilities(
     val supportsAtmos: Boolean,
     val maxChannels: Int,
     val connectedAudioDevice: String,
-    val canProcessSpatialAudio: Boolean,
-    val hasHeadTracker: Boolean = false,
-    val spatializerHelper: SpatializerHelper? = null
+    val canProcessSpatialAudio: Boolean
 )
 
 /**
@@ -125,7 +123,7 @@ object CodecCapabilityManager {
 
             // === CHANNEL-BASED SURROUND (SPATIALIZABLE BEDS) ===
 
-            // Channel layouts that are spatializable via binaural rendering
+            // Channel layouts commonly treated as spatializable multichannel beds
             layoutLower.contains("7.1") || layoutLower.contains("(7.1)") -> return "7.1 Surround"
             layoutLower.contains("5.1") || layoutLower.contains("(5.1)") -> return "5.1 Surround"
 
@@ -189,8 +187,8 @@ object CodecCapabilityManager {
         val spatializerHelper = SpatializerHelper(context)
         
         // Get comprehensive spatial audio info
-        val spatialInfo = spatializerHelper.getSpatialAudioInfo()
         val supportsSpatialAudio = spatializerHelper.canSpatializeMultiChannel()
+        val spatializerEnabled = spatializerHelper.isSpatializerEnabled()
         
         // Detect connected audio devices
         val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -218,16 +216,14 @@ object CodecCapabilityManager {
             else -> 2
         }
         
-        val canProcessSpatialAudio = supportsSpatialAudio
+        val canProcessSpatialAudio = supportsSpatialAudio && spatializerEnabled
         
         return AudioCapabilities(
             supportsSpatialAudio = supportsSpatialAudio,
             supportsAtmos = supportsAtmos,
             maxChannels = maxChannels,
             connectedAudioDevice = deviceName,
-            canProcessSpatialAudio = canProcessSpatialAudio,
-            hasHeadTracker = spatialInfo.hasHeadTracker,
-            spatializerHelper = spatializerHelper
+            canProcessSpatialAudio = canProcessSpatialAudio
         )
     }
 
@@ -292,29 +288,29 @@ object CodecCapabilityManager {
         }
 
         val deviceCapabilities = detectDeviceAudioCapabilities(context)
-        val spatializerHelper = deviceCapabilities.spatializerHelper
+        val spatializerHelper = SpatializerHelper(context)
         val requestedChannelCount = (audioStream.channels ?: 2).coerceAtLeast(2)
 
-        val deviceCanSpatialize = spatializerHelper?.let { helper ->
+        val routeSupportsSpatialization = spatializerHelper.let { helper ->
             val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
             audioFormat?.let { helper.canSpatializeOnTrack(it) } ?: false
-        } ?: deviceCapabilities.canProcessSpatialAudio
+        }
+        val spatializerActive = spatializerHelper.let { helper ->
+            val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
+            audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
+        }
 
-        return if (deviceCanSpatialize) {
-            val spatializerActive = spatializerHelper?.let { helper ->
-                val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
-                audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
-            } ?: false
-
+        return if (spatializerActive) {
             SpatializationResult(
                 canSpatialize = true,
-                reason = if (spatializerActive) {
-                    "Spatializable content detected and device spatializer is active for this route"
-                } else {
-                    "Spatializable content detected; route supports spatial audio and app compatibility processing is enabled"
-                },
-                spatialFormat = spatialFormat,
-                hasHeadTracking = deviceCapabilities.hasHeadTracker && spatializerActive
+                reason = "Spatializable content detected and device spatializer is active for this route",
+                spatialFormat = spatialFormat
+            )
+        } else if (routeSupportsSpatialization) {
+            SpatializationResult(
+                canSpatialize = false,
+                reason = "Spatializable content detected, but device spatializer is disabled in system settings",
+                spatialFormat = spatialFormat
             )
         } else {
             SpatializationResult(
@@ -332,6 +328,5 @@ object CodecCapabilityManager {
 data class SpatializationResult(
     val canSpatialize: Boolean,
     val reason: String,
-    val spatialFormat: String,
-    val hasHeadTracking: Boolean = false
+    val spatialFormat: String
 )

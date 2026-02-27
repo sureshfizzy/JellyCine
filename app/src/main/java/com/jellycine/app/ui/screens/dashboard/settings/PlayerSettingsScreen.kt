@@ -31,7 +31,6 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
@@ -77,7 +76,6 @@ fun PlayerSettingsScreen(
     val viewModel: PlayerSettingsViewModel = viewModel { PlayerSettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
     val decodingColor = Color(0xFF3B82F6)
-    val audioColor = Color(0xFF14B8A6)
     val videoColor = Color(0xFFF97316)
     val performanceColor = Color(0xFF22C55E)
 
@@ -132,34 +130,6 @@ fun PlayerSettingsScreen(
                         )
                     }
 
-                }
-            }
-
-            item { SectionLabel("Audio") }
-            item {
-                SettingsSection {
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.SurroundSound,
-                        title = "Spatial Audio",
-                        subtitle = "Enhanced audio experience with compatible content",
-                        checked = uiState.spatialAudioEnabled,
-                        onCheckedChange = viewModel::setSpatialAudioEnabled,
-                        enabled = uiState.spatialAudioSupported,
-                        accentColor = audioColor
-                    )
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        SettingsDivider()
-                        SwitchSettingsItem(
-                            icon = Icons.Rounded.Headphones,
-                            title = "Head Tracking",
-                            subtitle = "Follow head movements for immersive audio",
-                            checked = uiState.headTrackingEnabled,
-                            onCheckedChange = viewModel::setHeadTrackingEnabled,
-                            enabled = uiState.spatialAudioEnabled && uiState.headTrackingSupported,
-                            accentColor = audioColor
-                        )
-                    }
                 }
             }
 

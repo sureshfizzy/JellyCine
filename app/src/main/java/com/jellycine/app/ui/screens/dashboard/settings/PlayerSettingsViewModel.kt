@@ -2,7 +2,6 @@ package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.content.Context
 import android.media.MediaCodecList
-import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.audio.AudioDeviceManager
 import com.jellycine.player.audio.ExternalAudioDevice
 
@@ -20,12 +18,6 @@ data class PlayerSettingsUiState(
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
     val asyncMediaCodecEnabled: Boolean = false,
-    
-    // Audio
-    val spatialAudioEnabled: Boolean = true,
-    val spatialAudioSupported: Boolean = false,
-    val headTrackingEnabled: Boolean = false,
-    val headTrackingSupported: Boolean = false,
 
     // Video
     val decoderPriority: String = "Auto",
@@ -46,7 +38,6 @@ data class PlayerSettingsUiState(
 class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     
     private val playerPreferences = PlayerPreferences(context)
-    private val spatializerHelper = SpatializerHelper(context)
     private val audioDeviceManager = AudioDeviceManager(context)
     
     private val _uiState = MutableStateFlow(PlayerSettingsUiState())
@@ -63,8 +54,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
             _uiState.value = _uiState.value.copy(
                 hardwareDecodingEnabled = playerPreferences.isHardwareAccelerationEnabled(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
-                spatialAudioEnabled = playerPreferences.isSpatialAudioEnabled(),
-                headTrackingEnabled = playerPreferences.isHeadTrackingEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
@@ -76,20 +65,11 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    // Detect spatial audio capabilities
-                    val spatialInfo = spatializerHelper.getSpatialAudioInfo()
-                    val spatialSupported = spatializerHelper.canSpatializeMultiChannel()
-                    val headTrackingSupported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        spatialInfo.hasHeadTracker
-                    } else false
-                    
                     // Get supported codecs
                     val supportedCodecs = getSupportedCodecs()
 
                     withContext(Dispatchers.Main) {
                         _uiState.value = _uiState.value.copy(
-                            spatialAudioSupported = spatialSupported,
-                            headTrackingSupported = headTrackingSupported,
                             supportedCodecs = supportedCodecs
                         )
                     }
@@ -174,19 +154,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setAsyncMediaCodecEnabled(enabled: Boolean) {
         playerPreferences.setAsyncMediaCodecEnabled(enabled)
         _uiState.value = _uiState.value.copy(asyncMediaCodecEnabled = enabled)
-    }
-    
-    fun setSpatialAudioEnabled(enabled: Boolean) {
-        playerPreferences.setSpatialAudioEnabled(enabled)
-        _uiState.value = _uiState.value.copy(spatialAudioEnabled = enabled)
-        if (!enabled) {
-            setHeadTrackingEnabled(false)
-        }
-    }
-    
-    fun setHeadTrackingEnabled(enabled: Boolean) {
-        playerPreferences.setHeadTrackingEnabled(enabled)
-        _uiState.value = _uiState.value.copy(headTrackingEnabled = enabled)
     }
     
     fun setDecoderPriority(priority: String) {

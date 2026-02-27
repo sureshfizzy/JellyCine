@@ -111,7 +111,7 @@ fun ControlsOverlay(
                         Icon(
                             imageVector = Icons.Outlined.Info,
                             contentDescription = "Media Information",
-                            tint = if (isSpatialAudioEnabled) Color(0xFF4CAF50) else Color(0xFF03DAC5),
+                            tint = Color(0xFF4CAF50),
                             modifier = Modifier.size(24.dp)
                         )
                     }
