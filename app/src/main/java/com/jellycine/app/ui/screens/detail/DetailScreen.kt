@@ -62,7 +62,8 @@ import kotlinx.coroutines.launch
 fun DetailScreenContainer(
     itemId: String,
     onBackPressed: () -> Unit = {},
-    onNavigateToDetail: (String) -> Unit = {}
+    onNavigateToDetail: (String) -> Unit = {},
+    onNavigateToPerson: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -219,6 +220,9 @@ fun DetailScreenContainer(
                                     onSimilarItemClick = { selectedItemId ->
                                         onNavigateToDetail(selectedItemId)
                                     },
+                                    onPersonClick = { personId ->
+                                        onNavigateToPerson(personId)
+                                    },
                                     onSeasonClick = { seriesId, seasonId, seasonName ->
                                         seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                         currentScreen = "season"
@@ -278,6 +282,9 @@ fun DetailScreenContainer(
                                             onSimilarItemClick = { selectedItemId ->
                                                 onNavigateToDetail(selectedItemId)
                                             },
+                                            onPersonClick = { personId ->
+                                                onNavigateToPerson(personId)
+                                            },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
                                                 seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                                 currentScreen = "season"
@@ -309,6 +316,7 @@ fun DetailScreen(
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onPersonClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
@@ -319,6 +327,7 @@ fun DetailScreen(
         onPlayClick = onPlayClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
+        onPersonClick = onPersonClick,
         onSeasonClick = onSeasonClick
     )
 }
@@ -332,6 +341,7 @@ fun DetailContent(
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onPersonClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -1191,7 +1201,8 @@ fun DetailContent(
 
                 CastSection(
                     item = item,
-                    mediaRepository = mediaRepository
+                    mediaRepository = mediaRepository,
+                    onPersonClick = onPersonClick
                 )
 
                 SimilarItemsSection(

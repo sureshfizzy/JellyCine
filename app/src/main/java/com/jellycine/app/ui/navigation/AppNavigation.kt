@@ -22,6 +22,7 @@ import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
+import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
@@ -168,6 +169,11 @@ fun AppNavigation() {
                                 navController.navigate("detail/$selectedItemId")
                             }
                         },
+                        onNavigateToPerson = { personId ->
+                            if (personId != itemId) {
+                                navController.navigate("person/$personId")
+                            }
+                        },
                         onBackPressed = {
                             navController.popBackStack()
                         }
@@ -195,8 +201,38 @@ fun AppNavigation() {
                                 navController.navigate("detail/$selectedItemId")
                             }
                         },
+                        onNavigateToPerson = { personId ->
+                            if (personId != episodeId) {
+                                navController.navigate("person/$personId")
+                            }
+                        },
                         onBackPressed = {
                             navController.popBackStack()
+                        }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
+            }
+
+            composable(
+                "person/{personId}",
+                arguments = listOf(navArgument("personId") { type = NavType.StringType }),
+                enterTransition = { create3DEnterTransition(500) },
+                exitTransition = { create3DExitTransition(400) }
+            ) { backStackEntry ->
+                val personId = backStackEntry.arguments?.getString("personId")
+
+                if (personId != null) {
+                    PersonScreenContainer(
+                        personId = personId,
+                        onBackPressed = {
+                            navController.popBackStack()
+                        },
+                        onItemClick = { selectedItemId ->
+                            navController.navigate("detail/$selectedItemId")
                         }
                     )
                 } else {

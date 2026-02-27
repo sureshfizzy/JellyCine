@@ -442,6 +442,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getUserItems(
         parentId: String? = null,
+        personIds: String? = null,
         includeItemTypes: String? = null,
         recursive: Boolean? = null,
         sortBy: String? = null,
@@ -458,6 +459,7 @@ class MediaRepository(private val context: Context) {
             val response = api.getUserItems(
                 userId = userId,
                 parentId = parentId,
+                personIds = personIds,
                 includeItemTypes = includeItemTypes,
                 recursive = recursive,
                 sortBy = sortBy,
@@ -475,6 +477,26 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getItemsForPerson(
+        personId: String,
+        limit: Int = 120
+    ): Result<List<BaseItemDto>> {
+        return getUserItems(
+            personIds = personId,
+            includeItemTypes = "Movie,Series,Episode",
+            recursive = true,
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            limit = limit,
+            fields = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+        ).map { result ->
+            result.items
+                .orEmpty()
+                .filter { it.id != null && !it.name.isNullOrBlank() }
+                .distinctBy { it.id }
         }
     }
 

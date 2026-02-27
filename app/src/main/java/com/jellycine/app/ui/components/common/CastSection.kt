@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.components.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -32,7 +33,8 @@ fun CastSection(
     mediaRepository: MediaRepository,
     modifier: Modifier = Modifier,
     title: String = "Cast & Crew",
-    maxItems: Int = 8
+    maxItems: Int = 8,
+    onPersonClick: (String) -> Unit = {}
 ) {
     val castAndCrew = remember(item.people, maxItems) {
         prioritizeCastAndCrew(
@@ -63,7 +65,10 @@ fun CastSection(
                 ) { person ->
                     CastCrewMemberCard(
                         person = person,
-                        mediaRepository = mediaRepository
+                        mediaRepository = mediaRepository,
+                        onClick = {
+                            person.id?.takeIf { it.isNotBlank() }?.let(onPersonClick)
+                        }
                     )
                 }
             }
@@ -74,9 +79,11 @@ fun CastSection(
 @Composable
 private fun CastCrewMemberCard(
     person: BaseItemPerson,
-    mediaRepository: MediaRepository
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
 ) {
     var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
+    val hasValidPersonId = !person.id.isNullOrBlank()
 
     LaunchedEffect(person.id) {
         person.id?.let { id ->
@@ -86,7 +93,12 @@ private fun CastCrewMemberCard(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(116.dp)
+        modifier = Modifier
+            .width(116.dp)
+            .clickable(
+                enabled = hasValidPersonId,
+                onClick = onClick
+            )
     ) {
         Box(
             modifier = Modifier

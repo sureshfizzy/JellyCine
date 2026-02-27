@@ -43,6 +43,7 @@ interface MediaServerApi {
     suspend fun getUserItems(
         @Path("userId") userId: String,
         @Query("parentId") parentId: String? = null,
+        @Query("PersonIds") personIds: String? = null,
         @Query("includeItemTypes") includeItemTypes: String? = null,
         @Query("recursive") recursive: Boolean? = null,
         @Query("sortBy") sortBy: String? = null,
