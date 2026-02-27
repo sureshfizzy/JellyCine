@@ -18,10 +18,6 @@ class SpatializerHelper(private val context: Context) {
     private val listeners = mutableListOf<SpatializerStateListener>()
     
     init {
-        android.util.Log.d("SpatializerHelper", "=== INITIALIZING SPATIALIZER HELPER ===")
-        android.util.Log.d("SpatializerHelper", "Android version: ${Build.VERSION.SDK_INT}")
-        android.util.Log.d("SpatializerHelper", "Required version: ${Build.VERSION_CODES.TIRAMISU} (33)")
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             android.util.Log.d("SpatializerHelper", "Device supports Spatializer API - initializing...")
             initializeSpatializer()
@@ -58,8 +54,36 @@ class SpatializerHelper(private val context: Context) {
     }
     
     /**
-     * Check if the device can actually spatialize audio for the given format
-     * This is the key method that determines real spatial audio capability
+     * Check whether the current route supports spatialization for the given format.
+     * This does not require the system spatializer toggle to be enabled.
+     */
+    fun canSpatializeOnTrack(
+        audioFormat: AudioFormat,
+        audioAttributes: AudioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+            .build()
+    ): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return spatializer?.let { spatializer ->
+                val hasImmersiveLevel = spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
+                val isAvailable = spatializer.isAvailable
+                val canBeSpatialized = spatializer.canBeSpatialized(audioAttributes, audioFormat)
+                
+                android.util.Log.d(
+                    "SpatializerHelper",
+                    "Spatial Route Check: immersiveLevel=$hasImmersiveLevel, available=$isAvailable, canBeSpatialized=$canBeSpatialized")
+
+                // Some OEM builds report unavailable when system toggle is off.
+                // Compatibility processing only requires route-capable content.
+                hasImmersiveLevel && canBeSpatialized
+            } ?: false
+        }
+        return false
+    }
+
+    /**
+     * Check if the system spatializer is currently active for this route and format.
      */
     fun canSpatializeAudio(
         audioFormat: AudioFormat,
@@ -70,51 +94,33 @@ class SpatializerHelper(private val context: Context) {
     ): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return spatializer?.let { spatializer ->
-                // Check all four required conditions per Google's documentation
-                val hasImmersiveLevel = spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
-                val isAvailable = spatializer.isAvailable
+                val routeSupportsSpatialization = canSpatializeOnTrack(audioFormat, audioAttributes)
                 val isEnabled = spatializer.isEnabled
-                val canBeSpatialized = spatializer.canBeSpatialized(audioAttributes, audioFormat)
-                
-                // Log the detailed results for debugging
-                android.util.Log.d("SpatializerHelper", 
-                    "Spatial Audio Check: immersiveLevel=$hasImmersiveLevel, available=$isAvailable, enabled=$isEnabled, canBeSpatialized=$canBeSpatialized")
-                
-                hasImmersiveLevel && isAvailable && isEnabled && canBeSpatialized
+
+                android.util.Log.d(
+                    "SpatializerHelper",
+                    "Spatial Active Check: routeSupports=$routeSupportsSpatialization, enabled=$isEnabled")
+
+                routeSupportsSpatialization && isEnabled
             } ?: false
         }
         return false
     }
     
     /**
-     * Check if device can spatialize multi-channel content (Dolby Atmos approach)
-     * Based purely on content format detection, NOT system settings
+     * Check whether the current output route can spatialize multichannel content.
+     * Uses runtime capability checks and never assumes support.
      */
     fun canSpatializeMultiChannel(): Boolean {
-        android.util.Log.d("SpatializerHelper", "=== DOLBY ATMOS CONTENT-BASED SPATIAL AUDIO ===")
-        android.util.Log.d("SpatializerHelper", "Pure content-based detection (ALL system settings ignored)")
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            spatializer?.let { spatializer ->
-                android.util.Log.d("SpatializerHelper", "=== DOLBY CONTENT-BASED DETECTION ===")
-                android.util.Log.d("SpatializerHelper", "Hardware immersive level: ${spatializer.immersiveAudioLevel}")
-                android.util.Log.d("SpatializerHelper", "System available: ${spatializer.isAvailable} <- IGNORED")
-                android.util.Log.d("SpatializerHelper", "System enabled: ${spatializer.isEnabled} <- IGNORED")
-                android.util.Log.d("SpatializerHelper", "")
-                android.util.Log.d("SpatializerHelper", "*** DOLBY APPROACH: Content format determines spatial processing ***")
-                android.util.Log.d("SpatializerHelper", "*** If content = Dolby Atmos → Enable spatial effects ***")
-                android.util.Log.d("SpatializerHelper", "*** System settings are COMPLETELY IRRELEVANT ***")
-            }
-            
-            // Dolby Atmos approach: Always return true for devices with Android 13+
-            // Content format (detected elsewhere) determines if spatial effects are applied
-            android.util.Log.d("SpatializerHelper", "DOLBY RESULT: true (content-based, system ignored)")
-            return true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return false
         }
-        
-        // For older Android versions, Dolby Atmos content always gets spatial processing
-        android.util.Log.d("SpatializerHelper", "Android < 13: Dolby Atmos content always gets spatial effects")
-        return true
+
+        val candidateChannelCounts = intArrayOf(8, 6)
+        return candidateChannelCounts.any { channelCount ->
+            val audioFormat = getRecommendedAudioFormat(channelCount) ?: return@any false
+            canSpatializeOnTrack(audioFormat)
+        }
     }
     
     /**

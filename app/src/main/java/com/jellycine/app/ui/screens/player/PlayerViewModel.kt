@@ -1043,9 +1043,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 appendLine("audio format. Effects are applied")
                 appendLine("based on content characteristics.")
                 
-                // Show device enhancement status if available
+                // Show device enhancement status
                 spatializerHelper?.getSpatialAudioInfo()?.let { spatialInfo ->
-                    if (spatialInfo.isAvailable) {
+                    if (spatialInfo.isAvailable && spatialInfo.isEnabled) {
                         appendLine("")
                         appendLine("+ Device spatial enhancement: Active")
                     }

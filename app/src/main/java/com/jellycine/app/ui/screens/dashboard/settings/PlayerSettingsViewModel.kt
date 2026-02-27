@@ -78,7 +78,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 try {
                     // Detect spatial audio capabilities
                     val spatialInfo = spatializerHelper.getSpatialAudioInfo()
-                    val spatialSupported = spatialInfo.isSupported && spatialInfo.isAvailable
+                    val spatialSupported = spatializerHelper.canSpatializeMultiChannel()
                     val headTrackingSupported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         spatialInfo.hasHeadTracker
                     } else false

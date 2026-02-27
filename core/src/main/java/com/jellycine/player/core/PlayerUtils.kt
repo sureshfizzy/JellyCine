@@ -24,6 +24,10 @@ object PlayerUtils {
     // Spatial audio manager instance
     private var spatialAudioManager: SpatialAudioManager? = null
 
+    private fun canUseSpatializationCapability(context: Context): Boolean {
+        return SpatializerHelper(context).canSpatializeMultiChannel()
+    }
+
     private fun buildTrackId(
         prefix: String,
         groupIndex: Int,
@@ -179,6 +183,8 @@ object PlayerUtils {
     fun configureSpatialAudio(exoPlayer: ExoPlayer, context: Context, enabled: Boolean) {
         
         try {
+            val spatialDeviceCapability = canUseSpatializationCapability(context)
+
             // Get current track selection parameters
             val currentParams = exoPlayer.trackSelectionParameters
             
@@ -210,7 +216,7 @@ object PlayerUtils {
             
             // Configure spatial audio
             spatialAudioManager?.let { manager ->
-                if (enabled) {
+                if (enabled && spatialDeviceCapability) {
                     manager.configureAudioForContent(
                         contentHasDolbyAtmos = true,
                         contentHasSurround = true
@@ -225,14 +231,15 @@ object PlayerUtils {
                         manager.onPlayerReady()
                     }, 1000)
                 } else {
+                    if (enabled && !spatialDeviceCapability) {
+                        Log.w("PlayerUtils", "Spatial audio requested, but current route is not spatializer-capable")
+                    }
                     manager.configureAudioForContent(
                         contentHasDolbyAtmos = false,
                         contentHasSurround = false
                     )
                     manager.disableSpatialEffects()
                 }
-                
-                val audioStatus = manager.getAudioStatus()
             }
             
             Log.d("PlayerUtils", "Spatial audio configuration completed successfully")
@@ -268,6 +275,7 @@ object PlayerUtils {
         try {
             val spatialFormat = spatializationResult?.spatialFormat ?: ""
             val contentSupportsSpatialization = spatializationResult?.canSpatialize == true
+            val spatialDeviceCapability = canUseSpatializationCapability(context)
             
             // Enhanced content format detection
             val hasCompatibleAudioFormat = spatialFormat.lowercase().let { format ->
@@ -280,12 +288,14 @@ object PlayerUtils {
                 (format.contains("object") && format.contains("audio"))
             }
             
-            // Content-first approach: Enable if format is compatible OR detection succeeded
-            val shouldApplyEffects = hasCompatibleAudioFormat || contentSupportsSpatialization
+            val shouldApplyEffects = hasCompatibleAudioFormat &&
+                contentSupportsSpatialization &&
+                spatialDeviceCapability
             
             Log.d("PlayerUtils", "Content format: '$spatialFormat'")
             Log.d("PlayerUtils", "Compatible audio format: $hasCompatibleAudioFormat")
             Log.d("PlayerUtils", "Content supports spatialization: $contentSupportsSpatialization")
+            Log.d("PlayerUtils", "Device capability: $spatialDeviceCapability")
             Log.d("PlayerUtils", "Should apply effects: $shouldApplyEffects")
             
             if (!shouldApplyEffects) {

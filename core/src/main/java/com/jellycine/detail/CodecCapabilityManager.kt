@@ -3,8 +3,6 @@ package com.jellycine.detail
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.os.Build
-
 import com.jellycine.data.model.MediaStream
 import com.jellycine.player.audio.SpatializerHelper
 
@@ -50,6 +48,10 @@ object CodecCapabilityManager {
             titleLower.contains("atmos") ||
             layoutLower.contains("atmos") ||
             profileLower.contains("atmos") ||
+            codecLower.contains("eac3-joc") ||
+            codecLower.contains("ec+3") ||
+            titleLower.contains("joc") ||
+            profileLower.contains("joc") ||
             titleLower.contains("object audio") -> return "Dolby Atmos"
 
             // E-AC-3 JOC (AC-3 with Joint Object Coding)
@@ -58,23 +60,24 @@ object CodecCapabilityManager {
             titleLower.contains("joint object coding") ||
             titleLower.contains("dolby digital plus with dolby atmos") -> return "Dolby Atmos"
 
-            // TrueHD with Atmos - Blu-ray standard (accurate channel detection)
+            // TrueHD with Atmos markers.
+            // Plain TrueHD 7.1 is not guaranteed to be Atmos.
             codecLower.contains("truehd") && (
-                channels == 8 || // Standard 7.1 TrueHD Atmos
-                channels > 8 ||  // Extended Atmos layouts
-                titleLower.contains("7.1") ||
+                titleLower.contains("atmos") ||
+                profileLower.contains("atmos") ||
                 titleLower.contains("object") ||
-                layoutLower.contains("7.1")
+                profileLower.contains("joc") ||
+                titleLower.contains("joc")
             ) -> return "Dolby Atmos"
 
             // E-AC-3 with Atmos indicators (streaming format)
             (codecLower.contains("eac3") || codecLower.contains("e-ac-3") || codecLower.contains("ec-3")) && (
                 titleLower.contains("atmos") ||
-                titleLower.contains("plus") ||
-                titleLower.contains("") ||
-                titleLower.contains("7.1") ||
-                layoutLower.contains("7.1") ||
-                channels >= 8 // E-AC-3 with 8+ channels often indicates Atmos
+                profileLower.contains("atmos") ||
+                titleLower.contains("joc") ||
+                profileLower.contains("joc") ||
+                titleLower.contains("object") ||
+                profileLower.contains("object")
             ) -> return "Dolby Atmos"
 
             // === DTS:X DETECTION ===
@@ -113,19 +116,24 @@ object CodecCapabilityManager {
             // MPEG-H Audio
             codecLower.contains("mpegh") ||
             codecLower.contains("mpeg-h") ||
-            titleLower.contains("mpeg-h audio") ||
-            titleLower.contains("audio") -> return "MPEG-H Audio"
+            titleLower.contains("mpeg-h audio") -> return "MPEG-H Audio"
 
             // Auro-3D
             titleLower.contains("auro-3d") ||
             titleLower.contains("auro3d") ||
             layoutLower.contains("auro") -> return "Auro-3D"
 
-            // === FALLBACK DETECTION BY CHANNEL COUNT ===
-            
-            // High channel count detection (conservative approach)
-            channels >= 16 -> return "${channels}ch (Spatial)"
-            channels >= 12 -> return "${channels}ch ()"
+            // === CHANNEL-BASED SURROUND (SPATIALIZABLE BEDS) ===
+
+            // Channel layouts that are spatializable via binaural rendering
+            layoutLower.contains("7.1") || layoutLower.contains("(7.1)") -> return "7.1 Surround"
+            layoutLower.contains("5.1") || layoutLower.contains("(5.1)") -> return "5.1 Surround"
+
+            // Channel-count fallback for spatializable multichannel beds
+            channels >= 12 -> return "${channels}ch (Spatial)"
+            channels >= 10 -> return "${channels}ch Surround"
+            channels >= 8 -> return "7.1 Surround"
+            channels >= 6 -> return "5.1 Surround"
         }
 
         return ""
@@ -182,7 +190,7 @@ object CodecCapabilityManager {
         
         // Get comprehensive spatial audio info
         val spatialInfo = spatializerHelper.getSpatialAudioInfo()
-        val supportsSpatialAudio = spatialInfo.isSupported && spatialInfo.isAvailable && spatialInfo.isEnabled
+        val supportsSpatialAudio = spatializerHelper.canSpatializeMultiChannel()
         
         // Detect connected audio devices
         val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
@@ -197,14 +205,8 @@ object CodecCapabilityManager {
             AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Built-in Speaker"
             else -> "Unknown"
         }
-        
-        // Check for Atmos capability based on device type
-        val supportsAtmos = when (connectedDevice?.type) {
-            AudioDeviceInfo.TYPE_HDMI -> true // HDMI can pass through Atmos
-            AudioDeviceInfo.TYPE_USB_HEADSET -> true // USB can support Atmos
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> checkBluetoothAtmosSupport(connectedDevice)
-            else -> false
-        }
+
+        val supportsAtmos = supportsSpatialAudio
         
         // Estimate max channels based on device
         val maxChannels = when (connectedDevice?.type) {
@@ -216,7 +218,7 @@ object CodecCapabilityManager {
             else -> 2
         }
         
-        val canProcessSpatialAudio = supportsSpatialAudio || supportsAtmos
+        val canProcessSpatialAudio = supportsSpatialAudio
         
         return AudioCapabilities(
             supportsSpatialAudio = supportsSpatialAudio,
@@ -227,25 +229,6 @@ object CodecCapabilityManager {
             hasHeadTracker = spatialInfo.hasHeadTracker,
             spatializerHelper = spatializerHelper
         )
-    }
-
-    /**
-     * Check if Bluetooth device supports spatial audio
-     */
-    private fun checkBluetoothAtmosSupport(device: AudioDeviceInfo): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            try {
-                // Check for LDAC, aptX HD, or other high-quality codecs
-                device.productName.toString().contains("LDAC", ignoreCase = true) ||
-                device.productName.toString().contains("aptX", ignoreCase = true) ||
-                device.productName.toString().contains("Sony", ignoreCase = true) || // Sony often supports spatial
-                device.productName.toString().contains("Bose", ignoreCase = true)    // Bose often supports spatial
-            } catch (e: Exception) {
-                false
-            }
-        } else {
-            false
-        }
     }
 
     /**
@@ -288,13 +271,10 @@ object CodecCapabilityManager {
     }
     
     /**
-     * Check if the device can spatialize the given audio stream
-     * Content-aware approach: Prioritizes content format detection over strict device requirements
+     * Check if the device can spatialize the given audio stream.
+     * Returns true only when content is spatializable and the current route can render it.
      */
     fun canSpatializeAudioStream(context: Context, audioStream: MediaStream): SpatializationResult {
-        // First check if content has spatial audio metadata
-        val hasMetadata = hasSpatialAudio(audioStream)
-        
         val spatialFormat = detectSpatialAudio(
             audioStream.codec?.uppercase() ?: "",
             audioStream.channels ?: 0,
@@ -303,35 +283,46 @@ object CodecCapabilityManager {
             audioStream.profile
         )
         
-        // Content-first approach: If we detect spatial format, enable processing
-        if (hasMetadata && spatialFormat.isNotEmpty()) {
-            val deviceCapabilities = detectDeviceAudioCapabilities(context)
-            val spatializerHelper = deviceCapabilities.spatializerHelper
-            
-            // Content is compatible, check if device can provide additional enhancement
-            val deviceCanEnhance = spatializerHelper?.let { helper ->
-                val audioFormat = helper.getRecommendedAudioFormat(audioStream.channels ?: 2)
-                audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
-            } ?: false
-            
+        if (spatialFormat.isEmpty()) {
             return SpatializationResult(
-                canSpatialize = true,
-                reason = if (deviceCanEnhance) {
-                    "Content has spatial audio and device supports enhancement"
-                } else {
-                    "Content has spatial audio (device enhancement not available)"
-                },
-                spatialFormat = spatialFormat,
-                hasHeadTracking = deviceCapabilities.hasHeadTracker && deviceCanEnhance
+                canSpatialize = false,
+                reason = "Content is not multichannel/object-based spatial audio",
+                spatialFormat = "Stereo"
             )
         }
-        
-        // No spatial audio metadata found
-        return SpatializationResult(
-            canSpatialize = false,
-            reason = "Content does not contain spatial audio metadata",
-            spatialFormat = spatialFormat.ifEmpty { "Stereo" }
-        )
+
+        val deviceCapabilities = detectDeviceAudioCapabilities(context)
+        val spatializerHelper = deviceCapabilities.spatializerHelper
+        val requestedChannelCount = (audioStream.channels ?: 2).coerceAtLeast(2)
+
+        val deviceCanSpatialize = spatializerHelper?.let { helper ->
+            val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
+            audioFormat?.let { helper.canSpatializeOnTrack(it) } ?: false
+        } ?: deviceCapabilities.canProcessSpatialAudio
+
+        return if (deviceCanSpatialize) {
+            val spatializerActive = spatializerHelper?.let { helper ->
+                val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
+                audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
+            } ?: false
+
+            SpatializationResult(
+                canSpatialize = true,
+                reason = if (spatializerActive) {
+                    "Spatializable content detected and device spatializer is active for this route"
+                } else {
+                    "Spatializable content detected; route supports spatial audio and app compatibility processing is enabled"
+                },
+                spatialFormat = spatialFormat,
+                hasHeadTracking = deviceCapabilities.hasHeadTracker && spatializerActive
+            )
+        } else {
+            SpatializationResult(
+                canSpatialize = false,
+                reason = "Spatializable content detected, but device spatializer is unavailable for current route/format",
+                spatialFormat = spatialFormat
+            )
+        }
     }
 }
 
