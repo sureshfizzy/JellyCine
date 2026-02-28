@@ -16,12 +16,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.jellycine.app.ui.screens.player.GestureHelper
+import com.jellycine.player.preferences.PlayerPreferences
 import androidx.lifecycle.Lifecycle
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
+import kotlin.math.roundToInt
 
 @UnstableApi
 @SuppressLint("ClickableViewAccessibility")
@@ -60,8 +62,9 @@ fun VideoSurface(
         label = "video_offset_y"
     )
 
-    // Initialize  gesture helper
+    // Initialize gesture helper
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val playerPreferences = remember { PlayerPreferences(context) }
     var gestureHelper: GestureHelper? by remember { mutableStateOf(null) }
 
     Box(
@@ -94,6 +97,40 @@ fun VideoSurface(
             update = { playerView ->
                 playerView.player = player
                 playerView.resizeMode = resizeMode
+
+                playerView.subtitleView?.apply {
+                    setApplyEmbeddedStyles(false)
+                    setApplyEmbeddedFontSizes(false)
+
+                    setFractionalTextSize(
+                        subtitleTextSizeFraction(playerPreferences.getSubtitleTextSize())
+                    )
+                    setStyle(
+                        CaptionStyleCompat(
+                            subtitleTextColorArgb(playerPreferences.getSubtitleTextColor()),
+                            subtitleBackgroundColorArgb(playerPreferences.getSubtitleBackgroundColor()),
+                            android.graphics.Color.TRANSPARENT,
+                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            android.graphics.Color.BLACK,
+                            null
+                        )
+                    )
+                    setBottomPaddingFraction(
+                        playerPreferences
+                            .getSubtitleBottomEdgePositionPercent()
+                            .coerceIn(0, 50) / 100f
+                    )
+
+                    if (playerView.height > 0) {
+                        val topPaddingPx = (
+                            playerView.height *
+                                (playerPreferences.getSubtitleTopEdgePositionPercent().coerceIn(0, 50) / 100f)
+                            ).roundToInt()
+                        if (paddingTop != topPaddingPx) {
+                            setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+                        }
+                    }
+                }
 
                 // Initialize gesture helper
                 if (gestureHelper == null) {
@@ -133,5 +170,32 @@ fun VideoSurface(
                 )
         )
 
+    }
+}
+
+private fun subtitleTextSizeFraction(size: String): Float {
+    return when (size) {
+        PlayerPreferences.SUBTITLE_TEXT_SIZE_SMALL -> 0.04f
+        PlayerPreferences.SUBTITLE_TEXT_SIZE_LARGE -> 0.065f
+        PlayerPreferences.SUBTITLE_TEXT_SIZE_EXTRA_LARGE -> 0.08f
+        else -> 0.0533f // Normal
+    }
+}
+
+private fun subtitleTextColorArgb(color: String): Int {
+    return when (color) {
+        PlayerPreferences.SUBTITLE_TEXT_COLOR_YELLOW -> android.graphics.Color.YELLOW
+        PlayerPreferences.SUBTITLE_TEXT_COLOR_GREEN -> android.graphics.Color.GREEN
+        PlayerPreferences.SUBTITLE_TEXT_COLOR_CYAN -> android.graphics.Color.CYAN
+        PlayerPreferences.SUBTITLE_TEXT_COLOR_BLACK -> android.graphics.Color.BLACK
+        else -> android.graphics.Color.WHITE
+    }
+}
+
+private fun subtitleBackgroundColorArgb(color: String): Int {
+    return when (color) {
+        PlayerPreferences.SUBTITLE_BACKGROUND_BLACK -> android.graphics.Color.BLACK
+        PlayerPreferences.SUBTITLE_BACKGROUND_WHITE -> android.graphics.Color.WHITE
+        else -> android.graphics.Color.TRANSPARENT
     }
 }

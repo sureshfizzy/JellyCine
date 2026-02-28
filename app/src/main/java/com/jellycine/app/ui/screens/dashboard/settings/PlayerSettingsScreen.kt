@@ -24,12 +24,13 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Tv
@@ -46,6 +47,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -59,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,11 +70,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.player.audio.ExternalAudioDevice
+import com.jellycine.player.preferences.PlayerPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerSettingsScreen(
-    onBackPressed: () -> Unit = {}
+    onBackPressed: () -> Unit = {},
+    onNavigateToSubtitleSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: PlayerSettingsViewModel = viewModel { PlayerSettingsViewModel(context) }
@@ -81,20 +87,7 @@ fun PlayerSettingsScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Player Settings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
+            topbar(title = "Player Settings", onBackPressed = onBackPressed)
         }
     ) { paddingValues ->
         LazyColumn(
@@ -129,7 +122,19 @@ fun PlayerSettingsScreen(
                             accentColor = decodingColor
                         )
                     }
+                }
+            }
 
+            item { SectionLabel("Subtitiles") }
+            item {
+                SettingsSection {
+                    ClickableSettingsItem(
+                        icon = Icons.Rounded.VideoSettings,
+                        title = "Subtitles",
+                        subtitle = "Text style and subtitle position",
+                        onClick = onNavigateToSubtitleSettings,
+                        accentColor = Color(0xFF6366F1)
+                    )
                 }
             }
 
@@ -183,6 +188,139 @@ fun PlayerSettingsScreen(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubtitleSettingsScreen(
+    onBackPressed: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val playerPreferences = remember { PlayerPreferences(context) }
+    val subtitleAccent = Color(0xFF6366F1)
+    val positionAccent = Color(0xFF0EA5E9)
+
+    var textSize by remember { mutableStateOf(playerPreferences.getSubtitleTextSize()) }
+    var textColor by remember { mutableStateOf(playerPreferences.getSubtitleTextColor()) }
+    var backgroundColor by remember { mutableStateOf(playerPreferences.getSubtitleBackgroundColor()) }
+    var bottomEdgePercent by remember {
+        mutableStateOf(playerPreferences.getSubtitleBottomEdgePositionPercent())
+    }
+    var topEdgePercent by remember {
+        mutableStateOf(playerPreferences.getSubtitleTopEdgePositionPercent())
+    }
+
+    Scaffold(
+        topBar = {
+            topbar(title = "Subtitles", onBackPressed = onBackPressed)
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(bottom = 96.dp)
+        ) {
+            item { SectionLabel("Style") }
+            item {
+                SettingsSection {
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.Tune,
+                        title = "Text Size",
+                        subtitle = textSize,
+                        options = PlayerPreferences.SUBTITLE_TEXT_SIZE_OPTIONS,
+                        onOptionSelected = { selected ->
+                            textSize = selected
+                            playerPreferences.setSubtitleTextSize(selected)
+                        },
+                        accentColor = subtitleAccent
+                    )
+
+                    SettingsDivider()
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.SortByAlpha,
+                        title = "Text Color",
+                        subtitle = textColor,
+                        options = PlayerPreferences.SUBTITLE_TEXT_COLOR_OPTIONS,
+                        onOptionSelected = { selected ->
+                            textColor = selected
+                            playerPreferences.setSubtitleTextColor(selected)
+                        },
+                        accentColor = subtitleAccent
+                    )
+
+                    SettingsDivider()
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.Brush,
+                        title = "Background Color",
+                        subtitle = backgroundColor,
+                        options = PlayerPreferences.SUBTITLE_BACKGROUND_OPTIONS,
+                        onOptionSelected = { selected ->
+                            backgroundColor = selected
+                            playerPreferences.setSubtitleBackgroundColor(selected)
+                        },
+                        accentColor = subtitleAccent
+                    )
+                }
+            }
+
+            item { SectionLabel("Position") }
+            item {
+                SettingsSection {
+                    PercentageSliderSettingsItem(
+                        icon = Icons.Rounded.Fullscreen,
+                        title = "Bottom Edge Position",
+                        subtitle = "Distance from bottom edge",
+                        value = bottomEdgePercent,
+                        defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT,
+                        onValueChanged = { updated ->
+                            bottomEdgePercent = updated
+                            playerPreferences.setSubtitleBottomEdgePositionPercent(updated)
+                        },
+                        accentColor = positionAccent
+                    )
+
+                    SettingsDivider()
+                    PercentageSliderSettingsItem(
+                        icon = Icons.Rounded.Fullscreen,
+                        title = "Top Edge Position",
+                        subtitle = "Distance from top edge",
+                        value = topEdgePercent,
+                        defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_TOP_EDGE_PERCENT,
+                        onValueChanged = { updated ->
+                            topEdgePercent = updated
+                            playerPreferences.setSubtitleTopEdgePositionPercent(updated)
+                        },
+                        accentColor = positionAccent
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun topbar(
+    title: String,
+    onBackPressed: () -> Unit
+) {
+    CenterAlignedTopAppBar(
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+            IconButton(onClick = onBackPressed) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent
+        )
+    )
 }
 
 @Composable
@@ -406,6 +544,129 @@ private fun BaseSettingsItem(
         }
 
         trailing?.invoke()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PercentageSliderSettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    value: Int,
+    defaultValue: Int,
+    onValueChanged: (Int) -> Unit,
+    accentColor: Color = MaterialTheme.colorScheme.primary
+) {
+    val valueRange = 0..50
+    val safeValue = value.coerceIn(valueRange.first, valueRange.last)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(
+                        color = accentColor.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+
+            Text(
+                text = "${safeValue}%",
+                style = MaterialTheme.typography.titleSmall,
+                color = accentColor
+            )
+        }
+
+        Slider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .graphicsLayer(scaleY = 0.75f),
+            value = safeValue.toFloat(),
+            onValueChange = { changed ->
+                onValueChanged(changed.toInt().coerceIn(valueRange.first, valueRange.last))
+            },
+            valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
+            steps = 9,
+            colors = SliderDefaults.colors(
+                thumbColor = accentColor,
+                activeTrackColor = accentColor,
+                inactiveTrackColor = accentColor.copy(alpha = 0.25f),
+                activeTickColor = accentColor.copy(alpha = 0.4f),
+                inactiveTickColor = accentColor.copy(alpha = 0.4f)
+            ),
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .width(10.dp)
+                        .height(18.dp)
+                        .background(
+                            color = accentColor,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                )
+            }
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "0%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "Default ${defaultValue}%",
+                style = MaterialTheme.typography.labelMedium,
+                color = accentColor,
+                modifier = Modifier.clickable {
+                    onValueChanged(defaultValue.coerceIn(valueRange.first, valueRange.last))
+                }
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "50%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
+        }
     }
 }
 

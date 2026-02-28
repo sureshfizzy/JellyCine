@@ -22,10 +22,55 @@ class PlayerPreferences(context: Context) {
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
+        private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
+        private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
+        private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
+        private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
+        private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
         private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
         private const val KEY_STREAM_INDEX_UPDATED_AT_PREFIX = "stream_index_updated_at_"
         private const val MAX_PREFERRED_STREAM_ITEMS = 500
+
+        const val SUBTITLE_TEXT_SIZE_SMALL = "Small"
+        const val SUBTITLE_TEXT_SIZE_NORMAL = "Normal"
+        const val SUBTITLE_TEXT_SIZE_LARGE = "Large"
+        const val SUBTITLE_TEXT_SIZE_EXTRA_LARGE = "Extra Large"
+        val SUBTITLE_TEXT_SIZE_OPTIONS = listOf(
+            SUBTITLE_TEXT_SIZE_SMALL,
+            SUBTITLE_TEXT_SIZE_NORMAL,
+            SUBTITLE_TEXT_SIZE_LARGE,
+            SUBTITLE_TEXT_SIZE_EXTRA_LARGE
+        )
+
+        const val SUBTITLE_TEXT_COLOR_WHITE = "White"
+        const val SUBTITLE_TEXT_COLOR_YELLOW = "Yellow"
+        const val SUBTITLE_TEXT_COLOR_GREEN = "Green"
+        const val SUBTITLE_TEXT_COLOR_CYAN = "Cyan"
+        const val SUBTITLE_TEXT_COLOR_BLACK = "Black"
+        val SUBTITLE_TEXT_COLOR_OPTIONS = listOf(
+            SUBTITLE_TEXT_COLOR_WHITE,
+            SUBTITLE_TEXT_COLOR_YELLOW,
+            SUBTITLE_TEXT_COLOR_GREEN,
+            SUBTITLE_TEXT_COLOR_CYAN,
+            SUBTITLE_TEXT_COLOR_BLACK
+        )
+
+        const val SUBTITLE_BACKGROUND_TRANSPARENT = "Transparent"
+        const val SUBTITLE_BACKGROUND_BLACK = "Black"
+        const val SUBTITLE_BACKGROUND_WHITE = "White"
+        val SUBTITLE_BACKGROUND_OPTIONS = listOf(
+            SUBTITLE_BACKGROUND_TRANSPARENT,
+            SUBTITLE_BACKGROUND_BLACK,
+            SUBTITLE_BACKGROUND_WHITE
+        )
+
+        const val DEFAULT_SUBTITLE_TEXT_SIZE = SUBTITLE_TEXT_SIZE_NORMAL
+        const val DEFAULT_SUBTITLE_TEXT_COLOR = SUBTITLE_TEXT_COLOR_WHITE
+        const val DEFAULT_SUBTITLE_BACKGROUND_COLOR = SUBTITLE_BACKGROUND_TRANSPARENT
+        const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
+        const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
+        private const val MAX_SUBTITLE_EDGE_PERCENT = 50
     }
     
     /**
@@ -154,6 +199,63 @@ class PlayerPreferences(context: Context) {
     fun setHdrEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HDR_ENABLED, enabled).apply()
     }
+
+    fun getSubtitleTextSize(): String {
+        val saved = prefs.getString(KEY_SUBTITLE_TEXT_SIZE, DEFAULT_SUBTITLE_TEXT_SIZE)
+        return if (saved in SUBTITLE_TEXT_SIZE_OPTIONS) saved!! else DEFAULT_SUBTITLE_TEXT_SIZE
+    }
+
+    fun setSubtitleTextSize(size: String) {
+        val value = if (size in SUBTITLE_TEXT_SIZE_OPTIONS) size else DEFAULT_SUBTITLE_TEXT_SIZE
+        prefs.edit().putString(KEY_SUBTITLE_TEXT_SIZE, value).apply()
+    }
+
+    fun getSubtitleTextColor(): String {
+        val saved = prefs.getString(KEY_SUBTITLE_TEXT_COLOR, DEFAULT_SUBTITLE_TEXT_COLOR)
+        return if (saved in SUBTITLE_TEXT_COLOR_OPTIONS) saved!! else DEFAULT_SUBTITLE_TEXT_COLOR
+    }
+
+    fun setSubtitleTextColor(color: String) {
+        val value = if (color in SUBTITLE_TEXT_COLOR_OPTIONS) color else DEFAULT_SUBTITLE_TEXT_COLOR
+        prefs.edit().putString(KEY_SUBTITLE_TEXT_COLOR, value).apply()
+    }
+
+    fun getSubtitleBackgroundColor(): String {
+        val saved = prefs.getString(KEY_SUBTITLE_BACKGROUND_COLOR, DEFAULT_SUBTITLE_BACKGROUND_COLOR)
+        return if (saved in SUBTITLE_BACKGROUND_OPTIONS) saved!! else DEFAULT_SUBTITLE_BACKGROUND_COLOR
+    }
+
+    fun setSubtitleBackgroundColor(color: String) {
+        val value = if (color in SUBTITLE_BACKGROUND_OPTIONS) color else DEFAULT_SUBTITLE_BACKGROUND_COLOR
+        prefs.edit().putString(KEY_SUBTITLE_BACKGROUND_COLOR, value).apply()
+    }
+
+    fun getSubtitleBottomEdgePositionPercent(): Int {
+        return prefs.getInt(
+            KEY_SUBTITLE_BOTTOM_EDGE_PERCENT,
+            DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT
+        ).coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)
+    }
+
+    fun setSubtitleBottomEdgePositionPercent(percent: Int) {
+        prefs.edit()
+            .putInt(KEY_SUBTITLE_BOTTOM_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
+            .apply()
+    }
+
+    fun getSubtitleTopEdgePositionPercent(): Int {
+        return prefs.getInt(
+            KEY_SUBTITLE_TOP_EDGE_PERCENT,
+            DEFAULT_SUBTITLE_TOP_EDGE_PERCENT
+        ).coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)
+    }
+
+    fun setSubtitleTopEdgePositionPercent(percent: Int) {
+        prefs.edit()
+            .putInt(KEY_SUBTITLE_TOP_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
+            .apply()
+    }
+
     fun getPreferredAudioStreamIndex(itemId: String): Int? {
         val key = audioStreamKey(itemId)
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null

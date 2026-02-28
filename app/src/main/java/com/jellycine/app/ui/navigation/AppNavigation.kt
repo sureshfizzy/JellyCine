@@ -12,11 +12,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
@@ -26,21 +23,17 @@ import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
-import com.jellycine.data.model.BaseItemDto
-import com.google.gson.Gson
 import com.jellycine.auth.AuthStateManager
-import java.net.URLEncoder
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 import androidx.media3.common.util.UnstableApi
 
 // Pure Animation helpers - no sliding, only fade with content transforms
-private fun create3DEnterTransition(duration: Int = 400): EnterTransition {
+private fun textTransition(duration: Int = 400): EnterTransition {
     return fadeIn(animationSpec = tween(duration, easing = FastOutSlowInEasing))
 }
 
-private fun create3DExitTransition(duration: Int = 300): ExitTransition {
+private fun textExitTransition(duration: Int = 300): ExitTransition {
     return fadeOut(animationSpec = tween(duration, easing = LinearOutSlowInEasing))
 }
 
@@ -67,8 +60,8 @@ fun AppNavigation() {
     ) {
             composable(
                 "splash",
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 AuthScreen(
                     onAuthSuccess = {
@@ -81,8 +74,8 @@ fun AppNavigation() {
 
             composable(
                 "auth",
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 AuthScreen(
                     onAuthSuccess = {
@@ -95,8 +88,8 @@ fun AppNavigation() {
 
             composable(
                 "server_connection",
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 AuthScreen(
                     onAuthSuccess = {
@@ -109,8 +102,8 @@ fun AppNavigation() {
 
             composable(
                 "dashboard",
-                enterTransition = { create3DEnterTransition(400) },
-                exitTransition = { create3DExitTransition(300) }
+                enterTransition = { textTransition(400) },
+                exitTransition = { textExitTransition(300) }
             ) {
                 DashboardContainer(
                     onLogout = {
@@ -156,8 +149,8 @@ fun AppNavigation() {
             composable(
                 "detail/{itemId}",
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
 
@@ -188,8 +181,8 @@ fun AppNavigation() {
             composable(
                 "episode/{episodeId}",
                 arguments = listOf(navArgument("episodeId") { type = NavType.StringType }),
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val episodeId = backStackEntry.arguments?.getString("episodeId")
 
@@ -220,8 +213,8 @@ fun AppNavigation() {
             composable(
                 "person/{personId}",
                 arguments = listOf(navArgument("personId") { type = NavType.StringType }),
-                enterTransition = { create3DEnterTransition(500) },
-                exitTransition = { create3DExitTransition(400) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val personId = backStackEntry.arguments?.getString("personId")
 
@@ -261,8 +254,8 @@ fun AppNavigation() {
                         defaultValue = null
                     }
                 ),
-                enterTransition = { create3DEnterTransition(450) },
-                exitTransition = { create3DExitTransition(350) }
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
             ) { backStackEntry ->
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")
@@ -298,10 +291,25 @@ fun AppNavigation() {
 
             composable(
                 "player_settings",
-                enterTransition = { create3DEnterTransition(450) },
-                exitTransition = { create3DExitTransition(350) }
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
             ) {
                 PlayerSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToSubtitleSettings = {
+                        navController.navigate("subtitle_settings")
+                    }
+                )
+            }
+
+            composable(
+                "subtitle_settings",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                SubtitleSettingsScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }
@@ -310,8 +318,8 @@ fun AppNavigation() {
 
             composable(
                 "downloads",
-                enterTransition = { create3DEnterTransition(450) },
-                exitTransition = { create3DExitTransition(350) }
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
             ) {
                 DownloadsScreen(
                     onBackPressed = {
@@ -322,8 +330,8 @@ fun AppNavigation() {
 
             composable(
                 "interface_settings",
-                enterTransition = { create3DEnterTransition(450) },
-                exitTransition = { create3DExitTransition(350) }
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
             ) {
                 InterfaceSettingsScreen(
                     onBackPressed = {
@@ -334,8 +342,8 @@ fun AppNavigation() {
 
             composable(
                 "cache_settings",
-                enterTransition = { create3DEnterTransition(450) },
-                exitTransition = { create3DExitTransition(350) }
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
             ) {
                 CacheSettingsScreen(
                     onBackPressed = {
