@@ -172,7 +172,8 @@ fun DashboardContainer(
     val navGroupSpacing = if (shouldUseMobileBarWidth) 12.dp else 20.dp
     val innerItemOffset = if (shouldUseMobileBarWidth) 16.dp else 22.dp
     val outerItemOffset = if (shouldUseMobileBarWidth) 0.dp else 10.dp
-    val bottomBarHideDistancePx = with(density) { (bottomBarHeight + 36.dp).toPx() }
+    val navigationBarInsetPx = WindowInsets.navigationBars.getBottom(density).toFloat()
+    val bottomBarHideDistancePx = with(density) { (bottomBarHeight + 36.dp).toPx() } + navigationBarInsetPx
     val hideThresholdPx = with(density) { 22.dp.toPx() }
     val showThresholdPx = with(density) { 14.dp.toPx() }
     var isBottomBarVisible by remember { mutableStateOf(true) }
@@ -230,13 +231,32 @@ fun DashboardContainer(
         }
     }
 
-    val animatedBottomBarTranslationPx by animateFloatAsState(
-        targetValue = if (isBottomBarVisible) 0f else bottomBarHideDistancePx,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        )
+    val bottomBarTransition = updateTransition(
+        targetState = isBottomBarVisible,
+        label = "bottom_bar_visibility"
     )
+    val bottomBarTranslationPx by bottomBarTransition.animateFloat(
+        transitionSpec = {
+            tween(
+                durationMillis = if (targetState) 440 else 320,
+                easing = FastOutSlowInEasing
+            )
+        },
+        label = "bottom_bar_translation"
+    ) { visible ->
+        if (visible) 0f else bottomBarHideDistancePx
+    }
+    val bottomBarAlpha by bottomBarTransition.animateFloat(
+        transitionSpec = {
+            tween(
+                durationMillis = if (targetState) 420 else 260,
+                easing = LinearOutSlowInEasing
+            )
+        },
+        label = "bottom_bar_alpha"
+    ) { visible ->
+        if (visible) 1f else 0f
+    }
 
 
 
@@ -426,7 +446,12 @@ fun DashboardContainer(
                         horizontal = if (isOfflineTwoTabMode) 0.dp else barOuterHorizontalPadding,
                         vertical = 10.dp
                     )
-                    .graphicsLayer { translationY = animatedBottomBarTranslationPx }
+                    .graphicsLayer {
+                        translationY = bottomBarTranslationPx
+                        alpha = bottomBarAlpha
+                        clip = false
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
             ) {
                 Box(
                     modifier = Modifier
