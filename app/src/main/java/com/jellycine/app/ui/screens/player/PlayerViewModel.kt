@@ -15,7 +15,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -45,6 +48,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
     private val _preferredStreamIndexes = MutableStateFlow(PreferredStreamIndexes())
     val preferredStreamIndexes: StateFlow<PreferredStreamIndexes> = _preferredStreamIndexes.asStateFlow()
+    private val _playbackCompletedEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val playbackCompletedEvents: SharedFlow<String> = _playbackCompletedEvents.asSharedFlow()
 
     var exoPlayer: ExoPlayer? = null
         private set
@@ -65,6 +70,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var pendingPreferredAudioStreamIndex: Int? = null
     private var pendingPreferredSubtitleStreamIndex: Int? = null
     private var hasAppliedInitialTrackPreferences = false
+    private var hasHandledPlaybackCompletion = false
 
     data class PreferredStreamIndexes(
         val audioStreamIndex: Int? = null,
@@ -83,6 +89,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 playerContext = context // Store context for later use
                 currentMediaId = mediaId // Store media ID for session reporting
+                hasHandledPlaybackCompletion = false
                 mediaRepository = MediaRepositoryProvider.getInstance(context)
                 val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
@@ -296,6 +303,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         pendingPreferredAudioStreamIndex = null
         pendingPreferredSubtitleStreamIndex = null
         hasAppliedInitialTrackPreferences = false
+        hasHandledPlaybackCompletion = false
         _preferredStreamIndexes.value = PreferredStreamIndexes()
         
         _playerState.value = PlayerState()
@@ -393,32 +401,35 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      */
     private fun reportPlaybackStopped() {
         if (isOfflinePlayback) return
-        currentMediaId?.let { mediaId ->
-            if (hasReportedStart) {
-                viewModelScope.launch {
-                    try {
-                        val currentPos = exoPlayer?.currentPosition ?: 0L
-                        val positionTicks = currentPos * 10000L // Convert ms to ticks
-                        
-                        val result = mediaRepository.reportPlaybackStopped(
-                            itemId = mediaId,
-                            positionTicks = positionTicks,
-                            playSessionId = playSessionId,
-                            mediaSourceId = mediaSourceId
-                        )
-                        
-                        if (result.isSuccess) {
-                            // Playback stopped reported successfully
-                        } else {
-                            Log.e("PlayerViewModel", "Failed to report playback stopped: ${result.exceptionOrNull()?.message}")
-                        }
-                        
-                        hasReportedStart = false
-                    } catch (e: Exception) {
-                        Log.e("PlayerViewModel", "Error reporting playback stopped", e)
-                    }
-                }
+        val mediaId = currentMediaId ?: return
+        if (!hasReportedStart) return
+
+        hasReportedStart = false
+        val currentPos = exoPlayer?.currentPosition ?: 0L
+        val positionTicks = currentPos * 10000L // Convert ms to ticks
+        val playbackSessionId = playSessionId
+        val playbackMediaSourceId = mediaSourceId
+
+        viewModelScope.launch {
+            try {
+                mediaRepository.reportPlaybackStopped(
+                    itemId = mediaId,
+                    positionTicks = positionTicks,
+                    playSessionId = playbackSessionId,
+                    mediaSourceId = playbackMediaSourceId
+                )
+            } catch (e: Exception) {
+                Log.e("PlayerViewModel", "Error reporting playback stopped", e)
             }
+        }
+    }
+
+    private fun handlePlaybackCompleted() {
+        if (hasHandledPlaybackCompletion) return
+        hasHandledPlaybackCompletion = true
+        reportPlaybackStopped()
+        currentMediaId?.let { completedMediaId ->
+            _playbackCompletedEvents.tryEmit(completedMediaId)
         }
     }
 
@@ -797,8 +808,13 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
             // Update track information when player becomes ready
             if (playbackState == Player.STATE_READY) {
+                hasHandledPlaybackCompletion = false
                 PreferredTrackSelections()
                 updateTrackInformation()
+            }
+
+            if (playbackState == Player.STATE_ENDED) {
+                handlePlaybackCompleted()
             }
         }
 
@@ -824,6 +840,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             
             // Report playback stopped due to error
             if (hasReportedStart) {
+                hasReportedStart = false
                 viewModelScope.launch {
                     currentMediaId?.let { mediaId ->
                         mediaRepository.reportPlaybackStopped(

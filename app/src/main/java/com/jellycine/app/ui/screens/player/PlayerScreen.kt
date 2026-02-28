@@ -69,7 +69,8 @@ fun PlayerScreen(
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel(),
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
-    onBackPressed: (() -> Unit)? = null
+    onBackPressed: (() -> Unit)? = null,
+    onPlaybackCompleted: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentView = LocalView.current
@@ -146,23 +147,33 @@ fun PlayerScreen(
         }
     }
 
-    // Store initialization state to prevent multiple calls
-    var hasInitialized by remember { mutableStateOf(false) }
+    // Track initialized media so this screen can switch to a new episode in-place.
+    var initializedMediaId by remember { mutableStateOf<String?>(null) }
     
     // Initialize player
     LaunchedEffect(mediaId) {
-        if (!hasInitialized) {
-            try {
-                viewModel.initializePlayer(
-                    context = context,
-                    mediaId = mediaId,
-                    preferredAudioStreamIndex = preferredAudioStreamIndex,
-                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
-                )
-                hasInitialized = true
-            } catch (e: Exception) {
-                // Initialization failed, will be handled by PlayerViewModel
+        if (initializedMediaId == mediaId) return@LaunchedEffect
+
+        try {
+            if (initializedMediaId != null) {
+                viewModel.releasePlayer()
             }
+            uiState = uiState.copy(currentPosition = 0L, isPlaying = false)
+            viewModel.initializePlayer(
+                context = context,
+                mediaId = mediaId,
+                preferredAudioStreamIndex = preferredAudioStreamIndex,
+                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+            )
+            initializedMediaId = mediaId
+        } catch (e: Exception) {
+            // Initialization failed, will be handled by PlayerViewModel
+        }
+    }
+
+    LaunchedEffect(viewModel, onPlaybackCompleted) {
+        viewModel.playbackCompletedEvents.collect { completedMediaId ->
+            onPlaybackCompleted?.invoke(completedMediaId)
         }
     }
 
@@ -180,11 +191,11 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(
-        hasInitialized,
+        initializedMediaId,
         preferredStreamIndexes.audioStreamIndex,
         preferredStreamIndexes.subtitleStreamIndex
     ) {
-        if (hasInitialized) {
+        if (initializedMediaId == mediaId) {
             onPreferredStreamIndexesChanged(
                 preferredStreamIndexes.audioStreamIndex,
                 preferredStreamIndexes.subtitleStreamIndex
