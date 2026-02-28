@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -557,6 +558,15 @@ fun DetailContent(
         selectedVideo = selectedVideo,
         selectedAudio = selectedAudio
     )
+    val videoInlineMetaText = remember(
+        item.mediaSources,
+        effectiveMediaStreams
+    ) {
+        buildVideoInlineText(
+            mediaSources = item.mediaSources.orEmpty(),
+            streams = effectiveMediaStreams
+        )
+    }
 
     LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
         if (selectedVideo !in videoOptions) {
@@ -848,7 +858,7 @@ fun DetailContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 if (videoOptions.isNotEmpty()) {
                     if (videoOptions.size > 1) {
@@ -856,18 +866,23 @@ fun DetailContent(
                             label = "Video",
                             selectedOption = selectedVideo,
                             options = videoOptions,
+                            inlineMetaText = videoInlineMetaText,
                             onOptionSelected = { selectedVideo = it }
                         )
                     } else {
                         DetailInfoRow(
                             label = "Video",
-                            value = videoOptions.first()
+                            value = if (!videoInlineMetaText.isNullOrBlank()) {
+                                "${videoOptions.first()} / $videoInlineMetaText"
+                            } else {
+                                videoOptions.first()
+                            }
                         )
                     }
                 }
 
                 if (videoOptions.isNotEmpty() && audioOptions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
                 if (audioOptions.isNotEmpty()) {
@@ -902,7 +917,7 @@ fun DetailContent(
                 }
 
                 if (subtitleOptions.size > 1) {
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
 
                 if (subtitleOptions.size > 1) {
@@ -1469,13 +1484,13 @@ private fun DetailInfoRow(
     ) {
         Text(
             text = "$label  ",
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
         Text(
             text = value,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             color = Color.White.copy(alpha = 0.78f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -1489,6 +1504,7 @@ private fun OptionSelectorRow(
     label: String,
     selectedOption: String,
     options: List<String>,
+    inlineMetaText: String? = null,
     onOptionSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1499,7 +1515,7 @@ private fun OptionSelectorRow(
     ) {
         Text(
             text = "$label  ",
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
@@ -1515,28 +1531,39 @@ private fun OptionSelectorRow(
                         type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                         enabled = true
                     )
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .heightIn(min = 38.dp),
                 color = Color(0xFF1F1F24),
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val displayText = buildString {
+                        append(selectedOption.ifBlank { options.firstOrNull().orEmpty() })
+                        if (!inlineMetaText.isNullOrBlank()) {
+                            append(" / ")
+                            append(inlineMetaText)
+                        }
+                    }
                     Text(
-                        text = selectedOption.ifBlank { options.firstOrNull().orEmpty() },
+                        text = displayText,
                         color = Color.White,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowDown,
                         contentDescription = "Select $label",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -1556,6 +1583,44 @@ private fun OptionSelectorRow(
                 }
             }
         }
+    }
+}
+
+private fun buildVideoInlineText(
+    mediaSources: List<MediaSourceInfo>,
+    streams: List<MediaStream>
+): String? {
+    val source = inlinePrimaryMediaSource(mediaSources)
+    val parts = mutableListOf<String>()
+    CodecUtils.getFileSize(source?.size)?.let(parts::add)
+
+    val fileBitrate = source?.bitrate?.toLong()
+        ?: streams
+            .sumOf { (it.bitRate ?: 0).toLong() }
+            .takeIf { it > 0L }
+    formatBitrate(fileBitrate)?.let(parts::add)
+
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+}
+
+private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourceInfo? {
+    return sources.firstOrNull { source ->
+        !source.name.isNullOrBlank() ||
+            !source.container.isNullOrBlank() ||
+            source.size != null ||
+            source.bitrate != null ||
+            source.mediaStreams.orEmpty().isNotEmpty()
+    } ?: sources.firstOrNull()
+}
+
+private fun formatBitrate(bitsPerSecond: Int?): String? = formatBitrate(bitsPerSecond?.toLong())
+
+private fun formatBitrate(bitsPerSecond: Long?): String? {
+    val value = bitsPerSecond?.takeIf { it > 0L } ?: return null
+    return if (value >= 1_000_000L) {
+        "${String.format(Locale.US, "%.1f", value / 1_000_000.0)} Mbps"
+    } else {
+        "${value / 1000L} kbps"
     }
 }
 
