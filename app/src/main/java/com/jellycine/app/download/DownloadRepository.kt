@@ -63,6 +63,20 @@ data class StorageShortageInfo(
     val neededBytes: Long
 )
 
+data class BatchDownloadCandidate(
+    val item: BaseItemDto,
+    val remainingBytes: Long?
+)
+
+data class BatchDownloadEstimate(
+    val candidates: List<BatchDownloadCandidate>,
+    val availableBytes: Long,
+    val requiredBytes: Long
+) {
+    val exceedsStorage: Boolean
+        get() = requiredBytes > availableBytes
+}
+
 data class TrackedDownload(
     val itemId: String,
     val item: BaseItemDto?,
@@ -298,26 +312,57 @@ class DownloadRepository(context: Context) {
         Result.success(downloadId)
     }
 
-    suspend fun enqueueSeriesDownload(seriesId: String): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun buildSeriesDownloadEstimate(seriesId: String): Result<BatchDownloadEstimate> = withContext(Dispatchers.IO) {
         val episodes = mediaRepository.getEpisodes(seriesId).getOrElse {
             return@withContext Result.failure(it)
         }
-        enqueueEpisodeBatch(
+        buildEpisodeBatchEstimate(
             episodes = episodes,
             emptyError = "No episodes found for this series"
         )
     }
 
-    suspend fun enqueueSeasonDownload(seriesId: String, seasonId: String): Result<Int> = withContext(Dispatchers.IO) {
-        val episodes = mediaRepository.getEpisodes(
-            seriesId = seriesId,
-            seasonId = seasonId
-        ).getOrElse {
-            return@withContext Result.failure(it)
+    suspend fun buildEpisodeBatchEstimate(
+        episodes: List<BaseItemDto>,
+        emptyError: String = "No episodes found to download"
+    ): Result<BatchDownloadEstimate> = withContext(Dispatchers.IO) {
+        val normalizedEpisodes = episodes
+            .filter { !it.id.isNullOrBlank() }
+            .distinctBy { it.id }
+        if (normalizedEpisodes.isEmpty()) {
+            return@withContext Result.failure(Exception(emptyError))
         }
+
+        val candidates = normalizedEpisodes.map { episode ->
+            val episodeId = episode.id.orEmpty()
+            val estimatedBytes = estimateDownloadSizeBytes(episode)
+            val alreadyDownloadedBytes = downloadedBytesForItem(episodeId)
+            val remainingBytes = estimatedBytes?.let { size ->
+                (size - alreadyDownloadedBytes).coerceAtLeast(0L)
+            }
+
+            BatchDownloadCandidate(
+                item = episode,
+                remainingBytes = remainingBytes
+            )
+        }
+
+        val requiredBytes = candidates.sumOf { it.remainingBytes ?: 0L }
+        val availableBytes = appContext.filesDir.usableSpace.coerceAtLeast(0L)
+
+        Result.success(
+            BatchDownloadEstimate(
+                candidates = candidates,
+                availableBytes = availableBytes,
+                requiredBytes = requiredBytes
+            )
+        )
+    }
+
+    suspend fun enqueueEpisodeDownloads(episodes: List<BaseItemDto>): Result<Int> = withContext(Dispatchers.IO) {
         enqueueEpisodeBatch(
             episodes = episodes,
-            emptyError = "No episodes found for this season"
+            emptyError = "No episodes selected for download"
         )
     }
 
@@ -361,12 +406,22 @@ class DownloadRepository(context: Context) {
         episodes: List<BaseItemDto>,
         emptyError: String
     ): Result<Int> {
-        if (episodes.isEmpty()) {
-            return Result.failure(Exception(emptyError))
+        val estimate = buildEpisodeBatchEstimate(
+            episodes = episodes,
+            emptyError = emptyError
+        ).getOrElse {
+            return Result.failure(it)
+        }
+
+        if (estimate.exceedsStorage) {
+            return Result.failure(
+                Exception("Not enough storage space on this device")
+            )
         }
 
         var queued = 0
-        episodes.forEach { episode ->
+        estimate.candidates.forEach { candidate ->
+            val episode = candidate.item
             val result = enqueueItemDownload(episode)
             if (result.isSuccess) {
                 queued += 1
@@ -378,6 +433,45 @@ class DownloadRepository(context: Context) {
         } else {
             Result.success(queued)
         }
+    }
+
+    private suspend fun estimateDownloadSizeBytes(item: BaseItemDto): Long? {
+        val fromItem = item.mediaSources
+            ?.asSequence()
+            ?.mapNotNull { mediaSource -> mediaSource.size?.takeIf { it > 0L } }
+            ?.maxOrNull()
+        if (fromItem != null) return fromItem
+
+        val itemId = item.id ?: return null
+        val activeKnownBytes = stateFlows[itemId]?.value?.totalBytes?.takeIf { it > 0L }
+        if (activeKnownBytes != null) return activeKnownBytes
+
+        val persistedKnownBytes = readMetadata(itemId)?.totalBytes?.takeIf { it > 0L }
+        if (persistedKnownBytes != null) return persistedKnownBytes
+
+        return mediaRepository.getPlaybackInfo(itemId).getOrNull()
+            ?.mediaSources
+            ?.asSequence()
+            ?.mapNotNull { mediaSource -> mediaSource.size?.takeIf { it > 0L } }
+            ?.maxOrNull()
+    }
+
+    private fun downloadedBytesForItem(itemId: String): Long {
+        if (itemId.isBlank()) return 0L
+
+        val metadata = readMetadata(itemId)
+        val fileBytes = metadata?.localPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let(::File)
+            ?.takeIf { it.exists() }
+            ?.length()
+            ?.takeIf { it > 0L }
+
+        return listOfNotNull(
+            fileBytes,
+            stateFlows[itemId]?.value?.downloadedBytes?.takeIf { it > 0L },
+            metadata?.downloadedBytes?.takeIf { it > 0L }
+        ).maxOrNull() ?: 0L
     }
 
     private fun enqueuePendingTransfer(request: QueuedDownloadRequest) {

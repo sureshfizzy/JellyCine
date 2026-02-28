@@ -49,6 +49,8 @@ fun SeasonDetailScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var seasonQueueInProgress by remember(seasonId) { mutableStateOf(false) }
+    var downloadErrorDialogMessage by remember(seasonId) { mutableStateOf<String?>(null) }
+    var storageSelectionDialogState by remember(seasonId) { mutableStateOf<SeasonEpisodeSelectionDialogState?>(null) }
     var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember { mutableIntStateOf(0) }
@@ -350,9 +352,15 @@ fun SeasonDetailScreen(
                                         coroutineScope.launch {
                                             seasonQueueInProgress = true
                                             try {
-                                                downloadRepository.enqueueSeasonDownload(
-                                                    seriesId = seriesId,
-                                                    seasonId = seasonId
+                                                val estimateResult = downloadRepository.buildEpisodeBatchEstimate(episodes)
+                                                estimateResult.fold(
+                                                    onSuccess = { estimate ->
+                                                        storageSelectionDialogState = SeasonEpisodeSelectionDialogState.fromEstimate(estimate)
+                                                    },
+                                                    onFailure = { throwable ->
+                                                        downloadErrorDialogMessage = throwable.message
+                                                            ?: "Failed to prepare season download."
+                                                    }
                                                 )
                                             } finally {
                                                 seasonQueueInProgress = false
@@ -432,6 +440,117 @@ fun SeasonDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    storageSelectionDialogState?.let { dialogState ->
+        DownloadDialog(
+            title = "Choose Episodes",
+            subtitle = "Pick episodes to download. Selected total must fit available storage.",
+            availableBytes = dialogState.availableBytes,
+            options = dialogState.options,
+            initialSelection = dialogState.options.map { it.id }.toSet(),
+            confirmLabel = "Download Episodes",
+            onDismiss = { storageSelectionDialogState = null },
+            onConfirm = { selectedIds ->
+                val selectedEpisodes = dialogState.options
+                    .filter { selectedIds.contains(it.id) }
+                    .mapNotNull { option -> dialogState.episodesById[option.id] }
+                storageSelectionDialogState = null
+                coroutineScope.launch {
+                    seasonQueueInProgress = true
+                    try {
+                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes).onFailure { throwable ->
+                            downloadErrorDialogMessage = throwable.message
+                                ?: "Failed to queue selected episodes."
+                        }
+                    } finally {
+                        seasonQueueInProgress = false
+                    }
+                }
+            }
+        )
+    }
+
+    downloadErrorDialogMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { downloadErrorDialogMessage = null },
+            containerColor = Color(0xFF1A1C22),
+            titleContentColor = Color.White,
+            textContentColor = Color.White.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = "Download Failed",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(text = message)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { downloadErrorDialogMessage = null },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFF22D3EE)
+                    )
+                ) {
+                    Text("OK", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+}
+
+private data class SeasonEpisodeSelectionDialogState(
+    val availableBytes: Long,
+    val options: List<StorageSelectionOption>,
+    val episodesById: Map<String, BaseItemDto>
+) {
+    companion object {
+        fun fromEstimate(estimate: com.jellycine.app.download.BatchDownloadEstimate): SeasonEpisodeSelectionDialogState {
+            val candidates = estimate.candidates
+                .filter { !it.item.id.isNullOrBlank() }
+                .sortedWith(
+                    compareBy<com.jellycine.app.download.BatchDownloadCandidate>(
+                        { it.item.parentIndexNumber ?: Int.MAX_VALUE },
+                        { it.item.indexNumber ?: Int.MAX_VALUE },
+                        { it.item.name.orEmpty() }
+                    )
+                )
+
+            val options = candidates.map { candidate ->
+                val episode = candidate.item
+                val episodeId = episode.id.orEmpty()
+                val episodeCode = buildString {
+                    episode.parentIndexNumber?.let { season ->
+                        episode.indexNumber?.let { episodeNumber ->
+                            append("S$season:E$episodeNumber")
+                        }
+                    }
+                }
+                val episodeSubtitle = buildString {
+                    if (episodeCode.isNotBlank()) append(episodeCode)
+                    if (!episode.seriesName.isNullOrBlank()) {
+                        if (isNotBlank()) append("  |  ")
+                        append(episode.seriesName)
+                    }
+                }.ifBlank { null }
+
+                StorageSelectionOption(
+                    id = episodeId,
+                    title = episode.name?.takeIf { it.isNotBlank() } ?: "Episode",
+                    subtitle = episodeSubtitle,
+                    requiredBytes = candidate.remainingBytes ?: 0L
+                )
+            }
+
+            return SeasonEpisodeSelectionDialogState(
+                availableBytes = estimate.availableBytes,
+                options = options,
+                episodesById = candidates.associate { it.item.id.orEmpty() to it.item }
+            )
         }
     }
 }

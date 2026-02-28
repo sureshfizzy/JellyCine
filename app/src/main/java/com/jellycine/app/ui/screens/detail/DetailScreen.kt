@@ -47,6 +47,8 @@ import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.app.download.BatchDownloadCandidate
+import com.jellycine.app.download.BatchDownloadEstimate
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.ItemDownloadState
@@ -464,6 +466,7 @@ fun DetailContent(
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
     var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
+    var seriesStorageSelectionDialogState by remember(item.id) { mutableStateOf<SeriesSeasonSelectionDialogState?>(null) }
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
@@ -1162,7 +1165,15 @@ fun DetailContent(
                                     }
                                     seriesQueueInProgress = true
                                     try {
-                                        downloadRepository.enqueueSeriesDownload(seriesId)
+                                        val estimateResult = downloadRepository.buildSeriesDownloadEstimate(seriesId)
+                                        estimateResult.fold(
+                                            onSuccess = { estimate ->
+                                                seriesStorageSelectionDialogState = SeriesSeasonSelectionDialogState.fromEstimate(estimate)
+                                            },
+                                            onFailure = { throwable ->
+                                                downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
+                                            }
+                                        )
                                     } finally {
                                         seriesQueueInProgress = false
                                     }
@@ -1252,6 +1263,34 @@ fun DetailContent(
                 )
             }
         }
+    }
+
+    seriesStorageSelectionDialogState?.let { dialogState ->
+        DownloadDialog(
+            title = "Choose Seasons",
+            subtitle = "Pick seasons to download. Selected total must fit available storage.",
+            availableBytes = dialogState.availableBytes,
+            options = dialogState.options,
+            initialSelection = dialogState.options.map { it.id }.toSet(),
+            confirmLabel = "Download Seasons",
+            onDismiss = { seriesStorageSelectionDialogState = null },
+            onConfirm = { selectedIds ->
+                val selectedEpisodes = selectedIds
+                    .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
+                    .distinctBy { it.id }
+                seriesStorageSelectionDialogState = null
+                coroutineScope.launch {
+                    seriesQueueInProgress = true
+                    try {
+                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes).onFailure { throwable ->
+                            downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
+                        }
+                    } finally {
+                        seriesQueueInProgress = false
+                    }
+                }
+            }
+        )
     }
 
     downloadErrorDialogMessage?.let { message ->
@@ -1802,6 +1841,84 @@ private fun OptionLabels(options: List<String>): List<String> {
         counts[option] = seen
         if (seen == 1) option else "$option ($seen)"
     }
+}
+
+private data class SeriesSeasonSelectionDialogState(
+    val availableBytes: Long,
+    val options: List<StorageSelectionOption>,
+    val episodesBySeasonId: Map<String, List<BaseItemDto>>
+) {
+    companion object {
+        fun fromEstimate(estimate: BatchDownloadEstimate): SeriesSeasonSelectionDialogState {
+            data class SeasonGroupSummary(
+                val id: String,
+                val title: String,
+                val subtitle: String,
+                val requiredBytes: Long,
+                val seasonNumber: Int?,
+                val episodes: List<BaseItemDto>
+            )
+
+            val grouped = estimate.candidates
+                .filter { !it.item.id.isNullOrBlank() }
+                .groupBy { candidate -> seasonGroupKey(candidate.item) }
+
+            val groupedSummaries = grouped.map { (seasonId, candidates) ->
+                val orderedCandidates = candidates.sortedWith(
+                    compareBy<BatchDownloadCandidate>(
+                        { it.item.parentIndexNumber ?: Int.MAX_VALUE },
+                        { it.item.indexNumber ?: Int.MAX_VALUE },
+                        { it.item.name.orEmpty() }
+                    )
+                )
+                val firstItem = orderedCandidates.first().item
+                val seasonNumber = firstItem.parentIndexNumber
+                val title = when {
+                    !firstItem.seasonName.isNullOrBlank() -> firstItem.seasonName.orEmpty()
+                    seasonNumber != null -> "Season $seasonNumber"
+                    else -> "Season"
+                }
+
+                val episodeCount = orderedCandidates.size
+                val requiredBytes = orderedCandidates.sumOf { it.remainingBytes ?: 0L }
+
+                SeasonGroupSummary(
+                    id = seasonId,
+                    title = title,
+                    subtitle = episodeCountLabel(episodeCount),
+                    requiredBytes = requiredBytes,
+                    seasonNumber = seasonNumber,
+                    episodes = orderedCandidates.map { it.item }
+                )
+            }.sortedWith(
+                compareBy<SeasonGroupSummary>({ it.seasonNumber ?: Int.MAX_VALUE }, { it.title })
+            )
+
+            return SeriesSeasonSelectionDialogState(
+                availableBytes = estimate.availableBytes,
+                options = groupedSummaries.map { summary ->
+                    StorageSelectionOption(
+                        id = summary.id,
+                        title = summary.title,
+                        subtitle = summary.subtitle,
+                        requiredBytes = summary.requiredBytes
+                    )
+                },
+                episodesBySeasonId = groupedSummaries.associate { it.id to it.episodes }
+            )
+        }
+    }
+}
+
+private fun seasonGroupKey(item: BaseItemDto): String {
+    return item.seasonId?.takeIf { it.isNotBlank() }
+        ?: item.parentId?.takeIf { it.isNotBlank() }
+        ?: item.parentIndexNumber?.let { "season_$it" }
+        ?: "season_unknown_${item.id.orEmpty()}"
+}
+
+private fun episodeCountLabel(count: Int): String {
+    return "$count episode" + if (count == 1) "" else "s"
 }
 
 @Composable
