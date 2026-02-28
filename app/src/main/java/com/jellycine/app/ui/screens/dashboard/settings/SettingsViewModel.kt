@@ -18,7 +18,7 @@ data class SettingsUiState(
     val serverUrl: String? = null,
     val username: String? = CachedData.username,
     val profileImageUrl: String? = CachedData.userImageUrl,
-    val wifiOnlyDownloads: Boolean = true,
+    val wifiOnlyDownloads: Boolean = false,
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
     val connectionTimeoutMs: Int = NetworkPreferences.DEFAULT_CONNECTION_TIMEOUT_MS,
     val socketTimeoutMs: Int = NetworkPreferences.DEFAULT_SOCKET_TIMEOUT_MS,

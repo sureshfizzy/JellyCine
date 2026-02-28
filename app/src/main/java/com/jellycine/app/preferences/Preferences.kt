@@ -19,7 +19,7 @@ class Preferences(context: Context) {
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
-        return prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
+        return prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, false)
     }
 
     fun setWifiOnlyDownloadsEnabled(enabled: Boolean) {

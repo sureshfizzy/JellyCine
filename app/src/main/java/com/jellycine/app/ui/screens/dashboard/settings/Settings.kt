@@ -597,7 +597,7 @@ private fun ProfileImageLoader(
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
-            ) {avatarImage
+            ) {
                 Icon(
                     imageVector = Icons.Rounded.Person,
                     contentDescription = null,
@@ -607,7 +607,7 @@ private fun ProfileImageLoader(
             }
         } else {
             AsyncImage(
-             avatarImagerofileRequest,
+                model = profileRequest,
                 contentDescription = "Profile picture",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
