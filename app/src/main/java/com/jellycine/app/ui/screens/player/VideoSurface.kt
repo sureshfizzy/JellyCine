@@ -107,11 +107,14 @@ fun VideoSurface(
                     )
                     setStyle(
                         CaptionStyleCompat(
-                            subtitleTextColorArgb(playerPreferences.getSubtitleTextColor()),
+                            subtitleTextColorArgb(
+                                playerPreferences.getSubtitleTextColor(),
+                                playerPreferences.getSubtitleTextOpacityPercent()
+                            ),
                             subtitleBackgroundColorArgb(playerPreferences.getSubtitleBackgroundColor()),
                             android.graphics.Color.TRANSPARENT,
-                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                            android.graphics.Color.BLACK,
+                            subtitleEdgeType(playerPreferences.getSubtitleEdgeType()),
+                            subtitleEdgeColor(playerPreferences.getSubtitleEdgeType()),
                             null
                         )
                     )
@@ -182,14 +185,15 @@ private fun subtitleTextSizeFraction(size: String): Float {
     }
 }
 
-private fun subtitleTextColorArgb(color: String): Int {
-    return when (color) {
+private fun subtitleTextColorArgb(color: String, opacityPercent: Int): Int {
+    val baseColor = when (color) {
         PlayerPreferences.SUBTITLE_TEXT_COLOR_YELLOW -> android.graphics.Color.YELLOW
         PlayerPreferences.SUBTITLE_TEXT_COLOR_GREEN -> android.graphics.Color.GREEN
         PlayerPreferences.SUBTITLE_TEXT_COLOR_CYAN -> android.graphics.Color.CYAN
         PlayerPreferences.SUBTITLE_TEXT_COLOR_BLACK -> android.graphics.Color.BLACK
         else -> android.graphics.Color.WHITE
     }
+    return applyAlphaToColor(baseColor, opacityPercent)
 }
 
 private fun subtitleBackgroundColorArgb(color: String): Int {
@@ -198,4 +202,32 @@ private fun subtitleBackgroundColorArgb(color: String): Int {
         PlayerPreferences.SUBTITLE_BACKGROUND_WHITE -> android.graphics.Color.WHITE
         else -> android.graphics.Color.TRANSPARENT
     }
+}
+
+private fun subtitleEdgeType(edgeType: String): Int {
+    return when (edgeType) {
+        PlayerPreferences.SUBTITLE_EDGE_TYPE_OUTLINE -> CaptionStyleCompat.EDGE_TYPE_OUTLINE
+        PlayerPreferences.SUBTITLE_EDGE_TYPE_DROP_SHADOW -> CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+        PlayerPreferences.SUBTITLE_EDGE_TYPE_RAISED -> CaptionStyleCompat.EDGE_TYPE_RAISED
+        PlayerPreferences.SUBTITLE_EDGE_TYPE_DEPRESSED -> CaptionStyleCompat.EDGE_TYPE_DEPRESSED
+        else -> CaptionStyleCompat.EDGE_TYPE_NONE
+    }
+}
+
+private fun subtitleEdgeColor(edgeType: String): Int {
+    return if (edgeType == PlayerPreferences.SUBTITLE_EDGE_TYPE_NONE) {
+        android.graphics.Color.TRANSPARENT
+    } else {
+        android.graphics.Color.BLACK
+    }
+}
+
+private fun applyAlphaToColor(color: Int, opacityPercent: Int): Int {
+    val alpha = ((opacityPercent.coerceIn(0, 100) / 100f) * 255f).roundToInt().coerceIn(0, 255)
+    return android.graphics.Color.argb(
+        alpha,
+        android.graphics.Color.red(color),
+        android.graphics.Color.green(color),
+        android.graphics.Color.blue(color)
+    )
 }

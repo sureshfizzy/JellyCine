@@ -203,6 +203,8 @@ fun SubtitleSettingsScreen(
     var textSize by remember { mutableStateOf(playerPreferences.getSubtitleTextSize()) }
     var textColor by remember { mutableStateOf(playerPreferences.getSubtitleTextColor()) }
     var backgroundColor by remember { mutableStateOf(playerPreferences.getSubtitleBackgroundColor()) }
+    var edgeType by remember { mutableStateOf(playerPreferences.getSubtitleEdgeType()) }
+    var textOpacityPercent by remember { mutableStateOf(playerPreferences.getSubtitleTextOpacityPercent()) }
     var bottomEdgePercent by remember {
         mutableStateOf(playerPreferences.getSubtitleBottomEdgePositionPercent())
     }
@@ -260,6 +262,35 @@ fun SubtitleSettingsScreen(
                         onOptionSelected = { selected ->
                             backgroundColor = selected
                             playerPreferences.setSubtitleBackgroundColor(selected)
+                        },
+                        accentColor = subtitleAccent
+                    )
+
+                    SettingsDivider()
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.Tune,
+                        title = "Edge Type",
+                        subtitle = edgeType,
+                        options = PlayerPreferences.SUBTITLE_EDGE_TYPE_OPTIONS,
+                        onOptionSelected = { selected ->
+                            edgeType = selected
+                            playerPreferences.setSubtitleEdgeType(selected)
+                        },
+                        accentColor = subtitleAccent
+                    )
+
+                    SettingsDivider()
+                    PercentageSliderSettingsItem(
+                        icon = Icons.Rounded.SortByAlpha,
+                        title = "Text Opacity",
+                        subtitle = "Subtitle text visibility",
+                        value = textOpacityPercent,
+                        defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT,
+                        minValue = 0,
+                        maxValue = 100,
+                        onValueChanged = { updated ->
+                            textOpacityPercent = updated
+                            playerPreferences.setSubtitleTextOpacityPercent(updated)
                         },
                         accentColor = subtitleAccent
                     )
@@ -555,10 +586,17 @@ private fun PercentageSliderSettingsItem(
     subtitle: String,
     value: Int,
     defaultValue: Int,
+    minValue: Int = 0,
+    maxValue: Int = 50,
+    stepSize: Int = 5,
     onValueChanged: (Int) -> Unit,
     accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
-    val valueRange = 0..50
+    val safeMin = minValue
+    val safeMax = maxValue.coerceAtLeast(minValue + 1)
+    val safeStepSize = stepSize.coerceAtLeast(1)
+    val valueRange = safeMin..safeMax
+    val sliderSteps = (((safeMax - safeMin) / safeStepSize) - 1).coerceAtLeast(0)
     val safeValue = value.coerceIn(valueRange.first, valueRange.last)
 
     Column(
@@ -619,7 +657,7 @@ private fun PercentageSliderSettingsItem(
                 onValueChanged(changed.toInt().coerceIn(valueRange.first, valueRange.last))
             },
             valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
-            steps = 9,
+            steps = sliderSteps,
             colors = SliderDefaults.colors(
                 thumbColor = accentColor,
                 activeTrackColor = accentColor,
@@ -647,7 +685,7 @@ private fun PercentageSliderSettingsItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "0%",
+                text = "${valueRange.first}%",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
@@ -662,7 +700,7 @@ private fun PercentageSliderSettingsItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "50%",
+                text = "${valueRange.last}%",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )

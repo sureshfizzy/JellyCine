@@ -25,6 +25,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
+        private const val KEY_SUBTITLE_EDGE_TYPE = "subtitle_edge_type"
+        private const val KEY_SUBTITLE_TEXT_OPACITY_PERCENT = "subtitle_text_opacity_percent"
         private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
         private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
@@ -65,12 +67,28 @@ class PlayerPreferences(context: Context) {
             SUBTITLE_BACKGROUND_WHITE
         )
 
+        const val SUBTITLE_EDGE_TYPE_NONE = "None"
+        const val SUBTITLE_EDGE_TYPE_OUTLINE = "Outline"
+        const val SUBTITLE_EDGE_TYPE_DROP_SHADOW = "Drop Shadow"
+        const val SUBTITLE_EDGE_TYPE_RAISED = "Raised"
+        const val SUBTITLE_EDGE_TYPE_DEPRESSED = "Depressed"
+        val SUBTITLE_EDGE_TYPE_OPTIONS = listOf(
+            SUBTITLE_EDGE_TYPE_NONE,
+            SUBTITLE_EDGE_TYPE_OUTLINE,
+            SUBTITLE_EDGE_TYPE_DROP_SHADOW,
+            SUBTITLE_EDGE_TYPE_RAISED,
+            SUBTITLE_EDGE_TYPE_DEPRESSED
+        )
+
         const val DEFAULT_SUBTITLE_TEXT_SIZE = SUBTITLE_TEXT_SIZE_NORMAL
         const val DEFAULT_SUBTITLE_TEXT_COLOR = SUBTITLE_TEXT_COLOR_WHITE
         const val DEFAULT_SUBTITLE_BACKGROUND_COLOR = SUBTITLE_BACKGROUND_TRANSPARENT
+        const val DEFAULT_SUBTITLE_EDGE_TYPE = SUBTITLE_EDGE_TYPE_NONE
+        const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
         private const val MAX_SUBTITLE_EDGE_PERCENT = 50
+        private const val MAX_SUBTITLE_OPACITY_PERCENT = 100
     }
     
     /**
@@ -228,6 +246,32 @@ class PlayerPreferences(context: Context) {
     fun setSubtitleBackgroundColor(color: String) {
         val value = if (color in SUBTITLE_BACKGROUND_OPTIONS) color else DEFAULT_SUBTITLE_BACKGROUND_COLOR
         prefs.edit().putString(KEY_SUBTITLE_BACKGROUND_COLOR, value).apply()
+    }
+
+    fun getSubtitleEdgeType(): String {
+        val saved = prefs.getString(KEY_SUBTITLE_EDGE_TYPE, DEFAULT_SUBTITLE_EDGE_TYPE)
+        return if (saved in SUBTITLE_EDGE_TYPE_OPTIONS) saved!! else DEFAULT_SUBTITLE_EDGE_TYPE
+    }
+
+    fun setSubtitleEdgeType(edgeType: String) {
+        val value = if (edgeType in SUBTITLE_EDGE_TYPE_OPTIONS) edgeType else DEFAULT_SUBTITLE_EDGE_TYPE
+        prefs.edit().putString(KEY_SUBTITLE_EDGE_TYPE, value).apply()
+    }
+
+    fun getSubtitleTextOpacityPercent(): Int {
+        return prefs.getInt(
+            KEY_SUBTITLE_TEXT_OPACITY_PERCENT,
+            DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT
+        ).coerceIn(0, MAX_SUBTITLE_OPACITY_PERCENT)
+    }
+
+    fun setSubtitleTextOpacityPercent(percent: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_SUBTITLE_TEXT_OPACITY_PERCENT,
+                percent.coerceIn(0, MAX_SUBTITLE_OPACITY_PERCENT)
+            )
+            .apply()
     }
 
     fun getSubtitleBottomEdgePositionPercent(): Int {
