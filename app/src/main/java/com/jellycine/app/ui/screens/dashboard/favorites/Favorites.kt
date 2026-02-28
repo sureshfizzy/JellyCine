@@ -235,7 +235,7 @@ fun Favorites(
                         if (movies.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Favorite Movies",
+                                    title = "Movies",
                                     items = movies,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -246,7 +246,7 @@ fun Favorites(
                         if (shows.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Favorite Shows",
+                                    title = "Shows",
                                     items = shows,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -257,7 +257,7 @@ fun Favorites(
                         if (episodes.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Favorite Episodes",
+                                    title = "Episodes",
                                     items = episodes,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -345,13 +345,6 @@ private fun FavoriteItemCard(
                 ).first()
             }
         }.getOrNull()
-    }
-
-    val badgeText = when (item.type) {
-        "Movie" -> "MOVIE"
-        "Series" -> "SHOW"
-        "Episode" -> "EPISODE"
-        else -> item.type?.uppercase().orEmpty()
     }
 
     val title = when (item.type) {
@@ -443,21 +436,6 @@ private fun FavoriteItemCard(
                         .height(52.dp)
                 )
 
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(10.dp),
-                    color = Color.Black.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = badgeText,
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
             }
         }
 
