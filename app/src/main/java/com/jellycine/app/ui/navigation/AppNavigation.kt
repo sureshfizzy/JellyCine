@@ -278,9 +278,6 @@ fun AppNavigation() {
                     parentId = parentId,
                     genreId = genreId,
                     title = title,
-                    onBackPressed = {
-                        navController.popBackStack()
-                    },
                     onItemClick = { item ->
                         item.id?.let { itemId ->
                             navController.navigate("detail/$itemId")

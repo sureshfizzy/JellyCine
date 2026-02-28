@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -642,31 +640,6 @@ fun DetailContent(
                         )
                 )
 
-                Row(
-                    modifier = Modifier
-                        .wrapContentWidth()
-                        .statusBarsPadding()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    IconButton(
-                        onClick = onBackPressed,
-                        modifier = Modifier
-                            .background(
-                                Color.Black.copy(alpha = 0.6f),
-                                CircleShape
-                            )
-                            .size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
             }
         }
 
@@ -1345,7 +1318,7 @@ private fun SimilarItemsSection(
     mediaRepository: MediaRepository,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "Similar Titles"
+    title: String = "More Like This"
 ) {
     if (similarItems.isEmpty()) return
 
@@ -2271,31 +2244,6 @@ fun DetailScreenSkeleton(
                         )
                 )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onBackPressed,
-                        modifier = Modifier
-                            .background(
-                                Color.Black.copy(alpha = 0.6f),
-                                CircleShape
-                            )
-                            .size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
             }
         }
 

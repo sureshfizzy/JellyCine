@@ -2,6 +2,8 @@ package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Close
@@ -29,7 +30,6 @@ import coil3.compose.AsyncImage
 import coil3.request.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,7 +65,6 @@ fun ViewAllScreen(
     parentId: String? = null,
     title: String = "View All",
     genreId: String? = null,
-    onBackPressed: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit,
     viewModel: ViewAllViewModel = hiltViewModel()
 ) {
@@ -111,20 +110,6 @@ fun ViewAllScreen(
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = onBackPressed,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = title,
@@ -616,7 +601,8 @@ private fun SortFAB(
     FloatingActionButton(
         onClick = onClick,
         modifier = modifier
-            .padding(20.dp)
+            .navigationBarsPadding()
+            .padding(end = 20.dp, bottom = 20.dp)
             .size(56.dp),
         containerColor = Color(0xFF1A1A1A),
         contentColor = Color.White,
@@ -655,7 +641,10 @@ private fun SortBottomSheet(
             shadowElevation = 24.dp
         ) {
             Column(
-                modifier = Modifier.padding(top = 8.dp, start = 24.dp, end = 24.dp, bottom = 32.dp)
+                modifier = Modifier
+                    .padding(top = 8.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Handle Bar
                 Box(
