@@ -577,36 +577,37 @@ private fun ProfileImageLoader(
     LaunchedEffect(profileRequest) {
         hasError = false
     }
+    val avatarImage = profileRequest == null || hasError
 
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
-                        )
+        if (avatarImage) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.secondary
+                            )
+                        ),
+                        shape = CircleShape
                     ),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(60.dp)
-            )
-        }
-
-        if (profileRequest != null && !hasError) {
+                contentAlignment = Alignment.Center
+            ) {avatarImage
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(60.dp)
+                )
+            }
+        } else {
             AsyncImage(
-                model = profileRequest,
+             avatarImagerofileRequest,
                 contentDescription = "Profile picture",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
