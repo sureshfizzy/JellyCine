@@ -74,7 +74,13 @@ fun AppNavigation() {
 
             composable(
                 "auth",
-                enterTransition = { textTransition(500) },
+                enterTransition = {
+                    if (initialState.destination.route == "dashboard") {
+                        EnterTransition.None
+                    } else {
+                        textTransition(500)
+                    }
+                },
                 exitTransition = { textExitTransition(400) }
             ) {
                 AuthScreen(
@@ -103,7 +109,13 @@ fun AppNavigation() {
             composable(
                 "dashboard",
                 enterTransition = { textTransition(400) },
-                exitTransition = { textExitTransition(300) }
+                exitTransition = {
+                    if (targetState.destination.route == "auth") {
+                        ExitTransition.None
+                    } else {
+                        textExitTransition(300)
+                    }
+                }
             ) {
                 DashboardContainer(
                     onLogout = {

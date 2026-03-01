@@ -1175,6 +1175,27 @@ fun Dashboard(
         }
     }
 
+    LaunchedEffect(dashboardSessionKey, isNetworkAvailable) {
+        if (!isNetworkAvailable) return@LaunchedEffect
+
+        val userResult = mediaRepository.getCurrentUser()
+        val forceLogout = if (userResult.isSuccess) {
+            userResult.getOrNull()?.policy?.isDisabled == true
+        } else {
+            val message = userResult.exceptionOrNull()?.message.orEmpty()
+            message.contains("401") ||
+                message.contains("403") ||
+                message.contains("404")
+        }
+
+        if (forceLogout) {
+            authRepository.logout()
+            mediaRepository.clearPersistedHomeSnapshot()
+            CachedData.clearAllCache()
+            onLogout()
+        }
+    }
+
     val lazyColumnState = rememberLazyListState()
 
     CompositionLocalProvider(LocalQueryManager provides queryManager) {
