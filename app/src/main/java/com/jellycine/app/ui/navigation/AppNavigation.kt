@@ -135,6 +135,11 @@ fun AppNavigation() {
                     onNavigateToCacheSettings = {
                         navController.navigate("cache_settings")
                     },
+                    onAddServer = {
+                        navController.navigate("server_connection") {
+                            launchSingleTop = true
+                        }
+                    },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
                             navController.navigate("detail/$itemId")

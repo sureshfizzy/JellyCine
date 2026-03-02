@@ -95,26 +95,45 @@ object ImageLoaderConfig {
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
         val dataStore = DataStoreProvider.getDataStore(context)
-        val preferences = runBlocking {
-            runCatching { dataStore.data.first() }.getOrNull()
-        }
-        val accessToken = preferences?.get(ACCESS_TOKEN_KEY)
-        val serverType = preferences?.get(SERVER_TYPE_KEY)
-        val headerPrefix = if (serverType.equals("EMBY", ignoreCase = true)) "Emby" else "MediaBrowser"
-        val authHeader = buildString {
-            append("$headerPrefix ")
-            append("Client=\"$CLIENT_NAME\", ")
-            append("Device=\"$DEVICE_NAME\", ")
-            append("DeviceId=\"$deviceId\", ")
-            append("Version=\"${BuildConfig.VERSION_NAME}\"")
+        val authHeaderLock = Any()
+        var cachedAuthHeader: String? = null
+        var cachedAuthHeaderAt = 0L
+        val authHeaderTtlMs = 1200L
 
-            if (!accessToken.isNullOrEmpty()) {
-                append(", Token=\"$accessToken\"")
+        fun buildAuthHeader(): String {
+            val now = System.currentTimeMillis()
+            synchronized(authHeaderLock) {
+                val existingHeader = cachedAuthHeader
+                if (existingHeader != null && (now - cachedAuthHeaderAt) < authHeaderTtlMs) {
+                    return existingHeader
+                }
+
+                val preferences = runBlocking {
+                    runCatching { dataStore.data.first() }.getOrNull()
+                }
+                val accessToken = preferences?.get(ACCESS_TOKEN_KEY)
+                val serverType = preferences?.get(SERVER_TYPE_KEY)
+                val headerPrefix = if (serverType.equals("EMBY", ignoreCase = true)) "Emby" else "MediaBrowser"
+                val header = buildString {
+                    append("$headerPrefix ")
+                    append("Client=\"$CLIENT_NAME\", ")
+                    append("Device=\"$DEVICE_NAME\", ")
+                    append("DeviceId=\"$deviceId\", ")
+                    append("Version=\"${BuildConfig.VERSION_NAME}\"")
+
+                    if (!accessToken.isNullOrEmpty()) {
+                        append(", Token=\"$accessToken\"")
+                    }
+                }
+                cachedAuthHeader = header
+                cachedAuthHeaderAt = now
+                return header
             }
         }
 
         val authInterceptor = Interceptor { chain ->
             val originalRequest = chain.request()
+            val authHeader = buildAuthHeader()
             val newRequest = originalRequest.newBuilder()
                 .addHeader("Authorization", authHeader)
                 .addHeader("X-Emby-Authorization", authHeader)

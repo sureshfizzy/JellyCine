@@ -8,9 +8,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
@@ -41,7 +43,8 @@ fun Settings(
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
-    onNavigateToCacheSettings: () -> Unit = {}
+    onNavigateToCacheSettings: () -> Unit = {},
+    onAddServer: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
@@ -51,6 +54,8 @@ fun Settings(
 
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
+    var showServerSwitchDialog by remember { mutableStateOf(false) }
+    var serverPendingRemoval by remember { mutableStateOf<SavedServerUiModel?>(null) }
 
     Scaffold(
         topBar = {
@@ -78,6 +83,7 @@ fun Settings(
                     serverName = uiState.serverName ?: "Unknown Server",
                     serverUrl = uiState.serverUrl,
                     profileImageUrl = uiState.profileImageUrl,
+                    onServerClick = { showServerSwitchDialog = true },
                     onNavigateToDownloads = onNavigateToDownloads
                 )
             }
@@ -226,6 +232,43 @@ fun Settings(
             }
         )
     }
+
+    if (showServerSwitchDialog) {
+        ServerSwitchDialog(
+            servers = uiState.savedServers,
+            isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer,
+            onDismiss = { showServerSwitchDialog = false },
+            onAddServer = {
+                showServerSwitchDialog = false
+                onAddServer()
+            },
+            onRequestRemoveServer = { server ->
+                serverPendingRemoval = server
+            },
+            onServerSelected = { server ->
+                viewModel.switchServer(server.id) {
+                    showServerSwitchDialog = false
+                }
+            }
+        )
+    }
+
+    serverPendingRemoval?.let { server ->
+        RemoveServerConfirmDialog(
+            server = server,
+            isRemoving = uiState.isRemovingServer,
+            onDismiss = {
+                if (!uiState.isRemovingServer) {
+                    serverPendingRemoval = null
+                }
+            },
+            onConfirm = {
+                viewModel.removeServer(server.id) {
+                    serverPendingRemoval = null
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -235,6 +278,7 @@ private fun UserProfileSection(
     serverName: String,
     serverUrl: String?,
     profileImageUrl: String?,
+    onServerClick: () -> Unit,
     onNavigateToDownloads: () -> Unit
 ) {
     Card(
@@ -296,36 +340,51 @@ private fun UserProfileSection(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onServerClick),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Storage,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Server",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = user?.serverName ?: serverName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            if (serverUrl != null) {
+                                Text(
+                                    text = serverUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
                         Icon(
-                            imageVector = Icons.Rounded.Storage,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Server",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = user?.serverName ?: serverName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    if (serverUrl != null) {
-                        Text(
-                            text = serverUrl,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = "Switch server",
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -707,6 +766,173 @@ private fun NetworkDialogItem(
             tint = Color.White.copy(alpha = 0.72f)
         )
     }
+}
+
+@Composable
+private fun ServerSwitchDialog(
+    servers: List<SavedServerUiModel>,
+    isSwitching: Boolean,
+    onDismiss: () -> Unit,
+    onAddServer: () -> Unit,
+    onRequestRemoveServer: (SavedServerUiModel) -> Unit,
+    onServerSelected: (SavedServerUiModel) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        title = { Text("Switch Server") },
+        text = {
+            if (servers.isEmpty()) {
+                Text(
+                    text = "No saved servers found. Sign in to another server first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 340.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    servers.forEachIndexed { index, server ->
+                        val canSelect = !isSwitching && !server.isActive
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = canSelect) { onServerSelected(server) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = server.serverName.ifBlank { "Media Server" },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (server.isActive) Color(0xFF22D3EE) else Color.White
+                                )
+                                Text(
+                                    text = server.serverUrl,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.72f)
+                                )
+                                if (server.username.isNotBlank()) {
+                                    Text(
+                                        text = server.username,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.58f)
+                                    )
+                                }
+                            }
+                            when {
+                                isSwitching && server.isActive -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color(0xFF22D3EE)
+                                    )
+                                }
+                                server.isActive -> {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = "Active server",
+                                        tint = Color(0xFF22D3EE),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                else -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        IconButton(
+                                            enabled = !isSwitching,
+                                            onClick = { onRequestRemoveServer(server) }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Delete,
+                                                contentDescription = "Remove server",
+                                                tint = Color(0xFFFF6B6B),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Rounded.ChevronRight,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.48f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (index < servers.lastIndex) {
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF22D3EE))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !isSwitching,
+                onClick = onAddServer
+            ) {
+                Text("Add Server", color = Color(0xFFF97316))
+            }
+        }
+    )
+}
+
+@Composable
+private fun RemoveServerConfirmDialog(
+    server: SavedServerUiModel,
+    isRemoving: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        title = { Text("Remove Server") },
+        text = {
+            Text(
+                text = "Remove ${server.serverName} (${server.username}) from saved servers?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.85f)
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isRemoving,
+                onClick = onConfirm
+            ) {
+                if (isRemoving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color(0xFFFF6B6B)
+                    )
+                } else {
+                    Text("Remove", color = Color(0xFFFF6B6B))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !isRemoving,
+                onClick = onDismiss
+            ) {
+                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+            }
+        }
+    )
 }
 
 @Composable
