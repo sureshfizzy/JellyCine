@@ -146,7 +146,8 @@ fun DashboardContainer(
     onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
-    onAddServer: () -> Unit = {}
+    onAddServer: () -> Unit = {},
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -424,7 +425,8 @@ fun DashboardContainer(
                             onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
                             onNavigateToDownloads = onNavigateToDownloads,
                             onNavigateToCacheSettings = onNavigateToCacheSettings,
-                            onAddServer = onAddServer
+                            onAddServer = onAddServer,
+                            onAddUser = onAddUser
                         )
                     }
                 }

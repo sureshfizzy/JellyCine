@@ -44,7 +44,8 @@ fun Settings(
     onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
-    onAddServer: () -> Unit = {}
+    onAddServer: () -> Unit = {},
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
@@ -55,7 +56,22 @@ fun Settings(
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
     var showServerSwitchDialog by remember { mutableStateOf(false) }
+    var showUserSwitchDialog by remember { mutableStateOf(false) }
+    var userSwitchUsers by remember { mutableStateOf<List<SavedServerUiModel>>(emptyList()) }
+    var userSwitchServerName by remember { mutableStateOf<String?>(null) }
     var serverPendingRemoval by remember { mutableStateOf<SavedServerUiModel?>(null) }
+    val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl) {
+        val currentServerUrl = uiState.serverUrl?.trimEnd('/')?.lowercase()
+        uiState.savedServers
+            .filter { savedServer ->
+                currentServerUrl != null &&
+                    savedServer.serverUrl.trimEnd('/').lowercase() == currentServerUrl
+            }
+            .sortedWith(
+                compareByDescending<SavedServerUiModel> { if (it.isActive) 1 else 0 }
+                    .thenBy { it.username.lowercase() }
+            )
+    }
 
     Scaffold(
         topBar = {
@@ -83,6 +99,11 @@ fun Settings(
                     serverName = uiState.serverName ?: "Unknown Server",
                     serverUrl = uiState.serverUrl,
                     profileImageUrl = uiState.profileImageUrl,
+                    onUserClick = {
+                        userSwitchUsers = usersForCurrentServer
+                        userSwitchServerName = uiState.serverName
+                        showUserSwitchDialog = true
+                    },
                     onServerClick = { showServerSwitchDialog = true },
                     onNavigateToDownloads = onNavigateToDownloads
                 )
@@ -245,9 +266,47 @@ fun Settings(
             onRequestRemoveServer = { server ->
                 serverPendingRemoval = server
             },
+            onOpenServerUsers = { serverName, users ->
+                userSwitchServerName = serverName
+                userSwitchUsers = users
+                showServerSwitchDialog = false
+                showUserSwitchDialog = true
+            },
             onServerSelected = { server ->
                 viewModel.switchServer(server.id) {
                     showServerSwitchDialog = false
+                }
+            }
+        )
+    }
+
+    if (showUserSwitchDialog) {
+        UserSwitchDialog(
+            users = userSwitchUsers,
+            serverName = userSwitchServerName,
+            isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer,
+            onDismiss = {
+                showUserSwitchDialog = false
+                userSwitchUsers = emptyList()
+                userSwitchServerName = null
+            },
+            onAddUser = {
+                showUserSwitchDialog = false
+                val currentServerUrl = uiState.serverUrl?.takeIf { it.isNotBlank() }
+                if (currentServerUrl != null) {
+                    onAddUser(currentServerUrl, uiState.serverName)
+                }
+                userSwitchUsers = emptyList()
+                userSwitchServerName = null
+            },
+            onRequestRemoveUser = { server ->
+                serverPendingRemoval = server
+            },
+            onUserSelected = { server ->
+                viewModel.switchServer(server.id) {
+                    showUserSwitchDialog = false
+                    userSwitchUsers = emptyList()
+                    userSwitchServerName = null
                 }
             }
         )
@@ -278,6 +337,7 @@ private fun UserProfileSection(
     serverName: String,
     serverUrl: String?,
     profileImageUrl: String?,
+    onUserClick: () -> Unit,
     onServerClick: () -> Unit,
     onNavigateToDownloads: () -> Unit
 ) {
@@ -301,17 +361,43 @@ private fun UserProfileSection(
         ) {
             ProfileImageLoader(
                 imageUrl = profileImageUrl,
-                modifier = Modifier.size(120.dp)
+                modifier = Modifier
+                    .size(120.dp)
+                    .clickable(onClick = onUserClick)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = user?.name ?: username,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Box(
+                modifier = Modifier
+                    .wrapContentSize()
+                    .padding(horizontal = 10.dp)
+                    .clickable(onClick = onUserClick)
+            ) {
+                Text(
+                    text = user?.name ?: username,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                )
+                IconButton(
+                    onClick = onUserClick,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 16.dp, y = (-8).dp)
+                        .size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AddCircle,
+                        contentDescription = "Add user",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
 
             if (user?.policy?.isAdministrator == true) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -775,8 +861,32 @@ private fun ServerSwitchDialog(
     onDismiss: () -> Unit,
     onAddServer: () -> Unit,
     onRequestRemoveServer: (SavedServerUiModel) -> Unit,
+    onOpenServerUsers: (String, List<SavedServerUiModel>) -> Unit,
     onServerSelected: (SavedServerUiModel) -> Unit
 ) {
+    val serverGroups = remember(servers) {
+        servers
+            .groupBy { it.serverUrl.trimEnd('/').lowercase() }
+            .map { (_, groupedUsers) ->
+                val sortedUsers = groupedUsers.sortedWith(
+                    compareByDescending<SavedServerUiModel> { if (it.isActive) 1 else 0 }
+                        .thenBy { it.username.lowercase() }
+                )
+                val activeUser = sortedUsers.firstOrNull { it.isActive }
+                val primary = activeUser ?: sortedUsers.first()
+                ServerGroupUiModel(
+                    serverName = primary.serverName,
+                    serverUrl = primary.serverUrl,
+                    users = sortedUsers,
+                    activeUser = activeUser
+                )
+            }
+            .sortedWith(
+                compareByDescending<ServerGroupUiModel> { if (it.activeUser != null) 1 else 0 }
+                    .thenBy { it.serverName.lowercase() }
+            )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Color.Black,
@@ -784,7 +894,7 @@ private fun ServerSwitchDialog(
         textContentColor = Color.White,
         title = { Text("Switch Server") },
         text = {
-            if (servers.isEmpty()) {
+            if (serverGroups.isEmpty()) {
                 Text(
                     text = "No saved servers found. Sign in to another server first.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -797,43 +907,60 @@ private fun ServerSwitchDialog(
                         .heightIn(max = 340.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    servers.forEachIndexed { index, server ->
-                        val canSelect = !isSwitching && !server.isActive
+                    serverGroups.forEachIndexed { index, group ->
+                        val hasMultipleUsers = group.users.size > 1
+                        val singleUser = group.users.firstOrNull()
+                        val selectSingleUser = singleUser != null && !singleUser.isActive
+                        val clickGroup = !isSwitching && (hasMultipleUsers || selectSingleUser)
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = canSelect) { onServerSelected(server) }
+                                .clickable(enabled = clickGroup) {
+                                    if (hasMultipleUsers) {
+                                        onOpenServerUsers(group.serverName, group.users)
+                                    } else {
+                                        singleUser?.let(onServerSelected)
+                                    }
+                                }
                                 .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = server.serverName.ifBlank { "Media Server" },
+                                    text = group.serverName.ifBlank { "Media Server" },
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = if (server.isActive) Color(0xFF22D3EE) else Color.White
+                                    color = if (group.activeUser != null) Color(0xFF22D3EE) else Color.White
                                 )
                                 Text(
-                                    text = server.serverUrl,
+                                    text = group.serverUrl,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.72f)
                                 )
-                                if (server.username.isNotBlank()) {
+                                if (hasMultipleUsers) {
                                     Text(
-                                        text = server.username,
+                                        text = "${group.users.size} users",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.White.copy(alpha = 0.58f)
                                     )
                                 }
                             }
                             when {
-                                isSwitching && server.isActive -> {
+                                isSwitching && group.activeUser != null -> {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
                                         strokeWidth = 2.dp,
                                         color = Color(0xFF22D3EE)
                                     )
                                 }
-                                server.isActive -> {
+                                hasMultipleUsers -> {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = "Choose user",
+                                        tint = Color.White.copy(alpha = 0.48f)
+                                    )
+                                }
+                                singleUser?.isActive == true -> {
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
                                         contentDescription = "Active server",
@@ -845,16 +972,18 @@ private fun ServerSwitchDialog(
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        IconButton(
-                                            enabled = !isSwitching,
-                                            onClick = { onRequestRemoveServer(server) }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Rounded.Delete,
-                                                contentDescription = "Remove server",
-                                                tint = Color(0xFFFF6B6B),
-                                                modifier = Modifier.size(18.dp)
-                                            )
+                                        if (singleUser != null) {
+                                            IconButton(
+                                                enabled = !isSwitching,
+                                                onClick = { onRequestRemoveServer(singleUser) }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Delete,
+                                                    contentDescription = "Remove user",
+                                                    tint = Color(0xFFFF6B6B),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
                                         }
                                         Icon(
                                             imageVector = Icons.Rounded.ChevronRight,
@@ -865,7 +994,7 @@ private fun ServerSwitchDialog(
                                 }
                             }
                         }
-                        if (index < servers.lastIndex) {
+                        if (index < serverGroups.lastIndex) {
                             HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
                         }
                     }
@@ -888,6 +1017,229 @@ private fun ServerSwitchDialog(
     )
 }
 
+private data class ServerGroupUiModel(
+    val serverName: String,
+    val serverUrl: String,
+    val users: List<SavedServerUiModel>,
+    val activeUser: SavedServerUiModel?
+)
+
+@Composable
+private fun UserSwitchDialog(
+    users: List<SavedServerUiModel>,
+    serverName: String?,
+    isSwitching: Boolean,
+    onDismiss: () -> Unit,
+    onAddUser: () -> Unit,
+    onRequestRemoveUser: (SavedServerUiModel) -> Unit,
+    onUserSelected: (SavedServerUiModel) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        titleContentColor = Color.White,
+        textContentColor = Color.White,
+        title = { Text("Who's Watching?") },
+        text = {
+            if (users.isEmpty()) {
+                Text(
+                    text = "No saved users found for this server.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (!serverName.isNullOrBlank()) {
+                        Text(
+                            text = serverName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    WhoWatchingGrid(
+                        users = users,
+                        isSwitching = isSwitching,
+                        onUserSelected = onUserSelected,
+                        onRequestRemoveUser = onRequestRemoveUser
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Color(0xFF22D3EE))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !isSwitching,
+                onClick = onAddUser
+            ) {
+                Text("Add User", color = Color(0xFFF97316))
+            }
+        }
+    )
+}
+
+@Composable
+private fun WhoWatchingGrid(
+    users: List<SavedServerUiModel>,
+    isSwitching: Boolean,
+    onUserSelected: (SavedServerUiModel) -> Unit,
+    onRequestRemoveUser: (SavedServerUiModel) -> Unit
+) {
+    val rows = remember(users) { users.chunked(2) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        rows.forEach { userRow ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                userRow.forEach { user ->
+                    WhoWatchingUserCard(
+                        user = user,
+                        isSwitching = isSwitching,
+                        onUserSelected = onUserSelected,
+                        onRequestRemoveUser = onRequestRemoveUser,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (userRow.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WhoWatchingUserCard(
+    user: SavedServerUiModel,
+    isSwitching: Boolean,
+    onUserSelected: (SavedServerUiModel) -> Unit,
+    onRequestRemoveUser: (SavedServerUiModel) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val canSelect = !isSwitching && !user.isActive
+
+    Card(
+        modifier = modifier.clickable(enabled = canSelect) { onUserSelected(user) },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF101010)),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (user.isActive) Color(0xFF22D3EE) else Color.White.copy(alpha = 0.2f)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(74.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            brush = if (user.isActive) {
+                                Brush.linearGradient(
+                                    colors = listOf(Color(0xFF0891B2), Color(0xFF22D3EE))
+                                )
+                            } else {
+                                Brush.linearGradient(
+                                    colors = listOf(Color(0xFF334155), Color(0xFF64748B))
+                                )
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(38.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = user.username.ifBlank { "Unknown" },
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(
+                    modifier = Modifier.height(18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        isSwitching && user.isActive -> {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF22D3EE)
+                            )
+                        }
+
+                        user.isActive -> {
+                            Text(
+                                text = "Watching",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFF22D3EE)
+                            )
+                        }
+
+                        else -> {
+                            Text(
+                                text = "Tap to switch",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.58f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(1.dp))
+            }
+
+            if (!user.isActive) {
+                IconButton(
+                    enabled = !isSwitching,
+                    onClick = { onRequestRemoveUser(user) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "Remove user",
+                        tint = Color(0xFFFF6B6B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
 @Composable
 private fun RemoveServerConfirmDialog(
     server: SavedServerUiModel,
@@ -900,10 +1252,10 @@ private fun RemoveServerConfirmDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Remove Server") },
+        title = { Text("Remove Saved Account") },
         text = {
             Text(
-                text = "Remove ${server.serverName} (${server.username}) from saved servers?",
+                text = "Remove ${server.username} on ${server.serverName}?",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f)
             )

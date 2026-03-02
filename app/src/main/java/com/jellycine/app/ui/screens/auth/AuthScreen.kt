@@ -79,6 +79,9 @@ enum class AuthStep {
 
 @Composable
 fun AuthScreen(
+    serverUrl: String? = null,
+    serverName: String? = null,
+    startAtLogin: Boolean = false,
     onAuthSuccess: () -> Unit
 ) {
     val context = LocalContext.current
@@ -87,9 +90,12 @@ fun AuthScreen(
     }
     val uiState by authViewModel.uiState.collectAsState()
 
-    var currentStep by remember { mutableStateOf(AuthStep.SERVER_CONNECTION) }
-    var serverName by remember { mutableStateOf<String?>(null) }
-    var serverUrl by remember { mutableStateOf("") }
+    val login = startAtLogin && !serverUrl.isNullOrBlank()
+    var currentStep by remember(login) {
+        mutableStateOf(if (login) AuthStep.LOGIN else AuthStep.SERVER_CONNECTION)
+    }
+    var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
+    var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -127,8 +133,8 @@ fun AuthScreen(
                         onServerUrlChange = authViewModel::updateServerUrl,
                         onConnect = {
                             authViewModel.connectToServer { url, name ->
-                                serverUrl = url
-                                serverName = name
+                                selectedServerUrl = url
+                                selectedServerName = name
                                 currentStep = AuthStep.LOGIN
                             }
                         }
@@ -136,15 +142,15 @@ fun AuthScreen(
 
                     AuthStep.LOGIN -> LoginContent(
                         modifier = Modifier.fillMaxSize(),
-                        serverUrl = serverUrl,
-                        serverName = serverName,
+                        serverUrl = selectedServerUrl,
+                        serverName = selectedServerName,
                         username = uiState.username,
                         password = uiState.password,
                         isLoading = uiState.isLoginLoading,
                         errorMessage = uiState.loginErrorMessage,
                         onUsernameChange = authViewModel::updateUsername,
                         onPasswordChange = authViewModel::updatePassword,
-                        onLogin = { authViewModel.login(serverUrl, onAuthSuccess) }
+                        onLogin = { authViewModel.login(selectedServerUrl, onAuthSuccess) }
                     )
                 }
             }

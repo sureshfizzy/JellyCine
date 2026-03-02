@@ -107,6 +107,47 @@ fun AppNavigation() {
             }
 
             composable(
+                "add_user?serverUrl={serverUrl}&serverName={serverName}",
+                arguments = listOf(
+                    navArgument("serverUrl") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument("serverName") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                ),
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
+            ) { backStackEntry ->
+                val encodedServerUrl = backStackEntry.arguments?.getString("serverUrl").orEmpty()
+                val serverUrl = runCatching {
+                    java.net.URLDecoder.decode(encodedServerUrl, "UTF-8")
+                }.getOrDefault(encodedServerUrl)
+                val encodedServerName = backStackEntry.arguments?.getString("serverName")
+                val serverName = encodedServerName?.let { encodedName ->
+                    runCatching { java.net.URLDecoder.decode(encodedName, "UTF-8") }
+                        .getOrDefault(encodedName)
+                }?.takeIf { it.isNotBlank() }
+
+                AuthScreen(
+                    serverUrl = serverUrl.takeIf { it.isNotBlank() },
+                    serverName = serverName,
+                    startAtLogin = serverUrl.isNotBlank(),
+                    onAuthSuccess = {
+                        val popped = navController.popBackStack()
+                        if (!popped) {
+                            navController.navigate("dashboard") {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                )
+            }
+
+            composable(
                 "dashboard",
                 enterTransition = { textTransition(400) },
                 exitTransition = {
@@ -137,6 +178,15 @@ fun AppNavigation() {
                     },
                     onAddServer = {
                         navController.navigate("server_connection") {
+                            launchSingleTop = true
+                        }
+                    },
+                    onAddUser = { serverUrl, serverName ->
+                        val encodedServerUrl = java.net.URLEncoder.encode(serverUrl, "UTF-8")
+                        val encodedServerName = java.net.URLEncoder.encode(serverName.orEmpty(), "UTF-8")
+                        navController.navigate(
+                            "add_user?serverUrl=$encodedServerUrl&serverName=$encodedServerName"
+                        ) {
                             launchSingleTop = true
                         }
                     },
