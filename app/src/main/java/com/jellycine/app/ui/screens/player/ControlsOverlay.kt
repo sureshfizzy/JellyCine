@@ -51,6 +51,8 @@ fun ControlsOverlay(
     onShowMediaInfo: () -> Unit = {},
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
+    currentStreamingQuality: String = "",
+    onShowStreamingQualitySelection: () -> Unit = {},
     onShowAudioTrackSelection: () -> Unit = {},
     onShowSubtitleTrackSelection: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
@@ -119,6 +121,14 @@ fun ControlsOverlay(
                         Icon(
                             imageVector = Icons.Outlined.AspectRatio,
                             contentDescription = "Aspect Ratio",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onShowStreamingQualitySelection) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = "Streaming Quality ($currentStreamingQuality)",
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )

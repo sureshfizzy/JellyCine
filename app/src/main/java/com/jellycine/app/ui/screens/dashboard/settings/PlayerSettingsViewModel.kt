@@ -21,6 +21,7 @@ data class PlayerSettingsUiState(
 
     // Video
     val decoderPriority: String = "Auto",
+    val streamingQuality: String = PlayerPreferences.DEFAULT_STREAMING_QUALITY,
     val startMaximized: Boolean = false,
     
     // Performance
@@ -55,6 +56,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 hardwareDecodingEnabled = playerPreferences.isHardwareAccelerationEnabled(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
+                streamingQuality = playerPreferences.getStreamingQuality(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
@@ -159,6 +161,11 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setDecoderPriority(priority: String) {
         playerPreferences.setDecoderPriority(priority)
         _uiState.value = _uiState.value.copy(decoderPriority = priority)
+    }
+
+    fun setStreamingQuality(quality: String) {
+        playerPreferences.setStreamingQuality(quality)
+        _uiState.value = _uiState.value.copy(streamingQuality = playerPreferences.getStreamingQuality())
     }
     
     fun setStartMaximized(enabled: Boolean) {

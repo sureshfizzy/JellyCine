@@ -89,11 +89,16 @@ fun PlayerScreen(
     // Dialog states
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+    var showStreamingQualityDialog by remember { mutableStateOf(false) }
     var showMediaInfo by remember { mutableStateOf(false) }
 
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
     val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
+    val sourceVideoHeight = viewModel.getSourceVideoHeight()
+    val availableStreamingQualityOptions = remember(sourceVideoHeight) {
+        PlayerPreferences.getStreamingQualityOptions(sourceVideoHeight)
+    }
 
     // System managers
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -105,6 +110,7 @@ fun PlayerScreen(
     // Player-level brightness and volume (persistent)
     var playerBrightness by remember { mutableStateOf(playerPreferences.getPlayerBrightness()) }
     var playerVolume by remember { mutableStateOf(playerPreferences.getPlayerVolume()) }
+    var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
 
     // Setup player-specific settings
     DisposableEffect(Unit) {
@@ -216,6 +222,35 @@ fun PlayerScreen(
             uiState = uiState.copy(mediaTitle = title)
         } catch (e: Exception) {
             uiState = uiState.copy(mediaTitle = "Unknown Title")
+        }
+    }
+
+    val applyStreamingQualitySelection: (String) -> Unit = { selectedQuality ->
+        val selection = selectedQuality.trim()
+        if (selection.isEmpty() || selection == currentStreamingQuality) {
+            showStreamingQualityDialog = false
+        } else {
+            val resumePositionMs = viewModel.exoPlayer?.currentPosition ?: uiState.currentPosition
+            val shouldResumePlaying = viewModel.exoPlayer?.isPlaying ?: uiState.isPlaying
+            val preferredAudio = preferredStreamIndexes.audioStreamIndex
+            val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
+
+            playerPreferences.setStreamingQuality(selection)
+            currentStreamingQuality = playerPreferences.getStreamingQuality()
+            showStreamingQualityDialog = false
+            uiState = uiState.copy(controlsVisible = false)
+
+            viewModel.releasePlayer()
+            initializedMediaId = null
+            viewModel.initializePlayer(
+                context = context,
+                mediaId = mediaId,
+                preferredAudioStreamIndex = preferredAudio,
+                preferredSubtitleStreamIndex = preferredSubtitle,
+                initialSeekPositionMs = resumePositionMs,
+                startPlayback = shouldResumePlaying
+            )
+            initializedMediaId = mediaId
         }
     }
 
@@ -379,6 +414,11 @@ fun PlayerScreen(
                     resetAutoHideTimer()
                     viewModel.toggleLock()
                 },
+                currentStreamingQuality = currentStreamingQuality,
+                onShowStreamingQualitySelection = {
+                    resetAutoHideTimer()
+                    showStreamingQualityDialog = true
+                },
                 onShowAudioTrackSelection = {
                     resetAutoHideTimer()
                     showAudioTrackDialog = true
@@ -441,6 +481,14 @@ fun PlayerScreen(
                 showSubtitleTrackDialog = false
             },
             onDismiss = { showSubtitleTrackDialog = false }
+        )
+
+        StreamingQualitySelectionDialog(
+            isVisible = showStreamingQualityDialog,
+            qualityOptions = availableStreamingQualityOptions,
+            currentQuality = currentStreamingQuality,
+            onQualitySelected = applyStreamingQualitySelection,
+            onDismiss = { showStreamingQualityDialog = false }
         )
 
         // Loading indicator

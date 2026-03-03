@@ -4,6 +4,7 @@ import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PlaybackInfoResponse
+import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.PlaybackProgressRequest
 import com.jellycine.data.model.PlaybackStartRequest
 import com.jellycine.data.model.PlaybackStoppedRequest
@@ -167,11 +168,21 @@ interface MediaServerApi {
 
     // Streaming/Playback endpoints
     @GET("Items/{itemId}/PlaybackInfo")
-    suspend fun getPlaybackInfo(
+    suspend fun getPlaybackInfoGet(
         @Path("itemId") itemId: String,
         @Query("userId") userId: String,
+        @Query("maxStreamingBitrate") maxStreamingBitrate: Int? = null,
         @Query("audioStreamIndex") audioStreamIndex: Int? = null,
-        @Query("subtitleStreamIndex") subtitleStreamIndex: Int? = null
+        @Query("subtitleStreamIndex") subtitleStreamIndex: Int? = null,
+        @Query("enableDirectPlay") enableDirectPlay: Boolean? = null,
+        @Query("enableDirectStream") enableDirectStream: Boolean? = null,
+        @Query("enableTranscoding") enableTranscoding: Boolean? = null
+    ): Response<PlaybackInfoResponse>
+
+    @POST("Items/{itemId}/PlaybackInfo")
+    suspend fun getPlaybackInfoPost(
+        @Path("itemId") itemId: String,
+        @Body request: PlaybackInfoRequest
     ): Response<PlaybackInfoResponse>
 
     @GET("Videos/{itemId}/stream")

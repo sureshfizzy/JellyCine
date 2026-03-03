@@ -81,7 +81,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         context: Context,
         mediaId: String,
         preferredAudioStreamIndex: Int? = null,
-        preferredSubtitleStreamIndex: Int? = null
+        preferredSubtitleStreamIndex: Int? = null,
+        initialSeekPositionMs: Long? = null,
+        startPlayback: Boolean = true
     ) {
         viewModelScope.launch {
             try {
@@ -96,6 +98,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val resolvedPreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
+                val maxStreamingBitrate = playerPreferences.getMaxStreamingBitrate()
+                val maxStreamingHeight = playerPreferences.getStreamingQualityMaxHeight()
                 pendingPreferredAudioStreamIndex = resolvedPreferredAudioStreamIndex
                 pendingPreferredSubtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                 hasAppliedInitialTrackPreferences = false
@@ -112,6 +116,12 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 // Get item details to check for resume position
                 val itemResult = mediaRepository.getItemById(mediaId)
                 val resumePositionTicks = itemResult.getOrNull()?.userData?.playbackPositionTicks
+                val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
+                    resumePositionTicks / 10000L
+                } else {
+                    null
+                }
+                val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
 
                 val downloadRepository = DownloadRepositoryProvider.getInstance(context)
                 val offlinePath = downloadRepository.getOfflineFilePath(mediaId)
@@ -133,6 +143,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     // Get playback info first to obtain session details
                     val playbackInfoResult = mediaRepository.getPlaybackInfo(
                         itemId = mediaId,
+                        maxStreamingBitrate = maxStreamingBitrate,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
                         subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                     )
@@ -153,7 +164,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     mediaSourceId = primaryMediaSource?.id
                     mediaSourceContainer = primaryMediaSource?.container
                     mediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
+                    val bitrateCapApplied = (maxStreamingBitrate ?: 0) > 0
                     currentPlayMethod = when {
+                        bitrateCapApplied -> "Transcode"
                         primaryMediaSource?.supportsDirectPlay == true -> "Direct Play"
                         primaryMediaSource?.supportsDirectStream == true -> "Direct Stream"
                         else -> "Transcode"
@@ -161,6 +174,8 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                     val streamingResult = mediaRepository.getStreamingUrl(
                         itemId = mediaId,
+                        maxStreamingBitrate = maxStreamingBitrate,
+                        maxStreamingHeight = maxStreamingHeight,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
                         subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                     )
@@ -175,8 +190,14 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                         _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get streaming URL")
                         return@launch
                     }
+                    val streamUri = Uri.parse(streamingUrl)
+                    val streamPlaySessionId = streamUri.getQueryParameter("PlaySessionId")
+                        ?: streamUri.getQueryParameter("playSessionId")
+                    if (!streamPlaySessionId.isNullOrBlank()) {
+                        playSessionId = streamPlaySessionId
+                    }
 
-                    MediaItem.fromUri(streamingUrl)
+                    streamingMediaItem(streamingUrl)
                 }
                 
                 // Get media info for spatial audio analysis
@@ -198,12 +219,11 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     setMediaItem(mediaItem)
                     prepare()
 
-                    if (resumePositionTicks != null && resumePositionTicks > 0) {
-                        val resumePositionMs = resumePositionTicks / 10000L // Convert ticks to milliseconds
-                        seekTo(resumePositionMs)
+                    if (resolvedStartPositionMs != null && resolvedStartPositionMs > 0) {
+                        seekTo(resolvedStartPositionMs)
                     }
                     
-                    playWhenReady = true
+                    playWhenReady = startPlayback
                 }
 
                 // Spatial audio analysis and device capabilities
@@ -225,7 +245,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
-                    isPlaying = true,
+                    isPlaying = startPlayback,
                     spatializationResult = spatializationResult,
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
@@ -312,6 +332,14 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     /**
      * Report playback start to Jellyfin server
      */
+    private fun reportPlayMethod(): String {
+        return when (currentPlayMethod) {
+            "Direct Stream" -> "DirectStream"
+            "Transcode" -> "Transcode"
+            else -> "DirectPlay"
+        }
+    }
+
     private fun reportPlaybackStart() {
         if (isOfflinePlayback) return
         currentMediaId?.let { mediaId ->
@@ -326,7 +354,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                             playSessionId = playSessionId,
                             mediaSourceId = mediaSourceId,
                             positionTicks = positionTicks,
-                            playMethod = "DirectPlay"
+                            playMethod = reportPlayMethod()
                         )
                         
                         if (result.isSuccess) {
@@ -380,7 +408,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                             playSessionId = playSessionId,
                             mediaSourceId = mediaSourceId,
                             isPaused = isPaused,
-                            playMethod = "DirectPlay"
+                            playMethod = reportPlayMethod()
                         )
                         
                         if (result.isSuccess) {
@@ -1255,6 +1283,12 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             streamBitrateKbps = mediaSourceBitrateKbps,
             playMethod = currentPlayMethod
         )
+    }
+
+    fun getSourceVideoHeight(): Int? {
+        return apiMediaStreams
+            ?.firstOrNull { it.type == "Video" && (it.height ?: 0) > 0 }
+            ?.height
     }
 
     /**

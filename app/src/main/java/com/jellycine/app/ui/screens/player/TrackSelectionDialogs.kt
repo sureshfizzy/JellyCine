@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +66,8 @@ fun AudioTrackSelectionDialog(
         currentTrack = currentAudioTrack,
         onTrackSelected = onTrackSelected,
         onDismiss = onDismiss,
+        trackKey = { track -> track.id },
+        isTrackSelected = { track, selected -> track.id == selected?.id },
         trackDisplayInfo = { track ->
             val trackIndex = audioTracks.indexOf(track) + 1
             val label = track.label.takeIf { it.isNotBlank() } ?: "Audio Track $trackIndex"
@@ -96,6 +99,8 @@ fun SubtitleTrackSelectionDialog(
         currentTrack = currentSubtitleTrack,
         onTrackSelected = onTrackSelected,
         onDismiss = onDismiss,
+        trackKey = { track -> track.id },
+        isTrackSelected = { track, selected -> track.id == selected?.id },
         trackDisplayInfo = { track ->
             val trackIndex = subtitleTracks.indexOf(track) + 1
             val label = track.label.takeIf { it.isNotBlank() } ?: "Subtitle Track $trackIndex"
@@ -103,6 +108,50 @@ fun SubtitleTrackSelectionDialog(
                 title = label,
                 subtitle = buildSubtitleTrackSubtitle(track),
                 description = buildSubtitleTrackDescription(track)
+            )
+        }
+    )
+}
+
+@Composable
+fun StreamingQualitySelectionDialog(
+    isVisible: Boolean,
+    qualityOptions: List<String>,
+    currentQuality: String,
+    onQualitySelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (!isVisible) return
+
+    val options = qualityOptions.map { quality ->
+        StreamingQualityOption(
+            id = quality,
+            label = quality,
+            description = if (quality.equals("Original", ignoreCase = true)) {
+                "No bitrate cap"
+            } else {
+                ""
+            }
+        )
+    }
+    val selectedOption = options.firstOrNull { it.id == currentQuality }
+
+    TrackSelectionDialog(
+        title = "Streaming Quality",
+        helperText = "",
+        icon = Icons.Rounded.Tune,
+        accentColor = Color(0xFF3B82F6),
+        tracks = options,
+        currentTrack = selectedOption,
+        onTrackSelected = onQualitySelected,
+        onDismiss = onDismiss,
+        trackKey = { option -> option.id },
+        isTrackSelected = { option, selected -> option.id == selected?.id },
+        trackDisplayInfo = { option ->
+            TrackDisplayInfo(
+                title = option.label,
+                subtitle = option.description,
+                description = ""
             )
         }
     )
@@ -118,6 +167,8 @@ private fun <T> TrackSelectionDialog(
     currentTrack: T?,
     onTrackSelected: (String) -> Unit,
     onDismiss: () -> Unit,
+    trackKey: (T) -> String,
+    isTrackSelected: (T, T?) -> Boolean,
     trackDisplayInfo: (T) -> TrackDisplayInfo
 ) where T : Any {
     Dialog(
@@ -183,24 +234,12 @@ private fun <T> TrackSelectionDialog(
                                 itemsIndexed(
                                     items = tracks,
                                     key = { _, track ->
-                                        when (track) {
-                                            is AudioTrackInfo -> track.id
-                                            is SubtitleTrackInfo -> track.id
-                                            else -> track.hashCode().toString()
-                                        }
+                                        trackKey(track)
                                     }
                                 ) { index, track ->
                                     val displayInfo = trackDisplayInfo(track)
-                                    val isSelected = when (track) {
-                                        is AudioTrackInfo -> track.id == (currentTrack as? AudioTrackInfo)?.id
-                                        is SubtitleTrackInfo -> track.id == (currentTrack as? SubtitleTrackInfo)?.id
-                                        else -> false
-                                    }
-                                    val trackId = when (track) {
-                                        is AudioTrackInfo -> track.id
-                                        is SubtitleTrackInfo -> track.id
-                                        else -> ""
-                                    }
+                                    val isSelected = isTrackSelected(track, currentTrack)
+                                    val trackId = trackKey(track)
 
                                     TrackRow(
                                         indexLabel = (index + 1).toString(),
@@ -263,6 +302,11 @@ private fun DialogHeader(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val helperLine = if (helperText.isBlank()) {
+                    "$trackCount tracks"
+                } else {
+                    "$trackCount tracks - $helperText"
+                }
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
@@ -270,7 +314,7 @@ private fun DialogHeader(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "$trackCount tracks - $helperText",
+                    text = helperLine,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -440,6 +484,12 @@ private data class TrackDisplayInfo(
     val title: String,
     val subtitle: String,
     val description: String = ""
+)
+
+private data class StreamingQualityOption(
+    val id: String,
+    val label: String,
+    val description: String
 )
 
 private fun buildAudioTrackSubtitle(track: AudioTrackInfo): String {

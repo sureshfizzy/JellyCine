@@ -53,6 +53,8 @@ object NetworkModule {
         val serverInfo: ServerInfo
     )
 
+    fun getClientDeviceId(): String = deviceId
+
     fun isInternetAvailable(context: Context): Boolean {
         val connectivityManager =
             context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

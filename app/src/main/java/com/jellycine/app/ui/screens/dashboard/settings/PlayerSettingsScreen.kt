@@ -151,6 +151,16 @@ fun PlayerSettingsScreen(
                     )
 
                     SettingsDivider()
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.Tune,
+                        title = "Streaming Quality",
+                        subtitle = uiState.streamingQuality,
+                        options = PlayerPreferences.STREAMING_QUALITY_OPTIONS,
+                        onOptionSelected = viewModel::setStreamingQuality,
+                        accentColor = videoColor
+                    )
+
+                    SettingsDivider()
                     SwitchSettingsItem(
                         icon = Icons.Rounded.Fullscreen,
                         title = "Start Maximized",

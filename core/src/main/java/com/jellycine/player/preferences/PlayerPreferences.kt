@@ -29,6 +29,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SUBTITLE_TEXT_OPACITY_PERCENT = "subtitle_text_opacity_percent"
         private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
         private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
+        private const val KEY_STREAMING_QUALITY = "streaming_quality"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
         private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
         private const val KEY_STREAM_INDEX_UPDATED_AT_PREFIX = "stream_index_updated_at_"
@@ -87,6 +88,26 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
+
+        const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
+        val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
+        const val DEFAULT_STREAMING_QUALITY = STREAMING_QUALITY_ORIGINAL
+
+        fun getStreamingQualityMaxHeightForOption(quality: String): Int? {
+            return TranscodeProfiles.maxHeightForOption(quality)
+        }
+
+        fun getStreamingQualityOptions(sourceVideoHeight: Int?): List<String> {
+            if (sourceVideoHeight == null || sourceVideoHeight <= 0) {
+                return STREAMING_QUALITY_OPTIONS
+            }
+
+            return STREAMING_QUALITY_OPTIONS.filter { quality ->
+                val maxHeight = getStreamingQualityMaxHeightForOption(quality)
+                maxHeight == null || maxHeight <= sourceVideoHeight
+            }
+        }
+
         private const val MAX_SUBTITLE_EDGE_PERCENT = 50
         private const val MAX_SUBTITLE_OPACITY_PERCENT = 100
     }
@@ -216,6 +237,32 @@ class PlayerPreferences(context: Context) {
      */
     fun setHdrEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HDR_ENABLED, enabled).apply()
+    }
+
+    fun getStreamingQuality(): String {
+        val saved = prefs.getString(KEY_STREAMING_QUALITY, DEFAULT_STREAMING_QUALITY)
+        return if (saved in STREAMING_QUALITY_OPTIONS) {
+            saved!!
+        } else {
+            DEFAULT_STREAMING_QUALITY
+        }
+    }
+
+    fun setStreamingQuality(quality: String) {
+        val value = if (quality in STREAMING_QUALITY_OPTIONS) {
+            quality
+        } else {
+            DEFAULT_STREAMING_QUALITY
+        }
+        prefs.edit().putString(KEY_STREAMING_QUALITY, value).apply()
+    }
+
+    fun getMaxStreamingBitrate(): Int? {
+        return TranscodeProfiles.byLabel(getStreamingQuality())?.maxBitrate
+    }
+
+    fun getStreamingQualityMaxHeight(): Int? {
+        return TranscodeProfiles.byLabel(getStreamingQuality())?.maxHeight
     }
 
     fun getSubtitleTextSize(): String {
