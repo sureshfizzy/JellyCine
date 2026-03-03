@@ -67,7 +67,7 @@ class AuthRepository(private val context: Context) {
     }
 
     private fun normalizeServerUrlForId(serverUrl: String): String {
-        return serverUrl.trim().trimEnd('/').lowercase()
+        return NetworkModule.canonicalServerUrlKey(serverUrl)
     }
 
     private fun buildServerId(serverUrl: String, userId: String): String {
@@ -396,8 +396,8 @@ class AuthRepository(private val context: Context) {
     private fun isSameServer(inputUrl: String, savedUrl: String?): Boolean {
         if (savedUrl.isNullOrBlank()) return false
 
-        val normalizedInput = inputUrl.trimEnd('/')
-        val normalizedSaved = savedUrl.trimEnd('/')
+        val normalizedInput = NetworkModule.canonicalServerUrl(inputUrl)
+        val normalizedSaved = NetworkModule.canonicalServerUrl(savedUrl)
         val normalizedSavedWithoutEmby = normalizedSaved.removeSuffix("/emby")
 
         return normalizedInput.equals(normalizedSaved, ignoreCase = true) ||

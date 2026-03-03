@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.request.*
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,11 +62,11 @@ fun Settings(
     var userSwitchServerName by remember { mutableStateOf<String?>(null) }
     var serverPendingRemoval by remember { mutableStateOf<SavedServerUiModel?>(null) }
     val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl) {
-        val currentServerUrl = uiState.serverUrl?.trimEnd('/')?.lowercase()
+        val currentServerUrl = uiState.serverUrl
         uiState.savedServers
             .filter { savedServer ->
                 currentServerUrl != null &&
-                    savedServer.serverUrl.trimEnd('/').lowercase() == currentServerUrl
+                    NetworkModule.sameServerUrl(savedServer.serverUrl, currentServerUrl)
             }
             .sortedWith(
                 compareByDescending<SavedServerUiModel> { if (it.isActive) 1 else 0 }
@@ -866,7 +867,7 @@ private fun ServerSwitchDialog(
 ) {
     val serverGroups = remember(servers) {
         servers
-            .groupBy { it.serverUrl.trimEnd('/').lowercase() }
+            .groupBy { NetworkModule.canonicalServerUrlKey(it.serverUrl) }
             .map { (_, groupedUsers) ->
                 val sortedUsers = groupedUsers.sortedWith(
                     compareByDescending<SavedServerUiModel> { if (it.isActive) 1 else 0 }
@@ -1397,4 +1398,3 @@ private fun readableCodecName(mimeType: String): String {
         }
     }
 }
-

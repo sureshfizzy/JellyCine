@@ -1,28 +1,34 @@
 package com.jellycine.app.data.api
 
+import com.jellycine.data.network.NetworkModule
+
 object JellyfinApiEndpoints {
-    
+
+    private fun endpoint(baseUrl: String, path: String): String {
+        return "${normalizeBaseUrl(baseUrl)}/$path"
+    }
+
     // System endpoints
-    fun getSystemInfo(baseUrl: String) = "${baseUrl.trimEnd('/')}/System/Info/Public"
-    fun getServerConfiguration(baseUrl: String) = "${baseUrl.trimEnd('/')}/System/Configuration"
-    fun pingServer(baseUrl: String) = "${baseUrl.trimEnd('/')}/System/Ping"
-    
+    fun getSystemInfo(baseUrl: String) = endpoint(baseUrl, "System/Info/Public")
+    fun getServerConfiguration(baseUrl: String) = endpoint(baseUrl, "System/Configuration")
+    fun pingServer(baseUrl: String) = endpoint(baseUrl, "System/Ping")
+
     // Authentication
-    fun authenticateByName(baseUrl: String) = "${baseUrl.trimEnd('/')}/Users/AuthenticateByName"
-    fun authenticateWithQuickConnect(baseUrl: String) = "${baseUrl.trimEnd('/')}/Users/AuthenticateWithQuickConnect"
-    fun logout(baseUrl: String) = "${baseUrl.trimEnd('/')}/Sessions/Logout"
+    fun authenticateByName(baseUrl: String) = endpoint(baseUrl, "Users/AuthenticateByName")
+    fun authenticateWithQuickConnect(baseUrl: String) = endpoint(baseUrl, "Users/AuthenticateWithQuickConnect")
+    fun logout(baseUrl: String) = endpoint(baseUrl, "Sessions/Logout")
 
     // Users
-    fun getUsers(baseUrl: String) = "${baseUrl.trimEnd('/')}/Users"
-    fun getUserById(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId"
-    fun getCurrentUser(baseUrl: String) = "${baseUrl.trimEnd('/')}/Users/Me"
-    fun updateUserConfiguration(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Configuration"
-    
+    fun getUsers(baseUrl: String) = endpoint(baseUrl, "Users")
+    fun getUserById(baseUrl: String, userId: String) = endpoint(baseUrl, "Users/$userId")
+    fun getCurrentUser(baseUrl: String) = endpoint(baseUrl, "Users/Me")
+    fun updateUserConfiguration(baseUrl: String, userId: String) = endpoint(baseUrl, "Users/$userId/Configuration")
+
     // User images
     fun getUserProfileImage(
-        baseUrl: String, 
-        userId: String, 
-        width: Int? = null, 
+        baseUrl: String,
+        userId: String,
+        width: Int? = null,
         height: Int? = null,
         quality: Int? = null
     ): String {
@@ -31,25 +37,25 @@ object JellyfinApiEndpoints {
         height?.let { params.add("height=$it") }
         quality?.let { params.add("quality=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Images/Primary$queryString"
+        return endpoint(baseUrl, "Users/$userId/Images/Primary$queryString")
     }
-    
+
     fun getUserBackdropImage(
-        baseUrl: String, 
-        userId: String, 
-        width: Int? = null, 
+        baseUrl: String,
+        userId: String,
+        width: Int? = null,
         height: Int? = null
     ): String {
         val params = mutableListOf<String>()
         width?.let { params.add("width=$it") }
         height?.let { params.add("height=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Images/Backdrop$queryString"
+        return endpoint(baseUrl, "Users/$userId/Images/Backdrop$queryString")
     }
-    
-    fun uploadUserProfileImage(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Images/Primary"
-    fun deleteUserProfileImage(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Images/Primary"
-    
+
+    fun uploadUserProfileImage(baseUrl: String, userId: String) = endpoint(baseUrl, "Users/$userId/Images/Primary")
+    fun deleteUserProfileImage(baseUrl: String, userId: String) = endpoint(baseUrl, "Users/$userId/Images/Primary")
+
     // Library & items
     fun getUserItems(
         baseUrl: String,
@@ -71,11 +77,11 @@ object JellyfinApiEndpoints {
         limit?.let { params.add("limit=$it") }
         startIndex?.let { params.add("startIndex=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Items$queryString"
+        return endpoint(baseUrl, "Users/$userId/Items$queryString")
     }
-    
-    fun getItemById(baseUrl: String, userId: String, itemId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Items/$itemId"
-    
+
+    fun getItemById(baseUrl: String, userId: String, itemId: String) = endpoint(baseUrl, "Users/$userId/Items/$itemId")
+
     fun getLatestItems(
         baseUrl: String,
         userId: String,
@@ -90,9 +96,9 @@ object JellyfinApiEndpoints {
         limit?.let { params.add("limit=$it") }
         fields?.let { params.add("fields=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Items/Latest$queryString"
+        return endpoint(baseUrl, "Users/$userId/Items/Latest$queryString")
     }
-    
+
     fun getResumeItems(
         baseUrl: String,
         userId: String,
@@ -112,14 +118,14 @@ object JellyfinApiEndpoints {
         params.add("sortOrder=Descending")
         fields?.let { params.add("fields=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Users/$userId/Items/Resume$queryString"
+        return endpoint(baseUrl, "Users/$userId/Items/Resume$queryString")
     }
-    
+
     // Media images
     fun getItemPrimaryImage(
-        baseUrl: String, 
-        itemId: String, 
-        width: Int? = null, 
+        baseUrl: String,
+        itemId: String,
+        width: Int? = null,
         height: Int? = null,
         quality: Int? = null
     ): String {
@@ -128,14 +134,14 @@ object JellyfinApiEndpoints {
         height?.let { params.add("height=$it") }
         quality?.let { params.add("quality=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Items/$itemId/Images/Primary$queryString"
+        return endpoint(baseUrl, "Items/$itemId/Images/Primary$queryString")
     }
-    
+
     fun getItemBackdropImage(
-        baseUrl: String, 
-        itemId: String, 
+        baseUrl: String,
+        itemId: String,
         imageIndex: Int = 0,
-        width: Int? = null, 
+        width: Int? = null,
         height: Int? = null,
         quality: Int? = null
     ): String {
@@ -144,20 +150,20 @@ object JellyfinApiEndpoints {
         height?.let { params.add("height=$it") }
         quality?.let { params.add("quality=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Items/$itemId/Images/Backdrop/$imageIndex$queryString"
+        return endpoint(baseUrl, "Items/$itemId/Images/Backdrop/$imageIndex$queryString")
     }
-    
+
     fun getItemLogoImage(
-        baseUrl: String, 
-        itemId: String, 
-        width: Int? = null, 
+        baseUrl: String,
+        itemId: String,
+        width: Int? = null,
         height: Int? = null
     ): String {
         val params = mutableListOf<String>()
         width?.let { params.add("width=$it") }
         height?.let { params.add("height=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Items/$itemId/Images/Logo$queryString"
+        return endpoint(baseUrl, "Items/$itemId/Images/Logo$queryString")
     }
 
     // Playback
@@ -177,12 +183,12 @@ object JellyfinApiEndpoints {
         audioStreamIndex?.let { params.add("audioStreamIndex=$it") }
         subtitleStreamIndex?.let { params.add("subtitleStreamIndex=$it") }
         val queryString = "?${params.joinToString("&")}"
-        return "${baseUrl.trimEnd('/')}/Items/$itemId/PlaybackInfo$queryString"
+        return endpoint(baseUrl, "Items/$itemId/PlaybackInfo$queryString")
     }
 
-    fun reportPlaybackStart(baseUrl: String) = "${baseUrl.trimEnd('/')}/Sessions/Playing"
-    fun reportPlaybackProgress(baseUrl: String) = "${baseUrl.trimEnd('/')}/Sessions/Playing/Progress"
-    fun reportPlaybackStopped(baseUrl: String) = "${baseUrl.trimEnd('/')}/Sessions/Playing/Stopped"
+    fun reportPlaybackStart(baseUrl: String) = endpoint(baseUrl, "Sessions/Playing")
+    fun reportPlaybackProgress(baseUrl: String) = endpoint(baseUrl, "Sessions/Playing/Progress")
+    fun reportPlaybackStopped(baseUrl: String) = endpoint(baseUrl, "Sessions/Playing/Stopped")
 
     // Search
     fun searchHints(
@@ -208,11 +214,11 @@ object JellyfinApiEndpoints {
         includeMedia?.let { params.add("includeMedia=$it") }
         includeArtists?.let { params.add("includeArtists=$it") }
         val queryString = "?${params.joinToString("&")}"
-        return "${baseUrl.trimEnd('/')}/Search/Hints$queryString"
+        return endpoint(baseUrl, "Search/Hints$queryString")
     }
 
     // Library views
-    fun getUserViews(baseUrl: String, userId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Views"
+    fun getUserViews(baseUrl: String, userId: String) = endpoint(baseUrl, "Users/$userId/Views")
 
     fun getGenres(
         baseUrl: String,
@@ -225,7 +231,7 @@ object JellyfinApiEndpoints {
         parentId?.let { params.add("parentId=$it") }
         includeItemTypes?.let { params.add("includeItemTypes=$it") }
         val queryString = "?${params.joinToString("&")}"
-        return "${baseUrl.trimEnd('/')}/Genres$queryString"
+        return endpoint(baseUrl, "Genres$queryString")
     }
 
     fun getStudios(
@@ -239,14 +245,14 @@ object JellyfinApiEndpoints {
         parentId?.let { params.add("parentId=$it") }
         includeItemTypes?.let { params.add("includeItemTypes=$it") }
         val queryString = "?${params.joinToString("&")}"
-        return "${baseUrl.trimEnd('/')}/Studios$queryString"
+        return endpoint(baseUrl, "Studios$queryString")
     }
 
     // Favorites & ratings
-    fun markAsFavorite(baseUrl: String, userId: String, itemId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/FavoriteItems/$itemId"
-    fun unmarkAsFavorite(baseUrl: String, userId: String, itemId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/FavoriteItems/$itemId"
-    fun updateItemRating(baseUrl: String, userId: String, itemId: String, likes: Boolean) = "${baseUrl.trimEnd('/')}/Users/$userId/Items/$itemId/Rating?likes=$likes"
-    fun deleteItemRating(baseUrl: String, userId: String, itemId: String) = "${baseUrl.trimEnd('/')}/Users/$userId/Items/$itemId/Rating"
+    fun markAsFavorite(baseUrl: String, userId: String, itemId: String) = endpoint(baseUrl, "Users/$userId/FavoriteItems/$itemId")
+    fun unmarkAsFavorite(baseUrl: String, userId: String, itemId: String) = endpoint(baseUrl, "Users/$userId/FavoriteItems/$itemId")
+    fun updateItemRating(baseUrl: String, userId: String, itemId: String, likes: Boolean) = endpoint(baseUrl, "Users/$userId/Items/$itemId/Rating?likes=$likes")
+    fun deleteItemRating(baseUrl: String, userId: String, itemId: String) = endpoint(baseUrl, "Users/$userId/Items/$itemId/Rating")
 
     // Utility
     fun getStreamUrl(
@@ -277,9 +283,9 @@ object JellyfinApiEndpoints {
         mediaSourceId?.let { params.add("mediaSourceId=$it") }
         playSessionId?.let { params.add("playSessionId=$it") }
         val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${baseUrl.trimEnd('/')}/Videos/$itemId/stream$queryString"
+        return endpoint(baseUrl, "Videos/$itemId/stream$queryString")
     }
 
     fun validateBaseUrl(baseUrl: String) = baseUrl.startsWith("http://") || baseUrl.startsWith("https://")
-    fun normalizeBaseUrl(baseUrl: String) = baseUrl.trimEnd('/')
+    fun normalizeBaseUrl(baseUrl: String) = NetworkModule.trimTrailingSlash(baseUrl)
 }

@@ -68,6 +68,7 @@ import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.app.R
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import androidx.compose.ui.platform.LocalConfiguration
@@ -174,7 +175,7 @@ fun FeatureTab(
     val currentUsername by authRepository.getUsername().collectAsState(initial = CachedData.username)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
     val userSessionKey = remember(currentServerUrl, currentUsername) {
-        "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
+        "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
     var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
         mutableStateOf(currentUsername ?: CachedData.username ?: "User")
@@ -982,4 +983,3 @@ private fun FeatureHeroError(error: String, heroHeight: Dp) {
         }
     }
 }
-

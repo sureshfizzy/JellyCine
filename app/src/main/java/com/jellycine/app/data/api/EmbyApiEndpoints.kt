@@ -3,7 +3,7 @@ package com.jellycine.app.data.api
 object EmbyApiEndpoints {
 
     private fun embyBaseUrl(baseUrl: String): String {
-        val normalized = baseUrl.trimEnd('/')
+        val normalized = JellyfinApiEndpoints.normalizeBaseUrl(baseUrl)
         return if (normalized.endsWith("/emby", ignoreCase = true)) normalized else "$normalized/emby"
     }
 

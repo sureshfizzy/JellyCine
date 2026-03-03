@@ -1124,7 +1124,7 @@ fun Dashboard(
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
-        "${currentServerUrl?.trimEnd('/').orEmpty()}|${currentUsername.orEmpty()}"
+        "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
     val HeaderUserName = (currentUsername ?: CachedData.username)
         ?.takeIf { it.isNotBlank() }
@@ -3151,6 +3151,3 @@ private fun ProgressiveTVShowGenreSection(
         }
     }
 }
-
-
-

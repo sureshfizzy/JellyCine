@@ -144,11 +144,11 @@ object NetworkModule {
         storageDir: File? = null,
         timeoutConfig: NetworkTimeoutConfig? = null
     ): MediaServerApi {
-        val normalizedBaseUrl = ensureTrailingSlash(baseUrl)
+        val normalizedBaseUrl = trimTrailingSlash(baseUrl, trailingSlash = true)
         val resolvedType = serverType ?: inferServerType(normalizedBaseUrl)
         val resolvedTimeoutConfig = timeoutConfig ?: defaultTimeoutConfig()
         val cacheKey = buildString {
-            append(normalizedBaseUrl.trimEnd('/'))
+            append(trimTrailingSlash(normalizedBaseUrl))
             append("|")
             append(accessToken.orEmpty())
             append("|")
@@ -214,7 +214,7 @@ object NetworkModule {
                     val detectedType = detectServerType(serverInfo, response.headers())
                     return Result.success(
                         ResolvedServerEndpoint(
-                            baseUrl = ensureTrailingSlash(candidate),
+                            baseUrl = trimTrailingSlash(candidate, trailingSlash = true),
                             serverType = detectedType,
                             serverInfo = serverInfo
                         )
@@ -330,6 +330,27 @@ object NetworkModule {
         )
     }
 
+    fun trimTrailingSlash(url: String, trailingSlash: Boolean = false): String {
+        var normalized = url
+        while (normalized.endsWith("/")) {
+            normalized = normalized.dropLast(1)
+        }
+        return if (trailingSlash) "$normalized/" else normalized
+    }
+
+    fun canonicalServerUrl(url: String): String {
+        return trimTrailingSlash(url.trim())
+    }
+
+    fun canonicalServerUrlKey(url: String): String {
+        return canonicalServerUrl(url).lowercase()
+    }
+
+    fun sameServerUrl(left: String?, right: String?): Boolean {
+        if (left.isNullOrBlank() || right.isNullOrBlank()) return false
+        return canonicalServerUrl(left).equals(canonicalServerUrl(right), ignoreCase = true)
+    }
+
     private fun buildAuthHeader(
         accessToken: String?,
         deviceId: String,
@@ -349,12 +370,8 @@ object NetworkModule {
         }
     }
 
-    private fun ensureTrailingSlash(url: String): String {
-        return if (url.endsWith("/")) url else "$url/"
-    }
-
     private fun buildBaseUrlCandidates(serverUrl: String): List<String> {
-        val normalized = serverUrl.trim().trimEnd('/')
+        val normalized = trimTrailingSlash(serverUrl.trim())
         if (normalized.endsWith("/emby", ignoreCase = true)) {
             return listOf(normalized)
         }
@@ -363,7 +380,7 @@ object NetworkModule {
     }
 
     private fun inferServerType(baseUrl: String): ServerType {
-        return if (baseUrl.trimEnd('/').endsWith("/emby", ignoreCase = true)) {
+        return if (trimTrailingSlash(baseUrl).endsWith("/emby", ignoreCase = true)) {
             ServerType.EMBY
         } else {
             ServerType.UNKNOWN

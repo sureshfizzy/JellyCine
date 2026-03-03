@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.UserDto
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
@@ -108,8 +109,8 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
                     }
                     val activeServerId = snapshot.activeServerId
                         ?: snapshot.savedServers.firstOrNull { savedServer ->
-                            savedServer.serverUrl.trimEnd('/')
-                                .equals(snapshot.serverUrl?.trimEnd('/'), ignoreCase = true) &&
+                            NetworkModule.trimTrailingSlash(savedServer.serverUrl)
+                                .equals(snapshot.serverUrl?.let(NetworkModule::trimTrailingSlash), ignoreCase = true) &&
                                 savedServer.username == snapshot.username
                         }?.id
                     val serverUiModels = snapshot.savedServers.map { savedServer ->
@@ -157,7 +158,7 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
     )
 
     private fun buildSessionKey(serverUrl: String?, username: String?): String {
-        return "${serverUrl?.trimEnd('/').orEmpty()}|${username.orEmpty()}"
+        return "${serverUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${username.orEmpty()}"
     }
 
     private suspend fun refreshCurrentUserAndProfile(sessionKey: String, username: String?) {
@@ -312,4 +313,3 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         )
     }
 }
-

@@ -1,6 +1,7 @@
 package com.jellycine.data.repository
 
 import android.content.Context
+import android.net.Uri
 import android.util.AtomicFile
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -28,7 +29,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
+import java.net.URI
 import java.nio.charset.StandardCharsets
 
 class MediaRepository(private val context: Context) {
@@ -129,6 +130,32 @@ class MediaRepository(private val context: Context) {
 
     private suspend fun getUserId(): String? = getApiSession()?.userId
 
+    private fun buildServerUrl(
+        baseUrl: String,
+        encodedPath: String,
+        queryParams: List<Pair<String, String?>> = emptyList()
+    ): String {
+        val builder = Uri.parse(NetworkModule.trimTrailingSlash(baseUrl))
+            .buildUpon()
+            .appendEncodedPath(encodedPath.trimStart('/'))
+        queryParams.forEach { (key, value) ->
+            if (!value.isNullOrBlank()) {
+                builder.appendQueryParameter(key, value)
+            }
+        }
+        return builder.build().toString()
+    }
+
+    private fun absoluteUrl(baseUrl: String, absoluteOrRelativeUrl: String): String {
+        if (absoluteOrRelativeUrl.startsWith("http", ignoreCase = true)) {
+            return absoluteOrRelativeUrl
+        }
+
+        val normalizedBase = "${NetworkModule.trimTrailingSlash(baseUrl)}/"
+        return runCatching { URI(normalizedBase).resolve(absoluteOrRelativeUrl).toString() }
+            .getOrElse { "${NetworkModule.trimTrailingSlash(baseUrl)}$absoluteOrRelativeUrl" }
+    }
+
     private suspend fun getSessionConfig(): SessionConfig? {
         val now = System.currentTimeMillis()
         cachedSessionConfig?.let { config ->
@@ -213,7 +240,7 @@ class MediaRepository(private val context: Context) {
     private fun getHomeSnapshotFile() = context.filesDir.resolve(homeSnapshotFileName)
 
     private fun buildSnapshotKey(config: SessionConfig): String {
-        return "${config.serverUrl.trimEnd('/')}|${config.userId}"
+        return "${NetworkModule.trimTrailingSlash(config.serverUrl)}|${config.userId}"
     }
 
     private fun HomeSnapshot(file: java.io.File): PersistedHomeSnapshot? {
@@ -378,7 +405,7 @@ class MediaRepository(private val context: Context) {
         baseUrl: String,
         userId: String
     ): SuggestionsRoute {
-        val hasEmbyBasePath = baseUrl.trimEnd('/').endsWith("/emby", ignoreCase = true)
+        val hasEmbyBasePath = NetworkModule.trimTrailingSlash(baseUrl).endsWith("/emby", ignoreCase = true)
         val isEmby = serverType == NetworkModule.ServerType.EMBY || hasEmbyBasePath
         return if (isEmby) {
             val endpoint = if (hasEmbyBasePath) {
@@ -680,17 +707,16 @@ class MediaRepository(private val context: Context) {
             return null
         }
 
-        val params = mutableListOf<String>()
-        accessToken?.let { params.add("api_key=$it") }
-        width?.let { params.add("width=$it") }
-        height?.let { params.add("height=$it") }
-        quality?.let { params.add("quality=$it") }
+        val queryParams = mutableListOf<Pair<String, String?>>()
+        queryParams.add("api_key" to accessToken)
+        width?.let { queryParams.add("width" to it.toString()) }
+        height?.let { queryParams.add("height" to it.toString()) }
+        quality?.let { queryParams.add("quality" to it.toString()) }
         if (!enableImageEnhancers) {
-            params.add("HasImageEnhancers=false")
-            params.add("EnableImageEnhancers=false")
+            queryParams.add("HasImageEnhancers" to "false")
+            queryParams.add("EnableImageEnhancers" to "false")
         }
-        val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-        return "${serverUrl.trimEnd('/')}/Items/$itemId/Images/$imageType$queryString"
+        return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
     }
     
     fun getImageUrl(
@@ -705,17 +731,16 @@ class MediaRepository(private val context: Context) {
             val serverUrl = authState.serverUrl
             val accessToken = authState.accessToken
             if (serverUrl != null && itemId.isNotEmpty()) {
-                val params = mutableListOf<String>()
-                accessToken?.let { params.add("api_key=$it") }
-                width?.let { params.add("width=$it") }
-                height?.let { params.add("height=$it") }
-                quality?.let { params.add("quality=$it") }
+                val queryParams = mutableListOf<Pair<String, String?>>()
+                queryParams.add("api_key" to accessToken)
+                width?.let { queryParams.add("width" to it.toString()) }
+                height?.let { queryParams.add("height" to it.toString()) }
+                quality?.let { queryParams.add("quality" to it.toString()) }
                 if (!enableImageEnhancers) {
-                    params.add("HasImageEnhancers=false")
-                    params.add("EnableImageEnhancers=false")
+                    queryParams.add("HasImageEnhancers" to "false")
+                    queryParams.add("EnableImageEnhancers" to "false")
                 }
-                val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-                "${serverUrl.trimEnd('/')}/Items/$itemId/Images/$imageType$queryString"
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
             } else {
                 null
             }
@@ -734,17 +759,16 @@ class MediaRepository(private val context: Context) {
             val serverUrl = authState.serverUrl
             val accessToken = authState.accessToken
             if (serverUrl != null && itemId.isNotEmpty()) {
-                val params = mutableListOf<String>()
-                accessToken?.let { params.add("api_key=$it") }
-                width?.let { params.add("width=$it") }
-                height?.let { params.add("height=$it") }
-                quality?.let { params.add("quality=$it") }
+                val queryParams = mutableListOf<Pair<String, String?>>()
+                queryParams.add("api_key" to accessToken)
+                width?.let { queryParams.add("width" to it.toString()) }
+                height?.let { queryParams.add("height" to it.toString()) }
+                quality?.let { queryParams.add("quality" to it.toString()) }
                 if (!enableImageEnhancers) {
-                    params.add("HasImageEnhancers=false")
-                    params.add("EnableImageEnhancers=false")
+                    queryParams.add("HasImageEnhancers" to "false")
+                    queryParams.add("EnableImageEnhancers" to "false")
                 }
-                val queryString = if (params.isNotEmpty()) "?${params.joinToString("&")}" else ""
-                "${serverUrl.trimEnd('/')}/Items/$itemId/Images/Backdrop/$imageIndex$queryString"
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/Backdrop/$imageIndex", queryParams = queryParams)
             } else {
                 null
             }
@@ -1113,8 +1137,7 @@ class MediaRepository(private val context: Context) {
         val accessToken = config?.accessToken
 
         return if (serverUrl != null && userId != null) {
-            val apiKeyParam = if (accessToken != null) "?api_key=$accessToken" else ""
-            "${serverUrl.trimEnd('/')}/Users/$userId/Images/Primary$apiKeyParam"
+            buildServerUrl(baseUrl = serverUrl, encodedPath = "Users/$userId/Images/Primary", queryParams = listOf("api_key" to accessToken))
         } else {
             null
         }
@@ -1157,7 +1180,7 @@ class MediaRepository(private val context: Context) {
     suspend fun getItemDownloadRequest(itemId: String): Result<ItemDownloadRequest> {
         return try {
             val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
-            val serverUrl = config.serverUrl.trimEnd('/')
+            val serverUrl = config.serverUrl
             val accessToken = config.accessToken
             if (accessToken.isNullOrBlank()) {
                 return Result.failure(Exception("Access token not available"))
@@ -1181,8 +1204,7 @@ class MediaRepository(private val context: Context) {
             }?.trimStart('.')
                 ?.lowercase()
 
-            val encodedName = URLEncoder.encode(displayName, StandardCharsets.UTF_8.toString())
-            val downloadUrl = "$serverUrl/Items/$itemId/Download?api_key=$accessToken&name=$encodedName"
+            val downloadUrl = buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Download", queryParams = listOf("api_key" to accessToken, "name" to displayName))
 
             Result.success(
                 ItemDownloadRequest(
@@ -1235,15 +1257,15 @@ class MediaRepository(private val context: Context) {
             // Build streaming URL
             val streamingUrl = if (mediaSource.supportsDirectPlay == true) {
                 // Direct play
-                "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?static=true&mediaSourceId=${mediaSource.id}&api_key=$accessToken"
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Videos/$itemId/stream", queryParams = listOf("static" to "true", "mediaSourceId" to mediaSource.id, "api_key" to accessToken))
             } else if (mediaSource.supportsDirectStream == true) {
                 // Direct stream
-                "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?static=true&mediaSourceId=${mediaSource.id}&api_key=$accessToken"
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Videos/$itemId/stream", queryParams = listOf("static" to "true", "mediaSourceId" to mediaSource.id, "api_key" to accessToken))
             } else {
                 // Transcoding
                 mediaSource.transcodingUrl?.let { url ->
-                    if (url.startsWith("http")) url else "${serverUrl.trimEnd('/')}$url"
-                } ?: "${serverUrl.trimEnd('/')}/Videos/$itemId/stream?api_key=$accessToken"
+                    absoluteUrl(serverUrl, url)
+                } ?: buildServerUrl(baseUrl = serverUrl, encodedPath = "Videos/$itemId/stream", queryParams = listOf("api_key" to accessToken))
             }
 
             Result.success(streamingUrl)
@@ -1561,3 +1583,4 @@ fun BaseItemDto.getFormattedResumePosition(): String? {
         String.format("%d:%02d", minutes, seconds % 60)
     }
 }
+
