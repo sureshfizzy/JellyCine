@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -13,6 +15,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     
     private val authRepository = AuthRepositoryProvider.getInstance(application)
     private val mediaRepository = MediaRepositoryProvider.getInstance(application)
+    private var quickConnectPollingJob: Job? = null
     
     private val _uiState = MutableStateFlow(AuthScreenUiState())
     val uiState: StateFlow<AuthScreenUiState> = _uiState.asStateFlow()
@@ -116,7 +119,92 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
     }
-    
+
+    fun refreshQuickConnectVisibility(serverUrl: String) {
+        val normalizedUrl = serverUrl.trim()
+        if (normalizedUrl.isBlank()) {
+            _uiState.value = _uiState.value.copy(showQuickConnect = false)
+            return
+        }
+
+        viewModelScope.launch {
+            val supported = authRepository.isQuickConnectSupported(normalizedUrl)
+            _uiState.value = _uiState.value.copy(
+                showQuickConnect = supported,
+                quickConnectCode = if (supported) _uiState.value.quickConnectCode else null,
+                isQuickConnectLoading = if (supported) _uiState.value.isQuickConnectLoading else false
+            )
+        }
+    }
+
+    fun loginWithQuickConnect(serverUrl: String, onSuccess: () -> Unit) {
+        if (!_uiState.value.showQuickConnect) return
+        if (_uiState.value.isQuickConnectLoading) return
+
+        val normalizedUrl = serverUrl.trim()
+        if (normalizedUrl.isBlank()) {
+            _uiState.value = _uiState.value.copy(
+                loginErrorMessage = "Server URL is missing for Quick Connect."
+            )
+            return
+        }
+
+        quickConnectPollingJob?.cancel()
+        quickConnectPollingJob = viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isQuickConnectLoading = true,
+                loginErrorMessage = null,
+                quickConnectCode = null
+            )
+
+            val initiated = authRepository.initiateQuickConnect(normalizedUrl).getOrElse { error ->
+                _uiState.value = _uiState.value.copy(
+                    isQuickConnectLoading = false,
+                    quickConnectCode = null,
+                    loginErrorMessage = mapLoginError(error)
+                )
+                return@launch
+            }
+
+            var currentSecret = initiated.secret.orEmpty()
+            val initialCode = initiated.code.orEmpty()
+            if (currentSecret.isBlank() || initialCode.isBlank()) {
+                _uiState.value = _uiState.value.copy(
+                    isQuickConnectLoading = false,
+                    quickConnectCode = null,
+                    loginErrorMessage = "Quick Connect failed to start. Please try again."
+                )
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(quickConnectCode = initialCode)
+
+            var pollCount = 0
+            while (pollCount < 40) {
+                delay(3000L)
+                val quickConnectLogin = authRepository.authenticateWithQuickConnect(
+                    serverUrl = normalizedUrl,
+                    secret = currentSecret
+                )
+                if (quickConnectLogin.isSuccess) {
+                    _uiState.value = _uiState.value.copy(
+                        isQuickConnectLoading = false,
+                        quickConnectCode = null
+                    )
+                    onSuccess()
+                    return@launch
+                }
+                pollCount += 1
+            }
+
+            _uiState.value = _uiState.value.copy(
+                isQuickConnectLoading = false,
+                quickConnectCode = null,
+                loginErrorMessage = "Quick Connect timed out. Please try again."
+            )
+        }
+    }
+
     fun clearServerError() {
         _uiState.value = _uiState.value.copy(serverErrorMessage = null)
     }
@@ -127,6 +215,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
 
     fun logout() {
         viewModelScope.launch {
+            quickConnectPollingJob?.cancel()
             authRepository.logout()
             mediaRepository.clearPersistedHomeSnapshot()
             CachedData.clearAllCache()
@@ -196,5 +285,8 @@ data class AuthScreenUiState(
     val username: String = "",
     val password: String = "",
     val isLoginLoading: Boolean = false,
-    val loginErrorMessage: String? = null
+    val loginErrorMessage: String? = null,
+    val showQuickConnect: Boolean = true,
+    val isQuickConnectLoading: Boolean = false,
+    val quickConnectCode: String? = null
 )

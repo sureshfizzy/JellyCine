@@ -11,6 +11,8 @@ import com.google.gson.reflect.TypeToken
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
+import com.jellycine.data.model.QuickConnectDto
+import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
@@ -259,7 +261,7 @@ class AuthRepository(private val context: Context) {
                 return Result.failure(Exception("Invalid URL format. URL must start with http:// or https://"))
             }
 
-            val resolved = NetworkModule.resolveServerEndpoint(
+            val resolved = NetworkModule.serverEndpoint(
                 serverUrl = serverUrl,
                 storageDir = context.filesDir,
                 timeoutConfig = networkPreferences.getTimeoutConfig()
@@ -301,6 +303,38 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    private suspend fun authEndpoint(
+        serverUrl: String,
+        preferences: Preferences
+    ): Result<NetworkModule.ServerEndpoint> {
+        val savedServerUrl = preferences[SERVER_URL_KEY]
+        val savedServerType = preferences[SERVER_TYPE_KEY]?.let {
+            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+        }
+        if (isSameServer(serverUrl, savedServerUrl) && savedServerUrl != null && savedServerType != null) {
+            return Result.success(
+                NetworkModule.ServerEndpoint(
+                    baseUrl = savedServerUrl,
+                    serverType = savedServerType,
+                    serverInfo = ServerInfo(
+                        serverName = preferences[SERVER_NAME_KEY]
+                    )
+                )
+            )
+        }
+
+        return NetworkModule.serverEndpoint(
+            serverUrl = serverUrl,
+            storageDir = context.filesDir,
+            timeoutConfig = networkPreferences.getTimeoutConfig()
+        ).fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { error ->
+                Result.failure(Exception(error.message ?: "Unable to resolve server endpoint"))
+            }
+        )
+    }
+
     suspend fun authenticateUser(
         serverUrl: String,
         username: String,
@@ -314,7 +348,7 @@ class AuthRepository(private val context: Context) {
             }
 
             val endpoint = if (isSameServer(serverUrl, savedServerUrl) && savedServerUrl != null && savedServerType != null) {
-                NetworkModule.ResolvedServerEndpoint(
+                NetworkModule.ServerEndpoint(
                     baseUrl = savedServerUrl,
                     serverType = savedServerType,
                     serverInfo = ServerInfo(
@@ -327,7 +361,7 @@ class AuthRepository(private val context: Context) {
                     )
                 )
             } else {
-                NetworkModule.resolveServerEndpoint(
+                NetworkModule.serverEndpoint(
                     serverUrl = serverUrl,
                     storageDir = context.filesDir,
                     timeoutConfig = networkPreferences.getTimeoutConfig()
@@ -374,7 +408,101 @@ class AuthRepository(private val context: Context) {
                     prefs[USERNAME_KEY] = username
                     prefs[IS_AUTHENTICATED_KEY] = true
                 }
+                Result.success(authResult)
+            } else {
+                Result.failure(Exception("Authentication failed: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
+    suspend fun initiateQuickConnect(serverUrl: String): Result<QuickConnectResult> {
+        return try {
+            val preferences = dataStore.data.first()
+            val endpoint = authEndpoint(serverUrl, preferences).getOrElse { error ->
+                return Result.failure(error)
+            }
+
+            val api = NetworkModule.createMediaServerApi(
+                baseUrl = endpoint.baseUrl,
+                serverType = endpoint.serverType,
+                storageDir = context.filesDir,
+                timeoutConfig = networkPreferences.getTimeoutConfig()
+            )
+            val response = api.initiateQuickConnect()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Unable to start Quick Connect: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun isQuickConnectSupported(serverUrl: String): Boolean {
+        if (serverUrl.isBlank()) return false
+        return runCatching {
+            val preferences = dataStore.data.first()
+            val endpoint = authEndpoint(serverUrl, preferences).getOrNull()
+            endpoint?.serverType != NetworkModule.ServerType.EMBY
+        }.getOrDefault(true)
+    }
+
+    suspend fun authenticateWithQuickConnect(
+        serverUrl: String,
+        secret: String
+    ): Result<AuthenticationResult> {
+        if (secret.isBlank()) {
+            return Result.failure(Exception("Quick Connect secret is missing."))
+        }
+
+        return try {
+            val preferences = dataStore.data.first()
+            val endpoint = authEndpoint(serverUrl, preferences).getOrElse { error ->
+                return Result.failure(error)
+            }
+
+            val serverName = serverName(
+                serverInfo = endpoint.serverInfo,
+                serverType = endpoint.serverType
+            )
+            val api = NetworkModule.createMediaServerApi(
+                baseUrl = endpoint.baseUrl,
+                serverType = endpoint.serverType,
+                storageDir = context.filesDir,
+                timeoutConfig = networkPreferences.getTimeoutConfig()
+            )
+
+            val response = api.authenticateWithQuickConnect(QuickConnectDto(secret = secret))
+            if (response.isSuccessful && response.body() != null) {
+                val authResult = response.body()!!
+                val persistedUsername = authResult.user.name.trim().ifBlank { authResult.user.id }
+                val savedServer = SavedServer(
+                    id = buildServerId(serverUrl = endpoint.baseUrl, userId = authResult.user.id),
+                    serverUrl = endpoint.baseUrl,
+                    serverName = serverName,
+                    serverTypeRaw = endpoint.serverType.name,
+                    username = persistedUsername,
+                    userId = authResult.user.id,
+                    accessToken = authResult.accessToken,
+                    lastUsedAt = System.currentTimeMillis()
+                )
+
+                dataStore.edit { prefs ->
+                    val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
+                    val updatedServers = upsertSavedServer(existingServers, savedServer)
+                    prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
+                    prefs[ACTIVE_SERVER_ID_KEY] = savedServer.id
+                    prefs[SERVER_URL_KEY] = endpoint.baseUrl
+                    prefs[SERVER_NAME_KEY] = serverName
+                    prefs[SERVER_TYPE_KEY] = endpoint.serverType.name
+                    prefs[ACCESS_TOKEN_KEY] = authResult.accessToken
+                    prefs[USER_ID_KEY] = authResult.user.id
+                    prefs[USERNAME_KEY] = persistedUsername
+                    prefs[IS_AUTHENTICATED_KEY] = true
+                }
                 Result.success(authResult)
             } else {
                 Result.failure(Exception("Authentication failed: ${response.code()}"))

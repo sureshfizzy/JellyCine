@@ -47,7 +47,7 @@ object NetworkModule {
         EMBY
     }
 
-    data class ResolvedServerEndpoint(
+    data class ServerEndpoint(
         val baseUrl: String,
         val serverType: ServerType,
         val serverInfo: ServerInfo
@@ -192,11 +192,11 @@ object NetworkModule {
         )
     }
 
-    suspend fun resolveServerEndpoint(
+    suspend fun serverEndpoint(
         serverUrl: String,
         storageDir: File? = null,
         timeoutConfig: NetworkTimeoutConfig? = null
-    ): Result<ResolvedServerEndpoint> {
+    ): Result<ServerEndpoint> {
         val candidates = buildBaseUrlCandidates(serverUrl)
         var lastError: Exception? = null
 
@@ -213,7 +213,7 @@ object NetworkModule {
                     val serverInfo = gson.fromJson(rawPublicInfo, ServerInfo::class.java)
                     val detectedType = detectServerType(serverInfo, response.headers())
                     return Result.success(
-                        ResolvedServerEndpoint(
+                        ServerEndpoint(
                             baseUrl = trimTrailingSlash(candidate, trailingSlash = true),
                             serverType = detectedType,
                             serverInfo = serverInfo
@@ -410,3 +410,4 @@ object NetworkModule {
     }
 
 }
+

@@ -7,6 +7,8 @@ import com.jellycine.data.model.PlaybackInfoResponse
 import com.jellycine.data.model.PlaybackProgressRequest
 import com.jellycine.data.model.PlaybackStartRequest
 import com.jellycine.data.model.PlaybackStoppedRequest
+import com.jellycine.data.model.QuickConnectDto
+import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
 import com.google.gson.JsonObject
@@ -29,6 +31,14 @@ interface MediaServerApi {
 
     @POST("Users/AuthenticateByName")
     suspend fun authenticateByName(@Body request: AuthenticationRequest): Response<AuthenticationResult>
+
+    @POST("QuickConnect/Initiate")
+    suspend fun initiateQuickConnect(): Response<QuickConnectResult>
+
+    @POST("Users/AuthenticateWithQuickConnect")
+    suspend fun authenticateWithQuickConnect(
+        @Body request: QuickConnectDto
+    ): Response<AuthenticationResult>
 
     @GET("Users/{userId}/Items/Latest")
     suspend fun getLatestItems(

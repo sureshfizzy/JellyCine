@@ -40,11 +40,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,6 +106,12 @@ fun AuthScreen(
         currentStep = AuthStep.SERVER_CONNECTION
     }
 
+    LaunchedEffect(currentStep, selectedServerUrl) {
+        if (currentStep == AuthStep.LOGIN) {
+            authViewModel.refreshQuickConnectVisibility(selectedServerUrl)
+        }
+    }
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.Black
@@ -155,9 +163,15 @@ fun AuthScreen(
                         password = uiState.password,
                         isLoading = uiState.isLoginLoading,
                         errorMessage = uiState.loginErrorMessage,
+                        showQuickConnect = uiState.showQuickConnect,
+                        isQuickConnectLoading = uiState.isQuickConnectLoading,
+                        quickConnectCode = uiState.quickConnectCode,
                         onUsernameChange = authViewModel::updateUsername,
                         onPasswordChange = authViewModel::updatePassword,
-                        onLogin = { authViewModel.login(selectedServerUrl, onAuthSuccess) }
+                        onLogin = { authViewModel.login(selectedServerUrl, onAuthSuccess) },
+                        onQuickConnect = {
+                            authViewModel.loginWithQuickConnect(selectedServerUrl, onAuthSuccess)
+                        }
                     )
                 }
             }
@@ -286,9 +300,13 @@ private fun LoginContent(
     password: String,
     isLoading: Boolean,
     errorMessage: String?,
+    showQuickConnect: Boolean,
+    isQuickConnectLoading: Boolean,
+    quickConnectCode: String?,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    onQuickConnect: () -> Unit
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
@@ -306,9 +324,13 @@ private fun LoginContent(
             password = password,
             isLoading = isLoading,
             errorMessage = errorMessage,
+            showQuickConnect = showQuickConnect,
+            isQuickConnectLoading = isQuickConnectLoading,
+            quickConnectCode = quickConnectCode,
             onUsernameChange = onUsernameChange,
             onPasswordChange = onPasswordChange,
-            onLogin = onLogin
+            onLogin = onLogin,
+            onQuickConnect = onQuickConnect
         )
     }
 }
@@ -423,14 +445,19 @@ private fun LoginForm(
     password: String,
     isLoading: Boolean,
     errorMessage: String?,
+    showQuickConnect: Boolean,
+    isQuickConnectLoading: Boolean,
+    quickConnectCode: String?,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    onQuickConnect: () -> Unit
 ) {
     val usernameBringIntoView = remember { BringIntoViewRequester() }
     val passwordBringIntoView = remember { BringIntoViewRequester() }
     var isPasswordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val isBusy = isLoading || isQuickConnectLoading
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -459,7 +486,7 @@ private fun LoginForm(
                             scope.launch { usernameBringIntoView.bringIntoView() }
                         }
                     },
-                enabled = !isLoading,
+                enabled = !isBusy,
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -518,7 +545,7 @@ private fun LoginForm(
                             scope.launch { passwordBringIntoView.bringIntoView() }
                         }
                     },
-                enabled = !isLoading,
+                enabled = !isBusy,
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -552,7 +579,7 @@ private fun LoginForm(
 
             Button(
                 onClick = onLogin,
-                enabled = !isLoading && username.isNotBlank(),
+                enabled = !isBusy && username.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -572,6 +599,44 @@ private fun LoginForm(
                     )
                 } else {
                     Text("Sign In")
+                }
+            }
+
+            if (showQuickConnect) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onQuickConnect,
+                        enabled = !isBusy,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (isQuickConnectLoading && quickConnectCode == null) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Text(
+                                text = quickConnectCode?.let { "Code: $it" }
+                                    ?: if (isQuickConnectLoading) "Generating code..."
+                                    else "Quick Connect",
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    if (quickConnectCode != null) {
+                        Text(
+                            text = "Approve this code in your server Quick Connect page.",
+                            color = Color.White.copy(alpha = 0.75f),
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -608,8 +673,12 @@ private fun LoginContentPreview() {
         password = "",
         isLoading = false,
         errorMessage = null,
+        showQuickConnect = true,
+        isQuickConnectLoading = false,
+        quickConnectCode = null,
         onUsernameChange = {},
         onPasswordChange = {},
-        onLogin = {}
+        onLogin = {},
+        onQuickConnect = {}
     )
 }
