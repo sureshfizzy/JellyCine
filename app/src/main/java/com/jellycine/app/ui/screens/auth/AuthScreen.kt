@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -96,6 +97,12 @@ fun AuthScreen(
     }
     var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
+    val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
+
+    BackHandler(enabled = canNavigateBackToServerStep && !uiState.isLoginLoading) {
+        authViewModel.clearLoginError()
+        currentStep = AuthStep.SERVER_CONNECTION
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
