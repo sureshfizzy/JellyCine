@@ -91,6 +91,9 @@ fun PlayerScreen(
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
     var showStreamingQualityDialog by remember { mutableStateOf(false) }
     var showMediaInfo by remember { mutableStateOf(false) }
+    val mediaInfoSnapshot = remember(showMediaInfo, viewModel) {
+        if (showMediaInfo) viewModel.getMediaMetadataInfo() else null
+    }
 
     // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
@@ -509,10 +512,12 @@ fun PlayerScreen(
 
         // Media Information Dialog
         if (showMediaInfo) {
-            MediaInfoDialog(
-                mediaInfo = viewModel.getMediaMetadataInfo(),
-                onDismiss = { showMediaInfo = false }
-            )
+            mediaInfoSnapshot?.let { mediaInfo ->
+                MediaInfoDialog(
+                    mediaInfo = mediaInfo,
+                    onDismiss = { showMediaInfo = false }
+                )
+            }
         }
     }
 }

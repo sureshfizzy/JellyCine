@@ -2,18 +2,16 @@ package com.jellycine.app.ui.screens.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -24,7 +22,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -83,8 +84,17 @@ fun MediaInfoDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val compact = screenWidth < 700.dp
+    val panelWidth = (screenWidth * if (compact) 0.80f else 0.31f).coerceIn(240.dp, 390.dp)
+    val horizontalInset = if (compact) 14.dp else 34.dp
+    val popupOffset = with(density) { IntOffset(horizontalInset.roundToPx(), 0) }
+
     Popup(
         alignment = Alignment.CenterStart,
+        offset = popupOffset,
         onDismissRequest = onDismiss,
         properties = PopupProperties(
             focusable = false,
@@ -93,77 +103,62 @@ fun MediaInfoDialog(
             clippingEnabled = false
         )
     ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val compact = maxWidth < 700.dp
-            val panelWidthFraction = if (compact) 0.80f else 0.31f
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(start = if (compact) 14.dp else 34.dp, end = 10.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Card(
-                    modifier = modifier
-                        .fillMaxWidth(panelWidthFraction)
-                        .widthIn(min = 240.dp, max = 390.dp)
-                        .heightIn(max = if (compact) 170.dp else 190.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0x9916191F)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        Card(
+            modifier = modifier
+                .width(panelWidth)
+                .heightIn(max = if (compact) 170.dp else 190.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0x9916191F)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            SectionTitle("Stream")
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clickable(onClick = onDismiss),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "\u2715",
-                                    color = Color(0xFFF2F2F2),
-                                    fontSize = 14.sp,
-                                    lineHeight = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+                    SectionTitle("Stream")
+                    PrimaryLine(buildStreamLine(mediaInfo))
+                    SecondaryLine("-> ${mediaInfo.playMethod}")
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    SectionTitle("Video")
+                    PrimaryLine(buildVideoTitle(mediaInfo.videoFormat, mediaInfo.hdrFormat))
+                    buildVideoDetails(mediaInfo.videoFormat)?.let { PrimaryLine(it) }
+                    SecondaryLine("-> ${mediaInfo.playMethod}")
+                    mediaInfo.hardwareAcceleration?.let {
+                        MixedLine("Renderer", if (it.isHardwareDecoding) "MediaCodec" else "Software")
+                        buildDisplayMode(mediaInfo.videoFormat)?.let { mode ->
+                            MixedLine("Display Mode", mode)
                         }
-
-                        PrimaryLine(buildStreamLine(mediaInfo))
-                        SecondaryLine("-> ${mediaInfo.playMethod}")
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        SectionTitle("Video")
-                        PrimaryLine(buildVideoTitle(mediaInfo.videoFormat, mediaInfo.hdrFormat))
-                        buildVideoDetails(mediaInfo.videoFormat)?.let { PrimaryLine(it) }
-                        SecondaryLine("-> ${mediaInfo.playMethod}")
-                        mediaInfo.hardwareAcceleration?.let {
-                            MixedLine("Renderer", if (it.isHardwareDecoding) "MediaCodec" else "Software")
-                            buildDisplayMode(mediaInfo.videoFormat)?.let { mode ->
-                                MixedLine("Display Mode", mode)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        SectionTitle("Audio")
-                        PrimaryLine(buildAudioTitle(mediaInfo.audioFormat))
-                        mediaInfo.audioFormat?.sampleRate?.let { PrimaryLine(it) }
-                        mediaInfo.audioFormat?.bitrate?.let { PrimaryLine(it) }
-                        SecondaryLine("-> ${mediaInfo.playMethod}")
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    SectionTitle("Audio")
+                    PrimaryLine(buildAudioTitle(mediaInfo.audioFormat))
+                    mediaInfo.audioFormat?.sampleRate?.let { PrimaryLine(it) }
+                    mediaInfo.audioFormat?.bitrate?.let { PrimaryLine(it) }
+                    SecondaryLine("-> ${mediaInfo.playMethod}")
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 12.dp)
+                        .size(20.dp)
+                        .clickable(onClick = onDismiss),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "\u2715",
+                        color = Color(0xFFF2F2F2),
+                        fontSize = 14.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
