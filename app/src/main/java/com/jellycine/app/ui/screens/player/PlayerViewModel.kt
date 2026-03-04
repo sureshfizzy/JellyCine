@@ -71,6 +71,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     private var pendingPreferredSubtitleStreamIndex: Int? = null
     private var hasAppliedInitialTrackPreferences = false
     private var hasHandledPlaybackCompletion = false
+    private var videoTranscodingAllowed: Boolean? = null
 
     data class PreferredStreamIndexes(
         val audioStreamIndex: Int? = null,
@@ -98,8 +99,17 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val resolvedPreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
-                val maxStreamingBitrate = playerPreferences.getMaxStreamingBitrate()
-                val maxStreamingHeight = playerPreferences.getStreamingQualityMaxHeight()
+                val isVideoTranscodingAllowed = valVideoTranscodingAllowed()
+                val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
+                    playerPreferences.getMaxStreamingBitrate()
+                } else {
+                    null
+                }
+                val maxStreamingHeight = if (isVideoTranscodingAllowed) {
+                    playerPreferences.getStreamingQualityMaxHeight()
+                } else {
+                    null
+                }
                 pendingPreferredAudioStreamIndex = resolvedPreferredAudioStreamIndex
                 pendingPreferredSubtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                 hasAppliedInitialTrackPreferences = false
@@ -287,6 +297,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     mediaTitle = mediaTitle,
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
+                    isVideoTranscodingAllowed = isVideoTranscodingAllowed,
                     spatializationResult = spatializationResult,
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
@@ -306,6 +317,18 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     fun seekTo(position: Long) {
         exoPlayer?.seekTo(position)
         _playerState.value = _playerState.value.copy(currentPosition = position)
+    }
+
+    private suspend fun valVideoTranscodingAllowed(): Boolean {
+        videoTranscodingAllowed?.let { return it }
+
+        val user = mediaRepository.getCurrentUser().getOrNull()
+        val allowed = user?.policy?.enableVideoPlaybackTranscoding
+            ?: user?.let { true }
+            ?: false
+
+        videoTranscodingAllowed = allowed
+        return allowed
     }
 
     fun togglePlayPause() {

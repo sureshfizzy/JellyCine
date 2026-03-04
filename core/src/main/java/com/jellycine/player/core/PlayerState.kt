@@ -12,6 +12,7 @@ data class PlayerState(
     val mediaTitle: String = "",
     val mediaLogoUrl: String? = null,
     val seasonEpisodeLabel: String? = null,
+    val isVideoTranscodingAllowed: Boolean = false,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val bufferedPercentage: Int = 0,

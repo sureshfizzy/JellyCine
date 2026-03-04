@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.player.audio.AudioDeviceManager
 import com.jellycine.player.audio.ExternalAudioDevice
+import com.jellycine.data.repository.MediaRepositoryProvider
 
 data class PlayerSettingsUiState(
     // Hardware Acceleration
@@ -22,6 +23,7 @@ data class PlayerSettingsUiState(
     // Video
     val decoderPriority: String = "Auto",
     val streamingQuality: String = PlayerPreferences.DEFAULT_STREAMING_QUALITY,
+    val isVideoTranscodingAllowed: Boolean = false,
     val startMaximized: Boolean = false,
     
     // Performance
@@ -40,12 +42,14 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     
     private val playerPreferences = PlayerPreferences(context)
     private val audioDeviceManager = AudioDeviceManager(context)
+    private val mediaRepository = MediaRepositoryProvider.getInstance(context)
     
     private val _uiState = MutableStateFlow(PlayerSettingsUiState())
     val uiState: StateFlow<PlayerSettingsUiState> = _uiState.asStateFlow()
     
     init {
         loadSettings()
+        userTranscodingPolicy()
         detectDeviceCapabilities()
         startAudioDeviceMonitoring()
     }
@@ -161,6 +165,17 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setDecoderPriority(priority: String) {
         playerPreferences.setDecoderPriority(priority)
         _uiState.value = _uiState.value.copy(decoderPriority = priority)
+    }
+
+    private fun userTranscodingPolicy() {
+        viewModelScope.launch {
+            val user = mediaRepository.getCurrentUser().getOrNull()
+            val isAllowed = user?.policy?.enableVideoPlaybackTranscoding
+                ?: user?.let { true }
+                ?: _uiState.value.isVideoTranscodingAllowed
+
+            _uiState.value = _uiState.value.copy(isVideoTranscodingAllowed = isAllowed)
+        }
     }
 
     fun setStreamingQuality(quality: String) {

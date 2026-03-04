@@ -108,8 +108,15 @@ fun PlayerScreen(
     val playerState by viewModel.playerState.collectAsState()
     val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
     val sourceVideoHeight = viewModel.getSourceVideoHeight()
-    val availableStreamingQualityOptions = remember(sourceVideoHeight) {
-        PlayerPreferences.getStreamingQualityOptions(sourceVideoHeight)
+    val availableStreamingQualityOptions = remember(
+        sourceVideoHeight,
+        playerState.isVideoTranscodingAllowed
+    ) {
+        if (playerState.isVideoTranscodingAllowed) {
+            PlayerPreferences.getStreamingQualityOptions(sourceVideoHeight)
+        } else {
+            listOf(PlayerPreferences.STREAMING_QUALITY_ORIGINAL)
+        }
     }
 
     // System managers
@@ -218,31 +225,35 @@ fun PlayerScreen(
     }
 
     val applyStreamingQualitySelection: (String) -> Unit = { selectedQuality ->
-        val selection = selectedQuality.trim()
-        if (selection.isEmpty() || selection == currentStreamingQuality) {
+        if (!playerState.isVideoTranscodingAllowed) {
             showStreamingQualityDialog = false
         } else {
-            val resumePositionMs = viewModel.exoPlayer?.currentPosition ?: uiState.currentPosition
-            val shouldResumePlaying = viewModel.exoPlayer?.isPlaying ?: uiState.isPlaying
-            val preferredAudio = preferredStreamIndexes.audioStreamIndex
-            val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
+            val selection = selectedQuality.trim()
+            if (selection.isEmpty() || selection == currentStreamingQuality) {
+                showStreamingQualityDialog = false
+            } else {
+                val resumePositionMs = viewModel.exoPlayer?.currentPosition ?: uiState.currentPosition
+                val shouldResumePlaying = viewModel.exoPlayer?.isPlaying ?: uiState.isPlaying
+                val preferredAudio = preferredStreamIndexes.audioStreamIndex
+                val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
 
-            playerPreferences.setStreamingQuality(selection)
-            currentStreamingQuality = playerPreferences.getStreamingQuality()
-            showStreamingQualityDialog = false
-            uiState = uiState.copy(controlsVisible = false)
+                playerPreferences.setStreamingQuality(selection)
+                currentStreamingQuality = playerPreferences.getStreamingQuality()
+                showStreamingQualityDialog = false
+                uiState = uiState.copy(controlsVisible = false)
 
-            viewModel.releasePlayer()
-            initializedMediaId = null
-            viewModel.initializePlayer(
-                context = context,
-                mediaId = mediaId,
-                preferredAudioStreamIndex = preferredAudio,
-                preferredSubtitleStreamIndex = preferredSubtitle,
-                initialSeekPositionMs = resumePositionMs,
-                startPlayback = shouldResumePlaying
-            )
-            initializedMediaId = mediaId
+                viewModel.releasePlayer()
+                initializedMediaId = null
+                viewModel.initializePlayer(
+                    context = context,
+                    mediaId = mediaId,
+                    preferredAudioStreamIndex = preferredAudio,
+                    preferredSubtitleStreamIndex = preferredSubtitle,
+                    initialSeekPositionMs = resumePositionMs,
+                    startPlayback = shouldResumePlaying
+                )
+                initializedMediaId = mediaId
+            }
         }
     }
 
@@ -298,6 +309,12 @@ fun PlayerScreen(
             showMediaInfo
         ) {
             hideSystemBars()
+        }
+    }
+
+    LaunchedEffect(playerState.isVideoTranscodingAllowed) {
+        if (!playerState.isVideoTranscodingAllowed) {
+            showStreamingQualityDialog = false
         }
     }
 
@@ -427,9 +444,12 @@ fun PlayerScreen(
                     viewModel.toggleLock()
                 },
                 currentStreamingQuality = currentStreamingQuality,
+                showStreamingQualityButton = playerState.isVideoTranscodingAllowed,
                 onShowStreamingQualitySelection = {
                     resetAutoHideTimer()
-                    showStreamingQualityDialog = true
+                    if (playerState.isVideoTranscodingAllowed) {
+                        showStreamingQualityDialog = true
+                    }
                 },
                 onShowAudioTrackSelection = {
                     resetAutoHideTimer()
@@ -496,7 +516,7 @@ fun PlayerScreen(
         )
 
         StreamingQualitySelectionDialog(
-            isVisible = showStreamingQualityDialog,
+            isVisible = showStreamingQualityDialog && playerState.isVideoTranscodingAllowed,
             qualityOptions = availableStreamingQualityOptions,
             currentQuality = currentStreamingQuality,
             onQualitySelected = applyStreamingQualitySelection,
