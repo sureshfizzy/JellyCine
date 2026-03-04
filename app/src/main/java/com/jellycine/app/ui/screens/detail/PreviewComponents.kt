@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.util.image.JellyfinPosterImage
@@ -42,6 +43,8 @@ fun EpisodePreviewCard(
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {},
     onPreviewClick: () -> Unit = {},
+    cardWidth: Dp = 280.dp,
+    thumbnailHeight: Dp = 158.dp,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -70,7 +73,7 @@ fun EpisodePreviewCard(
     Card(
         onClick = onClick,
         modifier = modifier
-            .width(280.dp)
+            .width(cardWidth)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onLongPress = {
@@ -90,7 +93,7 @@ fun EpisodePreviewCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(158.dp)
+                        .height(thumbnailHeight)
                         .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                 ) {
                     episodeImageUrl?.let { imageUrl ->

@@ -470,6 +470,9 @@ fun DetailContent(
         mutableStateOf(item.userData?.isFavorite == true)
     }
     var similarItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
+        mutableStateOf<List<BaseItemDto>>(emptyList())
+    }
     fun toggleFavorite() {
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
@@ -545,6 +548,55 @@ fun DetailContent(
                 similarItems = emptyList()
             }
         )
+    }
+
+    LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId, item.parentIndexNumber) {
+        if (!isEpisode) {
+            moreFromSeasonEpisodes = emptyList()
+            return@LaunchedEffect
+        }
+
+        val seriesId = item.seriesId?.takeIf { it.isNotBlank() }
+        if (seriesId.isNullOrBlank()) {
+            moreFromSeasonEpisodes = emptyList()
+            return@LaunchedEffect
+        }
+
+        val seasonId = item.seasonId?.takeIf { it.isNotBlank() }
+        val result = if (seasonId != null) {
+            mediaRepository.getEpisodes(seriesId = seriesId, seasonId = seasonId)
+        } else {
+            mediaRepository.getEpisodes(seriesId = seriesId)
+        }
+
+        moreFromSeasonEpisodes = result
+            .getOrNull()
+            .orEmpty()
+            .filter { episode ->
+                when {
+                    seasonId != null -> episode.seasonId == seasonId
+                    item.parentIndexNumber != null -> episode.parentIndexNumber == item.parentIndexNumber
+                    else -> true
+                }
+            }
+            .filter { episode ->
+                val episodeId = episode.id
+                !episodeId.isNullOrBlank() && episodeId != item.id
+            }
+            .sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+    }
+
+    val moreFromSeasonTitle = remember(item.seasonName, item.parentIndexNumber) {
+        val seasonLabel = item.parentIndexNumber?.let { "Season $it" }
+            ?: item.seasonName?.takeIf { it.isNotBlank() }
+            ?: "Season"
+        "More from $seasonLabel"
     }
 
     val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
@@ -1136,6 +1188,15 @@ fun DetailContent(
                     )
                 }
 
+                if (isEpisode) {
+                    MoreFromSeasonSection(
+                        episodes = moreFromSeasonEpisodes,
+                        mediaRepository = mediaRepository,
+                        title = moreFromSeasonTitle,
+                        onEpisodeClick = onSimilarItemClick
+                    )
+                }
+
                 if (item.type == "Series") {
                     Row(
                         modifier = Modifier
@@ -1309,6 +1370,49 @@ fun DetailContent(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun MoreFromSeasonSection(
+    episodes: List<BaseItemDto>,
+    mediaRepository: MediaRepository,
+    title: String,
+    onEpisodeClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (episodes.isEmpty()) return
+
+    Column(
+        modifier = modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
+        ) {
+            items(
+                items = episodes,
+                key = { episode -> episode.id ?: "${episode.name}-${episode.indexNumber}" }
+            ) { episode ->
+                EpisodePreviewCard(
+                    episode = episode,
+                    mediaRepository = mediaRepository,
+                    cardWidth = 224.dp,
+                    thumbnailHeight = 126.dp,
+                    onClick = {
+                        episode.id?.let(onEpisodeClick)
+                    }
+                )
+            }
+        }
     }
 }
 
