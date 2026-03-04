@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
@@ -65,6 +66,7 @@ class PlayerViewModel @Inject constructor(
     private var apiMediaStreams: List<MediaStream>? = null
     private var hasHandledPlaybackCompletion = false
     private var videoTranscodingAllowed: Boolean? = null
+    private var audioDiagnosticsSignature: String? = null
 
     fun initializePlayer(
         context: Context,
@@ -105,6 +107,7 @@ class PlayerViewModel @Inject constructor(
                     subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                 )
 
+                audioDiagnosticsSignature = null
                 playbackReporter.reset()
                 spatializerHelper = SpatializerHelper(context)
                 exoPlayer = PlayerUtils.createPlayer(context)
@@ -278,11 +281,7 @@ class PlayerViewModel @Inject constructor(
                 val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
                 val contentSupportsSpatialization = spatializationResult?.canSpatialize == true
                 val deviceSpatializerEnabled = spatialInfo?.let { it.isAvailable && it.isEnabled } == true
-                val shouldEnableSpatialAudio =
-                    contentSupportsSpatialization && deviceSpatializerEnabled
-                if (exoPlayer != null) {
-                    PlayerUtils.configureSpatialAudioForContent(exoPlayer!!, spatializationResult)
-                }
+                val shouldEnableSpatialAudio = contentSupportsSpatialization && deviceSpatializerEnabled
 
                 // Update track information after player is ready
                 updateTrackInformation()
@@ -402,6 +401,7 @@ class PlayerViewModel @Inject constructor(
         apiMediaStreams = null
         playerContext = null
         hasHandledPlaybackCompletion = false
+        audioDiagnosticsSignature = null
         _preferredStreamIndexes.value = PreferredStreamIndexes()
         _playerState.value = PlayerState()
     }
@@ -442,6 +442,11 @@ class PlayerViewModel @Inject constructor(
                 val currentAudio = PlayerUtils.getCurrentAudioTrack(player)
                 val currentSubtitle = PlayerUtils.getCurrentSubtitleTrack(player)
                 val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                val selectedAudioSignature = buildSelectedAudioSignature(player)
+                if (selectedAudioSignature != null && selectedAudioSignature != audioDiagnosticsSignature) {
+                    PlayerUtils.logAudioPlaybackDiagnostics(player, reason = "track_changed")
+                    audioDiagnosticsSignature = selectedAudioSignature
+                }
                 val syncedPreferredIndexes = trackSelectionCoordinator.syncPreferredIndexesFromCurrentTracks(
                     context = playerContext,
                     mediaId = playbackSession.mediaId,
@@ -468,6 +473,19 @@ class PlayerViewModel @Inject constructor(
                 Log.e("PlayerViewModel", "Failed to update track information", e)
             }
         }
+    }
+
+    @UnstableApi
+    private fun buildSelectedAudioSignature(player: ExoPlayer): String? {
+        player.currentTracks.groups.forEachIndexed { groupIndex, group ->
+            if (group.type != C.TRACK_TYPE_AUDIO) return@forEachIndexed
+            val trackIndex = (0 until group.mediaTrackGroup.length)
+                .firstOrNull(group::isTrackSelected)
+                ?: return@forEachIndexed
+            val format = group.mediaTrackGroup.getFormat(trackIndex)
+            return "$groupIndex:$trackIndex|${format.channelCount}|${format.bitrate}|${format.sampleRate}|${format.codecs ?: format.sampleMimeType.orEmpty()}"
+        }
+        return null
     }
 
     private fun applyPendingTrackSelectionsIfNeeded() {

@@ -5,7 +5,6 @@ import android.os.Build
 import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
@@ -20,10 +19,6 @@ import com.jellycine.player.preferences.PlayerPreferences
  */
 @UnstableApi
 object PlayerUtils {
-    private const val MAX_MULTICHANNEL_AUDIO_CHANNELS = 16
-    private const val MAX_STEREO_AUDIO_CHANNELS = 2
-    private const val MAX_STEREO_AUDIO_BITRATE = 384_000
-
     private fun buildTrackId(
         prefix: String,
         groupIndex: Int,
@@ -56,36 +51,9 @@ object PlayerUtils {
             val spatializerHelper = SpatializerHelper(context)
             val canSpatializeMultiChannel = spatializerHelper.canSpatializeMultiChannel()
             val spatializerActive = spatializerHelper.isSpatializerEnabled()
-            val shouldUseMultichannel = canSpatializeMultiChannel && spatializerActive
             
             val trackSelector = DefaultTrackSelector(context).apply {
                 parameters = buildUponParameters()
-                    .setMaxAudioChannelCount(
-                        if (shouldUseMultichannel) {
-                            MAX_MULTICHANNEL_AUDIO_CHANNELS
-                        } else {
-                            MAX_STEREO_AUDIO_CHANNELS
-                        }
-                    )
-                    .setMaxAudioBitrate(
-                        if (shouldUseMultichannel) {
-                            Int.MAX_VALUE
-                        } else {
-                            MAX_STEREO_AUDIO_BITRATE
-                        }
-                    )
-                    .apply {
-                        if (!shouldUseMultichannel) {
-                            setPreferredAudioMimeTypes(
-                                MimeTypes.AUDIO_AAC,
-                                MimeTypes.AUDIO_OPUS,
-                                MimeTypes.AUDIO_E_AC3,
-                                MimeTypes.AUDIO_AC3,
-                                MimeTypes.AUDIO_VORBIS,
-                                MimeTypes.AUDIO_MPEG
-                            )
-                        }
-                    }
                     .apply {
                         when (effectiveHdrSupport) {
                             HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
@@ -105,9 +73,8 @@ object PlayerUtils {
             
             Log.d(
                 "PlayerUtils", 
-                "Track selector configured with max channels: " +
-                    (if (shouldUseMultichannel) MAX_MULTICHANNEL_AUDIO_CHANNELS else MAX_STEREO_AUDIO_CHANNELS) +
-                    " (device multi-channel: $canSpatializeMultiChannel, spatializer active: $spatializerActive)"
+                "Track selector configured without audio channel/bitrate caps " +
+                    "(device multi-channel: $canSpatializeMultiChannel, spatializer active: $spatializerActive)"
             )
 
             // Configure AudioAttributes to let system spatializer decide when active
@@ -204,38 +171,6 @@ object PlayerUtils {
             Log.d("PlayerUtils", "Content supports spatialization: $contentSupportsSpatialization")
             Log.d("PlayerUtils", "Should use device spatializer: $shouldUseDeviceSpatializer")
             
-            // Configure track selection for spatial content
-            val currentParams = exoPlayer.trackSelectionParameters
-            val newParams = currentParams.buildUpon()
-                .setMaxAudioChannelCount(
-                    if (shouldUseDeviceSpatializer) {
-                        MAX_MULTICHANNEL_AUDIO_CHANNELS
-                    } else {
-                        MAX_STEREO_AUDIO_CHANNELS
-                    }
-                )
-                .setMaxAudioBitrate(
-                    if (shouldUseDeviceSpatializer) {
-                        Int.MAX_VALUE
-                    } else {
-                        MAX_STEREO_AUDIO_BITRATE
-                    }
-                )
-                .apply {
-                    if (!shouldUseDeviceSpatializer) {
-                        setPreferredAudioMimeTypes(
-                            MimeTypes.AUDIO_AAC,
-                            MimeTypes.AUDIO_OPUS,
-                            MimeTypes.AUDIO_E_AC3,
-                            MimeTypes.AUDIO_AC3,
-                            MimeTypes.AUDIO_VORBIS,
-                            MimeTypes.AUDIO_MPEG
-                        )
-                    }
-                }
-                .build()
-            exoPlayer.trackSelectionParameters = newParams
-
             // Apply system spatialization behavior directly.
             val contentLooksSpatial = spatialFormat.contains("Dolby Atmos", ignoreCase = true) ||
                 spatialFormat.contains("Atmos", ignoreCase = true) ||
@@ -260,8 +195,6 @@ object PlayerUtils {
                 "PlayerUtils",
                 "Spatialization behavior set to ${if (enableSpatialization) "AUTO" else "NEVER"}"
             )
-            
-            Log.d("PlayerUtils", "Content-aware spatial audio configuration completed using device spatializer rules")
             
         } catch (e: Exception) {
             Log.e("PlayerUtils", "Failed to configure spatial audio for content", e)
@@ -543,6 +476,42 @@ object PlayerUtils {
             isForced = false,
             isDefault = false
         )
+    }
+
+    /**
+     * Log active audio playback details for diagnostics.
+     */
+    @UnstableApi
+    fun logAudioPlaybackDiagnostics(exoPlayer: ExoPlayer, reason: String = "track_update") {
+        try {
+            var selectedAudio: Triple<Int, Int, androidx.media3.common.Format>? = null
+            exoPlayer.currentTracks.groups.forEachIndexed { groupIndex, group ->
+                if (selectedAudio != null || group.type != C.TRACK_TYPE_AUDIO) return@forEachIndexed
+                val trackIndex = (0 until group.mediaTrackGroup.length)
+                    .firstOrNull(group::isTrackSelected)
+                    ?: return@forEachIndexed
+                selectedAudio = Triple(groupIndex, trackIndex, group.mediaTrackGroup.getFormat(trackIndex))
+            }
+
+            val (groupIndex, trackIndex, format) = selectedAudio ?: run {
+                Log.d("PlayerUtils", "Audio diagnostics ($reason): no selected audio track")
+                return
+            }
+
+            val trackId = buildTrackId(prefix = "audio", groupIndex = groupIndex, trackIndex = trackIndex)
+            val channels = if (format.channelCount > 0) format.channelCount.toString() else "unknown"
+            val sampleRate = if (format.sampleRate > 0) "${format.sampleRate} Hz" else "unknown"
+            val bitrate = if (format.bitrate > 0) "${format.bitrate / 1000} kbps" else "unknown"
+            val codec = format.codecs ?: format.sampleMimeType ?: "unknown"
+            val language = format.language ?: "und"
+
+            Log.d(
+                "PlayerUtils",
+                "Audio diagnostics ($reason): track=$trackId, codec=$codec, language=$language, channels=$channels, sampleRate=$sampleRate, bitrate=$bitrate"
+            )
+        } catch (e: Exception) {
+            Log.e("PlayerUtils", "Failed audio diagnostics logging ($reason)", e)
+        }
     }
 
     /**
