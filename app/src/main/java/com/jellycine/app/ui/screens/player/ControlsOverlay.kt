@@ -81,7 +81,7 @@ fun ControlsOverlay(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
+                .windowInsetsPadding(WindowInsets.displayCutout)
                 .padding(horizontal = 24.dp, vertical = 16.dp)
                 .align(Alignment.TopCenter),
             horizontalArrangement = Arrangement.SpaceBetween,

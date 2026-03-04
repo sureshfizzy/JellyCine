@@ -81,9 +81,20 @@ fun PlayerScreen(
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var autoHideKey by remember { mutableStateOf(0) }
 
+    val hideSystemBars = {
+        (context as? Activity)?.let { act ->
+            val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
+            windowInsetsController.apply {
+                hide(WindowInsetsCompat.Type.systemBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+    }
+
     // Helper function to reset auto-hide timer
     val resetAutoHideTimer = {
         autoHideKey++
+        hideSystemBars()
     }
 
     // Dialog states
@@ -123,11 +134,7 @@ fun PlayerScreen(
         activity?.let { act ->
             act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
-            windowInsetsController.apply {
-                hide(WindowInsetsCompat.Type.systemBars())
-                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
+            hideSystemBars()
         }
 
         onDispose {
@@ -291,6 +298,24 @@ fun PlayerScreen(
         uiState.seekPosition?.let {
             delay(GESTURE_INDICATOR_HIDE_DELAY)
             uiState = uiState.copy(seekPosition = null)
+        }
+    }
+
+    LaunchedEffect(
+        uiState.controlsVisible,
+        showAudioTrackDialog,
+        showSubtitleTrackDialog,
+        showStreamingQualityDialog,
+        showMediaInfo
+    ) {
+        if (
+            uiState.controlsVisible ||
+            showAudioTrackDialog ||
+            showSubtitleTrackDialog ||
+            showStreamingQualityDialog ||
+            showMediaInfo
+        ) {
+            hideSystemBars()
         }
     }
 
