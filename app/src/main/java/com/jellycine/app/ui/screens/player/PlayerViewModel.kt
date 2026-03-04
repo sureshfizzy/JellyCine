@@ -115,11 +115,49 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 // Get item details to check for resume position
                 val itemResult = mediaRepository.getItemById(mediaId)
-                val resumePositionTicks = itemResult.getOrNull()?.userData?.playbackPositionTicks
+                val itemDetails = itemResult.getOrNull()
+                val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
                 val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
                     resumePositionTicks / 10000L
                 } else {
                     null
+                }
+                val mediaTitle = itemDetails?.name ?: "Unknown Title"
+                val logoSourceId = when {
+                    itemDetails?.imageTags?.containsKey("Logo") == true && !itemDetails.id.isNullOrBlank() -> itemDetails.id
+                    !itemDetails?.parentLogoItemId.isNullOrBlank() && !itemDetails?.parentLogoImageTag.isNullOrBlank() -> itemDetails?.parentLogoItemId
+                    else -> null
+                }
+                val mediaLogoUrl = logoSourceId?.let { sourceId ->
+                    mediaRepository.getImageUrlString(
+                        itemId = sourceId,
+                        imageType = "Logo",
+                        width = 320,
+                        quality = 90,
+                        enableImageEnhancers = false
+                    )
+                }
+                val seasonEpisodeLabel = itemDetails?.let { item ->
+                    val isEpisodeItem = item.type.equals("Episode", ignoreCase = true)
+                    val season = item.parentIndexNumber
+                    val episode = item.indexNumber
+                    if (isEpisodeItem && season != null && episode != null) {
+                        val episodeName = item.episodeTitle
+                            ?.takeIf { it.isNotBlank() }
+                            ?: item.name?.takeIf { it.isNotBlank() }
+                        buildString {
+                            append("S")
+                            append(season)
+                            append(":E")
+                            append(episode)
+                            episodeName?.let {
+                                append(" - ")
+                                append(it)
+                            }
+                        }
+                    } else {
+                        null
+                    }
                 }
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
 
@@ -246,6 +284,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
                     isPlaying = startPlayback,
+                    mediaTitle = mediaTitle,
+                    mediaLogoUrl = mediaLogoUrl,
+                    seasonEpisodeLabel = seasonEpisodeLabel,
                     spatializationResult = spatializationResult,
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",

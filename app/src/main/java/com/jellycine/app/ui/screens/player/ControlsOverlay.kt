@@ -20,24 +20,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.util.Log
+import coil3.compose.AsyncImage
 import com.jellycine.app.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
-import com.jellycine.player.core.PlayerState
 import java.util.Locale
 
 @Composable
 fun ControlsOverlay(
     title: String,
+    mediaLogoUrl: String? = null,
+    seasonEpisodeLabel: String? = null,
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
@@ -61,8 +64,6 @@ fun ControlsOverlay(
     onPrevious: () -> Unit = {},
     onNext: () -> Unit = {}
 ) {
-    val debugSpatialAudio = false
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -81,8 +82,8 @@ fun ControlsOverlay(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.displayCutout)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
+                .padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 8.dp)
                 .align(Alignment.TopCenter),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -98,12 +99,29 @@ fun ControlsOverlay(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = title,
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (!mediaLogoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = mediaLogoUrl,
+                            contentDescription = "$title logo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .height(24.dp)
+                                .widthIn(min = 24.dp, max = 180.dp)
+                                .padding(end = 12.dp)
+                        )
+                    } else {
+                        if (title.isNotBlank()) {
+                            Text(
+                                text = title,
+                                modifier = Modifier.padding(end = 12.dp),
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
 
                 // Action buttons
@@ -243,95 +261,105 @@ fun ControlsOverlay(
 
         // Bottom section - Time and seekbar
         if (!isLocked) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .align(Alignment.BottomCenter),
-            verticalArrangement = Arrangement.Bottom
-        ) {
-
-            // Time display and spatial audio indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .align(Alignment.BottomCenter),
+                verticalArrangement = Arrangement.Bottom
             ) {
-                Text(
-                    text = "${formatTime(currentPosition)} - ${formatTime(if (duration > 0) duration else 0L)}",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                if (isSpatialAudioEnabled || isHdrEnabled) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (isHdrEnabled) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(
-                                        color = Color(0xFFFFB300).copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(999.dp)
+                if (!seasonEpisodeLabel.isNullOrBlank()) {
+                    Text(
+                        text = seasonEpisodeLabel,
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${formatTime(currentPosition)} - ${formatTime(if (duration > 0) duration else 0L)}",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    if (isSpatialAudioEnabled || isHdrEnabled) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isHdrEnabled) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFFFFB300).copy(alpha = 0.2f),
+                                            shape = RoundedCornerShape(999.dp)
+                                        )
+                                        .padding(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.HdrOn,
+                                        contentDescription = "HDR",
+                                        tint = Color(0xFFFFB300),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    .padding(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.HdrOn,
-                                    contentDescription = "HDR",
-                                    tint = Color(0xFFFFB300),
-                                    modifier = Modifier.size(14.dp)
-                                )
+                                }
                             }
-                        }
 
-                        if (isSpatialAudioEnabled) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(
-                                        color = Color(0xFF4CAF50).copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(8.dp)
+                            if (isSpatialAudioEnabled) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
+                                        contentDescription = null,
+                                        tint = Color(0xFF4CAF50),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
-                                    contentDescription = null,
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(14.dp)
-                                )
 
-                                Text(
-                                    text = "Spatial Audio",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF4CAF50),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                    Text(
+                                        text = "Spatial Audio",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF4CAF50),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Seekbar (full width)
+                SeekBar(
+                    progress = if (duration > 0 && currentPosition >= 0) {
+                        (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                    } else 0f,
+                    onSeek = onSeek,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Seekbar (full width)
-            SeekBar(
-                progress = if (duration > 0 && currentPosition >= 0) {
-                    (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
-                } else 0f,
-                onSeek = onSeek,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
-    }
     }
 }
 

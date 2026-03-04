@@ -36,7 +36,6 @@ import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.player.MediaInfoDialog
 import kotlinx.coroutines.delay
 
@@ -47,7 +46,6 @@ data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
     val isPlaying: Boolean = false,
-    val mediaTitle: String = "Loading...",
     val volumeLevel: Float? = null,
     val brightnessLevel: Float? = null,
     val seekPosition: String? = null,
@@ -216,22 +214,6 @@ fun PlayerScreen(
                 preferredStreamIndexes.audioStreamIndex,
                 preferredStreamIndexes.subtitleStreamIndex
             )
-        }
-    }
-
-    // Fetch media title
-    LaunchedEffect(mediaId) {
-        try {
-            val mediaRepository = MediaRepositoryProvider.getInstance(context)
-            val result = mediaRepository.getItemById(mediaId)
-            val title = if (result.isSuccess) {
-                result.getOrNull()?.name ?: "Unknown Title"
-            } else {
-                "Unknown Title"
-            }
-            uiState = uiState.copy(mediaTitle = title)
-        } catch (e: Exception) {
-            uiState = uiState.copy(mediaTitle = "Unknown Title")
         }
     }
 
@@ -407,7 +389,9 @@ fun PlayerScreen(
 
         if (uiState.controlsVisible) {
             ControlsOverlay(
-                title = uiState.mediaTitle,
+                title = playerState.mediaTitle,
+                mediaLogoUrl = playerState.mediaLogoUrl,
+                seasonEpisodeLabel = playerState.seasonEpisodeLabel,
                 isPlaying = uiState.isPlaying,
                 currentPosition = uiState.currentPosition,
                 duration = viewModel.exoPlayer?.duration ?: 0L,
