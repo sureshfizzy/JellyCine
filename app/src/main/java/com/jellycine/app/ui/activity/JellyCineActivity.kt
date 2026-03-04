@@ -1,9 +1,13 @@
 package com.jellycine.app.ui.activity
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -11,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -29,10 +34,19 @@ import java.util.concurrent.atomic.AtomicBoolean
 @AndroidEntryPoint
 class JellyCineActivity : ComponentActivity() {
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* no-op */ }
+
+    private val appPrefs by lazy {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
 
         super.onCreate(savedInstanceState)
+        requestNotificationPermission()
 
         val authStateManager = AuthStateManager.getInstance(this)
         val authCheckCompleted = AtomicBoolean(false)
@@ -85,5 +99,26 @@ class JellyCineActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        if (appPrefs.getBoolean(KEY_NOTIFICATION_PERMISSION_PROMPTED, false)) return
+
+        appPrefs.edit().putBoolean(KEY_NOTIFICATION_PERMISSION_PROMPTED, true).apply()
+
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    companion object {
+        private const val PREFS_NAME = "jellycine_app_prefs"
+        private const val KEY_NOTIFICATION_PERMISSION_PROMPTED = "notification_permission_prompted"
     }
 }
