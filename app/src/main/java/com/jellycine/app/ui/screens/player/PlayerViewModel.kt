@@ -24,16 +24,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.MediaSource
-import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerUtils
-import com.jellycine.player.core.SubtitleTrackInfo
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.detail.CodecCapabilityManager
-import com.jellycine.player.video.HdrCapabilityManager
 import com.jellycine.app.download.DownloadRepositoryProvider
 import java.io.File
 
@@ -42,7 +38,9 @@ import java.io.File
  */
 @UnstableApi
 @HiltViewModel
-class PlayerViewModel @Inject constructor() : ViewModel() {
+class PlayerViewModel @Inject constructor(
+    private val mediaRepository: MediaRepository
+) : ViewModel() {
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -53,30 +51,20 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
     var exoPlayer: ExoPlayer? = null
         private set
-    
+
+    private val trackSelectionCoordinator = PlayerTrackSelection()
+    private var playbackSession = PlaybackSessionContext()
+    private val playbackReporter = PlayerPlaybackReporter(
+        mediaRepository = mediaRepository,
+        scope = viewModelScope,
+        positionProvider = { exoPlayer?.currentPosition ?: 0L },
+        isPausedProvider = { exoPlayer?.playWhenReady != true }
+    )
     private var spatializerHelper: SpatializerHelper? = null
-    private lateinit var mediaRepository: MediaRepository
     private var playerContext: Context? = null
     private var apiMediaStreams: List<MediaStream>? = null
-    private var currentMediaId: String? = null
-    private var playSessionId: String? = null
-    private var mediaSourceId: String? = null
-    private var mediaSourceContainer: String? = null
-    private var mediaSourceBitrateKbps: Int? = null
-    private var currentPlayMethod: String = "Direct Play"
-    private var progressReportingJob: kotlinx.coroutines.Job? = null
-    private var hasReportedStart = false
-    private var isOfflinePlayback = false
-    private var pendingPreferredAudioStreamIndex: Int? = null
-    private var pendingPreferredSubtitleStreamIndex: Int? = null
-    private var hasAppliedInitialTrackPreferences = false
     private var hasHandledPlaybackCompletion = false
     private var videoTranscodingAllowed: Boolean? = null
-
-    data class PreferredStreamIndexes(
-        val audioStreamIndex: Int? = null,
-        val subtitleStreamIndex: Int? = null
-    )
 
     fun initializePlayer(
         context: Context,
@@ -90,16 +78,14 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             try {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
 
-                playerContext = context // Store context for later use
-                currentMediaId = mediaId // Store media ID for session reporting
+                playerContext = context
                 hasHandledPlaybackCompletion = false
-                mediaRepository = MediaRepositoryProvider.getInstance(context)
                 val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val resolvedPreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
-                val isVideoTranscodingAllowed = valVideoTranscodingAllowed()
+                val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
                 val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
                     playerPreferences.getMaxStreamingBitrate()
                 } else {
@@ -110,17 +96,17 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 } else {
                     null
                 }
-                pendingPreferredAudioStreamIndex = resolvedPreferredAudioStreamIndex
-                pendingPreferredSubtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
-                hasAppliedInitialTrackPreferences = false
+                trackSelectionCoordinator.resetPendingSelections(
+                    preferredAudioStreamIndex = resolvedPreferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
+                )
                 _preferredStreamIndexes.value = PreferredStreamIndexes(
                     audioStreamIndex = resolvedPreferredAudioStreamIndex,
                     subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
                 )
-                
-                // Initialize spatializer helper for capability checks
+
+                playbackReporter.reset()
                 spatializerHelper = SpatializerHelper(context)
-                
                 exoPlayer = PlayerUtils.createPlayer(context)
 
                 // Get item details to check for resume position
@@ -176,17 +162,20 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
 
                 var primaryMediaSource: MediaSource? = null
+                var sessionPlaySessionId: String? = null
+                var sessionMediaSourceId: String? = null
+                var sessionMediaSourceContainer: String? = null
+                var sessionMediaSourceBitrateKbps: Int? = null
+                var sessionPlayMethod = PlayMethod.DIRECT_PLAY
+                var sessionIsOfflinePlayback = false
+
                 val mediaItem = if (hasOfflineFile) {
                     val localFilePath = requireNotNull(offlinePath)
-                    isOfflinePlayback = true
-                    playSessionId = null
-                    mediaSourceId = null
-                    mediaSourceContainer = null
-                    mediaSourceBitrateKbps = null
-                    currentPlayMethod = "Offline"
+                    sessionIsOfflinePlayback = true
+                    sessionPlayMethod = PlayMethod.OFFLINE
                     MediaItem.fromUri(Uri.fromFile(File(localFilePath)))
                 } else {
-                    isOfflinePlayback = false
+                    sessionIsOfflinePlayback = false
 
                     // Get playback info first to obtain session details
                     val playbackInfoResult = mediaRepository.getPlaybackInfo(
@@ -208,16 +197,16 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     }
 
                     primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
-                    playSessionId = playbackInfo.playSessionId
-                    mediaSourceId = primaryMediaSource?.id
-                    mediaSourceContainer = primaryMediaSource?.container
-                    mediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
+                    sessionPlaySessionId = playbackInfo.playSessionId
+                    sessionMediaSourceId = primaryMediaSource?.id
+                    sessionMediaSourceContainer = primaryMediaSource?.container
+                    sessionMediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
                     val bitrateCapApplied = (maxStreamingBitrate ?: 0) > 0
-                    currentPlayMethod = when {
-                        bitrateCapApplied -> "Transcode"
-                        primaryMediaSource?.supportsDirectPlay == true -> "Direct Play"
-                        primaryMediaSource?.supportsDirectStream == true -> "Direct Stream"
-                        else -> "Transcode"
+                    sessionPlayMethod = when {
+                        bitrateCapApplied -> PlayMethod.TRANSCODE
+                        primaryMediaSource?.supportsDirectPlay == true -> PlayMethod.DIRECT_PLAY
+                        primaryMediaSource?.supportsDirectStream == true -> PlayMethod.DIRECT_STREAM
+                        else -> PlayMethod.TRANSCODE
                     }
 
                     val streamingResult = mediaRepository.getStreamingUrl(
@@ -242,11 +231,22 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                     val streamPlaySessionId = streamUri.getQueryParameter("PlaySessionId")
                         ?: streamUri.getQueryParameter("playSessionId")
                     if (!streamPlaySessionId.isNullOrBlank()) {
-                        playSessionId = streamPlaySessionId
+                        sessionPlaySessionId = streamPlaySessionId
                     }
 
                     streamingMediaItem(streamingUrl)
                 }
+
+                playbackSession = PlaybackSessionContext(
+                    mediaId = mediaId,
+                    playSessionId = sessionPlaySessionId,
+                    mediaSourceId = sessionMediaSourceId,
+                    mediaSourceContainer = sessionMediaSourceContainer,
+                    mediaSourceBitrateKbps = sessionMediaSourceBitrateKbps,
+                    playMethod = sessionPlayMethod,
+                    isOfflinePlayback = sessionIsOfflinePlayback
+                )
+                playbackReporter.updateSession(playbackSession)
                 
                 // Get media info for spatial audio analysis
                 apiMediaStreams = primaryMediaSource?.mediaStreams
@@ -286,7 +286,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
                 // Update track information after player is ready
                 updateTrackInformation()
-                val isHdrPlayback = isCurrentPlaybackHdr()
+                val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
                 
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
@@ -319,7 +319,39 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         _playerState.value = _playerState.value.copy(currentPosition = position)
     }
 
-    private suspend fun valVideoTranscodingAllowed(): Boolean {
+    fun play() {
+        exoPlayer?.play()
+    }
+
+    fun pause() {
+        exoPlayer?.pause()
+    }
+
+    fun seekToProgress(progress: Float) {
+        val duration = getDuration()
+        if (duration > 0L) {
+            seekTo((duration * progress).toLong())
+        }
+    }
+
+    fun seekBy(deltaMs: Long) {
+        val player = exoPlayer ?: return
+        val duration = player.duration
+        val targetPosition = if (duration > 0L) {
+            (player.currentPosition + deltaMs).coerceIn(0L, duration)
+        } else {
+            (player.currentPosition + deltaMs).coerceAtLeast(0L)
+        }
+        seekTo(targetPosition)
+    }
+
+    fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: 0L
+
+    fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
+
+    fun getDuration(): Long = exoPlayer?.duration ?: 0L
+
+    private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
         videoTranscodingAllowed?.let { return it }
 
         val user = mediaRepository.getCurrentUser().getOrNull()
@@ -338,13 +370,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             } else {
                 player.play()
             }
-            
-            // Report progress on pause/play
-            if (hasReportedStart) {
-                viewModelScope.launch {
-                    reportPlaybackProgress()
-                }
-            }
+            playbackReporter.onPlaybackPauseStateChanged()
         }
     }
 
@@ -362,11 +388,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
     }
 
     fun releasePlayer() {
-        // Report playback stopped before releasing
-        reportPlaybackStopped()
-        progressReportingJob?.cancel()
-        progressReportingJob = null
-        
+        playbackReporter.reportPlaybackStopped()
         exoPlayer?.apply {
             removeListener(playerListener)
             release()
@@ -374,153 +396,21 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         exoPlayer = null
         spatializerHelper?.cleanup()
         spatializerHelper = null
-        
-        // Reset session tracking variables
-        currentMediaId = null
-        playSessionId = null
-        mediaSourceId = null
-        mediaSourceContainer = null
-        mediaSourceBitrateKbps = null
-        currentPlayMethod = "Direct Play"
-        hasReportedStart = false
-        isOfflinePlayback = false
-        pendingPreferredAudioStreamIndex = null
-        pendingPreferredSubtitleStreamIndex = null
-        hasAppliedInitialTrackPreferences = false
+        playbackSession = PlaybackSessionContext()
+        playbackReporter.reset()
+        trackSelectionCoordinator.clear()
+        apiMediaStreams = null
+        playerContext = null
         hasHandledPlaybackCompletion = false
         _preferredStreamIndexes.value = PreferredStreamIndexes()
-        
         _playerState.value = PlayerState()
-    }
-
-    /**
-     * Report playback start to Jellyfin server
-     */
-    private fun reportPlayMethod(): String {
-        return when (currentPlayMethod) {
-            "Direct Stream" -> "DirectStream"
-            "Transcode" -> "Transcode"
-            else -> "DirectPlay"
-        }
-    }
-
-    private fun reportPlaybackStart() {
-        if (isOfflinePlayback) return
-        currentMediaId?.let { mediaId ->
-            if (!hasReportedStart) {
-                viewModelScope.launch {
-                    try {
-                        val currentPos = exoPlayer?.currentPosition ?: 0L
-                        val positionTicks = currentPos * 10000L // Convert ms to ticks
-                        
-                        val result = mediaRepository.reportPlaybackStart(
-                            itemId = mediaId,
-                            playSessionId = playSessionId,
-                            mediaSourceId = mediaSourceId,
-                            positionTicks = positionTicks,
-                            playMethod = reportPlayMethod()
-                        )
-                        
-                        if (result.isSuccess) {
-                            hasReportedStart = true
-                            startProgressReporting()
-                        } else {
-                            Log.e("PlayerViewModel", "Failed to report playback start: ${result.exceptionOrNull()?.message}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("PlayerViewModel", "Error reporting playback start", e)
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Start periodic progress reporting
-     */
-    private fun startProgressReporting() {
-        progressReportingJob?.cancel()
-        progressReportingJob = viewModelScope.launch {
-            while (hasReportedStart && exoPlayer != null) {
-                try {
-                    delay(15000L)
-                    reportPlaybackProgress()
-                } catch (e: Exception) {
-                    Log.e("PlayerViewModel", "Error in progress reporting loop", e)
-                    break
-                }
-            }
-        }
-    }
-
-    /**
-     * Report current playback progress to Jellyfin server
-     */
-    private fun reportPlaybackProgress() {
-        if (isOfflinePlayback) return
-        currentMediaId?.let { mediaId ->
-            if (hasReportedStart && exoPlayer != null) {
-                viewModelScope.launch {
-                    try {
-                        val currentPos = exoPlayer?.currentPosition ?: 0L
-                        val positionTicks = currentPos * 10000L
-                        val isPaused = exoPlayer?.playWhenReady != true
-                        
-                        val result = mediaRepository.reportPlaybackProgress(
-                            itemId = mediaId,
-                            positionTicks = positionTicks,
-                            playSessionId = playSessionId,
-                            mediaSourceId = mediaSourceId,
-                            isPaused = isPaused,
-                            playMethod = reportPlayMethod()
-                        )
-                        
-                        if (result.isSuccess) {
-                            // Progress reported successfully
-                        } else {
-                            Log.e("PlayerViewModel", "Failed to report progress: ${result.exceptionOrNull()?.message}")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("PlayerViewModel", "Error reporting playback progress", e)
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Report playback stopped to Jellyfin server
-     */
-    private fun reportPlaybackStopped() {
-        if (isOfflinePlayback) return
-        val mediaId = currentMediaId ?: return
-        if (!hasReportedStart) return
-
-        hasReportedStart = false
-        val currentPos = exoPlayer?.currentPosition ?: 0L
-        val positionTicks = currentPos * 10000L // Convert ms to ticks
-        val playbackSessionId = playSessionId
-        val playbackMediaSourceId = mediaSourceId
-
-        viewModelScope.launch {
-            try {
-                mediaRepository.reportPlaybackStopped(
-                    itemId = mediaId,
-                    positionTicks = positionTicks,
-                    playSessionId = playbackSessionId,
-                    mediaSourceId = playbackMediaSourceId
-                )
-            } catch (e: Exception) {
-                Log.e("PlayerViewModel", "Error reporting playback stopped", e)
-            }
-        }
     }
 
     private fun handlePlaybackCompleted() {
         if (hasHandledPlaybackCompletion) return
         hasHandledPlaybackCompletion = true
-        reportPlaybackStopped()
-        currentMediaId?.let { completedMediaId ->
+        playbackReporter.reportPlaybackStopped()
+        playbackSession.mediaId?.let { completedMediaId ->
             _playbackCompletedEvents.tryEmit(completedMediaId)
         }
     }
@@ -551,13 +441,20 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 val videoTracks = PlayerUtils.getAvailableVideoTracks(player)
                 val currentAudio = PlayerUtils.getCurrentAudioTrack(player)
                 val currentSubtitle = PlayerUtils.getCurrentSubtitleTrack(player)
-                val isHdrPlayback = isCurrentPlaybackHdr()
-                syncPreferredStreamIndexesFromCurrentTracks(
+                val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                val syncedPreferredIndexes = trackSelectionCoordinator.syncPreferredIndexesFromCurrentTracks(
+                    context = playerContext,
+                    mediaId = playbackSession.mediaId,
                     availableAudioTracks = audioTracks,
                     currentAudioTrack = currentAudio,
                     availableSubtitleTracks = subtitleTracks,
-                    currentSubtitleTrack = currentSubtitle
+                    currentSubtitleTrack = currentSubtitle,
+                    mediaStreams = apiMediaStreams,
+                    currentPublished = _preferredStreamIndexes.value
                 )
+                if (syncedPreferredIndexes != _preferredStreamIndexes.value) {
+                    _preferredStreamIndexes.value = syncedPreferredIndexes
+                }
 
                 _playerState.value = _playerState.value.copy(
                     availableAudioTracks = audioTracks,
@@ -573,121 +470,18 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         }
     }
 
-    private fun syncPreferredStreamIndexesFromCurrentTracks(
-        availableAudioTracks: List<AudioTrackInfo>,
-        currentAudioTrack: AudioTrackInfo?,
-        availableSubtitleTracks: List<SubtitleTrackInfo>,
-        currentSubtitleTrack: SubtitleTrackInfo?
-    ) {
-        val context = playerContext ?: return
-        val mediaId = currentMediaId ?: return
-        val hasPendingInitialSelection = !hasAppliedInitialTrackPreferences &&
-            (pendingPreferredAudioStreamIndex != null || pendingPreferredSubtitleStreamIndex != null)
-        if (hasPendingInitialSelection) return
-
-        val preferences = com.jellycine.player.preferences.PlayerPreferences(context)
-        val resolvedAudioStreamIndex = resolveAudioStreamIndexForCurrentTrack(
-            selectedTrack = currentAudioTrack,
-            availableTracks = availableAudioTracks
+    private fun applyPendingTrackSelectionsIfNeeded() {
+        val player = exoPlayer ?: return
+        val appliedAnySelection = trackSelectionCoordinator.applyInitialSelections(
+            player = player,
+            mediaStreams = apiMediaStreams
         )
-        val resolvedSubtitleStreamIndex = resolveSubtitleStreamIndexForCurrentTrack(
-            selectedTrack = currentSubtitleTrack,
-            availableTracks = availableSubtitleTracks
-        )
-
-        var audioToPublish = _preferredStreamIndexes.value.audioStreamIndex
-        var subtitleToPublish = _preferredStreamIndexes.value.subtitleStreamIndex
-
-        if (currentAudioTrack != null && resolvedAudioStreamIndex != null) {
-            preferences.setPreferredAudioStreamIndex(mediaId, resolvedAudioStreamIndex)
-            audioToPublish = resolvedAudioStreamIndex
-        }
-        if (currentSubtitleTrack != null && resolvedSubtitleStreamIndex != null) {
-            preferences.setPreferredSubtitleStreamIndex(mediaId, resolvedSubtitleStreamIndex)
-            subtitleToPublish = resolvedSubtitleStreamIndex
-        }
-
-        if (
-            audioToPublish != _preferredStreamIndexes.value.audioStreamIndex ||
-            subtitleToPublish != _preferredStreamIndexes.value.subtitleStreamIndex
-        ) {
-            _preferredStreamIndexes.value = PreferredStreamIndexes(
-                audioStreamIndex = audioToPublish,
-                subtitleStreamIndex = subtitleToPublish
-            )
-        }
-    }
-
-    private fun resolveAudioStreamIndexForCurrentTrack(
-        selectedTrack: AudioTrackInfo?,
-        availableTracks: List<AudioTrackInfo>
-    ): Int? {
-        if (selectedTrack == null) return null
-        val audioStreams = apiMediaStreams
-            .orEmpty()
-            .filter { it.type == "Audio" && it.index != null }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        if (audioStreams.isEmpty()) return null
-        val trackOrdinal = availableTracks.indexOfFirst { it.id == selectedTrack.id }
-        if (trackOrdinal < 0 || trackOrdinal >= audioStreams.size) return null
-        return audioStreams[trackOrdinal].index
-    }
-
-    private fun resolveSubtitleStreamIndexForCurrentTrack(
-        selectedTrack: SubtitleTrackInfo?,
-        availableTracks: List<SubtitleTrackInfo>
-    ): Int? {
-        if (selectedTrack == null) return null
-        if (selectedTrack.id == "off") return -1
-
-        val subtitleStreams = apiMediaStreams
-            .orEmpty()
-            .filter { it.type == "Subtitle" && it.index != null }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        if (subtitleStreams.isEmpty()) return null
-        val selectableTracks = availableTracks.filterNot { it.id == "off" }
-        val trackOrdinal = selectableTracks.indexOfFirst { it.id == selectedTrack.id }
-        if (trackOrdinal < 0 || trackOrdinal >= subtitleStreams.size) return null
-        return subtitleStreams[trackOrdinal].index
-    }
-
-    private fun isCurrentPlaybackHdr(): Boolean {
-        exoPlayer?.currentTracks?.let { tracks ->
-            tracks.groups.forEach { group ->
-                if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
-                    for (i in 0 until group.mediaTrackGroup.length) {
-                        if (group.isTrackSelected(i)) {
-                            val format = group.mediaTrackGroup.getFormat(i)
-                            val colorInfo = format.colorInfo?.toString()
-                            val mimeType = format.sampleMimeType
-                            val codecs = format.codecs
-
-                            val isHdrByColorInfo = colorInfo?.contains("HDR", ignoreCase = true) == true ||
-                                colorInfo?.contains("Dolby Vision", ignoreCase = true) == true ||
-                                colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
-                                colorInfo?.contains("BT.2020", ignoreCase = true) == true ||
-                                colorInfo?.contains("PQ", ignoreCase = true) == true
-
-                            val isHdrByMimeType = mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
-                                mimeType?.contains("hdr", ignoreCase = true) == true
-
-                            val isHdrByCodec = codecs?.contains("dvhe", ignoreCase = true) == true ||
-                                codecs?.contains("dvh1", ignoreCase = true) == true ||
-                                codecs?.contains("hev1", ignoreCase = true) == true ||
-                                codecs?.contains("hvc1", ignoreCase = true) == true
-
-                            val videoFormatAnalysis = HdrCapabilityManager.analyzeVideoFormat(mimeType, codecs, colorInfo)
-                            val isHdr = isHdrByColorInfo || isHdrByMimeType || isHdrByCodec ||
-                                videoFormatAnalysis.hdrSupport != HdrCapabilityManager.HdrSupport.SDR
-
-                            return isHdr
-                        }
-                    }
-                }
+        if (appliedAnySelection) {
+            viewModelScope.launch {
+                delay(250)
+                updateTrackInformation()
             }
         }
-
-        return false
     }
 
     /**
@@ -695,12 +489,10 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      */
     fun selectAudioTrack(trackId: String) {
         exoPlayer?.let { player ->
-            pendingPreferredAudioStreamIndex = null
-            pendingPreferredSubtitleStreamIndex = null
-            hasAppliedInitialTrackPreferences = true
+            trackSelectionCoordinator.markManualTrackSelection()
             PlayerUtils.selectAudioTrack(player, trackId)
             viewModelScope.launch {
-                kotlinx.coroutines.delay(500)
+                delay(500)
                 updateTrackInformation()
             }
         }
@@ -711,12 +503,10 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      */
     fun selectSubtitleTrack(trackId: String) {
         exoPlayer?.let { player ->
-            pendingPreferredAudioStreamIndex = null
-            pendingPreferredSubtitleStreamIndex = null
-            hasAppliedInitialTrackPreferences = true
+            trackSelectionCoordinator.markManualTrackSelection()
             PlayerUtils.selectSubtitleTrack(player, trackId)
             viewModelScope.launch {
-                kotlinx.coroutines.delay(500)
+                delay(500)
                 updateTrackInformation()
             }
         }
@@ -828,46 +618,19 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
      * Seek backward by 30 seconds
      */
     fun seekBackward() {
-        exoPlayer?.let { player ->
-            val currentPos = player.currentPosition
-            val newPos = (currentPos - 30000L).coerceAtLeast(0L)
-            player.seekTo(newPos)
-        }
+        seekBy(deltaMs = -30000L)
     }
 
     /**
      * Seek forward by 30 seconds
      */
     fun seekForward() {
-        exoPlayer?.let { player ->
-            val currentPos = player.currentPosition
-            val duration = player.duration
-            val newPos = if (duration > 0) {
-                (currentPos + 30000L).coerceAtMost(duration)
-            } else {
-                currentPos + 30000L
-            }
-            player.seekTo(newPos)
-        }
-    }
-
-    /**
-     * Go to previous track/episode (placeholder)
-     */
-    fun goToPrevious() {
-        // Placeholder for previous track functionality
-    }
-
-    /**
-     * Go to next track/episode (placeholder)
-     */
-    fun goToNext() {
-        // Placeholder for next track functionality
+        seekBy(deltaMs = 30000L)
     }
 
     private val playerListener = object : Player.Listener {
         override fun onTracksChanged(tracks: Tracks) {
-            PreferredTrackSelections()
+            applyPendingTrackSelectionsIfNeeded()
             updateTrackInformation()
         }
 
@@ -875,6 +638,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
             val wasPlaying = _playerState.value.isPlaying
             val playWhenReady = exoPlayer?.playWhenReady == true
             val isNowPlaying = playbackState == Player.STATE_READY && playWhenReady
+            val hasReportedStart = playbackReporter.hasReportedStart()
             val shouldShowLoading = when (playbackState) {
                 Player.STATE_IDLE -> !hasReportedStart
                 Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
@@ -886,22 +650,17 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 isPlaying = isNowPlaying
             )
 
-            // Report playback start when player becomes ready and starts playing
             if (playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart) {
-                reportPlaybackStart()
-            }
-            
-            // Report progress when pause/resume state changes
-            if (hasReportedStart && wasPlaying != isNowPlaying) {
-                viewModelScope.launch {
-                    reportPlaybackProgress()
-                }
+                playbackReporter.reportPlaybackStatus()
             }
 
-            // Update track information when player becomes ready
+            if (wasPlaying != isNowPlaying) {
+                playbackReporter.onPlaybackPauseStateChanged()
+            }
+
             if (playbackState == Player.STATE_READY) {
                 hasHandledPlaybackCompletion = false
-                PreferredTrackSelections()
+                applyPendingTrackSelectionsIfNeeded()
                 updateTrackInformation()
             }
 
@@ -912,6 +671,7 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             val playbackState = exoPlayer?.playbackState ?: Player.STATE_IDLE
+            val hasReportedStart = playbackReporter.hasReportedStart()
             val shouldShowLoading = when (playbackState) {
                 Player.STATE_IDLE -> !hasReportedStart
                 Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
@@ -929,21 +689,9 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 isLoading = false,
                 isPlaying = false
             )
-            
-            // Report playback stopped due to error
-            if (hasReportedStart) {
-                hasReportedStart = false
-                viewModelScope.launch {
-                    currentMediaId?.let { mediaId ->
-                        mediaRepository.reportPlaybackStopped(
-                            itemId = mediaId,
-                            positionTicks = (exoPlayer?.currentPosition ?: 0L) * 10000L,
-                            playSessionId = playSessionId,
-                            mediaSourceId = mediaSourceId,
-                            failed = true
-                        )
-                    }
-                }
+
+            if (playbackReporter.hasReportedStart()) {
+                playbackReporter.reportPlaybackStopped(failed = true)
             }
         }
 
@@ -956,113 +704,11 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
                 currentPosition = newPosition.positionMs,
                 duration = exoPlayer?.duration ?: 0L
             )
-            
-            // Report progress on significant position changes (seeking)
-            if (hasReportedStart && reason == Player.DISCONTINUITY_REASON_SEEK) {
-                viewModelScope.launch {
-                    reportPlaybackProgress()
-                }
+
+            if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                playbackReporter.onPlaybackPositionDiscontinuity()
             }
         }
-    }
-
-    private fun PreferredTrackSelections() {
-        if (hasAppliedInitialTrackPreferences) return
-
-        val player = exoPlayer ?: return
-        val preferredAudioIndex = pendingPreferredAudioStreamIndex
-        val preferredSubtitleIndex = pendingPreferredSubtitleStreamIndex
-
-        if (preferredAudioIndex == null && preferredSubtitleIndex == null) {
-            hasAppliedInitialTrackPreferences = true
-            return
-        }
-
-        val audioTracks = PlayerUtils.getAvailableAudioTracks(player)
-        val subtitleTracks = PlayerUtils.getAvailableSubtitleTracks(player)
-
-        var audioHandled = preferredAudioIndex == null
-        var subtitleHandled = preferredSubtitleIndex == null
-        var appliedAnySelection = false
-
-        if (!audioHandled) {
-            val audioTrackId = AudioTrackId(
-                preferredStreamIndex = preferredAudioIndex,
-                tracks = audioTracks
-            )
-            if (audioTrackId != null) {
-                PlayerUtils.selectAudioTrack(player, audioTrackId)
-                audioHandled = true
-                appliedAnySelection = true
-            }
-        }
-
-        if (!subtitleHandled) {
-            if (preferredSubtitleIndex == -1) {
-                PlayerUtils.selectSubtitleTrack(player, "off")
-                subtitleHandled = true
-                appliedAnySelection = true
-            } else {
-                val subtitleTrackId = SubtitleTrackId(
-                    preferredStreamIndex = preferredSubtitleIndex,
-                    tracks = subtitleTracks
-                )
-                if (subtitleTrackId != null) {
-                    PlayerUtils.selectSubtitleTrack(player, subtitleTrackId)
-                    subtitleHandled = true
-                    appliedAnySelection = true
-                }
-            }
-        }
-
-        if (audioHandled && subtitleHandled) {
-            hasAppliedInitialTrackPreferences = true
-            pendingPreferredAudioStreamIndex = null
-            pendingPreferredSubtitleStreamIndex = null
-            if (appliedAnySelection) {
-                viewModelScope.launch {
-                    delay(250)
-                    updateTrackInformation()
-                }
-            }
-        }
-    }
-
-    private fun AudioTrackId(
-        preferredStreamIndex: Int?,
-        tracks: List<AudioTrackInfo>
-    ): String? {
-        if (tracks.isEmpty()) return null
-        val sortedAudioStreams = apiMediaStreams
-            .orEmpty()
-            .filter { it.type == "Audio" }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        val ordinal = preferredStreamIndex?.let { target ->
-            sortedAudioStreams.indexOfFirst { it.index == target }
-        } ?: -1
-        if (ordinal >= 0 && ordinal < tracks.size) {
-            return tracks[ordinal].id
-        }
-        return null
-    }
-
-    private fun SubtitleTrackId(
-        preferredStreamIndex: Int?,
-        tracks: List<SubtitleTrackInfo>
-    ): String? {
-        val subtitleTracks = tracks.filterNot { it.id == "off" }
-        if (subtitleTracks.isEmpty()) return null
-        val sortedSubtitleStreams = apiMediaStreams
-            .orEmpty()
-            .filter { it.type == "Subtitle" }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        val ordinal = preferredStreamIndex?.let { target ->
-            sortedSubtitleStreams.indexOfFirst { it.index == target }
-        } ?: -1
-        if (ordinal >= 0 && ordinal < subtitleTracks.size) {
-            return subtitleTracks[ordinal].id
-        }
-        return null
     }
 
     override fun onCleared() {
@@ -1070,329 +716,28 @@ class PlayerViewModel @Inject constructor() : ViewModel() {
         releasePlayer()
     }
 
-    fun getSpatialAudioStatusInfo(): String {
-        val currentState = _playerState.value
-        val spatializationResult = currentState.spatializationResult
-
-        return if (currentState.isSpatialAudioEnabled) {
-            buildString {
-                appendLine("Spatial Audio: ACTIVE")
-                appendLine("")
-                appendLine("Format: ${currentState.spatialAudioFormat}")
-                appendLine("")
-                appendLine("Playback is using Android device spatializer.")
-
-                spatializerHelper?.getSpatialAudioInfo()?.let { spatialInfo ->
-                    if (spatialInfo.isAvailable && spatialInfo.isEnabled) {
-                        appendLine("")
-                        appendLine("System spatializer: Enabled")
-                    }
-                }
-            }
-        } else {
-            val reason = spatializationResult?.reason ?: "Content does not support spatial audio"
-            buildString {
-                appendLine("Spatial Audio: NOT AVAILABLE")
-                appendLine("")
-                appendLine("Reason: $reason")
-                appendLine("")
-                appendLine("Spatial audio requires compatible")
-                appendLine("content formats like:")
-                appendLine("- Dolby Atmos / E-AC-3 JOC")
-                appendLine("- DTS:X")
-                appendLine("- Multi-channel (5.1+)")
-                appendLine("- Object-based audio")
-            }
-        }
-    }
-
-    /**
-     * Get HDR capability and format information
-     */
     fun getHdrFormatInfo(): String {
-        return playerContext?.let { context ->
-            buildString {
-                appendLine("=== HDR & Video Format Information ===")
-                appendLine("")
-
-                // Device capabilities
-                val hdrInfo = PlayerUtils.getHdrCapabilityInfo(context)
-                appendLine(hdrInfo)
-                appendLine("")
-
-                // Current video track information if available
-                exoPlayer?.currentTracks?.let { tracks ->
-                    tracks.groups.forEach { group ->
-                        if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
-                            for (i in 0 until group.mediaTrackGroup.length) {
-                                if (group.isTrackSelected(i)) {
-                                    val format = group.mediaTrackGroup.getFormat(i)
-                                    appendLine("=== Current Video Format ===")
-                                    appendLine("MIME Type: ${format.sampleMimeType}")
-                                    appendLine("Codec: ${format.codecs ?: "Unknown"}")
-                                    appendLine("Resolution: ${format.width}x${format.height}")
-                                    appendLine("Color Info: ${format.colorInfo?.toString() ?: "None"}")
-                                    appendLine("")
-
-                                    // Analyze format fallback
-                                    val analysisResult = PlayerUtils.analyzeVideoFormatForPlayback(
-                                        context, format.sampleMimeType, format.codecs, format.colorInfo?.toString()
-                                    )
-                                    appendLine("=== Format Analysis ===")
-                                    appendLine(analysisResult)
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
-
-                appendLine("")
-                appendLine("Note: This player automatically handles")
-                appendLine("HDR format fallbacks to prevent black screens.")
-            }
-        } ?: "HDR info not available - player not initialized"
+        return PlayerMetadata.buildHdrFormatInfo(
+            context = playerContext,
+            exoPlayer = exoPlayer
+        )
     }
 
     /**
      * Get unified media metadata information for the modern bubble dialog
      */
     fun getMediaMetadataInfo(): MediaMetadataInfo {
-        // HDR Format Info
-        val hdrFormatInfo = playerContext?.let { context ->
-            val deviceHdrInfo = PlayerUtils.getHdrCapabilityInfo(context)
-            val deviceSupportsHdr = deviceHdrInfo.contains("HDR10") || deviceHdrInfo.contains("Dolby Vision") || deviceHdrInfo.contains("HDR")
-
-            var currentFormat: String? = null
-            var isContentHdr = false
-            var analysisResult: String? = null
-            var originalContentFormat: String? = null
-
-            exoPlayer?.currentTracks?.let { tracks ->
-                tracks.groups.forEach { group ->
-                    if (group.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
-                        for (i in 0 until group.mediaTrackGroup.length) {
-                            if (group.isTrackSelected(i)) {
-                                val format = group.mediaTrackGroup.getFormat(i)
-                                val colorInfo = format.colorInfo?.toString()
-                                val mimeType = format.sampleMimeType
-                                val codecs = format.codecs
-
-                                val isHdrByColorInfo = colorInfo?.contains("HDR", ignoreCase = true) == true ||
-                                                     colorInfo?.contains("Dolby Vision", ignoreCase = true) == true ||
-                                                     colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
-                                                     colorInfo?.contains("BT.2020", ignoreCase = true) == true ||
-                                                     colorInfo?.contains("PQ", ignoreCase = true) == true
-
-                                val isHdrByMimeType = mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
-                                                     mimeType?.contains("hdr", ignoreCase = true) == true
-
-                                val isHdrByCodec = codecs?.contains("dvhe", ignoreCase = true) == true ||
-                                                 codecs?.contains("dvh1", ignoreCase = true) == true ||
-                                                 codecs?.contains("hev1", ignoreCase = true) == true ||
-                                                 codecs?.contains("hvc1", ignoreCase = true) == true
-
-                                // Get original content analysis for fallback detection
-                                val videoFormatAnalysis = HdrCapabilityManager.analyzeVideoFormat(mimeType, codecs, colorInfo)
-                                val bestFormat = HdrCapabilityManager.getBestPlayableFormat(context, videoFormatAnalysis)
-                                originalContentFormat = videoFormatAnalysis.hdrSupport.displayName
-
-                                // Determine if content is HDR
-                                isContentHdr = isHdrByColorInfo || isHdrByMimeType || isHdrByCodec || videoFormatAnalysis.hdrSupport != HdrCapabilityManager.HdrSupport.SDR
-
-                                if (isContentHdr) {
-                                    currentFormat = when {
-                                        colorInfo?.contains("Dolby Vision", ignoreCase = true) == true -> "Dolby Vision"
-                                        codecs?.contains("dvhe", ignoreCase = true) == true || codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
-                                        colorInfo?.contains("HDR10+", ignoreCase = true) == true -> "HDR10+"
-                                        colorInfo?.contains("HDR10", ignoreCase = true) == true || colorInfo?.contains("SMPTE2084", ignoreCase = true) == true -> "HDR10"
-                                        colorInfo?.contains("HLG", ignoreCase = true) == true -> "HLG"
-                                        else -> "HDR"
-                                    }
-                                }
-
-                                // Get detailed analysis including fallback information
-                                analysisResult = if (videoFormatAnalysis.hdrSupport != bestFormat.hdrSupport) {
-                                    "Content: ${originalContentFormat} -> Playing: ${bestFormat.hdrSupport.displayName}"
-                                } else if (isContentHdr) {
-                                    "Playing in native ${currentFormat} format"
-                                } else {
-                                    "Standard Dynamic Range (SDR)"
-                                }
-
-                                break
-                            }
-                        }
-                    }
-                }
-            }
-
-            HdrFormatInfo(
-                isSupported = isContentHdr,
-                currentFormat = currentFormat,
-                deviceCapabilities = if (deviceSupportsHdr) "Yes" else "No",
-                analysisResult = analysisResult
-            )
-        }
-
-        // Video Format Info
-        val videoFormatInfo = apiMediaStreams?.find { it.type == "Video" }?.let { videoStream ->
-            val rawCodec = videoStream.codec ?: "Unknown"
-            val displayCodec = getDisplayVideoCodecName(rawCodec)
-            VideoFormatInfo(
-                codec = displayCodec,
-                resolution = if (videoStream.width != null && videoStream.height != null) {
-                    "${videoStream.width}x${videoStream.height}"
-                } else "Unknown",
-                mimeType = videoStream.codec?.let { "video/${it.lowercase()}" } ?: "Unknown",
-                colorInfo = listOfNotNull(
-                    videoStream.colorSpace,
-                    videoStream.colorTransfer,
-                    videoStream.colorPrimaries
-                ).joinToString(", ").takeIf { it.isNotEmpty() },
-                profile = videoStream.profile,
-                frameRate = videoStream.realFrameRate ?: videoStream.averageFrameRate,
-                bitrateKbps = videoStream.bitRate?.div(1000),
-                bitDepth = videoStream.bitDepth
-            )
-        }
-
-        // Audio Format Info
-        val audioFormatInfo = apiMediaStreams?.find { it.type == "Audio" }?.let { audioStream ->
-            val channels = audioStream.channels?.let { channelCount ->
-                when (channelCount) {
-                    1 -> "Mono"
-                    2 -> "Stereo"
-                    6 -> "5.1"
-                    8 -> "7.1"
-                    else -> "${channelCount}ch"
-                }
-            } ?: "Unknown"
-
-            val rawCodec = audioStream.codec ?: "Unknown"
-            val displayCodec = getDisplayAudioCodecName(rawCodec)
-
-            AudioFormatInfo(
-                codec = displayCodec,
-                channels = channels,
-                bitrate = audioStream.bitRate?.let { "${it / 1000} kbps" },
-                sampleRate = audioStream.sampleRate?.let { "${it} Hz" },
-                language = audioStream.language,
-                isDefault = audioStream.isDefault == true
-            )
-        }
-
-        // Hardware Acceleration Info
-        val hardwareAccelerationInfo = playerContext?.let { context ->
-            val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
-            val isHwAccelEnabled = playerPreferences.isHardwareAccelerationEnabled()
-            val isAsyncEnabled = playerPreferences.isAsyncMediaCodecEnabled()
-            val decoderPriority = playerPreferences.getDecoderPriority()
-            
-            // Get active codec information from current tracks
-            var activeVideoCodec: String? = null
-            var activeAudioCodec: String? = null
-            var isUsingHardwareDecoder = false
-            
-            exoPlayer?.currentTracks?.let { tracks ->
-                tracks.groups.forEach { group ->
-                    when (group.type) {
-                        androidx.media3.common.C.TRACK_TYPE_VIDEO -> {
-                            for (i in 0 until group.mediaTrackGroup.length) {
-                                if (group.isTrackSelected(i)) {
-                                    val format = group.mediaTrackGroup.getFormat(i)
-                                    activeVideoCodec = getDisplayVideoCodecName(format.codecs ?: format.sampleMimeType ?: "Unknown")
-                                    isUsingHardwareDecoder = isHwAccelEnabled &&
-                                        (format.sampleMimeType?.contains("video/") == true)
-                                    break
-                                }
-                            }
-                        }
-                        androidx.media3.common.C.TRACK_TYPE_AUDIO -> {
-                            for (i in 0 until group.mediaTrackGroup.length) {
-                                if (group.isTrackSelected(i)) {
-                                    val format = group.mediaTrackGroup.getFormat(i)
-                                    activeAudioCodec = getDisplayAudioCodecName(format.codecs ?: format.sampleMimeType ?: "Unknown")
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            val decoderType = when {
-                !isHwAccelEnabled -> "Software"
-                isUsingHardwareDecoder -> "Hardware"
-                decoderPriority == "Software First" -> "Software Preferred"
-                else -> "Hardware Preferred"
-            }
-            
-            HardwareAccelerationInfo(
-                isHardwareDecoding = isHwAccelEnabled,
-                activeVideoCodec = activeVideoCodec,
-                activeAudioCodec = activeAudioCodec,
-                decoderType = decoderType,
-                asyncModeEnabled = isHwAccelEnabled && isAsyncEnabled,
-                performanceMetrics = if (isHwAccelEnabled) "GPU-accelerated" else "CPU-only"
-            )
-        }
-
-        return MediaMetadataInfo(
-            hdrFormat = hdrFormatInfo,
-            videoFormat = videoFormatInfo,
-            audioFormat = audioFormatInfo,
-            hardwareAcceleration = hardwareAccelerationInfo,
-            streamContainer = mediaSourceContainer,
-            streamBitrateKbps = mediaSourceBitrateKbps,
-            playMethod = currentPlayMethod
+        return PlayerMetadata.buildMediaMetadataInfo(
+            context = playerContext,
+            exoPlayer = exoPlayer,
+            mediaStreams = apiMediaStreams,
+            mediaSourceContainer = playbackSession.mediaSourceContainer,
+            mediaSourceBitrateKbps = playbackSession.mediaSourceBitrateKbps,
+            playMethodDisplayName = playbackSession.playMethod.displayName
         )
     }
 
     fun getSourceVideoHeight(): Int? {
-        return apiMediaStreams
-            ?.firstOrNull { it.type == "Video" && (it.height ?: 0) > 0 }
-            ?.height
-    }
-
-    /**
-     * Get display-friendly video codec name
-     */
-    private fun getDisplayVideoCodecName(codec: String): String {
-        return when (codec.uppercase()) {
-            "H264", "AVC", "AVC1" -> "H.264"
-            "H265", "HEVC", "HEV1", "HVC1" -> "H.265"
-            "VP8" -> "VP8"
-            "VP9" -> "VP9"
-            "AV1" -> "AV1"
-            "MPEG2", "MPEG-2" -> "MPEG-2"
-            "MPEG4", "MPEG-4" -> "MPEG-4"
-            "XVID" -> "Xvid"
-            "DIVX" -> "DivX"
-            "WMV" -> "WMV"
-            else -> codec.uppercase()
-        }
-    }
-
-    /**
-     * Get display-friendly audio codec name
-     */
-    private fun getDisplayAudioCodecName(codec: String): String {
-        return when (codec.uppercase()) {
-            "EAC3", "E-AC-3", "EC-3" -> "Dolby Digital+"
-            "AC3", "AC-3" -> "Dolby Digital"
-            "TRUEHD" -> "Dolby TrueHD"
-            "DTS" -> "DTS"
-            "DTSHD", "DTS-HD" -> "DTS-HD"
-            "AAC", "MP4A", "MP4A.40.2" -> "AAC"
-            "MP3" -> "MP3"
-            "FLAC" -> "FLAC"
-            "PCM" -> "PCM"
-            "OPUS" -> "Opus"
-            "VORBIS" -> "Vorbis"
-            "WMA" -> "WMA"
-            "ALAC" -> "ALAC"
-            else -> codec.uppercase()
-        }
+        return PlayerMetadata.getSourceVideoHeight(apiMediaStreams)
     }
 }

@@ -61,9 +61,7 @@ fun ControlsOverlay(
     onShowSubtitleTrackSelection: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
     onSeekBackward: () -> Unit = {},
-    onSeekForward: () -> Unit = {},
-    onPrevious: () -> Unit = {},
-    onNext: () -> Unit = {}
+    onSeekForward: () -> Unit = {}
 ) {
     Box(
         modifier = modifier
@@ -454,9 +452,7 @@ fun ControlsOverlayPreviewPlaying() {
         onShowSubtitleTrackSelection = { },
         onCycleAspectRatio = { },
         onSeekBackward = { },
-        onSeekForward = { },
-        onPrevious = { },
-        onNext = { }
+        onSeekForward = { }
     )
 }
 
@@ -490,9 +486,7 @@ fun ControlsOverlayPreviewPaused() {
         onShowSubtitleTrackSelection = { },
         onCycleAspectRatio = { },
         onSeekBackward = { },
-        onSeekForward = { },
-        onPrevious = { },
-        onNext = { }
+        onSeekForward = { }
     )
 }
 

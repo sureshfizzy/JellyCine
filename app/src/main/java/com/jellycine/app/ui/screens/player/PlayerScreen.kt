@@ -201,12 +201,10 @@ fun PlayerScreen(
     // Update position and playing state
     LaunchedEffect(viewModel.exoPlayer) {
         while (true) {
-            viewModel.exoPlayer?.let { player ->
-                uiState = uiState.copy(
-                    currentPosition = player.currentPosition,
-                    isPlaying = player.isPlaying
-                )
-            }
+            uiState = uiState.copy(
+                currentPosition = viewModel.getCurrentPosition(),
+                isPlaying = viewModel.isPlayingNow()
+            )
             delay(100)
         }
     }
@@ -232,8 +230,8 @@ fun PlayerScreen(
             if (selection.isEmpty() || selection == currentStreamingQuality) {
                 showStreamingQualityDialog = false
             } else {
-                val resumePositionMs = viewModel.exoPlayer?.currentPosition ?: uiState.currentPosition
-                val shouldResumePlaying = viewModel.exoPlayer?.isPlaying ?: uiState.isPlaying
+                val resumePositionMs = viewModel.getCurrentPosition()
+                val shouldResumePlaying = viewModel.isPlayingNow()
                 val preferredAudio = preferredStreamIndexes.audioStreamIndex
                 val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
 
@@ -382,8 +380,9 @@ fun PlayerScreen(
             },
             onSeek = { delta ->
                 if (!playerState.isLocked) {
-                    val newPosition = (uiState.currentPosition + delta).coerceIn(0L, viewModel.exoPlayer?.duration ?: 0L)
-                    viewModel.exoPlayer?.seekTo(newPosition)
+                    val newPosition = (uiState.currentPosition + delta)
+                        .coerceIn(0L, viewModel.getDuration())
+                    viewModel.seekTo(newPosition)
 
                     // Show seek indicator
                     val isForward = delta > 0
@@ -411,7 +410,7 @@ fun PlayerScreen(
                 seasonEpisodeLabel = playerState.seasonEpisodeLabel,
                 isPlaying = uiState.isPlaying,
                 currentPosition = uiState.currentPosition,
-                duration = viewModel.exoPlayer?.duration ?: 0L,
+                duration = viewModel.getDuration(),
                 onBackClick = {
                     viewModel.releasePlayer()
                     onBackPressed?.invoke()
@@ -419,15 +418,14 @@ fun PlayerScreen(
                 onPlayPause = {
                     resetAutoHideTimer()
                     if (uiState.isPlaying) {
-                        viewModel.exoPlayer?.pause()
+                        viewModel.pause()
                     } else {
-                        viewModel.exoPlayer?.play()
+                        viewModel.play()
                     }
                 },
                 onSeek = { progress ->
                     resetAutoHideTimer()
-                    val duration = viewModel.exoPlayer?.duration ?: 0L
-                    viewModel.exoPlayer?.seekTo((duration * progress).toLong())
+                    viewModel.seekToProgress(progress)
                 },
                 // Media info parameters
                 spatializationResult = playerState.spatializationResult,
@@ -471,14 +469,6 @@ fun PlayerScreen(
                 onSeekForward = {
                     resetAutoHideTimer()
                     viewModel.seekForward()
-                },
-                onPrevious = {
-                    resetAutoHideTimer()
-                    viewModel.goToPrevious()
-                },
-                onNext = {
-                    resetAutoHideTimer()
-                    viewModel.goToNext()
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -702,8 +692,6 @@ fun PlayerScreenPreview() {
             onCycleAspectRatio = { },
             onSeekBackward = { },
             onSeekForward = { },
-            onPrevious = { },
-            onNext = { },
             modifier = Modifier.fillMaxSize()
         )
     }
