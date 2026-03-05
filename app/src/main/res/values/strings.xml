@@ -63,4 +63,8 @@
     <string name="cd_back_button">Back button</string>
     <string name="cd_search_button">Search button</string>
     <string name="cd_settings_button">Settings button</string>
+
+    <!-- Casting -->
+    <string name="cast_to_device">Cast to device</string>
+    <string name="cast_receiver_app_id">CC1AD845</string>
 </resources>

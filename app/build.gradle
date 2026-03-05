@@ -159,6 +159,9 @@ dependencies {
     // Permissions handling
     implementation 'com.google.accompanist:accompanist-permissions:0.37.3'
 
+    // Google Cast / screen casting
+    implementation 'com.google.android.gms:play-services-cast-framework:22.3.0'
+
     // Hilt
     implementation 'com.google.dagger:hilt-android:2.59.1'
     ksp 'com.google.dagger:hilt-compiler:2.59.1'

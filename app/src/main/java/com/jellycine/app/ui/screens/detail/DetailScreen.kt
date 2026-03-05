@@ -43,14 +43,20 @@ import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.app.ui.components.common.CastSection
+import com.jellycine.app.ui.components.common.CastActionButton
+import com.jellycine.app.ui.components.common.CastDevicePicker
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.BatchDownloadCandidate
 import com.jellycine.app.download.BatchDownloadEstimate
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.ItemDownloadState
+import com.jellycine.app.ui.screens.cast.CastPlayback
+import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
+import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.preferences.PlayerPreferences
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
@@ -86,10 +92,148 @@ fun DetailScreenContainer(
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
     var episodeError by remember { mutableStateOf<String?>(null) }
+    var castingDisplay by remember { mutableStateOf(false) }
+    var castDisplayItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    var castDisplayArtworkUrl by remember { mutableStateOf<String?>(null) }
+    var castDisplayStreams by remember { mutableStateOf<List<MediaStream>>(emptyList()) }
+    var castDisplayAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var castDisplaySubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var castTracks by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val castPlaybackState by CastController.playbackState.collectAsState()
+
+    LaunchedEffect(context) {
+        CastController.ensureInitialized(context)
+    }
+
+    suspend fun castDisplayState(castItemId: String) {
+        val activeItem = when {
+            castDisplayItem?.id == castItemId -> castDisplayItem
+            episodeItem?.id == castItemId -> episodeItem
+            item?.id == castItemId -> item
+            else -> mediaRepository.getItemById(castItemId).getOrNull()
+        }
+
+        val playbackData = loadCastPlaybackData(
+            mediaRepository = mediaRepository,
+            playerPreferences = playerPreferences,
+            itemId = castItemId,
+            activeItem = activeItem
+        )
+        castDisplayItem = playbackData.item
+        castDisplayArtworkUrl = playbackData.artworkUrl
+        castDisplayStreams = playbackData.streams
+        castDisplayAudioStreamIndex = playbackData.selectedAudioStreamIndex
+        castDisplaySubtitleStreamIndex = playbackData.selectedSubtitleStreamIndex
+    }
+
+    fun localPlayer(targetItemId: String) {
+        playbackItemId = targetItemId
+        castingDisplay = false
+        showPlayer = true
+    }
+
+    fun openCastingDisplay() {
+        if (!castPlaybackState.isConnected) return
+        val castItemId = castPlaybackState.currentItemId
+            ?: castDisplayItem?.id
+        castingDisplay = true
+        if (castItemId.isNullOrBlank()) return
+        scope.launch {
+            castDisplayState(castItemId = castItemId)
+        }
+    }
+
+    fun updateCastStreams(
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) {
+        if (castTracks) return
+        val castItemId = castPlaybackState.currentItemId ?: castDisplayItem?.id ?: return
+        val metadataItem = castDisplayItem
+
+        scope.launch {
+            castTracks = true
+            try {
+                val castResult = CastController.castItem(
+                    context = context,
+                    mediaRepository = mediaRepository,
+                    itemId = castItemId,
+                    title = metadataItem?.name ?: castPlaybackState.mediaTitle,
+                    subtitle = metadataItem?.seriesName ?: castPlaybackState.mediaSubtitle,
+                    itemType = metadataItem?.type,
+                    artworkUrl = castPlaybackState.artworkUrl ?: castDisplayArtworkUrl,
+                    startPositionMs = castPlaybackState.positionMs,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex
+                )
+
+                if (castResult.isSuccess) {
+                    castDisplayAudioStreamIndex = audioStreamIndex
+                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
+                    playerPreferences.setPreferredAudioStreamIndex(castItemId, audioStreamIndex)
+                    playerPreferences.setPreferredSubtitleStreamIndex(castItemId, subtitleStreamIndex)
+                }
+            } finally {
+                castTracks = false
+            }
+        }
+    }
+
+    fun startPlaybackForItem(
+        targetItem: BaseItemDto?,
+        fallbackItemId: String,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) {
+        val activeItemId = targetItem?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId
+        preferredAudioStreamIndex = audioStreamIndex
+        preferredSubtitleStreamIndex = subtitleStreamIndex
+
+        scope.launch {
+            if (castPlaybackState.isConnected) {
+                val startPositionMs = (targetItem?.userData?.playbackPositionTicks ?: 0L) / 10_000L
+                val artworkUrl = activeCastArtworkUrl(
+                    mediaRepository = mediaRepository,
+                    item = targetItem,
+                    fallbackItemId = activeItemId
+                )
+                val castResult = CastController.castItem(
+                    context = context,
+                    mediaRepository = mediaRepository,
+                    itemId = activeItemId,
+                    title = targetItem?.name,
+                    subtitle = targetItem?.seriesName,
+                    itemType = targetItem?.type,
+                    artworkUrl = artworkUrl,
+                    startPositionMs = startPositionMs,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex
+                )
+
+                if (castResult.isSuccess) {
+                    playbackItemId = activeItemId
+                    castDisplayItem = targetItem
+                    castDisplayArtworkUrl = artworkUrl
+                    castDisplayAudioStreamIndex = audioStreamIndex
+                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
+                    showPlayer = false
+                    castingDisplay = true
+                    castDisplayState(castItemId = activeItemId)
+                } else {
+                    localPlayer(activeItemId)
+                }
+            } else {
+                localPlayer(activeItemId)
+            }
+        }
+    }
 
     val handleBackNavigation: () -> Unit = {
         when {
+            castingDisplay -> {
+                castingDisplay = false
+            }
             showPlayer -> {
                 val playedItemId = playbackItemId ?: itemId
                 preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
@@ -190,6 +334,20 @@ fun DetailScreenContainer(
         }
     }
 
+    LaunchedEffect(castPlaybackState.isConnected, castPlaybackState.isCastingMedia) {
+        if (castingDisplay && !castPlaybackState.isConnected) {
+            castingDisplay = false
+        }
+        if (!castPlaybackState.isConnected) {
+            castDisplayStreams = emptyList()
+            castDisplayItem = null
+            castDisplayArtworkUrl = null
+            castDisplayAudioStreamIndex = null
+            castDisplaySubtitleStreamIndex = null
+            castTracks = false
+        }
+    }
+
     BackHandler {
         handleBackNavigation()
     }
@@ -249,10 +407,12 @@ fun DetailScreenContainer(
                                     trackSelectionSyncVersion = trackSelectionSyncVersion,
                                     onBackPressed = handleBackNavigation,
                                     onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
-                                        preferredAudioStreamIndex = audioStreamIndex
-                                        preferredSubtitleStreamIndex = subtitleStreamIndex
-                                        playbackItemId = itemId
-                                        showPlayer = true
+                                        startPlaybackForItem(
+                                            targetItem = currentItem,
+                                            fallbackItemId = itemId,
+                                            audioStreamIndex = audioStreamIndex,
+                                            subtitleStreamIndex = subtitleStreamIndex
+                                        )
                                     },
                                     onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
                                         preferredAudioStreamIndex = audioStreamIndex
@@ -264,6 +424,7 @@ fun DetailScreenContainer(
                                     onPersonClick = { personId ->
                                         onNavigateToPerson(personId)
                                     },
+                                    onCastButtonClick = { openCastingDisplay() },
                                     onSeasonClick = { seriesId, seasonId, seasonName ->
                                         seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                         currentScreen = "season"
@@ -274,6 +435,7 @@ fun DetailScreenContainer(
                             }
                         }
                     }
+
                     "season" -> {
                         seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
                             ScreenWrapper(isActive = true) {
@@ -290,6 +452,7 @@ fun DetailScreenContainer(
                             }
                         }
                     }
+
                     "episode" -> {
                         episodeDetailId?.let { episodeId ->
                             ScreenWrapper(isActive = true) {
@@ -304,6 +467,7 @@ fun DetailScreenContainer(
                                             }
                                         }
                                     }
+
                                     episodeItem != null -> {
                                         DetailScreen(
                                             item = episodeItem!!,
@@ -311,10 +475,12 @@ fun DetailScreenContainer(
                                             trackSelectionSyncVersion = trackSelectionSyncVersion,
                                             onBackPressed = handleBackNavigation,
                                             onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
-                                                preferredAudioStreamIndex = audioStreamIndex
-                                                preferredSubtitleStreamIndex = subtitleStreamIndex
-                                                playbackItemId = episodeItem?.id ?: episodeId
-                                                showPlayer = true
+                                                startPlaybackForItem(
+                                                    targetItem = episodeItem,
+                                                    fallbackItemId = episodeId,
+                                                    audioStreamIndex = audioStreamIndex,
+                                                    subtitleStreamIndex = subtitleStreamIndex
+                                                )
                                             },
                                             onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
                                                 preferredAudioStreamIndex = audioStreamIndex
@@ -326,16 +492,16 @@ fun DetailScreenContainer(
                                             onPersonClick = { personId ->
                                                 onNavigateToPerson(personId)
                                             },
+                                            onCastButtonClick = { openCastingDisplay() },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
                                                 seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                                 currentScreen = "season"
                                             }
                                         )
                                     }
+
                                     else -> {
-                                        DetailScreenSkeleton(
-                                            onBackPressed = handleBackNavigation
-                                        )
+                                        DetailScreenSkeleton(onBackPressed = handleBackNavigation)
                                     }
                                 }
                             }
@@ -343,6 +509,31 @@ fun DetailScreenContainer(
                     }
                 }
             }
+        }
+
+        if (castingDisplay) {
+            CastPlayback(
+                castState = castPlaybackState,
+                streams = castDisplayStreams,
+                fallbackArtworkUrl = castDisplayArtworkUrl,
+                selectedAudioStreamIndex = castDisplayAudioStreamIndex,
+                selectedSubtitleStreamIndex = castDisplaySubtitleStreamIndex,
+                isTrackSelectionUpdating = castTracks,
+                onDismissRequest = { castingDisplay = false },
+                onTogglePlayPause = { CastController.togglePlayPause(context) },
+                onStopCasting = { CastController.stopPlayback(context) },
+                onDisconnect = {
+                    CastController.disconnect(context)
+                    castingDisplay = false
+                },
+                onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
+                onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
+                    updateCastStreams(
+                        audioStreamIndex = audioStreamIndex,
+                        subtitleStreamIndex = subtitleStreamIndex
+                    )
+                }
+            )
         }
     }
 }
@@ -358,6 +549,7 @@ fun DetailScreen(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
+    onCastButtonClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
@@ -369,6 +561,7 @@ fun DetailScreen(
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
         onPersonClick = onPersonClick,
+        onCastButtonClick = onCastButtonClick,
         onSeasonClick = onSeasonClick
     )
 }
@@ -383,6 +576,7 @@ fun DetailContent(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
+    onCastButtonClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -390,6 +584,9 @@ fun DetailContent(
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val playerPreferences = remember { PlayerPreferences(context) }
     val coroutineScope = rememberCoroutineScope()
+    val castPlaybackState by CastController.playbackState.collectAsState()
+    var showCastDevicePicker by remember { mutableStateOf(false) }
+
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
         item.type,
@@ -692,6 +889,24 @@ fun DetailContent(
                         )
                 )
 
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(top = 12.dp, end = 14.dp)
+                ) {
+                    CastActionButton(
+                        isConnected = castPlaybackState.isConnected,
+                        onClick = {
+                            if (castPlaybackState.isConnected) {
+                                onCastButtonClick()
+                            } else {
+                                showCastDevicePicker = true
+                            }
+                        }
+                    )
+                }
+
             }
         }
 
@@ -825,6 +1040,38 @@ fun DetailContent(
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                     )
+                }
+
+                if (castPlaybackState.isConnected) {
+                    Surface(
+                        color = Color(0xFF173025),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Cast,
+                                contentDescription = null,
+                                tint = Color(0xFFA7FFD7),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (castPlaybackState.isCastingMedia) {
+                                    "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                } else {
+                                    "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                },
+                                fontSize = 12.sp,
+                                color = Color(0xFFE6FFF3),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
 
                 if (codecBadges.hasAnyBadges) {
@@ -1313,6 +1560,11 @@ fun DetailContent(
             }
         }
     }
+
+    CastDevicePicker(
+        isVisible = showCastDevicePicker,
+        onDismissRequest = { showCastDevicePicker = false }
+    )
 
     seriesStorageSelectionDialogState?.let { dialogState ->
         DownloadDialog(
