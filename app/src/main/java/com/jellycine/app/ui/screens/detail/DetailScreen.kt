@@ -5,7 +5,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.jellycine.app.R
 import androidx.compose.ui.text.style.TextOverflow
@@ -585,6 +588,10 @@ fun DetailContent(
     val playerPreferences = remember { PlayerPreferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
+    val configuration = LocalConfiguration.current
+    val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+                             configuration.screenWidthDp >= 600
+    val metadataScrollState = rememberScrollState()
     var showCastDevicePicker by remember { mutableStateOf(false) }
 
     val isEpisode = item.type == "Episode"
@@ -655,6 +662,9 @@ fun DetailContent(
     }
     val reserveLogoSpace = (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
     val showTitleFallback = !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
+    val genresText = remember(item.genres) {
+        item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
     val canDownloadItem = item.id != null && item.canDownload != false
     val itemDownloadStateFlow = remember(item.id) { item.id?.let { downloadRepository.observeItemDownload(it) } }
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
@@ -815,6 +825,41 @@ fun DetailContent(
         )
     }
 
+    fun persistTrackSelection(audioOption: String, subtitleOption: String): Pair<Int?, Int?> {
+        val audioStreamIndex = AudioStreamIndex(
+            streams = effectiveMediaStreams,
+            selectedOption = audioOption
+        )
+        val subtitleStreamIndex = SubtitleStreamIndex(
+            streams = effectiveMediaStreams,
+            selectedOption = subtitleOption
+        )
+        item.id?.let { currentItemId ->
+            playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
+            playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
+        }
+        onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
+        return audioStreamIndex to subtitleStreamIndex
+    }
+
+    val onVideoOptionSelected: (String) -> Unit = { option ->
+        selectedVideo = option
+    }
+    val onAudioOptionSelected: (String) -> Unit = { option ->
+        selectedAudio = option
+        persistTrackSelection(
+            audioOption = option,
+            subtitleOption = selectedSubtitle
+        )
+    }
+    val onSubtitleOptionSelected: (String) -> Unit = { option ->
+        selectedSubtitle = option
+        persistTrackSelection(
+            audioOption = selectedAudio,
+            subtitleOption = option
+        )
+    }
+
     LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
         if (selectedVideo !in videoOptions) {
             selectedVideo = videoOptions.firstOrNull().orEmpty()
@@ -968,7 +1013,15 @@ fun DetailContent(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (isWidescreenLayout) {
+                                Modifier.horizontalScroll(metadataScrollState)
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     item.communityRating?.let { rating ->
                         Row(
@@ -1027,11 +1080,20 @@ fun DetailContent(
                         )
                     }
 
+                    if (isWidescreenLayout && !genresText.isNullOrBlank()) {
+                        Text(
+                            text = genresText,
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.85f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                item.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
+                if (!isWidescreenLayout && !genresText.isNullOrBlank()) {
                     Text(
-                        text = genres.joinToString(", "),
+                        text = genresText,
                         fontSize = 14.sp,
                         color = Color.White.copy(alpha = 0.85f),
                         maxLines = 2,
@@ -1132,88 +1194,135 @@ fun DetailContent(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (videoOptions.isNotEmpty()) {
-                    if (videoOptions.size > 1) {
-                        OptionSelectorRow(
+                val hasVideoSection = videoOptions.isNotEmpty()
+                val hasAudioSection = audioOptions.isNotEmpty()
+                val hasSubtitleSection = subtitleOptions.size > 1
+                val isVideoAudioOnlyWideLayout = hasVideoSection && hasAudioSection && !hasSubtitleSection
+
+                if (isWidescreenLayout) {
+                    if (isVideoAudioOnlyWideLayout) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val videoModifier = if (videoOptions.size > 1) {
+                                Modifier.widthIn(max = 520.dp)
+                            } else {
+                                Modifier.wrapContentWidth()
+                            }
+                            TrackField(
+                                modifier = videoModifier,
+                                label = "Video",
+                                selectedOption = selectedVideo,
+                                options = videoOptions,
+                                inlineMetaText = videoInlineMetaText,
+                                singleValueFillWidth = false,
+                                onOptionSelected = onVideoOptionSelected
+                            )
+
+                            val audioModifier = if (audioOptions.size > 1) {
+                                Modifier.widthIn(min = 260.dp, max = 560.dp)
+                            } else {
+                                Modifier.wrapContentWidth()
+                            }
+                            TrackField(
+                                modifier = audioModifier,
+                                label = "Audio",
+                                selectedOption = selectedAudio,
+                                options = audioOptions,
+                                singleValueFillWidth = false,
+                                onOptionSelected = onAudioOptionSelected
+                            )
+
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    } else if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (hasVideoSection) {
+                                val videoModifier = when {
+                                    hasSubtitleSection -> Modifier.weight(1f)
+                                    hasAudioSection -> Modifier.widthIn(max = 520.dp)
+                                    else -> Modifier.fillMaxWidth()
+                                }
+                                TrackField(
+                                    modifier = videoModifier,
+                                    label = "Video",
+                                    selectedOption = selectedVideo,
+                                    options = videoOptions,
+                                    inlineMetaText = videoInlineMetaText,
+                                    onOptionSelected = onVideoOptionSelected
+                                )
+                            }
+
+                            if (hasAudioSection) {
+                                val audioModifier = if (hasSubtitleSection || hasVideoSection) {
+                                    Modifier.weight(1f)
+                                } else {
+                                    Modifier.fillMaxWidth()
+                                }
+                                TrackField(
+                                    modifier = audioModifier,
+                                    label = "Audio",
+                                    selectedOption = selectedAudio,
+                                    options = audioOptions,
+                                    onOptionSelected = onAudioOptionSelected
+                                )
+                            }
+
+                            if (hasSubtitleSection) {
+                                val subtitleModifier = if (hasVideoSection || hasAudioSection) {
+                                    Modifier.weight(1f)
+                                } else {
+                                    Modifier.fillMaxWidth()
+                                }
+                                TrackField(
+                                    modifier = subtitleModifier,
+                                    label = "Subtitles",
+                                    selectedOption = selectedSubtitle,
+                                    options = subtitleOptions,
+                                    onOptionSelected = onSubtitleOptionSelected
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    if (hasVideoSection) {
+                        TrackField(
                             label = "Video",
                             selectedOption = selectedVideo,
                             options = videoOptions,
                             inlineMetaText = videoInlineMetaText,
-                            onOptionSelected = { selectedVideo = it }
-                        )
-                    } else {
-                        DetailInfoRow(
-                            label = "Video",
-                            value = if (!videoInlineMetaText.isNullOrBlank()) {
-                                "${videoOptions.first()} / $videoInlineMetaText"
-                            } else {
-                                videoOptions.first()
-                            }
+                            onOptionSelected = onVideoOptionSelected
                         )
                     }
-                }
 
-                if (videoOptions.isNotEmpty() && audioOptions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
+                    if (hasVideoSection && hasAudioSection) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
 
-                if (audioOptions.isNotEmpty()) {
-                    if (audioOptions.size > 1) {
-                        OptionSelectorRow(
+                    if (hasAudioSection) {
+                        TrackField(
                             label = "Audio",
                             selectedOption = selectedAudio,
                             options = audioOptions,
-                            onOptionSelected = { option ->
-                                selectedAudio = option
-                                val audioStreamIndex = AudioStreamIndex(
-                                    streams = effectiveMediaStreams,
-                                    selectedOption = option
-                                )
-                                val subtitleStreamIndex = SubtitleStreamIndex(
-                                    streams = effectiveMediaStreams,
-                                    selectedOption = selectedSubtitle
-                                )
-                                item.id?.let { currentItemId ->
-                                    playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
-                                    playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
-                                }
-                                onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
-                            }
-                        )
-                    } else {
-                        DetailInfoRow(
-                            label = "Audio",
-                            value = audioOptions.first()
+                            onOptionSelected = onAudioOptionSelected
                         )
                     }
-                }
 
-                if (subtitleOptions.size > 1) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                if (subtitleOptions.size > 1) {
-                    OptionSelectorRow(
-                        label = "Subtitles",
-                        selectedOption = selectedSubtitle,
-                        options = subtitleOptions,
-                        onOptionSelected = { option ->
-                            selectedSubtitle = option
-                            val audioStreamIndex = AudioStreamIndex(
-                                streams = effectiveMediaStreams,
-                                selectedOption = selectedAudio
-                            )
-                            val subtitleStreamIndex = SubtitleStreamIndex(
-                                streams = effectiveMediaStreams,
-                                selectedOption = option
-                            )
-                            item.id?.let { currentItemId ->
-                                playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
-                                playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
-                            }
-                            onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
-                        }
-                    )
+                    if (hasSubtitleSection) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        TrackField(
+                            label = "Subtitles",
+                            selectedOption = selectedSubtitle,
+                            options = subtitleOptions,
+                            onOptionSelected = onSubtitleOptionSelected
+                        )
+                    }
                 }
 
                 if (item.type != "Series") {
@@ -1231,19 +1340,10 @@ fun DetailContent(
                         ) {
                             Button(
                                 onClick = {
-                                    val selectedAudioStreamIndex = AudioStreamIndex(
-                                        streams = effectiveMediaStreams,
-                                        selectedOption = selectedAudio
+                                    val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) = persistTrackSelection(
+                                        audioOption = selectedAudio,
+                                        subtitleOption = selectedSubtitle
                                     )
-                                    val selectedSubtitleStreamIndex = SubtitleStreamIndex(
-                                        streams = effectiveMediaStreams,
-                                        selectedOption = selectedSubtitle
-                                    )
-                                    item.id?.let { currentItemId ->
-                                        playerPreferences.setPreferredAudioStreamIndex(currentItemId, selectedAudioStreamIndex)
-                                        playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, selectedSubtitleStreamIndex)
-                                    }
-                                    onPreferredStreamIndexesChanged(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
                                     onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
                                 },
                                 modifier = Modifier.fillMaxSize(),
@@ -1805,10 +1905,11 @@ private fun SimilarItemCard(
 @Composable
 private fun DetailInfoRow(
     label: String,
-    value: String
+    value: String,
+    fillWidth: Boolean = true
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -1824,6 +1925,42 @@ private fun DetailInfoRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun TrackField(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    modifier: Modifier = Modifier,
+    inlineMetaText: String? = null,
+    singleValueFillWidth: Boolean = true,
+    onOptionSelected: (String) -> Unit
+) {
+    if (options.isEmpty()) return
+
+    Box(modifier = modifier) {
+        if (options.size > 1) {
+            OptionSelectorRow(
+                label = label,
+                selectedOption = selectedOption,
+                options = options,
+                inlineMetaText = inlineMetaText,
+                onOptionSelected = onOptionSelected
+            )
+        } else {
+            val value = if (!inlineMetaText.isNullOrBlank()) {
+                "${options.first()} / $inlineMetaText"
+            } else {
+                options.first()
+            }
+            DetailInfoRow(
+                label = label,
+                value = value,
+                fillWidth = singleValueFillWidth
+            )
+        }
     }
 }
 
