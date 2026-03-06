@@ -31,6 +31,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.nio.charset.StandardCharsets
+import java.net.URI
 
 class MediaRepository(private val context: Context) {
 
@@ -147,6 +148,42 @@ class MediaRepository(private val context: Context) {
                 builder.appendQueryParameter(key, value)
             }
         }
+        return builder.build().toString()
+    }
+
+    private fun getServerUrl(
+        baseUrl: String,
+        url: String?
+    ): String? {
+        val rawUrl = url?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            URI.create(NetworkModule.trimTrailingSlash(baseUrl, trailingSlash = true))
+                .resolve(rawUrl)
+                .toString()
+        }.getOrNull()
+    }
+
+    private fun applyTranscodingSelectionOverrides(
+        streamingUrl: String,
+        audioStreamIndex: Int?
+    ): String {
+        val sourceUri = Uri.parse(streamingUrl)
+        val builder = sourceUri.buildUpon().clearQuery()
+
+        sourceUri.queryParameterNames
+            .filterNot { queryName ->
+                queryName.equals("AudioStreamIndex", ignoreCase = true)
+            }
+            .forEach { queryName ->
+                sourceUri.getQueryParameters(queryName).forEach { queryValue ->
+                    builder.appendQueryParameter(queryName, queryValue)
+                }
+            }
+
+        audioStreamIndex?.let {
+            builder.appendQueryParameter("AudioStreamIndex", it.toString())
+        }
+
         return builder.build().toString()
     }
 
@@ -1161,7 +1198,10 @@ class MediaRepository(private val context: Context) {
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,
                 enableDirectPlay = !forceTranscode,
                 enableDirectStream = !forceTranscode,
-                enableTranscoding = true
+                enableTranscoding = true,
+                deviceProfile = PlaybackDeviceProfileFactory.create(
+                    maxStreamingBitrate = maxStreamingBitrate?.toLong()
+                )
             )
 
             val postResponse = api.getPlaybackInfoPost(
@@ -1260,7 +1300,8 @@ class MediaRepository(private val context: Context) {
         maxStreamingBitrate: Int? = null,
         maxStreamingHeight: Int? = null,
         audioStreamIndex: Int? = null,
-        subtitleStreamIndex: Int? = null
+        subtitleStreamIndex: Int? = null,
+        playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null
     ): Result<String> {
         return try {
             val config = getSessionConfig()
@@ -1271,28 +1312,47 @@ class MediaRepository(private val context: Context) {
                 return Result.failure(Exception("Server URL not available"))
             }
 
-            // Get playback info first to determine the best streaming method
-            val playbackInfoResult = getPlaybackInfo(
-                itemId = itemId,
-                maxStreamingBitrate = maxStreamingBitrate,
-                audioStreamIndex = audioStreamIndex,
-                subtitleStreamIndex = subtitleStreamIndex
-            )
-            if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+            val activePlaybackInfo = playbackInfo ?: run {
+                val playbackInfoResult = getPlaybackInfo(
+                    itemId = itemId,
+                    maxStreamingBitrate = maxStreamingBitrate,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex
+                )
+                if (playbackInfoResult.isFailure) {
+                    return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+                }
+                playbackInfoResult.getOrNull()
             }
 
-            val playbackInfo = playbackInfoResult.getOrNull()
-            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
-            val playbackSessionId = playbackInfo?.playSessionId
+            val mediaSource = activePlaybackInfo?.mediaSources?.firstOrNull()
+            val playbackSessionId = activePlaybackInfo?.playSessionId
             val deviceId = NetworkModule.getClientDeviceId()
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
 
             if (mediaSource == null) {
                 return Result.failure(Exception("No media source available"))
             }
-            val sourceVideoStream = mediaSource.mediaStreams
-                ?.firstOrNull { it.type == "Video" && (it.height ?: 0) > 0 }
+            val hasQualityCap = (maxStreamingBitrate ?: 0) > 0 || (maxStreamingHeight ?: 0) > 0
+            val serverTranscodingUrl = !mediaSource.transcodingUrl.isNullOrBlank() &&
+                (
+                    hasQualityCap ||
+                        (mediaSource.supportsDirectPlay != true &&
+                            mediaSource.supportsDirectStream != true)
+                )
+            if (serverTranscodingUrl) {
+                val resolvedTranscodingUrl = getServerUrl(
+                    baseUrl = serverUrl,
+                    url = mediaSource.transcodingUrl
+                )
+                if (!resolvedTranscodingUrl.isNullOrBlank()) {
+                    val selectedTranscodingUrl = applyTranscodingSelectionOverrides(
+                        streamingUrl = resolvedTranscodingUrl,
+                        audioStreamIndex = audioStreamIndex
+                    )
+                    return Result.success(selectedTranscodingUrl)
+                }
+            }
 
             val streamQueryParams = mutableListOf<Pair<String, String?>>()
             streamQueryParams.add("mediaSourceId" to mediaSource.id)
@@ -1303,44 +1363,15 @@ class MediaRepository(private val context: Context) {
             streamQueryParams.add("PlaySessionId" to playbackSessionId)
             streamQueryParams.add("DeviceId" to deviceId)
             streamQueryParams.add("api_key" to accessToken)
-            val hasQualityCap = (maxStreamingBitrate ?: 0) > 0 || (maxStreamingHeight ?: 0) > 0
-            val requestedResolutionCap = TranscodingHelpers.streamResolutionCap(
-                maxStreamingHeight = maxStreamingHeight
-            )
-            val resolutionCap = TranscodingHelpers.clampResolution(
-                requestedResolutionCap,
-                sourceVideoStream
-            )
-            val forcedTranscodeQueryParams = mutableListOf<Pair<String, String?>>().apply {
-                addAll(streamQueryParams)
-                maxStreamingBitrate?.let { add("VideoBitRate" to it.toString()) }
-                resolutionCap?.let { cap ->
-                    add("MaxWidth" to cap.maxWidth.toString())
-                    add("MaxHeight" to cap.maxHeight.toString())
-                }
-                add("VideoCodec" to "h264")
-                add("AudioCodec" to "aac")
-                add("EnableAutoStreamCopy" to "false")
-                add("Container" to "ts")
+
+            if (hasQualityCap) {
+                return Result.failure(
+                    Exception("Negotiated transcoding URL not available for item $itemId")
+                )
             }
-            // Build streaming URL
+
             val streamingUrl = when {
-                hasQualityCap -> {
-                    if (!playbackSessionId.isNullOrBlank()) {
-                        buildServerUrl(
-                            baseUrl = serverUrl,
-                            encodedPath = "Videos/$itemId/master.m3u8",
-                            queryParams = forcedTranscodeQueryParams
-                        )
-                    } else {
-                        buildServerUrl(
-                            baseUrl = serverUrl,
-                            encodedPath = "Videos/$itemId/stream",
-                            queryParams = forcedTranscodeQueryParams
-                        )
-                    }
-                }
-                mediaSource.supportsDirectPlay == true && !hasQualityCap -> {
+                mediaSource.supportsDirectPlay == true -> {
                     val directPlayQuery = mutableListOf<Pair<String, String?>>("static" to "true")
                     directPlayQuery.addAll(streamQueryParams)
                     buildServerUrl(
@@ -1349,7 +1380,7 @@ class MediaRepository(private val context: Context) {
                         queryParams = directPlayQuery
                     )
                 }
-                mediaSource.supportsDirectStream == true && !hasQualityCap -> {
+                mediaSource.supportsDirectStream == true -> {
                     val directStreamQuery = mutableListOf<Pair<String, String?>>("static" to "true")
                     directStreamQuery.addAll(streamQueryParams)
                     buildServerUrl(

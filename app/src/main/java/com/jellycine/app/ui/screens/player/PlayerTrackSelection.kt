@@ -7,7 +7,9 @@ import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.core.SubtitleTrackInfo
+import com.jellycine.player.core.displayTitleOrNull
 import com.jellycine.player.preferences.PlayerPreferences
+import java.util.Locale
 
 internal class PlayerTrackSelection {
 
@@ -38,7 +40,8 @@ internal class PlayerTrackSelection {
 
     fun applyInitialSelections(
         player: ExoPlayer,
-        mediaStreams: List<MediaStream>?
+        mediaStreams: List<MediaStream>?,
+        isTranscoding: Boolean
     ): Boolean {
         if (hasAppliedInitialTrackPreferences) return false
 
@@ -60,7 +63,7 @@ internal class PlayerTrackSelection {
             defaultSubtitleStreamIndex = null
         )
 
-        var audioHandled = preferredAudioIndex == null
+        var audioHandled = preferredAudioIndex == null || isTranscoding
         var subtitleHandled = preferredSubtitleIndex == null
         var appliedAnySelection = false
 
@@ -81,6 +84,17 @@ internal class PlayerTrackSelection {
                 PlayerUtils.selectSubtitleTrack(player, "off")
                 subtitleHandled = true
                 appliedAnySelection = true
+            } else if (isTranscoding) {
+                val targetSubtitleIndex = preferredSubtitleIndex ?: return appliedAnySelection
+                transcodingSubtitleTrackId(
+                    player = player,
+                    mediaStreams = mediaStreams,
+                    preferredSubtitleIndex = targetSubtitleIndex
+                )?.let { playerTrackId ->
+                    PlayerUtils.selectSubtitleTrack(player, playerTrackId)
+                    appliedAnySelection = true
+                }
+                subtitleHandled = true
             } else {
                 val subtitleTrack = resolvedTracks.availableSubtitleTracks.firstOrNull {
                     it.streamIndex == preferredSubtitleIndex && !it.playerTrackId.isNullOrBlank()
@@ -101,6 +115,43 @@ internal class PlayerTrackSelection {
         }
 
         return appliedAnySelection
+    }
+
+    private fun transcodingSubtitleTrackId(
+        player: ExoPlayer,
+        mediaStreams: List<MediaStream>?,
+        preferredSubtitleIndex: Int
+    ): String? {
+        val targetStream = mediaStreams
+            .orEmpty()
+            .firstOrNull { stream ->
+                stream.type == "Subtitle" && stream.index == preferredSubtitleIndex
+            }
+        val targetLanguage = targetStream
+            ?.language
+            ?.takeIf { it.isNotBlank() }
+            ?.lowercase(Locale.US)
+            ?.take(2)
+        val targetLabel = targetStream?.displayTitleOrNull()
+
+        val liveSubtitleTracks = PlayerUtils.getAvailableSubtitleTracks(player)
+            .filter { it.id != "off" && !it.playerTrackId.isNullOrBlank() }
+
+        return liveSubtitleTracks.firstOrNull { track ->
+            !targetLanguage.isNullOrBlank() &&
+                track.language
+                    ?.lowercase(Locale.US)
+                    ?.take(2) == targetLanguage
+        }?.playerTrackId
+            ?: liveSubtitleTracks.firstOrNull { track ->
+                !targetLabel.isNullOrBlank() &&
+                    track.label.equals(targetLabel, ignoreCase = true) &&
+                    !track.language.isNullOrBlank()
+            }?.playerTrackId
+            ?: liveSubtitleTracks.lastOrNull { track ->
+                !track.language.isNullOrBlank() || track.label.isNotBlank()
+            }?.playerTrackId
+            ?: liveSubtitleTracks.lastOrNull()?.playerTrackId
     }
 
     fun syncPreferredIndexesFromCurrentTracks(

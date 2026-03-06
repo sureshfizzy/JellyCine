@@ -87,7 +87,7 @@ class PlayerViewModel @Inject constructor(
                 val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
-                val resolvedPreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+                val activePreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
                 val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
                 val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
@@ -102,11 +102,11 @@ class PlayerViewModel @Inject constructor(
                 }
                 trackSelectionCoordinator.resetPendingSelections(
                     preferredAudioStreamIndex = resolvedPreferredAudioStreamIndex,
-                    preferredSubtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
+                    preferredSubtitleStreamIndex = activePreferredSubtitleStreamIndex
                 )
                 _preferredStreamIndexes.value = PreferredStreamIndexes(
                     audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                    subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
+                    subtitleStreamIndex = activePreferredSubtitleStreamIndex
                 )
 
                 audioDiagnosticsSignature = null
@@ -188,7 +188,7 @@ class PlayerViewModel @Inject constructor(
                         itemId = mediaId,
                         maxStreamingBitrate = maxStreamingBitrate,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
+                        subtitleStreamIndex = activePreferredSubtitleStreamIndex
                     )
                     if (playbackInfoResult.isFailure) {
                         val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
@@ -222,7 +222,8 @@ class PlayerViewModel @Inject constructor(
                         maxStreamingBitrate = maxStreamingBitrate,
                         maxStreamingHeight = maxStreamingHeight,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = resolvedPreferredSubtitleStreamIndex
+                        subtitleStreamIndex = activePreferredSubtitleStreamIndex,
+                        playbackInfo = playbackInfo
                     )
                     if (streamingResult.isFailure) {
                         val error = streamingResult.exceptionOrNull()?.message ?: "Failed to get streaming URL"
@@ -242,7 +243,21 @@ class PlayerViewModel @Inject constructor(
                         sessionPlaySessionId = streamPlaySessionId
                     }
 
-                    streamingMediaItem(streamingUrl)
+                    val activeSubtitleStreamIndex = (
+                        activePreferredSubtitleStreamIndex
+                            ?: primaryMediaSource?.defaultSubtitleStreamIndex
+                        )?.takeIf { it >= 0 }
+                    val activeSubtitleStream = primaryMediaSource
+                        ?.mediaStreams
+                        ?.firstOrNull { stream ->
+                            stream.type == "Subtitle" &&
+                                stream.index == activeSubtitleStreamIndex
+                        }
+
+                    streamingMediaItem(
+                        streamingUrl = streamingUrl,
+                        selectedSubtitleStream = activeSubtitleStream
+                    )
                 }
 
                 playbackSession = PlaybackSessionContext(
@@ -505,7 +520,8 @@ class PlayerViewModel @Inject constructor(
         val player = exoPlayer ?: return
         val appliedAnySelection = trackSelectionCoordinator.applyInitialSelections(
             player = player,
-            mediaStreams = apiMediaStreams
+            mediaStreams = apiMediaStreams,
+            isTranscoding = playbackSession.playMethod == PlayMethod.TRANSCODE
         )
         if (appliedAnySelection) {
             viewModelScope.launch {

@@ -101,8 +101,7 @@ object PlayerTrack {
         }
 
         val useApiAudioTracks = isTranscoding && apiAudioTracks.isNotEmpty()
-        val useApiSubtitleTracks = isTranscoding &&
-            subtitleStreams.size > liveSubtitleTracks.count { it.id != "off" }
+        val useApiSubtitleTracks = isTranscoding && apiSubtitleTracks.size > 1
 
         val availableAudioTracks = if (useApiAudioTracks) {
             apiAudioTracks

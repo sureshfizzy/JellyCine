@@ -24,5 +24,7 @@ data class PlaybackInfoRequest(
     @SerializedName("EnableDirectStream")
     val enableDirectStream: Boolean = true,
     @SerializedName("EnableTranscoding")
-    val enableTranscoding: Boolean = true
+    val enableTranscoding: Boolean = true,
+    @SerializedName("DeviceProfile")
+    val deviceProfile: DeviceProfile? = null
 )
