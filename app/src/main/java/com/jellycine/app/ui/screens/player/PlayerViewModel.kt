@@ -96,7 +96,7 @@ class PlayerViewModel @Inject constructor(
                 val audioTranscodeMode = if (isAudioTranscodingAllowed) {
                     playerPreferences.getAudioTranscodeMode()
                 } else {
-                    AudioTranscodeMode.PASSTHROUGH
+                    AudioTranscodeMode.AUTO
                 }
                 val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
                     playerPreferences.getMaxStreamingBitrate()

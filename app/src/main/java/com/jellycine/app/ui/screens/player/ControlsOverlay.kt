@@ -55,8 +55,8 @@ fun ControlsOverlay(
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
     currentStreamingQuality: String = "",
-    showStreamingQualityButton: Boolean = true,
-    onShowStreamingQualitySelection: () -> Unit = {},
+    showPlaybackSettingsButton: Boolean = true,
+    onShowPlaybackSettings: () -> Unit = {},
     onShowAudioTrackSelection: () -> Unit = {},
     onShowSubtitleTrackSelection: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
@@ -142,8 +142,8 @@ fun ControlsOverlay(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                    if (showStreamingQualityButton) {
-                        IconButton(onClick = onShowStreamingQualitySelection) {
+                    if (showPlaybackSettingsButton) {
+                        IconButton(onClick = onShowPlaybackSettings) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Playback Settings ($currentStreamingQuality)",

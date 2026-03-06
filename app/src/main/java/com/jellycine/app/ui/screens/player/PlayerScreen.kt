@@ -232,6 +232,9 @@ fun PlayerScreen(
         currentAudioTranscodeMode = playerState.currentAudioTranscodeMode
     }
 
+    val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
+        playerState.isAudioTranscodingAllowed
+
     val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
         val selectedQuality = quality.trim()
         val qualityChanged = selectedQuality.isNotEmpty() && selectedQuality != currentStreamingQuality
@@ -498,11 +501,14 @@ fun PlayerScreen(
                     viewModel.toggleLock()
                 },
                 currentStreamingQuality = currentStreamingQuality,
-                showStreamingQualityButton = playerState.isVideoTranscodingAllowed,
-                onShowStreamingQualitySelection = {
+                showPlaybackSettingsButton = hasPlaybackSettings,
+                onShowPlaybackSettings = {
                     resetAutoHideTimer()
                     if (playerState.isVideoTranscodingAllowed) {
                         showStreamingQualityDialog = true
+                    } else if (playerState.isAudioTranscodingAllowed) {
+                        pendingStreamingQualitySelection = null
+                        showAudioTranscodingDialog = true
                     }
                 },
                 onShowAudioTrackSelection = {
