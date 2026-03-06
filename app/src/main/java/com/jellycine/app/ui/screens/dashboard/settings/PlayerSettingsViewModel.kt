@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaCodecList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jellycine.data.model.AudioTranscodeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +24,9 @@ data class PlayerSettingsUiState(
     // Video
     val decoderPriority: String = "Auto",
     val streamingQuality: String = PlayerPreferences.DEFAULT_STREAMING_QUALITY,
+    val audioTranscodeMode: String = AudioTranscodeMode.AUTO.displayName,
     val isVideoTranscodingAllowed: Boolean = false,
+    val isAudioTranscodingAllowed: Boolean = false,
     val startMaximized: Boolean = false,
     
     // Performance
@@ -61,6 +64,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
+                audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
@@ -170,17 +174,29 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     private fun userTranscodingPolicy() {
         viewModelScope.launch {
             val user = mediaRepository.getCurrentUser().getOrNull()
-            val isAllowed = user?.policy?.enableVideoPlaybackTranscoding
+            val isVideoAllowed = user?.policy?.enableVideoPlaybackTranscoding
                 ?: user?.let { true }
                 ?: _uiState.value.isVideoTranscodingAllowed
+            val isAudioAllowed = user?.policy?.enableAudioPlaybackTranscoding
+                ?: user?.let { true }
+                ?: _uiState.value.isAudioTranscodingAllowed
 
-            _uiState.value = _uiState.value.copy(isVideoTranscodingAllowed = isAllowed)
+            _uiState.value = _uiState.value.copy(
+                isVideoTranscodingAllowed = isVideoAllowed,
+                isAudioTranscodingAllowed = isAudioAllowed
+            )
         }
     }
 
     fun setStreamingQuality(quality: String) {
         playerPreferences.setStreamingQuality(quality)
         _uiState.value = _uiState.value.copy(streamingQuality = playerPreferences.getStreamingQuality())
+    }
+
+    fun setAudioTranscodeMode(modeDisplayName: String) {
+        val mode = AudioTranscodeMode.fromDisplayName(modeDisplayName)
+        playerPreferences.setAudioTranscodeMode(mode)
+        _uiState.value = _uiState.value.copy(audioTranscodeMode = mode.displayName)
     }
     
     fun setStartMaximized(enabled: Boolean) {

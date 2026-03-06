@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
@@ -82,6 +83,7 @@ fun PlayerSettingsScreen(
     val viewModel: PlayerSettingsViewModel = viewModel { PlayerSettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
     val decodingColor = Color(0xFF3B82F6)
+    val transcodingColor = Color(0xFF8B5CF6)
     val videoColor = Color(0xFFF97316)
     val performanceColor = Color(0xFF22C55E)
 
@@ -138,6 +140,39 @@ fun PlayerSettingsScreen(
                 }
             }
 
+            if (uiState.isVideoTranscodingAllowed || uiState.isAudioTranscodingAllowed) {
+                item { SectionLabel("Transcoding") }
+                item {
+                    SettingsSection {
+                        if (uiState.isVideoTranscodingAllowed) {
+                            DropdownSettingsItem(
+                                icon = Icons.Rounded.HighQuality,
+                                title = "Streaming Quality",
+                                subtitle = uiState.streamingQuality,
+                                options = PlayerPreferences.STREAMING_QUALITY_OPTIONS,
+                                onOptionSelected = viewModel::setStreamingQuality,
+                                accentColor = transcodingColor
+                            )
+                        }
+
+                        if (uiState.isVideoTranscodingAllowed && uiState.isAudioTranscodingAllowed) {
+                            SettingsDivider()
+                        }
+
+                        if (uiState.isAudioTranscodingAllowed) {
+                            DropdownSettingsItem(
+                                icon = Icons.Rounded.AudioFile,
+                                title = "Audio Quality",
+                                subtitle = uiState.audioTranscodeMode,
+                                options = PlayerPreferences.AUDIO_TRANSCODE_MODE_OPTIONS,
+                                onOptionSelected = viewModel::setAudioTranscodeMode,
+                                accentColor = transcodingColor
+                            )
+                        }
+                    }
+                }
+            }
+
             item { SectionLabel("Video") }
             item {
                 SettingsSection {
@@ -151,17 +186,6 @@ fun PlayerSettingsScreen(
                     )
 
                     SettingsDivider()
-                    if (uiState.isVideoTranscodingAllowed) {
-                        DropdownSettingsItem(
-                            icon = Icons.Rounded.Tune,
-                            title = "Streaming Quality",
-                            subtitle = uiState.streamingQuality,
-                            options = PlayerPreferences.STREAMING_QUALITY_OPTIONS,
-                            onOptionSelected = viewModel::setStreamingQuality,
-                            accentColor = videoColor
-                        )
-                        SettingsDivider()
-                    }
                     SwitchSettingsItem(
                         icon = Icons.Rounded.Fullscreen,
                         title = "Start Maximized",
