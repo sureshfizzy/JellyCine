@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import com.jellycine.data.model.MediaStream
@@ -40,10 +41,12 @@ private fun subtitleConfiguration(
     }.getOrNull() ?: return null
 
     val mimeType = subtitleMimeType(subtitleStream, deliveryUrl)
+    val selectionFlags = subtitleSelectionFlags(subtitleStream)
 
     return MediaItem.SubtitleConfiguration.Builder(Uri.parse(resolvedUri))
         .setMimeType(mimeType)
         .setLanguage(subtitleStream.language)
+        .setSelectionFlags(selectionFlags)
         .setLabel(
             subtitleStream.displayTitle
                 ?: subtitleStream.title
@@ -80,4 +83,17 @@ private fun subtitleMimeType(
         "ass", "ssa" -> MimeTypes.TEXT_SSA
         else -> null
     }
+}
+
+private fun subtitleSelectionFlags(subtitleStream: MediaStream): Int {
+    var selectionFlags = 0
+
+    if (subtitleStream.isForced == true) {
+        selectionFlags = selectionFlags or C.SELECTION_FLAG_FORCED
+    }
+    if (subtitleStream.isDefault == true || selectionFlags == 0) {
+        selectionFlags = selectionFlags or C.SELECTION_FLAG_DEFAULT
+    }
+
+    return selectionFlags
 }

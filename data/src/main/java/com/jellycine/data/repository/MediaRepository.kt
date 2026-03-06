@@ -1186,10 +1186,45 @@ class MediaRepository(private val context: Context) {
         subtitleStreamIndex: Int? = null
     ): Result<com.jellycine.data.model.PlaybackInfoResponse> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val api = session.api
+            val userId = session.userId
+            val serverUrl = session.baseUrl
             val forceTranscode = (maxStreamingBitrate ?: 0) > 0
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
+            val playbackInfoUrls: (com.jellycine.data.model.PlaybackInfoResponse) -> com.jellycine.data.model.PlaybackInfoResponse =
+                { playbackInfo ->
+                    playbackInfo.copy(
+                        mediaSources = playbackInfo.mediaSources?.map { mediaSource ->
+                            mediaSource.copy(
+                                transcodingUrl = getServerUrl(
+                                    baseUrl = serverUrl,
+                                    url = mediaSource.transcodingUrl
+                                ) ?: mediaSource.transcodingUrl,
+                                mediaStreams = mediaSource.mediaStreams?.map { mediaStream ->
+                                    mediaStream.copy(
+                                        deliveryUrl = getServerUrl(
+                                            baseUrl = serverUrl,
+                                            url = mediaStream.deliveryUrl
+                                        ) ?: mediaStream.deliveryUrl,
+                                        path = getServerUrl(
+                                            baseUrl = serverUrl,
+                                            url = mediaStream.path
+                                        ) ?: mediaStream.path
+                                    )
+                                },
+                                mediaAttachments = mediaSource.mediaAttachments?.map { mediaAttachment ->
+                                    mediaAttachment.copy(
+                                        deliveryUrl = getServerUrl(
+                                            baseUrl = serverUrl,
+                                            url = mediaAttachment.deliveryUrl
+                                        ) ?: mediaAttachment.deliveryUrl
+                                    )
+                                }
+                            )
+                        }
+                    )
+                }
 
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
@@ -1210,7 +1245,7 @@ class MediaRepository(private val context: Context) {
             )
 
             if (postResponse.isSuccessful && postResponse.body() != null) {
-                return Result.success(postResponse.body()!!)
+                return Result.success(playbackInfoUrls(postResponse.body()!!))
             }
 
             val getResponse = api.getPlaybackInfoGet(
@@ -1225,7 +1260,7 @@ class MediaRepository(private val context: Context) {
             )
 
             if (getResponse.isSuccessful && getResponse.body() != null) {
-                Result.success(getResponse.body()!!)
+                Result.success(playbackInfoUrls(getResponse.body()!!))
             } else {
                 Result.failure(
                     Exception(
