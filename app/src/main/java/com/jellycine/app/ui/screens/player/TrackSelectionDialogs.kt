@@ -75,10 +75,8 @@ fun AudioTrackSelectionDialog(
         trackKey = { track -> track.id },
         isTrackSelected = { track, selected -> track.id == selected?.id },
         trackDisplayInfo = { track ->
-            val trackIndex = audioTracks.indexOf(track) + 1
-            val label = track.label.takeIf { it.isNotBlank() } ?: "Audio Track $trackIndex"
             TrackDisplayInfo(
-                title = label,
+                title = track.label.takeIf { it.isNotBlank() }.orEmpty(),
                 subtitle = buildAudioTrackSubtitle(track),
                 description = buildAudioTrackDescription(track)
             )
@@ -108,10 +106,8 @@ fun SubtitleTrackSelectionDialog(
         trackKey = { track -> track.id },
         isTrackSelected = { track, selected -> track.id == selected?.id },
         trackDisplayInfo = { track ->
-            val trackIndex = subtitleTracks.indexOf(track) + 1
-            val label = track.label.takeIf { it.isNotBlank() } ?: "Subtitle Track $trackIndex"
             TrackDisplayInfo(
-                title = label,
+                title = track.label.takeIf { it.isNotBlank() }.orEmpty(),
                 subtitle = buildSubtitleTrackSubtitle(track),
                 description = buildSubtitleTrackDescription(track)
             )
@@ -413,14 +409,16 @@ private fun TrackRow(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (title.isNotEmpty()) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 if (subtitle.isNotEmpty()) {
                     Text(
@@ -516,7 +514,7 @@ private data class StreamingQualityOption(
 
 private fun buildAudioTrackSubtitle(track: AudioTrackInfo): String {
     return buildList {
-        track.language?.takeIf { it.isNotEmpty() && it != "Unknown" && it != "und" }?.let {
+        track.language?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }?.let {
             add(it.uppercase())
         }
 
@@ -572,7 +570,10 @@ private fun buildAudioTrackDescription(track: AudioTrackInfo): String {
 
 private fun buildSubtitleTrackSubtitle(track: SubtitleTrackInfo): String {
     return buildList {
-        track.language?.takeIf { it.isNotEmpty() && it != "Unknown" && it != "und" }?.let {
+        track.language?.takeIf {
+            it.isNotEmpty() &&
+                !it.equals("und", ignoreCase = true)
+        }?.let {
             add(it.uppercase())
         }
         if (track.isForced) add("FORCED")

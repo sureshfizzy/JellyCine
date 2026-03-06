@@ -28,6 +28,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.MediaSource
 import com.jellycine.player.core.PlayerState
+import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.detail.CodecCapabilityManager
@@ -42,7 +43,6 @@ import java.io.File
 class PlayerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
-
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
     private val _preferredStreamIndexes = MutableStateFlow(PreferredStreamIndexes())
@@ -64,6 +64,8 @@ class PlayerViewModel @Inject constructor(
     private var spatializerHelper: SpatializerHelper? = null
     private var playerContext: Context? = null
     private var apiMediaStreams: List<MediaStream>? = null
+    private var defaultAudioStreamIndex: Int? = null
+    private var defaultSubtitleStreamIndex: Int? = null
     private var hasHandledPlaybackCompletion = false
     private var videoTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
@@ -159,7 +161,6 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
-
                 val downloadRepository = DownloadRepositoryProvider.getInstance(context)
                 val offlinePath = downloadRepository.getOfflineFilePath(mediaId)
                 val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
@@ -171,6 +172,8 @@ class PlayerViewModel @Inject constructor(
                 var sessionMediaSourceBitrateKbps: Int? = null
                 var sessionPlayMethod = PlayMethod.DIRECT_PLAY
                 var sessionIsOfflinePlayback = false
+                defaultAudioStreamIndex = null
+                defaultSubtitleStreamIndex = null
 
                 val mediaItem = if (hasOfflineFile) {
                     val localFilePath = requireNotNull(offlinePath)
@@ -200,6 +203,8 @@ class PlayerViewModel @Inject constructor(
                     }
 
                     primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
+                    defaultAudioStreamIndex = primaryMediaSource?.defaultAudioStreamIndex
+                    defaultSubtitleStreamIndex = primaryMediaSource?.defaultSubtitleStreamIndex
                     sessionPlaySessionId = playbackInfo.playSessionId
                     sessionMediaSourceId = primaryMediaSource?.id
                     sessionMediaSourceContainer = primaryMediaSource?.container
@@ -252,7 +257,10 @@ class PlayerViewModel @Inject constructor(
                 playbackReporter.updateSession(playbackSession)
                 
                 // Get media info for spatial audio analysis
-                apiMediaStreams = primaryMediaSource?.mediaStreams
+                apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
+                    itemDetails = itemDetails,
+                    playbackMediaSource = primaryMediaSource
+                )
 
                 val spatializationResult = apiMediaStreams?.let { streams ->
                     val audioStreams = streams.filter { it.type == "Audio" }
@@ -399,6 +407,8 @@ class PlayerViewModel @Inject constructor(
         playbackReporter.reset()
         trackSelectionCoordinator.clear()
         apiMediaStreams = null
+        defaultAudioStreamIndex = null
+        defaultSubtitleStreamIndex = null
         playerContext = null
         hasHandledPlaybackCompletion = false
         audioDiagnosticsSignature = null
@@ -436,25 +446,28 @@ class PlayerViewModel @Inject constructor(
     private fun updateTrackInformation() {
         exoPlayer?.let { player ->
             try {
-                val audioTracks = PlayerUtils.getAvailableAudioTracks(player)
-                val subtitleTracks = PlayerUtils.getAvailableSubtitleTracks(player)
-                val videoTracks = PlayerUtils.getAvailableVideoTracks(player)
-                val currentAudio = PlayerUtils.getCurrentAudioTrack(player)
-                val currentSubtitle = PlayerUtils.getCurrentSubtitleTrack(player)
                 val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
                 val selectedAudioSignature = buildSelectedAudioSignature(player)
                 if (selectedAudioSignature != null && selectedAudioSignature != audioDiagnosticsSignature) {
                     PlayerUtils.logAudioPlaybackDiagnostics(player, reason = "track_changed")
                     audioDiagnosticsSignature = selectedAudioSignature
                 }
+                val resolvedTracks = PlayerTrack.currentTrackState(
+                    exoPlayer = player,
+                    mediaStreams = apiMediaStreams,
+                    isTranscoding = playbackSession.playMethod == PlayMethod.TRANSCODE,
+                    selectedAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex,
+                    selectedSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex,
+                    defaultAudioStreamIndex = defaultAudioStreamIndex,
+                    defaultSubtitleStreamIndex = defaultSubtitleStreamIndex
+                )
                 val syncedPreferredIndexes = trackSelectionCoordinator.syncPreferredIndexesFromCurrentTracks(
                     context = playerContext,
                     mediaId = playbackSession.mediaId,
-                    availableAudioTracks = audioTracks,
-                    currentAudioTrack = currentAudio,
-                    availableSubtitleTracks = subtitleTracks,
-                    currentSubtitleTrack = currentSubtitle,
-                    mediaStreams = apiMediaStreams,
+                    currentAudioTrack = resolvedTracks.currentAudioTrack
+                        ?.takeUnless { it.requiresPlaybackRestart },
+                    currentSubtitleTrack = resolvedTracks.currentSubtitleTrack
+                        ?.takeUnless { it.requiresPlaybackRestart },
                     currentPublished = _preferredStreamIndexes.value
                 )
                 if (syncedPreferredIndexes != _preferredStreamIndexes.value) {
@@ -462,11 +475,11 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 _playerState.value = _playerState.value.copy(
-                    availableAudioTracks = audioTracks,
-                    currentAudioTrack = currentAudio,
-                    availableSubtitleTracks = subtitleTracks,
-                    currentSubtitleTrack = currentSubtitle,
-                    availableVideoTracks = videoTracks,
+                    availableAudioTracks = resolvedTracks.availableAudioTracks,
+                    currentAudioTrack = resolvedTracks.currentAudioTrack,
+                    availableSubtitleTracks = resolvedTracks.availableSubtitleTracks,
+                    currentSubtitleTrack = resolvedTracks.currentSubtitleTrack,
+                    availableVideoTracks = resolvedTracks.availableVideoTracks,
                     isHdrEnabled = isHdrPlayback
                 )
             } catch (e: Exception) {
@@ -506,9 +519,19 @@ class PlayerViewModel @Inject constructor(
      * Select audio track by ID
      */
     fun selectAudioTrack(trackId: String) {
+        if (trackId == _playerState.value.currentAudioTrack?.id) return
+        val selectedTrack = _playerState.value.availableAudioTracks.firstOrNull { it.id == trackId } ?: return
+        if (selectedTrack.requiresPlaybackRestart) {
+            playbackTrackSelection(
+                audioStreamIndex = selectedTrack.streamIndex,
+                subtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex
+            )
+            return
+        }
         exoPlayer?.let { player ->
+            val playerTrackId = selectedTrack.playerTrackId ?: return
             trackSelectionCoordinator.markManualTrackSelection()
-            PlayerUtils.selectAudioTrack(player, trackId)
+            PlayerUtils.selectAudioTrack(player, playerTrackId)
             viewModelScope.launch {
                 delay(500)
                 updateTrackInformation()
@@ -520,14 +543,49 @@ class PlayerViewModel @Inject constructor(
      * Select subtitle track by ID
      */
     fun selectSubtitleTrack(trackId: String) {
+        if (trackId == _playerState.value.currentSubtitleTrack?.id) return
+        val selectedTrack = _playerState.value.availableSubtitleTracks.firstOrNull { it.id == trackId } ?: return
+        if (selectedTrack.requiresPlaybackRestart) {
+            playbackTrackSelection(
+                audioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex,
+                subtitleStreamIndex = selectedTrack.streamIndex
+            )
+            return
+        }
         exoPlayer?.let { player ->
+            val playerTrackId = selectedTrack.playerTrackId ?: return
             trackSelectionCoordinator.markManualTrackSelection()
-            PlayerUtils.selectSubtitleTrack(player, trackId)
+            PlayerUtils.selectSubtitleTrack(player, playerTrackId)
             viewModelScope.launch {
                 delay(500)
                 updateTrackInformation()
             }
         }
+    }
+
+    private fun playbackTrackSelection(
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) {
+        val context = playerContext ?: return
+        val mediaId = playbackSession.mediaId ?: return
+        val resumePositionMs = getCurrentPosition()
+        val shouldResumePlaying = isPlayingNow()
+
+        com.jellycine.player.preferences.PlayerPreferences(context).apply {
+            setPreferredAudioStreamIndex(mediaId, audioStreamIndex)
+            setPreferredSubtitleStreamIndex(mediaId, subtitleStreamIndex)
+        }
+
+        releasePlayer()
+        initializePlayer(
+            context = context,
+            mediaId = mediaId,
+            preferredAudioStreamIndex = audioStreamIndex,
+            preferredSubtitleStreamIndex = subtitleStreamIndex,
+            initialSeekPositionMs = resumePositionMs,
+            startPlayback = shouldResumePlaying
+        )
     }
 
     // Aspect ratio states

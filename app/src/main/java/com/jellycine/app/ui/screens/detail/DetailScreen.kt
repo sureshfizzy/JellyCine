@@ -60,6 +60,8 @@ import com.jellycine.app.download.ItemDownloadState
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
+import com.jellycine.player.core.defaultSubtitleDisplayTitle
+import com.jellycine.player.core.mediaStreamDisplayTitles
 import com.jellycine.player.preferences.PlayerPreferences
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
@@ -2117,47 +2119,21 @@ private fun FavoriteActionButton(
 }
 
 private fun buildVideoOptions(streams: List<MediaStream>): List<String> {
-    return OptionLabels(
-        streams
-        .filter { it.type == "Video" }
-        .mapNotNull { stream ->
-            val display = stream.displayTitle?.takeIf { it.isNotBlank() }
-            display?.takeIf { it.isNotBlank() }
-        }
-    )
+    return OptionLabels(mediaStreamDisplayTitles(streams, "Video"))
 }
 
 private fun buildAudioOptions(streams: List<MediaStream>): List<String> {
-    return OptionLabels(
-        streams
-            .filter { it.type == "Audio" }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-            .mapNotNull { stream ->
-                val display = stream.displayTitle?.takeIf { it.isNotBlank() }
-                display?.takeIf { it.isNotBlank() }
-            }
-    )
+    return OptionLabels(mediaStreamDisplayTitles(streams, "Audio"))
 }
 
 private fun buildSubtitleOptions(streams: List<MediaStream>): List<String> {
     val options = mutableListOf("Off")
-    streams
-        .filter { it.type == "Subtitle" }
-        .sortedBy { it.index ?: Int.MAX_VALUE }
-        .forEach { stream ->
-            val subtitleLabel = stream.displayTitle?.takeIf { it.isNotBlank() }
-            subtitleLabel?.let { options.add(it) }
-        }
+    options += mediaStreamDisplayTitles(streams, "Subtitle")
     return OptionLabels(options)
 }
 
 private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
-    return streams
-        .firstOrNull { it.type == "Subtitle" && it.isDefault == true }
-        ?.let { stream ->
-            stream.displayTitle?.takeIf { it.isNotBlank() }
-        }
-        ?: "Off"
+    return defaultSubtitleDisplayTitle(streams)
 }
 
 private fun downloadFailureDialogMessage(

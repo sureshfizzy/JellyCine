@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.exoplayer.ExoPlayer
 import com.jellycine.data.model.MediaStream
 import com.jellycine.player.core.AudioTrackInfo
+import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.core.SubtitleTrackInfo
 import com.jellycine.player.preferences.PlayerPreferences
@@ -49,21 +50,27 @@ internal class PlayerTrackSelection {
             return false
         }
 
-        val audioTracks = PlayerUtils.getAvailableAudioTracks(player)
-        val subtitleTracks = PlayerUtils.getAvailableSubtitleTracks(player)
+        val resolvedTracks = PlayerTrack.currentTrackState(
+            exoPlayer = player,
+            mediaStreams = mediaStreams,
+            isTranscoding = false,
+            selectedAudioStreamIndex = null,
+            selectedSubtitleStreamIndex = null,
+            defaultAudioStreamIndex = null,
+            defaultSubtitleStreamIndex = null
+        )
 
         var audioHandled = preferredAudioIndex == null
         var subtitleHandled = preferredSubtitleIndex == null
         var appliedAnySelection = false
 
         if (!audioHandled) {
-            val audioTrackId = audioTrackIdFor(
-                preferredStreamIndex = preferredAudioIndex,
-                tracks = audioTracks,
-                mediaStreams = mediaStreams
-            )
-            if (audioTrackId != null) {
-                PlayerUtils.selectAudioTrack(player, audioTrackId)
+            val audioTrack = resolvedTracks.availableAudioTracks.firstOrNull {
+                it.streamIndex == preferredAudioIndex && !it.playerTrackId.isNullOrBlank()
+            }
+            val playerTrackId = audioTrack?.playerTrackId
+            if (playerTrackId != null) {
+                PlayerUtils.selectAudioTrack(player, playerTrackId)
                 audioHandled = true
                 appliedAnySelection = true
             }
@@ -75,13 +82,12 @@ internal class PlayerTrackSelection {
                 subtitleHandled = true
                 appliedAnySelection = true
             } else {
-                val subtitleTrackId = subtitleTrackIdFor(
-                    preferredStreamIndex = preferredSubtitleIndex,
-                    tracks = subtitleTracks,
-                    mediaStreams = mediaStreams
-                )
-                if (subtitleTrackId != null) {
-                    PlayerUtils.selectSubtitleTrack(player, subtitleTrackId)
+                val subtitleTrack = resolvedTracks.availableSubtitleTracks.firstOrNull {
+                    it.streamIndex == preferredSubtitleIndex && !it.playerTrackId.isNullOrBlank()
+                }
+                val playerTrackId = subtitleTrack?.playerTrackId
+                if (playerTrackId != null) {
+                    PlayerUtils.selectSubtitleTrack(player, playerTrackId)
                     subtitleHandled = true
                     appliedAnySelection = true
                 }
@@ -100,11 +106,8 @@ internal class PlayerTrackSelection {
     fun syncPreferredIndexesFromCurrentTracks(
         context: Context?,
         mediaId: String?,
-        availableAudioTracks: List<AudioTrackInfo>,
         currentAudioTrack: AudioTrackInfo?,
-        availableSubtitleTracks: List<SubtitleTrackInfo>,
         currentSubtitleTrack: SubtitleTrackInfo?,
-        mediaStreams: List<MediaStream>?,
         currentPublished: PreferredStreamIndexes
     ): PreferredStreamIndexes {
         if (context == null || mediaId.isNullOrBlank() || hasPendingInitialSelection()) {
@@ -112,16 +115,8 @@ internal class PlayerTrackSelection {
         }
 
         val preferences = PlayerPreferences(context)
-        val resolvedAudioStreamIndex = resolveAudioStreamIndexForCurrentTrack(
-            selectedTrack = currentAudioTrack,
-            availableTracks = availableAudioTracks,
-            mediaStreams = mediaStreams
-        )
-        val resolvedSubtitleStreamIndex = resolveSubtitleStreamIndexForCurrentTrack(
-            selectedTrack = currentSubtitleTrack,
-            availableTracks = availableSubtitleTracks,
-            mediaStreams = mediaStreams
-        )
+        val resolvedAudioStreamIndex = currentAudioTrack?.streamIndex
+        val resolvedSubtitleStreamIndex = currentSubtitleTrack?.streamIndex
 
         var audioToPublish = currentPublished.audioStreamIndex
         var subtitleToPublish = currentPublished.subtitleStreamIndex
@@ -151,79 +146,5 @@ internal class PlayerTrackSelection {
     private fun hasPendingInitialSelection(): Boolean {
         return !hasAppliedInitialTrackPreferences &&
             (pendingPreferredAudioStreamIndex != null || pendingPreferredSubtitleStreamIndex != null)
-    }
-
-    private fun resolveAudioStreamIndexForCurrentTrack(
-        selectedTrack: AudioTrackInfo?,
-        availableTracks: List<AudioTrackInfo>,
-        mediaStreams: List<MediaStream>?
-    ): Int? {
-        if (selectedTrack == null) return null
-        val audioStreams = mediaStreams
-            .orEmpty()
-            .filter { it.type == "Audio" && it.index != null }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        if (audioStreams.isEmpty()) return null
-        val trackOrdinal = availableTracks.indexOfFirst { it.id == selectedTrack.id }
-        if (trackOrdinal < 0 || trackOrdinal >= audioStreams.size) return null
-        return audioStreams[trackOrdinal].index
-    }
-
-    private fun resolveSubtitleStreamIndexForCurrentTrack(
-        selectedTrack: SubtitleTrackInfo?,
-        availableTracks: List<SubtitleTrackInfo>,
-        mediaStreams: List<MediaStream>?
-    ): Int? {
-        if (selectedTrack == null) return null
-        if (selectedTrack.id == "off") return -1
-
-        val subtitleStreams = mediaStreams
-            .orEmpty()
-            .filter { it.type == "Subtitle" && it.index != null }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        if (subtitleStreams.isEmpty()) return null
-        val selectableTracks = availableTracks.filterNot { it.id == "off" }
-        val trackOrdinal = selectableTracks.indexOfFirst { it.id == selectedTrack.id }
-        if (trackOrdinal < 0 || trackOrdinal >= subtitleStreams.size) return null
-        return subtitleStreams[trackOrdinal].index
-    }
-
-    private fun audioTrackIdFor(
-        preferredStreamIndex: Int?,
-        tracks: List<AudioTrackInfo>,
-        mediaStreams: List<MediaStream>?
-    ): String? {
-        if (tracks.isEmpty()) return null
-        val sortedAudioStreams = mediaStreams
-            .orEmpty()
-            .filter { it.type == "Audio" }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        val ordinal = preferredStreamIndex?.let { target ->
-            sortedAudioStreams.indexOfFirst { it.index == target }
-        } ?: -1
-        if (ordinal >= 0 && ordinal < tracks.size) {
-            return tracks[ordinal].id
-        }
-        return null
-    }
-
-    private fun subtitleTrackIdFor(
-        preferredStreamIndex: Int?,
-        tracks: List<SubtitleTrackInfo>,
-        mediaStreams: List<MediaStream>?
-    ): String? {
-        val subtitleTracks = tracks.filterNot { it.id == "off" }
-        if (subtitleTracks.isEmpty()) return null
-        val sortedSubtitleStreams = mediaStreams
-            .orEmpty()
-            .filter { it.type == "Subtitle" }
-            .sortedBy { it.index ?: Int.MAX_VALUE }
-        val ordinal = preferredStreamIndex?.let { target ->
-            sortedSubtitleStreams.indexOfFirst { it.index == target }
-        } ?: -1
-        if (ordinal >= 0 && ordinal < subtitleTracks.size) {
-            return subtitleTracks[ordinal].id
-        }
-        return null
     }
 }

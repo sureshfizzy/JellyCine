@@ -26,6 +26,14 @@ object PlayerUtils {
     ): String {
         return "${prefix}_${groupIndex}_${trackIndex}"
     }
+
+    private fun languageCode(language: String?): String? {
+        return language?.takeIf {
+            it.isNotBlank() &&
+                !it.equals("und", ignoreCase = true) &&
+                !it.equals("unknown", ignoreCase = true)
+        }
+    }
     
     /**
      * Create ExoPlayer instance with optimal settings including spatial audio support and HDR fallback
@@ -274,14 +282,8 @@ object PlayerUtils {
             if (group.type == C.TRACK_TYPE_AUDIO) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     val format = group.mediaTrackGroup.getFormat(i)
-
-                    val language = format.language ?: "Unknown"
-                    val label = when {
-                        language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
-                        language.isNotEmpty() -> language
-                        format.label != null -> format.label!!
-                        else -> "Audio Track ${i + 1}"
-                    }
+                    val language = languageCode(format.language)
+                    val label = format.label?.takeIf { it.isNotBlank() }.orEmpty()
 
                     tracks.add(
                         AudioTrackInfo(
@@ -293,7 +295,12 @@ object PlayerUtils {
                             label = label,
                             language = language,
                             channelCount = format.channelCount,
-                            codec = format.codecs
+                            codec = format.codecs,
+                            playerTrackId = buildTrackId(
+                                prefix = "audio",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            )
                         )
                     )
                 }
@@ -316,7 +323,9 @@ object PlayerUtils {
                 label = "Off",
                 language = null,
                 isForced = false,
-                isDefault = false
+                isDefault = false,
+                playerTrackId = "off",
+                streamIndex = -1
             )
         )
 
@@ -325,15 +334,10 @@ object PlayerUtils {
             if (group.type == C.TRACK_TYPE_TEXT) {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     val format = group.mediaTrackGroup.getFormat(i)
-                    val language = format.language ?: "Unknown"
+                    val language = languageCode(format.language)
                     val isForced = format.selectionFlags and C.SELECTION_FLAG_FORCED != 0
                     val isDefault = format.selectionFlags and C.SELECTION_FLAG_DEFAULT != 0
-                    val label = when {
-                        language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
-                        language.isNotEmpty() -> language
-                        format.label != null -> format.label!!
-                        else -> "Subtitle Track ${i + 1}"
-                    }
+                    val label = format.label?.takeIf { it.isNotBlank() }.orEmpty()
                     tracks.add(
                         SubtitleTrackInfo(
                             id = buildTrackId(
@@ -344,7 +348,12 @@ object PlayerUtils {
                             label = label,
                             language = language,
                             isForced = isForced,
-                            isDefault = isDefault
+                            isDefault = isDefault,
+                            playerTrackId = buildTrackId(
+                                prefix = "subtitle",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            )
                         )
                     )
                 }
@@ -404,13 +413,8 @@ object PlayerUtils {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     if (group.isTrackSelected(i)) {
                         val format = group.mediaTrackGroup.getFormat(i)
-                        val language = format.language ?: "Unknown"
-                        val label = when {
-                            language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
-                            language.isNotEmpty() -> language
-                            format.label != null -> format.label!!
-                            else -> "Audio Track ${i + 1}"
-                        }
+                        val language = languageCode(format.language)
+                        val label = format.label?.takeIf { it.isNotBlank() }.orEmpty()
 
                         return AudioTrackInfo(
                             id = buildTrackId(
@@ -421,7 +425,12 @@ object PlayerUtils {
                             label = label,
                             language = language,
                             channelCount = format.channelCount,
-                            codec = format.codecs
+                            codec = format.codecs,
+                            playerTrackId = buildTrackId(
+                                prefix = "audio",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            )
                         )
                     }
                 }
@@ -442,16 +451,10 @@ object PlayerUtils {
                 for (i in 0 until group.mediaTrackGroup.length) {
                     if (group.isTrackSelected(i)) {
                         val format = group.mediaTrackGroup.getFormat(i)
-                        val language = format.language ?: "Unknown"
+                        val language = languageCode(format.language)
                         val isForced = format.selectionFlags and C.SELECTION_FLAG_FORCED != 0
                         val isDefault = format.selectionFlags and C.SELECTION_FLAG_DEFAULT != 0
-
-                        val label = when {
-                            language.isNotEmpty() && format.label != null -> "${format.label} ($language)"
-                            language.isNotEmpty() -> language
-                            format.label != null -> format.label!!
-                            else -> "Subtitle Track ${i + 1}"
-                        }
+                        val label = format.label?.takeIf { it.isNotBlank() }.orEmpty()
 
                         return SubtitleTrackInfo(
                             id = buildTrackId(
@@ -462,7 +465,12 @@ object PlayerUtils {
                             label = label,
                             language = language,
                             isForced = isForced,
-                            isDefault = isDefault
+                            isDefault = isDefault,
+                            playerTrackId = buildTrackId(
+                                prefix = "subtitle",
+                                groupIndex = groupIndex,
+                                trackIndex = i
+                            )
                         )
                     }
                 }
@@ -474,7 +482,9 @@ object PlayerUtils {
             label = "Off",
             language = null,
             isForced = false,
-            isDefault = false
+            isDefault = false,
+            playerTrackId = "off",
+            streamIndex = -1
         )
     }
 

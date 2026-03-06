@@ -54,7 +54,10 @@ data class AudioTrackInfo(
     val label: String,
     val language: String?,
     val channelCount: Int,
-    val codec: String?
+    val codec: String?,
+    val playerTrackId: String? = null,
+    val streamIndex: Int? = null,
+    val requiresPlaybackRestart: Boolean = false
 )
 
 /**
@@ -65,7 +68,10 @@ data class SubtitleTrackInfo(
     val label: String,
     val language: String?,
     val isForced: Boolean = false,
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val playerTrackId: String? = null,
+    val streamIndex: Int? = null,
+    val requiresPlaybackRestart: Boolean = false
 )
 
 /**

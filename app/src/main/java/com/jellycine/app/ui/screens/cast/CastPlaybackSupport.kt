@@ -118,7 +118,8 @@ internal suspend fun loadCastPlaybackData(
         .orEmpty()
         .flatMap { it.mediaStreams.orEmpty() }
         .ifEmpty { item?.mediaStreams.orEmpty() }
-    val streams = if (playbackStreams.isNotEmpty()) playbackStreams else itemStreams
+    val streams = (playbackStreams + itemStreams)
+        .distinctBy { "${it.type.orEmpty().lowercase(Locale.US)}:${it.index ?: "na"}" }
 
     val selectedAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(itemId)
         ?: playbackSource?.defaultAudioStreamIndex
