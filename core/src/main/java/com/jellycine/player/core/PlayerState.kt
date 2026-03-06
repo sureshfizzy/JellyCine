@@ -1,5 +1,6 @@
 package com.jellycine.player.core
 
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.detail.SpatializationResult
 
 /**
@@ -13,6 +14,8 @@ data class PlayerState(
     val mediaLogoUrl: String? = null,
     val seasonEpisodeLabel: String? = null,
     val isVideoTranscodingAllowed: Boolean = false,
+    val isAudioTranscodingAllowed: Boolean = false,
+    val currentAudioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
     val bufferedPercentage: Int = 0,

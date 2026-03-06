@@ -1,5 +1,6 @@
 package com.jellycine.data.repository
 
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.DeviceProfile
 import com.jellycine.data.model.DirectPlayProfile
 import com.jellycine.data.model.SubtitleProfile
@@ -9,8 +10,12 @@ internal object PlaybackDeviceProfileFactory {
 
     private const val defaultPlaybackBitrate = 20_000_000L
 
-    fun create(maxStreamingBitrate: Long? = null): DeviceProfile {
+    fun create(
+        maxStreamingBitrate: Long? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
+    ): DeviceProfile {
         val bitrate = maxStreamingBitrate?.takeIf { it > 0L } ?: defaultPlaybackBitrate
+        val maxAudioChannels = audioTranscodeMode.maxAudioChannels
 
         return DeviceProfile(
             name = "JellyCine Android",
@@ -37,8 +42,17 @@ internal object PlaybackDeviceProfileFactory {
                     protocol = "hls",
                     container = "ts",
                     videoCodec = "h264",
+                    audioCodec = "aac,mp3,ac3,eac3",
                     enableSubtitlesInManifest = true,
-                    maxAudioChannels = "6"
+                    maxAudioChannels = maxAudioChannels
+                ),
+                TranscodingProfile(
+                    type = "Audio",
+                    context = "Streaming",
+                    protocol = "http",
+                    container = "mp3",
+                    audioCodec = "mp3",
+                    maxAudioChannels = "2"
                 )
             ),
             subtitleProfiles = subtitleProfiles()

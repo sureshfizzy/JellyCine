@@ -2,6 +2,7 @@ package com.jellycine.player.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.PlayerConstants.DEFAULT_BRIGHTNESS
 import com.jellycine.player.core.PlayerConstants.DEFAULT_VOLUME
 
@@ -30,6 +31,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
         private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
         private const val KEY_STREAMING_QUALITY = "streaming_quality"
+        private const val KEY_AUDIO_TRANSCODE_MODE = "audio_transcode_mode"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
         private const val KEY_SUBTITLE_STREAM_INDEX_PREFIX = "subtitle_stream_index_"
         private const val KEY_STREAM_INDEX_UPDATED_AT_PREFIX = "stream_index_updated_at_"
@@ -92,6 +94,8 @@ class PlayerPreferences(context: Context) {
         const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
         val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
         const val DEFAULT_STREAMING_QUALITY = STREAMING_QUALITY_ORIGINAL
+        val AUDIO_TRANSCODE_MODE_OPTIONS: List<String> =
+            AudioTranscodeMode.entries.map { it.displayName }
 
         fun getStreamingQualityMaxHeightForOption(quality: String): Int? {
             return TranscodeProfiles.maxHeightForOption(quality)
@@ -263,6 +267,20 @@ class PlayerPreferences(context: Context) {
 
     fun getStreamingQualityMaxHeight(): Int? {
         return TranscodeProfiles.byLabel(getStreamingQuality())?.maxHeight
+    }
+
+    fun getAudioTranscodeMode(): AudioTranscodeMode {
+        val saved = prefs.getString(
+            KEY_AUDIO_TRANSCODE_MODE,
+            AudioTranscodeMode.AUTO.preferenceValue
+        )
+        return AudioTranscodeMode.fromPreferenceValue(saved)
+    }
+
+    fun setAudioTranscodeMode(mode: AudioTranscodeMode) {
+        prefs.edit()
+            .putString(KEY_AUDIO_TRANSCODE_MODE, mode.preferenceValue)
+            .apply()
     }
 
     fun getSubtitleTextSize(): String {

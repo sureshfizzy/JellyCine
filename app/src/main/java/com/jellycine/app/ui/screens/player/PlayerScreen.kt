@@ -33,6 +33,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.ui.screens.player.PlayerViewModel
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.preferences.PlayerPreferences
@@ -99,6 +100,8 @@ fun PlayerScreen(
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
     var showStreamingQualityDialog by remember { mutableStateOf(false) }
+    var showAudioTranscodingDialog by remember { mutableStateOf(false) }
+    var pendingStreamingQualitySelection by remember { mutableStateOf<String?>(null) }
     var showMediaInfo by remember { mutableStateOf(false) }
     val mediaInfoSnapshot = remember(showMediaInfo, viewModel) {
         if (showMediaInfo) viewModel.getMediaMetadataInfo() else null
@@ -130,6 +133,9 @@ fun PlayerScreen(
     var playerBrightness by remember { mutableStateOf(playerPreferences.getPlayerBrightness()) }
     var playerVolume by remember { mutableStateOf(playerPreferences.getPlayerVolume()) }
     var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
+    var currentAudioTranscodeMode by remember {
+        mutableStateOf(playerPreferences.getAudioTranscodeMode())
+    }
 
     // Setup player-specific settings
     DisposableEffect(Unit) {
@@ -222,35 +228,74 @@ fun PlayerScreen(
         }
     }
 
+    LaunchedEffect(playerState.currentAudioTranscodeMode) {
+        currentAudioTranscodeMode = playerState.currentAudioTranscodeMode
+    }
+
+    val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
+        val selectedQuality = quality.trim()
+        val qualityChanged = selectedQuality.isNotEmpty() && selectedQuality != currentStreamingQuality
+        val audioModeChanged = audioMode != currentAudioTranscodeMode
+
+        pendingStreamingQualitySelection = null
+        showStreamingQualityDialog = false
+        showAudioTranscodingDialog = false
+
+        if (selectedQuality.isEmpty()) return@applyPlaybackSettingsSelection
+
+        playerPreferences.setStreamingQuality(selectedQuality)
+        currentStreamingQuality = playerPreferences.getStreamingQuality()
+        playerPreferences.setAudioTranscodeMode(audioMode)
+        currentAudioTranscodeMode = playerPreferences.getAudioTranscodeMode()
+
+        if (!qualityChanged && !audioModeChanged) {
+            return@applyPlaybackSettingsSelection
+        }
+
+        val resumePositionMs = viewModel.getCurrentPosition()
+        val shouldResumePlaying = viewModel.isPlayingNow()
+        val preferredAudio = preferredStreamIndexes.audioStreamIndex
+        val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
+
+        uiState = uiState.copy(controlsVisible = false)
+        viewModel.releasePlayer()
+        initializedMediaId = null
+        viewModel.initializePlayer(
+            context = context,
+            mediaId = mediaId,
+            preferredAudioStreamIndex = preferredAudio,
+            preferredSubtitleStreamIndex = preferredSubtitle,
+            initialSeekPositionMs = resumePositionMs,
+            startPlayback = shouldResumePlaying
+        )
+        initializedMediaId = mediaId
+    }
+
     val applyStreamingQualitySelection: (String) -> Unit = { selectedQuality ->
         if (!playerState.isVideoTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
             showStreamingQualityDialog = false
         } else {
             val selection = selectedQuality.trim()
-            if (selection.isEmpty() || selection == currentStreamingQuality) {
+            if (selection.isEmpty()) {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = false
                 showStreamingQualityDialog = false
             } else {
-                val resumePositionMs = viewModel.getCurrentPosition()
-                val shouldResumePlaying = viewModel.isPlayingNow()
-                val preferredAudio = preferredStreamIndexes.audioStreamIndex
-                val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
+                val needsAudioPrompt = playerState.isAudioTranscodingAllowed &&
+                    !selection.equals(
+                        PlayerPreferences.STREAMING_QUALITY_ORIGINAL,
+                        ignoreCase = true
+                    )
 
-                playerPreferences.setStreamingQuality(selection)
-                currentStreamingQuality = playerPreferences.getStreamingQuality()
-                showStreamingQualityDialog = false
-                uiState = uiState.copy(controlsVisible = false)
-
-                viewModel.releasePlayer()
-                initializedMediaId = null
-                viewModel.initializePlayer(
-                    context = context,
-                    mediaId = mediaId,
-                    preferredAudioStreamIndex = preferredAudio,
-                    preferredSubtitleStreamIndex = preferredSubtitle,
-                    initialSeekPositionMs = resumePositionMs,
-                    startPlayback = shouldResumePlaying
-                )
-                initializedMediaId = mediaId
+                if (needsAudioPrompt) {
+                    pendingStreamingQualitySelection = selection
+                    showStreamingQualityDialog = false
+                    showAudioTranscodingDialog = true
+                } else {
+                    applyPlaybackSettingsSelection(selection, currentAudioTranscodeMode)
+                }
             }
         }
     }
@@ -297,6 +342,7 @@ fun PlayerScreen(
         showAudioTrackDialog,
         showSubtitleTrackDialog,
         showStreamingQualityDialog,
+        showAudioTranscodingDialog,
         showMediaInfo
     ) {
         if (
@@ -304,15 +350,25 @@ fun PlayerScreen(
             showAudioTrackDialog ||
             showSubtitleTrackDialog ||
             showStreamingQualityDialog ||
+            showAudioTranscodingDialog ||
             showMediaInfo
         ) {
             hideSystemBars()
         }
     }
 
-    LaunchedEffect(playerState.isVideoTranscodingAllowed) {
+    LaunchedEffect(
+        playerState.isVideoTranscodingAllowed,
+        playerState.isAudioTranscodingAllowed
+    ) {
         if (!playerState.isVideoTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
             showStreamingQualityDialog = false
+        }
+        if (!playerState.isAudioTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
         }
     }
 
@@ -511,6 +567,19 @@ fun PlayerScreen(
             currentQuality = currentStreamingQuality,
             onQualitySelected = applyStreamingQualitySelection,
             onDismiss = { showStreamingQualityDialog = false }
+        )
+
+        AudioTranscodingModeDialog(
+            isVisible = showAudioTranscodingDialog && playerState.isAudioTranscodingAllowed,
+            currentMode = currentAudioTranscodeMode,
+            onModeSelected = { selectedMode ->
+                val targetQuality = pendingStreamingQualitySelection ?: currentStreamingQuality
+                applyPlaybackSettingsSelection(targetQuality, selectedMode)
+            },
+            onDismiss = {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = false
+            }
         )
 
         // Loading indicator

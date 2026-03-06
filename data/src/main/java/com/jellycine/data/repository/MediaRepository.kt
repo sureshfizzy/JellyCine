@@ -10,6 +10,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
@@ -34,7 +35,6 @@ import java.nio.charset.StandardCharsets
 import java.net.URI
 
 class MediaRepository(private val context: Context) {
-
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
     
@@ -400,7 +400,6 @@ class MediaRepository(private val context: Context) {
             val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
             val route = SuggestionsEndpoint(
                 serverType = session.serverType,
-                baseUrl = session.baseUrl,
                 userId = session.userId
             )
             val isEmby = route.userIdQuery == null
@@ -433,18 +432,11 @@ class MediaRepository(private val context: Context) {
 
     private fun SuggestionsEndpoint(
         serverType: NetworkModule.ServerType?,
-        baseUrl: String,
         userId: String
     ): SuggestionsRoute {
-        val hasEmbyBasePath = NetworkModule.trimTrailingSlash(baseUrl).endsWith("/emby", ignoreCase = true)
-        val isEmby = serverType == NetworkModule.ServerType.EMBY || hasEmbyBasePath
+        val isEmby = serverType == NetworkModule.ServerType.EMBY
         return if (isEmby) {
-            val endpoint = if (hasEmbyBasePath) {
-                "Users/$userId/Suggestions"
-            } else {
-                "emby/Users/$userId/Suggestions"
-            }
-            SuggestionsRoute(endpoint = endpoint, userIdQuery = null)
+            SuggestionsRoute(endpoint = "Users/$userId/Suggestions", userIdQuery = null)
         } else {
             SuggestionsRoute(endpoint = "Items/Suggestions", userIdQuery = userId)
         }
@@ -1183,7 +1175,8 @@ class MediaRepository(private val context: Context) {
         itemId: String,
         maxStreamingBitrate: Int? = null,
         audioStreamIndex: Int? = null,
-        subtitleStreamIndex: Int? = null
+        subtitleStreamIndex: Int? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
     ): Result<com.jellycine.data.model.PlaybackInfoResponse> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
@@ -1235,7 +1228,8 @@ class MediaRepository(private val context: Context) {
                 enableDirectStream = !forceTranscode,
                 enableTranscoding = true,
                 deviceProfile = PlaybackDeviceProfileFactory.create(
-                    maxStreamingBitrate = maxStreamingBitrate?.toLong()
+                    maxStreamingBitrate = maxStreamingBitrate?.toLong(),
+                    audioTranscodeMode = audioTranscodeMode
                 )
             )
 
@@ -1336,12 +1330,14 @@ class MediaRepository(private val context: Context) {
         maxStreamingHeight: Int? = null,
         audioStreamIndex: Int? = null,
         subtitleStreamIndex: Int? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
         playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null
     ): Result<String> {
         return try {
             val config = getSessionConfig()
             val serverUrl = config?.serverUrl
             val accessToken = config?.accessToken
+            val serverType = config?.serverType
 
             if (serverUrl == null) {
                 return Result.failure(Exception("Server URL not available"))
@@ -1352,7 +1348,8 @@ class MediaRepository(private val context: Context) {
                     itemId = itemId,
                     maxStreamingBitrate = maxStreamingBitrate,
                     audioStreamIndex = audioStreamIndex,
-                    subtitleStreamIndex = subtitleStreamIndex
+                    subtitleStreamIndex = subtitleStreamIndex,
+                    audioTranscodeMode = audioTranscodeMode
                 )
                 if (playbackInfoResult.isFailure) {
                     return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
@@ -1381,10 +1378,14 @@ class MediaRepository(private val context: Context) {
                     url = mediaSource.transcodingUrl
                 )
                 if (!resolvedTranscodingUrl.isNullOrBlank()) {
-                    val selectedTranscodingUrl = applyTranscodingSelectionOverrides(
-                        streamingUrl = resolvedTranscodingUrl,
-                        audioStreamIndex = audioStreamIndex
-                    )
+                    val selectedTranscodingUrl = if (serverType == NetworkModule.ServerType.EMBY) {
+                        applyTranscodingSelectionOverrides(
+                            streamingUrl = resolvedTranscodingUrl,
+                            audioStreamIndex = audioStreamIndex
+                        )
+                    } else {
+                        resolvedTranscodingUrl
+                    }
                     return Result.success(selectedTranscodingUrl)
                 }
             }

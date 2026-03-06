@@ -15,6 +15,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.jellycine.data.model.AudioTranscodeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -68,6 +69,7 @@ class PlayerViewModel @Inject constructor(
     private var defaultSubtitleStreamIndex: Int? = null
     private var hasHandledPlaybackCompletion = false
     private var videoTranscodingAllowed: Boolean? = null
+    private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
 
     fun initializePlayer(
@@ -90,6 +92,12 @@ class PlayerViewModel @Inject constructor(
                 val activePreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
                 val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
+                val isAudioTranscodingAllowed = isAudioTranscodingAllowedForUser()
+                val audioTranscodeMode = if (isAudioTranscodingAllowed) {
+                    playerPreferences.getAudioTranscodeMode()
+                } else {
+                    AudioTranscodeMode.PASSTHROUGH
+                }
                 val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
                     playerPreferences.getMaxStreamingBitrate()
                 } else {
@@ -188,7 +196,8 @@ class PlayerViewModel @Inject constructor(
                         itemId = mediaId,
                         maxStreamingBitrate = maxStreamingBitrate,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = activePreferredSubtitleStreamIndex
+                        subtitleStreamIndex = activePreferredSubtitleStreamIndex,
+                        audioTranscodeMode = audioTranscodeMode
                     )
                     if (playbackInfoResult.isFailure) {
                         val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
@@ -223,6 +232,7 @@ class PlayerViewModel @Inject constructor(
                         maxStreamingHeight = maxStreamingHeight,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
                         subtitleStreamIndex = activePreferredSubtitleStreamIndex,
+                        audioTranscodeMode = audioTranscodeMode,
                         playbackInfo = playbackInfo
                     )
                     if (streamingResult.isFailure) {
@@ -320,6 +330,8 @@ class PlayerViewModel @Inject constructor(
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
+                    isAudioTranscodingAllowed = isAudioTranscodingAllowed,
+                    currentAudioTranscodeMode = audioTranscodeMode,
                     spatializationResult = spatializationResult,
                     isSpatialAudioEnabled = shouldEnableSpatialAudio,
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
@@ -382,6 +394,18 @@ class PlayerViewModel @Inject constructor(
             ?: false
 
         videoTranscodingAllowed = allowed
+        return allowed
+    }
+
+    private suspend fun isAudioTranscodingAllowedForUser(): Boolean {
+        audioTranscodingAllowed?.let { return it }
+
+        val user = mediaRepository.getCurrentUser().getOrNull()
+        val allowed = user?.policy?.enableAudioPlaybackTranscoding
+            ?: user?.let { true }
+            ?: false
+
+        audioTranscodingAllowed = allowed
         return allowed
     }
 

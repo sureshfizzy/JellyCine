@@ -146,7 +146,7 @@ fun ControlsOverlay(
                         IconButton(onClick = onShowStreamingQualitySelection) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Streaming Quality ($currentStreamingQuality)",
+                                contentDescription = "Playback Settings ($currentStreamingQuality)",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp)
                             )

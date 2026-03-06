@@ -50,6 +50,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.SubtitleTrackInfo
 
@@ -66,6 +67,7 @@ fun AudioTrackSelectionDialog(
     TrackSelectionDialog(
         title = "Audio",
         helperText = "Select preferred playback track",
+        itemCountLabel = "tracks",
         icon = Icons.Rounded.GraphicEq,
         accentColor = Color(0xFF00A9D6),
         tracks = audioTracks,
@@ -97,6 +99,7 @@ fun SubtitleTrackSelectionDialog(
     TrackSelectionDialog(
         title = "Subtitles",
         helperText = "Select subtitle track",
+        itemCountLabel = "tracks",
         icon = Icons.Rounded.ClosedCaption,
         accentColor = Color(0xFFFF6B3B),
         tracks = subtitleTracks,
@@ -140,7 +143,8 @@ fun StreamingQualitySelectionDialog(
 
     TrackSelectionDialog(
         title = "Streaming Quality",
-        helperText = "",
+        helperText = "Choose the video quality cap",
+        itemCountLabel = "qualities",
         icon = Icons.Rounded.Tune,
         accentColor = Color(0xFF3B82F6),
         tracks = options,
@@ -160,9 +164,63 @@ fun StreamingQualitySelectionDialog(
 }
 
 @Composable
+fun AudioTranscodingModeDialog(
+    isVisible: Boolean,
+    currentMode: AudioTranscodeMode,
+    onModeSelected: (AudioTranscodeMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (!isVisible) return
+
+    val options = AudioTranscodeMode.entries.map { mode ->
+        AudioTranscodingModeOption(
+            id = mode.preferenceValue,
+            mode = mode,
+            label = mode.displayName,
+            description = when (mode) {
+                AudioTranscodeMode.AUTO -> "Balanced default for surround playback"
+                AudioTranscodeMode.STEREO -> "Force server audio down to 2 channels"
+                AudioTranscodeMode.SURROUND_5_1 -> "Keep up to 5.1 channels"
+                AudioTranscodeMode.PASSTHROUGH -> "Allow up to 7.1 channels when possible"
+            }
+        )
+    }
+    val selectedOption = options.firstOrNull { it.mode == currentMode }
+
+    TrackSelectionDialog(
+        title = "Audio Transcoding",
+        helperText = "Selected audio and subtitle tracks are kept after restart",
+        itemCountLabel = "modes",
+        icon = Icons.Rounded.GraphicEq,
+        accentColor = Color(0xFF0EA5E9),
+        tracks = options,
+        currentTrack = selectedOption,
+        onTrackSelected = { selectedId ->
+            options.firstOrNull { it.id == selectedId }?.mode?.let(onModeSelected)
+        },
+        onDismiss = onDismiss,
+        trackKey = { option -> option.id },
+        isTrackSelected = { option, selected -> option.id == selected?.id },
+        trackDisplayInfo = { option ->
+            TrackDisplayInfo(
+                title = option.label,
+                subtitle = option.description,
+                description = when (option.mode.maxAudioChannels) {
+                    "2" -> "Max 2 channels"
+                    "6" -> "Max 6 channels"
+                    "8" -> "Max 8 channels"
+                    else -> ""
+                }
+            )
+        }
+    )
+}
+
+@Composable
 private fun <T> TrackSelectionDialog(
     title: String,
     helperText: String,
+    itemCountLabel: String,
     icon: ImageVector,
     accentColor: Color,
     tracks: List<T>,
@@ -220,6 +278,7 @@ private fun <T> TrackSelectionDialog(
                         DialogHeader(
                             title = title,
                             helperText = helperText,
+                            itemCountLabel = itemCountLabel,
                             icon = icon,
                             accentColor = accentColor,
                             trackCount = tracks.size,
@@ -282,6 +341,7 @@ private fun HideSystemBarsForDialogWindow() {
 private fun DialogHeader(
     title: String,
     helperText: String,
+    itemCountLabel: String,
     icon: ImageVector,
     accentColor: Color,
     trackCount: Int,
@@ -321,9 +381,9 @@ private fun DialogHeader(
 
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val helperLine = if (helperText.isBlank()) {
-                    "$trackCount tracks"
+                    "$trackCount $itemCountLabel"
                 } else {
-                    "$trackCount tracks - $helperText"
+                    "$trackCount $itemCountLabel - $helperText"
                 }
                 Text(
                     text = title,
@@ -508,6 +568,13 @@ private data class TrackDisplayInfo(
 
 private data class StreamingQualityOption(
     val id: String,
+    val label: String,
+    val description: String
+)
+
+private data class AudioTranscodingModeOption(
+    val id: String,
+    val mode: AudioTranscodeMode,
     val label: String,
     val description: String
 )
