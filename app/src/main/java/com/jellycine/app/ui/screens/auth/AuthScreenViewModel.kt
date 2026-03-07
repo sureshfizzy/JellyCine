@@ -1,8 +1,10 @@
 package com.jellycine.app.ui.screens.auth
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.jellycine.app.R
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
@@ -49,7 +51,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
         
         if (currentState.serverUrl.isBlank()) {
             _uiState.value = currentState.copy(
-                serverErrorMessage = "Please enter a server URL"
+                serverErrorMessage = string(R.string.auth_error_enter_server_url)
             )
             return
         }
@@ -86,7 +88,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
         
         if (currentState.username.isBlank()) {
             _uiState.value = currentState.copy(
-                loginErrorMessage = "Please enter your username"
+                loginErrorMessage = string(R.string.auth_error_enter_username)
             )
             return
         }
@@ -144,7 +146,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
         val normalizedUrl = serverUrl.trim()
         if (normalizedUrl.isBlank()) {
             _uiState.value = _uiState.value.copy(
-                loginErrorMessage = "Server URL is missing for Quick Connect."
+                loginErrorMessage = string(R.string.auth_error_missing_server_url_quick_connect)
             )
             return
         }
@@ -172,7 +174,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 _uiState.value = _uiState.value.copy(
                     isQuickConnectLoading = false,
                     quickConnectCode = null,
-                    loginErrorMessage = "Quick Connect failed to start. Please try again."
+                    loginErrorMessage = string(R.string.auth_error_quick_connect_start_failed)
                 )
                 return@launch
             }
@@ -200,7 +202,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.value = _uiState.value.copy(
                 isQuickConnectLoading = false,
                 quickConnectCode = null,
-                loginErrorMessage = "Quick Connect timed out. Please try again."
+                loginErrorMessage = string(R.string.auth_error_quick_connect_timed_out)
             )
         }
     }
@@ -229,19 +231,19 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
         val code = extractHttpCode(message)
 
         return when (code) {
-            400 -> "Invalid request. Please check your username and password."
-            401 -> "Incorrect username or password."
-            403 -> "Access denied. Your account does not have permission to sign in."
-            404 -> "Sign-in service not found. Please check your server URL."
-            429 -> "Too many attempts. Please wait a moment and try again."
-            500, 502, 503, 504 -> "Server error while signing in. Please try again in a moment."
+            400 -> string(R.string.auth_error_login_invalid_request)
+            401 -> string(R.string.auth_error_login_invalid_credentials)
+            403 -> string(R.string.auth_error_login_access_denied)
+            404 -> string(R.string.auth_error_login_service_not_found)
+            429 -> string(R.string.auth_error_login_too_many_attempts)
+            500, 502, 503, 504 -> string(R.string.auth_error_login_server_error)
             else -> when {
-                message.equals("401") -> "Incorrect username or password."
-                message.contains("authentication failed", ignoreCase = true) -> "Incorrect username or password."
-                message.contains("timeout", ignoreCase = true) -> "Login timed out. Please try again."
-                message.contains("unable to resolve host", ignoreCase = true) -> "Cannot reach server. Check your URL and network connection."
-                message.contains("failed to connect", ignoreCase = true) -> "Cannot connect to the server. Please check if it is online."
-                message.isBlank() -> "Login failed. Please try again."
+                message.equals("401") -> string(R.string.auth_error_login_invalid_credentials)
+                message.contains("authentication failed", ignoreCase = true) -> string(R.string.auth_error_login_invalid_credentials)
+                message.contains("timeout", ignoreCase = true) -> string(R.string.auth_error_login_timeout)
+                message.contains("unable to resolve host", ignoreCase = true) -> string(R.string.auth_error_login_cannot_reach_server)
+                message.contains("failed to connect", ignoreCase = true) -> string(R.string.auth_error_login_cannot_connect)
+                message.isBlank() -> string(R.string.auth_error_login_generic)
                 else -> message
             }
         }
@@ -252,19 +254,23 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
         val code = extractHttpCode(message)
 
         return when (code) {
-            400 -> "Invalid server request. Please check the server URL."
-            401, 403 -> "The server rejected the request. Please verify server access settings."
-            404 -> "Server endpoint not found. Please verify the server URL."
-            500, 502, 503, 504 -> "Server is temporarily unavailable. Please try again."
+            400 -> string(R.string.auth_error_server_invalid_request)
+            401, 403 -> string(R.string.auth_error_server_access_rejected)
+            404 -> string(R.string.auth_error_server_endpoint_not_found)
+            500, 502, 503, 504 -> string(R.string.auth_error_server_unavailable)
             else -> when {
-                message.equals("401") -> "The server rejected the request. Please verify server access settings."
-                message.contains("timeout", ignoreCase = true) -> "Connection timed out. Please try again."
-                message.contains("unable to resolve host", ignoreCase = true) -> "Cannot find this server. Check the URL and your network."
-                message.contains("failed to connect", ignoreCase = true) -> "Cannot connect to the server. Check if it is online."
-                message.isBlank() -> "Connection failed. Please try again."
+                message.equals("401") -> string(R.string.auth_error_server_access_rejected)
+                message.contains("timeout", ignoreCase = true) -> string(R.string.auth_error_server_timeout)
+                message.contains("unable to resolve host", ignoreCase = true) -> string(R.string.auth_error_server_cannot_find)
+                message.contains("failed to connect", ignoreCase = true) -> string(R.string.auth_error_server_cannot_connect)
+                message.isBlank() -> string(R.string.auth_error_server_generic)
                 else -> message
             }
         }
+    }
+
+    private fun string(@StringRes resId: Int): String {
+        return getApplication<Application>().getString(resId)
     }
 
     private fun extractHttpCode(message: String): Int? {

@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -50,9 +51,11 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.jellycine.app.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.SubtitleTrackInfo
+import com.jellycine.player.preferences.PlayerPreferences
 
 @Composable
 fun AudioTrackSelectionDialog(
@@ -65,9 +68,9 @@ fun AudioTrackSelectionDialog(
     if (!isVisible) return
 
     TrackSelectionDialog(
-        title = "Audio",
-        helperText = "Select preferred playback track",
-        itemCountLabel = "tracks",
+        title = stringResource(R.string.player_dialog_audio_title),
+        helperText = stringResource(R.string.player_dialog_audio_summary),
+        itemCountLabel = stringResource(R.string.player_dialog_tracks_count),
         icon = Icons.Rounded.GraphicEq,
         accentColor = Color(0xFF00A9D6),
         tracks = audioTracks,
@@ -97,9 +100,9 @@ fun SubtitleTrackSelectionDialog(
     if (!isVisible) return
 
     TrackSelectionDialog(
-        title = "Subtitles",
-        helperText = "Select subtitle track",
-        itemCountLabel = "tracks",
+        title = stringResource(R.string.player_dialog_subtitles_title),
+        helperText = stringResource(R.string.player_dialog_subtitles_summary),
+        itemCountLabel = stringResource(R.string.player_dialog_tracks_count),
         icon = Icons.Rounded.ClosedCaption,
         accentColor = Color(0xFFFF6B3B),
         tracks = subtitleTracks,
@@ -132,8 +135,8 @@ fun StreamingQualitySelectionDialog(
         StreamingQualityOption(
             id = quality,
             label = quality,
-            description = if (quality.equals("Original", ignoreCase = true)) {
-                "No bitrate cap"
+            description = if (quality.equals(PlayerPreferences.STREAMING_QUALITY_ORIGINAL, ignoreCase = true)) {
+                stringResource(R.string.player_dialog_streaming_quality_original_summary)
             } else {
                 ""
             }
@@ -142,9 +145,9 @@ fun StreamingQualitySelectionDialog(
     val selectedOption = options.firstOrNull { it.id == currentQuality }
 
     TrackSelectionDialog(
-        title = "Streaming Quality",
-        helperText = "Choose the video quality cap",
-        itemCountLabel = "qualities",
+        title = stringResource(R.string.player_dialog_streaming_quality_title),
+        helperText = stringResource(R.string.player_dialog_streaming_quality_summary),
+        itemCountLabel = stringResource(R.string.player_dialog_streaming_quality_count),
         icon = Icons.Rounded.Tune,
         accentColor = Color(0xFF3B82F6),
         tracks = options,
@@ -178,19 +181,25 @@ fun AudioTranscodingModeDialog(
             mode = mode,
             label = mode.displayName,
             description = when (mode) {
-                AudioTranscodeMode.AUTO -> "Balanced default for surround playback"
-                AudioTranscodeMode.STEREO -> "Force server audio down to 2 channels"
-                AudioTranscodeMode.SURROUND_5_1 -> "Keep up to 5.1 channels"
-                AudioTranscodeMode.PASSTHROUGH -> "Allow up to 7.1 channels when possible"
+                AudioTranscodeMode.AUTO -> stringResource(R.string.player_dialog_audio_mode_auto_summary)
+                AudioTranscodeMode.STEREO -> stringResource(R.string.player_dialog_audio_mode_stereo_summary)
+                AudioTranscodeMode.SURROUND_5_1 -> stringResource(R.string.player_dialog_audio_mode_surround_summary)
+                AudioTranscodeMode.PASSTHROUGH -> stringResource(R.string.player_dialog_audio_mode_passthrough_summary)
+            },
+            channelSummary = when (mode.maxAudioChannels) {
+                "2" -> stringResource(R.string.player_dialog_audio_mode_channels_2)
+                "6" -> stringResource(R.string.player_dialog_audio_mode_channels_6)
+                "8" -> stringResource(R.string.player_dialog_audio_mode_channels_8)
+                else -> ""
             }
         )
     }
     val selectedOption = options.firstOrNull { it.mode == currentMode }
 
     TrackSelectionDialog(
-        title = "Audio Transcoding",
-        helperText = "Selected audio and subtitle tracks are kept after restart",
-        itemCountLabel = "modes",
+        title = stringResource(R.string.player_dialog_audio_transcoding_title),
+        helperText = stringResource(R.string.player_dialog_audio_transcoding_summary),
+        itemCountLabel = stringResource(R.string.player_dialog_audio_transcoding_count),
         icon = Icons.Rounded.GraphicEq,
         accentColor = Color(0xFF0EA5E9),
         tracks = options,
@@ -205,12 +214,7 @@ fun AudioTranscodingModeDialog(
             TrackDisplayInfo(
                 title = option.label,
                 subtitle = option.description,
-                description = when (option.mode.maxAudioChannels) {
-                    "2" -> "Max 2 channels"
-                    "6" -> "Max 6 channels"
-                    "8" -> "Max 8 channels"
-                    else -> ""
-                }
+                description = option.channelSummary
             )
         }
     )
@@ -552,7 +556,7 @@ private fun EmptyState() {
         )
     ) {
         Text(
-            text = "No tracks available",
+            text = stringResource(R.string.player_dialog_no_tracks_available),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp)
@@ -576,7 +580,8 @@ private data class AudioTranscodingModeOption(
     val id: String,
     val mode: AudioTranscodeMode,
     val label: String,
-    val description: String
+    val description: String,
+    val channelSummary: String
 )
 
 private fun buildAudioTrackSubtitle(track: AudioTrackInfo): String {

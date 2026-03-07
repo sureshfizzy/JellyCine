@@ -15,11 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.R
 
 @Composable
 fun SearchSuggestionChip(
@@ -75,7 +77,7 @@ fun SearchHistoryItem(
     ) {
         Icon(
             imageVector = Icons.Default.History,
-            contentDescription = "Recent search",
+            contentDescription = stringResource(R.string.recent_search),
             tint = Color.Gray,
             modifier = Modifier.size(20.dp)
         )
@@ -96,7 +98,7 @@ fun SearchHistoryItem(
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
-                contentDescription = "Remove",
+                contentDescription = stringResource(R.string.remove_search_history_item),
                 tint = Color.Gray,
                 modifier = Modifier.size(16.dp)
             )
@@ -129,7 +131,7 @@ fun SuggestionSearchItem(
         
         Icon(
             imageVector = Icons.AutoMirrored.Filled.TrendingUp,
-            contentDescription = "Suggestions",
+            contentDescription = stringResource(R.string.search_suggestion),
             tint = Color.Gray,
             modifier = Modifier.size(20.dp)
         )
@@ -149,8 +151,9 @@ fun SuggestionSearchItem(
 
 @Composable
 fun EmptySearchState(
-    message: String = "Start typing to search for movies and shows"
+    message: String? = null
 ) {
+    val displayMessage = message ?: stringResource(R.string.search_empty_default)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -167,7 +170,7 @@ fun EmptySearchState(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = message,
+            text = displayMessage,
             color = Color.Gray,
             fontSize = 16.sp,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center

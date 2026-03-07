@@ -63,6 +63,7 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.jellycine.app.R
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
@@ -1092,7 +1093,7 @@ fun Dashboard(
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     isTabActive: Boolean = true
 ) {
-    var selectedCategory by rememberSaveable { mutableStateOf("Home") }
+    var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -1117,8 +1118,8 @@ fun Dashboard(
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
 
     LaunchedEffect(featureCarouselEnabled) {
-        if (!featureCarouselEnabled && selectedCategory != "Home") {
-            selectedCategory = "Home"
+        if (!featureCarouselEnabled && selectedCategory != HomeCategory.HOME) {
+            selectedCategory = HomeCategory.HOME
         }
     }
 
@@ -1214,7 +1215,7 @@ fun Dashboard(
             )
         ) {
             val result = when (selectedCategory) {
-                "Movies" -> mediaRepository.getUserItems(
+                HomeCategory.MOVIES -> mediaRepository.getUserItems(
                     parentId = null,
                     includeItemTypes = "Movie",
                     sortBy = "Random",
@@ -1224,7 +1225,7 @@ fun Dashboard(
                     recursive = true,
                     fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
                 )
-                "TV Shows" -> mediaRepository.getUserItems(
+                HomeCategory.TV_SHOWS -> mediaRepository.getUserItems(
                     parentId = null,
                     includeItemTypes = "Series",
                     sortBy = "Random",
@@ -1260,7 +1261,7 @@ fun Dashboard(
             key = "continue_watching_resume_api_v2",
             config = QueryConfig(
                 staleTime = 60_000L,
-                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
                 retryCount = 2,
                 retryDelay = 250L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1292,7 +1293,7 @@ fun Dashboard(
             key = "home_library_burst",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
                 retryCount = 1,
                 retryDelay = 200L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1322,7 +1323,7 @@ fun Dashboard(
             key = "home_my_media_libraries",
             config = QueryConfig(
                 staleTime = 300_000L,
-                enabled = isTabActive && selectedCategory == "Home" && isNetworkAvailable,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
                 retryCount = 1,
                 retryDelay = 200L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1354,21 +1355,21 @@ fun Dashboard(
             )
         }
 
-        val persistedFeaturedItems = if (selectedCategory == "Home" && isNetworkAvailable) {
+        val persistedFeaturedItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.featuredHomeItems.orEmpty()
         } else {
             emptyList()
         }
         val FeaturedItems = featuredQuery.data ?: persistedFeaturedItems
 
-        val persistedContinueWatchingItems = if (selectedCategory == "Home" && isNetworkAvailable) {
+        val persistedContinueWatchingItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.continueWatchingItems.orEmpty()
         } else {
             emptyList()
         }
         val ContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
 
-        val persistedLibrarySections = if (selectedCategory == "Home" && isNetworkAvailable) {
+        val persistedLibrarySections = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.homeLibrarySections
                 .orEmpty()
                 .map { it.toUiSection() }
@@ -1377,12 +1378,12 @@ fun Dashboard(
         }
         val LibrarySections = homeLibraryBurstQuery.data ?: persistedLibrarySections
 
-        val persistedMyMediaLibraries = if (selectedCategory == "Home" && isNetworkAvailable) {
+        val persistedMyMediaLibraries = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.myMediaLibraries.orEmpty()
         } else {
             emptyList()
         }
-        val MyMediaLibraries = if (selectedCategory == "Home") {
+        val MyMediaLibraries = if (selectedCategory == HomeCategory.HOME) {
             homeMyMediaLibrariesQuery.data ?: persistedMyMediaLibraries
         } else {
             emptyList()
@@ -1394,7 +1395,7 @@ fun Dashboard(
             }
         }
         LaunchedEffect(isTabActive, selectedCategory, isNetworkAvailable) {
-            if (isTabActive && selectedCategory == "Home" && isNetworkAvailable) {
+            if (isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
                 val cachedContinueWatching =
                     queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
                 if (cachedContinueWatching.data.isNullOrEmpty()) {
@@ -1417,7 +1418,7 @@ fun Dashboard(
         }
 
         LaunchedEffect(featuredQuery.data?.hashCode(), selectedCategory, isNetworkAvailable) {
-            if (selectedCategory != "Home" || !isNetworkAvailable) return@LaunchedEffect
+            if (selectedCategory != HomeCategory.HOME || !isNetworkAvailable) return@LaunchedEffect
             val items = featuredQuery.data ?: return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(featuredHomeItems = items)
         }
@@ -1454,7 +1455,7 @@ fun Dashboard(
             MyMediaLibraries.hashCode(),
             isNetworkAvailable
         ) {
-            if (selectedCategory != "Home" || !isNetworkAvailable) return@LaunchedEffect
+            if (selectedCategory != HomeCategory.HOME || !isNetworkAvailable) return@LaunchedEffect
             if (MyMediaLibraries.isEmpty()) return@LaunchedEffect
             ImagePreloader.MyMedia(
                 libraries = MyMediaLibraries,
@@ -1530,13 +1531,13 @@ fun Dashboard(
                 }
 
                 val ShowMyMediaSection =
-                    selectedCategory == "Home" && (
+                    selectedCategory == HomeCategory.HOME && (
                         MyMediaLibraries.isNotEmpty() ||
                             (homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty())
                         )
 
                 val ShowContinueWatchingSection =
-                    selectedCategory == "Home" && (
+                    selectedCategory == HomeCategory.HOME && (
                         ContinueWatchingItems.isNotEmpty() ||
                             continueWatchingQuery.isError ||
                             (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
@@ -1583,7 +1584,7 @@ fun Dashboard(
                     }
                 }
 
-                if (selectedCategory == "Home") {
+                if (selectedCategory == HomeCategory.HOME) {
                     val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection) 16.dp else 0.dp
 
                     if (topPadding > 0.dp) {
@@ -1601,7 +1602,7 @@ fun Dashboard(
                                     .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
                                 Text(
-                                    text = "Failed to load libraries",
+                                    text = stringResource(R.string.dashboard_failed_load_libraries),
                                     color = Color.White.copy(alpha = 0.6f),
                                     fontSize = 13.sp
                                 )
@@ -1625,7 +1626,7 @@ fun Dashboard(
                             }
                         }
                     }
-                } else if (selectedCategory == "Movies") {
+                } else if (selectedCategory == HomeCategory.MOVIES) {
                     val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                     item(key = "movies_genres") {
@@ -1639,7 +1640,7 @@ fun Dashboard(
                             )
                         }
                     }
-                } else if (selectedCategory == "TV Shows") {
+                } else if (selectedCategory == HomeCategory.TV_SHOWS) {
                     val topPadding = if (ContinueWatchingItems.isEmpty() && !continueWatchingQuery.isLoading) 16.dp else 0.dp
 
                     item(key = "tv_genres") {
@@ -1684,7 +1685,7 @@ private fun BrandHeader(
     userName: String? = null,
     userImageUrl: String? = null
 ) {
-    val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: "Server"
+    val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dashboard_server_fallback)
     val headerChipShape = RoundedCornerShape(22.dp)
     Row(
         modifier = modifier
@@ -1714,7 +1715,7 @@ private fun BrandHeader(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.jellycine_logo),
-                    contentDescription = "JellyCine",
+                    contentDescription = stringResource(R.string.app_name),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -1896,7 +1897,7 @@ private fun OfflineState(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "No Offline Downloads Yet",
+                    text = stringResource(R.string.dashboard_offline_empty_title),
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
@@ -1905,7 +1906,7 @@ private fun OfflineState(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "Download movies or episodes while online and they will appear here.",
+                    text = stringResource(R.string.dashboard_offline_empty_message),
                     color = Color.White.copy(alpha = 0.72f),
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -1930,8 +1931,8 @@ private fun OfflineDownloadsSection(
     }
     val categorizedItems = remember(offlineItems) {
         listOf(
-            "Movies" to offlineItems.filter { it.type.equals("Movie", ignoreCase = true) },
-            "Series" to offlineItems.filter {
+            R.string.movies to offlineItems.filter { it.type.equals("Movie", ignoreCase = true) },
+            R.string.tv_shows to offlineItems.filter {
                 it.type.equals("Series", ignoreCase = true) ||
                     it.type.equals("Episode", ignoreCase = true)
             }
@@ -1951,22 +1952,22 @@ private fun OfflineDownloadsSection(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Offline Downloads",
+            text = stringResource(R.string.dashboard_offline_downloads),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         Text(
-            text = "No network connection. Showing downloaded media only.",
+            text = stringResource(R.string.dashboard_offline_notice),
             color = Color.White.copy(alpha = 0.68f),
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
         )
 
-        categorizedItems.forEach { (title, items) ->
+        categorizedItems.forEach { (titleRes, items) ->
             OfflineDownloadsCategoryRow(
-                title = title,
+                title = stringResource(titleRes),
                 items = items,
                 mediaRepository = mediaRepository,
                 disablePosterEnhancers = disablePosterEnhancers,
@@ -2066,7 +2067,7 @@ private fun HomeMyMediaSection(
             .background(Color.Black)
     ) {
         Text(
-            text = "My Media",
+            text = stringResource(R.string.my_media),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -2082,7 +2083,7 @@ private fun HomeMyMediaSection(
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "Failed to load My Media",
+                        text = stringResource(R.string.dashboard_failed_load_my_media),
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = 13.sp
                     )
@@ -2131,7 +2132,7 @@ private fun ContinueWatchingSection(
             .background(Color.Black) // AMOLED black background
     ) {
         Text(
-            text = "Continue Watching",
+            text = stringResource(R.string.dashboard_continue_watching),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -2159,7 +2160,7 @@ private fun ContinueWatchingSection(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Failed to load continue watching",
+                            text = stringResource(R.string.dashboard_failed_continue_watching),
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 14.sp
                         )
@@ -2402,7 +2403,7 @@ private fun HomeLibrarySectionUi.toPersistedSection(): MediaRepository.HomeLibra
 private fun MediaRepository.HomeLibrarySectionData.toUiSection(): HomeLibrarySectionUi {
     return HomeLibrarySectionUi(
         libraryId = library.id.orEmpty(),
-        libraryName = library.name ?: "Library",
+        libraryName = library.name.orEmpty(),
         collectionType = library.collectionType,
         items = items
     )
@@ -2420,6 +2421,7 @@ private fun BurstLibrarySection(
     val libraryRowState = rememberLazyListState()
     val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
     val firstSectionItemId = section.items.firstOrNull()?.id
+    val sectionTitle = section.libraryName.ifBlank { stringResource(R.string.my_media_library_fallback) }
 
     LaunchedEffect(firstSectionItemId, section.items.size) {
         val hasScrolled = libraryRowState.firstVisibleItemIndex > 0 ||
@@ -2438,7 +2440,7 @@ private fun BurstLibrarySection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recently Added - ${section.libraryName}",
+                text = stringResource(R.string.dashboard_recently_added, sectionTitle),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -2452,13 +2454,13 @@ private fun BurstLibrarySection(
                         "tvshows" -> "SERIES"
                         else -> "ALL"
                     }
-                    onNavigateToViewAll(contentType, section.libraryId, section.libraryName)
+                    onNavigateToViewAll(contentType, section.libraryId, sectionTitle)
                 },
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "View All",
+                    contentDescription = stringResource(R.string.dashboard_view_all),
                     tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
@@ -2473,7 +2475,7 @@ private fun BurstLibrarySection(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No items found",
+                    text = stringResource(R.string.dashboard_no_items_found),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 12.sp
                 )
@@ -3046,6 +3048,7 @@ private fun ProgressiveMovieGenreSection(
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreMovies by remember(genreId) { mutableStateOf(GenreCache.getGenreItems(genreId)) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.RefreshGenreItems(genreId)) }
+    val genreTitle = genre.name ?: stringResource(R.string.movies)
 
     LaunchedEffect(genreId) {
         if (GenreCache.RefreshGenreItems(genreId)) {
@@ -3094,7 +3097,7 @@ private fun ProgressiveMovieGenreSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${genre.name ?: "Movies"}",
+                text = genreTitle,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -3102,13 +3105,13 @@ private fun ProgressiveMovieGenreSection(
 
             IconButton(
                 onClick = {
-                    onNavigateToViewAll("MOVIES_GENRE", genre.id, genre.name ?: "Movies")
+                    onNavigateToViewAll("MOVIES_GENRE", genre.id, genreTitle)
                 },
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "View All",
+                    contentDescription = stringResource(R.string.dashboard_view_all),
                     tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
@@ -3151,7 +3154,7 @@ private fun ProgressiveMovieGenreSection(
             else -> {
                 if (!isLoading && genreMovies.isEmpty()) {
                     Text(
-                        text = "No movies found",
+                        text = stringResource(R.string.dashboard_no_movies_found),
                         color = Color.Gray.copy(alpha = 0.5f),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -3173,6 +3176,7 @@ private fun ProgressiveTVShowGenreSection(
     val genreId = genre.id ?: return // Skip if no genre ID
     var genreShows by remember(genreId) { mutableStateOf(GenreCache.getGenreItems("tv_$genreId")) }
     var isLoading by remember(genreId) { mutableStateOf(GenreCache.RefreshGenreItems("tv_$genreId")) }
+    val genreTitle = genre.name ?: stringResource(R.string.tv_shows)
 
     LaunchedEffect(genreId) {
         val cacheKey = "tv_$genreId"
@@ -3222,7 +3226,7 @@ private fun ProgressiveTVShowGenreSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${genre.name ?: "TV Shows"}",
+                text = genreTitle,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -3230,13 +3234,13 @@ private fun ProgressiveTVShowGenreSection(
 
             IconButton(
                 onClick = {
-                    onNavigateToViewAll("TVSHOWS_GENRE", genre.id, genre.name ?: "TV Shows")
+                    onNavigateToViewAll("TVSHOWS_GENRE", genre.id, genreTitle)
                 },
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "View All",
+                    contentDescription = stringResource(R.string.dashboard_view_all),
                     tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(18.dp)
                 )
@@ -3277,7 +3281,7 @@ private fun ProgressiveTVShowGenreSection(
             else -> {
                 if (!isLoading && genreShows.isEmpty()) {
                     Text(
-                        text = "No TV shows found",
+                        text = stringResource(R.string.dashboard_no_tv_shows_found),
                         color = Color.Gray.copy(alpha = 0.5f),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

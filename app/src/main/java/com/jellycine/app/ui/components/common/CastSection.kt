@@ -16,11 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.R
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
@@ -32,10 +34,11 @@ fun CastSection(
     item: BaseItemDto,
     mediaRepository: MediaRepository,
     modifier: Modifier = Modifier,
-    title: String = "Cast & Crew",
+    title: String? = null,
     maxItems: Int = 8,
     onPersonClick: (String) -> Unit = {}
 ) {
+    val sectionTitle = title ?: stringResource(R.string.detail_cast_and_crew)
     val castAndCrew = remember(item.people, maxItems) {
         prioritizeCastAndCrew(
             people = item.people,
@@ -46,7 +49,7 @@ fun CastSection(
     if (castAndCrew.isNotEmpty()) {
         Column(modifier = modifier) {
             Text(
-                text = title,
+                text = sectionTitle,
                 fontSize = 21.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -128,7 +131,7 @@ private fun CastCrewMemberCard(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = person.name ?: "Unknown",
+            text = person.name ?: stringResource(R.string.detail_similar_item_unknown),
             fontSize = 12.sp,
             color = Color.White,
             textAlign = TextAlign.Center,

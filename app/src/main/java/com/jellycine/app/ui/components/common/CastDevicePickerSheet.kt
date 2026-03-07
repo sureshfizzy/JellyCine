@@ -98,7 +98,7 @@ fun CastDevicePicker(
                 IconButton(onClick = onDismissRequest) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Close cast picker",
+                        contentDescription = stringResource(R.string.cast_close_picker),
                         tint = Color.White
                     )
                 }
@@ -122,7 +122,8 @@ fun CastDevicePicker(
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             Text(
-                                text = castState.deviceName?.takeIf { it.isNotBlank() } ?: "Connected device",
+                                text = castState.deviceName?.takeIf { it.isNotBlank() }
+                                    ?: stringResource(R.string.cast_connected_device),
                                 color = Color.White,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
@@ -130,7 +131,7 @@ fun CastDevicePicker(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Connected",
+                                text = stringResource(R.string.cast_connected),
                                 color = Color(0xFF8AE9C9),
                                 fontSize = 12.sp
                             )
@@ -144,7 +145,7 @@ fun CastDevicePicker(
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                         ) {
-                            Text("Disconnect")
+                            Text(stringResource(R.string.cast_disconnect))
                         }
                     }
                 }
@@ -164,12 +165,12 @@ fun CastDevicePicker(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Searching for devices...",
+                            text = stringResource(R.string.cast_searching),
                             color = Color.White.copy(alpha = 0.9f),
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Make sure your TV/Chromecast is on the same Wi-Fi.",
+                            text = stringResource(R.string.cast_same_wifi_hint),
                             color = Color.White.copy(alpha = 0.65f),
                             fontSize = 12.sp
                         )
@@ -250,7 +251,7 @@ private fun CastRouteListItem(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = route.name.ifBlank { "Unnamed device" },
+                    text = route.name.ifBlank { stringResource(R.string.cast_unnamed_device) },
                     color = if (route.isEnabled) Color.White else Color.White.copy(alpha = 0.5f),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
@@ -259,10 +260,10 @@ private fun CastRouteListItem(
                 )
 
                 val subtitle = when {
-                    route.isSelected -> "Connected"
-                    route.isConnecting -> "Connecting..."
-                    !route.isEnabled -> "Unavailable"
-                    else -> route.description?.takeIf { it.isNotBlank() } ?: "Tap to connect"
+                    route.isSelected -> stringResource(R.string.cast_connected)
+                    route.isConnecting -> stringResource(R.string.cast_connecting)
+                    !route.isEnabled -> stringResource(R.string.settings_unavailable)
+                    else -> route.description?.takeIf { it.isNotBlank() } ?: stringResource(R.string.cast_tap_to_connect)
                 }
 
                 Text(

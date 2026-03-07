@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import coil3.compose.AsyncImage
@@ -161,7 +162,7 @@ fun FeatureTab(
     featuredItems: List<BaseItemDto> = emptyList(),
     isLoading: Boolean = true,
     error: String? = null,
-    selectedCategory: String = "Home",
+    selectedCategory: String = HomeCategory.HOME,
     verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
@@ -171,6 +172,7 @@ fun FeatureTab(
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val userFallback = stringResource(R.string.settings_unknown_user)
 
     val currentUsername by authRepository.getUsername().collectAsState(initial = CachedData.username)
     val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
@@ -178,7 +180,7 @@ fun FeatureTab(
         "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
     var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
-        mutableStateOf(currentUsername ?: CachedData.username ?: "User")
+        mutableStateOf(currentUsername ?: CachedData.username ?: userFallback)
     }
     var userProfileImageUrl by rememberSaveable(currentUsername, currentServerUrl) {
         mutableStateOf(
@@ -500,8 +502,9 @@ private fun CategoryChipMenu(
     onCategorySelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val categories = listOf("Home", "Movies", "TV Shows")
-    val menuOptions = remember(selectedCategory) { categories.filterNot { it == selectedCategory } }
+    val menuOptions = remember(selectedCategory) {
+        HomeCategory.all.filterNot { it == selectedCategory }
+    }
     var expanded by remember { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
@@ -529,12 +532,12 @@ private fun CategoryChipMenu(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.jellycine_logo),
-                contentDescription = "JellyCine",
+                contentDescription = stringResource(R.string.app_name),
                 modifier = Modifier.size(28.dp),
                 contentScale = ContentScale.Fit
             )
             Text(
-                text = selectedCategory,
+                text = stringResource(HomeCategory.titleRes(selectedCategory)),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
@@ -578,7 +581,7 @@ private fun CategoryChipMenu(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = category,
+                            text = stringResource(HomeCategory.titleRes(category)),
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
@@ -610,6 +613,7 @@ private fun FeatureHeroCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val itemName = item.name ?: stringResource(R.string.search_result_unknown_title)
     var contentVisible by remember(item.id) { mutableStateOf(false) }
     LaunchedEffect(item.id) { contentVisible = true }
     val logoAlpha by animateFloatAsState(
@@ -677,7 +681,7 @@ private fun FeatureHeroCard(
 
                 Image(
                     painter = lowPainter,
-                    contentDescription = item.name,
+                    contentDescription = itemName,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -716,7 +720,7 @@ private fun FeatureHeroCard(
 
                 Image(
                     painter = highPainter,
-                    contentDescription = item.name,
+                    contentDescription = itemName,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
@@ -796,10 +800,13 @@ private fun FeatureHeroCard(
                             .diskCachePolicy(CachePolicy.ENABLED)
                             .networkCachePolicy(CachePolicy.ENABLED)
                             .crossfade(false)
-                            .allowHardware(true)
-                            .allowRgb565(false)
-                            .build(),
-                        contentDescription = "${item.name} logo",
+                        .allowHardware(true)
+                        .allowRgb565(false)
+                        .build(),
+                        contentDescription = stringResource(
+                            R.string.feature_logo_content_description,
+                            itemName
+                        ),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .height(96.dp)
@@ -901,6 +908,7 @@ internal fun UserProfileAvatar(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val displayUserName = userName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_unknown_user)
 
     Box(
         modifier = modifier
@@ -920,7 +928,10 @@ internal fun UserProfileAvatar(
                     .allowHardware(true)
                     .allowRgb565(true)
                     .build(),
-                contentDescription = "Profile picture of $userName",
+                contentDescription = stringResource(
+                    R.string.feature_profile_picture_content_description,
+                    displayUserName
+                ),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )

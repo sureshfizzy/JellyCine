@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.media.MediaCodecList
 import android.os.Build
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.request.*
+import com.jellycine.app.R
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 
@@ -51,7 +55,7 @@ fun Settings(
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
-    val supportedCodecs = remember { getSupportedCodecsSummary() }
+    val supportedCodecs = remember(context) { getSupportedCodecsSummary(context) }
     val listState = rememberLazyListState()
 
     var showNetworkDialog by remember { mutableStateOf(false) }
@@ -77,7 +81,7 @@ fun Settings(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
@@ -96,8 +100,8 @@ fun Settings(
             item {
                 UserProfileSection(
                     user = uiState.user,
-                    username = uiState.username ?: "Unknown User",
-                    serverName = uiState.serverName ?: "Unknown Server",
+                    username = uiState.username ?: stringResource(R.string.settings_unknown_user),
+                    serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
                     serverUrl = uiState.serverUrl,
                     profileImageUrl = uiState.profileImageUrl,
                     onUserClick = {
@@ -116,13 +120,13 @@ fun Settings(
                 )
             }
 
-            item { SectionLabel("Preferences") }
+            item { SectionLabel(stringResource(R.string.settings_preferences)) }
             item {
                 SettingsSection {
                     SettingsItem(
                         icon = Icons.Rounded.DisplaySettings,
-                        title = "Interface",
-                        subtitle = "Visual Options",
+                        title = stringResource(R.string.settings_interface),
+                        subtitle = stringResource(R.string.settings_visual_options),
                         accentColor = Color(0xFF8B5CF6),
                         onClick = onNavigateToInterfaceSettings
                     )
@@ -132,8 +136,10 @@ fun Settings(
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Wifi,
-                        title = "Wi-Fi Only Downloads",
-                        subtitle = if (uiState.wifiOnlyDownloads) "Enabled" else "Disabled",
+                        title = stringResource(R.string.settings_wifi_only_downloads),
+                        subtitle = stringResource(
+                            if (uiState.wifiOnlyDownloads) R.string.settings_enabled else R.string.settings_disabled
+                        ),
                         accentColor = Color(0xFF0EA5E9),
                         trailing = {
                             Switch(
@@ -148,8 +154,8 @@ fun Settings(
                     )
                     SettingsItem(
                         icon = Icons.Rounded.SettingsEthernet,
-                        title = "Network",
-                        subtitle = "Request, connection, and socket timeout",
+                        title = stringResource(R.string.settings_network),
+                        subtitle = stringResource(R.string.settings_network_subtitle),
                         accentColor = Color(0xFF06B6D4),
                         onClick = { showNetworkDialog = true }
                     )
@@ -159,21 +165,25 @@ fun Settings(
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Storage,
-                        title = "Cache",
-                        subtitle = "Cache image and cache size",
+                        title = stringResource(R.string.settings_cache),
+                        subtitle = stringResource(R.string.settings_cache_subtitle),
                         accentColor = Color(0xFF22D3EE),
                         onClick = onNavigateToCacheSettings
                     )
                 }
             }
 
-            item { SectionLabel("Device Info") }
+            item { SectionLabel(stringResource(R.string.settings_device_info)) }
             item {
                 SettingsSection {
                     SettingsItem(
                         icon = Icons.Rounded.Smartphone,
-                        title = "Device Model",
-                        subtitle = "${Build.MANUFACTURER} ${Build.MODEL}",
+                        title = stringResource(R.string.settings_device_model),
+                        subtitle = stringResource(
+                            R.string.settings_device_model_value,
+                            Build.MANUFACTURER,
+                            Build.MODEL
+                        ),
                         accentColor = Color(0xFF14B8A6)
                     )
                     HorizontalDivider(
@@ -182,8 +192,12 @@ fun Settings(
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Android,
-                        title = "Android Version",
-                        subtitle = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                        title = stringResource(R.string.settings_android_version),
+                        subtitle = stringResource(
+                            R.string.settings_android_version_value,
+                            Build.VERSION.RELEASE,
+                            Build.VERSION.SDK_INT
+                        ),
                         accentColor = Color(0xFF10B981)
                     )
                     HorizontalDivider(
@@ -192,20 +206,20 @@ fun Settings(
                     )
                     SettingsItem(
                         icon = Icons.Rounded.VideoLibrary,
-                        title = "Video Codecs",
+                        title = stringResource(R.string.settings_video_codecs),
                         subtitle = supportedCodecs,
                         accentColor = Color(0xFFF59E0B)
                     )
                 }
             }
 
-            item { SectionLabel("Account") }
+            item { SectionLabel(stringResource(R.string.settings_account)) }
             item {
                 SettingsSection {
                     SettingsItem(
                         icon = Icons.AutoMirrored.Rounded.Logout,
-                        title = "Sign Out",
-                        subtitle = "Sign out of your account",
+                        title = stringResource(R.string.logout),
+                        subtitle = stringResource(R.string.settings_sign_out_subtitle),
                         onClick = { viewModel.logout(onLogout) },
                         isDestructive = true,
                         accentColor = Color(0xFFEF4444)
@@ -393,7 +407,7 @@ private fun UserProfileSection(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.AddCircle,
-                        contentDescription = "Add user",
+                        contentDescription = stringResource(R.string.settings_add_user),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier.size(20.dp)
                     )
@@ -403,7 +417,7 @@ private fun UserProfileSection(
             if (user?.policy?.isAdministrator == true) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Administrator",
+                    text = stringResource(R.string.settings_administrator),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
@@ -445,7 +459,7 @@ private fun UserProfileSection(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Server",
+                                    text = stringResource(R.string.settings_server_label),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 )
@@ -469,7 +483,7 @@ private fun UserProfileSection(
                         }
                         Icon(
                             imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = "Switch server",
+                            contentDescription = stringResource(R.string.settings_switch_server),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp)
                         )
@@ -495,7 +509,7 @@ private fun UserProfileSection(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Downloads",
+                            text = stringResource(R.string.downloads),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
@@ -520,8 +534,8 @@ private fun QuickActionsRow(
     ActionTile(
         modifier = Modifier.fillMaxWidth(),
         icon = Icons.Rounded.PlayArrow,
-        title = "Player Settings",
-        subtitle = "Playback and decoder options",
+        title = stringResource(R.string.player_settings_title),
+        subtitle = stringResource(R.string.settings_player_settings_subtitle),
         accentColor = Color(0xFF3B82F6),
         onClick = onNavigateToPlayerSettings
     )
@@ -754,7 +768,7 @@ private fun ProfileImageLoader(
         } else {
             AsyncImage(
                 model = profileRequest,
-                contentDescription = "Profile picture",
+                contentDescription = stringResource(R.string.settings_profile_picture),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
@@ -773,10 +787,10 @@ fun SettingsPreview() {
     Settings()
 }
 
-private enum class NetworkTimeoutField(val title: String) {
-    REQUEST("Request Timeout"),
-    CONNECTION("Connection Timeout"),
-    SOCKET("Socket Timeout")
+private enum class NetworkTimeoutField(val titleRes: Int) {
+    REQUEST(R.string.settings_request_timeout),
+    CONNECTION(R.string.settings_connection_timeout),
+    SOCKET(R.string.settings_socket_timeout)
 }
 
 @Composable
@@ -792,23 +806,23 @@ private fun NetworkSettingsDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Network") },
+        title = { Text(stringResource(R.string.settings_network)) },
         text = {
             Column {
                 NetworkDialogItem(
-                    title = "Request Timeout",
+                    title = stringResource(R.string.settings_request_timeout),
                     value = "$requestTimeoutMs ms",
                     onClick = { onSelectField(NetworkTimeoutField.REQUEST) }
                 )
                 HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
                 NetworkDialogItem(
-                    title = "Connection Timeout",
+                    title = stringResource(R.string.settings_connection_timeout),
                     value = "$connectionTimeoutMs ms",
                     onClick = { onSelectField(NetworkTimeoutField.CONNECTION) }
                 )
                 HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
                 NetworkDialogItem(
-                    title = "Socket Timeout",
+                    title = stringResource(R.string.settings_socket_timeout),
                     value = "$socketTimeoutMs ms",
                     onClick = { onSelectField(NetworkTimeoutField.SOCKET) }
                 )
@@ -816,7 +830,7 @@ private fun NetworkSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
             }
         }
     )
@@ -893,11 +907,11 @@ private fun ServerSwitchDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Switch Server") },
+        title = { Text(stringResource(R.string.settings_switch_server)) },
         text = {
             if (serverGroups.isEmpty()) {
                 Text(
-                    text = "No saved servers found. Sign in to another server first.",
+                    text = stringResource(R.string.settings_no_saved_servers),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -929,7 +943,7 @@ private fun ServerSwitchDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = group.serverName.ifBlank { "Media Server" },
+                                    text = group.serverName.ifBlank { stringResource(R.string.settings_media_server) },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = if (group.activeUser != null) Color(0xFF22D3EE) else Color.White
                                 )
@@ -940,7 +954,11 @@ private fun ServerSwitchDialog(
                                 )
                                 if (hasMultipleUsers) {
                                     Text(
-                                        text = "${group.users.size} users",
+                                        text = pluralStringResource(
+                                            R.plurals.settings_saved_users_count,
+                                            group.users.size,
+                                            group.users.size
+                                        ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = Color.White.copy(alpha = 0.58f)
                                     )
@@ -957,14 +975,14 @@ private fun ServerSwitchDialog(
                                 hasMultipleUsers -> {
                                     Icon(
                                         imageVector = Icons.Rounded.ChevronRight,
-                                        contentDescription = "Choose user",
+                                        contentDescription = stringResource(R.string.settings_choose_user),
                                         tint = Color.White.copy(alpha = 0.48f)
                                     )
                                 }
                                 singleUser?.isActive == true -> {
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
-                                        contentDescription = "Active server",
+                                        contentDescription = stringResource(R.string.settings_active_server),
                                         tint = Color(0xFF22D3EE),
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -980,7 +998,7 @@ private fun ServerSwitchDialog(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Rounded.Delete,
-                                                    contentDescription = "Remove user",
+                                                    contentDescription = stringResource(R.string.settings_remove_user),
                                                     tint = Color(0xFFFF6B6B),
                                                     modifier = Modifier.size(18.dp)
                                                 )
@@ -1004,7 +1022,7 @@ private fun ServerSwitchDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
             }
         },
         dismissButton = {
@@ -1012,7 +1030,7 @@ private fun ServerSwitchDialog(
                 enabled = !isSwitching,
                 onClick = onAddServer
             ) {
-                Text("Add Server", color = Color(0xFFF97316))
+                Text(stringResource(R.string.settings_add_server), color = Color(0xFFF97316))
             }
         }
     )
@@ -1040,11 +1058,11 @@ private fun UserSwitchDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Who's Watching?") },
+        title = { Text(stringResource(R.string.settings_whos_watching)) },
         text = {
             if (users.isEmpty()) {
                 Text(
-                    text = "No saved users found for this server.",
+                    text = stringResource(R.string.settings_no_saved_users_for_server),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -1074,7 +1092,7 @@ private fun UserSwitchDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
             }
         },
         dismissButton = {
@@ -1082,7 +1100,7 @@ private fun UserSwitchDialog(
                 enabled = !isSwitching,
                 onClick = onAddUser
             ) {
-                Text("Add User", color = Color(0xFFF97316))
+                Text(stringResource(R.string.settings_add_user), color = Color(0xFFF97316))
             }
         }
     )
@@ -1181,7 +1199,7 @@ private fun WhoWatchingUserCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = user.username.ifBlank { "Unknown" },
+                    text = user.username.ifBlank { stringResource(R.string.settings_unknown_username) },
                     style = MaterialTheme.typography.titleSmall,
                     color = Color.White
                 )
@@ -1203,7 +1221,7 @@ private fun WhoWatchingUserCard(
 
                         user.isActive -> {
                             Text(
-                                text = "Watching",
+                                text = stringResource(R.string.settings_watching),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color(0xFF22D3EE)
                             )
@@ -1211,7 +1229,7 @@ private fun WhoWatchingUserCard(
 
                         else -> {
                             Text(
-                                text = "Tap to switch",
+                                text = stringResource(R.string.settings_tap_to_switch),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White.copy(alpha = 0.58f)
                             )
@@ -1232,7 +1250,7 @@ private fun WhoWatchingUserCard(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Delete,
-                        contentDescription = "Remove user",
+                        contentDescription = stringResource(R.string.settings_remove_user),
                         tint = Color(0xFFFF6B6B),
                         modifier = Modifier.size(20.dp)
                     )
@@ -1253,10 +1271,14 @@ private fun RemoveServerConfirmDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Remove Saved Account") },
+        title = { Text(stringResource(R.string.settings_remove_saved_account)) },
         text = {
             Text(
-                text = "Remove ${server.username} on ${server.serverName}?",
+                text = stringResource(
+                    R.string.settings_remove_saved_account_message,
+                    server.username,
+                    server.serverName
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.85f)
             )
@@ -1273,7 +1295,7 @@ private fun RemoveServerConfirmDialog(
                         color = Color(0xFFFF6B6B)
                     )
                 } else {
-                    Text("Remove", color = Color(0xFFFF6B6B))
+                    Text(stringResource(R.string.settings_remove), color = Color(0xFFFF6B6B))
                 }
             }
         },
@@ -1282,7 +1304,7 @@ private fun RemoveServerConfirmDialog(
                 enabled = !isRemoving,
                 onClick = onDismiss
             ) {
-                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
             }
         }
     )
@@ -1306,7 +1328,7 @@ private fun TimeoutValueDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text(field.title) },
+        title = { Text(stringResource(field.titleRes)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -1314,7 +1336,7 @@ private fun TimeoutValueDialog(
                     onValueChange = { input ->
                         textValue = input.filter { it.isDigit() }.take(6)
                     },
-                    label = { Text("Milliseconds") },
+                    label = { Text(stringResource(R.string.settings_milliseconds)) },
                     singleLine = true,
                     isError = hasValidationError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -1332,13 +1354,17 @@ private fun TimeoutValueDialog(
                     )
                 )
                 Text(
-                    text = "Allowed range: ${NetworkPreferences.MIN_TIMEOUT_MS}-${NetworkPreferences.MAX_TIMEOUT_MS} ms",
+                    text = stringResource(
+                        R.string.settings_allowed_range_ms,
+                        NetworkPreferences.MIN_TIMEOUT_MS,
+                        NetworkPreferences.MAX_TIMEOUT_MS
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.7f)
                 )
                 if (hasValidationError) {
                     Text(
-                        text = "Enter a valid value in milliseconds.",
+                        text = stringResource(R.string.settings_enter_valid_milliseconds),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFFFF6B6B)
                     )
@@ -1350,18 +1376,18 @@ private fun TimeoutValueDialog(
                 enabled = isValid,
                 onClick = { parsedValue?.let(onSave) }
             ) {
-                Text("Apply", color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_apply), color = Color(0xFF22D3EE))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
             }
         }
     )
 }
 
-private fun getSupportedCodecsSummary(): String {
+private fun getSupportedCodecsSummary(context: Context): String {
     return try {
         val mediaCodecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
         val videoCodecs = mutableSetOf<String>()
@@ -1375,9 +1401,9 @@ private fun getSupportedCodecsSummary(): String {
             }
         }
 
-        if (videoCodecs.isEmpty()) "Unavailable" else videoCodecs.sorted().joinToString(", ")
+        if (videoCodecs.isEmpty()) context.getString(R.string.settings_unavailable) else videoCodecs.sorted().joinToString(", ")
     } catch (_: Exception) {
-        "Unavailable"
+        context.getString(R.string.settings_unavailable)
     }
 }
 

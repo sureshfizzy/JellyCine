@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.res.stringResource
+import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.LazyImageLoader
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
@@ -43,7 +45,7 @@ fun SuggestionsStoriesView(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "No suggestions available",
+                text = stringResource(R.string.suggestions_empty),
                 color = Color.Gray,
                 fontSize = 16.sp
             )
@@ -74,7 +76,7 @@ fun SuggestionsStoriesView(
 
         LazyImageLoader(
             imageUrl = backgroundImageUrl,
-            contentDescription = "Background",
+            contentDescription = stringResource(R.string.cd_backdrop),
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
             cornerRadius = 0
@@ -131,9 +133,9 @@ fun SuggestionsStoriesView(
         }
 
         val typeText = when (currentItem.type) {
-            "Movie" -> "Movie"
-            "Series" -> "TV Series"
-            else -> currentItem.type ?: "Media"
+            "Movie" -> stringResource(R.string.suggestions_type_movie)
+            "Series" -> stringResource(R.string.suggestions_type_tv_series)
+            else -> currentItem.type ?: stringResource(R.string.suggestions_type_media)
         }
 
         val yearText = currentItem.productionYear
@@ -356,7 +358,7 @@ private fun SuggestionsCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
+                            contentDescription = stringResource(R.string.play),
                             tint = Color.Black,
                             modifier = Modifier.size(24.dp)
                         )

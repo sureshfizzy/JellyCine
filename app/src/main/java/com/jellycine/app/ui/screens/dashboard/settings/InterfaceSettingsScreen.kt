@@ -38,9 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jellycine.app.R
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 
@@ -67,12 +69,18 @@ fun InterfaceSettingsScreen(
         containerColor = Color.Black,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Interface", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_interface),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.cd_back_button),
                             tint = Color.White
                         )
                     }
@@ -98,8 +106,8 @@ fun InterfaceSettingsScreen(
                 InterfaceSection {
                     InterfaceSwitchItem(
                         icon = Icons.Rounded.ViewCarousel,
-                        title = "Feature Carousel",
-                        subtitle = "Show featured content carousel on the Home screen.",
+                        title = stringResource(R.string.interface_feature_carousel),
+                        subtitle = stringResource(R.string.interface_feature_carousel_subtitle),
                         checked = featureCarouselEnabled,
                         onCheckedChange = preferences::setFeatureCarouselEnabled,
                         accentColor = Color(0xFF8B5CF6)
@@ -111,8 +119,8 @@ fun InterfaceSettingsScreen(
                         )
                         InterfaceSwitchItem(
                             icon = Icons.Rounded.AutoFixHigh,
-                            title = "Emby Poster Overlays",
-                            subtitle = "Disable emby poster overlays.",
+                            title = stringResource(R.string.interface_emby_poster_overlays),
+                            subtitle = stringResource(R.string.interface_emby_poster_overlays_subtitle),
                             checked = posterEnhancersEnabled,
                             onCheckedChange = preferences::setPosterEnhancersEnabled,
                             accentColor = Color(0xFF10B981)

@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
 import coil3.request.*
 import kotlinx.coroutines.flow.first
@@ -27,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.R
 import com.jellycine.app.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -78,14 +81,14 @@ fun MyMedia(
                             error = null
                         },
                         onFailure = { throwable ->
-                            error = throwable.message ?: "Failed to load libraries"
+                            error = throwable.message ?: context.getString(R.string.my_media_load_error)
                             isLoading = false
                         }
                     )
                 }
             }
         } catch (e: Exception) {
-            error = e.message ?: "Unknown error occurred"
+            error = e.message ?: context.getString(R.string.my_media_unknown_error)
             isLoading = false
         } finally {
             refreshing = false
@@ -139,7 +142,7 @@ fun MyMedia(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
                 ) {
                     Text(
-                        text = "My Media",
+                        text = stringResource(R.string.my_media),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -147,7 +150,11 @@ fun MyMedia(
                     
                     if (libraryViews.isNotEmpty()) {
                         Text(
-                            text = "${libraryViews.size} ${if (libraryViews.size == 1) "library" else "libraries"} available",
+                            text = pluralStringResource(
+                                R.plurals.my_media_libraries_available,
+                                libraryViews.size,
+                                libraryViews.size
+                            ),
                             color = Color.White.copy(alpha = 0.6f),
                             fontSize = 14.sp,
                             modifier = Modifier.padding(top = 4.dp)
@@ -196,7 +203,7 @@ fun MyMedia(
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
                                 Text(
-                                    text = "Unable to load libraries",
+                                    text = stringResource(R.string.my_media_load_error),
                                     color = Color.White,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -204,7 +211,7 @@ fun MyMedia(
                                 )
                                 
                                 Text(
-                                    text = error ?: "Something went wrong",
+                                    text = error ?: stringResource(R.string.my_media_unknown_error),
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center,
@@ -226,7 +233,7 @@ fun MyMedia(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        "Try Again",
+                                        stringResource(R.string.try_again),
                                         color = Color.White,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -254,14 +261,14 @@ fun MyMedia(
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
                                 Text(
-                                    text = "No libraries found",
+                                    text = stringResource(R.string.my_media_empty_title),
                                     color = Color.White,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 
                                 Text(
-                                    text = "Set up your media libraries in Jellyfin",
+                                    text = stringResource(R.string.my_media_empty_message),
                                     color = Color.White.copy(alpha = 0.6f),
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center,
@@ -296,7 +303,11 @@ fun MyMedia(
                                             "tvshows" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SERIES
                                             else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
                                         }
-                                        onLibraryClick(contentType, library.id, library.name ?: "Library")
+                                        onLibraryClick(
+                                            contentType,
+                                            library.id,
+                                            library.name ?: context.getString(R.string.my_media_library_fallback)
+                                        )
                                     }
                                 )
                             }
@@ -377,9 +388,9 @@ private fun VisualLibraryCard(
             }
         }
 
-        val libraryName = library.name ?: "Library"
+        val libraryName = library.name ?: stringResource(R.string.my_media_library_fallback)
         val subtitle = if (itemCount > 0) {
-            "$itemCount ${if (itemCount == 1) "item" else "items"}"
+            pluralStringResource(R.plurals.my_media_items_count, itemCount, itemCount)
         } else {
             getLibraryTypeText(library.collectionType)
         }
@@ -517,11 +528,12 @@ private fun getLibraryIcon(collectionType: String?): ImageVector {
     }
 }
 
+@Composable
 private fun getLibraryTypeText(collectionType: String?): String {
     return when (collectionType) {
-        "movies" -> "Movies"
-        "tvshows" -> "TV Shows"
-        else -> "Library"
+        "movies" -> stringResource(R.string.movies)
+        "tvshows" -> stringResource(R.string.tv_shows)
+        else -> stringResource(R.string.my_media_library_type_library)
     }
 }
 

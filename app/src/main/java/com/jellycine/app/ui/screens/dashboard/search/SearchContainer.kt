@@ -47,9 +47,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
+import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.LazyImageLoader
 import com.jellycine.app.util.image.disableEmbyPosterEnhancers
 import com.jellycine.app.util.image.rememberImageUrl
@@ -236,7 +238,7 @@ fun SearchContainer(
             }
         } else {
             ImmersiveSection(
-                title = "Suggestions",
+                title = stringResource(R.string.suggestions),
                 movies = uiState.suggestions,
                 isLoading = uiState.SuggestionsLoading,
                 onItemClick = onNavigateToDetail,
@@ -291,7 +293,7 @@ private fun SearchBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
+                    contentDescription = stringResource(R.string.search),
                     tint = Color.Gray,
                     modifier = Modifier.size(20.dp)
                 )
@@ -323,7 +325,7 @@ private fun SearchBar(
                     
                     if (query.isEmpty()) {
                         Text(
-                            text = "Search...",
+                            text = stringResource(R.string.search_hint),
                             color = Color.Gray,
                             fontSize = 16.sp
                         )
@@ -337,7 +339,7 @@ private fun SearchBar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(R.string.clear_search),
                             tint = Color.Gray,
                             modifier = Modifier.size(18.dp)
                         )
@@ -355,7 +357,7 @@ private fun SearchBar(
             )
         ) {
             Text(
-                text = "Cancel",
+                text = stringResource(R.string.cancel),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )

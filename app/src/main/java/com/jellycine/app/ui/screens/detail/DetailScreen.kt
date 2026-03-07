@@ -28,13 +28,14 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import com.jellycine.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
+import com.jellycine.app.R
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
@@ -1776,16 +1777,17 @@ private fun SimilarItemsSection(
     mediaRepository: MediaRepository,
     onItemClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "More Like This"
+    title: String? = null
 ) {
     if (similarItems.isEmpty()) return
+    val sectionTitle = title ?: stringResource(R.string.detail_similar_items_title)
 
     Column(
         modifier = modifier.padding(top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = title,
+            text = sectionTitle,
             fontSize = 21.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White
@@ -1879,7 +1881,7 @@ private fun SimilarItemCard(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = item.name ?: "Unknown",
+            text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
             fontSize = 12.sp,
             color = Color.White,
             maxLines = 1,

@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import kotlin.math.sqrt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.tween
@@ -88,6 +89,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
+import com.jellycine.app.R
 import com.jellycine.data.network.NetworkModule
 
 private fun DashboardEnterTransition(): EnterTransition {
@@ -100,37 +102,37 @@ private fun DashboardExitTransition(): ExitTransition {
 
 sealed class DashboardDestination(
     val route: String,
-    val title: String,
+    val titleRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector
 ) {
     object Home : DashboardDestination(
         "dashboard_home",
-        "Home",
+        R.string.home,
         Icons.Filled.Home,
         Icons.Outlined.Home
     )
     object MyMedia : DashboardDestination(
         "my_media",
-        "My Media",
+        R.string.my_media,
         Icons.Filled.PlayArrow,
         Icons.Outlined.PlayArrow
     )
     object Search : DashboardDestination(
         "search",
-        "Search",
+        R.string.search,
         Icons.Filled.Search,
         Icons.Outlined.Search
     )
     object Favorites : DashboardDestination(
         "favorites",
-        "Favorites",
+        R.string.favorites,
         Icons.Filled.Favorite,
         Icons.Outlined.FavoriteBorder
     )
     object Settings : DashboardDestination(
         "settings",
-        "Settings",
+        R.string.settings,
         Icons.Filled.Settings,
         Icons.Outlined.Settings
     )
@@ -770,7 +772,7 @@ private fun FloatingSearchButton(
     ) {
         Icon(
             imageVector = if (isSelected) Icons.Filled.Search else Icons.Outlined.Search,
-            contentDescription = "Search",
+            contentDescription = stringResource(R.string.search),
             tint = Color.Black,
             modifier = Modifier.size(24.dp)
         )
@@ -828,7 +830,7 @@ private fun NavigationItem(
             ) {
                 Icon(
                     imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                    contentDescription = destination.title,
+                    contentDescription = stringResource(destination.titleRes),
                     tint = iconTint,
                     modifier = Modifier.size(24.dp)
                 )
@@ -836,7 +838,7 @@ private fun NavigationItem(
         }
 
         Text(
-            text = destination.title,
+            text = stringResource(destination.titleRes),
             color = textTint,
             fontSize = 9.sp,
             fontWeight = FontWeight.Medium,

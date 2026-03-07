@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
+import android.content.res.Resources
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,6 +52,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
+import com.jellycine.app.R
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.util.image.rememberImageUrl
@@ -72,6 +76,7 @@ fun DownloadsScreen(
     onBackPressed: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val resources = context.resources
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloads by downloadRepository.observeTrackedDownloads().collectAsState()
@@ -93,9 +98,10 @@ fun DownloadsScreen(
                     .thenBy { it.title.lowercase(Locale.getDefault()) }
             )
     }
-    val seriesGroups = remember(visibleDownloads) {
+    val seriesGroups = remember(visibleDownloads, resources) {
         buildSeriesGroups(
-            visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Episode", ignoreCase = true) }
+            visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Episode", ignoreCase = true) },
+            resources
         )
     }
 
@@ -127,7 +133,7 @@ fun DownloadsScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(selectedSeries?.title ?: "Downloads") },
+                title = { Text(selectedSeries?.title ?: stringResource(R.string.downloads)) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (selectedSeries != null) {
@@ -138,7 +144,7 @@ fun DownloadsScreen(
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_back_button)
                         )
                     }
                 }
@@ -230,7 +236,7 @@ private fun EmptyDownloadsState(innerPadding: PaddingValues) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "No downloads available",
+                text = stringResource(R.string.downloads_empty),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
@@ -259,7 +265,7 @@ private fun DownloadsRootContent(
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
     ) {
         if (seriesGroups.isNotEmpty()) {
-            item { SectionLabel("TV") }
+            item { SectionLabel(stringResource(R.string.tv_shows)) }
             items(seriesGroups, key = { "series_${it.id}" }) { group ->
                 SeriesSummaryRow(
                     group = group,
@@ -270,7 +276,7 @@ private fun DownloadsRootContent(
         }
 
         if (movieEntries.isNotEmpty()) {
-            item { SectionLabel("Movies") }
+            item { SectionLabel(stringResource(R.string.movies)) }
             items(movieEntries, key = { "movie_${it.itemId}" }) { entry ->
                 MovieRow(
                     entry = entry,
@@ -303,6 +309,7 @@ private fun SeriesSummaryRow(
     mediaRepository: MediaRepository,
     onClick: () -> Unit
 ) {
+    val resources = LocalContext.current.resources
     val primaryImageUrl = rememberImageUrl(
         itemId = group.posterItemId,
         imageType = "Primary",
@@ -358,11 +365,19 @@ private fun SeriesSummaryRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${group.totalEpisodes} Episodes | ${formatBytes(group.totalSizeBytes)}",
+                text = stringResource(
+                    R.string.downloads_series_meta,
+                    resources.getQuantityString(
+                        R.plurals.downloads_episodes_count,
+                        group.totalEpisodes,
+                        group.totalEpisodes
+                    ),
+                    formatBytes(group.totalSizeBytes)
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
-            val progressLabel = groupProgressLabel(group)
+            val progressLabel = groupProgressLabel(group, resources)
             if (!progressLabel.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -394,6 +409,7 @@ private fun MovieRow(
     onPauseAction: () -> Unit,
     onCancelAction: () -> Unit
 ) {
+    val resources = LocalContext.current.resources
     val posterId = entry.item?.id ?: entry.itemId
     val primaryImageUrl = rememberImageUrl(
         itemId = posterId,
@@ -415,9 +431,15 @@ private fun MovieRow(
     )
     val imageUrl = primaryImageUrl ?: backdropImageUrl
     val canPlay = entry.isOfflineAvailable
-    val statusLabel = downloadStatusLabel(entry)
+    val statusLabel = downloadStatusLabel(entry, resources)
     val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
-    val metaText = "${entry.item?.productionYear ?: entry.year ?: ""} | ${formatBytes(entry.displayBytes())}"
+    val yearText = (entry.item?.productionYear ?: entry.year)?.toString().orEmpty()
+    val sizeText = formatBytes(entry.displayBytes())
+    val metaText = if (yearText.isBlank()) {
+        sizeText
+    } else {
+        stringResource(R.string.downloads_series_meta, yearText, sizeText)
+    }
 
     Row(
         modifier = Modifier
@@ -491,6 +513,7 @@ private fun SeriesDetailContent(
     onPause: (TrackedDownload) -> Unit,
     onCancel: (TrackedDownload) -> Unit
 ) {
+    val resources = LocalContext.current.resources
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -533,6 +556,7 @@ private fun EpisodeRow(
     onPauseAction: () -> Unit,
     onCancelAction: () -> Unit
 ) {
+    val resources = LocalContext.current.resources
     val item = entry.item
     val primaryImageUrl = rememberImageUrl(
         itemId = item?.id ?: entry.itemId,
@@ -566,7 +590,7 @@ private fun EpisodeRow(
     val runtime = item?.runTimeTicks?.let { ticksToMinutes(it) } ?: "-"
     val size = formatBytes(entry.displayBytes())
     val canPlay = entry.isOfflineAvailable
-    val statusLabel = downloadStatusLabel(entry)
+    val statusLabel = downloadStatusLabel(entry, resources)
     val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
 
     Row(
@@ -595,7 +619,7 @@ private fun EpisodeRow(
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "$episodeNumber. ${entry.title}",
+                text = stringResource(R.string.downloads_episode_title, episodeNumber, entry.title),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
@@ -604,7 +628,7 @@ private fun EpisodeRow(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "$runtime | $size",
+                text = stringResource(R.string.downloads_series_meta, runtime, size),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -686,7 +710,7 @@ private fun DownloadRowAction(
                         }
                         Icon(
                             imageVector = Icons.Rounded.Stop,
-                            contentDescription = "Download options",
+                            contentDescription = stringResource(R.string.downloads_action_options),
                             tint = Color.White.copy(alpha = 0.92f),
                             modifier = Modifier.size(11.dp)
                         )
@@ -706,7 +730,7 @@ private fun DownloadRowAction(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Stop,
-                            contentDescription = "Queue options",
+                            contentDescription = stringResource(R.string.downloads_queue_options),
                             tint = Color.White.copy(alpha = 0.92f),
                             modifier = Modifier.size(11.dp)
                         )
@@ -716,7 +740,7 @@ private fun DownloadRowAction(
                 else -> {
                     Icon(
                         imageVector = Icons.Rounded.DeleteOutline,
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.delete),
                         tint = Color.White.copy(alpha = 0.88f)
                     )
                 }
@@ -730,7 +754,7 @@ private fun DownloadRowAction(
         ) {
             if (entry.state.status == DownloadStatus.DOWNLOADING) {
                 DropdownMenuItem(
-                    text = { Text("Pause", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    text = { Text(stringResource(R.string.downloads_action_pause), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     onClick = {
                         menuExpanded = false
@@ -739,7 +763,7 @@ private fun DownloadRowAction(
                 )
             } else if (isPaused) {
                 DropdownMenuItem(
-                    text = { Text("Resume", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    text = { Text(stringResource(R.string.resume), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     onClick = {
                         menuExpanded = false
@@ -748,7 +772,7 @@ private fun DownloadRowAction(
                 )
             }
             DropdownMenuItem(
-                text = { Text("Cancel download", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                text = { Text(stringResource(R.string.downloads_action_cancel), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 onClick = {
                     menuExpanded = false
@@ -774,7 +798,7 @@ private data class OfflineSeasonGroup(
     val episodes: List<TrackedDownload>
 )
 
-private fun buildSeriesGroups(entries: List<TrackedDownload>): List<OfflineSeriesGroup> {
+private fun buildSeriesGroups(entries: List<TrackedDownload>, resources: Resources): List<OfflineSeriesGroup> {
     return entries
         .groupBy { entry ->
             val item = entry.item
@@ -784,7 +808,7 @@ private fun buildSeriesGroups(entries: List<TrackedDownload>): List<OfflineSerie
             val firstItem = episodes.firstNotNullOfOrNull { it.item }
             val seriesTitle = firstItem?.seriesName?.takeIf { it.isNotBlank() }
                 ?: episodes.firstOrNull()?.title
-                ?: "Series"
+                ?: resources.getString(R.string.downloads_series_fallback)
             val posterItemId = firstItem?.seriesId ?: firstItem?.id ?: seriesId
 
             val seasons = episodes
@@ -794,13 +818,17 @@ private fun buildSeriesGroups(entries: List<TrackedDownload>): List<OfflineSerie
                 }
                 .map { (_, seasonEpisodes) ->
                     val first = seasonEpisodes.firstOrNull()?.item
+                    val seasonId = first?.seasonId ?: first?.parentIndexNumber?.toString() ?: "unknown"
                     val label = when {
                         !first?.seasonName.isNullOrBlank() -> first.seasonName.orEmpty()
-                        first?.parentIndexNumber != null -> "Season ${first.parentIndexNumber}"
-                        else -> "Season"
+                        first?.parentIndexNumber != null -> resources.getString(
+                            R.string.downloads_season_number,
+                            first.parentIndexNumber
+                        )
+                        else -> resources.getString(R.string.downloads_season_fallback)
                     }
                     OfflineSeasonGroup(
-                        id = first?.seasonId ?: label,
+                        id = seasonId,
                         label = label,
                         episodes = seasonEpisodes.sortedBy { it.item?.indexNumber ?: Int.MAX_VALUE }
                     )
@@ -866,28 +894,35 @@ private fun isPausedState(entry: TrackedDownload): Boolean {
         entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true
 }
 
-private fun downloadStatusLabel(entry: TrackedDownload): String? {
+private fun downloadStatusLabel(entry: TrackedDownload, resources: Resources): String? {
     return when (entry.state.status) {
         DownloadStatus.DOWNLOADING -> {
             val size = if (entry.state.totalBytes > 0L) {
-                " | ${formatProgressBytes(entry.state.downloadedBytes)} / ${formatProgressBytes(entry.state.totalBytes)}"
+                resources.getString(
+                    R.string.downloads_progress_with_total,
+                    formatProgressBytes(entry.state.downloadedBytes),
+                    formatProgressBytes(entry.state.totalBytes)
+                )
             } else if (entry.state.downloadedBytes > 0L) {
-                " | ${formatProgressBytes(entry.state.downloadedBytes)}"
+                resources.getString(
+                    R.string.downloads_progress_downloaded_only,
+                    formatProgressBytes(entry.state.downloadedBytes)
+                )
             } else {
                 ""
             }
             if (entry.state.totalBytes > 0L) {
                 val percent = (downloadProgress(entry) * 100f).toInt()
-                "Downloading $percent%$size"
+                resources.getString(R.string.downloads_status_downloading_percent, percent, size)
             } else {
-                "Downloading$size"
+                resources.getString(R.string.downloads_status_downloading, size)
             }
         }
         DownloadStatus.QUEUED -> {
             if (entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true) {
-                "Paused"
+                resources.getString(R.string.downloads_status_paused)
             } else {
-                "Queued"
+                resources.getString(R.string.downloads_status_queued)
             }
         }
         else -> null
@@ -907,7 +942,7 @@ private fun formatProgressBytes(bytes: Long): String {
     return if (bytes <= 0L) "0 B" else formatBytes(bytes)
 }
 
-private fun groupProgressLabel(group: OfflineSeriesGroup): String? {
+private fun groupProgressLabel(group: OfflineSeriesGroup, resources: Resources): String? {
     val episodes = group.seasons.flatMap { it.episodes }
     val totalEpisodes = episodes.size
     val completedEpisodes = episodes.count { it.isOfflineAvailable }
@@ -919,13 +954,16 @@ private fun groupProgressLabel(group: OfflineSeriesGroup): String? {
 
     return when {
         downloadingEpisodes > 0 ->
-            "Downloading ${completedEpisodes + downloadingEpisodes} of $totalEpisodes"
+            resources.getString(
+                R.string.downloads_group_downloading,
+                completedEpisodes + downloadingEpisodes,
+                totalEpisodes
+            )
         queuedEpisodes > 0 ->
-            "Queued $queuedEpisodes episode" + if (queuedEpisodes > 1) "s" else ""
+            resources.getQuantityString(R.plurals.downloads_group_queued, queuedEpisodes, queuedEpisodes)
         pausedEpisodes > 0 ->
-            "Paused $pausedEpisodes episode" + if (pausedEpisodes > 1) "s" else ""
+            resources.getQuantityString(R.plurals.downloads_group_paused, pausedEpisodes, pausedEpisodes)
         else -> null
     }
 }
-
 

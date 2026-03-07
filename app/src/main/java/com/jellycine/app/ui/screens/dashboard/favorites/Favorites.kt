@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.*
+import com.jellycine.app.R
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -88,7 +91,7 @@ fun Favorites(
             },
             onFailure = { throwable ->
                 favorites = emptyList()
-                error = throwable.message ?: "Failed to load favorites"
+                error = throwable.message ?: context.getString(R.string.favorites_load_failed)
                 isLoading = false
             }
         )
@@ -111,7 +114,7 @@ fun Favorites(
             ) {
                 Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)) {
                     Text(
-                        text = "Favorites",
+                        text = stringResource(R.string.favorites),
                         color = Color.White,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
@@ -142,14 +145,14 @@ fun Favorites(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Unable to load favorites",
+                                text = stringResource(R.string.favorites_load_failed),
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = error ?: "Unknown error",
+                                text = error ?: stringResource(R.string.favorites_unknown_error),
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 14.sp,
                                 textAlign = TextAlign.Center,
@@ -160,7 +163,7 @@ fun Favorites(
                                 modifier = Modifier.padding(top = 20.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0080FF))
                             ) {
-                                Text(text = "Try Again", color = Color.White)
+                                Text(text = stringResource(R.string.try_again), color = Color.White)
                             }
                         }
                     }
@@ -183,13 +186,13 @@ fun Favorites(
                             )
                             Spacer(modifier = Modifier.height(14.dp))
                             Text(
-                                text = "No favorites yet",
+                                text = stringResource(R.string.favorites_empty_title),
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Add movies, shows, or episodes from detail pages.",
+                                text = stringResource(R.string.favorites_empty_message),
                                 color = Color.White.copy(alpha = 0.65f),
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center,
@@ -209,14 +212,14 @@ fun Favorites(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "No movie, show, or episode favorites found",
+                                text = stringResource(R.string.favorites_no_supported_types_title),
                                 color = Color.White,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "Favorites exist, but they are different media types.",
+                                text = stringResource(R.string.favorites_no_supported_types_message),
                                 color = Color.White.copy(alpha = 0.65f),
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center,
@@ -235,7 +238,7 @@ fun Favorites(
                         if (movies.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Movies",
+                                    title = stringResource(R.string.movies),
                                     items = movies,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -246,7 +249,7 @@ fun Favorites(
                         if (shows.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Shows",
+                                    title = stringResource(R.string.search_results_shows),
                                     items = shows,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -257,7 +260,7 @@ fun Favorites(
                         if (episodes.isNotEmpty()) {
                             item {
                                 FavoriteTierSection(
-                                    title = "Episodes",
+                                    title = stringResource(R.string.search_results_episodes),
                                     items = episodes,
                                     mediaRepository = mediaRepository,
                                     onItemClick = onItemClick
@@ -348,13 +351,13 @@ private fun FavoriteItemCard(
     }
 
     val title = when (item.type) {
-        "Series" -> item.name?.takeIf { it.isNotBlank() } ?: "Show"
+        "Series" -> item.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.favorites_show_fallback)
         "Episode" -> {
-            val episodeCode = episodeCode(item)
+            val episodeCode = episodeCode(item, stringResource(R.string.favorites_episode_code_fallback))
             val episodeName = item.name?.takeIf { it.isNotBlank() }
             episodeName ?: episodeCode
         }
-        else -> item.name ?: "Unknown"
+        else -> item.name ?: stringResource(R.string.search_result_unknown_title)
     }
 
     val subtitle = when (item.type) {
@@ -364,18 +367,22 @@ private fun FavoriteItemCard(
                 if (isNotEmpty()) append(" - ")
                 append(runtime)
             }
-        }.ifBlank { "Movie" }
+        }.ifBlank { stringResource(R.string.suggestions_type_movie) }
         "Series" -> buildString {
             item.productionYear?.let { append(it) }
             val episodeCount = item.episodeCount ?: item.recursiveItemCount ?: item.childCount
             if (episodeCount != null && episodeCount > 0) {
                 if (isNotEmpty()) append(" - ")
-                append("$episodeCount eps")
+                append(pluralStringResource(R.plurals.favorites_episode_count_short, episodeCount, episodeCount))
             }
-        }.ifBlank { "Show" }
+        }.ifBlank { stringResource(R.string.favorites_show_fallback) }
         "Episode" -> {
-            val show = item.seriesName?.takeIf { it.isNotBlank() } ?: "Series"
-            "$show - ${episodeCode(item)}"
+            val show = item.seriesName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.favorites_series_fallback)
+            stringResource(
+                R.string.favorites_episode_subtitle,
+                show,
+                episodeCode(item, stringResource(R.string.favorites_episode_code_fallback))
+            )
         }
         else -> item.name ?: ""
     }
@@ -529,13 +536,13 @@ private fun TierSkeleton(sectionIndex: Int) {
     }
 }
 
-private fun episodeCode(item: BaseItemDto): String {
+private fun episodeCode(item: BaseItemDto, fallbackLabel: String): String {
     val season = item.parentIndexNumber
     val episode = item.indexNumber
     return if (season != null && episode != null) {
         "S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}"
     } else {
-        "Episode"
+        fallbackLabel
     }
 }
 

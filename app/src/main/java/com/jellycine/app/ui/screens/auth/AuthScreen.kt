@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -230,7 +231,10 @@ private fun AnimatedBrandHero(
     ) {
         Image(
             painter = painterResource(id = R.drawable.jellycine_logo),
-            contentDescription = "JellyCine Logo",
+            contentDescription = stringResource(
+                R.string.feature_logo_content_description,
+                stringResource(R.string.app_name)
+            ),
             modifier = Modifier
                 .size(132.dp)
                 .graphicsLayer {
@@ -275,8 +279,8 @@ private fun ServerConnectionContent(
         verticalArrangement = Arrangement.Center
     ) {
         AnimatedBrandHero(
-            title = "Connect Your Server",
-            subtitle = "Set your Jellyfin or Emby URL to start streaming.",
+            title = stringResource(R.string.auth_connect_title),
+            subtitle = stringResource(R.string.auth_connect_subtitle),
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
@@ -314,8 +318,8 @@ private fun LoginContent(
         verticalArrangement = Arrangement.Center
     ) {
         AnimatedBrandHero(
-            title = serverName ?: "Welcome Back",
-            subtitle = if (serverUrl.isNotBlank()) serverUrl else "Sign in to continue",
+            title = serverName ?: stringResource(R.string.auth_welcome_back),
+            subtitle = if (serverUrl.isNotBlank()) serverUrl else stringResource(R.string.auth_sign_in_subtitle),
             modifier = Modifier.padding(bottom = 20.dp)
         )
 
@@ -357,7 +361,7 @@ private fun ConnectionForm(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Connection Settings",
+                text = stringResource(R.string.auth_connection_settings),
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
@@ -366,10 +370,10 @@ private fun ConnectionForm(
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = onServerUrlChange,
-                label = { Text("Server URL") },
+                label = { Text(stringResource(R.string.server_url)) },
                 placeholder = {
                     Text(
-                        "http://192.168.1.100:8096",
+                        stringResource(R.string.auth_server_url_placeholder),
                         color = Color.White.copy(alpha = 0.6f)
                     )
                 },
@@ -432,7 +436,7 @@ private fun ConnectionForm(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Connect to Server")
+                    Text(stringResource(R.string.auth_connect_to_server))
                 }
             }
         }
@@ -471,7 +475,7 @@ private fun LoginForm(
             OutlinedTextField(
                 value = username,
                 onValueChange = onUsernameChange,
-                label = { Text("Username") },
+                label = { Text(stringResource(R.string.username)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Person,
@@ -509,7 +513,7 @@ private fun LoginForm(
             OutlinedTextField(
                 value = password,
                 onValueChange = onPasswordChange,
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.password)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Lock,
@@ -530,9 +534,9 @@ private fun LoginForm(
                                 Icons.Rounded.Visibility
                             },
                             contentDescription = if (isPasswordVisible) {
-                                "Hide password"
+                                stringResource(R.string.auth_hide_password)
                             } else {
-                                "Show password"
+                                stringResource(R.string.auth_show_password)
                             }
                         )
                     }
@@ -598,7 +602,7 @@ private fun LoginForm(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Sign In")
+                    Text(stringResource(R.string.auth_sign_in))
                 }
             }
 
@@ -620,9 +624,13 @@ private fun LoginForm(
                             )
                         } else {
                             Text(
-                                text = quickConnectCode?.let { "Code: $it" }
-                                    ?: if (isQuickConnectLoading) "Generating code..."
-                                    else "Quick Connect",
+                                text = quickConnectCode?.let {
+                                    stringResource(R.string.auth_quick_connect_code, it)
+                                } ?: if (isQuickConnectLoading) {
+                                    stringResource(R.string.auth_generating_code)
+                                } else {
+                                    stringResource(R.string.auth_quick_connect)
+                                },
                                 color = Color.White
                             )
                         }
@@ -630,7 +638,7 @@ private fun LoginForm(
 
                     if (quickConnectCode != null) {
                         Text(
-                            text = "Approve this code in your server Quick Connect page.",
+                            text = stringResource(R.string.auth_quick_connect_approval_hint),
                             color = Color.White.copy(alpha = 0.75f),
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,

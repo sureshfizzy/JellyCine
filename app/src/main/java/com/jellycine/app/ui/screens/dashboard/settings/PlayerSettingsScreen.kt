@@ -66,10 +66,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jellycine.app.R
 import com.jellycine.player.audio.ExternalAudioDevice
 import com.jellycine.player.preferences.PlayerPreferences
 
@@ -89,7 +91,10 @@ fun PlayerSettingsScreen(
 
     Scaffold(
         topBar = {
-            topbar(title = "Player Settings", onBackPressed = onBackPressed)
+            topbar(
+                title = stringResource(R.string.player_settings_title),
+                onBackPressed = onBackPressed
+            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -100,13 +105,13 @@ fun PlayerSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            item { SectionLabel("Decoding") }
+            item { SectionLabel(stringResource(R.string.player_settings_section_decoding)) }
             item {
                 SettingsSection {
                     SwitchSettingsItem(
                         icon = Icons.Rounded.Speed,
-                        title = "Hardware Acceleration",
-                        subtitle = "Use GPU for video acceleration (recommended)",
+                        title = stringResource(R.string.player_settings_hardware_acceleration),
+                        subtitle = stringResource(R.string.player_settings_hardware_acceleration_summary),
                         checked = uiState.hardwareDecodingEnabled,
                         onCheckedChange = viewModel::setHardwareDecodingEnabled,
                         accentColor = decodingColor
@@ -116,8 +121,8 @@ fun PlayerSettingsScreen(
                         SettingsDivider()
                         SwitchSettingsItem(
                             icon = Icons.Rounded.Tune,
-                            title = "Asynchronous MediaCodec",
-                            subtitle = "Enhanced performance for high-resolution content",
+                            title = stringResource(R.string.player_settings_async_mediacodec),
+                            subtitle = stringResource(R.string.player_settings_async_mediacodec_summary),
                             checked = uiState.asyncMediaCodecEnabled,
                             onCheckedChange = viewModel::setAsyncMediaCodecEnabled,
                             enabled = uiState.hardwareDecodingEnabled,
@@ -127,13 +132,13 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            item { SectionLabel("Subtitiles") }
+            item { SectionLabel(stringResource(R.string.player_settings_section_subtitles)) }
             item {
                 SettingsSection {
                     ClickableSettingsItem(
                         icon = Icons.Rounded.VideoSettings,
-                        title = "Subtitles",
-                        subtitle = "Text style and subtitle position",
+                        title = stringResource(R.string.player_settings_subtitles),
+                        subtitle = stringResource(R.string.player_settings_subtitles_summary),
                         onClick = onNavigateToSubtitleSettings,
                         accentColor = Color(0xFF6366F1)
                     )
@@ -141,13 +146,13 @@ fun PlayerSettingsScreen(
             }
 
             if (uiState.isVideoTranscodingAllowed || uiState.isAudioTranscodingAllowed) {
-                item { SectionLabel("Transcoding") }
+                item { SectionLabel(stringResource(R.string.player_settings_section_transcoding)) }
                 item {
                     SettingsSection {
                         if (uiState.isVideoTranscodingAllowed) {
                             DropdownSettingsItem(
                                 icon = Icons.Rounded.HighQuality,
-                                title = "Streaming Quality",
+                                title = stringResource(R.string.player_settings_streaming_quality),
                                 subtitle = uiState.streamingQuality,
                                 options = PlayerPreferences.STREAMING_QUALITY_OPTIONS,
                                 onOptionSelected = viewModel::setStreamingQuality,
@@ -162,7 +167,7 @@ fun PlayerSettingsScreen(
                         if (uiState.isAudioTranscodingAllowed) {
                             DropdownSettingsItem(
                                 icon = Icons.Rounded.AudioFile,
-                                title = "Audio Quality",
+                                title = stringResource(R.string.player_settings_audio_quality),
                                 subtitle = uiState.audioTranscodeMode,
                                 options = PlayerPreferences.AUDIO_TRANSCODE_MODE_OPTIONS,
                                 onOptionSelected = viewModel::setAudioTranscodeMode,
@@ -173,14 +178,15 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            item { SectionLabel("Video") }
+            item { SectionLabel(stringResource(R.string.player_settings_section_video)) }
             item {
                 SettingsSection {
                     DropdownSettingsItem(
                         icon = Icons.Rounded.VideoSettings,
-                        title = "Video Decoder Priority",
-                        subtitle = uiState.decoderPriority,
+                        title = stringResource(R.string.player_settings_decoder_priority),
+                        subtitle = decoderPriorityLabel(uiState.decoderPriority),
                         options = listOf("Hardware First", "Software First", "Auto"),
+                        optionLabel = ::decoderPriorityLabel,
                         onOptionSelected = viewModel::setDecoderPriority,
                         accentColor = videoColor
                     )
@@ -188,8 +194,8 @@ fun PlayerSettingsScreen(
                     SettingsDivider()
                     SwitchSettingsItem(
                         icon = Icons.Rounded.Fullscreen,
-                        title = "Start Maximized",
-                        subtitle = "Start video in fullscreen mode",
+                        title = stringResource(R.string.player_settings_start_maximized),
+                        subtitle = stringResource(R.string.player_settings_start_maximized_summary),
                         checked = uiState.startMaximized,
                         onCheckedChange = viewModel::setStartMaximized,
                         accentColor = videoColor
@@ -197,13 +203,13 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            item { SectionLabel("Performance") }
+            item { SectionLabel(stringResource(R.string.player_settings_section_performance)) }
             item {
                 SettingsSection {
                     SwitchSettingsItem(
                         icon = Icons.Rounded.BatteryStd,
-                        title = "Battery Optimization",
-                        subtitle = "Reduce power and network load during playback",
+                        title = stringResource(R.string.player_settings_battery_optimization),
+                        subtitle = stringResource(R.string.player_settings_battery_optimization_summary),
                         checked = uiState.batteryOptimizationEnabled,
                         onCheckedChange = viewModel::setBatteryOptimizationEnabled,
                         accentColor = performanceColor
@@ -212,7 +218,7 @@ fun PlayerSettingsScreen(
             }
 
             if (uiState.externalAudioDevices.isNotEmpty()) {
-                item { SectionLabel("External Audio") }
+                item { SectionLabel(stringResource(R.string.player_settings_section_external_audio)) }
                 item {
                     SettingsSection {
                         uiState.externalAudioDevices.forEach { device ->
@@ -249,7 +255,7 @@ fun SubtitleSettingsScreen(
 
     Scaffold(
         topBar = {
-            topbar(title = "Subtitles", onBackPressed = onBackPressed)
+            topbar(title = stringResource(R.string.subtitle_settings_title), onBackPressed = onBackPressed)
         }
     ) { paddingValues ->
         LazyColumn(
@@ -260,12 +266,12 @@ fun SubtitleSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            item { SectionLabel("Style") }
+            item { SectionLabel(stringResource(R.string.subtitle_settings_section_style)) }
             item {
                 SettingsSection {
                     DropdownSettingsItem(
                         icon = Icons.Rounded.Tune,
-                        title = "Text Size",
+                        title = stringResource(R.string.subtitle_settings_text_size),
                         subtitle = textSize,
                         options = PlayerPreferences.SUBTITLE_TEXT_SIZE_OPTIONS,
                         onOptionSelected = { selected ->
@@ -278,7 +284,7 @@ fun SubtitleSettingsScreen(
                     SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.SortByAlpha,
-                        title = "Text Color",
+                        title = stringResource(R.string.subtitle_settings_text_color),
                         subtitle = textColor,
                         options = PlayerPreferences.SUBTITLE_TEXT_COLOR_OPTIONS,
                         onOptionSelected = { selected ->
@@ -291,7 +297,7 @@ fun SubtitleSettingsScreen(
                     SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.Brush,
-                        title = "Background Color",
+                        title = stringResource(R.string.subtitle_settings_background_color),
                         subtitle = backgroundColor,
                         options = PlayerPreferences.SUBTITLE_BACKGROUND_OPTIONS,
                         onOptionSelected = { selected ->
@@ -304,7 +310,7 @@ fun SubtitleSettingsScreen(
                     SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.Tune,
-                        title = "Edge Type",
+                        title = stringResource(R.string.subtitle_settings_edge_type),
                         subtitle = edgeType,
                         options = PlayerPreferences.SUBTITLE_EDGE_TYPE_OPTIONS,
                         onOptionSelected = { selected ->
@@ -317,8 +323,8 @@ fun SubtitleSettingsScreen(
                     SettingsDivider()
                     PercentageSliderSettingsItem(
                         icon = Icons.Rounded.SortByAlpha,
-                        title = "Text Opacity",
-                        subtitle = "Subtitle text visibility",
+                        title = stringResource(R.string.subtitle_settings_text_opacity),
+                        subtitle = stringResource(R.string.subtitle_settings_text_opacity_summary),
                         value = textOpacityPercent,
                         defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT,
                         minValue = 0,
@@ -332,13 +338,13 @@ fun SubtitleSettingsScreen(
                 }
             }
 
-            item { SectionLabel("Position") }
+            item { SectionLabel(stringResource(R.string.subtitle_settings_section_position)) }
             item {
                 SettingsSection {
                     PercentageSliderSettingsItem(
                         icon = Icons.Rounded.Fullscreen,
-                        title = "Bottom Edge Position",
-                        subtitle = "Distance from bottom edge",
+                        title = stringResource(R.string.subtitle_settings_bottom_edge_position),
+                        subtitle = stringResource(R.string.subtitle_settings_bottom_edge_position_summary),
                         value = bottomEdgePercent,
                         defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT,
                         onValueChanged = { updated ->
@@ -351,8 +357,8 @@ fun SubtitleSettingsScreen(
                     SettingsDivider()
                     PercentageSliderSettingsItem(
                         icon = Icons.Rounded.Fullscreen,
-                        title = "Top Edge Position",
-                        subtitle = "Distance from top edge",
+                        title = stringResource(R.string.subtitle_settings_top_edge_position),
+                        subtitle = stringResource(R.string.subtitle_settings_top_edge_position_summary),
                         value = topEdgePercent,
                         defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_TOP_EDGE_PERCENT,
                         onValueChanged = { updated ->
@@ -379,7 +385,7 @@ private fun topbar(
             IconButton(onClick = onBackPressed) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = stringResource(R.string.cd_back_button)
                 )
             }
         },
@@ -500,6 +506,7 @@ private fun DropdownSettingsItem(
     title: String,
     subtitle: String,
     options: List<String>,
+    optionLabel: @Composable (String) -> String = { it },
     onOptionSelected: (String) -> Unit,
     enabled: Boolean = true,
     accentColor: Color = MaterialTheme.colorScheme.primary
@@ -528,7 +535,7 @@ private fun DropdownSettingsItem(
                 ) {
                     options.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text(option) },
+                            text = { Text(optionLabel(option)) },
                             onClick = {
                                 onOptionSelected(option)
                                 expanded = false
@@ -676,7 +683,7 @@ private fun PercentageSliderSettingsItem(
             }
 
             Text(
-                text = "${safeValue}%",
+                text = stringResource(R.string.player_settings_percent_value, safeValue),
                 style = MaterialTheme.typography.titleSmall,
                 color = accentColor
             )
@@ -720,13 +727,13 @@ private fun PercentageSliderSettingsItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${valueRange.first}%",
+                text = stringResource(R.string.player_settings_percent_value, valueRange.first),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "Default ${defaultValue}%",
+                text = stringResource(R.string.player_settings_default_percent, defaultValue),
                 style = MaterialTheme.typography.labelMedium,
                 color = accentColor,
                 modifier = Modifier.clickable {
@@ -735,7 +742,7 @@ private fun PercentageSliderSettingsItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "${valueRange.last}%",
+                text = stringResource(R.string.player_settings_percent_value, valueRange.last),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
@@ -747,6 +754,13 @@ private fun PercentageSliderSettingsItem(
 private fun ExternalAudioDeviceItem(
     device: ExternalAudioDevice
 ) {
+    val deviceTypeLabel = when (device.type) {
+        "Bluetooth" -> stringResource(R.string.player_settings_device_type_bluetooth)
+        "USB" -> stringResource(R.string.player_settings_device_type_usb)
+        "HDMI" -> stringResource(R.string.player_settings_device_type_hdmi)
+        "Wired" -> stringResource(R.string.player_settings_device_type_wired)
+        else -> device.type
+    }
     val deviceAccent = when (device.type) {
         "Bluetooth" -> Color(0xFF3B82F6)
         "USB" -> Color(0xFFF59E0B)
@@ -765,7 +779,16 @@ private fun ExternalAudioDeviceItem(
                 else -> Icons.Rounded.AudioFile
             },
             title = device.name,
-            subtitle = "${device.type} - ${device.maxChannels} channels${if (device.supportsHighRes) " - Hi-Res" else ""}",
+            subtitle = stringResource(
+                R.string.player_settings_external_audio_summary,
+                deviceTypeLabel,
+                device.maxChannels,
+                if (device.supportsHighRes) {
+                    stringResource(R.string.player_settings_external_audio_hi_res_suffix)
+                } else {
+                    ""
+                }
+            ),
             enabled = false,
             accentColor = deviceAccent
         )
@@ -784,7 +807,10 @@ private fun ExternalAudioDeviceItem(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "Codecs: ${device.supportedCodecs.joinToString(", ")}",
+                    text = stringResource(
+                        R.string.player_settings_supported_codecs,
+                        device.supportedCodecs.joinToString(", ")
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.weight(1f)
@@ -806,7 +832,15 @@ private fun ExternalAudioDeviceItem(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "Sample Rates: ${device.sampleRates.take(5).joinToString(", ")} Hz${if (device.sampleRates.size > 5) "..." else ""}",
+                    text = stringResource(
+                        R.string.player_settings_sample_rates,
+                        device.sampleRates.take(5).joinToString(", "),
+                        if (device.sampleRates.size > 5) {
+                            stringResource(R.string.player_settings_sample_rates_more_suffix)
+                        } else {
+                            ""
+                        }
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                     modifier = Modifier.weight(1f)
@@ -822,4 +856,13 @@ private fun ExternalAudioDeviceItem(
 @Composable
 fun PlayerSettingsScreenPreview() {
     PlayerSettingsScreen()
+}
+
+@Composable
+private fun decoderPriorityLabel(value: String): String {
+    return when (value) {
+        "Hardware First" -> stringResource(R.string.player_settings_decoder_priority_hardware_first)
+        "Software First" -> stringResource(R.string.player_settings_decoder_priority_software_first)
+        else -> stringResource(R.string.settings_auto)
+    }
 }

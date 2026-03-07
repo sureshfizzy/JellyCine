@@ -14,10 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.LazyImageLoader
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.repository.getYearAndGenre
@@ -38,7 +40,7 @@ fun SearchResultsView(
         if (uiState.movieResults.isNotEmpty()) {
             item {
                 Text(
-                    text = "Movies",
+                    text = stringResource(R.string.movies),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -65,7 +67,7 @@ fun SearchResultsView(
         if (uiState.showResults.isNotEmpty()) {
             item {
                 Text(
-                    text = "Shows",
+                    text = stringResource(R.string.search_results_shows),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -92,7 +94,7 @@ fun SearchResultsView(
         if (uiState.episodeResults.isNotEmpty()) {
             item {
                 Text(
-                    text = "Episodes",
+                    text = stringResource(R.string.search_results_episodes),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -146,7 +148,7 @@ private fun SearchResultCard(
         
         // Title
         Text(
-            text = item.name ?: "Unknown Title",
+            text = item.name ?: stringResource(R.string.search_result_unknown_title),
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
@@ -209,7 +211,7 @@ private fun EpisodeResultCard(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = item.name ?: "Unknown Episode",
+                text = item.name ?: stringResource(R.string.search_result_unknown_episode),
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -280,7 +282,7 @@ fun LiveSearchResults(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = result.name ?: "Unknown Title",
+                        text = result.name ?: stringResource(R.string.search_result_unknown_title),
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,

@@ -33,12 +33,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
+import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.util.image.rememberImageUrl
@@ -162,7 +164,7 @@ private fun PersonScreen(
                 }
             } else if (hasError) {
                 Text(
-                    text = "Unable to load this person right now.",
+                    text = stringResource(R.string.detail_person_load_failed),
                     color = Color.White.copy(alpha = 0.84f),
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 18.dp)
@@ -174,7 +176,7 @@ private fun PersonScreen(
             item {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp)) {
                     Text(
-                        text = "About",
+                        text = stringResource(R.string.detail_person_about),
                         color = Color.White,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
@@ -207,7 +209,7 @@ private fun PersonScreen(
         if (!isLoading && movies.isEmpty() && shows.isEmpty() && episodes.isEmpty() && !hasError) {
             item {
                 Text(
-                    text = "No related titles available.",
+                    text = stringResource(R.string.detail_person_no_related_titles),
                     color = Color.White.copy(alpha = 0.75f),
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 18.dp)
@@ -256,7 +258,11 @@ private fun ExpandableOverviewText(
                 modifier = Modifier.padding(top = 6.dp)
             ) {
                 Text(
-                    text = if (expanded) "Read less" else "Read more",
+                    text = if (expanded) {
+                        stringResource(R.string.detail_person_read_less)
+                    } else {
+                        stringResource(R.string.detail_person_read_more)
+                    },
                     color = Color(0xFF89ECFF),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
@@ -366,7 +372,11 @@ private fun PersonHero(
                     .padding(bottom = 6.dp)
             ) {
                 Text(
-                    text = person?.name ?: if (isLoading) "Loading..." else "Unknown Person",
+                    text = person?.name ?: if (isLoading) {
+                        stringResource(R.string.detail_person_loading)
+                    } else {
+                        stringResource(R.string.detail_person_unknown)
+                    },
                     color = Color.White,
                     fontSize = 29.sp,
                     lineHeight = 33.sp,
@@ -382,7 +392,7 @@ private fun PersonHero(
                     color = Color(0xFF22D3EE).copy(alpha = 0.23f)
                 ) {
                     Text(
-                        text = "Cast & Crew",
+                        text = stringResource(R.string.detail_cast_and_crew),
                         color = Color(0xFF89ECFF),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,

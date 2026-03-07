@@ -42,16 +42,19 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.annotation.StringRes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jellycine.app.R
 import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -63,7 +66,7 @@ import kotlinx.coroutines.launch
 fun ViewAllScreen(
     contentType: ContentType,
     parentId: String? = null,
-    title: String = "View All",
+    title: String = "",
     genreId: String? = null,
     onItemClick: (BaseItemDto) -> Unit,
     viewModel: ViewAllViewModel = hiltViewModel()
@@ -76,6 +79,7 @@ fun ViewAllScreen(
     
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    val resolvedTitle = title.takeIf { it.isNotBlank() } ?: stringResource(R.string.view_all_title)
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
@@ -112,7 +116,7 @@ fun ViewAllScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = title,
+                            text = resolvedTitle,
                             color = Color.White,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -121,7 +125,7 @@ fun ViewAllScreen(
                         )
                         if (uiState.totalItems > 0) {
                             Text(
-                                text = "${items.size} of ${uiState.totalItems} items",
+                                text = stringResource(R.string.view_all_count, items.size, uiState.totalItems),
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(top = 2.dp)
@@ -159,13 +163,13 @@ fun ViewAllScreen(
                                 modifier = Modifier.padding(32.dp)
                             ) {
                                 Text(
-                                    text = "Something went wrong",
+                                    text = stringResource(R.string.view_all_error_title),
                                     color = Color.White,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = uiState.error ?: "Unable to load content",
+                                    text = uiState.error ?: stringResource(R.string.view_all_error_message),
                                     color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 14.sp,
                                     textAlign = TextAlign.Center,
@@ -180,7 +184,7 @@ fun ViewAllScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text(
-                                        "Try Again", 
+                                        stringResource(R.string.try_again),
                                         color = Color.White,
                                         fontWeight = FontWeight.Medium
                                     )
@@ -198,13 +202,13 @@ fun ViewAllScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "No content found",
+                                    text = stringResource(R.string.view_all_empty_title),
                                     color = Color.White,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "Try adjusting your filters",
+                                    text = stringResource(R.string.view_all_empty_message),
                                     color = Color.White.copy(alpha = 0.6f),
                                     fontSize = 14.sp,
                                     modifier = Modifier.padding(top = 4.dp)
@@ -339,7 +343,7 @@ private fun RecentlyAddedCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = item.name?.take(2)?.uppercase() ?: "?",
+                    text = item.name?.take(2)?.uppercase() ?: stringResource(R.string.view_all_unknown_initial),
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -361,7 +365,7 @@ private fun RecentlyAddedCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = item.name ?: "Unknown",
+                    text = item.name ?: stringResource(R.string.search_result_unknown_title),
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -415,7 +419,7 @@ private fun PosterCard(
     val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
         item.seriesName!!
     } else {
-        item.name ?: "Unknown"
+        item.name ?: stringResource(R.string.search_result_unknown_title)
     }
 
     Column(
@@ -613,7 +617,7 @@ private fun SortFAB(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Sort,
-            contentDescription = "Sort",
+            contentDescription = stringResource(R.string.view_all_sort),
             modifier = Modifier.size(24.dp)
         )
     }
@@ -683,7 +687,7 @@ private fun SortBottomSheet(
                     Spacer(modifier = Modifier.width(16.dp))
                     
                     Text(
-                        text = "Sort Options",
+                        text = stringResource(R.string.view_all_sort_options),
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
@@ -691,13 +695,13 @@ private fun SortBottomSheet(
                 }
 
                 val sortOptions = listOf(
-                    SortOption("Recently Added", "DateCreated", "Descending", "🕒"),
-                    SortOption("Name (A-Z)", "SortName", "Ascending", "🔤"),
-                    SortOption("Name (Z-A)", "SortName", "Descending", "🔤"),
-                    SortOption("Year (Newest)", "ProductionYear", "Descending", "📅"),
-                    SortOption("Year (Oldest)", "ProductionYear", "Ascending", "📅"),
-                    SortOption("Rating (High)", "CommunityRating", "Descending", "⭐"),
-                    SortOption("Rating (Low)", "CommunityRating", "Ascending", "⭐")
+                    SortOption("DateCreated", "Descending", "🕒"),
+                    SortOption("SortName", "Ascending", "🔤"),
+                    SortOption("SortName", "Descending", "🔤"),
+                    SortOption("ProductionYear", "Descending", "📅"),
+                    SortOption("ProductionYear", "Ascending", "📅"),
+                    SortOption("CommunityRating", "Descending", "⭐"),
+                    SortOption("CommunityRating", "Ascending", "⭐")
                 )
 
                 sortOptions.forEachIndexed { index, option ->
@@ -726,7 +730,7 @@ private fun SortBottomSheet(
                             
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = option.label,
+                                    text = stringResource(sortOptionLabelRes(option.sortBy, option.sortOrder)),
                                     color = if (isSelected) Color(0xFF0080FF) else Color.White,
                                     fontSize = 16.sp,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
@@ -734,7 +738,7 @@ private fun SortBottomSheet(
                                 
                                 if (isSelected) {
                                     Text(
-                                        text = "Currently active",
+                                        text = stringResource(R.string.view_all_sort_currently_active),
                                         color = Color(0xFF0080FF).copy(alpha = 0.7f),
                                         fontSize = 12.sp,
                                         modifier = Modifier.padding(top = 2.dp)
@@ -752,7 +756,7 @@ private fun SortBottomSheet(
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Filled.Check,
-                                            contentDescription = "Selected",
+                                            contentDescription = stringResource(R.string.view_all_selected),
                                             tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
@@ -781,9 +785,22 @@ private fun SortBottomSheet(
 }
 
 private data class SortOption(
-    val label: String,
     val sortBy: String,
     val sortOrder: String,
     val emoji: String
 )
+
+@StringRes
+private fun sortOptionLabelRes(sortBy: String, sortOrder: String): Int {
+    return when (sortBy to sortOrder) {
+        "DateCreated" to "Descending" -> R.string.view_all_sort_recently_added
+        "SortName" to "Ascending" -> R.string.view_all_sort_name_az
+        "SortName" to "Descending" -> R.string.view_all_sort_name_za
+        "ProductionYear" to "Descending" -> R.string.view_all_sort_year_newest
+        "ProductionYear" to "Ascending" -> R.string.view_all_sort_year_oldest
+        "CommunityRating" to "Descending" -> R.string.view_all_sort_rating_high
+        "CommunityRating" to "Ascending" -> R.string.view_all_sort_rating_low
+        else -> R.string.view_all_sort_recently_added
+    }
+}
 

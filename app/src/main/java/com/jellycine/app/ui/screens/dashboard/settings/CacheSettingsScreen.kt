@@ -46,11 +46,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jellycine.app.R
 import com.jellycine.data.preferences.NetworkPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,12 +69,18 @@ fun CacheSettingsScreen(
         containerColor = Color.Black,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Cache", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_cache),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.cd_back_button),
                             tint = Color.White
                         )
                     }
@@ -96,7 +104,7 @@ fun CacheSettingsScreen(
         ) {
             item {
                 Text(
-                    text = "Controls cached images and cache size.",
+                    text = stringResource(R.string.settings_cache_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.72f),
                     modifier = Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp)
@@ -107,8 +115,8 @@ fun CacheSettingsScreen(
                 CacheSection {
                     CacheSwitchItem(
                         icon = Icons.Rounded.Image,
-                        title = "Cache Image",
-                        subtitle = "Keep images cached for faster loading and smoother scrolling.",
+                        title = stringResource(R.string.cache_settings_cache_images),
+                        subtitle = stringResource(R.string.cache_settings_cache_images_summary),
                         checked = uiState.imageCachingEnabled,
                         onCheckedChange = viewModel::setImageCachingEnabled,
                         accentColor = Color(0xFF22D3EE)
@@ -116,11 +124,11 @@ fun CacheSettingsScreen(
                     CacheDivider()
                     CacheActionItem(
                         icon = Icons.Rounded.SdCard,
-                        title = "Cache Size",
+                        title = stringResource(R.string.cache_settings_cache_size),
                         subtitle = if (uiState.imageMemoryCacheMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
-                            "Auto"
+                            stringResource(R.string.settings_auto)
                         } else {
-                            "${uiState.imageMemoryCacheMb} MB"
+                            stringResource(R.string.cache_settings_cache_size_value_mb, uiState.imageMemoryCacheMb)
                         },
                         enabled = uiState.imageCachingEnabled,
                         onClick = { showCacheSizeDialog = true },
@@ -282,7 +290,7 @@ private fun CacheSizeValueDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text("Cache Size (MB)") },
+        title = { Text(stringResource(R.string.cache_settings_cache_size_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -290,7 +298,7 @@ private fun CacheSizeValueDialog(
                     onValueChange = { input ->
                         textValue = input.filter { it.isDigit() }.take(4)
                     },
-                    label = { Text("Megabytes (blank = Auto)") },
+                    label = { Text(stringResource(R.string.cache_settings_cache_size_input_label)) },
                     singleLine = true,
                     isError = hasValidationError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -308,12 +316,16 @@ private fun CacheSizeValueDialog(
                     )
                 )
                 Text(
-                    text = "Allowed range: ${NetworkPreferences.MIN_IMAGE_MEMORY_CACHE_MB}-${NetworkPreferences.MAX_IMAGE_MEMORY_CACHE_MB} MB",
+                    text = stringResource(
+                        R.string.cache_settings_allowed_range_mb,
+                        NetworkPreferences.MIN_IMAGE_MEMORY_CACHE_MB,
+                        NetworkPreferences.MAX_IMAGE_MEMORY_CACHE_MB
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.7f)
                 )
                 Text(
-                    text = "Enter 0 or leave blank for Auto.",
+                    text = stringResource(R.string.cache_settings_auto_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.7f)
                 )
@@ -321,12 +333,12 @@ private fun CacheSizeValueDialog(
         },
         confirmButton = {
             TextButton(enabled = isValid, onClick = { onSave(valueToPersist) }) {
-                Text("Apply", color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_apply), color = Color(0xFF22D3EE))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
             }
         }
     )
