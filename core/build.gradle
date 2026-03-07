@@ -49,7 +49,7 @@ dependencies {
     implementation 'androidx.media3:media3-common:1.9.2'
 
     // Hilt for dependency injection
-    implementation 'com.google.dagger:hilt-android:2.59.1'
+    implementation 'com.google.dagger:hilt-android:2.59.2'
 
     // Data module dependency
     implementation project(':data')
