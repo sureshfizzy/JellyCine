@@ -300,6 +300,8 @@
     <string name="settings_unknown_user">Unknown User</string>
     <string name="settings_unknown_server">Unknown Server</string>
     <string name="settings_preferences">Preferences</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_subtitle">Open system app language settings</string>
     <string name="settings_interface">Interface</string>
     <string name="settings_visual_options">Visual Options</string>
     <string name="settings_wifi_only_downloads">Wi-Fi Only Downloads</string>

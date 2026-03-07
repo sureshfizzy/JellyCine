@@ -3,13 +3,13 @@ package com.jellycine.app.ui.screens.dashboard.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
+import com.jellycine.app.preferences.Preferences
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -56,12 +56,12 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             authRepository.savedServer()
         }
-        loadDownloadPreferences()
+        loadPreferences()
         loadNetworkPreferences()
         loadUserData()
     }
 
-    private fun loadDownloadPreferences() {
+    private fun loadPreferences() {
         _uiState.value = _uiState.value.copy(
             wifiOnlyDownloads = preferences.isWifiOnlyDownloadsEnabled()
         )

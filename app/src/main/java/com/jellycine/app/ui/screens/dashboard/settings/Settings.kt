@@ -1,8 +1,11 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
-import android.media.MediaCodecList
 import android.os.Build
 import android.content.Context
+import android.content.Intent
+import android.media.MediaCodecList
+import android.net.Uri
+import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -116,6 +119,7 @@ fun Settings(
 
             item {
                 QuickActionsRow(
+                    onOpenLanguageSettings = { openAppLanguageSettings(context) },
                     onNavigateToPlayerSettings = onNavigateToPlayerSettings
                 )
             }
@@ -529,16 +533,28 @@ private fun UserProfileSection(
 
 @Composable
 private fun QuickActionsRow(
+    onOpenLanguageSettings: () -> Unit,
     onNavigateToPlayerSettings: () -> Unit
 ) {
-    ActionTile(
-        modifier = Modifier.fillMaxWidth(),
-        icon = Icons.Rounded.PlayArrow,
-        title = stringResource(R.string.player_settings_title),
-        subtitle = stringResource(R.string.settings_player_settings_subtitle),
-        accentColor = Color(0xFF3B82F6),
-        onClick = onNavigateToPlayerSettings
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ActionTile(
+            modifier = Modifier.fillMaxWidth(),
+            icon = Icons.Rounded.Translate,
+            title = stringResource(R.string.settings_language),
+            subtitle = stringResource(R.string.settings_language_subtitle),
+            accentColor = Color(0xFF14B8A6),
+            onClick = onOpenLanguageSettings
+        )
+
+        ActionTile(
+            modifier = Modifier.fillMaxWidth(),
+            icon = Icons.Rounded.PlayArrow,
+            title = stringResource(R.string.player_settings_title),
+            subtitle = stringResource(R.string.settings_player_settings_subtitle),
+            accentColor = Color(0xFF3B82F6),
+            onClick = onNavigateToPlayerSettings
+        )
+    }
 }
 
 @Composable
@@ -604,6 +620,25 @@ private fun SectionLabel(title: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 4.dp)
     )
+}
+
+private fun openAppLanguageSettings(context: Context) {
+    val appLanguageIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Intent(AndroidSettings.ACTION_APP_LOCALE_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        }
+    } else {
+        Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
+    }
+
+    val fallbackIntent = Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
+    val intentToLaunch = when {
+        appLanguageIntent.resolveActivity(context.packageManager) != null -> appLanguageIntent
+        fallbackIntent.resolveActivity(context.packageManager) != null -> fallbackIntent
+        else -> return
+    }
+
+    context.startActivity(intentToLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 @Composable

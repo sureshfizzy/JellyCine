@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.activity
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +22,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
+import com.jellycine.app.locale.AppLanguageManager
 import com.jellycine.app.ui.theme.JellyCineTheme
 import com.jellycine.app.ui.navigation.AppNavigation
 import com.jellycine.app.ui.splash.SplashScreen
@@ -42,10 +44,15 @@ class JellyCineActivity : ComponentActivity() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguageManager.wrapContext(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
 
         super.onCreate(savedInstanceState)
+        AppLanguageManager.applySavedLanguage(this)
         requestNotificationPermission()
 
         val authStateManager = AuthStateManager.getInstance(this)
