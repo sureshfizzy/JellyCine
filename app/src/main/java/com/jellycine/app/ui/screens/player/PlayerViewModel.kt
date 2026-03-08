@@ -33,6 +33,7 @@ import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.detail.CodecCapabilityManager
+import com.jellycine.app.download.DownloadRepository
 import com.jellycine.app.download.DownloadRepositoryProvider
 import java.io.File
 
@@ -71,6 +72,7 @@ class PlayerViewModel @Inject constructor(
     private var videoTranscodingAllowed: Boolean? = null
     private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
+    private var downloadRepository: DownloadRepository? = null
 
     fun initializePlayer(
         context: Context,
@@ -121,10 +123,21 @@ class PlayerViewModel @Inject constructor(
                 playbackReporter.reset()
                 spatializerHelper = SpatializerHelper(context)
                 exoPlayer = PlayerUtils.createPlayer(context)
+                downloadRepository = DownloadRepositoryProvider.getInstance(context)
+                val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
+                val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
+                val offlineItemDetails = if (hasOfflineFile) {
+                    downloadRepository?.offlineItemMetadata(mediaId)
+                } else {
+                    null
+                }
 
                 // Get item details to check for resume position
-                val itemResult = mediaRepository.getItemById(mediaId)
-                val itemDetails = itemResult.getOrNull()
+                val itemDetails = if (hasOfflineFile) {
+                    offlineItemDetails ?: mediaRepository.getItemById(mediaId).getOrNull()
+                } else {
+                    mediaRepository.getItemById(mediaId).getOrNull()
+                }
                 val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
                 val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
                     resumePositionTicks / 10000L
@@ -169,9 +182,6 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
-                val downloadRepository = DownloadRepositoryProvider.getInstance(context)
-                val offlinePath = downloadRepository.getOfflineFilePath(mediaId)
-                val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
 
                 var primaryMediaSource: MediaSource? = null
                 var sessionPlaySessionId: String? = null
@@ -359,6 +369,7 @@ class PlayerViewModel @Inject constructor(
 
     fun pause() {
         exoPlayer?.pause()
+        persistPosition()
     }
 
     fun seekToProgress(progress: Float) {
@@ -412,9 +423,9 @@ class PlayerViewModel @Inject constructor(
     fun togglePlayPause() {
         exoPlayer?.let { player ->
             if (player.isPlaying) {
-                player.pause()
+                pause()
             } else {
-                player.play()
+                play()
             }
             playbackReporter.onPlaybackPauseStateChanged()
         }
@@ -434,6 +445,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun releasePlayer() {
+        persistPosition()
         playbackReporter.reportPlaybackStopped()
         exoPlayer?.apply {
             removeListener(playerListener)
@@ -449,6 +461,7 @@ class PlayerViewModel @Inject constructor(
         defaultAudioStreamIndex = null
         defaultSubtitleStreamIndex = null
         playerContext = null
+        downloadRepository = null
         hasHandledPlaybackCompletion = false
         audioDiagnosticsSignature = null
         _preferredStreamIndexes.value = PreferredStreamIndexes()
@@ -458,10 +471,22 @@ class PlayerViewModel @Inject constructor(
     private fun handlePlaybackCompleted() {
         if (hasHandledPlaybackCompletion) return
         hasHandledPlaybackCompletion = true
+        persistPosition(markCompleted = true)
         playbackReporter.reportPlaybackStopped()
         playbackSession.mediaId?.let { completedMediaId ->
             _playbackCompletedEvents.tryEmit(completedMediaId)
         }
+    }
+
+    private fun persistPosition(markCompleted: Boolean = false) {
+        val session = playbackSession
+        if (!session.isOfflinePlayback) return
+        val mediaId = session.mediaId ?: return
+        downloadRepository?.updatePlaybackPosition(
+            itemId = mediaId,
+            positionMs = getCurrentPosition(),
+            markCompleted = markCompleted
+        )
     }
 
     fun clearError() {

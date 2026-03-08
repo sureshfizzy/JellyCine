@@ -25,6 +25,7 @@ import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
+import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.auth.AuthStateManager
 import androidx.media3.common.util.UnstableApi
 
@@ -209,8 +210,31 @@ fun AppNavigation() {
                             }
                         }
                         navController.navigate(route)
+                    },
+                    onNavigateToPlayer = { itemId ->
+                        navController.navigate("player/$itemId")
                     }
                 )
+            }
+
+            composable(
+                "player/{itemId}",
+                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
+            ) { backStackEntry ->
+                val itemId = backStackEntry.arguments?.getString("itemId")
+
+                if (!itemId.isNullOrBlank()) {
+                    PlayerScreen(
+                        mediaId = itemId,
+                        onBackPressed = { navController.popBackStack() }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
             }
 
             composable(

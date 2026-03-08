@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.gson.Gson
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -170,6 +171,44 @@ class DownloadRepository(context: Context) {
             .firstOrNull { path -> File(path).exists() }
     }
 
+    fun offlineItemMetadata(itemId: String): BaseItemDto? {
+        return readMetadata(itemId)?.fullItemJson?.let(::parseItem)
+    }
+
+    fun updatePlaybackPosition(
+        itemId: String,
+        positionMs: Long,
+        markCompleted: Boolean = false
+    ) {
+        scope.launch {
+            val metadata = readMetadata(itemId) ?: return@launch
+            val item = parseItem(metadata.fullItemJson) ?: return@launch
+            val runtimeTicks = item.runTimeTicks?.takeIf { it > 0L }
+            val rawPositionTicks = positionMs.coerceAtLeast(0L) * 10_000L
+            val isNearStart = runtimeTicks?.let { rawPositionTicks <= it / 10L } == true
+            val isNearEnd = runtimeTicks?.let { rawPositionTicks >= (it * 9L) / 10L } == true
+            val played = markCompleted || isNearEnd
+            val playbackPositionTicks = if (played || isNearStart) 0L else rawPositionTicks
+            val playedPercentage = when {
+                runtimeTicks == null -> item.userData?.playedPercentage
+                played -> 100.0
+                playbackPositionTicks == 0L -> 0.0
+                else -> ((rawPositionTicks.toDouble() / runtimeTicks.toDouble()) * 100.0)
+                    .coerceIn(0.0, 100.0)
+            }
+            val updatedUserData = (item.userData ?: UserItemDataDto()).copy(
+                playbackPositionTicks = playbackPositionTicks,
+                playedPercentage = playedPercentage,
+                played = played
+            )
+            val updatedItem = item.copy(userData = updatedUserData)
+            persistMetadata(
+                metadata.copy(fullItemJson = serializeItem(updatedItem))
+            )
+            refreshTrackedDownloads()
+        }
+    }
+
     suspend fun deleteDownloadedItem(itemId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val metadata = readMetadata(itemId)
         val state = stateFlows[itemId]?.value
@@ -239,6 +278,8 @@ class DownloadRepository(context: Context) {
             return@withContext Result.failure(it)
         }
 
+        val metadataItem = downloadMetadataItem(item)
+
         val destination = existingMeta?.localPath
             ?.takeIf { it.isNotBlank() }
             ?.let(::File)
@@ -259,7 +300,7 @@ class DownloadRepository(context: Context) {
             totalBytes = existingTotalBytes
         )
 
-        val title = item.name?.takeIf { it.isNotBlank() }
+        val title = metadataItem.name?.takeIf { it.isNotBlank() }
             ?: requestData.displayName.takeIf { it.isNotBlank() }
             ?: "Item $itemId"
 
@@ -267,9 +308,9 @@ class DownloadRepository(context: Context) {
             PersistedDownloadMetadata(
                 itemId = itemId,
                 title = title,
-                subtitle = buildSubtitle(item),
-                mediaType = item.type,
-                year = item.productionYear,
+                subtitle = buildSubtitle(metadataItem),
+                mediaType = metadataItem.type,
+                year = metadataItem.productionYear,
                 requestedAt = existingMeta?.requestedAt ?: System.currentTimeMillis(),
                 localPath = destination.absolutePath,
                 status = DownloadStatus.QUEUED.name,
@@ -277,7 +318,7 @@ class DownloadRepository(context: Context) {
                 downloadedBytes = existingDownloadedBytes,
                 totalBytes = existingTotalBytes,
                 downloadId = downloadId,
-                fullItemJson = existingMeta?.fullItemJson ?: serializeItem(item)
+                fullItemJson = serializeItem(metadataItem)
             )
         )
 
@@ -303,7 +344,7 @@ class DownloadRepository(context: Context) {
         setFlowState(itemId, queuedState)
         enqueuePendingTransfer(
             QueuedDownloadRequest(
-                item = item,
+                item = metadataItem,
                 requestData = requestData,
                 destination = destination,
                 downloadId = downloadId
@@ -454,6 +495,11 @@ class DownloadRepository(context: Context) {
             ?.asSequence()
             ?.mapNotNull { mediaSource -> mediaSource.size?.takeIf { it > 0L } }
             ?.maxOrNull()
+    }
+
+    private suspend fun downloadMetadataItem(item: BaseItemDto): BaseItemDto {
+        val itemId = item.id ?: return item
+        return mediaRepository.getItemById(itemId).getOrNull() ?: item
     }
 
     private fun downloadedBytesForItem(itemId: String): Long {

@@ -33,7 +33,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.download.TrackedDownload
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.cast.CastController
@@ -47,6 +46,7 @@ import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -1091,6 +1091,7 @@ fun Dashboard(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
+    onNavigateToPlayer: (String) -> Unit = {},
     isTabActive: Boolean = true
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
@@ -1475,36 +1476,30 @@ fun Dashboard(
             }
         }
 
-        LazyColumn(
-            state = lazyColumnState,
-            modifier = Modifier
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(1.dp),
-            contentPadding = PaddingValues(bottom = 100.dp)
-        ) {
-            if (!isNetworkAvailable) {
-                if (trackedDownloads.any { it.isOfflineAvailable }) {
-                    item(key = "offline_downloads_section") {
-                        OfflineDownloadsSection(
-                            trackedDownloads = trackedDownloads,
-                            mediaRepository = mediaRepository,
-                            serverName = currentServerName,
-                            disablePosterEnhancers = disablePosterEnhancers,
-                            onItemClick = onNavigateToDetail
-                        )
-                    }
-                } else {
-                    item(key = "offline_empty_state") {
-                        Box(
-                            modifier = Modifier
-                                .fillParentMaxHeight()
-                                .fillMaxWidth()
-                        ) {
-                            OfflineState(serverName = currentServerName)
-                        }
-                    }
-                }
+        if (!isNetworkAvailable) {
+            if (trackedDownloads.any { it.isOfflineAvailable }) {
+                DownloadsScreen(
+                    onBackPressed = {},
+                    embedded = true,
+                    onPlayItem = onNavigateToPlayer
+                )
             } else {
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    OfflineState(serverName = currentServerName)
+                }
+            }
+        }
+
+        if (isNetworkAvailable) {
+            LazyColumn(
+                state = lazyColumnState,
+                modifier = Modifier
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
                 if (featureCarouselEnabled) {
                     item(key = "feature_tab") {
                         FeatureTab(
@@ -1914,128 +1909,6 @@ private fun OfflineState(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun OfflineDownloadsSection(
-    trackedDownloads: List<TrackedDownload>,
-    mediaRepository: MediaRepository,
-    serverName: String?,
-    disablePosterEnhancers: Boolean,
-    onItemClick: (BaseItemDto) -> Unit = {}
-) {
-    val offlineItems = remember(trackedDownloads) {
-        trackedDownloads.toOfflineBaseItems()
-    }
-    val categorizedItems = remember(offlineItems) {
-        listOf(
-            R.string.movies to offlineItems.filter { it.type.equals("Movie", ignoreCase = true) },
-            R.string.tv_shows to offlineItems.filter {
-                it.type.equals("Series", ignoreCase = true) ||
-                    it.type.equals("Episode", ignoreCase = true)
-            }
-        ).filter { (_, items) -> items.isNotEmpty() }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .padding(top = 12.dp)
-    ) {
-        BrandHeader(serverName = serverName)
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.dashboard_offline_downloads),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        Text(
-            text = stringResource(R.string.dashboard_offline_notice),
-            color = Color.White.copy(alpha = 0.68f),
-            fontSize = 13.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-        )
-
-        categorizedItems.forEach { (titleRes, items) ->
-            OfflineDownloadsCategoryRow(
-                title = stringResource(titleRes),
-                items = items,
-                mediaRepository = mediaRepository,
-                disablePosterEnhancers = disablePosterEnhancers,
-                onItemClick = onItemClick
-            )
-        }
-    }
-}
-
-private fun List<TrackedDownload>.toOfflineBaseItems(): List<BaseItemDto> {
-    return this
-        .asSequence()
-        .filter { it.isOfflineAvailable }
-        .sortedByDescending { it.completedAt ?: it.requestedAt }
-        .map { tracked ->
-            tracked.item?.copy(
-                id = tracked.item.id ?: tracked.itemId,
-                name = tracked.item.name ?: tracked.title,
-                type = tracked.item.type ?: tracked.mediaType,
-                productionYear = tracked.item.productionYear ?: tracked.year
-            ) ?: BaseItemDto(
-                id = tracked.itemId,
-                name = tracked.title,
-                type = tracked.mediaType,
-                productionYear = tracked.year
-            )
-        }
-        .distinctBy { it.id ?: "${it.name.orEmpty()}|${it.type.orEmpty()}|${it.productionYear ?: 0}" }
-        .toList()
-}
-
-@Composable
-private fun OfflineDownloadsCategoryRow(
-    title: String,
-    items: List<BaseItemDto>,
-    mediaRepository: MediaRepository,
-    disablePosterEnhancers: Boolean,
-    onItemClick: (BaseItemDto) -> Unit = {}
-) {
-    val lazyRowState = rememberLazyListState()
-    val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
-
-    Text(
-        text = title,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = Color.White,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    )
-
-    LazyRow(
-        state = lazyRowState,
-        horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
-        contentPadding = ScrollOptimization.optimizedContentPadding,
-        flingBehavior = flingBehavior,
-        modifier = ScrollOptimization.getScrollContainerModifier()
-    ) {
-        items(
-            items = items,
-            key = { item -> item.id ?: item.name ?: "offline_item" }
-        ) { item ->
-            LibraryItemCard(
-                item = item,
-                mediaRepository = mediaRepository,
-                disableImageEnhancers = disablePosterEnhancers,
-                useLandscapeLayout = true,
-                onClick = { onItemClick(item) }
-            )
         }
     }
 }

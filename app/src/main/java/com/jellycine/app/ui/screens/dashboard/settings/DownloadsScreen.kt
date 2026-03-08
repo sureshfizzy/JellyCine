@@ -73,7 +73,9 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(
-    onBackPressed: () -> Unit = {}
+    onBackPressed: () -> Unit = {},
+    embedded: Boolean = false,
+    onPlayItem: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val resources = context.resources
@@ -114,11 +116,11 @@ fun DownloadsScreen(
     }
 
     val activePlaybackId = playbackItemId
-    BackHandler {
+    BackHandler(enabled = !activePlaybackId.isNullOrBlank() || selectedSeries != null || !embedded) {
         when {
             !activePlaybackId.isNullOrBlank() -> playbackItemId = null
             selectedSeries != null -> selectedSeriesId = null
-            else -> onBackPressed()
+            !embedded -> onBackPressed()
         }
     }
 
@@ -130,22 +132,32 @@ fun DownloadsScreen(
         return
     }
 
+    val playDownloadedItem: (String) -> Unit = { itemId ->
+        if (onPlayItem != null) {
+            onPlayItem(itemId)
+        } else {
+            playbackItemId = itemId
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(selectedSeries?.title ?: stringResource(R.string.downloads)) },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        if (selectedSeries != null) {
-                            selectedSeriesId = null
-                        } else {
-                            onBackPressed()
+                    if (selectedSeries != null || !embedded) {
+                        IconButton(onClick = {
+                            if (selectedSeries != null) {
+                                selectedSeriesId = null
+                            } else {
+                                onBackPressed()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = stringResource(R.string.cd_back_button)
+                            )
                         }
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back_button)
-                        )
                     }
                 }
             )
@@ -170,7 +182,7 @@ fun DownloadsScreen(
                         }
                     },
                     onPlayEpisode = { entry ->
-                        playbackItemId = entry.item?.id ?: entry.itemId
+                        playDownloadedItem(entry.item?.id ?: entry.itemId)
                     },
                     onPause = { entry ->
                         if (isPausedState(entry)) {
@@ -201,7 +213,7 @@ fun DownloadsScreen(
                         }
                     },
                     onPlayMovie = { entry ->
-                        playbackItemId = entry.item?.id ?: entry.itemId
+                        playDownloadedItem(entry.item?.id ?: entry.itemId)
                     },
                     onPause = { entry ->
                         if (isPausedState(entry)) {
