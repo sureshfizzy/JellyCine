@@ -232,6 +232,7 @@ class DownloadRepository(context: Context) {
             .remove(downloadKey(itemId))
             .remove(metadataKey(itemId))
             .commit()
+        stateFlows[itemId]?.value = ItemDownloadState()
         stateFlows.remove(itemId)
         lastMetadataPersistAt.remove(itemId)
         lastTrackedRefreshAt.remove(itemId)
@@ -632,8 +633,9 @@ class DownloadRepository(context: Context) {
                     )
                     return@launch
                 }
-                if (
-                    pausedItems.contains(itemId) ||
+                if (pausedItems.contains(itemId)) {
+                    Paused(itemId, downloadId = downloadId, filePath = destination.absolutePath)
+                } else if (
                     e.message?.contains("Canceled", ignoreCase = true) == true ||
                     isRecoverableInterruption(e)
                 ) {

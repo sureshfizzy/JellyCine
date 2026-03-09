@@ -669,10 +669,17 @@ fun DetailContent(
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     }
     val canDownloadItem = item.id != null && item.canDownload != false
-    val itemDownloadStateFlow = remember(item.id) { item.id?.let { downloadRepository.observeItemDownload(it) } }
+    val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
+    val isPausedDownload = itemDownloadState.status == DownloadStatus.QUEUED &&
+        itemDownloadState.message?.trim()?.equals("Paused", ignoreCase = true) == true
+    val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
+        itemDownloadState.status == DownloadStatus.QUEUED
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
+    var downloadActionMenu by remember(item.id, itemDownloadState.status, itemDownloadState.message) {
+        mutableStateOf(false)
+    }
     var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
     var seriesStorageSelectionDialogState by remember(item.id) { mutableStateOf<SeriesSeasonSelectionDialogState?>(null) }
@@ -1424,108 +1431,163 @@ fun DetailContent(
                             }
                         }
 
-                        OutlinedButton(
-                            onClick = {
-                                if (canDownloadItem) {
-                                    coroutineScope.launch {
-                                        downloadRepository.enqueueItemDownload(item)
-                                            .onFailure { throwable ->
-                                                downloadErrorDialogMessage = downloadFailureDialogMessage(
-                                                    rawMessage = throwable.message
-                                                )
-                                            }
-                                    }
-                                }
-                            },
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color(0xFF1F1F24),
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                                .height(46.dp)
                         ) {
-                            val buttonState = when {
-                                !canDownloadItem -> "unavailable"
-                                itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
-                                itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
-                                itemDownloadState.status == DownloadStatus.QUEUED && itemDownloadState.message == "Paused" -> "paused"
-                                itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
-                                else -> "idle"
-                            }
-                            val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?, TextUnit) -> Unit =
-                                { icon, label, contentDescription, tint, textSize ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = contentDescription,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = tint ?: LocalContentColor.current
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = label,
-                                            fontSize = textSize,
-                                            fontWeight = FontWeight.Medium
-                                        )
+                            OutlinedButton(
+                                onClick = {
+                                    when {
+                                        !canDownloadItem -> Unit
+                                        hasActiveDownload -> downloadActionMenu = true
+                                        else -> {
+                                            coroutineScope.launch {
+                                                downloadRepository.enqueueItemDownload(item)
+                                                    .onFailure { throwable ->
+                                                        downloadErrorDialogMessage = downloadFailureDialogMessage(
+                                                            rawMessage = throwable.message
+                                                        )
+                                                    }
+                                            }
+                                        }
                                     }
-                                }
-                            AnimatedContent(
-                                targetState = buttonState,
-                                transitionSpec = {
-                                    fadeIn(animationSpec = tween(220)) togetherWith
-                                        fadeOut(animationSpec = tween(180))
                                 },
-                                label = "download_button_state"
-                            ) { state ->
-                                when (state) {
-                                    "downloading" -> {
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(24.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color(0xFF1F1F24),
+                                    contentColor = Color.White
+                                ),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                            ) {
+                                val buttonState = when {
+                                    !canDownloadItem -> "unavailable"
+                                    itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
+                                    itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
+                                    isPausedDownload -> "paused"
+                                    itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
+                                    else -> "idle"
+                                }
+                                val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?, TextUnit) -> Unit =
+                                    { icon, label, contentDescription, tint, textSize ->
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
                                         ) {
-                                            CircularProgressIndicator(
-                                                progress = { animatedDownloadProgress.coerceIn(0f, 0.99f) },
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = contentDescription,
                                                 modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                                color = Color(0xFF03A9F4)
+                                                tint = tint ?: LocalContentColor.current
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = "${(animatedDownloadProgress * 100).toInt()}%",
-                                                fontSize = 14.sp,
+                                                text = label,
+                                                fontSize = textSize,
                                                 fontWeight = FontWeight.Medium
                                             )
                                         }
                                     }
-                                    "queued" -> {
-                                        iconLabel(
-                                            Icons.Rounded.Download,
-                                            stringResource(R.string.downloads_status_queued),
-                                            stringResource(R.string.downloads_status_queued),
-                                            null,
-                                            14.sp
-                                        )
-                                    }
-                                    "completed" -> {
-                                        iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50), 12.sp)
-                                    }
-                                    "paused" -> {
-                                        iconLabel(Icons.Rounded.PauseCircle, "Paused", "Paused", Color(0xFFFFC107), 14.sp)
-                                    }
-                                    "unavailable" -> {
-                                        iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null, 14.sp)
-                                    }
-                                    else -> {
-                                        iconLabel(Icons.Rounded.Download, "Download", "Download", null, 14.sp)
+                                AnimatedContent(
+                                    targetState = buttonState,
+                                    transitionSpec = {
+                                        fadeIn(animationSpec = tween(220)) togetherWith
+                                            fadeOut(animationSpec = tween(180))
+                                    },
+                                    label = "download_button_state"
+                                ) { state ->
+                                    when (state) {
+                                        "downloading" -> {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    progress = { animatedDownloadProgress.coerceIn(0f, 0.99f) },
+                                                    modifier = Modifier.size(18.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = Color(0xFF03A9F4)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "${(animatedDownloadProgress * 100).toInt()}%",
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                        "queued" -> {
+                                            iconLabel(
+                                                Icons.Rounded.Download,
+                                                stringResource(R.string.downloads_status_queued),
+                                                stringResource(R.string.downloads_status_queued),
+                                                null,
+                                                14.sp
+                                            )
+                                        }
+                                        "completed" -> {
+                                            iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50), 12.sp)
+                                        }
+                                        "paused" -> {
+                                            iconLabel(
+                                                Icons.Rounded.PauseCircle,
+                                                stringResource(R.string.downloads_status_paused),
+                                                stringResource(R.string.downloads_status_paused),
+                                                Color(0xFFFFC107),
+                                                14.sp
+                                            )
+                                        }
+                                        "unavailable" -> {
+                                            iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null, 14.sp)
+                                        }
+                                        else -> {
+                                            iconLabel(Icons.Rounded.Download, "Download", "Download", null, 14.sp)
+                                        }
                                     }
                                 }
+                            }
+
+                            DropdownMenu(
+                                modifier = Modifier.widthIn(min = 136.dp, max = 160.dp),
+                                expanded = downloadActionMenu && hasActiveDownload,
+                                onDismissRequest = { downloadActionMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(
+                                                if (isPausedDownload) R.string.resume else R.string.downloads_action_pause
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                                        )
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                    onClick = {
+                                        downloadActionMenu = false
+                                        item.id?.let { itemId ->
+                                            if (isPausedDownload) {
+                                                downloadRepository.resumeDownload(itemId)
+                                            } else {
+                                                downloadRepository.pauseDownload(itemId)
+                                            }
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Stop download",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
+                                        )
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                    onClick = {
+                                        downloadActionMenu = false
+                                        item.id?.let(downloadRepository::cancelDownload)
+                                    }
+                                )
                             }
                         }
 
@@ -1732,6 +1794,7 @@ fun DetailContent(
             }
         )
     }
+
 }
 
 @Composable
