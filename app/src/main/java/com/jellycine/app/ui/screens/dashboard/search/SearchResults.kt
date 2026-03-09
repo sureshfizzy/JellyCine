@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.LazyImageLoader
+import com.jellycine.app.ui.components.common.episodeDisplaySubtitle
+import com.jellycine.app.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
@@ -117,6 +119,8 @@ private fun SearchResultCard(
     item: BaseItemDto,
     onItemClick: () -> Unit
 ) {
+    val unknownTitle = stringResource(R.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
     Column(
         modifier = Modifier
             .width(120.dp)
@@ -148,11 +152,14 @@ private fun SearchResultCard(
         
         // Title
         Text(
-            text = item.name ?: stringResource(R.string.search_result_unknown_title),
+            text = item.preferredDisplayTitle(
+                unknownTitle = unknownTitle,
+                unknownEpisode = unknownEpisode
+            ),
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 16.sp
         )
@@ -173,6 +180,8 @@ private fun EpisodeResultCard(
     item: BaseItemDto,
     onItemClick: () -> Unit
 ) {
+    val unknownTitle = stringResource(R.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -211,7 +220,10 @@ private fun EpisodeResultCard(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = item.name ?: stringResource(R.string.search_result_unknown_episode),
+                text = item.preferredDisplayTitle(
+                    unknownTitle = unknownTitle,
+                    unknownEpisode = unknownEpisode
+                ),
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -222,7 +234,7 @@ private fun EpisodeResultCard(
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = item.getYearAndGenre(),
+                text = item.episodeDisplaySubtitle(fallback = unknownEpisode),
                 color = Color.Gray,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -238,6 +250,8 @@ fun LiveSearchResults(
     onItemClick: (BaseItemDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val unknownTitle = stringResource(R.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -281,8 +295,17 @@ fun LiveSearchResults(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
+                    val title = result.preferredDisplayTitle(
+                        unknownTitle = unknownTitle,
+                        unknownEpisode = unknownEpisode
+                    )
+                    val subtitle = if (result.type == "Episode") {
+                        result.episodeDisplaySubtitle(fallback = unknownEpisode)
+                    } else {
+                        result.getYearAndGenre()
+                    }
                     Text(
-                        text = result.name ?: stringResource(R.string.search_result_unknown_title),
+                        text = title,
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
@@ -293,7 +316,7 @@ fun LiveSearchResults(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = result.getYearAndGenre(),
+                        text = subtitle,
                         color = Color.Gray,
                         fontSize = 13.sp,
                         maxLines = 1,

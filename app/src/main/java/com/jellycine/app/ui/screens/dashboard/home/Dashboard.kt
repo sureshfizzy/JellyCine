@@ -2118,13 +2118,20 @@ private fun ContinueWatchingCard(
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val unknownTitle = stringResource(R.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
-    val itemName = remember(item.type, item.seriesName, stableItem.name) {
-        if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
-            item.seriesName
-        } else {
-            stableItem.name
-        } ?: "Unknown"
+    val itemName = remember(
+        item.type,
+        item.seriesName,
+        item.seasonName,
+        item.episodeTitle,
+        stableItem.name
+    ) {
+        item.preferredDisplayTitle(
+            unknownTitle = unknownTitle,
+            unknownEpisode = unknownEpisode
+        )
     }
     val metadataText = remember(
         item.type,
@@ -2133,25 +2140,15 @@ private fun ContinueWatchingCard(
         item.indexNumber,
         item.episodeTitle,
         item.name,
-        item.seriesName
+        item.seriesName,
+        item.seasonName
     ) {
         when (item.type) {
             "Movie" -> {
                 item.productionYear?.toString().orEmpty()
             }
             "Episode" -> {
-                val seasonNumber = item.parentIndexNumber
-                val episodeNumber = item.indexNumber
-                if (seasonNumber != null && episodeNumber != null) {
-                    val episodeLabel = when {
-                        !item.episodeTitle.isNullOrBlank() -> item.episodeTitle
-                        !item.name.isNullOrBlank() && item.name != item.seriesName -> item.name
-                        else -> "Episode $episodeNumber"
-                    }
-                    "S${seasonNumber}:E${episodeNumber} - $episodeLabel"
-                } else {
-                    ""
-                }
+                item.episodeDisplaySubtitle()
             }
             "Series" -> {
                 val year = item.productionYear ?: item.premiereDate?.take(4)?.toIntOrNull()
@@ -2416,12 +2413,13 @@ internal fun LibraryItemCard(
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val unknownTitle = stringResource(R.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
-    val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
-        item.seriesName!!
-    } else {
-        item.name ?: "Unknown"
-    }
+    val displayName = item.preferredDisplayTitle(
+        unknownTitle = unknownTitle,
+        unknownEpisode = unknownEpisode
+    )
 
     val cardWidth = if (useLandscapeLayout) 200.dp else 112.dp
     val cardHeight = if (useLandscapeLayout) 182.dp else 214.dp
