@@ -56,6 +56,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadStatus
@@ -316,6 +317,47 @@ private fun SectionLabel(title: String) {
 }
 
 @Composable
+private fun artwork(
+    title: String,
+    imageUrl: String?,
+    logoUrl: String?,
+    width: Dp,
+    height: Dp
+) {
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+    ) {
+        JellyfinPosterImage(
+            imageUrl = imageUrl,
+            contentDescription = title,
+            context = context,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        if (!logoUrl.isNullOrBlank()) {
+            JellyfinPosterImage(
+                imageUrl = logoUrl,
+                contentDescription = title,
+                context = context,
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(height * 0.28f)
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 6.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+    }
+}
+
+@Composable
 private fun SeriesSummaryRow(
     group: OfflineSeriesGroup,
     mediaRepository: MediaRepository,
@@ -340,7 +382,15 @@ private fun SeriesSummaryRow(
         enableImageEnhancers = false,
         mediaRepository = mediaRepository
     )
-    val imageUrl = primaryImageUrl ?: backdropImageUrl
+    val logoImageUrl = rememberImageUrl(
+        itemId = group.posterItemId,
+        imageType = "Logo",
+        width = 1000,
+        quality = 95,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = backdropImageUrl ?: primaryImageUrl
 
     Row(
         modifier = Modifier
@@ -350,21 +400,13 @@ private fun SeriesSummaryRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .width(148.dp)
-                .height(84.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-        ) {
-            JellyfinPosterImage(
-                imageUrl = imageUrl,
-                contentDescription = group.title,
-                context = LocalContext.current,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
+        artwork(
+            title = group.title,
+            imageUrl = imageUrl,
+            logoUrl = logoImageUrl,
+            width = 148.dp,
+            height = 84.dp
+        )
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -441,7 +483,15 @@ private fun MovieRow(
         enableImageEnhancers = false,
         mediaRepository = mediaRepository
     )
-    val imageUrl = primaryImageUrl ?: backdropImageUrl
+    val logoImageUrl = rememberImageUrl(
+        itemId = posterId,
+        imageType = "Logo",
+        width = 1000,
+        quality = 95,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = backdropImageUrl ?: primaryImageUrl
     val canPlay = entry.isOfflineAvailable
     val statusLabel = downloadStatusLabel(entry, resources)
     val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
@@ -461,21 +511,13 @@ private fun MovieRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .width(148.dp)
-                .height(84.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-        ) {
-            JellyfinPosterImage(
-                imageUrl = imageUrl,
-                contentDescription = entry.title,
-                context = LocalContext.current,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        }
+        artwork(
+            title = entry.title,
+            imageUrl = imageUrl,
+            logoUrl = logoImageUrl,
+            width = 148.dp,
+            height = 84.dp
+        )
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
