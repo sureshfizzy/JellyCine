@@ -698,11 +698,8 @@ fun DetailContent(
     }
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
-            DownloadStatus.QUEUED -> {
-                if (itemDownloadState.message == "Paused") 0.05f
-                else itemDownloadState.progress.coerceIn(0.05f, 0.99f)
-            }
-            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0.05f, 0.99f)
+            DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
+            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
             DownloadStatus.COMPLETED -> 1f
             else -> 0f
         },
@@ -1488,13 +1485,13 @@ fun DetailContent(
                                 label = "download_button_state"
                             ) { state ->
                                 when (state) {
-                                    "downloading", "queued" -> {
+                                    "downloading" -> {
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.Center
                                         ) {
                                             CircularProgressIndicator(
-                                                progress = { animatedDownloadProgress.coerceIn(0.05f, 0.99f) },
+                                                progress = { animatedDownloadProgress.coerceIn(0f, 0.99f) },
                                                 modifier = Modifier.size(18.dp),
                                                 strokeWidth = 2.dp,
                                                 color = Color(0xFF03A9F4)
@@ -1506,6 +1503,15 @@ fun DetailContent(
                                                 fontWeight = FontWeight.Medium
                                             )
                                         }
+                                    }
+                                    "queued" -> {
+                                        iconLabel(
+                                            Icons.Rounded.Download,
+                                            stringResource(R.string.downloads_status_queued),
+                                            stringResource(R.string.downloads_status_queued),
+                                            null,
+                                            14.sp
+                                        )
                                     }
                                     "completed" -> {
                                         iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50), 12.sp)
