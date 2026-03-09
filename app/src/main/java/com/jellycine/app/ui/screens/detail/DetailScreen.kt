@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.TextUnit
 import com.jellycine.app.R
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
@@ -49,9 +48,19 @@ import com.jellycine.detail.CodecUtils
 import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.CastActionButton
 import com.jellycine.app.ui.components.common.CastDevicePicker
+import com.jellycine.app.ui.components.common.DownloadActionMenu
+import com.jellycine.app.ui.components.common.DownloadContent
+import com.jellycine.app.ui.components.common.DownloadLabelContent
 import com.jellycine.app.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.app.ui.components.common.downloadButtonVisualState
+import com.jellycine.app.ui.components.common.hasActiveDownloads
+import com.jellycine.app.ui.components.common.pausableItemIds
+import com.jellycine.app.ui.components.common.isPausedDownloadState
+import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
+import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.BatchDownloadCandidate
 import com.jellycine.app.download.BatchDownloadEstimate
@@ -669,11 +678,11 @@ fun DetailContent(
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     }
     val canDownloadItem = item.id != null && item.canDownload != false
+    val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
     val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
-    val isPausedDownload = itemDownloadState.status == DownloadStatus.QUEUED &&
-        itemDownloadState.message?.trim()?.equals("Paused", ignoreCase = true) == true
+    val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
     val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
         itemDownloadState.status == DownloadStatus.QUEUED
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
@@ -683,6 +692,7 @@ fun DetailContent(
     var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
     var seriesStorageSelectionDialogState by remember(item.id) { mutableStateOf<SeriesSeasonSelectionDialogState?>(null) }
+    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
@@ -690,6 +700,23 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
+        val seriesId = item.id
+        if (item.type != "Series" || seriesId.isNullOrBlank()) {
+            emptyList()
+        } else {
+            trackedDownloads.filter { it.item?.seriesId == seriesId }
+        }
+    }
+    val seriesDownload = rememberDownloadPanelState(entries = seriesDownloadEntries)
+    val hasActiveSeriesDownloads = seriesDownload.hasActiveDownloads
+    val canResumeSeriesDownloads = seriesDownload.canResumeDownloads
+    var seriesDownloadActionMenu by remember(
+        item.id,
+        seriesDownload.status,
+        seriesDownload.activeItemIds.size,
+        seriesDownload.pausedItemIds.size
+    ) { mutableStateOf(false) }
     fun toggleFavorite() {
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
@@ -708,10 +735,14 @@ fun DetailContent(
             DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
             DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
             DownloadStatus.COMPLETED -> 1f
-            else -> 0f
+        else -> 0f
         },
         animationSpec = tween(durationMillis = 350),
         label = "detail_download_progress"
+    )
+    val animatedSeriesDownloadProgress = rememberDownloadPanelProgress(
+        panelState = seriesDownload,
+        label = "series_download_progress"
     )
 
     LaunchedEffect(itemDownloadState.status) {
@@ -1470,26 +1501,6 @@ fun DetailContent(
                                     itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
                                     else -> "idle"
                                 }
-                                val iconLabel: @Composable (androidx.compose.ui.graphics.vector.ImageVector, String, String, Color?, TextUnit) -> Unit =
-                                    { icon, label, contentDescription, tint, textSize ->
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = icon,
-                                                contentDescription = contentDescription,
-                                                modifier = Modifier.size(18.dp),
-                                                tint = tint ?: LocalContentColor.current
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = label,
-                                                fontSize = textSize,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
                                 AnimatedContent(
                                     targetState = buttonState,
                                     transitionSpec = {
@@ -1519,76 +1530,72 @@ fun DetailContent(
                                             }
                                         }
                                         "queued" -> {
-                                            iconLabel(
-                                                Icons.Rounded.Download,
-                                                stringResource(R.string.downloads_status_queued),
-                                                stringResource(R.string.downloads_status_queued),
-                                                null,
-                                                14.sp
+                                            DownloadLabelContent(
+                                                icon = Icons.Rounded.Download,
+                                                label = stringResource(R.string.downloads_status_queued),
+                                                iconSize = 18.dp,
+                                                fontSize = 14.sp
                                             )
                                         }
                                         "completed" -> {
-                                            iconLabel(Icons.Rounded.CheckCircle, "Downloaded", "Downloaded", Color(0xFF4CAF50), 12.sp)
+                                            DownloadLabelContent(
+                                                icon = Icons.Rounded.CheckCircle,
+                                                label = stringResource(R.string.downloads_status_downloaded),
+                                                iconSize = 18.dp,
+                                                fontSize = 12.sp,
+                                                tint = Color(0xFF4CAF50),
+                                                textColor = Color(0xFF4CAF50)
+                                            )
                                         }
                                         "paused" -> {
-                                            iconLabel(
-                                                Icons.Rounded.PauseCircle,
-                                                stringResource(R.string.downloads_status_paused),
-                                                stringResource(R.string.downloads_status_paused),
-                                                Color(0xFFFFC107),
-                                                14.sp
+                                            DownloadLabelContent(
+                                                icon = Icons.Rounded.PauseCircle,
+                                                label = stringResource(R.string.downloads_status_paused),
+                                                iconSize = 18.dp,
+                                                fontSize = 14.sp,
+                                                tint = Color(0xFFFFC107)
                                             )
                                         }
                                         "unavailable" -> {
-                                            iconLabel(Icons.Rounded.Download, "Unavailable", "Download unavailable", null, 14.sp)
+                                            DownloadLabelContent(
+                                                icon = Icons.Rounded.Download,
+                                                label = stringResource(R.string.settings_unavailable),
+                                                iconSize = 18.dp,
+                                                fontSize = 14.sp
+                                            )
                                         }
                                         else -> {
-                                            iconLabel(Icons.Rounded.Download, "Download", "Download", null, 14.sp)
+                                            DownloadLabelContent(
+                                                icon = Icons.Rounded.Download,
+                                                label = stringResource(R.string.downloads_action_download),
+                                                iconSize = 18.dp,
+                                                fontSize = 14.sp
+                                            )
                                         }
                                     }
                                 }
                             }
 
-                            DropdownMenu(
-                                modifier = Modifier.widthIn(min = 136.dp, max = 160.dp),
-                                expanded = downloadActionMenu && hasActiveDownload,
-                                onDismissRequest = { downloadActionMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = stringResource(
-                                                if (isPausedDownload) R.string.resume else R.string.downloads_action_pause
-                                            ),
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                                        )
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    onClick = {
-                                        downloadActionMenu = false
-                                        item.id?.let { itemId ->
-                                            if (isPausedDownload) {
-                                                downloadRepository.resumeDownload(itemId)
-                                            } else {
-                                                downloadRepository.pauseDownload(itemId)
-                                            }
+                            DownloadActionMenu(
+                                expanded = downloadActionMenu,
+                                canResume = isPausedDownload,
+                                hasActiveDownloads = hasActiveDownload,
+                                onDismissRequest = { downloadActionMenu = false },
+                                onPauseResume = {
+                                    downloadActionMenu = false
+                                    item.id?.let { itemId ->
+                                        if (isPausedDownload) {
+                                            downloadRepository.resumeDownload(itemId)
+                                        } else {
+                                            downloadRepository.pauseDownload(itemId)
                                         }
                                     }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = "Stop download",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp)
-                                        )
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                                    onClick = {
-                                        downloadActionMenu = false
-                                        item.id?.let(downloadRepository::cancelDownload)
-                                    }
-                                )
-                            }
+                                },
+                                onCancel = {
+                                    downloadActionMenu = false
+                                    item.id?.let(downloadRepository::cancelDownload)
+                                }
+                            )
                         }
 
                         FavoriteActionButton(
@@ -1623,83 +1630,78 @@ fun DetailContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    val seriesId = item.id
-                                    if (seriesId.isNullOrBlank()) {
-                                        return@launch
-                                    }
-                                    seriesQueueInProgress = true
-                                    try {
-                                        val estimateResult = downloadRepository.buildSeriesDownloadEstimate(seriesId)
-                                        estimateResult.fold(
-                                            onSuccess = { estimate ->
-                                                seriesStorageSelectionDialogState = SeriesSeasonSelectionDialogState.fromEstimate(estimate)
-                                            },
-                                            onFailure = { throwable ->
-                                                downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
-                                            }
-                                        )
-                                    } finally {
-                                        seriesQueueInProgress = false
-                                    }
-                                }
-                            },
+                        Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color(0xFF1F1F24),
-                                contentColor = Color.White
-                            )
+                                .height(46.dp)
                         ) {
-                            AnimatedContent(
-                                targetState = seriesQueueInProgress,
-                                transitionSpec = {
-                                    fadeIn(animationSpec = tween(220)) togetherWith
-                                        fadeOut(animationSpec = tween(180))
+                            OutlinedButton(
+                                onClick = {
+                                    when {
+                                        hasActiveSeriesDownloads -> seriesDownloadActionMenu = true
+                                        else -> {
+                                            coroutineScope.launch {
+                                                val seriesId = item.id
+                                                if (seriesId.isNullOrBlank()) {
+                                                    return@launch
+                                                }
+                                                seriesQueueInProgress = true
+                                                try {
+                                                    val estimateResult = downloadRepository.buildSeriesDownloadEstimate(seriesId)
+                                                    estimateResult.fold(
+                                                        onSuccess = { estimate ->
+                                                            seriesStorageSelectionDialogState = SeriesSeasonSelectionDialogState.fromEstimate(estimate)
+                                                        },
+                                                        onFailure = { throwable ->
+                                                            downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
+                                                        }
+                                                    )
+                                                } finally {
+                                                    seriesQueueInProgress = false
+                                                }
+                                            }
+                                        }
+                                    }
                                 },
-                                label = "download_series_state"
-                            ) { inProgress ->
-                                if (inProgress) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(18.dp),
-                                            strokeWidth = 2.dp,
-                                            color = Color(0xFF03A9F4)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Queuing...",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                } else {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Download,
-                                            contentDescription = "Download series",
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Download Series",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(24.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = Color(0xFF1F1F24),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                DownloadContent(
+                                    visualState = downloadButtonVisualState(
+                                        panelState = seriesDownload,
+                                        isQueueing = seriesQueueInProgress
+                                    ),
+                                    progress = animatedSeriesDownloadProgress,
+                                    idleLabelRes = R.string.downloads_action_download_series,
+                                    fontSize = 14.sp,
+                                    iconSize = 18.dp,
+                                    progressSize = 18.dp
+                                )
                             }
+
+                            DownloadActionMenu(
+                                expanded = seriesDownloadActionMenu,
+                                canResume = canResumeSeriesDownloads,
+                                hasActiveDownloads = hasActiveSeriesDownloads,
+                                onDismissRequest = { seriesDownloadActionMenu = false },
+                                onPauseResume = {
+                                    seriesDownloadActionMenu = false
+                                    if (canResumeSeriesDownloads) {
+                                        seriesDownload.pausedItemIds.forEach(downloadRepository::resumeDownload)
+                                    } else {
+                                        seriesDownload.pausableItemIds.forEach(downloadRepository::pauseDownload)
+                                    }
+                                },
+                                onCancel = {
+                                    seriesDownloadActionMenu = false
+                                    seriesDownload.activeItemIds.forEach(downloadRepository::cancelDownload)
+                                }
+                            )
                         }
 
                         FavoriteActionButton(

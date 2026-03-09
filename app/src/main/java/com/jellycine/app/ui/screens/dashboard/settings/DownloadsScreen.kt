@@ -63,6 +63,7 @@ import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.isPausedTrackedDownload
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.util.image.rememberImageUrl
@@ -186,7 +187,7 @@ fun DownloadsScreen(
                         playDownloadedItem(entry.item?.id ?: entry.itemId)
                     },
                     onPause = { entry ->
-                        if (isPausedState(entry)) {
+                        if (isPausedState(entry, resources)) {
                             downloadRepository.resumeDownload(entry.itemId)
                         } else {
                             downloadRepository.pauseDownload(entry.itemId)
@@ -217,7 +218,7 @@ fun DownloadsScreen(
                         playDownloadedItem(entry.item?.id ?: entry.itemId)
                     },
                     onPause = { entry ->
-                        if (isPausedState(entry)) {
+                        if (isPausedState(entry, resources)) {
                             downloadRepository.resumeDownload(entry.itemId)
                         } else {
                             downloadRepository.pauseDownload(entry.itemId)
@@ -718,7 +719,8 @@ private fun DownloadRowAction(
     onCancel: () -> Unit
 ) {
     val isActive = entry.state.status == DownloadStatus.DOWNLOADING || entry.state.status == DownloadStatus.QUEUED
-    val isPaused = isPausedState(entry)
+    val resources = LocalContext.current.resources
+    val isPaused = isPausedState(entry, resources)
     var menuExpanded by remember(entry.itemId, entry.state.status, entry.state.message) { mutableStateOf(false) }
 
     Box {
@@ -943,9 +945,8 @@ private fun TrackedDownload.displayBytes(): Long? {
         ?: state.downloadedBytes.takeIf { it > 0L }
 }
 
-private fun isPausedState(entry: TrackedDownload): Boolean {
-    return entry.state.status == DownloadStatus.QUEUED &&
-        entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true
+private fun isPausedState(entry: TrackedDownload, resources: Resources): Boolean {
+    return isPausedTrackedDownload(entry, resources.getString(R.string.downloads_status_paused))
 }
 
 private fun downloadStatusLabel(entry: TrackedDownload, resources: Resources): String? {
@@ -973,7 +974,7 @@ private fun downloadStatusLabel(entry: TrackedDownload, resources: Resources): S
             }
         }
         DownloadStatus.QUEUED -> {
-            if (entry.state.message?.trim()?.equals("Paused", ignoreCase = true) == true) {
+            if (isPausedState(entry, resources)) {
                 resources.getString(R.string.downloads_status_paused)
             } else {
                 resources.getString(R.string.downloads_status_queued)
@@ -1001,9 +1002,7 @@ private fun groupProgressLabel(group: OfflineSeriesGroup, resources: Resources):
     val totalEpisodes = episodes.size
     val completedEpisodes = episodes.count { it.isOfflineAvailable }
     val downloadingEpisodes = episodes.count { it.state.status == DownloadStatus.DOWNLOADING }
-    val pausedEpisodes = episodes.count {
-        it.state.status == DownloadStatus.QUEUED && it.state.message?.trim()?.equals("Paused", ignoreCase = true) == true
-    }
+    val pausedEpisodes = episodes.count { isPausedState(it, resources) }
     val queuedEpisodes = episodes.count { it.state.status == DownloadStatus.QUEUED } - pausedEpisodes
 
     return when {

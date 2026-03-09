@@ -272,10 +272,15 @@
     <string name="downloads_action_pause">Pause</string>
     <string name="downloads_action_cancel">Cancel download</string>
     <string name="downloads_action_options">Download options</string>
+    <string name="downloads_action_download">Download</string>
+    <string name="downloads_action_download_series">Download Series</string>
     <string name="downloads_queue_options">Queue options</string>
     <string name="downloads_series_fallback">Series</string>
     <string name="downloads_season_number">Season %1$d</string>
     <string name="downloads_season_fallback">Season</string>
+    <string name="downloads_status_queuing">Queuing...</string>
+    <string name="downloads_status_downloading_short">Downloading</string>
+    <string name="downloads_status_downloaded">Downloaded</string>
     <string name="downloads_status_downloading_percent">Downloading %1$d%%%2$s</string>
     <string name="downloads_status_downloading">Downloading%1$s</string>
     <string name="downloads_status_paused">Paused</string>

@@ -11,6 +11,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.isPausedDownloadState
+import com.jellycine.app.ui.components.common.pausedDownloadMessage
 import kotlin.math.roundToInt
 
 internal object DownloadNotificationContract {
@@ -30,11 +32,12 @@ class DownloadNotificationManager(private val context: Context) {
         val active = activeDownloads(tracked)
         if (active.isEmpty()) return null
 
-        val lead = selectLead(active)
+        val pausedMessage = pausedDownloadMessage(context)
+        val lead = selectLead(active, pausedMessage)
         val progress = (stateProgress(lead.state) * 100f).roundToInt()
         val downloading = active.count { it.state.status == DownloadStatus.DOWNLOADING }
-        val queued = active.count { isWaitingState(it.state) }
-        val paused = active.count { isPausedState(it.state) }
+        val queued = active.count { isWaitingState(it.state, pausedMessage) }
+        val paused = active.count { isPausedDownloadState(it.state, pausedMessage) }
 
         val title = when {
             downloading > 0 && queued > 0 ->
@@ -46,15 +49,15 @@ class DownloadNotificationManager(private val context: Context) {
             queued > 0 ->
                 "Queued $queued item" + if (queued > 1) "s" else ""
             else ->
-                "Paused $paused item" + if (paused > 1) "s" else ""
+                "$pausedMessage $paused item" + if (paused > 1) "s" else ""
         }
 
         val sizeText = formatSizeProgress(lead.state.downloadedBytes, lead.state.totalBytes)
         val stateText = when {
             lead.state.status == DownloadStatus.DOWNLOADING && lead.state.totalBytes > 0L -> "$progress%$sizeText"
             lead.state.status == DownloadStatus.DOWNLOADING -> "Downloading$sizeText"
-            isPausedState(lead.state) -> "Paused$sizeText"
-            else -> "Queued"
+            isPausedDownloadState(lead.state, pausedMessage) -> "$pausedMessage$sizeText"
+            else -> context.getString(R.string.downloads_status_queued)
         }
         val content = "${lead.title}\n$stateText"
 
@@ -67,12 +70,16 @@ class DownloadNotificationManager(private val context: Context) {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setProgress(100, progress, lead.state.status != DownloadStatus.DOWNLOADING || lead.state.totalBytes <= 0L)
-            .addAction(0, "Cancel", actionIntent(DownloadNotificationContract.ACTION_CANCEL, lead.itemId))
+            .addAction(
+                0,
+                context.getString(R.string.downloads_action_cancel),
+                actionIntent(DownloadNotificationContract.ACTION_CANCEL, lead.itemId)
+            )
 
-        val isPaused = isPausedState(lead.state)
+        val isPaused = isPausedDownloadState(lead.state, pausedMessage)
         summaryBuilder.addAction(
             0,
-            if (isPaused) "Resume" else "Pause",
+            context.getString(if (isPaused) R.string.resume else R.string.downloads_action_pause),
             actionIntent(
                 if (isPaused) DownloadNotificationContract.ACTION_RESUME
                 else DownloadNotificationContract.ACTION_PAUSE,
@@ -98,11 +105,11 @@ class DownloadNotificationManager(private val context: Context) {
         }
     }
 
-    private fun selectLead(active: List<TrackedDownload>): TrackedDownload {
+    private fun selectLead(active: List<TrackedDownload>, pausedMessage: String): TrackedDownload {
         active.filter { it.state.status == DownloadStatus.DOWNLOADING }
             .maxByOrNull { stateProgress(it.state) }
             ?.let { return it }
-        active.filter { isWaitingState(it.state) }
+        active.filter { isWaitingState(it.state, pausedMessage) }
             .minByOrNull { it.requestedAt }
             ?.let { return it }
         return active.minByOrNull { it.requestedAt } ?: active.first()
@@ -117,13 +124,9 @@ class DownloadNotificationManager(private val context: Context) {
         return 0f
     }
 
-    private fun isWaitingState(state: ItemDownloadState): Boolean {
-        return state.status == DownloadStatus.QUEUED && !isPausedState(state)
-    }
-
-    private fun isPausedState(state: ItemDownloadState): Boolean {
+    private fun isWaitingState(state: ItemDownloadState, pausedMessage: String): Boolean {
         return state.status == DownloadStatus.QUEUED &&
-            state.message?.trim()?.equals("Paused", ignoreCase = true) == true
+            !isPausedDownloadState(state, pausedMessage)
     }
 
     private fun actionIntent(action: String, itemId: String): PendingIntent {

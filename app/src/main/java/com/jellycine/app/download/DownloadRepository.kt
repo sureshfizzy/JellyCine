@@ -3,6 +3,8 @@ package com.jellycine.app.download
 import android.content.Context
 import com.google.gson.Gson
 import com.jellycine.app.preferences.Preferences
+import com.jellycine.app.ui.components.common.isPausedDownloadState
+import com.jellycine.app.ui.components.common.pausedDownloadMessage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
@@ -144,6 +146,8 @@ class DownloadRepository(context: Context) {
     private val queueLock = Any()
     private val pendingQueue = ArrayDeque<QueuedDownloadRequest>()
     private val pendingItemIds = mutableSetOf<String>()
+    private val pausedStatusMessage: String
+        get() = pausedDownloadMessage(appContext)
     private val lastMetadataPersistAt = ConcurrentHashMap<String, Long>()
     private val lastTrackedRefreshAt = ConcurrentHashMap<String, Long>()
     private val trackedDownloadsFlow = MutableStateFlow<List<TrackedDownload>>(emptyList())
@@ -663,7 +667,7 @@ class DownloadRepository(context: Context) {
             filePath = filePath
         )).copy(
             status = DownloadStatus.QUEUED,
-            message = "Paused",
+            message = pausedStatusMessage,
             downloadId = current?.downloadId ?: downloadId,
             filePath = current?.filePath ?: filePath
         )
@@ -822,7 +826,7 @@ class DownloadRepository(context: Context) {
     ) {
         val now = System.currentTimeMillis()
         val isTerminal = state.status == DownloadStatus.COMPLETED || state.status == DownloadStatus.FAILED
-        val isPaused = state.message == "Paused"
+        val isPaused = isPausedDownloadState(state, pausedStatusMessage)
         val shouldPersist = forcePersist || isTerminal || isPaused ||
             now - (lastMetadataPersistAt[itemId] ?: 0L) >= METADATA_PERSIST_INTERVAL_MS
         val shouldRefreshTracked = forceRefreshTracked || isTerminal || isPaused ||
@@ -896,7 +900,10 @@ class DownloadRepository(context: Context) {
                     }
                 )
             )
-            if (decision.status == DownloadStatus.QUEUED && decision.message != "Paused") {
+            if (
+                decision.status == DownloadStatus.QUEUED &&
+                !isPausedDownloadState(decision.status, decision.message, pausedStatusMessage)
+            ) {
                 parseItem(metadata.fullItemJson)?.let { parsed ->
                     itemsToResume.add(parsed)
                 }
@@ -919,7 +926,7 @@ class DownloadRepository(context: Context) {
         val file = metadata.localPath?.let(::File)
         val available = file != null && file.exists()
         val hasPartialData = available && file.length() > 0L
-        val wasPaused = fallbackStatus == DownloadStatus.QUEUED && metadata.message == "Paused"
+        val wasPaused = isPausedDownloadState(fallbackStatus, metadata.message, pausedStatusMessage)
         val wasInFlight = fallbackStatus == DownloadStatus.DOWNLOADING ||
             (fallbackStatus == DownloadStatus.QUEUED && !wasPaused)
 
@@ -933,7 +940,7 @@ class DownloadRepository(context: Context) {
 
         return when {
             recoveredState -> RecoveryDecision(DownloadStatus.COMPLETED, metadata.message)
-            wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, "Paused")
+            wasPaused && available -> RecoveryDecision(DownloadStatus.QUEUED, pausedStatusMessage)
             wasInFlight -> RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
             fallbackStatus == DownloadStatus.FAILED && hasPartialData ->
                 RecoveryDecision(DownloadStatus.QUEUED, "Resuming")
@@ -983,7 +990,7 @@ class DownloadRepository(context: Context) {
 
             val state = stateFlows[itemId]?.value
             if (state?.status != DownloadStatus.QUEUED) return@mapNotNull null
-            if (state.message?.trim()?.equals("Paused", ignoreCase = true) == true) return@mapNotNull null
+            if (state != null && isPausedDownloadState(state, pausedStatusMessage)) return@mapNotNull null
             if (isQueued(itemId)) return@mapNotNull null
 
             readMetadata(itemId)?.fullItemJson?.let(::parseItem)
