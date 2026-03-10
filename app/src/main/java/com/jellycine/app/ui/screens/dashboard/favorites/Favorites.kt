@@ -26,8 +26,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,14 +55,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
-import coil3.request.*
 import com.jellycine.app.R
+import com.jellycine.app.util.image.ImageSkeleton
+import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
@@ -327,7 +325,6 @@ private fun FavoriteItemCard(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    var imageUrl by remember(item.id, item.type, item.seriesId) { mutableStateOf<String?>(null) }
 
     val targetImageId = remember(item) {
         when (item.type) {
@@ -335,20 +332,15 @@ private fun FavoriteItemCard(
             else -> item.id
         }
     }
-
-    LaunchedEffect(targetImageId) {
-        val id = targetImageId ?: return@LaunchedEffect
-        imageUrl = runCatching {
-            withContext(Dispatchers.IO) {
-                mediaRepository.getImageUrl(
-                    itemId = id,
-                    width = 320,
-                    height = 480,
-                    quality = 90
-                ).first()
-            }
-        }.getOrNull()
-    }
+    var isPosterLoading by remember(targetImageId) { mutableStateOf(targetImageId != null) }
+    var hasPosterError by remember(targetImageId) { mutableStateOf(false) }
+    val imageUrl = rememberImageUrl(
+        itemId = targetImageId,
+        width = 320,
+        height = 480,
+        quality = 90,
+        mediaRepository = mediaRepository
+    )
 
     val title = when (item.type) {
         "Series" -> item.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.favorites_show_fallback)
@@ -398,17 +390,36 @@ private fun FavoriteItemCard(
             onClick = onClick
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (imageUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(imageUrl)
-                            .crossfade(true)
-                            .build(),
+                if (imageUrl != null && !hasPosterError) {
+                    JellyfinPosterImage(
+                        imageUrl = imageUrl,
                         contentDescription = title,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        context = context,
+                        onLoadingStateChange = { isLoading ->
+                            isPosterLoading = isLoading
+                        },
+                        onErrorStateChange = { hasError ->
+                            hasPosterError = hasError
+                            if (hasError) {
+                                isPosterLoading = false
+                            }
+                        }
                     )
-                } else {
+                }
+
+                if (imageUrl == null && targetImageId != null) {
+                    ImageSkeleton(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                } else if (imageUrl != null && isPosterLoading && !hasPosterError) {
+                    ImageSkeleton(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                } else if (targetImageId == null || hasPosterError) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -416,19 +427,8 @@ private fun FavoriteItemCard(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(Color(0xFF1D2735), Color(0xFF131313))
                                 )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = when (item.type) {
-                                "Movie" -> Icons.Default.Movie
-                                else -> Icons.Default.Tv
-                            },
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.72f),
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
+                            )
+                    )
                 }
 
                 Box(

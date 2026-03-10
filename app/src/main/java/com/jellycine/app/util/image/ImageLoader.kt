@@ -30,6 +30,7 @@ import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 import com.jellycine.app.ui.components.common.ShimmerEffect
 
@@ -173,15 +174,33 @@ fun rememberImageUrl(
     mediaRepository: MediaRepository
 ): String? {
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
     val effectiveEnhancersEnabled = enableImageEnhancers && !disablePosterEnhancers
-    val imageUrl by mediaRepository.getImageUrl(
-        itemId = itemId ?: "",
-        imageType = imageType,
-        width = width,
-        height = height,
-        quality = quality,
-        enableImageEnhancers = effectiveEnhancersEnabled
-    ).collectAsStateWithLifecycle(initialValue = null)
+    val imageUrlFlow = remember(
+        itemId,
+        imageType,
+        width,
+        height,
+        quality,
+        effectiveEnhancersEnabled,
+        currentServerType
+    ) {
+        if (itemId.isNullOrBlank() || currentServerType == null) {
+            flowOf(null)
+        } else {
+            mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                enableImageEnhancers = effectiveEnhancersEnabled
+            )
+        }
+    }
+    val imageUrl by imageUrlFlow.collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl
 }
@@ -197,15 +216,33 @@ fun rememberImageUrl(
     viewModel: ImageUrlViewModel = hiltViewModel()
 ): String? {
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
     val effectiveEnhancersEnabled = enableImageEnhancers && !disablePosterEnhancers
-    val imageUrl by viewModel.getImageUrl(
-        itemId = itemId ?: "",
-        imageType = imageType,
-        width = width,
-        height = height,
-        quality = quality,
-        enableImageEnhancers = effectiveEnhancersEnabled
-    ).collectAsStateWithLifecycle(initialValue = null)
+    val imageUrlFlow = remember(
+        itemId,
+        imageType,
+        width,
+        height,
+        quality,
+        effectiveEnhancersEnabled,
+        currentServerType
+    ) {
+        if (itemId.isNullOrBlank() || currentServerType == null) {
+            flowOf(null)
+        } else {
+            viewModel.getImageUrl(
+                itemId = itemId,
+                imageType = imageType,
+                width = width,
+                height = height,
+                quality = quality,
+                enableImageEnhancers = effectiveEnhancersEnabled
+            )
+        }
+    }
+    val imageUrl by imageUrlFlow.collectAsStateWithLifecycle(initialValue = null)
 
     return imageUrl
 }

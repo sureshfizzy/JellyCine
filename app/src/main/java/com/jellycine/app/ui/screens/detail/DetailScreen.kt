@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
@@ -1891,23 +1892,20 @@ private fun SimilarItemCard(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    var imageUrl by remember(item.id, item.type, item.seriesId) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(item.id, item.type, item.seriesId) {
-        val imageItemId = when {
+    val imageItemId = remember(item.id, item.type, item.seriesId) {
+        when {
             item.type == "Episode" && !item.seriesId.isNullOrBlank() -> item.seriesId
             else -> item.id
         }
-        imageUrl = imageItemId?.let { id ->
-            mediaRepository.getImageUrl(
-                itemId = id,
-                imageType = "Primary",
-                width = 320,
-                height = 480,
-                quality = 90
-            ).first()
-        }
     }
+    val imageUrl = rememberImageUrl(
+        itemId = imageItemId,
+        imageType = "Primary",
+        width = 320,
+        height = 480,
+        quality = 90,
+        mediaRepository = mediaRepository
+    )
 
     Column(
         modifier = Modifier
