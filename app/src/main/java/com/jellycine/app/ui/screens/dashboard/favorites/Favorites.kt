@@ -451,7 +451,7 @@ private fun FavoriteItemCard(
             color = Color.White,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 16.sp,
             modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp)
@@ -460,7 +460,7 @@ private fun FavoriteItemCard(
             text = subtitle,
             color = Color.White.copy(alpha = 0.68f),
             fontSize = 11.sp,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             lineHeight = 14.sp,
             modifier = Modifier.padding(top = 2.dp, start = 2.dp, end = 2.dp)
@@ -571,4 +571,3 @@ private fun formatRuntime(ticks: Long?): String? {
 fun FavoritesPreview() {
     Favorites()
 }
-
