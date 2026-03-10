@@ -286,11 +286,7 @@ fun PlayerScreen(
                 showAudioTranscodingDialog = false
                 showStreamingQualityDialog = false
             } else {
-                val needsAudioPrompt = playerState.isAudioTranscodingAllowed &&
-                    !selection.equals(
-                        PlayerPreferences.STREAMING_QUALITY_ORIGINAL,
-                        ignoreCase = true
-                    )
+                val needsAudioPrompt = playerState.isAudioTranscodingAllowed
 
                 if (needsAudioPrompt) {
                     pendingStreamingQualitySelection = selection

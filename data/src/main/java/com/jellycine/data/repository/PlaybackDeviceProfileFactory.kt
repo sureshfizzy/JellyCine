@@ -13,6 +13,7 @@ internal object PlaybackDeviceProfileFactory {
     ): DeviceProfile {
         val bitrate = maxStreamingBitrate?.takeIf { it > 0L }
         val maxAudioChannels = audioTranscodeMode.maxAudioChannels
+        val videoTranscodeAudioCodecs = videoTranscodeAudioCodecs(audioTranscodeMode)
 
         return DeviceProfile(
             name = "JellyCine Android",
@@ -24,12 +25,12 @@ internal object PlaybackDeviceProfileFactory {
                     type = "Video",
                     container = "mp4,mkv,webm,ts,m2ts,mov,avi",
                     videoCodec = "h264,hevc,vp9,av1,mpeg4,mpeg2video,vp8",
-                    audioCodec = "aac,mp3,ac3,eac3,dts,flac,opus,vorbis,truehd"
+                    audioCodec = "aac,mp3,ac3,eac3,dts,flac,opus,vorbis,truehd,pcm"
                 ),
                 DirectPlayProfile(
                     type = "Audio",
                     container = "mp3,m4a,aac,ogg,flac,wav,webm,mka",
-                    audioCodec = "aac,mp3,ac3,eac3,dts,flac,opus,vorbis,pcm"
+                    audioCodec = "aac,mp3,ac3,eac3,dts,flac,opus,vorbis,truehd,pcm"
                 )
             ),
             transcodingProfiles = listOf(
@@ -39,7 +40,7 @@ internal object PlaybackDeviceProfileFactory {
                     protocol = "hls",
                     container = "ts",
                     videoCodec = "h264",
-                    audioCodec = "aac,mp3,ac3,eac3",
+                    audioCodec = videoTranscodeAudioCodecs,
                     enableSubtitlesInManifest = true,
                     maxAudioChannels = maxAudioChannels
                 ),
@@ -54,6 +55,14 @@ internal object PlaybackDeviceProfileFactory {
             ),
             subtitleProfiles = subtitleProfiles()
         )
+    }
+
+    private fun videoTranscodeAudioCodecs(audioTranscodeMode: AudioTranscodeMode): String {
+        return when (audioTranscodeMode) {
+            AudioTranscodeMode.STEREO -> "aac"
+            AudioTranscodeMode.SURROUND_5_1 -> "eac3"
+            else -> "aac,mp3,ac3,eac3"
+        }
     }
 
     private fun subtitleProfiles(): List<SubtitleProfile> {

@@ -165,14 +165,43 @@ class MediaRepository(private val context: Context) {
 
     private fun applyTranscodingSelectionOverrides(
         streamingUrl: String,
-        audioStreamIndex: Int?
+        audioStreamIndex: Int?,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
+        sourceVideoBitrate: Int? = null,
+        preserveOriginalVideo: Boolean = false
     ): String {
         val sourceUri = Uri.parse(streamingUrl)
         val builder = sourceUri.buildUpon().clearQuery()
+        val overrideParams = linkedMapOf<String, String>()
+
+        audioStreamIndex?.let {
+            overrideParams["AudioStreamIndex"] = it.toString()
+        }
+
+        if (preserveOriginalVideo) {
+            overrideParams["allowVideoStreamCopy"] = "true"
+            overrideParams["allowAudioStreamCopy"] = "false"
+            sourceVideoBitrate?.takeIf { it > 0 }?.let { bitrate ->
+                overrideParams["VideoBitrate"] = bitrate.toString()
+            }
+            when (audioTranscodeMode) {
+                AudioTranscodeMode.STEREO -> {
+                    overrideParams["AudioCodec"] = "aac"
+                    overrideParams["TranscodingMaxAudioChannels"] = "2"
+                }
+                AudioTranscodeMode.SURROUND_5_1 -> {
+                    overrideParams["AudioCodec"] = "eac3"
+                    overrideParams["TranscodingMaxAudioChannels"] = "6"
+                }
+                else -> Unit
+            }
+        }
 
         sourceUri.queryParameterNames
             .filterNot { queryName ->
-                queryName.equals("AudioStreamIndex", ignoreCase = true)
+                overrideParams.keys.any { key ->
+                    queryName.equals(key, ignoreCase = true)
+                }
             }
             .forEach { queryName ->
                 sourceUri.getQueryParameters(queryName).forEach { queryValue ->
@@ -180,8 +209,8 @@ class MediaRepository(private val context: Context) {
                 }
             }
 
-        audioStreamIndex?.let {
-            builder.appendQueryParameter("AudioStreamIndex", it.toString())
+        overrideParams.forEach { (key, value) ->
+            builder.appendQueryParameter(key, value)
         }
 
         return builder.build().toString()
@@ -1362,7 +1391,6 @@ class MediaRepository(private val context: Context) {
             val config = getSessionConfig()
             val serverUrl = config?.serverUrl
             val accessToken = config?.accessToken
-            val serverType = config?.serverType
 
             if (serverUrl == null) {
                 return Result.failure(Exception("Server URL not available"))
@@ -1390,10 +1418,19 @@ class MediaRepository(private val context: Context) {
             if (mediaSource == null) {
                 return Result.failure(Exception("No media source available"))
             }
+            val selectedAudioStream = getSelectedAudioStream(
+                mediaSource = mediaSource,
+                requestedAudioStreamIndex = audioStreamIndex
+            )
             val hasQualityCap = (maxStreamingBitrate ?: 0) > 0 || (maxStreamingHeight ?: 0) > 0
+            val needsAudioTranscoding = needsAudioTranscode(
+                audioTranscodeMode = audioTranscodeMode,
+                selectedAudioStream = selectedAudioStream
+            )
             val serverTranscodingUrl = !mediaSource.transcodingUrl.isNullOrBlank() &&
                 (
                     hasQualityCap ||
+                        needsAudioTranscoding ||
                         (mediaSource.supportsDirectPlay != true &&
                             mediaSource.supportsDirectStream != true)
                 )
@@ -1403,14 +1440,13 @@ class MediaRepository(private val context: Context) {
                     url = mediaSource.transcodingUrl
                 )
                 if (!resolvedTranscodingUrl.isNullOrBlank()) {
-                    val selectedTranscodingUrl = if (serverType == NetworkModule.ServerType.EMBY) {
-                        applyTranscodingSelectionOverrides(
-                            streamingUrl = resolvedTranscodingUrl,
-                            audioStreamIndex = audioStreamIndex
-                        )
-                    } else {
-                        resolvedTranscodingUrl
-                    }
+                    val selectedTranscodingUrl = applyTranscodingSelectionOverrides(
+                        streamingUrl = resolvedTranscodingUrl,
+                        audioStreamIndex = audioStreamIndex,
+                        audioTranscodeMode = audioTranscodeMode,
+                        sourceVideoBitrate = mediaSource.bitrate,
+                        preserveOriginalVideo = !hasQualityCap && needsAudioTranscoding
+                    )
                     return Result.success(selectedTranscodingUrl)
                 }
             }
@@ -1462,6 +1498,40 @@ class MediaRepository(private val context: Context) {
             Result.success(streamingUrl)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun getSelectedAudioStream(
+        mediaSource: com.jellycine.data.model.MediaSource,
+        requestedAudioStreamIndex: Int?
+    ): com.jellycine.data.model.MediaStream? {
+        val audioStreams = mediaSource.mediaStreams
+            ?.filter { stream -> stream.type.equals("Audio", ignoreCase = true) }
+            .orEmpty()
+        if (audioStreams.isEmpty()) {
+            return null
+        }
+
+        val targetIndex = requestedAudioStreamIndex
+            ?: mediaSource.defaultAudioStreamIndex
+            ?: audioStreams.firstOrNull { it.isDefault == true }?.index
+
+        return audioStreams.firstOrNull { stream -> stream.index == targetIndex }
+            ?: audioStreams.first()
+    }
+
+    private fun needsAudioTranscode(
+        audioTranscodeMode: AudioTranscodeMode,
+        selectedAudioStream: com.jellycine.data.model.MediaStream?
+    ): Boolean {
+        val codec = selectedAudioStream?.codec?.lowercase()
+        return when (audioTranscodeMode) {
+            AudioTranscodeMode.STEREO -> {
+                val channels = selectedAudioStream?.channels ?: 2
+                channels > 2 || codec !in setOf("aac", "mp3", "opus", "vorbis", "pcm")
+            }
+            AudioTranscodeMode.SURROUND_5_1 -> codec != "eac3"
+            else -> false
         }
     }
 
