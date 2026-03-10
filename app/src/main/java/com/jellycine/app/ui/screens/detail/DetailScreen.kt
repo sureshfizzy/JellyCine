@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -657,7 +658,7 @@ fun DetailContent(
     val isPartiallyWatched = runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
     val playButtonText = if (isPartiallyWatched) {
         val remainingTicks = (runtimeTicks - playbackPositionTicks).coerceAtLeast(0L)
-        "Resume ${CodecUtils.formatRuntime(remainingTicks)} left"
+        "${CodecUtils.formatRuntime(remainingTicks)} left"
     } else {
         "Play"
     }
@@ -1412,12 +1413,21 @@ fun DetailContent(
                                         horizontalArrangement = Arrangement.Center,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.PlayArrow,
-                                            contentDescription = if (isPartiallyWatched) "Resume" else "Play",
-                                            modifier = Modifier.size(22.dp),
-                                            tint = if (isPartiallyWatched) Color.White else Color.Black
-                                        )
+                                        if (isPartiallyWatched) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_resume_playback),
+                                                contentDescription = "Continue playback",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = Color.White
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Rounded.PlayArrow,
+                                                contentDescription = "Play",
+                                                modifier = Modifier.size(22.dp),
+                                                tint = Color.Black
+                                            )
+                                        }
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = playButtonText,
@@ -1443,8 +1453,8 @@ fun DetailContent(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = if (isPartiallyWatched) "Resume" else "Play",
+                                                painter = painterResource(R.drawable.ic_resume_playback),
+                                                contentDescription = "Continue playback",
                                                 modifier = Modifier.size(22.dp),
                                                 tint = Color.Black
                                             )
