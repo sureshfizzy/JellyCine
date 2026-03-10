@@ -20,11 +20,11 @@ data class PlaybackInfoRequest(
     @SerializedName("AutoOpenLiveStream")
     val autoOpenLiveStream: Boolean = true,
     @SerializedName("EnableDirectPlay")
-    val enableDirectPlay: Boolean = true,
+    val enableDirectPlay: Boolean? = null,
     @SerializedName("EnableDirectStream")
-    val enableDirectStream: Boolean = true,
+    val enableDirectStream: Boolean? = null,
     @SerializedName("EnableTranscoding")
-    val enableTranscoding: Boolean = true,
+    val enableTranscoding: Boolean? = null,
     @SerializedName("DeviceProfile")
     val deviceProfile: DeviceProfile? = null
 )

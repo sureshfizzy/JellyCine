@@ -1183,8 +1183,16 @@ class MediaRepository(private val context: Context) {
             val api = session.api
             val userId = session.userId
             val serverUrl = session.baseUrl
+            val serverType = session.serverType
             val forceTranscode = (maxStreamingBitrate ?: 0) > 0
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
+            // Emby resolves original-playback requests more reliably through the query-based endpoint.
+            val preferGetPlaybackInfo = serverType == NetworkModule.ServerType.EMBY &&
+                !forceTranscode && audioTranscodeMode == AudioTranscodeMode.AUTO
+            val deviceProfile = PlaybackDeviceProfileFactory.create(
+                maxStreamingBitrate = maxStreamingBitrate?.toLong(),
+                audioTranscodeMode = audioTranscodeMode
+            )
             val playbackInfoUrls: (com.jellycine.data.model.PlaybackInfoResponse) -> com.jellycine.data.model.PlaybackInfoResponse =
                 { playbackInfo ->
                     playbackInfo.copy(
@@ -1219,18 +1227,33 @@ class MediaRepository(private val context: Context) {
                     )
                 }
 
+            if (preferGetPlaybackInfo) {
+                val getResponse = api.getPlaybackInfoGet(
+                    itemId = itemId,
+                    userId = userId,
+                    maxStreamingBitrate = maxStreamingBitrate,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = normalizedSubtitleStreamIndex,
+                    enableDirectPlay = null,
+                    enableDirectStream = null,
+                    enableTranscoding = null
+                )
+
+                if (getResponse.isSuccessful && getResponse.body() != null) {
+                    val responseBody = playbackInfoUrls(getResponse.body()!!)
+                    return Result.success(responseBody)
+                }
+            }
+
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,
-                enableDirectPlay = !forceTranscode,
-                enableDirectStream = !forceTranscode,
-                enableTranscoding = true,
-                deviceProfile = PlaybackDeviceProfileFactory.create(
-                    maxStreamingBitrate = maxStreamingBitrate?.toLong(),
-                    audioTranscodeMode = audioTranscodeMode
-                )
+                enableDirectPlay = if (forceTranscode) false else null,
+                enableDirectStream = if (forceTranscode) false else null,
+                enableTranscoding = if (forceTranscode) true else null,
+                deviceProfile = deviceProfile
             )
 
             val postResponse = api.getPlaybackInfoPost(
@@ -1239,7 +1262,8 @@ class MediaRepository(private val context: Context) {
             )
 
             if (postResponse.isSuccessful && postResponse.body() != null) {
-                return Result.success(playbackInfoUrls(postResponse.body()!!))
+                val responseBody = playbackInfoUrls(postResponse.body()!!)
+                return Result.success(responseBody)
             }
 
             val getResponse = api.getPlaybackInfoGet(
@@ -1254,7 +1278,8 @@ class MediaRepository(private val context: Context) {
             )
 
             if (getResponse.isSuccessful && getResponse.body() != null) {
-                Result.success(playbackInfoUrls(getResponse.body()!!))
+                val responseBody = playbackInfoUrls(getResponse.body()!!)
+                Result.success(responseBody)
             } else {
                 Result.failure(
                     Exception(

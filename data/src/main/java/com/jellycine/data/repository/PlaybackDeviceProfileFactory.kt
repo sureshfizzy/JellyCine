@@ -7,14 +7,11 @@ import com.jellycine.data.model.SubtitleProfile
 import com.jellycine.data.model.TranscodingProfile
 
 internal object PlaybackDeviceProfileFactory {
-
-    private const val defaultPlaybackBitrate = 20_000_000L
-
     fun create(
         maxStreamingBitrate: Long? = null,
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
     ): DeviceProfile {
-        val bitrate = maxStreamingBitrate?.takeIf { it > 0L } ?: defaultPlaybackBitrate
+        val bitrate = maxStreamingBitrate?.takeIf { it > 0L }
         val maxAudioChannels = audioTranscodeMode.maxAudioChannels
 
         return DeviceProfile(
