@@ -195,6 +195,8 @@ class MediaRepository(private val context: Context) {
                 }
                 else -> Unit
             }
+        } else if (audioTranscodeMode == AudioTranscodeMode.PASSTHROUGH) {
+            overrideParams["allowAudioStreamCopy"] = "true"
         }
 
         sourceUri.queryParameterNames

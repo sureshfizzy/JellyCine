@@ -99,7 +99,7 @@ fun VideoSurface(
                 playerView.resizeMode = resizeMode
 
                 playerView.subtitleView?.apply {
-                    setApplyEmbeddedStyles(false)
+                    setApplyEmbeddedStyles(true)
                     setApplyEmbeddedFontSizes(false)
 
                     setFractionalTextSize(

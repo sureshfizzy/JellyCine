@@ -61,6 +61,7 @@ internal object PlaybackDeviceProfileFactory {
         return when (audioTranscodeMode) {
             AudioTranscodeMode.STEREO -> "aac"
             AudioTranscodeMode.SURROUND_5_1 -> "eac3"
+            AudioTranscodeMode.PASSTHROUGH -> "ac3,eac3"
             else -> "aac,mp3,ac3,eac3"
         }
     }
