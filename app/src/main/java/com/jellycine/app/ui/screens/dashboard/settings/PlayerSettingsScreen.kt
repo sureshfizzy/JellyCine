@@ -31,8 +31,10 @@ import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
@@ -74,6 +76,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.R
 import com.jellycine.player.audio.ExternalAudioDevice
 import com.jellycine.player.preferences.PlayerPreferences
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +91,7 @@ fun PlayerSettingsScreen(
     val transcodingColor = Color(0xFF8B5CF6)
     val videoColor = Color(0xFFF97316)
     val performanceColor = Color(0xFF22C55E)
+    val cacheColor = Color(0xFF06B6D4)
 
     Scaffold(
         topBar = {
@@ -199,6 +203,56 @@ fun PlayerSettingsScreen(
                         checked = uiState.startMaximized,
                         onCheckedChange = viewModel::setStartMaximized,
                         accentColor = videoColor
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.player_settings_section_player_cache)) }
+            item {
+                SettingsSection {
+                    ValueSliderSettingsItem(
+                        icon = Icons.Rounded.Storage,
+                        title = stringResource(R.string.player_settings_player_cache_size),
+                        subtitle = stringResource(R.string.player_settings_player_cache_size_summary),
+                        value = uiState.playerCacheSizeMb,
+                        defaultValue = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
+                        minValue = PlayerPreferences.MIN_PLAYER_CACHE_SIZE_MB,
+                        maxValue = PlayerPreferences.MAX_PLAYER_CACHE_SIZE_MB,
+                        stepSize = PlayerPreferences.PLAYER_CACHE_SIZE_STEP_MB,
+                        onValueChanged = viewModel::setPlayerCacheSizeMb,
+                        valueLabel = { sizeMb ->
+                            stringResource(R.string.player_settings_player_cache_size_value, sizeMb)
+                        },
+                        defaultLabel = { sizeMb ->
+                            stringResource(
+                                R.string.player_settings_default_value,
+                                stringResource(R.string.player_settings_player_cache_size_value, sizeMb)
+                            )
+                        },
+                        accentColor = cacheColor
+                    )
+
+                    SettingsDivider()
+                    ValueSliderSettingsItem(
+                        icon = Icons.Rounded.Schedule,
+                        title = stringResource(R.string.player_settings_player_cache_time),
+                        subtitle = stringResource(R.string.player_settings_player_cache_time_summary),
+                        value = uiState.playerCacheTimeSeconds,
+                        defaultValue = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
+                        minValue = PlayerPreferences.MIN_PLAYER_CACHE_TIME_SECONDS,
+                        maxValue = PlayerPreferences.MAX_PLAYER_CACHE_TIME_SECONDS,
+                        stepSize = PlayerPreferences.PLAYER_CACHE_TIME_STEP_SECONDS,
+                        onValueChanged = viewModel::setPlayerCacheTimeSeconds,
+                        valueLabel = { seconds ->
+                            stringResource(R.string.player_settings_player_cache_time_value, seconds)
+                        },
+                        defaultLabel = { seconds ->
+                            stringResource(
+                                R.string.player_settings_default_value,
+                                stringResource(R.string.player_settings_player_cache_time_value, seconds)
+                            )
+                        },
+                        accentColor = cacheColor
                     )
                 }
             }
@@ -622,17 +676,19 @@ private fun BaseSettingsItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PercentageSliderSettingsItem(
+private fun ValueSliderSettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
     value: Int,
     defaultValue: Int,
-    minValue: Int = 0,
-    maxValue: Int = 50,
-    stepSize: Int = 5,
+    minValue: Int,
+    maxValue: Int,
+    stepSize: Int = 1,
     onValueChanged: (Int) -> Unit,
-    accentColor: Color = MaterialTheme.colorScheme.primary
+    accentColor: Color = MaterialTheme.colorScheme.primary,
+    valueLabel: @Composable (Int) -> String,
+    defaultLabel: @Composable (Int) -> String
 ) {
     val safeMin = minValue
     val safeMax = maxValue.coerceAtLeast(minValue + 1)
@@ -683,7 +739,7 @@ private fun PercentageSliderSettingsItem(
             }
 
             Text(
-                text = stringResource(R.string.player_settings_percent_value, safeValue),
+                text = valueLabel(safeValue),
                 style = MaterialTheme.typography.titleSmall,
                 color = accentColor
             )
@@ -696,7 +752,10 @@ private fun PercentageSliderSettingsItem(
                 .graphicsLayer(scaleY = 0.75f),
             value = safeValue.toFloat(),
             onValueChange = { changed ->
-                onValueChanged(changed.toInt().coerceIn(valueRange.first, valueRange.last))
+                val steppedValue = (
+                    ((changed - safeMin) / safeStepSize).roundToInt() * safeStepSize + safeMin
+                ).coerceIn(valueRange.first, valueRange.last)
+                onValueChanged(steppedValue)
             },
             valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
             steps = sliderSteps,
@@ -727,13 +786,13 @@ private fun PercentageSliderSettingsItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.player_settings_percent_value, valueRange.first),
+                text = valueLabel(valueRange.first),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = stringResource(R.string.player_settings_default_percent, defaultValue),
+                text = defaultLabel(defaultValue),
                 style = MaterialTheme.typography.labelMedium,
                 color = accentColor,
                 modifier = Modifier.clickable {
@@ -742,12 +801,46 @@ private fun PercentageSliderSettingsItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = stringResource(R.string.player_settings_percent_value, valueRange.last),
+                text = valueLabel(valueRange.last),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PercentageSliderSettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    value: Int,
+    defaultValue: Int,
+    minValue: Int = 0,
+    maxValue: Int = 50,
+    stepSize: Int = 5,
+    onValueChanged: (Int) -> Unit,
+    accentColor: Color = MaterialTheme.colorScheme.primary
+) {
+    ValueSliderSettingsItem(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        value = value,
+        defaultValue = defaultValue,
+        minValue = minValue,
+        maxValue = maxValue,
+        stepSize = stepSize,
+        onValueChanged = onValueChanged,
+        accentColor = accentColor,
+        valueLabel = { currentValue ->
+            stringResource(R.string.player_settings_percent_value, currentValue)
+        },
+        defaultLabel = { currentValue ->
+            stringResource(R.string.player_settings_default_percent, currentValue)
+        }
+    )
 }
 
 @Composable

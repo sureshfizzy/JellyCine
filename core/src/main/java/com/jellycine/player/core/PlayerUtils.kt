@@ -5,9 +5,13 @@ import android.os.Build
 import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.video.HardwareAcceleration
@@ -102,6 +106,7 @@ object PlayerUtils {
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
                 .setTrackSelector(trackSelector)
+                .setLoadControl(createLoadControl(playerPreferences))
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -132,24 +137,57 @@ object PlayerUtils {
         playerBuilder: ExoPlayer.Builder
     ) {
         try {
-            // Reduce buffer sizes for lower memory and power usage.
-            val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    15000,
-                    30000,
-                    1500,
-                    5000
-                )
-                .setTargetBufferBytes(-1)
-                .setPrioritizeTimeOverSizeThresholds(true)
-                .build()
-            playerBuilder.setLoadControl(loadControl)
-
             // Set lower wake mode for battery saving
             playerBuilder.setWakeMode(C.WAKE_MODE_NONE)
             
         } catch (e: Exception) {
         }
+    }
+
+    @UnstableApi
+    fun createStreamingMediaSource(
+        context: Context,
+        mediaItem: MediaItem
+    ): MediaSource {
+        val cacheSizeMb = PlayerPreferences(context).getPlayerCacheSizeMb()
+        val dataSourceFactory = PlayerCacheManager.createDataSourceFactory(context, cacheSizeMb)
+        return DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
+    }
+
+    @UnstableApi
+    private fun createLoadControl(playerPreferences: PlayerPreferences): DefaultLoadControl {
+        val requestedCacheTimeMs = playerPreferences.getPlayerCacheTimeSeconds() * 1000
+        val batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
+        val minBufferMs = if (batteryOptimizationEnabled) {
+            minOf(requestedCacheTimeMs, 15_000)
+        } else {
+            requestedCacheTimeMs
+        }
+        val maxBufferMs = if (batteryOptimizationEnabled) {
+            minOf(requestedCacheTimeMs, 30_000)
+        } else {
+            requestedCacheTimeMs
+        }
+        val playbackBufferMs = if (batteryOptimizationEnabled) {
+            minOf(1_500, minBufferMs)
+        } else {
+            minOf(1_000, minBufferMs)
+        }
+        val rebufferPlaybackMs = if (batteryOptimizationEnabled) {
+            minOf(5_000, maxBufferMs)
+        } else {
+            minOf(2_000, maxBufferMs)
+        }
+
+        return DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                minBufferMs,
+                maxBufferMs,
+                playbackBufferMs,
+                rebufferPlaybackMs
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
     }
     
     /**

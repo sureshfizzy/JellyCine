@@ -23,6 +23,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
+        private const val KEY_PLAYER_CACHE_SIZE_MB = "player_cache_size_mb"
+        private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
@@ -90,6 +92,14 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
+        const val DEFAULT_PLAYER_CACHE_SIZE_MB = 200
+        const val MAX_PLAYER_CACHE_SIZE_MB = 500
+        const val MIN_PLAYER_CACHE_SIZE_MB = 50
+        const val PLAYER_CACHE_SIZE_STEP_MB = 50
+        const val DEFAULT_PLAYER_CACHE_TIME_SECONDS = 120
+        const val MAX_PLAYER_CACHE_TIME_SECONDS = 900
+        const val MIN_PLAYER_CACHE_TIME_SECONDS = 30
+        const val PLAYER_CACHE_TIME_STEP_SECONDS = 30
 
         const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
         val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
@@ -241,6 +251,34 @@ class PlayerPreferences(context: Context) {
      */
     fun setHdrEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HDR_ENABLED, enabled).apply()
+    }
+
+    fun getPlayerCacheSizeMb(): Int {
+        return prefs.getInt(KEY_PLAYER_CACHE_SIZE_MB, DEFAULT_PLAYER_CACHE_SIZE_MB)
+            .coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)
+    }
+
+    fun setPlayerCacheSizeMb(sizeMb: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_PLAYER_CACHE_SIZE_MB,
+                sizeMb.coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)
+            )
+            .apply()
+    }
+
+    fun getPlayerCacheTimeSeconds(): Int {
+        return prefs.getInt(KEY_PLAYER_CACHE_TIME_SECONDS, DEFAULT_PLAYER_CACHE_TIME_SECONDS)
+            .coerceIn(MIN_PLAYER_CACHE_TIME_SECONDS, MAX_PLAYER_CACHE_TIME_SECONDS)
+    }
+
+    fun setPlayerCacheTimeSeconds(seconds: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_PLAYER_CACHE_TIME_SECONDS,
+                seconds.coerceIn(MIN_PLAYER_CACHE_TIME_SECONDS, MAX_PLAYER_CACHE_TIME_SECONDS)
+            )
+            .apply()
     }
 
     fun getStreamingQuality(): String {

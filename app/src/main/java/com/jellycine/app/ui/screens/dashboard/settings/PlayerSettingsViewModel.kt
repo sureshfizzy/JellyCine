@@ -28,6 +28,8 @@ data class PlayerSettingsUiState(
     val isVideoTranscodingAllowed: Boolean = false,
     val isAudioTranscodingAllowed: Boolean = false,
     val startMaximized: Boolean = false,
+    val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
+    val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
     
     // Performance
     val batteryOptimizationEnabled: Boolean = false,
@@ -66,6 +68,8 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 streamingQuality = playerPreferences.getStreamingQuality(),
                 audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
+                playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
+                playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
         }
@@ -202,6 +206,20 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setStartMaximized(enabled: Boolean) {
         playerPreferences.setStartMaximizedEnabled(enabled)
         _uiState.value = _uiState.value.copy(startMaximized = enabled)
+    }
+
+    fun setPlayerCacheSizeMb(sizeMb: Int) {
+        playerPreferences.setPlayerCacheSizeMb(sizeMb)
+        _uiState.value = _uiState.value.copy(
+            playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb()
+        )
+    }
+
+    fun setPlayerCacheTimeSeconds(seconds: Int) {
+        playerPreferences.setPlayerCacheTimeSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds()
+        )
     }
     
     fun setBatteryOptimizationEnabled(enabled: Boolean) {

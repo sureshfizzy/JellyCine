@@ -190,6 +190,7 @@ class PlayerViewModel @Inject constructor(
                 var sessionMediaSourceBitrateKbps: Int? = null
                 var sessionPlayMethod = PlayMethod.DIRECT_PLAY
                 var sessionIsOfflinePlayback = false
+                var streamingMediaSource: androidx.media3.exoplayer.source.MediaSource? = null
                 defaultAudioStreamIndex = null
                 defaultSubtitleStreamIndex = null
 
@@ -274,10 +275,15 @@ class PlayerViewModel @Inject constructor(
                                 stream.index == activeSubtitleStreamIndex
                         }
 
-                    streamingMediaItem(
+                    val streamingMediaItem = streamingMediaItem(
                         streamingUrl = streamingUrl,
                         selectedSubtitleStream = activeSubtitleStream
                     )
+                    streamingMediaSource = PlayerUtils.createStreamingMediaSource(
+                        context = context,
+                        mediaItem = streamingMediaItem
+                    )
+                    streamingMediaItem
                 }
 
                 playbackSession = PlaybackSessionContext(
@@ -310,7 +316,11 @@ class PlayerViewModel @Inject constructor(
                 
                 exoPlayer?.apply {
                     addListener(playerListener)
-                    setMediaItem(mediaItem)
+                    if (streamingMediaSource != null) {
+                        setMediaSource(streamingMediaSource!!)
+                    } else {
+                        setMediaItem(mediaItem)
+                    }
                     prepare()
 
                     if (resolvedStartPositionMs != null && resolvedStartPositionMs > 0) {

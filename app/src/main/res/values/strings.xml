@@ -152,6 +152,7 @@
     <string name="player_settings_section_subtitles">Subtitles</string>
     <string name="player_settings_section_transcoding">Transcoding</string>
     <string name="player_settings_section_video">Video</string>
+    <string name="player_settings_section_player_cache">Player Cache</string>
     <string name="player_settings_section_performance">Performance</string>
     <string name="player_settings_section_external_audio">External Audio</string>
     <string name="player_settings_hardware_acceleration">Hardware Acceleration</string>
@@ -165,10 +166,17 @@
     <string name="player_settings_decoder_priority">Video Decoder Priority</string>
     <string name="player_settings_start_maximized">Start Maximized</string>
     <string name="player_settings_start_maximized_summary">Start video in fullscreen mode</string>
+    <string name="player_settings_player_cache_size">Cache Size</string>
+    <string name="player_settings_player_cache_size_value">%1$d MB</string>
+    <string name="player_settings_player_cache_size_summary">Maximum temporary disk cache for streaming</string>
+    <string name="player_settings_player_cache_time">Cache Time (Seconds)</string>
+    <string name="player_settings_player_cache_time_value">%1$d seconds</string>
+    <string name="player_settings_player_cache_time_summary">Target forward buffer duration for streaming</string>
     <string name="player_settings_battery_optimization">Battery Optimization</string>
     <string name="player_settings_battery_optimization_summary">Reduce power and network load during playback</string>
     <string name="player_settings_percent_value">%1$d%%</string>
     <string name="player_settings_default_percent">Default %1$d%%</string>
+    <string name="player_settings_default_value">Default %1$s</string>
     <string name="player_settings_decoder_priority_hardware_first">Hardware First</string>
     <string name="player_settings_decoder_priority_software_first">Software First</string>
     <string name="player_settings_device_type_bluetooth">Bluetooth</string>
