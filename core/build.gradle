@@ -35,7 +35,7 @@ android {
 
 dependencies {
     // Core Android
-    implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'androidx.core:core-ktx:1.18.0'
 
     // Lifecycle & ViewModel
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0'
