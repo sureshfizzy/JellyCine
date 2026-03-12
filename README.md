@@ -14,6 +14,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=com.jellycine.app">
+    <img src="https://img.shields.io/badge/Google%20Play-download%20app-34A853?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
+  </a>
+</p>
+
 ## Features
 
 - Jellyfin and Emby support with automatic endpoint resolution
@@ -22,9 +28,11 @@
 - Offline-aware navigation mode that falls back to downloaded content when network is unavailable
 - Immersive search experience with suggestions, live results, and categorized results
 - Offline downloads with queueing, pause/resume/cancel, and persistent state recovery
-- Supports Season/Series level download support with storage estimation before enqueueing
+- Season and series download actions with storage estimation before enqueueing
 - Media3 ExoPlayer playback with Jellyfin FFmpeg extension integration
-- Subtitle styling controls
+- In-player streaming quality selection, audio transcoding controls, and configurable player cache
+- Subtitle styling controls with improved subtitle and audio track handling
+- Google Cast support with inline remote playback controls
 - Gesture controls in player (seek, volume, brightness), lock mode, and start-maximized preference
 - HDR and Dolby Vision capability analysis with fallback handling
 
