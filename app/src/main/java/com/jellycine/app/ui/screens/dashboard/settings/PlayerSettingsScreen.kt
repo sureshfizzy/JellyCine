@@ -23,21 +23,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BatteryStd
-import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material.icons.rounded.VideoSettings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -74,7 +69,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.R
-import com.jellycine.player.audio.ExternalAudioDevice
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 
@@ -271,16 +265,6 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            if (uiState.externalAudioDevices.isNotEmpty()) {
-                item { SectionLabel(stringResource(R.string.player_settings_section_external_audio)) }
-                item {
-                    SettingsSection {
-                        uiState.externalAudioDevices.forEach { device ->
-                            ExternalAudioDeviceItem(device = device)
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -843,107 +827,6 @@ private fun PercentageSliderSettingsItem(
     )
 }
 
-@Composable
-private fun ExternalAudioDeviceItem(
-    device: ExternalAudioDevice
-) {
-    val deviceTypeLabel = when (device.type) {
-        "Bluetooth" -> stringResource(R.string.player_settings_device_type_bluetooth)
-        "USB" -> stringResource(R.string.player_settings_device_type_usb)
-        "HDMI" -> stringResource(R.string.player_settings_device_type_hdmi)
-        "Wired" -> stringResource(R.string.player_settings_device_type_wired)
-        else -> device.type
-    }
-    val deviceAccent = when (device.type) {
-        "Bluetooth" -> Color(0xFF3B82F6)
-        "USB" -> Color(0xFFF59E0B)
-        "HDMI" -> Color(0xFFEF4444)
-        "Wired" -> Color(0xFF14B8A6)
-        else -> MaterialTheme.colorScheme.primary
-    }
-
-    Column {
-        BaseSettingsItem(
-            icon = when (device.type) {
-                "Bluetooth" -> Icons.Rounded.Bluetooth
-                "USB" -> Icons.Rounded.Usb
-                "HDMI" -> Icons.Rounded.Tv
-                "Wired" -> Icons.Rounded.Headphones
-                else -> Icons.Rounded.AudioFile
-            },
-            title = device.name,
-            subtitle = stringResource(
-                R.string.player_settings_external_audio_summary,
-                deviceTypeLabel,
-                device.maxChannels,
-                if (device.supportsHighRes) {
-                    stringResource(R.string.player_settings_external_audio_hi_res_suffix)
-                } else {
-                    ""
-                }
-            ),
-            enabled = false,
-            accentColor = deviceAccent
-        )
-
-        if (device.supportedCodecs.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AudioFile,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = stringResource(
-                        R.string.player_settings_supported_codecs,
-                        device.supportedCodecs.joinToString(", ")
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        if (device.sampleRates.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = stringResource(
-                        R.string.player_settings_sample_rates,
-                        device.sampleRates.take(5).joinToString(", "),
-                        if (device.sampleRates.size > 5) {
-                            stringResource(R.string.player_settings_sample_rates_more_suffix)
-                        } else {
-                            ""
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}
 
 @Preview(showBackground = true)
 @Composable

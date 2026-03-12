@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.content.Context
-import android.media.MediaCodecList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.AudioTranscodeMode
@@ -9,11 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.player.audio.AudioDeviceManager
-import com.jellycine.player.audio.ExternalAudioDevice
 import com.jellycine.data.repository.MediaRepositoryProvider
 
 data class PlayerSettingsUiState(
@@ -33,11 +28,7 @@ data class PlayerSettingsUiState(
     
     // Performance
     val batteryOptimizationEnabled: Boolean = false,
-    
-    // Device Information
-    val supportedCodecs: String = "Loading...",
-    val externalAudioDevices: List<ExternalAudioDevice> = emptyList(),
-    
+
     // Loading states
     val isLoading: Boolean = false,
     val error: String? = null
@@ -46,7 +37,6 @@ data class PlayerSettingsUiState(
 class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     
     private val playerPreferences = PlayerPreferences(context)
-    private val audioDeviceManager = AudioDeviceManager(context)
     private val mediaRepository = MediaRepositoryProvider.getInstance(context)
     
     private val _uiState = MutableStateFlow(PlayerSettingsUiState())
@@ -55,8 +45,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     init {
         loadSettings()
         userTranscodingPolicy()
-        detectDeviceCapabilities()
-        startAudioDeviceMonitoring()
     }
     
     private fun loadSettings() {
@@ -72,87 +60,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
-        }
-    }
-    
-    private fun detectDeviceCapabilities() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    // Get supported codecs
-                    val supportedCodecs = getSupportedCodecs()
-
-                    withContext(Dispatchers.Main) {
-                        _uiState.value = _uiState.value.copy(
-                            supportedCodecs = supportedCodecs
-                        )
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        _uiState.value = _uiState.value.copy(
-                            error = "Failed to detect device capabilities: ${e.message}"
-                        )
-                    }
-                }
-            }
-        }
-    }
-    
-    /**
-     * Start monitoring external audio devices
-     */
-    private fun startAudioDeviceMonitoring() {
-        audioDeviceManager.startMonitoring()
-        
-        // Collect device changes
-        viewModelScope.launch {
-            audioDeviceManager.connectedDevices.collect { devices ->
-                _uiState.value = _uiState.value.copy(externalAudioDevices = devices)
-            }
-        }
-    }
-    
-    private fun getSupportedCodecs(): String {
-        return try {
-            val mediaCodecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
-            val codecInfos = mediaCodecList.codecInfos
-            
-            val videoCodecs = mutableSetOf<String>()
-            val audioCodecs = mutableSetOf<String>()
-            
-            codecInfos.forEach { codecInfo ->
-                if (!codecInfo.isEncoder) {
-                    codecInfo.supportedTypes.forEach { type ->
-                        when {
-                            type.startsWith("video/") -> {
-                                when (type) {
-                                    "video/avc" -> videoCodecs.add("H.264")
-                                    "video/hevc" -> videoCodecs.add("H.265")
-                                    "video/x-vnd.on2.vp9" -> videoCodecs.add("VP9")
-                                    "video/av01" -> videoCodecs.add("AV1")
-                                    "video/dolby-vision" -> videoCodecs.add("Dolby Vision")
-                                }
-                            }
-                            type.startsWith("audio/") -> {
-                                when (type) {
-                                    "audio/mp4a-latm" -> audioCodecs.add("AAC")
-                                    "audio/ac3" -> audioCodecs.add("AC-3")
-                                    "audio/eac3" -> audioCodecs.add("E-AC-3")
-                                    "audio/flac" -> audioCodecs.add("FLAC")
-                                    "audio/opus" -> audioCodecs.add("Opus")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            val videoCodecString = videoCodecs.sorted().joinToString(", ")
-            val audioCodecString = audioCodecs.sorted().joinToString(", ")
-            
-            "Video: $videoCodecString\nAudio: $audioCodecString"
-        } catch (e: Exception) {
-            "Unable to detect codecs"
         }
     }
     
@@ -229,10 +136,5 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
-    }
-    
-    override fun onCleared() {
-        super.onCleared()
-        audioDeviceManager.stopMonitoring()
     }
 }

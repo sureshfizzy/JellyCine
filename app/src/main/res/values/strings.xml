@@ -154,7 +154,6 @@
     <string name="player_settings_section_video">Video</string>
     <string name="player_settings_section_player_cache">Player Cache</string>
     <string name="player_settings_section_performance">Performance</string>
-    <string name="player_settings_section_external_audio">External Audio</string>
     <string name="player_settings_hardware_acceleration">Hardware Acceleration</string>
     <string name="player_settings_hardware_acceleration_summary">Use GPU for video acceleration (recommended)</string>
     <string name="player_settings_async_mediacodec">Asynchronous MediaCodec</string>
@@ -179,15 +178,6 @@
     <string name="player_settings_default_value">Default %1$s</string>
     <string name="player_settings_decoder_priority_hardware_first">Hardware First</string>
     <string name="player_settings_decoder_priority_software_first">Software First</string>
-    <string name="player_settings_device_type_bluetooth">Bluetooth</string>
-    <string name="player_settings_device_type_usb">USB</string>
-    <string name="player_settings_device_type_hdmi">HDMI</string>
-    <string name="player_settings_device_type_wired">Wired</string>
-    <string name="player_settings_external_audio_hi_res_suffix"> - Hi-Res</string>
-    <string name="player_settings_external_audio_summary">%1$s - %2$d channels%3$s</string>
-    <string name="player_settings_supported_codecs">Codecs: %1$s</string>
-    <string name="player_settings_sample_rates">Sample Rates: %1$s Hz%2$s</string>
-    <string name="player_settings_sample_rates_more_suffix">...</string>
 
     <!-- Subtitle Settings -->
     <string name="subtitle_settings_title">Subtitles</string>

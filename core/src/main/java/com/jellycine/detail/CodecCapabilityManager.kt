@@ -1,21 +1,8 @@
 package com.jellycine.detail
 
 import android.content.Context
-import android.media.AudioDeviceInfo
-import android.media.AudioManager
 import com.jellycine.data.model.MediaStream
 import com.jellycine.player.audio.SpatializerHelper
-
-/**
- * Data class representing device audio capabilities
- */
-data class AudioCapabilities(
-    val supportsSpatialAudio: Boolean,
-    val supportsAtmos: Boolean,
-    val maxChannels: Int,
-    val connectedAudioDevice: String,
-    val canProcessSpatialAudio: Boolean
-)
 
 /**
  * Manager class for codec capability detection and spatial audio analysis
@@ -180,54 +167,6 @@ object CodecCapabilityManager {
     }
 
     /**
-     * Detect device audio capabilities using proper Spatializer API
-     */
-    fun detectDeviceAudioCapabilities(context: Context): AudioCapabilities {
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val spatializerHelper = SpatializerHelper(context)
-        
-        // Get comprehensive spatial audio info
-        val supportsSpatialAudio = spatializerHelper.canSpatializeMultiChannel()
-        val spatializerEnabled = spatializerHelper.isSpatializerEnabled()
-        
-        // Detect connected audio devices
-        val outputDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        val connectedDevice = outputDevices.firstOrNull()
-
-        val deviceName = when (connectedDevice?.type) {
-            AudioDeviceInfo.TYPE_HDMI -> "HDMI"
-            AudioDeviceInfo.TYPE_USB_HEADSET -> "USB Headset"
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth"
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired Headphones"
-            AudioDeviceInfo.TYPE_WIRED_HEADSET -> "Wired Headset"
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Built-in Speaker"
-            else -> "Unknown"
-        }
-
-        val supportsAtmos = supportsSpatialAudio
-        
-        // Estimate max channels based on device
-        val maxChannels = when (connectedDevice?.type) {
-            AudioDeviceInfo.TYPE_HDMI -> 16 // HDMI can support many channels
-            AudioDeviceInfo.TYPE_USB_HEADSET -> 8
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> 2
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> 2
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> 2
-            else -> 2
-        }
-        
-        val canProcessSpatialAudio = supportsSpatialAudio && spatializerEnabled
-        
-        return AudioCapabilities(
-            supportsSpatialAudio = supportsSpatialAudio,
-            supportsAtmos = supportsAtmos,
-            maxChannels = maxChannels,
-            connectedAudioDevice = deviceName,
-            canProcessSpatialAudio = canProcessSpatialAudio
-        )
-    }
-
-    /**
      * Check if audio stream is Dolby-based
      */
     fun isDolbyAudio(audioStream: MediaStream): Boolean {
@@ -287,7 +226,6 @@ object CodecCapabilityManager {
             )
         }
 
-        val deviceCapabilities = detectDeviceAudioCapabilities(context)
         val spatializerHelper = SpatializerHelper(context)
         val requestedChannelCount = (audioStream.channels ?: 2).coerceAtLeast(2)
 
