@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,14 +61,10 @@ fun Settings(
     val uiState by viewModel.uiState.collectAsState()
     val supportedCodecs = remember(context) { getSupportedCodecsSummary(context) }
     val listState = rememberLazyListState()
+    val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
-    var showServerSwitchDialog by remember { mutableStateOf(false) }
-    var showUserSwitchDialog by remember { mutableStateOf(false) }
-    var userSwitchUsers by remember { mutableStateOf<List<SavedServerUiModel>>(emptyList()) }
-    var userSwitchServerName by remember { mutableStateOf<String?>(null) }
-    var serverPendingRemoval by remember { mutableStateOf<SavedServerUiModel?>(null) }
     val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl) {
         val currentServerUrl = uiState.serverUrl
         uiState.savedServers
@@ -108,11 +105,9 @@ fun Settings(
                     serverUrl = uiState.serverUrl,
                     profileImageUrl = uiState.profileImageUrl,
                     onUserClick = {
-                        userSwitchUsers = usersForCurrentServer
-                        userSwitchServerName = uiState.serverName
-                        showUserSwitchDialog = true
+                        serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
                     },
-                    onServerClick = { showServerSwitchDialog = true },
+                    onServerClick = serverSwitchDialogsState::openServers,
                     onNavigateToDownloads = onNavigateToDownloads
                 )
             }
@@ -273,77 +268,124 @@ fun Settings(
         )
     }
 
-    if (showServerSwitchDialog) {
+    ServerSwitchDialogsHost(
+        state = serverSwitchDialogsState,
+        uiState = uiState,
+        onAddServer = onAddServer,
+        onAddUser = onAddUser,
+        onSwitchServer = viewModel::switchServer,
+        onRemoveServer = viewModel::removeServer
+    )
+}
+
+@Stable
+internal class ServerSwitchDialogsState {
+    var showServerSwitchDialog by mutableStateOf(false)
+        private set
+    var showUserSwitchDialog by mutableStateOf(false)
+        private set
+    var userSwitchUsers by mutableStateOf<List<SavedServerUiModel>>(emptyList())
+        private set
+    var userSwitchServerName by mutableStateOf<String?>(null)
+        private set
+    var serverPendingRemoval by mutableStateOf<SavedServerUiModel?>(null)
+        private set
+
+    fun openServers() {
+        showServerSwitchDialog = true
+    }
+
+    fun dismissServers() {
+        showServerSwitchDialog = false
+    }
+
+    fun openUsers(serverName: String?, users: List<SavedServerUiModel>) {
+        userSwitchServerName = serverName
+        userSwitchUsers = users
+        showUserSwitchDialog = true
+    }
+
+    fun dismissUsers() {
+        showUserSwitchDialog = false
+        userSwitchUsers = emptyList()
+        userSwitchServerName = null
+    }
+
+    fun requestRemoval(server: SavedServerUiModel) {
+        serverPendingRemoval = server
+    }
+
+    fun clearRemoval() {
+        serverPendingRemoval = null
+    }
+}
+
+@Composable
+internal fun rememberServerSwitchDialogsState(): ServerSwitchDialogsState {
+    return remember { ServerSwitchDialogsState() }
+}
+
+@Composable
+internal fun ServerSwitchDialogsHost(
+    state: ServerSwitchDialogsState,
+    uiState: SettingsUiState,
+    onAddServer: () -> Unit,
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit,
+    onSwitchServer: (String, () -> Unit) -> Unit,
+    onRemoveServer: (String, () -> Unit) -> Unit
+) {
+    val isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer
+
+    if (state.showServerSwitchDialog) {
         ServerSwitchDialog(
             servers = uiState.savedServers,
-            isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer,
-            onDismiss = { showServerSwitchDialog = false },
+            isSwitching = isSwitching,
+            onDismiss = state::dismissServers,
             onAddServer = {
-                showServerSwitchDialog = false
+                state.dismissServers()
                 onAddServer()
             },
-            onRequestRemoveServer = { server ->
-                serverPendingRemoval = server
-            },
+            onRequestRemoveServer = state::requestRemoval,
             onOpenServerUsers = { serverName, users ->
-                userSwitchServerName = serverName
-                userSwitchUsers = users
-                showServerSwitchDialog = false
-                showUserSwitchDialog = true
+                state.dismissServers()
+                state.openUsers(serverName, users)
             },
             onServerSelected = { server ->
-                viewModel.switchServer(server.id) {
-                    showServerSwitchDialog = false
-                }
+                onSwitchServer(server.id, state::dismissServers)
             }
         )
     }
 
-    if (showUserSwitchDialog) {
+    if (state.showUserSwitchDialog) {
         UserSwitchDialog(
-            users = userSwitchUsers,
-            serverName = userSwitchServerName,
-            isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer,
-            onDismiss = {
-                showUserSwitchDialog = false
-                userSwitchUsers = emptyList()
-                userSwitchServerName = null
-            },
+            users = state.userSwitchUsers,
+            serverName = state.userSwitchServerName,
+            isSwitching = isSwitching,
+            onDismiss = state::dismissUsers,
             onAddUser = {
-                showUserSwitchDialog = false
-                val currentServerUrl = uiState.serverUrl?.takeIf { it.isNotBlank() }
-                if (currentServerUrl != null) {
-                    onAddUser(currentServerUrl, uiState.serverName)
-                }
-                userSwitchUsers = emptyList()
-                userSwitchServerName = null
+                state.dismissUsers()
+                uiState.serverUrl
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { onAddUser(it, uiState.serverName) }
             },
-            onRequestRemoveUser = { server ->
-                serverPendingRemoval = server
-            },
+            onRequestRemoveUser = state::requestRemoval,
             onUserSelected = { server ->
-                viewModel.switchServer(server.id) {
-                    showUserSwitchDialog = false
-                    userSwitchUsers = emptyList()
-                    userSwitchServerName = null
-                }
+                onSwitchServer(server.id, state::dismissUsers)
             }
         )
     }
 
-    serverPendingRemoval?.let { server ->
+    state.serverPendingRemoval?.let { server ->
         RemoveServerConfirmDialog(
             server = server,
             isRemoving = uiState.isRemovingServer,
             onDismiss = {
                 if (!uiState.isRemovingServer) {
-                    serverPendingRemoval = null
+                    state.clearRemoval()
                 }
             },
             onConfirm = {
-                viewModel.removeServer(server.id) {
-                    serverPendingRemoval = null
-                }
+                onRemoveServer(server.id, state::clearRemoval)
             }
         )
     }
@@ -905,7 +947,7 @@ private fun NetworkDialogItem(
 }
 
 @Composable
-private fun ServerSwitchDialog(
+internal fun ServerSwitchDialog(
     servers: List<SavedServerUiModel>,
     isSwitching: Boolean,
     onDismiss: () -> Unit,
@@ -1079,7 +1121,7 @@ private data class ServerGroupUiModel(
 )
 
 @Composable
-private fun UserSwitchDialog(
+internal fun UserSwitchDialog(
     users: List<SavedServerUiModel>,
     serverName: String?,
     isSwitching: Boolean,
@@ -1295,7 +1337,7 @@ private fun WhoWatchingUserCard(
     }
 }
 @Composable
-private fun RemoveServerConfirmDialog(
+internal fun RemoveServerConfirmDialog(
     server: SavedServerUiModel,
     isRemoving: Boolean,
     onDismiss: () -> Unit,

@@ -41,7 +41,11 @@ data class SettingsUiState(
     val error: String? = null
 )
 
-class SettingsViewModel(private val context: Context) : ViewModel() {
+class SettingsViewModel(
+    private val context: Context,
+    private val includeProfileData: Boolean = true,
+    private val includeLocalSettings: Boolean = true
+) : ViewModel() {
     
     private val authRepository = AuthRepositoryProvider.getInstance(context)
     private val mediaRepository = MediaRepository(context)
@@ -56,8 +60,10 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             authRepository.savedServer()
         }
-        loadPreferences()
-        loadNetworkPreferences()
+        if (includeLocalSettings) {
+            loadPreferences()
+            loadNetworkPreferences()
+        }
         loadUserData()
     }
 
@@ -134,10 +140,19 @@ class SettingsViewModel(private val context: Context) : ViewModel() {
                         },
                         savedServers = serverUiModels,
                         activeServerId = activeServerId,
-                        user = if (isSameSession) currentState.user else null,
-                        isLoading = !isSameSession || currentState.user == null,
+                        user = if (includeProfileData && isSameSession) currentState.user else null,
+                        isLoading = if (includeProfileData) {
+                            !isSameSession || currentState.user == null
+                        } else {
+                            false
+                        },
                         error = null
                     )
+
+                    if (!includeProfileData) {
+                        activeUserSessionKey = sessionKey
+                        return@collectLatest
+                    }
 
                     if (activeUserSessionKey == sessionKey && _uiState.value.user != null) {
                         return@collectLatest

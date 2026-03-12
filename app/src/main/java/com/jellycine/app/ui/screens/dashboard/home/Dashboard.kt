@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -47,6 +48,9 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.ServerSwitchDialogsHost
+import com.jellycine.app.ui.screens.dashboard.settings.SettingsViewModel
+import com.jellycine.app.ui.screens.dashboard.settings.rememberServerSwitchDialogsState
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -85,6 +89,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
@@ -1092,6 +1097,8 @@ fun Dashboard(
     onNavigateToDetail: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayer: (String) -> Unit = {},
+    onAddServer: () -> Unit = {},
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
     isTabActive: Boolean = true
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
@@ -1101,6 +1108,13 @@ fun Dashboard(
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
+    val serverSwitchViewModel: SettingsViewModel = viewModel {
+        SettingsViewModel(
+            context = context,
+            includeProfileData = false,
+            includeLocalSettings = false
+        )
+    }
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
@@ -1117,6 +1131,8 @@ fun Dashboard(
             initialValue = preferences.isPosterEnhancersEnabled()
         )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
+    val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
+    val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     LaunchedEffect(featureCarouselEnabled) {
         if (!featureCarouselEnabled && selectedCategory != HomeCategory.HOME) {
@@ -1170,6 +1186,7 @@ fun Dashboard(
         mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(null)
     }
     var previousSessionKey by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(dashboardSessionKey, isNetworkAvailable) {
         if (previousSessionKey != null && previousSessionKey != dashboardSessionKey) {
             Cache.clear()
@@ -1520,7 +1537,8 @@ fun Dashboard(
                         TopHeader(
                             serverName = currentServerName,
                             userName = HeaderUserName,
-                            userImageUrl = noCarouselProfileImageUrl
+                            userImageUrl = noCarouselProfileImageUrl,
+                            onServerClick = serverSwitchDialogsState::openServers
                         )
                     }
                 }
@@ -1653,13 +1671,23 @@ fun Dashboard(
             }
         }
     }
+
+    ServerSwitchDialogsHost(
+        state = serverSwitchDialogsState,
+        uiState = serverSwitchUiState,
+        onAddServer = onAddServer,
+        onAddUser = onAddUser,
+        onSwitchServer = serverSwitchViewModel::switchServer,
+        onRemoveServer = serverSwitchViewModel::removeServer
+    )
 }
 
 @Composable
 private fun TopHeader(
     serverName: String?,
     userName: String?,
-    userImageUrl: String?
+    userImageUrl: String?,
+    onServerClick: (() -> Unit)? = null
 ) {
     BrandHeader(
         serverName = serverName,
@@ -1668,7 +1696,8 @@ private fun TopHeader(
             .padding(top = 4.dp),
         showUserIcon = true,
         userName = userName,
-        userImageUrl = userImageUrl
+        userImageUrl = userImageUrl,
+        onServerClick = onServerClick
     )
 }
 
@@ -1678,7 +1707,8 @@ private fun BrandHeader(
     modifier: Modifier = Modifier,
     showUserIcon: Boolean = false,
     userName: String? = null,
-    userImageUrl: String? = null
+    userImageUrl: String? = null,
+    onServerClick: (() -> Unit)? = null
 ) {
     val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dashboard_server_fallback)
     val headerChipShape = RoundedCornerShape(22.dp)
@@ -1697,6 +1727,13 @@ private fun BrandHeader(
                     width = 1.dp,
                     color = Color.White.copy(alpha = 0.10f),
                     shape = headerChipShape
+                )
+                .then(
+                    if (onServerClick != null) {
+                        Modifier.clickable(onClick = onServerClick)
+                    } else {
+                        Modifier
+                    }
                 )
                 .padding(start = 8.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
             verticalAlignment = Alignment.CenterVertically

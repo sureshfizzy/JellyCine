@@ -355,6 +355,8 @@ fun DashboardContainer(
                             onNavigateToDetail = onNavigateToDetail,
                             onNavigateToViewAll = onNavigateToViewAll,
                             onNavigateToPlayer = onNavigateToPlayer,
+                            onAddServer = onAddServer,
+                            onAddUser = onAddUser,
                             isTabActive = isHomeActive
                         )
                     }
