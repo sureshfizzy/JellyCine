@@ -135,7 +135,7 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
     // DataStore
-    implementation 'androidx.datastore:datastore-preferences:1.2.0'
+    implementation 'androidx.datastore:datastore-preferences:1.2.1'
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
 
     // Media3 ExoPlayer for video playback
