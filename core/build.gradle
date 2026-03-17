@@ -45,7 +45,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
 
     // Media3 for player
-    implementation 'androidx.media3:media3-exoplayer:1.9.2'
+    implementation 'androidx.media3:media3-exoplayer:1.9.3'
     implementation 'androidx.media3:media3-common:1.9.2'
     implementation 'androidx.media3:media3-datasource:1.9.2'
     implementation 'androidx.media3:media3-database:1.9.2'
