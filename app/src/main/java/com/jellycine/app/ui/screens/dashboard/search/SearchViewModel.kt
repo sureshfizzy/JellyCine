@@ -74,17 +74,8 @@ class SearchViewModel @Inject constructor(
 
             searchResult.fold(
                 onSuccess = { items ->
-                    val sortedItems = items.sortedWith(compareBy<BaseItemDto> { item ->
-                        when (item.type) {
-                            "Movie" -> 0
-                            "Series" -> 1
-                            "Episode" -> 2
-                            else -> 3
-                        }
-                    }.thenBy { it.name })
-
                     _uiState.value = _uiState.value.copy(
-                        searchResults = sortedItems,
+                        searchResults = filterSearchItems(items, query),
                         isSearching = false,
                         error = null
                     )
@@ -125,10 +116,10 @@ class SearchViewModel @Inject constructor(
             )
 
             val allItems = searchResult.getOrNull() ?: emptyList()
-
-            val movies = allItems.filter { it.type == "Movie" }.take(20)
-            val shows = allItems.filter { it.type == "Series" }.take(20)
-            val episodes = allItems.filter { it.type == "Episode" }.take(20)
+            val filteredItems = filterSearchItems(allItems, query)
+            val movies = filteredItems.filter { it.type == "Movie" }.take(20)
+            val shows = filteredItems.filter { it.type == "Series" }.take(20)
+            val episodes = filteredItems.filter { it.type == "Episode" }.take(20)
 
             searchCache[cacheKey] = SearchCacheEntry(
                 movieResults = movies,
@@ -194,17 +185,11 @@ class SearchViewModel @Inject constructor(
             }
 
             val filteredResults = allItems.filter { item ->
-                val nameMatch = item.name?.contains(query, ignoreCase = true) == true
-                val titleMatch = item.originalTitle?.contains(query, ignoreCase = true) == true
-                nameMatch || titleMatch
-            }.sortedWith(compareBy<BaseItemDto> { item ->
-                when (item.type) {
-                    "Movie" -> 0
-                    "Series" -> 1
-                    "Episode" -> 2
-                    else -> 3
-                }
-            }.thenBy { it.name }).take(20)
+                val name = item.name.orEmpty()
+                val originalTitle = item.originalTitle.orEmpty()
+                name.contains(query, ignoreCase = true) ||
+                    originalTitle.contains(query, ignoreCase = true)
+            }.take(20)
 
             _uiState.value = _uiState.value.copy(
                 searchResults = filteredResults,
@@ -259,6 +244,26 @@ class SearchViewModel @Inject constructor(
 
     fun clearSearchCache() {
         searchCache.clear()
+    }
+
+    private fun filterSearchItems(items: List<BaseItemDto>, query: String): List<BaseItemDto> {
+        val lowerQuery = query.lowercase()
+        val queryWords = lowerQuery.split(" ").filter { it.isNotBlank() }
+
+        if (queryWords.size <= 1) return items
+
+        val filteredItems = items.filter { item ->
+            val text = "${item.name.orEmpty()} ${item.originalTitle.orEmpty()}".lowercase()
+            text.contains(lowerQuery) || run {
+                var index = -1
+                queryWords.all { word ->
+                    index = text.indexOf(word, index + 1)
+                    index >= 0
+                }
+            }
+        }
+
+        return filteredItems.ifEmpty { items }
     }
 }
 
