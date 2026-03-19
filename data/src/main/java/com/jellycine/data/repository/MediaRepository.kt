@@ -477,15 +477,41 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
             val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData"
 
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,
-                fields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData"
+                fields = detailFields
             )
 
             if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+                val item = response.body()!!
+                val mappedItem = if (
+                    item.type == "Episode" &&
+                    item.officialRating.isNullOrBlank() &&
+                    !item.seriesId.isNullOrBlank()
+                ) {
+                    val seriesResponse = api.getItemById(
+                        userId = userId,
+                        itemId = item.seriesId!!,
+                        fields = "OfficialRating"
+                    )
+
+                    val seriesRating = seriesResponse.body()
+                        ?.officialRating
+                        ?.takeIf { it.isNotBlank() }
+
+                    if (seriesResponse.isSuccessful && seriesRating != null) {
+                        item.copy(officialRating = seriesRating)
+                    } else {
+                        item
+                    }
+                } else {
+                    item
+                }
+
+                Result.success(mappedItem)
             } else {
                 Result.failure(Exception("Failed to fetch item: ${response.code()}"))
             }
