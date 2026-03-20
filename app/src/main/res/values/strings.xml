@@ -152,6 +152,7 @@
     <string name="player_settings_section_subtitles">Subtitles</string>
     <string name="player_settings_section_transcoding">Transcoding</string>
     <string name="player_settings_section_video">Video</string>
+    <string name="player_settings_section_seeking">Seeking</string>
     <string name="player_settings_section_player_cache">Player Cache</string>
     <string name="player_settings_section_performance">Performance</string>
     <string name="player_settings_hardware_acceleration">Hardware Acceleration</string>
@@ -165,6 +166,11 @@
     <string name="player_settings_decoder_priority">Video Decoder Priority</string>
     <string name="player_settings_start_maximized">Start Maximized</string>
     <string name="player_settings_start_maximized_summary">Start video in fullscreen mode</string>
+    <string name="player_settings_seek_backward">Seek Backward</string>
+    <string name="player_settings_seek_backward_summary">Skip interval for rewind</string>
+    <string name="player_settings_seek_forward">Seek Forward</string>
+    <string name="player_settings_seek_forward_summary">Skip interval for forward</string>
+    <string name="player_settings_seek_interval_value">%1$d seconds</string>
     <string name="player_settings_player_cache_size">Cache Size</string>
     <string name="player_settings_player_cache_size_value">%1$d MB</string>
     <string name="player_settings_player_cache_size_summary">Maximum temporary disk cache for streaming</string>

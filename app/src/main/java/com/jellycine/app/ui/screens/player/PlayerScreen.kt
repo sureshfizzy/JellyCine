@@ -137,6 +137,8 @@ fun PlayerScreen(
     var currentAudioTranscodeMode by remember {
         mutableStateOf(playerPreferences.getAudioTranscodeMode())
     }
+    val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
+    val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
 
     // Setup player-specific settings
     DisposableEffect(Unit) {
@@ -533,6 +535,8 @@ fun PlayerScreen(
                     resetAutoHideTimer()
                     viewModel.seekForward()
                 },
+                seekBackwardSeconds = seekBackwardSeconds,
+                seekForwardSeconds = seekForwardSeconds,
                 modifier = Modifier.fillMaxSize()
             )
         }

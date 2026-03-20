@@ -69,6 +69,8 @@ fun ControlsOverlay(
     onCycleAspectRatio: () -> Unit = {},
     onSeekBackward: () -> Unit = {},
     onSeekForward: () -> Unit = {},
+    seekBackwardSeconds: Int = 30,
+    seekForwardSeconds: Int = 30,
     onScrubStateChange: (Boolean) -> Unit = {}
 ) {
     var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
@@ -219,8 +221,8 @@ fun ControlsOverlay(
                 modifier = Modifier.size(58.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Replay30,
-                    contentDescription = "Replay 30 seconds",
+                    imageVector = replayIcon(seekBackwardSeconds),
+                    contentDescription = "Replay $seekBackwardSeconds seconds",
                     tint = Color.White,
                     modifier = Modifier.size(44.dp)
                 )
@@ -265,8 +267,8 @@ fun ControlsOverlay(
                 modifier = Modifier.size(58.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Forward30,
-                    contentDescription = "Forward 30 seconds",
+                    imageVector = replayforwardIcon(seekForwardSeconds),
+                    contentDescription = "Forward $seekForwardSeconds seconds",
                     tint = Color.White,
                     modifier = Modifier.size(44.dp)
                 )
@@ -380,6 +382,24 @@ fun ControlsOverlay(
                 )
             }
         }
+    }
+}
+
+private fun replayIcon(seconds: Int): ImageVector {
+    return when (seconds) {
+        5 -> Icons.Filled.Replay5
+        10 -> Icons.Filled.Replay10
+        30 -> Icons.Filled.Replay30
+        else -> Icons.Filled.Replay
+    }
+}
+
+private fun replayforwardIcon(seconds: Int): ImageVector {
+    return when (seconds) {
+        5 -> Icons.Filled.Forward5
+        10 -> Icons.Filled.Forward10
+        30 -> Icons.Filled.Forward30
+        else -> Icons.Filled.Forward
     }
 }
 

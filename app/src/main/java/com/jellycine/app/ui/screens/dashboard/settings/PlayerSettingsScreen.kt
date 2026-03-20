@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Schedule
@@ -84,6 +86,7 @@ fun PlayerSettingsScreen(
     val decodingColor = Color(0xFF3B82F6)
     val transcodingColor = Color(0xFF8B5CF6)
     val videoColor = Color(0xFFF97316)
+    val seekingColor = Color(0xFFEF4444)
     val performanceColor = Color(0xFF22C55E)
     val cacheColor = Color(0xFF06B6D4)
 
@@ -184,7 +187,7 @@ fun PlayerSettingsScreen(
                         title = stringResource(R.string.player_settings_decoder_priority),
                         subtitle = decoderPriorityLabel(uiState.decoderPriority),
                         options = listOf("Hardware First", "Software First", "Auto"),
-                        optionLabel = ::decoderPriorityLabel,
+                        optionLabel = { decoderPriorityLabel(it) },
                         onOptionSelected = viewModel::setDecoderPriority,
                         accentColor = videoColor
                     )
@@ -197,6 +200,48 @@ fun PlayerSettingsScreen(
                         checked = uiState.startMaximized,
                         onCheckedChange = viewModel::setStartMaximized,
                         accentColor = videoColor
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.player_settings_section_seeking)) }
+            item {
+                SettingsSection {
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.FastRewind,
+                        title = stringResource(R.string.player_settings_seek_backward),
+                        subtitle = stringResource(
+                            R.string.player_settings_seek_interval_value,
+                            uiState.seekBackwardIntervalSeconds
+                        ),
+                        options = (PlayerPreferences.MIN_SEEK_INTERVAL_SECONDS..PlayerPreferences.MAX_SEEK_INTERVAL_SECONDS step PlayerPreferences.SEEK_INTERVAL_STEP_SECONDS)
+                            .map(Int::toString),
+                        optionLabel = { seconds ->
+                            stringResource(R.string.player_settings_seek_interval_value, seconds.toInt())
+                        },
+                        onOptionSelected = { seconds ->
+                            viewModel.setSeekBackwardIntervalSeconds(seconds.toInt())
+                        },
+                        accentColor = seekingColor
+                    )
+
+                    SettingsDivider()
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.FastForward,
+                        title = stringResource(R.string.player_settings_seek_forward),
+                        subtitle = stringResource(
+                            R.string.player_settings_seek_interval_value,
+                            uiState.seekForwardIntervalSeconds
+                        ),
+                        options = (PlayerPreferences.MIN_SEEK_INTERVAL_SECONDS..PlayerPreferences.MAX_SEEK_INTERVAL_SECONDS step PlayerPreferences.SEEK_INTERVAL_STEP_SECONDS)
+                            .map(Int::toString),
+                        optionLabel = { seconds ->
+                            stringResource(R.string.player_settings_seek_interval_value, seconds.toInt())
+                        },
+                        onOptionSelected = { seconds ->
+                            viewModel.setSeekForwardIntervalSeconds(seconds.toInt())
+                        },
+                        accentColor = seekingColor
                     )
                 }
             }

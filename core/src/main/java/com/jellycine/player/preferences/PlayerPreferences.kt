@@ -25,6 +25,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_HDR_ENABLED = "hdr_enabled"
         private const val KEY_PLAYER_CACHE_SIZE_MB = "player_cache_size_mb"
         private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
+        private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
+        private const val KEY_SEEK_FORWARD_INTERVAL_SECONDS = "seek_forward_interval_seconds"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
@@ -100,6 +102,10 @@ class PlayerPreferences(context: Context) {
         const val MAX_PLAYER_CACHE_TIME_SECONDS = 900
         const val MIN_PLAYER_CACHE_TIME_SECONDS = 30
         const val PLAYER_CACHE_TIME_STEP_SECONDS = 30
+        const val DEFAULT_SEEK_INTERVAL_SECONDS = 30
+        const val MAX_SEEK_INTERVAL_SECONDS = 30
+        const val MIN_SEEK_INTERVAL_SECONDS = 5
+        const val SEEK_INTERVAL_STEP_SECONDS = 5
 
         const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
         val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
@@ -277,6 +283,34 @@ class PlayerPreferences(context: Context) {
             .putInt(
                 KEY_PLAYER_CACHE_TIME_SECONDS,
                 seconds.coerceIn(MIN_PLAYER_CACHE_TIME_SECONDS, MAX_PLAYER_CACHE_TIME_SECONDS)
+            )
+            .apply()
+    }
+
+    fun getSeekBackwardIntervalSeconds(): Int {
+        return prefs.getInt(KEY_SEEK_BACKWARD_INTERVAL_SECONDS, DEFAULT_SEEK_INTERVAL_SECONDS)
+            .coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
+    }
+
+    fun setSeekBackwardIntervalSeconds(seconds: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_SEEK_BACKWARD_INTERVAL_SECONDS,
+                seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
+            )
+            .apply()
+    }
+
+    fun getSeekForwardIntervalSeconds(): Int {
+        return prefs.getInt(KEY_SEEK_FORWARD_INTERVAL_SECONDS, DEFAULT_SEEK_INTERVAL_SECONDS)
+            .coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
+    }
+
+    fun setSeekForwardIntervalSeconds(seconds: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_SEEK_FORWARD_INTERVAL_SECONDS,
+                seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
             )
             .apply()
     }

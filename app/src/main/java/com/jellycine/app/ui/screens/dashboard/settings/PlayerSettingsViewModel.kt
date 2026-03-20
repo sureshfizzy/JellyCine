@@ -25,6 +25,8 @@ data class PlayerSettingsUiState(
     val startMaximized: Boolean = false,
     val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
     val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
+    val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
+    val seekForwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
     
     // Performance
     val batteryOptimizationEnabled: Boolean = false,
@@ -58,6 +60,8 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
+                seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
+                seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
         }
@@ -126,6 +130,20 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         playerPreferences.setPlayerCacheTimeSeconds(seconds)
         _uiState.value = _uiState.value.copy(
             playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds()
+        )
+    }
+
+    fun setSeekBackwardIntervalSeconds(seconds: Int) {
+        playerPreferences.setSeekBackwardIntervalSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
+        )
+    }
+
+    fun setSeekForwardIntervalSeconds(seconds: Int) {
+        playerPreferences.setSeekForwardIntervalSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds()
         )
     }
     

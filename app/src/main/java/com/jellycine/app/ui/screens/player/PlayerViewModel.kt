@@ -766,17 +766,21 @@ class PlayerViewModel @Inject constructor(
     }
 
     /**
-     * Seek backward by 30 seconds
+     * Seek backward by the configured interval
      */
     fun seekBackward() {
-        seekBy(deltaMs = -30000L)
+        val seconds = com.jellycine.player.preferences.PlayerPreferences(playerContext ?: return)
+            .getSeekBackwardIntervalSeconds()
+        seekBy(deltaMs = -(seconds * 1000L))
     }
 
     /**
-     * Seek forward by 30 seconds
+     * Seek forward by the configured interval
      */
     fun seekForward() {
-        seekBy(deltaMs = 30000L)
+        val seconds = com.jellycine.player.preferences.PlayerPreferences(playerContext ?: return)
+            .getSeekForwardIntervalSeconds()
+        seekBy(deltaMs = seconds * 1000L)
     }
 
     private val playerListener = object : Player.Listener {
