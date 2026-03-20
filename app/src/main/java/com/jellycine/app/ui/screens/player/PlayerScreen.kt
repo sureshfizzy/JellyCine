@@ -79,6 +79,7 @@ fun PlayerScreen(
     var uiState by remember { mutableStateOf(PlayerUiState()) }
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var autoHideKey by remember { mutableStateOf(0) }
+    var isScrubbing by remember { mutableStateOf(false) }
 
     val hideSystemBars = {
         (context as? Activity)?.let { act ->
@@ -372,8 +373,8 @@ fun PlayerScreen(
     }
 
     // Auto-hide controls after 3 seconds
-    LaunchedEffect(uiState.controlsVisible, autoHideKey) {
-        if (uiState.controlsVisible) {
+    LaunchedEffect(uiState.controlsVisible, autoHideKey, isScrubbing) {
+        if (uiState.controlsVisible && !isScrubbing) {
             delay(3000L)
             uiState = uiState.copy(controlsVisible = false)
         }
@@ -481,6 +482,10 @@ fun PlayerScreen(
                 onSeek = { progress ->
                     resetAutoHideTimer()
                     viewModel.seekToProgress(progress)
+                },
+                onScrubStateChange = { scrubbing ->
+                    isScrubbing = scrubbing
+                    resetAutoHideTimer()
                 },
                 // Media info parameters
                 spatializationResult = playerState.spatializationResult,

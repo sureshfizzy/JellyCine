@@ -1,11 +1,13 @@
 package com.jellycine.app.ui.screens.player
 
+import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,20 +23,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.jellycine.app.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 fun ControlsOverlay(
@@ -61,8 +68,15 @@ fun ControlsOverlay(
     onShowSubtitleTrackSelection: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
     onSeekBackward: () -> Unit = {},
-    onSeekForward: () -> Unit = {}
+    onSeekForward: () -> Unit = {},
+    onScrubStateChange: (Boolean) -> Unit = {}
 ) {
+    var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
+    val displayedPosition = scrubPreviewProgress
+        ?.takeIf { duration > 0L }
+        ?.let { (duration * it).toLong() }
+        ?: currentPosition
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -288,7 +302,7 @@ fun ControlsOverlay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${formatTime(currentPosition)} - ${formatTime(if (duration > 0) duration else 0L)}",
+                        text = "${formatTime(displayedPosition)} - ${formatTime(if (duration > 0) duration else 0L)}",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
@@ -356,7 +370,12 @@ fun ControlsOverlay(
                     progress = if (duration > 0 && currentPosition >= 0) {
                         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                     } else 0f,
+                    duration = duration,
                     onSeek = onSeek,
+                    onScrubProgressChange = {
+                        scrubPreviewProgress = it
+                        onScrubStateChange(it != null)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -367,44 +386,136 @@ fun ControlsOverlay(
 @Composable
 private fun SeekBar(
     progress: Float,
+    duration: Long,
     onSeek: (Float) -> Unit,
+    onScrubProgressChange: (Float?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Canvas(
+    var scrubProgress by remember { mutableFloatStateOf(progress.coerceIn(0f, 1f)) }
+    var dragActive by remember { mutableStateOf(false) }
+    var widthPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val trackHeightFraction by animateFloatAsState(
+        targetValue = if (dragActive) 0.95f else 0.55f,
+        label = "seekTrackHeight"
+    )
+    val thumbRadiusFraction by animateFloatAsState(
+        targetValue = if (dragActive) 0.52f else 0.36f,
+        label = "seekThumbRadius"
+    )
+    val bubbleYOffsetPx = with(density) { (-42).dp.roundToPx() }
+
+    LaunchedEffect(progress) {
+        if (!dragActive) {
+            scrubProgress = progress.coerceIn(0f, 1f)
+        }
+    }
+
+    Box(
         modifier = modifier
             .height(PROGRESS_BAR_HEIGHT_DP.dp)
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val newProgress = (offset.x / size.width).coerceIn(0f, 1f)
-                    onSeek(newProgress)
+            .onSizeChanged { widthPx = it.width }
+            .pointerInteropFilter { event ->
+                if (widthPx <= 0) return@pointerInteropFilter false
+
+                val newProgress = (event.x / widthPx.toFloat()).coerceIn(0f, 1f)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        dragActive = true
+                        scrubProgress = newProgress
+                        onScrubProgressChange(scrubProgress)
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        scrubProgress = newProgress
+                        onScrubProgressChange(scrubProgress)
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        scrubProgress = newProgress
+                        dragActive = false
+                        onSeek(scrubProgress)
+                        onScrubProgressChange(null)
+                        true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        dragActive = false
+                        scrubProgress = progress.coerceIn(0f, 1f)
+                        onScrubProgressChange(null)
+                        true
+                    }
+                    else -> false
                 }
             }
     ) {
-        val yOffset = size.height / 2
-        val trackInset = 2.dp.toPx()
-        val trackStart = Offset(trackInset, yOffset)
-        val trackEnd = Offset(size.width - trackInset, yOffset)
-        val trackHeight = size.height * 0.55f
+        val renderedProgress = scrubProgress.coerceIn(0f, 1f)
 
-        // Background track
-        drawLine(
-            color = Color.White.copy(alpha = 0.35f),
-            start = trackStart,
-            end = trackEnd,
-            strokeWidth = trackHeight,
-            cap = StrokeCap.Round
-        )
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(PROGRESS_BAR_HEIGHT_DP.dp)
+                .align(Alignment.BottomCenter)
+        ) {
+            val yOffset = size.height / 2
+            val trackInset = 2.dp.toPx()
+            val trackStart = Offset(trackInset, yOffset)
+            val trackEnd = Offset(size.width - trackInset, yOffset)
+            val trackHeight = size.height * trackHeightFraction
 
-        // Progress track
-        if (progress > 0f) {
-            val progressX = trackStart.x + (trackEnd.x - trackStart.x) * progress
             drawLine(
-                color = Color.White.copy(alpha = 0.95f),
+                color = Color.White.copy(alpha = 0.35f),
                 start = trackStart,
-                end = Offset(progressX, yOffset),
+                end = trackEnd,
                 strokeWidth = trackHeight,
                 cap = StrokeCap.Round
             )
+
+            if (renderedProgress > 0f) {
+                val progressX = trackStart.x + (trackEnd.x - trackStart.x) * renderedProgress
+                drawLine(
+                    color = Color.White.copy(alpha = 0.95f),
+                    start = trackStart,
+                    end = Offset(progressX, yOffset),
+                    strokeWidth = trackHeight,
+                    cap = StrokeCap.Round
+                )
+
+                drawCircle(
+                    color = Color.White,
+                    radius = size.height * thumbRadiusFraction,
+                    center = Offset(progressX, yOffset)
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = dragActive && duration > 0L && widthPx > 0,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .wrapContentSize(unbounded = true)
+                .zIndex(1f)
+                .offset {
+                    val thumbCenterX = (widthPx * renderedProgress).roundToInt()
+                    IntOffset(thumbCenterX - 32.dp.roundToPx(), bubbleYOffsetPx)
+                },
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(14.dp),
+                tonalElevation = 4.dp,
+                shadowElevation = 10.dp,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+            ) {
+                Text(
+                    text = formatTime((duration * renderedProgress).toLong()),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
@@ -501,7 +612,9 @@ fun ControlsOverlayPreviewPaused() {
 fun SeekBarPreview() {
     SeekBar(
         progress = 0.35f,
+        duration = 7200000L,
         onSeek = { },
+        onScrubProgressChange = { },
         modifier = Modifier.padding(16.dp)
     )
 }
