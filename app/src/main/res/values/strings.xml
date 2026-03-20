@@ -236,9 +236,10 @@
     <string name="view_all_empty_message">Try adjusting your filters</string>
     <string name="view_all_unknown_initial">?</string>
     <string name="view_all_sort">Sort</string>
-    <string name="view_all_sort_options">Sort Options</string>
-    <string name="view_all_sort_currently_active">Currently active</string>
-    <string name="view_all_selected">Selected</string>
+    <string name="view_all_sort_and_filter">Sort &amp; Filter</string>
+    <string name="view_all_genres">Genres</string>
+    <string name="view_all_clear_filters">Clear filters</string>
+    <string name="view_all_no_genres">No genres available yet</string>
     <string name="view_all_sort_recently_added">Recently Added</string>
     <string name="view_all_sort_name_az">Name (A-Z)</string>
     <string name="view_all_sort_name_za">Name (Z-A)</string>

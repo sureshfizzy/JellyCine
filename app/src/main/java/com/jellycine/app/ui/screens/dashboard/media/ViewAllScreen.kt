@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -23,9 +24,9 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.ui.graphics.vector.ImageVector
 import coil3.compose.AsyncImage
 import coil3.request.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,13 +57,14 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ViewAllScreen(
     contentType: ContentType,
@@ -80,16 +83,90 @@ fun ViewAllScreen(
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
     val resolvedTitle = title.takeIf { it.isNotBlank() } ?: stringResource(R.string.view_all_title)
+    val filterSignature = remember(
+        uiState.sortBy,
+        uiState.sortOrder,
+        uiState.selectedGenres
+    ) {
+        listOf(
+            uiState.sortBy,
+            uiState.sortOrder,
+            uiState.selectedGenres.toList().sorted().joinToString("|")
+        ).joinToString("::")
+    }
+    var lastAppliedFilterSignature by rememberSaveable(contentType, parentId, genreId) {
+        mutableStateOf(filterSignature)
+    }
+    val genreIncludeItemTypes = remember(contentType) {
+        when (contentType) {
+            ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
+            ContentType.SERIES, ContentType.TVSHOWS_GENRE -> "Series"
+            ContentType.ALL -> "Movie,Series"
+            ContentType.EPISODES -> null
+        }
+    }
+    var serverGenres by rememberSaveable(contentType, parentId, genreId) {
+        mutableStateOf(emptyList<String>())
+    }
+    LaunchedEffect(contentType, parentId, genreId, genreIncludeItemTypes) {
+        if (genreIncludeItemTypes == null) {
+            serverGenres = emptyList()
+        } else {
+            mediaRepository.getFilteredGenres(
+                parentId = parentId,
+                includeItemTypes = genreIncludeItemTypes
+            ).fold(
+                onSuccess = { genres ->
+                    serverGenres = genres.mapNotNull { it.name?.trim()?.takeIf(String::isNotEmpty) }
+                },
+                onFailure = {
+                    serverGenres = emptyList()
+                }
+            )
+        }
+    }
+    val availableGenres = remember(serverGenres, uiState.selectedGenres) {
+        serverGenres
+            .plus(uiState.selectedGenres)
+            .distinct()
+            .sorted()
+    }
+    val displayItems = remember(items, uiState.selectedGenres) {
+        val filteredItems = if (uiState.selectedGenres.size > 1) {
+            items.filter { item ->
+                val itemGenres = item.genres.orEmpty().toSet()
+                uiState.selectedGenres.all { genre -> itemGenres.contains(genre) }
+            }
+        } else {
+            items
+        }
+        filteredItems.distinctBy(::viewAllItemKey)
+    }
+    val headerTotalCount = uiState.totalItems
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
-        viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)
+        viewModel.ensureItemsLoaded(contentType, parentId, genreId)
     }
 
-    LaunchedEffect(gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index) {
+    LaunchedEffect(filterSignature) {
+        if (lastAppliedFilterSignature != filterSignature) {
+            gridState.scrollToItem(0)
+            lastAppliedFilterSignature = filterSignature
+        }
+    }
+
+    LaunchedEffect(
+        gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index,
+        items.size
+    ) {
         val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-        val totalItems = items.size
-        if (lastVisibleIndex >= totalItems - 5 && uiState.hasMorePages && !uiState.isLoading) {
+        val loadMore = when {
+            items.isEmpty() -> true
+            else -> lastVisibleIndex >= displayItems.size - 5
+        }
+
+        if (loadMore && uiState.hasMorePages && !uiState.isLoading) {
             viewModel.loadMoreItems(contentType, parentId, genreId)
         }
     }
@@ -123,9 +200,9 @@ fun ViewAllScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (uiState.totalItems > 0) {
+                        if (headerTotalCount > 0) {
                             Text(
-                                text = stringResource(R.string.view_all_count, items.size, uiState.totalItems),
+                                text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(top = 2.dp)
@@ -193,7 +270,7 @@ fun ViewAllScreen(
                         }
                     }
                     
-                    items.isEmpty() -> {
+                    displayItems.isEmpty() -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -218,45 +295,80 @@ fun ViewAllScreen(
                     }
                     
                     else -> {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(3),
-                            state = gridState,
-                            contentPadding = PaddingValues(
-                                start = 16.dp, 
-                                top = 16.dp, 
-                                end = 16.dp,
-                                bottom = 120.dp
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(
-                                items = items,
-                                key = { item -> item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: 0}" }
-                            ) { item ->
-                                PosterCard(
-                                    item = item,
-                                    mediaRepository = mediaRepository,
-                                    onClick = { onItemClick(item) }
-                                )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(3),
+                                state = gridState,
+                                contentPadding = PaddingValues(
+                                    start = 16.dp,
+                                    top = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 120.dp
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(
+                                    items = displayItems,
+                                    key = ::viewAllItemKey
+                                ) { item ->
+                                    PosterCard(
+                                        item = item,
+                                        mediaRepository = mediaRepository,
+                                        onClick = { onItemClick(item) }
+                                    )
+                                }
+
+                                if (uiState.hasMorePages) {
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(24.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (uiState.isLoading) {
+                                                CircularProgressIndicator(
+                                                    color = Color(0xFF0080FF),
+                                                    modifier = Modifier.size(28.dp),
+                                                    strokeWidth = 3.dp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
-                            if (uiState.hasMorePages) {
-                                item(span = { GridItemSpan(maxLineSpan) }) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(24.dp),
-                                        contentAlignment = Alignment.Center
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = uiState.isLoading && displayItems.isNotEmpty(),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 8.dp),
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                Surface(
+                                    color = Color(0xCC111111),
+                                    shape = RoundedCornerShape(999.dp),
+                                    tonalElevation = 2.dp
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        if (uiState.isLoading) {
-                                            CircularProgressIndicator(
-                                                color = Color(0xFF0080FF),
-                                                modifier = Modifier.size(28.dp),
-                                                strokeWidth = 3.dp
-                                            )
-                                        }
+                                        CircularProgressIndicator(
+                                            color = Color(0xFF0080FF),
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.loading),
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
                                     }
                                 }
                             }
@@ -275,11 +387,15 @@ fun ViewAllScreen(
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
+                availableGenres = availableGenres,
+                selectedGenres = uiState.selectedGenres,
                 onSortSelected = { sortBy, sortOrder ->
-                    viewModel.setSortBy(sortBy, contentType, parentId, genreId)
-                    viewModel.setSortOrder(sortOrder, contentType, parentId, genreId)
-                    showSortSheet = false
+                    viewModel.setSort(sortBy, sortOrder, contentType, parentId, genreId)
                 },
+                onGenreToggle = { genre ->
+                    viewModel.toggleGenreFilter(genre, contentType, parentId, genreId)
+                },
+                onClearFilters = { viewModel.clearFilters(contentType, parentId, genreId) },
                 onDismiss = { showSortSheet = false }
             )
         }
@@ -623,160 +739,158 @@ private fun SortFAB(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun SortBottomSheet(
     currentSortBy: String,
     currentSortOrder: String,
+    availableGenres: List<String>,
+    selectedGenres: Set<String>,
     onSortSelected: (String, String) -> Unit,
+    onGenreToggle: (String) -> Unit,
+    onClearFilters: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
-            .clickable { onDismiss() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color(0xFF0F0F0F),
+        scrimColor = Color.Black.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = Color.White.copy(alpha = 0.4f)
+            )
+        }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter),
-            color = Color(0xFF0F0F0F),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            shadowElevation = 24.dp
+                .heightIn(max = 560.dp)
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .verticalScroll(rememberScrollState())
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(top = 8.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                // Handle Bar
-                Box(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(5.dp)
-                        .background(
-                            Color.White.copy(alpha = 0.4f),
-                            RoundedCornerShape(3.dp)
-                        )
-                        .align(Alignment.CenterHorizontally)
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-                // Header with icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 24.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    color = Color(0xFF0080FF).copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = null,
+                            tint = Color(0xFF0080FF),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Text(
+                    text = stringResource(R.string.view_all_sort_and_filter),
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            val sortOptions = listOf(
+                SortOption("DateCreated", "Descending"),
+                SortOption("SortName", "Ascending"),
+                SortOption("SortName", "Descending"),
+                SortOption("ProductionYear", "Descending"),
+                SortOption("ProductionYear", "Ascending"),
+                SortOption("CommunityRating", "Descending"),
+                SortOption("CommunityRating", "Ascending")
+            )
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                sortOptions.forEach { option ->
+                    MediaFilterChip(
+                        label = stringResource(sortOptionLabelRes(option.sortBy, option.sortOrder)),
+                        isSelected = currentSortBy == option.sortBy && currentSortOrder == option.sortOrder,
+                        onClick = { onSortSelected(option.sortBy, option.sortOrder) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        modifier = Modifier.size(40.dp),
-                        color = Color(0xFF0080FF).copy(alpha = 0.15f),
+                        modifier = Modifier.size(36.dp),
+                        color = Color(0xFFFF9F43).copy(alpha = 0.14f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Sort,
+                                imageVector = Icons.Filled.LocalOffer,
                                 contentDescription = null,
-                                tint = Color(0xFF0080FF),
-                                modifier = Modifier.size(20.dp)
+                                tint = Color(0xFFFF9F43),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.width(16.dp))
-                    
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
                     Text(
-                        text = stringResource(R.string.view_all_sort_options),
+                        text = stringResource(R.string.view_all_genres),
                         color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                val sortOptions = listOf(
-                    SortOption("DateCreated", "Descending", "🕒"),
-                    SortOption("SortName", "Ascending", "🔤"),
-                    SortOption("SortName", "Descending", "🔤"),
-                    SortOption("ProductionYear", "Descending", "📅"),
-                    SortOption("ProductionYear", "Ascending", "📅"),
-                    SortOption("CommunityRating", "Descending", "⭐"),
-                    SortOption("CommunityRating", "Ascending", "⭐")
-                )
-
-                sortOptions.forEachIndexed { index, option ->
-                    val isSelected = currentSortBy == option.sortBy && currentSortOrder == option.sortOrder
-                    
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSortSelected(option.sortBy, option.sortOrder) },
-                        color = if (isSelected) 
-                            Color(0xFF0080FF).copy(alpha = 0.12f) 
-                        else 
-                            Color.Transparent,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Emoji icon
-                            Text(
-                                text = option.emoji,
-                                fontSize = 20.sp,
-                                modifier = Modifier.padding(end = 16.dp)
-                            )
-                            
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(sortOptionLabelRes(option.sortBy, option.sortOrder)),
-                                    color = if (isSelected) Color(0xFF0080FF) else Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                                )
-                                
-                                if (isSelected) {
-                                    Text(
-                                        text = stringResource(R.string.view_all_sort_currently_active),
-                                        color = Color(0xFF0080FF).copy(alpha = 0.7f),
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(top = 2.dp)
-                                    )
-                                }
-                            }
-
-                            // Selection indicator
-                            if (isSelected) {
-                                Surface(
-                                    modifier = Modifier.size(24.dp),
-                                    color = Color(0xFF0080FF),
-                                    shape = CircleShape
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Check,
-                                            contentDescription = stringResource(R.string.view_all_selected),
-                                            tint = Color.White,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .background(
-                                            Color.White.copy(alpha = 0.1f),
-                                            CircleShape
-                                        )
-                                )
-                            }
-                        }
+                if (selectedGenres.isNotEmpty()) {
+                    TextButton(onClick = onClearFilters) {
+                        Text(
+                            text = stringResource(R.string.view_all_clear_filters),
+                            color = Color(0xFF3AA0FF)
+                        )
                     }
-                    
-                    if (index < sortOptions.size - 1) {
-                        Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (availableGenres.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.view_all_no_genres),
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 14.sp
+                )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    availableGenres.forEach { genre ->
+                        MediaFilterChip(
+                            label = genre,
+                            isSelected = selectedGenres.contains(genre),
+                            onClick = { onGenreToggle(genre) }
+                        )
                     }
                 }
             }
@@ -786,9 +900,12 @@ private fun SortBottomSheet(
 
 private data class SortOption(
     val sortBy: String,
-    val sortOrder: String,
-    val emoji: String
+    val sortOrder: String
 )
+
+private fun viewAllItemKey(item: BaseItemDto): String {
+    return item.id ?: "${item.name}_${item.type}_${item.seriesId}_${item.indexNumber ?: 0}"
+}
 
 @StringRes
 private fun sortOptionLabelRes(sortBy: String, sortOrder: String): Int {
@@ -803,4 +920,3 @@ private fun sortOptionLabelRes(sortBy: String, sortOrder: String): Int {
         else -> R.string.view_all_sort_recently_added
     }
 }
-

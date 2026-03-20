@@ -550,6 +550,8 @@ class MediaRepository(private val context: Context) {
     suspend fun getUserItems(
         parentId: String? = null,
         personIds: String? = null,
+        genres: String? = null,
+        genreIds: String? = null,
         includeItemTypes: String? = null,
         recursive: Boolean? = null,
         sortBy: String? = null,
@@ -567,6 +569,8 @@ class MediaRepository(private val context: Context) {
                 userId = userId,
                 parentId = parentId,
                 personIds = personIds,
+                genres = genres,
+                genreIds = genreIds,
                 includeItemTypes = includeItemTypes,
                 recursive = recursive,
                 sortBy = sortBy,
@@ -971,7 +975,8 @@ class MediaRepository(private val context: Context) {
         val genreConsolidationMap = mapOf(
             "Talk" to setOf("Talk-Show", "Talk Show"),
             "Reality" to setOf("Reality TV", "Reality-TV"),
-            "Mystery" to setOf("Thriller")
+            "Mystery" to setOf("Thriller"),
+            "Animation" to setOf("Anime")
         )
 
         // Find which compound genres actually exist in the data
@@ -1068,43 +1073,6 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
 
             Result.failure(Exception("Error fetching items by genreId '$genreId': ${e.message}", e))
-        }
-    }
-
-    suspend fun getAllItemsByGenre(
-        genreId: String,
-        includeItemTypes: String? = null,
-        sortBy: String? = "SortName",
-        sortOrder: String? = "Ascending"
-    ): Result<List<BaseItemDto>> {
-        return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
-
-            val response = api.getItemsByGenre(
-                userId = userId,
-                genreIds = genreId,
-                includeItemTypes = includeItemTypes,
-                recursive = true,
-                limit = null,
-                sortBy = sortBy,
-                sortOrder = sortOrder,
-                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount,CommunityRating,CriticRating,ProductionYear,Overview"
-            )
-
-            if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
-                val items = body.items ?: emptyList()
-
-                Result.success(items)
-            } else {
-                val errorMsg = "Failed to fetch all items by genreId '$genreId': ${response.code()} - ${response.message()}"
-
-                Result.failure(Exception(errorMsg))
-            }
-        } catch (e: Exception) {
-
-            Result.failure(Exception("Error fetching all items by genreId '$genreId': ${e.message}", e))
         }
     }
 
