@@ -55,7 +55,6 @@
 - `app`: Android app module (Compose UI, navigation, settings, downloads, player screens)
 - `data`: APIs, repositories, models, DataStore/shared preference backed configuration
 - `core`: Shared player/auth utilities (player preferences, codec/HDR helpers, audio device detection)
-- `setup`: Included module, currently a placeholder without active source code
 
 ## Tech Stack
 

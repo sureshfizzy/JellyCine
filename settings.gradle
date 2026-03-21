@@ -17,4 +17,3 @@ rootProject.name = "JellyCine"
 include ':app'
 include ':data'
 include ':core'
-include ':setup'
