@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -63,6 +65,14 @@ fun InterfaceSettingsScreen(
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
+        )
+    val continueWatchingEnabled by preferences.ContinueWatchingEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isContinueWatchingEnabled()
+        )
+    val nextUpEnabled by preferences.NextUpEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isNextUpEnabled()
         )
 
     Scaffold(
@@ -111,6 +121,30 @@ fun InterfaceSettingsScreen(
                         checked = featureCarouselEnabled,
                         onCheckedChange = preferences::setFeatureCarouselEnabled,
                         accentColor = Color(0xFF8B5CF6)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    InterfaceSwitchItem(
+                        icon = Icons.Rounded.Schedule,
+                        title = stringResource(R.string.interface_continue_watching),
+                        subtitle = stringResource(R.string.interface_continue_watching_subtitle),
+                        checked = continueWatchingEnabled,
+                        onCheckedChange = preferences::setContinueWatchingEnabled,
+                        accentColor = Color(0xFFF59E0B)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    InterfaceSwitchItem(
+                        icon = Icons.Rounded.SkipNext,
+                        title = stringResource(R.string.interface_next_up),
+                        subtitle = stringResource(R.string.interface_next_up_subtitle),
+                        checked = nextUpEnabled,
+                        onCheckedChange = preferences::setNextUpEnabled,
+                        accentColor = Color(0xFF3B82F6)
                     )
                     if (isEmbyServer) {
                         HorizontalDivider(

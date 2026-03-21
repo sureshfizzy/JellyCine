@@ -1126,6 +1126,14 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isFeatureCarouselEnabled()
         )
+    val continueWatchingEnabled by preferences.ContinueWatchingEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isContinueWatchingEnabled()
+        )
+    val nextUpEnabled by preferences.NextUpEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isNextUpEnabled()
+        )
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
@@ -1279,7 +1287,7 @@ fun Dashboard(
             key = "continue_watching_resume_api_v2",
             config = QueryConfig(
                 staleTime = 60_000L,
-                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable && continueWatchingEnabled,
                 retryCount = 2,
                 retryDelay = 250L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1311,7 +1319,7 @@ fun Dashboard(
             key = "home_next_up_api_v1",
             config = QueryConfig(
                 staleTime = 60_000L,
-                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable && nextUpEnabled,
                 retryCount = 2,
                 retryDelay = 250L,
                 requestTimeoutMs = networkRequestTimeoutMs
@@ -1420,14 +1428,14 @@ fun Dashboard(
         }
         val FeaturedItems = featuredQuery.data ?: persistedFeaturedItems
 
-        val persistedContinueWatchingItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
+        val persistedContinueWatchingItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable && continueWatchingEnabled) {
             persistedHomeSnapshot?.continueWatchingItems.orEmpty()
         } else {
             emptyList()
         }
         val ContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
 
-        val persistedNextUpItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
+        val persistedNextUpItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable && nextUpEnabled) {
             persistedHomeSnapshot?.nextUpItems.orEmpty()
         } else {
             emptyList()
@@ -1461,10 +1469,18 @@ fun Dashboard(
         }
         LaunchedEffect(isTabActive, selectedCategory, isNetworkAvailable) {
             if (isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
-                val cachedContinueWatching =
-                    queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
-                if (cachedContinueWatching.data.isNullOrEmpty()) {
-                    queryManager.invalidateQuery("continue_watching_resume_api_v2")
+                if (continueWatchingEnabled) {
+                    val cachedContinueWatching =
+                        queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
+                    if (cachedContinueWatching.data.isNullOrEmpty()) {
+                        queryManager.invalidateQuery("continue_watching_resume_api_v2")
+                    }
+                }
+                if (nextUpEnabled) {
+                    val cachedNextUp = queryManager.getQuery<List<BaseItemDto>>("home_next_up_api_v1")
+                    if (cachedNextUp.data.isNullOrEmpty()) {
+                        queryManager.invalidateQuery("home_next_up_api_v1")
+                    }
                 }
             }
         }
@@ -1611,14 +1627,14 @@ fun Dashboard(
                         )
 
                 val ShowContinueWatchingSection =
-                    selectedCategory == HomeCategory.HOME && (
+                    continueWatchingEnabled && selectedCategory == HomeCategory.HOME && (
                         ContinueWatchingItems.isNotEmpty() ||
                             continueWatchingQuery.isError ||
                             (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
                         )
 
                 val ShowNextUpSection =
-                    selectedCategory == HomeCategory.HOME && (
+                    nextUpEnabled && selectedCategory == HomeCategory.HOME && (
                         NextUpItems.isNotEmpty() ||
                             nextUpQuery.isError ||
                             (nextUpQuery.isLoading && persistedNextUpItems.isNotEmpty())

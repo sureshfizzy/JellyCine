@@ -369,6 +369,10 @@
     <!-- Interface Settings -->
     <string name="interface_feature_carousel">Feature Carousel</string>
     <string name="interface_feature_carousel_subtitle">Show featured content carousel on the Home screen.</string>
+    <string name="interface_continue_watching">Continue Watching</string>
+    <string name="interface_continue_watching_subtitle">Show the Continue Watching section on the Home screen.</string>
+    <string name="interface_next_up">Next Up</string>
+    <string name="interface_next_up_subtitle">Show the Next Up section on the Home screen.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Disable Emby poster overlays.</string>
 
