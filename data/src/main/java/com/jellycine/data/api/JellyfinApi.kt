@@ -94,6 +94,21 @@ interface MediaServerApi {
         @Query("fields") fields: String? = null
     ): Response<QueryResult<BaseItemDto>>
 
+    @GET("Shows/NextUp")
+    suspend fun getNextUp(
+        @Query("userId") userId: String,
+        @Query("seriesId") seriesId: String? = null,
+        @Query("parentId") parentId: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("startIndex") startIndex: Int? = null,
+        @Query("LegacyNextUp") legacyNextUp: Boolean? = null,
+        @Query("fields") fields: String? = null,
+        @Query("enableUserData") enableUserData: Boolean? = null,
+        @Query("enableImages") enableImages: Boolean? = null,
+        @Query("imageTypeLimit") imageTypeLimit: Int? = null,
+        @Query("enableImageTypes") enableImageTypes: String? = null
+    ): Response<QueryResult<BaseItemDto>>
+
     @GET("Users/{userId}")
     suspend fun getUserById(@Path("userId") userId: String): Response<UserDto>
 

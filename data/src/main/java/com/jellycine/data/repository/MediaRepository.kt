@@ -81,6 +81,7 @@ class MediaRepository(private val context: Context) {
         val updatedAt: Long,
         val featuredHomeItems: List<BaseItemDto>,
         val continueWatchingItems: List<BaseItemDto>,
+        val nextUpItems: List<BaseItemDto>? = null,
         val homeLibrarySections: List<HomeLibrarySectionData>,
         val myMediaLibraries: List<BaseItemDto>? = null
     )
@@ -357,6 +358,7 @@ class MediaRepository(private val context: Context) {
     suspend fun persistHomeSnapshot(
         featuredHomeItems: List<BaseItemDto>? = null,
         continueWatchingItems: List<BaseItemDto>? = null,
+        nextUpItems: List<BaseItemDto>? = null,
         homeLibrarySections: List<HomeLibrarySectionData>? = null,
         myMediaLibraries: List<BaseItemDto>? = null
     ) {
@@ -373,6 +375,7 @@ class MediaRepository(private val context: Context) {
                         updatedAt = System.currentTimeMillis(),
                         featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
                         continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
+                        nextUpItems = nextUpItems ?: sameSessionSnapshot?.nextUpItems.orEmpty(),
                         homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty(),
                         myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty()
                     )
@@ -1103,6 +1106,40 @@ class MediaRepository(private val context: Context) {
                 Result.success(queryResult.items ?: emptyList())
             } else {
                 Result.failure(Exception("Failed to fetch resume items: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getNextUpItems(
+        seriesId: String? = null,
+        parentId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val legacyNextUp = if (session.serverType == NetworkModule.ServerType.EMBY) true else null
+
+            val response = session.api.getNextUp(
+                userId = session.userId,
+                seriesId = seriesId,
+                parentId = parentId,
+                limit = limit,
+                startIndex = startIndex,
+                legacyNextUp = legacyNextUp,
+                fields = fields,
+                enableUserData = true,
+                enableImages = true
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to fetch next up items: ${response.code()} - ${response.message()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -132,6 +132,8 @@
     <string name="dashboard_failed_load_libraries">Failed to load libraries</string>
     <string name="dashboard_continue_watching">Continue Watching</string>
     <string name="dashboard_failed_continue_watching">Failed to load continue watching</string>
+    <string name="dashboard_next_up">Next Up</string>
+    <string name="dashboard_failed_next_up">Failed to load next up</string>
     <string name="dashboard_recently_added">Recently Added - %1$s</string>
     <string name="dashboard_view_all">View All</string>
     <string name="dashboard_no_items_found">No items found</string>

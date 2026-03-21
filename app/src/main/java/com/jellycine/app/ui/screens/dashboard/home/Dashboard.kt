@@ -510,7 +510,7 @@ object ImagePreloader {
         }
     }
 
-    suspend fun preloadContinueWatchingImages(
+    suspend fun continueWatchingImages(
         items: List<BaseItemDto>,
         mediaRepository: MediaRepository,
         context: android.content.Context,
@@ -1293,7 +1293,47 @@ fun Dashboard(
                         !item.name.isNullOrBlank()
                     }
                     if (validItems.isNotEmpty()) {
-                        ImagePreloader.preloadContinueWatchingImages(
+                        ImagePreloader.continueWatchingImages(
+                            items = validItems,
+                            mediaRepository = mediaRepository,
+                            context = context,
+                            maxItems = minOf(validItems.size, 12),
+                            priorityCount = minOf(validItems.size, 6)
+                        )
+                    }
+                    validItems
+                },
+                onFailure = { throw it }
+            )
+        }
+
+        val nextUpQuery = useQuery(
+            key = "home_next_up_api_v1",
+            config = QueryConfig(
+                staleTime = 60_000L,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
+                retryCount = 2,
+                retryDelay = 250L,
+                requestTimeoutMs = networkRequestTimeoutMs
+            )
+        ) {
+            val result = mediaRepository.getNextUpItems(limit = 24)
+            result.fold(
+                onSuccess = { items ->
+                    val validItems = items
+                        .asSequence()
+                        .filter { item ->
+                            item.id != null &&
+                                (
+                                    !item.name.isNullOrBlank() ||
+                                        !item.episodeTitle.isNullOrBlank() ||
+                                        !item.seriesName.isNullOrBlank()
+                                    )
+                        }
+                        .distinctBy { it.id }
+                        .toList()
+                    if (validItems.isNotEmpty()) {
+                        ImagePreloader.continueWatchingImages(
                             items = validItems,
                             mediaRepository = mediaRepository,
                             context = context,
@@ -1387,6 +1427,13 @@ fun Dashboard(
         }
         val ContinueWatchingItems = continueWatchingQuery.data ?: persistedContinueWatchingItems
 
+        val persistedNextUpItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
+            persistedHomeSnapshot?.nextUpItems.orEmpty()
+        } else {
+            emptyList()
+        }
+        val NextUpItems = nextUpQuery.data ?: persistedNextUpItems
+
         val persistedLibrarySections = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.homeLibrarySections
                 .orEmpty()
@@ -1426,7 +1473,21 @@ fun Dashboard(
             val items = continueWatchingQuery.data ?: return@LaunchedEffect
             mediaRepository.persistHomeSnapshot(continueWatchingItems = items)
             if (items.isEmpty()) return@LaunchedEffect
-            ImagePreloader.preloadContinueWatchingImages(
+            ImagePreloader.continueWatchingImages(
+                items = items,
+                mediaRepository = mediaRepository,
+                context = context,
+                maxItems = items.size.coerceAtMost(4),
+                priorityCount = 4
+            )
+        }
+
+        LaunchedEffect(nextUpQuery.data?.hashCode(), isNetworkAvailable) {
+            if (!isNetworkAvailable) return@LaunchedEffect
+            val items = nextUpQuery.data ?: return@LaunchedEffect
+            mediaRepository.persistHomeSnapshot(nextUpItems = items)
+            if (items.isEmpty()) return@LaunchedEffect
+            ImagePreloader.continueWatchingImages(
                 items = items,
                 mediaRepository = mediaRepository,
                 context = context,
@@ -1556,6 +1617,13 @@ fun Dashboard(
                             (continueWatchingQuery.isLoading && persistedContinueWatchingItems.isNotEmpty())
                         )
 
+                val ShowNextUpSection =
+                    selectedCategory == HomeCategory.HOME && (
+                        NextUpItems.isNotEmpty() ||
+                            nextUpQuery.isError ||
+                            (nextUpQuery.isLoading && persistedNextUpItems.isNotEmpty())
+                        )
+
                 if (ShowMyMediaSection) {
                     item(key = "my_media_section") {
                         HomeMyMediaSection(
@@ -1597,8 +1665,27 @@ fun Dashboard(
                     }
                 }
 
+                if (ShowNextUpSection) {
+                    item(key = "next_up_section") {
+                        Column(
+                            modifier = Modifier
+                                .padding(top = 0.dp)
+                                .offset(y = (-12).dp)
+                        ) {
+                            ContinueWatchingSection(
+                                titleRes = R.string.dashboard_next_up,
+                                errorMessageRes = R.string.dashboard_failed_next_up,
+                                items = NextUpItems,
+                                isLoading = nextUpQuery.isLoading && NextUpItems.isEmpty(),
+                                error = if (nextUpQuery.isError) nextUpQuery.error else null,
+                                onItemClick = onNavigateToDetail
+                            )
+                        }
+                    }
+                }
+
                 if (selectedCategory == HomeCategory.HOME) {
-                    val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection) 16.dp else 0.dp
+                    val topPadding = if (!ShowMyMediaSection && !ShowContinueWatchingSection && !ShowNextUpSection) 16.dp else 0.dp
 
                     if (topPadding > 0.dp) {
                         item(key = "home_libraries_top_padding") {
@@ -2028,6 +2115,8 @@ private fun HomeMyMediaSection(
 
 @Composable
 private fun ContinueWatchingSection(
+    titleRes: Int = R.string.dashboard_continue_watching,
+    errorMessageRes: Int = R.string.dashboard_failed_continue_watching,
     items: List<BaseItemDto>,
     isLoading: Boolean,
     error: String?,
@@ -2042,7 +2131,7 @@ private fun ContinueWatchingSection(
             .background(Color.Black) // AMOLED black background
     ) {
         Text(
-            text = stringResource(R.string.dashboard_continue_watching),
+            text = stringResource(titleRes),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -2051,39 +2140,6 @@ private fun ContinueWatchingSection(
 
         when {
             isLoading -> Unit
-
-            error != null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "!",
-                            fontSize = 24.sp,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.dashboard_failed_continue_watching),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = error,
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 12.sp
-                        )
-
-                    }
-                }
-            }
 
             items.isNotEmpty() -> {
                 val lazyRowState = rememberLazyListState()
@@ -2124,7 +2180,7 @@ private fun ContinueWatchingSection(
                 ) {
                     items(
                         count = renderedCount.coerceAtMost(items.size),
-                        key = { index -> 
+                        key = { index ->
                             items.getOrNull(index)?.id ?: "item_$index"
                         }
                     ) { index ->
@@ -2140,6 +2196,39 @@ private fun ContinueWatchingSection(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            error != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "!",
+                            fontSize = 24.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(errorMessageRes),
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = error,
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 12.sp
+                        )
+
                     }
                 }
             }
