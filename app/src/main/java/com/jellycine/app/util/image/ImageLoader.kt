@@ -134,7 +134,8 @@ class ImageUrlViewModel @Inject constructor(
         width: Int? = null,
         height: Int? = null,
         quality: Int? = 90,
-        enableImageEnhancers: Boolean = true
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): Flow<String?> {
         return mediaRepository.getImageUrl(
             itemId = itemId,
@@ -142,7 +143,8 @@ class ImageUrlViewModel @Inject constructor(
             width = width,
             height = height,
             quality = quality,
-            enableImageEnhancers = enableImageEnhancers
+            enableImageEnhancers = enableImageEnhancers,
+            imageTag = imageTag
         )
     }
 }
@@ -171,6 +173,7 @@ fun rememberImageUrl(
     height: Int? = null,
     quality: Int? = 90,
     enableImageEnhancers: Boolean = true,
+    imageTag: String? = null,
     mediaRepository: MediaRepository
 ): String? {
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
@@ -185,6 +188,7 @@ fun rememberImageUrl(
         height,
         quality,
         effectiveEnhancersEnabled,
+        imageTag,
         currentServerType
     ) {
         if (itemId.isNullOrBlank() || currentServerType == null) {
@@ -196,7 +200,8 @@ fun rememberImageUrl(
                 width = width,
                 height = height,
                 quality = quality,
-                enableImageEnhancers = effectiveEnhancersEnabled
+                enableImageEnhancers = effectiveEnhancersEnabled,
+                imageTag = imageTag
             )
         }
     }
@@ -213,6 +218,7 @@ fun rememberImageUrl(
     height: Int? = null,
     quality: Int? = 90,
     enableImageEnhancers: Boolean = true,
+    imageTag: String? = null,
     viewModel: ImageUrlViewModel = hiltViewModel()
 ): String? {
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
@@ -227,6 +233,7 @@ fun rememberImageUrl(
         height,
         quality,
         effectiveEnhancersEnabled,
+        imageTag,
         currentServerType
     ) {
         if (itemId.isNullOrBlank() || currentServerType == null) {
@@ -238,7 +245,8 @@ fun rememberImageUrl(
                 width = width,
                 height = height,
                 quality = quality,
-                enableImageEnhancers = effectiveEnhancersEnabled
+                enableImageEnhancers = effectiveEnhancersEnabled,
+                imageTag = imageTag
             )
         }
     }

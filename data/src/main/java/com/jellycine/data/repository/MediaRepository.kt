@@ -785,7 +785,8 @@ class MediaRepository(private val context: Context) {
         width: Int? = null,
         height: Int? = null,
         quality: Int? = 90,
-        enableImageEnhancers: Boolean = true
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): String? {
         val authState = getImageAuthState()
         val serverUrl = authState.serverUrl
@@ -799,6 +800,7 @@ class MediaRepository(private val context: Context) {
         width?.let { queryParams.add("width" to it.toString()) }
         height?.let { queryParams.add("height" to it.toString()) }
         quality?.let { queryParams.add("quality" to it.toString()) }
+        imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
         if (!enableImageEnhancers) {
             queryParams.add("HasImageEnhancers" to "false")
             queryParams.add("EnableImageEnhancers" to "false")
@@ -812,7 +814,8 @@ class MediaRepository(private val context: Context) {
         width: Int? = null,
         height: Int? = null,
         quality: Int? = 90,
-        enableImageEnhancers: Boolean = true
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): Flow<String?> {
         return imageAuthStateFlow.map { authState ->
             val serverUrl = authState.serverUrl
@@ -823,6 +826,7 @@ class MediaRepository(private val context: Context) {
                 width?.let { queryParams.add("width" to it.toString()) }
                 height?.let { queryParams.add("height" to it.toString()) }
                 quality?.let { queryParams.add("quality" to it.toString()) }
+                imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
                 if (!enableImageEnhancers) {
                     queryParams.add("HasImageEnhancers" to "false")
                     queryParams.add("EnableImageEnhancers" to "false")
@@ -840,7 +844,8 @@ class MediaRepository(private val context: Context) {
         width: Int? = null,
         height: Int? = null,
         quality: Int? = 90,
-        enableImageEnhancers: Boolean = true
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): Flow<String?> {
         return imageAuthStateFlow.map { authState ->
             val serverUrl = authState.serverUrl
@@ -851,6 +856,7 @@ class MediaRepository(private val context: Context) {
                 width?.let { queryParams.add("width" to it.toString()) }
                 height?.let { queryParams.add("height" to it.toString()) }
                 quality?.let { queryParams.add("quality" to it.toString()) }
+                imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
                 if (!enableImageEnhancers) {
                     queryParams.add("HasImageEnhancers" to "false")
                     queryParams.add("EnableImageEnhancers" to "false")

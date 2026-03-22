@@ -35,6 +35,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.app.ui.components.common.AnimatedCard
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
@@ -75,7 +76,11 @@ fun SeasonCard(
                     width = 200,
                     height = 300,
                     quality = 90,
-                    enableImageEnhancers = !disableImageEnhancers
+                    enableImageEnhancers = !disableImageEnhancers,
+                    imageTag = season.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seasonId
+                    )
                 ).first(),
                 season.seriesId?.let { seriesId ->
                     mediaRepository.getImageUrl(
@@ -84,7 +89,11 @@ fun SeasonCard(
                         width = 200,
                         height = 300,
                         quality = 90,
-                        enableImageEnhancers = !disableImageEnhancers
+                        enableImageEnhancers = !disableImageEnhancers,
+                        imageTag = season.imageTagFor(
+                            imageType = "Primary",
+                            targetItemId = seriesId
+                        )
                     ).first()
                 }
             ).distinct()

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
+import com.jellycine.app.util.image.primaryImageTagOrNull
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
@@ -88,9 +89,13 @@ private fun CastCrewMemberCard(
     var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
     val hasValidPersonId = !person.id.isNullOrBlank()
 
-    LaunchedEffect(person.id) {
+    LaunchedEffect(person.id, person.primaryImageTag) {
         person.id?.let { id ->
-            personImageUrl = getPersonImageUrl(id, mediaRepository)
+            personImageUrl = getPersonImageUrl(
+                personId = id,
+                imageTag = person.primaryImageTagOrNull(),
+                mediaRepository = mediaRepository
+            )
         }
     }
 
@@ -175,13 +180,14 @@ private fun prioritizeCastAndCrew(
         .take(maxItems)
 }
 
-private suspend fun getPersonImageUrl(personId: String, mediaRepository: MediaRepository): String? {
+private suspend fun getPersonImageUrl(personId: String, imageTag: String?, mediaRepository: MediaRepository): String? {
     return mediaRepository.getImageUrl(
         itemId = personId,
         imageType = "Primary",
         width = 320,
         height = 480,
-        quality = 90
+        quality = 90,
+        imageTag = imageTag
     ).first()
 }
 

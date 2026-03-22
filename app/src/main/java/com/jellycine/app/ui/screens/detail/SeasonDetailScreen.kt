@@ -33,6 +33,7 @@ import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -60,6 +61,8 @@ fun SeasonDetailScreen(
     var downloadErrorDialogMessage by remember(seasonId) { mutableStateOf<String?>(null) }
     var storageSelectionDialogState by remember(seasonId) { mutableStateOf<SeasonEpisodeSelectionDialogState?>(null) }
     var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
+    var seasonMetadata by remember(seasonId) { mutableStateOf<BaseItemDto?>(null) }
+    var seriesMetadata by remember(seriesId) { mutableStateOf<BaseItemDto?>(null) }
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember { mutableIntStateOf(0) }
     var logoImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -98,17 +101,29 @@ fun SeasonDetailScreen(
         try {
             mediaRepository.getItemById(seriesId).fold(
                 onSuccess = { seriesItem ->
+                    seriesMetadata = seriesItem
                     seriesTitle = seriesItem.name?.takeIf { it.isNotBlank() }
                 },
-                onFailure = { }
+                onFailure = {
+                    seriesMetadata = null
+                }
             )
         } catch (_: Exception) {
+            seriesMetadata = null
             seriesTitle = null
         }
     }
 
+    LaunchedEffect(seasonId) {
+        seasonMetadata = try {
+            mediaRepository.getItemById(seasonId).getOrNull()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     // Prepare hero image candidates in fallback order
-    LaunchedEffect(seasonId, seriesId) {
+    LaunchedEffect(seasonId, seriesId, seasonMetadata, seriesMetadata) {
         try {
             heroImageCandidates = listOfNotNull(
                 mediaRepository.getBackdropImageUrl(
@@ -116,28 +131,50 @@ fun SeasonDetailScreen(
                     imageIndex = 0,
                     width = 1200,
                     height = 675,
-                    quality = 92
+                    quality = 92,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = seasonId
+                    )
                 ).first(),
                 mediaRepository.getBackdropImageUrl(
                     itemId = seriesId,
                     imageIndex = 0,
                     width = 1200,
                     height = 675,
-                    quality = 92
+                    quality = 92,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = seriesId
+                    ) ?: seriesMetadata?.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = seriesId
+                    )
                 ).first(),
                 mediaRepository.getImageUrl(
                     itemId = seasonId,
                     imageType = "Primary",
                     width = 900,
                     height = 1200,
-                    quality = 92
+                    quality = 92,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seasonId
+                    )
                 ).first(),
                 mediaRepository.getImageUrl(
                     itemId = seriesId,
                     imageType = "Primary",
                     width = 900,
                     height = 1200,
-                    quality = 92
+                    quality = 92,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seriesId
+                    ) ?: seriesMetadata?.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seriesId
+                    )
                 ).first()
             ).distinct()
             heroImageIndex = 0
@@ -148,7 +185,7 @@ fun SeasonDetailScreen(
     }
 
     // Prepare logo candidates (season first, then series)
-    LaunchedEffect(seasonId, seriesId) {
+    LaunchedEffect(seasonId, seriesId, seasonMetadata, seriesMetadata) {
         logoCandidateLookup = true
         logoLoadError = false
         try {
@@ -157,13 +194,24 @@ fun SeasonDetailScreen(
                     itemId = seasonId,
                     imageType = "Logo",
                     width = 1200,
-                    quality = 95
+                    quality = 95,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Logo",
+                        targetItemId = seasonId
+                    )
                 ).first(),
                 mediaRepository.getImageUrl(
                     itemId = seriesId,
                     imageType = "Logo",
                     width = 1200,
-                    quality = 95
+                    quality = 95,
+                    imageTag = seasonMetadata?.imageTagFor(
+                        imageType = "Logo",
+                        targetItemId = seriesId
+                    ) ?: seriesMetadata?.imageTagFor(
+                        imageType = "Logo",
+                        targetItemId = seriesId
+                    )
                 ).first()
             ).distinct()
             logoImageIndex = 0

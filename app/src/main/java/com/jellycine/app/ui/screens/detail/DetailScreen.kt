@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
@@ -1914,6 +1915,10 @@ private fun SimilarItemCard(
         width = 320,
         height = 480,
         quality = 90,
+        imageTag = item.imageTagFor(
+            imageType = "Primary",
+            targetItemId = imageItemId
+        ),
         mediaRepository = mediaRepository
     )
 
@@ -2334,7 +2339,11 @@ private suspend fun heroImageCandidates(
             width = 1920,
             height = 1080,
             quality = 100,
-            enableImageEnhancers = false
+            enableImageEnhancers = false,
+            imageTag = item.imageTagFor(
+                imageType = "Backdrop",
+                targetItemId = itemId
+            )
         ).first())
 
         addCandidate(mediaRepository.getImageUrl(
@@ -2343,7 +2352,11 @@ private suspend fun heroImageCandidates(
             width = 1920,
             height = 1080,
             quality = 100,
-            enableImageEnhancers = false
+            enableImageEnhancers = false,
+            imageTag = item.imageTagFor(
+                imageType = "Primary",
+                targetItemId = itemId
+            )
         ).first())
 
         addCandidate(mediaRepository.getImageUrl(
@@ -2352,7 +2365,11 @@ private suspend fun heroImageCandidates(
             width = 1920,
             height = 1080,
             quality = 100,
-            enableImageEnhancers = false
+            enableImageEnhancers = false,
+            imageTag = item.imageTagFor(
+                imageType = "Thumb",
+                targetItemId = itemId
+            )
         ).first())
 
         if (!seriesId.isNullOrBlank()) {
@@ -2361,7 +2378,11 @@ private suspend fun heroImageCandidates(
                 width = 1920,
                 height = 1080,
                 quality = 100,
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Backdrop",
+                    targetItemId = seriesId
+                )
             ).first())
             addCandidate(mediaRepository.getImageUrl(
                 itemId = seriesId,
@@ -2369,7 +2390,11 @@ private suspend fun heroImageCandidates(
                 width = 1920,
                 height = 1080,
                 quality = 100,
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Primary",
+                    targetItemId = seriesId
+                )
             ).first())
         }
     } else {
@@ -2377,7 +2402,11 @@ private suspend fun heroImageCandidates(
             itemId = itemId,
             width = 1200,
             height = 675,
-            quality = 95
+            quality = 95,
+            imageTag = item.imageTagFor(
+                imageType = "Backdrop",
+                targetItemId = itemId
+            )
         ).first())
 
         addCandidate(mediaRepository.getImageUrl(
@@ -2385,7 +2414,11 @@ private suspend fun heroImageCandidates(
             imageType = "Primary",
             width = 1200,
             height = 675,
-            quality = 95
+            quality = 95,
+            imageTag = item.imageTagFor(
+                imageType = "Primary",
+                targetItemId = itemId
+            )
         ).first())
     }
 
@@ -2406,7 +2439,11 @@ private suspend fun logoImage(
         itemId = logoItemId,
         imageType = "Logo",
         width = 1200,
-        quality = 95
+        quality = 95,
+        imageTag = item.imageTagFor(
+            imageType = "Logo",
+            targetItemId = logoItemId
+        )
     ).first()
 }
 

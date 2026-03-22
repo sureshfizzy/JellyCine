@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.detail
 
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.flow.first
@@ -18,7 +19,11 @@ internal suspend fun resolveEpisodePrimaryOrSeriesBackdrop(
         width = width,
         height = height,
         quality = quality,
-        enableImageEnhancers = false
+        enableImageEnhancers = false,
+        imageTag = episode.imageTagFor(
+            imageType = "Primary",
+            targetItemId = episodeId
+        )
     ).first() ?: episode.seriesId?.let { seriesId ->
         mediaRepository.getBackdropImageUrl(
             itemId = seriesId,
@@ -26,7 +31,11 @@ internal suspend fun resolveEpisodePrimaryOrSeriesBackdrop(
             width = width,
             height = height,
             quality = quality,
-            enableImageEnhancers = false
+            enableImageEnhancers = false,
+            imageTag = episode.imageTagFor(
+                imageType = "Backdrop",
+                targetItemId = seriesId
+            )
         ).first()
     }
 }

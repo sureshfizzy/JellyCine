@@ -17,6 +17,7 @@ import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.google.android.gms.common.images.WebImage
 import com.jellycine.app.R
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -308,6 +309,7 @@ object CastController {
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex
             ).getOrThrow()
+            val itemMetadata = mediaRepository.getItemById(itemId).getOrNull()
 
             val activeArtwork = artworkUrl
                 ?: mediaRepository.getImageUrlString(
@@ -316,7 +318,11 @@ object CastController {
                     width = 960,
                     height = 1440,
                     quality = 90,
-                    enableImageEnhancers = false
+                    enableImageEnhancers = false,
+                    imageTag = itemMetadata?.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = itemId
+                    )
                 )
                 ?: mediaRepository.getImageUrlString(
                     itemId = itemId,
@@ -324,7 +330,11 @@ object CastController {
                     width = 1280,
                     height = 720,
                     quality = 90,
-                    enableImageEnhancers = false
+                    enableImageEnhancers = false,
+                    imageTag = itemMetadata?.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = itemId
+                    )
                 )
 
             CastLoadPayload(

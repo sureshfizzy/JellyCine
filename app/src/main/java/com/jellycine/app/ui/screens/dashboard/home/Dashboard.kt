@@ -95,6 +95,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import coil3.size.Precision
+import com.jellycine.app.util.image.imageTagFor
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable
@@ -299,8 +300,9 @@ object ImagePreloader {
         width: Int,
         height: Int,
         quality: Int,
-        hasImageEnhancers: Boolean = true
-    ): String = "$itemId|$imageType|$width|$height|$quality|enhancers=$hasImageEnhancers"
+        hasImageEnhancers: Boolean = true,
+        imageTag: String? = null
+    ): String = "$itemId|$imageType|$width|$height|$quality|enhancers=$hasImageEnhancers|tag=${imageTag.orEmpty()}"
 
     fun getCachedImageUrl(
         itemId: String,
@@ -308,7 +310,8 @@ object ImagePreloader {
         width: Int,
         height: Int,
         quality: Int,
-        hasImageEnhancers: Boolean = true
+        hasImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): String? {
         return imageUrlCache[
             imageCacheKey(
@@ -317,7 +320,8 @@ object ImagePreloader {
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = imageTag
             )
         ]
     }
@@ -329,6 +333,7 @@ object ImagePreloader {
         height: Int,
         quality: Int,
         hasImageEnhancers: Boolean = true,
+        imageTag: String? = null,
         imageUrl: String
     ) {
         imageUrlCache[
@@ -338,7 +343,8 @@ object ImagePreloader {
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = imageTag
             )
         ] = imageUrl
     }
@@ -349,7 +355,8 @@ object ImagePreloader {
         width: Int,
         height: Int,
         quality: Int,
-        hasImageEnhancers: Boolean = true
+        hasImageEnhancers: Boolean = true,
+        imageTag: String? = null
     ): String? {
         return lastRenderedImageUrlCache[
             imageCacheKey(
@@ -358,7 +365,8 @@ object ImagePreloader {
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = imageTag
             )
         ]
     }
@@ -370,6 +378,7 @@ object ImagePreloader {
         height: Int,
         quality: Int,
         hasImageEnhancers: Boolean = true,
+        imageTag: String? = null,
         imageUrl: String
     ) {
         lastRenderedImageUrlCache[
@@ -379,7 +388,8 @@ object ImagePreloader {
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = imageTag
             )
         ] = imageUrl
     }
@@ -737,7 +747,6 @@ object ImagePreloader {
     }
 
 }
-
 @Composable
 fun ImageLoader(
     itemId: String?,
@@ -753,8 +762,10 @@ fun ImageLoader(
     cornerRadius: Int = 8,
     crossfadeMillis: Int = 60,
     mediaRepository: com.jellycine.data.repository.MediaRepository,
+    imageMetadata: BaseItemDto? = null,
     itemType: String? = null, // Add item type to handle episodes properly
-    hasImageEnhancers: Boolean = true
+    hasImageEnhancers: Boolean = true,
+    imageTag: String? = null
 ) {
     val imageTypes = remember(imageType, fallbackImageType, extraFallbackImageTypes) {
         buildList {
@@ -810,7 +821,13 @@ fun ImageLoader(
             else -> Triple(240, 360, 80)
         }
     }
-    val initialCachedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers) {
+    val selectedImageTag = remember(imageMetadata, actualItemId, currentImageType, imageTag) {
+        imageMetadata?.imageTagFor(
+            imageType = currentImageType,
+            targetItemId = actualItemId
+        ) ?: imageTag
+    }
+    val initialCachedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers, selectedImageTag) {
         if (actualItemId.isNullOrBlank()) {
             null
         } else {
@@ -820,11 +837,12 @@ fun ImageLoader(
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = selectedImageTag
             )
         }
     }
-    val initialRenderedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers) {
+    val initialRenderedUrl = remember(actualItemId, currentImageType, width, height, hasImageEnhancers, selectedImageTag) {
         if (actualItemId.isNullOrBlank()) {
             null
         } else {
@@ -834,24 +852,25 @@ fun ImageLoader(
                 width = width,
                 height = height,
                 quality = quality,
-                hasImageEnhancers = hasImageEnhancers
+                hasImageEnhancers = hasImageEnhancers,
+                imageTag = selectedImageTag
             )
         }
     }
     val initialUrl = remember(initialRenderedUrl, initialCachedUrl) {
         initialRenderedUrl ?: initialCachedUrl
     }
-    var imageUrl by remember(actualItemId, currentImageType, hasImageEnhancers) { mutableStateOf(initialUrl) }
-    var hasError by remember(actualItemId, currentImageType, hasImageEnhancers) { mutableStateOf(false) }
-    var isImageLoaded by remember(actualItemId, currentImageType, hasImageEnhancers) {
+    var imageUrl by remember(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) { mutableStateOf(initialUrl) }
+    var hasError by remember(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) { mutableStateOf(false) }
+    var isImageLoaded by remember(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         mutableStateOf(!initialUrl.isNullOrBlank())
     }
-    var hasRenderedSuccess by remember(actualItemId, currentImageType, hasImageEnhancers) {
+    var hasRenderedSuccess by remember(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         mutableStateOf(!initialUrl.isNullOrBlank())
     }
     val context = LocalContext.current
 
-    LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers) {
+    LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         if (actualItemId != null) {
             hasError = false
             if (!imageUrl.isNullOrBlank()) {
@@ -866,7 +885,8 @@ fun ImageLoader(
                     width = width,
                     height = height,
                     quality = quality,
-                    hasImageEnhancers = hasImageEnhancers
+                    hasImageEnhancers = hasImageEnhancers,
+                    imageTag = selectedImageTag
                 )
                 if (!cachedUrl.isNullOrBlank()) {
                     imageUrl = cachedUrl
@@ -887,7 +907,8 @@ fun ImageLoader(
                         width = width,
                         height = height,
                         quality = quality,
-                        enableImageEnhancers = hasImageEnhancers
+                        enableImageEnhancers = hasImageEnhancers,
+                        imageTag = selectedImageTag
                     )
                 }
                 if (!Url.isNullOrBlank()) {
@@ -899,6 +920,7 @@ fun ImageLoader(
                         height = height,
                         quality = quality,
                         hasImageEnhancers = hasImageEnhancers,
+                        imageTag = selectedImageTag,
                         imageUrl = Url
                     )
                     ImagePreloader.setPreferredImageType(
@@ -965,6 +987,7 @@ fun ImageLoader(
                                     height = height,
                                     quality = quality,
                                     hasImageEnhancers = hasImageEnhancers,
+                                    imageTag = selectedImageTag,
                                     imageUrl = renderedUrl
                                 )
                             }
@@ -2333,7 +2356,9 @@ private fun ContinueWatchingCard(
                     cornerRadius = 12,
                     crossfadeMillis = 0,
                     mediaRepository = mediaRepository,
-                    itemType = stableItem.type // Pass item type for proper episode handling
+                    imageMetadata = item,
+                    itemType = stableItem.type, // Pass item type for proper episode handling
+                    imageTag = null
                 )
 
                 stableItem.userData?.playedPercentage?.let { percentage ->
@@ -2606,8 +2631,10 @@ internal fun LibraryItemCard(
                     cornerRadius = 12,
                     crossfadeMillis = 0,
                     mediaRepository = mediaRepository,
+                    imageMetadata = item,
                     itemType = stableItem.type, // Pass item type for proper episode handling
-                    hasImageEnhancers = !disableImageEnhancers
+                    hasImageEnhancers = !disableImageEnhancers,
+                    imageTag = null
                 )
 
                 val episodeCount = when {

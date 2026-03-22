@@ -43,6 +43,7 @@ import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
@@ -290,6 +291,7 @@ private fun PersonHero(
             width = 900,
             height = 1350,
             quality = 95,
+            imageTag = person?.imageTagFor("Primary"),
             mediaRepository = mediaRepository
         )
     }
@@ -463,6 +465,10 @@ private fun PersonTitleCard(
             width = 320,
             height = 480,
             quality = 90,
+            imageTag = item.imageTagFor(
+                imageType = "Primary",
+                targetItemId = imageItemId
+            ),
             mediaRepository = mediaRepository
         )
     }

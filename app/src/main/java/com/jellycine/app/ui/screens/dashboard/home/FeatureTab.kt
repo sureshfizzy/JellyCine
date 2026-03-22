@@ -68,6 +68,7 @@ import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.app.R
+import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -145,7 +146,8 @@ internal object CachedData {
 private data class FeatureCardImages(
     val lowBackdropUrl: String?,
     val backdropUrl: String?,
-    val logoUrl: String?
+    val logoUrl: String?,
+    val versionKey: String? = null
 )
 
 private fun FeatureCardImages?.isHeroReady(): Boolean {
@@ -317,36 +319,53 @@ fun FeatureTab(
         coroutineScope {
             metadataQualifiedFeaturedItems.value.forEach { item ->
                 val itemId = item.id ?: return@forEach
-                if (imageCacheByItemId[itemId] != null) return@forEach
+                val versionKey = listOfNotNull(
+                    item.imageTagFor(imageType = "Backdrop", targetItemId = itemId),
+                    item.imageTagFor(imageType = "Logo", targetItemId = itemId)
+                ).distinct().takeIf { it.isNotEmpty() }?.joinToString("|")
+                val cachedImages = imageCacheByItemId[itemId]
+                if (cachedImages != null && cachedImages.versionKey == versionKey) return@forEach
 
                 launch(Dispatchers.IO) {
+                    val backdropTag = item.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = itemId
+                    )
+                    val logoTag = item.imageTagFor(
+                        imageType = "Logo",
+                        targetItemId = itemId
+                    )
                     val lowBackdropUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Backdrop",
                         width = 640,
                         height = 360,
-                        quality = 70
+                        quality = 70,
+                        imageTag = backdropTag
                     )
                     val backdropUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Backdrop",
                         width = 1600,
                         height = 900,
-                        quality = 90
+                        quality = 90,
+                        imageTag = backdropTag
                     )
                     val logoUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Logo",
                         width = 720,
                         height = 320,
-                        quality = 90
+                        quality = 90,
+                        imageTag = logoTag
                     )
 
                     withContext(Dispatchers.Main) {
                         imageCacheByItemId[itemId] = FeatureCardImages(
                             lowBackdropUrl = lowBackdropUrl,
                             backdropUrl = backdropUrl,
-                            logoUrl = logoUrl
+                            logoUrl = logoUrl,
+                            versionKey = versionKey
                         )
                     }
 
