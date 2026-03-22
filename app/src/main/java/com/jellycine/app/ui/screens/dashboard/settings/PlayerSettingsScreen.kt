@@ -86,6 +86,7 @@ fun PlayerSettingsScreen(
     val decodingColor = Color(0xFF3B82F6)
     val transcodingColor = Color(0xFF8B5CF6)
     val videoColor = Color(0xFFF97316)
+    val gesturesColor = Color(0xFF14B8A6)
     val seekingColor = Color(0xFFEF4444)
     val performanceColor = Color(0xFF22C55E)
     val cacheColor = Color(0xFF06B6D4)
@@ -201,6 +202,54 @@ fun PlayerSettingsScreen(
                         onCheckedChange = viewModel::setStartMaximized,
                         accentColor = videoColor
                     )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.player_settings_section_gestures)) }
+            item {
+                SettingsSection {
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.Tune,
+                        title = stringResource(R.string.player_settings_gestures),
+                        subtitle = stringResource(R.string.player_settings_gestures_summary),
+                        checked = uiState.playerGesturesEnabled,
+                        onCheckedChange = viewModel::setPlayerGesturesEnabled,
+                        accentColor = gesturesColor
+                    )
+
+                    SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.Brush,
+                        title = stringResource(R.string.player_settings_volume_brightness_gestures),
+                        subtitle = stringResource(R.string.player_settings_volume_brightness_gestures_summary),
+                        checked = uiState.volumeBrightnessGesturesEnabled,
+                        onCheckedChange = viewModel::setVolumeBrightnessGesturesEnabled,
+                        enabled = uiState.playerGesturesEnabled,
+                        accentColor = gesturesColor
+                    )
+
+                    SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.FastForward,
+                        title = stringResource(R.string.player_settings_progress_seek_gesture),
+                        subtitle = stringResource(R.string.player_settings_progress_seek_gesture_summary),
+                        checked = uiState.progressSeekGestureEnabled,
+                        onCheckedChange = viewModel::setProgressSeekGestureEnabled,
+                        enabled = uiState.playerGesturesEnabled,
+                        accentColor = gesturesColor
+                    )
+
+                    SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.Fullscreen,
+                        title = stringResource(R.string.player_settings_zoom_gesture),
+                        subtitle = stringResource(R.string.player_settings_zoom_gesture_summary),
+                        checked = uiState.zoomGestureEnabled,
+                        onCheckedChange = viewModel::setZoomGestureEnabled,
+                        enabled = uiState.playerGesturesEnabled,
+                        accentColor = gesturesColor
+                    )
+
                 }
             }
 

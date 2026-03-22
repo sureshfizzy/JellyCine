@@ -15,8 +15,6 @@ import kotlin.math.abs
 import com.jellycine.player.core.PlayerConstants.GESTURE_EXCLUSION_AREA_HORIZONTAL
 import com.jellycine.player.core.PlayerConstants.GESTURE_EXCLUSION_AREA_VERTICAL
 import com.jellycine.player.core.PlayerConstants.FULL_SWIPE_RANGE_SCREEN_RATIO
-import com.jellycine.player.core.PlayerConstants.SEEK_BACKWARD_MS
-import com.jellycine.player.core.PlayerConstants.SEEK_FORWARD_MS
 import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_BASE
 import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_THRESHOLD
 import com.jellycine.player.preferences.PlayerPreferences
@@ -37,7 +35,7 @@ class GestureHelper(
     // Gesture state tracking
     private var swipeGestureValueTrackerVolume = -1f
     private var swipeGestureValueTrackerBrightness = -1f
-    private var swipeGestureValueTrackerProgress = -1L
+    private var swipeGestureValueTrackerProgress = 0L
     private var swipeGestureVolumeOpen = false
     private var swipeGestureBrightnessOpen = false
     private var swipeGestureProgressOpen = false
@@ -49,6 +47,13 @@ class GestureHelper(
 
     // Constants
 
+    private fun seekBackwardDeltaMs(): Long {
+        return playerPreferences.getSeekBackwardIntervalSeconds() * 1000L
+    }
+
+    private fun seekForwardDeltaMs(): Long {
+        return playerPreferences.getSeekForwardIntervalSeconds() * 1000L
+    }
 
     // Single tap and double tap detector
     private val tapGestureDetector = GestureDetector(
@@ -64,6 +69,8 @@ class GestureHelper(
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (!playerPreferences.arePlayerGesturesEnabled()) return false
+
                 val viewWidth = playerView.measuredWidth
                 val areaWidth = viewWidth / 5 // Divide into 5 parts: 2:1:2
                 
@@ -73,7 +80,8 @@ class GestureHelper(
 
                 when (e.x.toInt()) {
                     in leftmostAreaStart until middleAreaStart -> {
-                        onSeek(-SEEK_BACKWARD_MS)
+                        if (!playerPreferences.isProgressSeekGestureEnabled()) return false
+                        onSeek(-seekBackwardDeltaMs())
                     }
                     in middleAreaStart until rightmostAreaStart -> {
                         playerView.player?.let { player ->
@@ -81,7 +89,8 @@ class GestureHelper(
                         }
                     }
                     in rightmostAreaStart until viewWidth -> {
-                        onSeek(SEEK_FORWARD_MS)
+                        if (!playerPreferences.isProgressSeekGestureEnabled()) return false
+                        onSeek(seekForwardDeltaMs())
                     }
                 }
                 return true
@@ -99,6 +108,9 @@ class GestureHelper(
                 distanceY: Float,
             ): Boolean {
                 if (firstEvent == null) return false
+                if (!playerPreferences.arePlayerGesturesEnabled()) {
+                    return false
+                }
                 if (inExclusionArea(firstEvent)) return false
 
                 // Check if swipe is horizontal
@@ -134,11 +146,16 @@ class GestureHelper(
                 if (inExclusionArea(firstEvent)) {
                     return false
                 }
+                if (!playerPreferences.arePlayerGesturesEnabled() ||
+                    !playerPreferences.isVolumeBrightnessGesturesEnabled()
+                ) {
+                    return false
+                }
 
                 if (abs(distanceY) < abs(distanceX)) {
                     return false
                 }
-                if (swipeGestureValueTrackerProgress > -1 || swipeGestureProgressOpen) {
+                if (swipeGestureProgressOpen) {
                     return false
                 }
 
@@ -180,9 +197,17 @@ class GestureHelper(
     private val zoomGestureDetector = ScaleGestureDetector(
         context,
         object : ScaleGestureDetector.OnScaleGestureListener {
-            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean = true
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                return playerPreferences.arePlayerGesturesEnabled() &&
+                    playerPreferences.isZoomGestureEnabled()
+            }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
+                if (!playerPreferences.arePlayerGesturesEnabled() ||
+                    !playerPreferences.isZoomGestureEnabled()
+                ) {
+                    return false
+                }
                 lastScaleEvent = SystemClock.elapsedRealtime()
                 val scaleFactor = detector.scaleFactor
                 
@@ -217,11 +242,11 @@ class GestureHelper(
             }
             
             if (swipeGestureProgressOpen) {
-                if (swipeGestureValueTrackerProgress > -1) {
+                if (swipeGestureValueTrackerProgress != 0L) {
                     onSeek(swipeGestureValueTrackerProgress)
                 }
                 swipeGestureProgressOpen = false
-                swipeGestureValueTrackerProgress = -1L
+                swipeGestureValueTrackerProgress = 0L
             }
             
             currentNumberOfPointers = 0
@@ -251,11 +276,17 @@ class GestureHelper(
         when (event.pointerCount) {
             1 -> {
                 tapGestureDetector.onTouchEvent(event)
-                vbGestureDetector.onTouchEvent(event)
-                seekGestureDetector.onTouchEvent(event)
+                if (playerPreferences.arePlayerGesturesEnabled()) {
+                    vbGestureDetector.onTouchEvent(event)
+                    seekGestureDetector.onTouchEvent(event)
+                }
             }
             2 -> {
-                zoomGestureDetector.onTouchEvent(event)
+                if (playerPreferences.arePlayerGesturesEnabled() &&
+                    playerPreferences.isZoomGestureEnabled()
+                ) {
+                    zoomGestureDetector.onTouchEvent(event)
+                }
             }
         }
 

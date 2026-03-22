@@ -22,6 +22,10 @@ data class PlayerSettingsUiState(
     val audioTranscodeMode: String = AudioTranscodeMode.AUTO.displayName,
     val isVideoTranscodingAllowed: Boolean = false,
     val isAudioTranscodingAllowed: Boolean = false,
+    val playerGesturesEnabled: Boolean = true,
+    val volumeBrightnessGesturesEnabled: Boolean = true,
+    val progressSeekGestureEnabled: Boolean = true,
+    val zoomGestureEnabled: Boolean = true,
     val startMaximized: Boolean = false,
     val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
     val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
@@ -48,6 +52,16 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         loadSettings()
         userTranscodingPolicy()
     }
+
+    private fun updateGestureState() {
+        _uiState.value = _uiState.value.copy(
+            playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
+            volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+            progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
+            zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
+            startMaximized = playerPreferences.isStartMaximizedEnabled()
+        )
+    }
     
     private fun loadSettings() {
         viewModelScope.launch {
@@ -57,6 +71,10 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
                 audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
+                playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
+                volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+                progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
+                zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
@@ -113,10 +131,30 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         playerPreferences.setAudioTranscodeMode(mode)
         _uiState.value = _uiState.value.copy(audioTranscodeMode = mode.displayName)
     }
+
+    fun setPlayerGesturesEnabled(enabled: Boolean) {
+        playerPreferences.setPlayerGesturesEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
+        playerPreferences.setVolumeBrightnessGesturesEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setProgressSeekGestureEnabled(enabled: Boolean) {
+        playerPreferences.setProgressSeekGestureEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setZoomGestureEnabled(enabled: Boolean) {
+        playerPreferences.setZoomGestureEnabled(enabled)
+        updateGestureState()
+    }
     
     fun setStartMaximized(enabled: Boolean) {
         playerPreferences.setStartMaximizedEnabled(enabled)
-        _uiState.value = _uiState.value.copy(startMaximized = enabled)
+        updateGestureState()
     }
 
     fun setPlayerCacheSizeMb(sizeMb: Int) {

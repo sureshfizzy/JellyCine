@@ -170,7 +170,6 @@ private fun GestureIndicatorCard(
     progress: Float,
     modifier: Modifier = Modifier
 ) {
-    // No background - transparent overlay like 
     Column(
         modifier = modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -183,7 +182,6 @@ private fun GestureIndicatorCard(
             fontWeight = FontWeight.Bold
         )
 
-        // Vertical progress bar like 
         Box(
             modifier = Modifier
                 .width(6.dp)
@@ -205,7 +203,6 @@ private fun GestureIndicatorCard(
             )
         }
 
-        // Icon below the progress bar - smaller size
         Icon(
             imageVector = icon,
             contentDescription = null,

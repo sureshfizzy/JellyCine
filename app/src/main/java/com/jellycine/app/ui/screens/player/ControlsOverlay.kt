@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.StrokeCap
@@ -270,7 +271,16 @@ fun ControlsOverlay(
                     imageVector = replayforwardIcon(seekForwardSeconds),
                     contentDescription = "Forward $seekForwardSeconds seconds",
                     tint = Color.White,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier
+                        .size(44.dp)
+                        .graphicsLayer {
+                            if (seekForwardSeconds != 5 &&
+                                seekForwardSeconds != 10 &&
+                                seekForwardSeconds != 30
+                            ) {
+                                scaleX = -1f
+                            }
+                        }
                 )
             }
         }
@@ -399,7 +409,7 @@ private fun replayforwardIcon(seconds: Int): ImageVector {
         5 -> Icons.Filled.Forward5
         10 -> Icons.Filled.Forward10
         30 -> Icons.Filled.Forward30
-        else -> Icons.Filled.Forward
+        else -> Icons.Filled.Replay
     }
 }
 

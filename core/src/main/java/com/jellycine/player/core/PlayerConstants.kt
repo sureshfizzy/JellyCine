@@ -15,10 +15,6 @@ object PlayerConstants {
     const val ZOOM_SCALE_BASE = 1f
     const val ZOOM_SCALE_THRESHOLD = 0.01f
     
-    // Seek amounts (in milliseconds)
-    const val SEEK_BACKWARD_MS = 30000L
-    const val SEEK_FORWARD_MS = 30000L
-    
     // Auto-hide delays (in milliseconds)
     const val CONTROLS_AUTO_HIDE_DELAY = 3000L
     const val GESTURE_INDICATOR_HIDE_DELAY = 2000L

@@ -154,6 +154,7 @@
     <string name="player_settings_section_subtitles">Subtitles</string>
     <string name="player_settings_section_transcoding">Transcoding</string>
     <string name="player_settings_section_video">Video</string>
+    <string name="player_settings_section_gestures">Gestures</string>
     <string name="player_settings_section_seeking">Seeking</string>
     <string name="player_settings_section_player_cache">Player Cache</string>
     <string name="player_settings_section_performance">Performance</string>
@@ -166,6 +167,14 @@
     <string name="player_settings_streaming_quality">Streaming Quality</string>
     <string name="player_settings_audio_quality">Audio Quality</string>
     <string name="player_settings_decoder_priority">Video Decoder Priority</string>
+    <string name="player_settings_gestures">Gestures</string>
+    <string name="player_settings_gestures_summary">Enable player gesture shortcuts during playback</string>
+    <string name="player_settings_volume_brightness_gestures">Volume and Brightness Gestures</string>
+    <string name="player_settings_volume_brightness_gestures_summary">Swipe up or down on the right side for volume and on the left side for brightness</string>
+    <string name="player_settings_progress_seek_gesture">Double-Tap Forward / Backward</string>
+    <string name="player_settings_progress_seek_gesture_summary">Double tap the left side to seek backward and the right side to seek forward</string>
+    <string name="player_settings_zoom_gesture">Zoom Gesture</string>
+    <string name="player_settings_zoom_gesture_summary">Pinch on the player to switch between fit and zoom</string>
     <string name="player_settings_start_maximized">Start Maximized</string>
     <string name="player_settings_start_maximized_summary">Start video in fullscreen mode</string>
     <string name="player_settings_seek_backward">Seek Backward</string>

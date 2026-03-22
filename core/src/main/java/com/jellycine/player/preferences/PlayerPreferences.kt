@@ -21,6 +21,10 @@ class PlayerPreferences(context: Context) {
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
+        private const val KEY_PLAYER_GESTURES_ENABLED = "player_gestures_enabled"
+        private const val KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED = "volume_brightness_gestures_enabled"
+        private const val KEY_PROGRESS_SEEK_GESTURE_ENABLED = "progress_seek_gesture_enabled"
+        private const val KEY_ZOOM_GESTURE_ENABLED = "zoom_gesture_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
         private const val KEY_HDR_ENABLED = "hdr_enabled"
         private const val KEY_PLAYER_CACHE_SIZE_MB = "player_cache_size_mb"
@@ -229,6 +233,46 @@ class PlayerPreferences(context: Context) {
      */
     fun setBatteryOptimizationEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BATTERY_OPTIMIZATION, enabled).apply()
+    }
+
+    fun arePlayerGesturesEnabled(): Boolean {
+        return prefs.getBoolean(KEY_PLAYER_GESTURES_ENABLED, true)
+    }
+
+    fun setPlayerGesturesEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_PLAYER_GESTURES_ENABLED, enabled)
+            .apply()
+    }
+
+    fun isVolumeBrightnessGesturesEnabled(): Boolean {
+        return prefs.getBoolean(KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED, true)
+    }
+
+    fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED, enabled)
+            .apply()
+    }
+
+    fun isProgressSeekGestureEnabled(): Boolean {
+        return prefs.getBoolean(KEY_PROGRESS_SEEK_GESTURE_ENABLED, true)
+    }
+
+    fun setProgressSeekGestureEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_PROGRESS_SEEK_GESTURE_ENABLED, enabled)
+            .apply()
+    }
+
+    fun isZoomGestureEnabled(): Boolean {
+        return prefs.getBoolean(KEY_ZOOM_GESTURE_ENABLED, true)
+    }
+
+    fun setZoomGestureEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_ZOOM_GESTURE_ENABLED, enabled)
+            .apply()
     }
     
     /**
