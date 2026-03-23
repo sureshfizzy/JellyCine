@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
@@ -256,6 +257,16 @@ fun PlayerSettingsScreen(
             item { SectionLabel(stringResource(R.string.player_settings_section_seeking)) }
             item {
                 SettingsSection {
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.SkipNext,
+                        title = stringResource(R.string.player_settings_skip_intro),
+                        subtitle = stringResource(R.string.player_settings_skip_intro_summary),
+                        checked = uiState.skipIntroEnabled,
+                        onCheckedChange = viewModel::setSkipIntroEnabled,
+                        accentColor = seekingColor
+                    )
+
+                    SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.FastRewind,
                         title = stringResource(R.string.player_settings_seek_backward),

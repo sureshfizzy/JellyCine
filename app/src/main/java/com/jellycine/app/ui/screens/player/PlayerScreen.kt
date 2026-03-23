@@ -6,6 +6,10 @@ import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -21,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
+import com.jellycine.app.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
@@ -134,6 +140,7 @@ fun PlayerScreen(
     var playerBrightness by remember { mutableStateOf(playerPreferences.getPlayerBrightness()) }
     var playerVolume by remember { mutableStateOf(playerPreferences.getPlayerVolume()) }
     var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
+    val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
     var currentAudioTranscodeMode by remember {
         mutableStateOf(playerPreferences.getAudioTranscodeMode())
     }
@@ -237,6 +244,21 @@ fun PlayerScreen(
 
     val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
         playerState.isAudioTranscodingAllowed
+    val showSkipIntroButton = remember(
+        skipIntroEnabled,
+        playerState.isLocked,
+        playerState.introStartMs,
+        playerState.introEndMs,
+        uiState.currentPosition
+    ) {
+        val introStartMs = playerState.introStartMs
+        val introEndMs = playerState.introEndMs
+        skipIntroEnabled &&
+            !playerState.isLocked &&
+            introStartMs != null &&
+            introEndMs != null &&
+            uiState.currentPosition in introStartMs until introEndMs
+    }
 
     val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
         val selectedQuality = quality.trim()
@@ -539,6 +561,39 @@ fun PlayerScreen(
                 seekForwardSeconds = seekForwardSeconds,
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        AnimatedVisibility(
+            visible = showSkipIntroButton && uiState.controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(end = 24.dp, bottom = 28.dp)
+        ) {
+            FilledTonalButton(
+                onClick = {
+                    resetAutoHideTimer()
+                    playerState.introEndMs?.let(viewModel::seekTo)
+                },
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.52f),
+                    contentColor = Color.White
+                ),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                elevation = ButtonDefaults.filledTonalButtonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 1.dp
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.player_skip_intro),
+                    fontSize = 14.sp
+                )
+            }
         }
 
         // Gesture indicators

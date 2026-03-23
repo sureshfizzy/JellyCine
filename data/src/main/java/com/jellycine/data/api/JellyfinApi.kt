@@ -116,7 +116,7 @@ interface MediaServerApi {
     suspend fun getItemById(
         @Path("userId") userId: String,
         @Path("itemId") itemId: String,
-        @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData"
+        @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData,Chapters"
     ): Response<BaseItemDto>
 
     @GET("Items/{itemId}/Similar")

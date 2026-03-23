@@ -16,6 +16,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.jellycine.data.model.AudioTranscodeMode
+import com.jellycine.data.model.ChapterInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -85,6 +86,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
+                _playerState.value = _playerState.value.copy(introStartMs = null, introEndMs = null)
 
                 playerContext = context
                 hasHandledPlaybackCompletion = false
@@ -182,6 +184,7 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
+                val introWindow = skipIntroWindow(itemDetails?.chapters)
 
                 var primaryMediaSource: MediaSource? = null
                 var sessionPlaySessionId: String? = null
@@ -349,6 +352,8 @@ class PlayerViewModel @Inject constructor(
                     mediaTitle = mediaTitle,
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
+                    introStartMs = introWindow?.first,
+                    introEndMs = introWindow?.second,
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
                     isAudioTranscodingAllowed = isAudioTranscodingAllowed,
                     currentAudioTranscodeMode = audioTranscodeMode,
@@ -405,6 +410,56 @@ class PlayerViewModel @Inject constructor(
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
 
     fun getDuration(): Long = exoPlayer?.duration ?: 0L
+
+    private fun skipIntroWindow(chapters: List<ChapterInfo>?): Pair<Long, Long>? {
+        val chapterList = chapters
+            ?.mapNotNull { chapter ->
+                val positionMs = chapter.startPositionTicks
+                    ?.takeIf { it >= 0L }
+                    ?.div(10_000L)
+                    ?: return@mapNotNull null
+                chapter to positionMs
+            }
+            ?.sortedBy { it.second }
+            .orEmpty()
+
+        if (chapterList.isEmpty()) return null
+
+        val introStartIndex = chapterList.indexOfFirst { (chapter, _) ->
+            chapter.name.isIntroStartMarker()
+        }
+        if (introStartIndex == -1) return null
+
+        val introStartMs = chapterList[introStartIndex].second
+        val explicitIntroEndMs = chapterList
+            .drop(introStartIndex + 1)
+            .firstOrNull { (chapter, _) -> chapter.name.isIntroEndMarker() }
+            ?.second
+        val fallbackIntroEndMs = chapterList
+            .getOrNull(introStartIndex + 1)
+            ?.second
+        val introEndMs = explicitIntroEndMs ?: fallbackIntroEndMs
+
+        return introEndMs
+            ?.takeIf { it > introStartMs }
+            ?.let { introStartMs to it }
+    }
+
+    private fun String?.isIntroStartMarker(): Boolean {
+        val key = markerKey()
+        return key == "intro" || key == "introstart"
+    }
+
+    private fun String?.isIntroEndMarker(): Boolean {
+        return markerKey() == "introend"
+    }
+
+    private fun String?.markerKey(): String {
+        return this
+            ?.lowercase()
+            ?.filterNot { it.isWhitespace() || it == '_' || it == '-' }
+            .orEmpty()
+    }
 
     private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
         videoTranscodingAllowed?.let { return it }

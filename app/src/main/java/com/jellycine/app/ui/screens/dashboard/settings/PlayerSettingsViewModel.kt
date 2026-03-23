@@ -31,6 +31,7 @@ data class PlayerSettingsUiState(
     val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
     val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
     val seekForwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
+    val skipIntroEnabled: Boolean = PlayerPreferences.DEFAULT_SKIP_INTRO_ENABLED,
     
     // Performance
     val batteryOptimizationEnabled: Boolean = false,
@@ -80,6 +81,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
                 seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
                 seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
+                skipIntroEnabled = playerPreferences.isSkipIntroEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
         }
@@ -182,6 +184,13 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         playerPreferences.setSeekForwardIntervalSeconds(seconds)
         _uiState.value = _uiState.value.copy(
             seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds()
+        )
+    }
+
+    fun setSkipIntroEnabled(enabled: Boolean) {
+        playerPreferences.setSkipIntroEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            skipIntroEnabled = playerPreferences.isSkipIntroEnabled()
         )
     }
     

@@ -18,6 +18,8 @@ data class PlayerState(
     val currentAudioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
     val currentPosition: Long = 0L,
     val duration: Long = 0L,
+    val introStartMs: Long? = null,
+    val introEndMs: Long? = null,
     val bufferedPercentage: Int = 0,
     val volume: Float = 1.0f,
     val brightness: Float = 0.5f,

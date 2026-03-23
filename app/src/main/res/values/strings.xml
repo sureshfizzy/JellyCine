@@ -181,6 +181,8 @@
     <string name="player_settings_seek_backward_summary">Skip interval for rewind</string>
     <string name="player_settings_seek_forward">Seek Forward</string>
     <string name="player_settings_seek_forward_summary">Skip interval for forward</string>
+    <string name="player_settings_skip_intro">Skip Intro</string>
+    <string name="player_settings_skip_intro_summary">Show a skip intro button when intro markers are available</string>
     <string name="player_settings_seek_interval_value">%1$d seconds</string>
     <string name="player_settings_player_cache_size">Cache Size</string>
     <string name="player_settings_player_cache_size_value">%1$d MB</string>
@@ -232,6 +234,7 @@
     <string name="player_dialog_audio_mode_channels_6">Max 6 channels</string>
     <string name="player_dialog_audio_mode_channels_8">Max 8 channels</string>
     <string name="player_dialog_no_tracks_available">No tracks available</string>
+    <string name="player_skip_intro">Skip Intro</string>
 
     <!-- Home Dashboard -->
     <string name="dashboard_server_fallback">Server</string>

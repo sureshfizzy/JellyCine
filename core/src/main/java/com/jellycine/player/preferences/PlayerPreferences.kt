@@ -31,6 +31,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
         private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
         private const val KEY_SEEK_FORWARD_INTERVAL_SECONDS = "seek_forward_interval_seconds"
+        private const val KEY_SKIP_INTRO_ENABLED = "skip_intro_enabled"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
@@ -110,6 +111,7 @@ class PlayerPreferences(context: Context) {
         const val MAX_SEEK_INTERVAL_SECONDS = 30
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
+        const val DEFAULT_SKIP_INTRO_ENABLED = true
 
         const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
         val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
@@ -356,6 +358,16 @@ class PlayerPreferences(context: Context) {
                 KEY_SEEK_FORWARD_INTERVAL_SECONDS,
                 seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
             )
+            .apply()
+    }
+
+    fun isSkipIntroEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SKIP_INTRO_ENABLED, DEFAULT_SKIP_INTRO_ENABLED)
+    }
+
+    fun setSkipIntroEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_SKIP_INTRO_ENABLED, enabled)
             .apply()
     }
 
