@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -616,20 +618,34 @@ private fun PosterCard(
 
                 itemCount?.let { count ->
                     if (count > 0) {
+                        val badgeSize = if (count >= 100) 24.dp else 20.dp
+                        val displayCount = if (count >= 100) "99+" else count.toString()
+                        val textSize = if (count >= 100) 7.sp else 8.sp
                         Surface(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(10.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color.Black.copy(alpha = 0.8f)
+                                .padding(top = 8.dp, end = 4.dp)
+                                .size(badgeSize),
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.7f)
                         ) {
-                            Text(
-                                text = count.toString(),
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = displayCount,
+                                    color = Color.White,
+                                    fontSize = textSize,
+                                    lineHeight = textSize,
+                                    fontWeight = FontWeight.Bold,
+                                    style = TextStyle(
+                                        platformStyle = PlatformTextStyle(
+                                            includeFontPadding = false
+                                        )
+                                    )
+                                )
+                            }
                         }
                     }
                 }
