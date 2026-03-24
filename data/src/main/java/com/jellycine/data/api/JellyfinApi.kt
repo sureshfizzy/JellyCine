@@ -8,6 +8,7 @@ import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.PlaybackProgressRequest
 import com.jellycine.data.model.PlaybackStartRequest
 import com.jellycine.data.model.PlaybackStoppedRequest
+import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
@@ -80,6 +81,15 @@ interface MediaServerApi {
 
     @GET("Users/{userId}/Views")
     suspend fun getUserViews(@Path("userId") userId: String): Response<QueryResult<BaseItemDto>>
+
+    @GET("Movies/Recommendations")
+    suspend fun getMovieRecommendations(
+        @Query("userId") userId: String,
+        @Query("parentId") parentId: String? = null,
+        @Query("categoryLimit") categoryLimit: Int? = null,
+        @Query("itemLimit") itemLimit: Int? = null,
+        @Query("fields") fields: String? = null
+    ): Response<List<RecommendationDto>>
 
     @GET("Users/{userId}/Items/Resume")
     suspend fun getResumeItems(

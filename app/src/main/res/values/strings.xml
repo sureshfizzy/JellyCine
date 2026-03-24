@@ -138,6 +138,10 @@
     <string name="dashboard_view_all">View All</string>
     <string name="dashboard_no_items_found">No items found</string>
     <string name="dashboard_failed_load_my_media">Failed to load My Media</string>
+    <string name="dashboard_for_you">For You</string>
+    <string name="dashboard_for_you_empty_title">Nothing here yet</string>
+    <string name="dashboard_for_you_empty_message">Start a movie or episode and this screen will turn into your recommendation hub.</string>
+    <string name="dashboard_for_you_load_error">Unable to build your feed</string>
 
     <plurals name="my_media_libraries_available">
         <item quantity="one">%d library available</item>
@@ -385,6 +389,8 @@
     <string name="interface_continue_watching_subtitle">Show the Continue Watching section on the Home screen.</string>
     <string name="interface_next_up">Next Up</string>
     <string name="interface_next_up_subtitle">Show the Next Up section on the Home screen.</string>
+    <string name="interface_use_my_media_tab">Use My Media Tab</string>
+    <string name="interface_use_my_media_tab_subtitle">Replace the For You tab with the classic library grid.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Disable Emby poster overlays.</string>
 

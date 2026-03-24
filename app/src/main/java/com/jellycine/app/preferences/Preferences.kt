@@ -18,6 +18,7 @@ class Preferences(context: Context) {
         private const val KEY_POSTER_ENHANCERS_ENABLED = "poster_enhancers_enabled"
         private const val KEY_CONTINUE_WATCHING_ENABLED = "continue_watching_enabled"
         private const val KEY_NEXT_UP_ENABLED = "next_up_enabled"
+        private const val KEY_USE_MY_MEDIA_TAB = "use_my_media_tab"
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
@@ -105,6 +106,27 @@ class Preferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_NEXT_UP_ENABLED) {
                 trySend(isNextUpEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isUseMyMediaTabEnabled(): Boolean {
+        return prefs.getBoolean(KEY_USE_MY_MEDIA_TAB, false)
+    }
+
+    fun setUseMyMediaTabEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_MY_MEDIA_TAB, enabled).apply()
+    }
+
+    fun UseMyMediaTabEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isUseMyMediaTabEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_USE_MY_MEDIA_TAB) {
+                trySend(isUseMyMediaTabEnabled())
             }
         }
 

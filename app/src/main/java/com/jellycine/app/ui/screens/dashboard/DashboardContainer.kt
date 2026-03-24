@@ -47,10 +47,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
+import com.jellycine.app.ui.screens.dashboard.media.ForYou
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import androidx.compose.animation.animateColorAsState
@@ -114,7 +116,7 @@ sealed class DashboardDestination(
     )
     object MyMedia : DashboardDestination(
         "my_media",
-        R.string.my_media,
+        R.string.dashboard_for_you,
         Icons.Filled.PlayArrow,
         Icons.Outlined.PlayArrow
     )
@@ -156,6 +158,7 @@ fun DashboardContainer(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
+    val preferences = remember(context) { Preferences(context) }
     val appContext = remember(context) { context.applicationContext }
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
@@ -163,6 +166,10 @@ fun DashboardContainer(
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
         initialValue = NetworkModule.isInternetAvailable(appContext)
     )
+    val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isUseMyMediaTabEnabled()
+        )
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
@@ -370,11 +377,15 @@ fun DashboardContainer(
                         isActive = currentRoute == DashboardDestination.MyMedia.route,
                         route = DashboardDestination.MyMedia.route
                     ) {
-                        MyMedia(
-                            onLibraryClick = { contentType, parentId, title ->
-                                onNavigateToViewAll(contentType.name, parentId, title)
-                            }
-                        )
+                        if (useMyMediaTabEnabled) {
+                            MyMedia(
+                                onLibraryClick = { contentType, parentId, title ->
+                                    onNavigateToViewAll(contentType.name, parentId, title)
+                                }
+                            )
+                        } else {
+                            ForYou(onItemClick = onNavigateToDetail)
+                        }
                     }
                 }
                 composable(
@@ -516,6 +527,13 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = -outerItemOffset)
                                     },
                                     destination = destination,
+                                    title = if (destination == DashboardDestination.MyMedia) {
+                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                    } else {
+                                        stringResource(destination.titleRes)
+                                    },
+                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -535,6 +553,13 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = outerItemOffset)
                                     },
                                     destination = destination,
+                                    title = if (destination == DashboardDestination.MyMedia) {
+                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                    } else {
+                                        stringResource(destination.titleRes)
+                                    },
+                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -569,6 +594,13 @@ fun DashboardContainer(
                             NavigationItem(
                                 modifier = Modifier.width(offlineItemSlotWidth),
                                 destination = destination,
+                                title = if (destination == DashboardDestination.MyMedia) {
+                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                } else {
+                                    stringResource(destination.titleRes)
+                                },
+                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
+                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
                                 isSelected = isSelected,
                                 itemWidth = 56.dp,
                                 onClick = { navigateToDestination(destination) }
@@ -787,6 +819,9 @@ private fun FloatingSearchButton(
 private fun NavigationItem(
     modifier: Modifier = Modifier,
     destination: DashboardDestination,
+    title: String,
+    selectedIcon: ImageVector,
+    unselectedIcon: ImageVector,
     isSelected: Boolean,
     itemWidth: Dp = 44.dp,
     onClick: () -> Unit
@@ -833,8 +868,8 @@ private fun NavigationItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                    contentDescription = stringResource(destination.titleRes),
+                    imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                    contentDescription = title,
                     tint = iconTint,
                     modifier = Modifier.size(24.dp)
                 )
@@ -842,7 +877,7 @@ private fun NavigationItem(
         }
 
         Text(
-            text = stringResource(destination.titleRes),
+            text = title,
             color = textTint,
             fontSize = 9.sp,
             fontWeight = FontWeight.Medium,
@@ -877,8 +912,6 @@ private fun ContentWrapper(
             easing = if (isSearchScreen) FastOutSlowInEasing else LinearOutSlowInEasing
         )
     )
-    
-    // Removed tilt effects - keeping only scale and fade
 
     Box(
         modifier = Modifier
@@ -895,7 +928,7 @@ private fun ContentWrapper(
     }
 }
 
-// Poster Component for general use
+// Poster Component
 @Composable
 fun PosterCard(
     modifier: Modifier = Modifier,
@@ -996,8 +1029,7 @@ fun ListItem(
     var isPressed by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    
-    // Subtle effects for list items
+
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
         animationSpec = spring(

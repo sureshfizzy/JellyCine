@@ -14,6 +14,7 @@ import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
+import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
@@ -458,6 +459,44 @@ class MediaRepository(private val context: Context) {
                 Result.success(items)
             } else {
                 Result.failure(Exception("Failed to fetch suggestions: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getMovieRecommendations(
+        parentId: String? = null,
+        categoryLimit: Int = 8,
+        itemLimit: Int = 16,
+        fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+    ): Result<List<RecommendationDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+
+            val response = api.getMovieRecommendations(
+                userId = userId,
+                parentId = parentId,
+                categoryLimit = categoryLimit,
+                itemLimit = itemLimit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val recommendations = response.body().orEmpty()
+                    .map { row ->
+                        row.copy(
+                            items = row.items
+                                .orEmpty()
+                                .filter { item -> item.id != null && !item.name.isNullOrBlank() }
+                                .distinctBy { item -> item.id }
+                        )
+                    }
+                    .filter { it.items.orEmpty().isNotEmpty() }
+                Result.success(recommendations)
+            } else {
+                Result.failure(Exception("Failed to fetch movie recommendations: ${response.code()} - ${response.message()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
