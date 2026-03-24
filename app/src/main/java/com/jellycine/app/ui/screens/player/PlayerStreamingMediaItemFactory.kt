@@ -15,6 +15,7 @@ internal fun streamingMediaItem(
 
     val builder = MediaItem.Builder()
         .setUri(streamUri)
+        .setCustomCacheKey(streamCacheKey(streamUri))
 
     selectedSubtitleStream
         ?.takeIf { it.deliveryMethod.equals("External", ignoreCase = true) }
@@ -29,6 +30,39 @@ internal fun streamingMediaItem(
         }
 
     return builder.build()
+}
+
+private fun streamCacheKey(streamUri: Uri): String {
+    val metaParams = setOf(
+        "api_key",
+        "deviceid",
+        "playsessionid"
+    )
+
+    val cacheKeyParams = streamUri.queryParameterNames
+        .asSequence()
+        .filterNot { parameterName ->
+            metaParams.contains(parameterName.lowercase())
+        }
+        .sorted()
+        .flatMap { parameterName ->
+            streamUri.getQueryParameters(parameterName)
+                .asSequence()
+                .sorted()
+                .map { parameterValue -> "${parameterName.lowercase()}=$parameterValue" }
+        }
+        .toList()
+
+    val keyUri = streamUri.buildUpon()
+        .clearQuery()
+        .build()
+        .toString()
+
+    return if (cacheKeyParams.isEmpty()) {
+        keyUri
+    } else {
+        "$keyUri?${cacheKeyParams.joinToString("&")}"
+    }
 }
 
 private fun subtitleConfiguration(
