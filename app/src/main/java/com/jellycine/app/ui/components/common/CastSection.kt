@@ -36,15 +36,11 @@ fun CastSection(
     mediaRepository: MediaRepository,
     modifier: Modifier = Modifier,
     title: String? = null,
-    maxItems: Int = 8,
     onPersonClick: (String) -> Unit = {}
 ) {
     val sectionTitle = title ?: stringResource(R.string.detail_cast_and_crew)
-    val castAndCrew = remember(item.people, maxItems) {
-        prioritizeCastAndCrew(
-            people = item.people,
-            maxItems = maxItems
-        )
+    val castAndCrew = remember(item.people) {
+        prioritizeCastAndCrew(people = item.people)
     }
 
     if (castAndCrew.isNotEmpty()) {
@@ -164,10 +160,9 @@ private fun CastCrewMemberCard(
 }
 
 private fun prioritizeCastAndCrew(
-    people: List<BaseItemPerson>?,
-    maxItems: Int
+    people: List<BaseItemPerson>?
 ): List<BaseItemPerson> {
-    if (people.isNullOrEmpty() || maxItems <= 0) return emptyList()
+    if (people.isNullOrEmpty()) return emptyList()
 
     val clean = people.filter { !it.name.isNullOrBlank() }
     if (clean.isEmpty()) return emptyList()
@@ -177,7 +172,6 @@ private fun prioritizeCastAndCrew(
 
     return (actors + crew)
         .distinctBy { it.id ?: "${it.name}-${it.role}-${it.type}" }
-        .take(maxItems)
 }
 
 private suspend fun getPersonImageUrl(personId: String, imageTag: String?, mediaRepository: MediaRepository): String? {
