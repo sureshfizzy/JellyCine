@@ -112,6 +112,9 @@ class PlayerPreferences(context: Context) {
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
         const val DEFAULT_SKIP_INTRO_ENABLED = true
+        const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
+        const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
+        const val DECODER_PRIORITY_AUTO = "Auto"
 
         const val STREAMING_QUALITY_ORIGINAL = TranscodeProfiles.ORIGINAL
         val STREAMING_QUALITY_OPTIONS: List<String> = TranscodeProfiles.OPTIONS
@@ -213,7 +216,7 @@ class PlayerPreferences(context: Context) {
      * Get decoder priority preference
      */
     fun getDecoderPriority(): String {
-        return prefs.getString(KEY_DECODER_PRIORITY, "Auto") ?: "Auto"
+        return prefs.getString(KEY_DECODER_PRIORITY, DECODER_PRIORITY_AUTO) ?: DECODER_PRIORITY_AUTO
     }
     
     /**

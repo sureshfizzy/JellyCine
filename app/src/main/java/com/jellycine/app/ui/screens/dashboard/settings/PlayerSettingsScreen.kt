@@ -188,7 +188,11 @@ fun PlayerSettingsScreen(
                         icon = Icons.Rounded.VideoSettings,
                         title = stringResource(R.string.player_settings_decoder_priority),
                         subtitle = decoderPriorityLabel(uiState.decoderPriority),
-                        options = listOf("Hardware First", "Software First", "Auto"),
+                        options = listOf(
+                            PlayerPreferences.DECODER_PRIORITY_HARDWARE,
+                            PlayerPreferences.DECODER_PRIORITY_SOFTWARE,
+                            PlayerPreferences.DECODER_PRIORITY_AUTO
+                        ),
                         optionLabel = { decoderPriorityLabel(it) },
                         onOptionSelected = viewModel::setDecoderPriority,
                         accentColor = videoColor
@@ -942,8 +946,8 @@ fun PlayerSettingsScreenPreview() {
 @Composable
 private fun decoderPriorityLabel(value: String): String {
     return when (value) {
-        "Hardware First" -> stringResource(R.string.player_settings_decoder_priority_hardware_first)
-        "Software First" -> stringResource(R.string.player_settings_decoder_priority_software_first)
+        PlayerPreferences.DECODER_PRIORITY_HARDWARE -> stringResource(R.string.player_settings_decoder_priority_hardware_first)
+        PlayerPreferences.DECODER_PRIORITY_SOFTWARE -> stringResource(R.string.player_settings_decoder_priority_software_first)
         else -> stringResource(R.string.settings_auto)
     }
 }

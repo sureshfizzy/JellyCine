@@ -1,13 +1,14 @@
 package com.jellycine.player.video
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.player.preferences.PlayerPreferences.Companion.DECODER_PRIORITY_HARDWARE
+import com.jellycine.player.preferences.PlayerPreferences.Companion.DECODER_PRIORITY_SOFTWARE
 
 /**
  * Enhanced RenderersFactory that provides configurable hardware acceleration support
@@ -198,24 +199,22 @@ class HardwareAcceleration(
         
         return when {
             !hardwareAccelerationEnabled -> {
-                Log.d(TAG, "Hardware acceleration disabled, preferring software codecs")
-                softwareCodecs + hardwareCodecs
+                Log.d(TAG, "Hardware acceleration disabled, using software codecs only")
+                softwareCodecs
             }
-            decoderPriority == "Software First" -> {
-                Log.d(TAG, "Software decoder priority, preferring software codecs")
-                softwareCodecs + hardwareCodecs
+            decoderPriority == DECODER_PRIORITY_SOFTWARE -> {
+                Log.d(TAG, "Software decoder selected, using software codecs only")
+                softwareCodecs
             }
-            decoderPriority == "Hardware First" -> {
-                Log.d(TAG, "Hardware decoder priority, preferring hardware codecs")
-                hardwareCodecs + softwareCodecs
+            decoderPriority == DECODER_PRIORITY_HARDWARE -> {
+                Log.d(TAG, "Hardware decoder selected, using hardware codecs only")
+                hardwareCodecs
             }
-            else -> { // Auto
+            else -> {
                 Log.d(TAG, "Auto decoder priority, using default order")
-                // For auto mode, prefer hardware for video, software for audio quality
                 if (mimeType.startsWith("video/")) {
                     hardwareCodecs + softwareCodecs
                 } else {
-                    // For audio, prefer software for better quality unless it's a high-performance scenario
                     softwareCodecs + hardwareCodecs
                 }
             }
@@ -223,34 +222,9 @@ class HardwareAcceleration(
     }
     
     private fun isHardwareCodec(codecInfo: MediaCodecInfo): Boolean {
-        val name = codecInfo.name.lowercase()
-        
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                try {
-                    // Try to use the isHardwareAccelerated method if available
-                    // Note: This is available in newer versions but may require reflection
-                    isHardwareCodecByName(name)
-                } catch (e: Exception) {
-                    // Fallback to name-based detection
-                    isHardwareCodecByName(name)
-                }
-            }
-            else -> isHardwareCodecByName(name)
-        }
-    }
-    
-    private fun isHardwareCodecByName(name: String): Boolean {
-        return !name.contains("google") && 
-               !name.contains("ffmpeg") &&
-               !name.contains("software") &&
-               (name.contains("qcom") || 
-                name.contains("exynos") || 
-                name.contains("mtk") ||
-                name.contains("kirin") ||
-                name.contains("intel") ||
-                name.startsWith("omx.") ||
-                (name.startsWith("c2.android") && !name.contains("sw")))
+        return codecInfo.vendor &&
+            codecInfo.hardwareAccelerated &&
+            !codecInfo.softwareOnly
     }
     
     /**

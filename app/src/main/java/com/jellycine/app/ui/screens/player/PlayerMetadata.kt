@@ -270,8 +270,8 @@ internal object PlayerMetadata {
             val decoderType = when {
                 !isHwAccelEnabled -> "Software"
                 isUsingHardwareDecoder -> "Hardware"
-                decoderPriority == "Software First" -> "Software Preferred"
-                else -> "Hardware Preferred"
+                decoderPriority == PlayerPreferences.DECODER_PRIORITY_SOFTWARE -> "Software Decoder"
+                else -> "Hardware Decoder"
             }
 
             HardwareAccelerationInfo(

@@ -195,8 +195,8 @@
     <string name="player_settings_percent_value">%1$d%%</string>
     <string name="player_settings_default_percent">Default %1$d%%</string>
     <string name="player_settings_default_value">Default %1$s</string>
-    <string name="player_settings_decoder_priority_hardware_first">Hardware First</string>
-    <string name="player_settings_decoder_priority_software_first">Software First</string>
+    <string name="player_settings_decoder_priority_hardware_first">Hardware Decoder</string>
+    <string name="player_settings_decoder_priority_software_first">Software Decoder</string>
 
     <!-- Subtitle Settings -->
     <string name="subtitle_settings_title">Subtitles</string>
