@@ -32,6 +32,7 @@ data class PlayerSettingsUiState(
     val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
     val seekForwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
     val skipIntroEnabled: Boolean = PlayerPreferences.DEFAULT_SKIP_INTRO_ENABLED,
+    val chapterMarkersEnabled: Boolean = PlayerPreferences.DEFAULT_CHAPTER_MARKERS_ENABLED,
     
     // Performance
     val batteryOptimizationEnabled: Boolean = false,
@@ -82,6 +83,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
                 seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
                 skipIntroEnabled = playerPreferences.isSkipIntroEnabled(),
+                chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
             )
         }
@@ -191,6 +193,13 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         playerPreferences.setSkipIntroEnabled(enabled)
         _uiState.value = _uiState.value.copy(
             skipIntroEnabled = playerPreferences.isSkipIntroEnabled()
+        )
+    }
+
+    fun setChapterMarkersEnabled(enabled: Boolean) {
+        playerPreferences.setChapterMarkersEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
         )
     }
     

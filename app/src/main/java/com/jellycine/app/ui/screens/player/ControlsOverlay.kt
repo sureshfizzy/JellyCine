@@ -40,8 +40,10 @@ import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.jellycine.app.R
 import com.jellycine.detail.SpatializationResult
+import com.jellycine.player.core.ChapterMarker
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -49,6 +51,7 @@ fun ControlsOverlay(
     title: String,
     mediaLogoUrl: String? = null,
     seasonEpisodeLabel: String? = null,
+    chapterMarkers: List<ChapterMarker> = emptyList(),
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
@@ -383,6 +386,7 @@ fun ControlsOverlay(
                         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                     } else 0f,
                     duration = duration,
+                    chapterMarkers = chapterMarkers,
                     onSeek = onSeek,
                     onScrubProgressChange = {
                         scrubPreviewProgress = it
@@ -417,6 +421,7 @@ private fun replayforwardIcon(seconds: Int): ImageVector {
 private fun SeekBar(
     progress: Float,
     duration: Long,
+    chapterMarkers: List<ChapterMarker>,
     onSeek: (Float) -> Unit,
     onScrubProgressChange: (Float?) -> Unit,
     modifier: Modifier = Modifier
@@ -491,6 +496,10 @@ private fun SeekBar(
             val trackStart = Offset(trackInset, yOffset)
             val trackEnd = Offset(size.width - trackInset, yOffset)
             val trackHeight = size.height * trackHeightFraction
+            val markerSpacingPx = 6.dp.toPx()
+            val markerStrokeWidth = 1.5.dp.toPx()
+            val markerVerticalInset = 1.dp.toPx()
+            var progressX: Float? = null
 
             drawLine(
                 color = Color.White.copy(alpha = 0.35f),
@@ -501,7 +510,7 @@ private fun SeekBar(
             )
 
             if (renderedProgress > 0f) {
-                val progressX = trackStart.x + (trackEnd.x - trackStart.x) * renderedProgress
+                progressX = trackStart.x + (trackEnd.x - trackStart.x) * renderedProgress
                 drawLine(
                     color = Color.White.copy(alpha = 0.95f),
                     start = trackStart,
@@ -509,11 +518,34 @@ private fun SeekBar(
                     strokeWidth = trackHeight,
                     cap = StrokeCap.Round
                 )
+            }
 
+            if (duration > 0L && chapterMarkers.isNotEmpty()) {
+                var lastMarkerX = Float.NEGATIVE_INFINITY
+                chapterMarkers.forEach { marker ->
+                    val markerProgress = (marker.positionMs.toFloat() / duration.toFloat())
+                        .coerceIn(0f, 1f)
+                    if (markerProgress <= 0f || markerProgress >= 1f) return@forEach
+
+                    val markerX = trackStart.x + (trackEnd.x - trackStart.x) * markerProgress
+                    if (abs(markerX - lastMarkerX) < markerSpacingPx) return@forEach
+
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.95f),
+                        start = Offset(markerX, yOffset - trackHeight / 2f + markerVerticalInset),
+                        end = Offset(markerX, yOffset + trackHeight / 2f - markerVerticalInset),
+                        strokeWidth = markerStrokeWidth,
+                        cap = StrokeCap.Round
+                    )
+                    lastMarkerX = markerX
+                }
+            }
+
+            progressX?.let { thumbX ->
                 drawCircle(
                     color = Color.White,
                     radius = size.height * thumbRadiusFraction,
-                    center = Offset(progressX, yOffset)
+                    center = Offset(thumbX, yOffset)
                 )
             }
         }
@@ -574,6 +606,11 @@ private fun formatTime(timeMs: Long): String {
 fun ControlsOverlayPreviewPlaying() {
     ControlsOverlay(
         title = "The Matrix Reloaded",
+        chapterMarkers = listOf(
+            ChapterMarker(positionMs = 540000L, label = "Chapter 1"),
+            ChapterMarker(positionMs = 1740000L, label = "Chapter 2"),
+            ChapterMarker(positionMs = 3120000L, label = "Chapter 3")
+        ),
         isPlaying = true,
         currentPosition = 1800000L,
         duration = 8280000L,
@@ -608,6 +645,11 @@ fun ControlsOverlayPreviewPlaying() {
 fun ControlsOverlayPreviewPaused() {
     ControlsOverlay(
         title = "Inception",
+        chapterMarkers = listOf(
+            ChapterMarker(positionMs = 600000L, label = "Dream 1"),
+            ChapterMarker(positionMs = 2520000L, label = "Dream 2"),
+            ChapterMarker(positionMs = 5100000L, label = "Dream 3")
+        ),
         isPlaying = false,
         currentPosition = 3600000L,
         duration = 8880000L,
@@ -643,6 +685,12 @@ fun SeekBarPreview() {
     SeekBar(
         progress = 0.35f,
         duration = 7200000L,
+        chapterMarkers = listOf(
+            ChapterMarker(positionMs = 900000L, label = "Intro"),
+            ChapterMarker(positionMs = 2400000L, label = "Chapter 2"),
+            ChapterMarker(positionMs = 4800000L, label = "Chapter 3"),
+            ChapterMarker(positionMs = 6300000L, label = "Credits")
+        ),
         onSeek = { },
         onScrubProgressChange = { },
         modifier = Modifier.padding(16.dp)

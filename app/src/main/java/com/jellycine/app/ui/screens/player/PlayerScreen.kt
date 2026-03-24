@@ -146,6 +146,7 @@ fun PlayerScreen(
     }
     val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
     val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
+    val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
 
     // Setup player-specific settings
     DisposableEffect(Unit) {
@@ -488,6 +489,7 @@ fun PlayerScreen(
                 title = playerState.mediaTitle,
                 mediaLogoUrl = playerState.mediaLogoUrl,
                 seasonEpisodeLabel = playerState.seasonEpisodeLabel,
+                chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
                 isPlaying = uiState.isPlaying,
                 currentPosition = uiState.currentPosition,
                 duration = viewModel.getDuration(),
@@ -814,6 +816,7 @@ fun PlayerScreenPreview() {
         // Show controls overlay
         ControlsOverlay(
             title = "Sample Movie Title",
+            chapterMarkers = emptyList(),
             isPlaying = true,
             currentPosition = 45000L, // 45 seconds
             duration = 7200000L, // 2 hours

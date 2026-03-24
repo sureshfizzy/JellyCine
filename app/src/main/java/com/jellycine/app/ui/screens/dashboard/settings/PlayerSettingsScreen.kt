@@ -271,6 +271,16 @@ fun PlayerSettingsScreen(
                     )
 
                     SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.Schedule,
+                        title = stringResource(R.string.player_settings_chapter_markers),
+                        subtitle = stringResource(R.string.player_settings_chapter_markers_summary),
+                        checked = uiState.chapterMarkersEnabled,
+                        onCheckedChange = viewModel::setChapterMarkersEnabled,
+                        accentColor = seekingColor
+                    )
+
+                    SettingsDivider()
                     DropdownSettingsItem(
                         icon = Icons.Rounded.FastRewind,
                         title = stringResource(R.string.player_settings_seek_backward),

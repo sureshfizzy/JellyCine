@@ -13,6 +13,7 @@ data class PlayerState(
     val mediaTitle: String = "",
     val mediaLogoUrl: String? = null,
     val seasonEpisodeLabel: String? = null,
+    val chapterMarkers: List<ChapterMarker> = emptyList(),
     val isVideoTranscodingAllowed: Boolean = false,
     val isAudioTranscodingAllowed: Boolean = false,
     val currentAudioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
@@ -49,6 +50,11 @@ data class PlayerState(
     val videoOffsetX: Float = 0f,
     val videoOffsetY: Float = 0f,
     val aspectRatioMode: String = "Fit"
+)
+
+data class ChapterMarker(
+    val positionMs: Long,
+    val label: String? = null
 )
 
 /**

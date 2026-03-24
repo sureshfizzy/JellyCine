@@ -32,6 +32,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
         private const val KEY_SEEK_FORWARD_INTERVAL_SECONDS = "seek_forward_interval_seconds"
         private const val KEY_SKIP_INTRO_ENABLED = "skip_intro_enabled"
+        private const val KEY_CHAPTER_MARKERS_ENABLED = "chapter_markers_enabled"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
@@ -112,6 +113,7 @@ class PlayerPreferences(context: Context) {
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
         const val DEFAULT_SKIP_INTRO_ENABLED = true
+        const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
         const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
         const val DECODER_PRIORITY_AUTO = "Auto"
@@ -371,6 +373,16 @@ class PlayerPreferences(context: Context) {
     fun setSkipIntroEnabled(enabled: Boolean) {
         prefs.edit()
             .putBoolean(KEY_SKIP_INTRO_ENABLED, enabled)
+            .apply()
+    }
+
+    fun areChapterMarkersEnabled(): Boolean {
+        return prefs.getBoolean(KEY_CHAPTER_MARKERS_ENABLED, DEFAULT_CHAPTER_MARKERS_ENABLED)
+    }
+
+    fun setChapterMarkersEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_CHAPTER_MARKERS_ENABLED, enabled)
             .apply()
     }
 

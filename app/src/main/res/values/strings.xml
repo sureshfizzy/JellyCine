@@ -187,6 +187,8 @@
     <string name="player_settings_seek_forward_summary">Skip interval for forward</string>
     <string name="player_settings_skip_intro">Skip Intro</string>
     <string name="player_settings_skip_intro_summary">Show a skip intro button when intro markers are available</string>
+    <string name="player_settings_chapter_markers">Chapter Markers</string>
+    <string name="player_settings_chapter_markers_summary">Show chapter positions on the player progress bar when available</string>
     <string name="player_settings_seek_interval_value">%1$d seconds</string>
     <string name="player_settings_player_cache_size">Cache Size</string>
     <string name="player_settings_player_cache_size_value">%1$d MB</string>

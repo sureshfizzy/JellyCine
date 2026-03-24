@@ -29,6 +29,7 @@ import javax.inject.Inject
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.MediaSource
+import com.jellycine.player.core.ChapterMarker
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
@@ -86,7 +87,11 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
-                _playerState.value = _playerState.value.copy(introStartMs = null, introEndMs = null)
+                _playerState.value = _playerState.value.copy(
+                    introStartMs = null,
+                    introEndMs = null,
+                    chapterMarkers = emptyList()
+                )
 
                 playerContext = context
                 hasHandledPlaybackCompletion = false
@@ -183,6 +188,7 @@ class PlayerViewModel @Inject constructor(
                         null
                     }
                 }
+                val chapterMarkers = buildChapterMarkers(itemDetails?.chapters)
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
                 val introWindow = skipIntroWindow(itemDetails?.chapters)
 
@@ -352,6 +358,7 @@ class PlayerViewModel @Inject constructor(
                     mediaTitle = mediaTitle,
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
+                    chapterMarkers = chapterMarkers,
                     introStartMs = introWindow?.first,
                     introEndMs = introWindow?.second,
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
@@ -443,6 +450,23 @@ class PlayerViewModel @Inject constructor(
         return introEndMs
             ?.takeIf { it > introStartMs }
             ?.let { introStartMs to it }
+    }
+
+    private fun buildChapterMarkers(chapters: List<ChapterInfo>?): List<ChapterMarker> {
+        return chapters
+            ?.mapNotNull { chapter ->
+                val positionMs = chapter.startPositionTicks
+                    ?.takeIf { it >= 0L }
+                    ?.div(10_000L)
+                    ?: return@mapNotNull null
+                ChapterMarker(
+                    positionMs = positionMs,
+                    label = chapter.name?.trim()?.takeIf { it.isNotEmpty() }
+                )
+            }
+            ?.distinctBy { it.positionMs }
+            ?.sortedBy { it.positionMs }
+            .orEmpty()
     }
 
     private fun String?.isIntroStartMarker(): Boolean {
