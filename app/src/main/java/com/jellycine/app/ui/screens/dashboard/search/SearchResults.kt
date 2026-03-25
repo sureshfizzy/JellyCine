@@ -7,8 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -240,90 +242,6 @@ private fun EpisodeResultCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-    }
-}
-
-@Composable
-fun LiveSearchResults(
-    searchResults: List<BaseItemDto>,
-    onItemClick: (BaseItemDto) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val unknownTitle = stringResource(R.string.search_result_unknown_title)
-    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        items(searchResults) { result ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onItemClick(result) }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Poster/Thumbnail
-                Card(
-                    modifier = Modifier.size(60.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Gray.copy(alpha = 0.2f)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    val isEpisode = result.type.equals("Episode", ignoreCase = true)
-                    val imageUrl = rememberImageUrl(
-                        itemId = result.id,
-                        imageType = "Primary",
-                        enableImageEnhancers = !isEpisode
-                    )
-                    LazyImageLoader(
-                        imageUrl = imageUrl,
-                        contentDescription = result.name,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
-                        cornerRadius = 8
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                // Info
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    val title = result.preferredDisplayTitle(
-                        unknownTitle = unknownTitle,
-                        unknownEpisode = unknownEpisode
-                    )
-                    val subtitle = if (result.type == "Episode") {
-                        result.episodeDisplaySubtitle(fallback = unknownEpisode)
-                    } else {
-                        result.getYearAndGenre()
-                    }
-                    Text(
-                        text = title,
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = subtitle,
-                        color = Color.Gray,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
     }
 }
