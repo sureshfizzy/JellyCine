@@ -207,8 +207,13 @@ class HardwareAcceleration(
                 softwareCodecs
             }
             decoderPriority == DECODER_PRIORITY_HARDWARE -> {
-                Log.d(TAG, "Hardware decoder selected, using hardware codecs only")
-                hardwareCodecs
+                if (hardwareCodecs.isNotEmpty()) {
+                    Log.d(TAG, "Hardware decoder selected, using hardware codecs only")
+                    hardwareCodecs
+                } else {
+                    Log.w(TAG, "Hardware decoder selected, but no hardware codecs found for $mimeType; falling back to software")
+                    softwareCodecs
+                }
             }
             else -> {
                 Log.d(TAG, "Auto decoder priority, using default order")
