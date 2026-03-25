@@ -1,10 +1,10 @@
 package com.jellycine.app.ui.screens.dashboard.home
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -92,6 +92,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.collect
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
@@ -1124,7 +1125,8 @@ fun Dashboard(
     onNavigateToPlayer: (String) -> Unit = {},
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
-    isTabActive: Boolean = true
+    isTabActive: Boolean = true,
+    dashboardScrollState: LazyListState? = null
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
     val context = LocalContext.current
@@ -1173,9 +1175,15 @@ fun Dashboard(
         }
     }
 
-    val currentUsername by authRepository.getUsername().collectAsState(initial = null)
+    val cachedSessionServerUrl = remember {
+        CachedData.userSessionKey
+            ?.substringBefore('|')
+            ?.takeIf { it.isNotBlank() }
+    }
+    val cachedSessionUsername = remember { CachedData.username }
+    val currentUsername by authRepository.getUsername().collectAsState(initial = cachedSessionUsername)
     val currentServerName by authRepository.getServerName().collectAsState(initial = null)
-    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
+    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = cachedSessionServerUrl)
     val currentServerType by authRepository.getServerType().collectAsState(initial = null)
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
@@ -1253,7 +1261,7 @@ fun Dashboard(
         }
     }
 
-    val lazyColumnState = rememberLazyListState()
+    val lazyColumnState = dashboardScrollState ?: rememberLazyListState()
 
     CompositionLocalProvider(LocalQueryManager provides queryManager) {
 

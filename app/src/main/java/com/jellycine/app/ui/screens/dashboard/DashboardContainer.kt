@@ -1,5 +1,4 @@
 package com.jellycine.app.ui.screens.dashboard
-
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -70,6 +69,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -190,6 +190,7 @@ fun DashboardContainer(
     val showThresholdPx = with(density) { 14.dp.toPx() }
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
+    val homeScrollState = rememberLazyListState()
 
     val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
@@ -364,7 +365,8 @@ fun DashboardContainer(
                             onNavigateToPlayer = onNavigateToPlayer,
                             onAddServer = onAddServer,
                             onAddUser = onAddUser,
-                            isTabActive = isHomeActive
+                            isTabActive = isHomeActive,
+                            dashboardScrollState = homeScrollState
                         )
                     }
                 }
