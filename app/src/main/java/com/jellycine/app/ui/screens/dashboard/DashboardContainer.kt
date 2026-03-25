@@ -69,7 +69,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -190,7 +189,6 @@ fun DashboardContainer(
     val showThresholdPx = with(density) { 14.dp.toPx() }
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
-    val homeScrollState = rememberLazyListState()
 
     val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
@@ -302,11 +300,12 @@ fun DashboardContainer(
     val navigateToDestination: (DashboardDestination) -> Unit = { destination ->
         if (currentRoute != destination.route) {
             navController.navigate(destination.route) {
-                popUpTo(navController.graph.startDestinationId) {
-                    saveState = true
+                currentRoute?.let { route ->
+                    popUpTo(route) {
+                        inclusive = true
+                    }
                 }
                 launchSingleTop = true
-                restoreState = true
             }
         }
     }
@@ -365,8 +364,7 @@ fun DashboardContainer(
                             onNavigateToPlayer = onNavigateToPlayer,
                             onAddServer = onAddServer,
                             onAddUser = onAddUser,
-                            isTabActive = isHomeActive,
-                            dashboardScrollState = homeScrollState
+                            isTabActive = isHomeActive
                         )
                     }
                 }
@@ -403,14 +401,7 @@ fun DashboardContainer(
                         SearchContainer(
                             onNavigateToDetail = onNavigateToDetail,
                             onCancel = {
-                                // Navigate back to home when cancel is pressed
-                                navController.navigate(DashboardDestination.Home.route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                                navigateToDestination(DashboardDestination.Home)
                             }
                         )
                     }
