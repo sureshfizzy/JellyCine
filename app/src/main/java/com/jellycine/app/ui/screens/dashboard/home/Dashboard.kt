@@ -60,8 +60,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -1181,10 +1184,20 @@ fun Dashboard(
             ?.takeIf { it.isNotBlank() }
     }
     val cachedSessionUsername = remember { CachedData.username }
-    val currentUsername by authRepository.getUsername().collectAsState(initial = cachedSessionUsername)
-    val currentServerName by authRepository.getServerName().collectAsState(initial = null)
-    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = cachedSessionServerUrl)
-    val currentServerType by authRepository.getServerType().collectAsState(initial = null)
+    val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
+        initial = com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot(
+            serverName = null,
+            serverUrl = cachedSessionServerUrl,
+            serverType = null,
+            username = cachedSessionUsername,
+            savedServers = emptyList(),
+            activeServerId = null
+        )
+    )
+    val currentUsername = sessionSnapshot.username
+    val currentServerName = sessionSnapshot.serverName
+    val currentServerUrl = sessionSnapshot.serverUrl
+    val currentServerType = sessionSnapshot.serverType
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
@@ -1215,8 +1228,15 @@ fun Dashboard(
         }
 
         val profileUrl = withContext(Dispatchers.IO) {
-            runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
+            try {
+                mediaRepository.getUserProfileImageUrl()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
         }
+        currentCoroutineContext().ensureActive()
         noCarouselProfileImageUrl = profileUrl
         CachedData.updateUserData(HeaderUserName, profileUrl, dashboardSessionKey)
     }

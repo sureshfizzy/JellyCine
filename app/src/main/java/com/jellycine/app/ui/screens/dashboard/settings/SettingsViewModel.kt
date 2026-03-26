@@ -10,6 +10,9 @@ import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import com.jellycine.app.preferences.Preferences
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -46,7 +49,6 @@ class SettingsViewModel(
     private val includeProfileData: Boolean = true,
     private val includeLocalSettings: Boolean = true
 ) : ViewModel() {
-    
     private val authRepository = AuthRepositoryProvider.getInstance(context)
     private val mediaRepository = MediaRepository(context)
     private val preferences = Preferences(context)
@@ -86,21 +88,8 @@ class SettingsViewModel(
     
     private fun loadUserData() {
         viewModelScope.launch {
-            combine(
-                authRepository.getServerName(),
-                authRepository.getServerUrl(),
-                authRepository.getUsername(),
-                authRepository.getSavedServers(),
-                authRepository.getActiveServerId()
-            ) { serverName, serverUrl, username, savedServers, activeServerId ->
-                SessionSnapshot(
-                    serverName = serverName,
-                    serverUrl = serverUrl,
-                    username = username,
-                    savedServers = savedServers,
-                    activeServerId = activeServerId
-                )
-            }.distinctUntilChanged()
+            authRepository.observeActiveSession()
+                .distinctUntilChanged()
                 .collectLatest { snapshot ->
                     val sessionKey = buildSessionKey(snapshot.serverUrl, snapshot.username)
                     val currentState = _uiState.value
@@ -164,20 +153,20 @@ class SettingsViewModel(
         }
     }
 
-    private data class SessionSnapshot(
-        val serverName: String?,
-        val serverUrl: String?,
-        val username: String?,
-        val savedServers: List<com.jellycine.data.repository.AuthRepository.SavedServer>,
-        val activeServerId: String?
-    )
-
     private fun buildSessionKey(serverUrl: String?, username: String?): String {
         return "${serverUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${username.orEmpty()}"
     }
 
     private suspend fun refreshCurrentUserAndProfile(sessionKey: String, username: String?) {
-        val profileUrl = runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
+        val profileUrl = try {
+            mediaRepository.getUserProfileImageUrl()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+        currentCoroutineContext().ensureActive()
+        if (activeUserSessionKey != sessionKey) return
         if (!profileUrl.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(profileImageUrl = profileUrl)
             CachedData.updateUserData(
@@ -187,8 +176,15 @@ class SettingsViewModel(
             )
         }
 
-        val userResult = runCatching { mediaRepository.getCurrentUser() }
-            .getOrElse { Result.failure(it) }
+        val userResult = try {
+            mediaRepository.getCurrentUser()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+        currentCoroutineContext().ensureActive()
+        if (activeUserSessionKey != sessionKey) return
 
         if (userResult.isSuccess) {
             _uiState.value = _uiState.value.copy(
@@ -224,7 +220,6 @@ class SettingsViewModel(
                 onSuccess = {
                     mediaRepository.clearPersistedHomeSnapshot()
                     CachedData.clearAllCache()
-                    activeUserSessionKey = null
                     _uiState.value = _uiState.value.copy(
                         isSwitchingServer = false,
                         error = null

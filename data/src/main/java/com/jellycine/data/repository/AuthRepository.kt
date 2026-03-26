@@ -50,6 +50,15 @@ class AuthRepository(private val context: Context) {
         val lastUsedAt: Long
     )
 
+    data class ActiveSessionSnapshot(
+        val serverName: String?,
+        val serverUrl: String?,
+        val serverType: String?,
+        val username: String?,
+        val savedServers: List<SavedServer>,
+        val activeServerId: String?
+    )
+
     private fun defaultServerName(serverType: NetworkModule.ServerType): String {
         return when (serverType) {
             NetworkModule.ServerType.EMBY -> "Emby Server"
@@ -149,6 +158,27 @@ class AuthRepository(private val context: Context) {
         preferences[USERNAME_KEY]
     }
 
+    fun observeActiveSession(): Flow<ActiveSessionSnapshot> = dataStore.data.map { preferences ->
+        val storedServers = savedServers(preferences[SAVED_SERVERS_KEY])
+        val activeServer = activeServer(preferences)
+        val currentSavedServers = if (activeServer != null && storedServers.none { it.id == activeServer.id }) {
+            upsertSavedServer(storedServers, activeServer)
+        } else {
+            storedServers.sortedByDescending { it.lastUsedAt }
+        }
+
+        ActiveSessionSnapshot(
+            serverName = preferences[SERVER_NAME_KEY],
+            serverUrl = preferences[SERVER_URL_KEY],
+            serverType = preferences[SERVER_TYPE_KEY],
+            username = preferences[USERNAME_KEY],
+            savedServers = currentSavedServers,
+            activeServerId = preferences[ACTIVE_SERVER_ID_KEY]
+                ?.takeIf { it.isNotBlank() }
+                ?: activeServer?.id
+        )
+    }
+
     fun getAccessToken(): Flow<String?> = dataStore.data.map { preferences ->
         preferences[ACCESS_TOKEN_KEY]
     }
@@ -156,12 +186,12 @@ class AuthRepository(private val context: Context) {
     fun getSavedServers(): Flow<List<SavedServer>> = dataStore.data.map { preferences ->
         val storedServers = savedServers(preferences[SAVED_SERVERS_KEY])
         val activeServer = activeServer(preferences)
-        val mergedServers = if (activeServer != null && storedServers.none { it.id == activeServer.id }) {
+        val currentSavedServers = if (activeServer != null && storedServers.none { it.id == activeServer.id }) {
             upsertSavedServer(storedServers, activeServer)
         } else {
             storedServers.sortedByDescending { it.lastUsedAt }
         }
-        mergedServers
+        currentSavedServers
     }
 
     fun getActiveServerId(): Flow<String?> = dataStore.data.map { preferences ->

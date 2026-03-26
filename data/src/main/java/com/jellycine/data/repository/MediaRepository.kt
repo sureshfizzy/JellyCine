@@ -104,10 +104,6 @@ class MediaRepository(private val context: Context) {
     @Volatile
     private var cachedSessionConfig: SessionConfig? = null
 
-    @Volatile
-    private var cachedSessionConfigAt: Long = 0L
-
-    private val sessionConfigTtlMs = 1500L
     private val imageAuthCacheTtlMs = 1500L
 
     @Volatile
@@ -221,13 +217,6 @@ class MediaRepository(private val context: Context) {
     }
 
     private suspend fun getSessionConfig(): SessionConfig? {
-        val now = System.currentTimeMillis()
-        cachedSessionConfig?.let { config ->
-            if (now - cachedSessionConfigAt < sessionConfigTtlMs) {
-                return config
-            }
-        }
-
         val preferences = dataStore.data.first()
         val serverUrl = preferences[SERVER_URL_KEY] ?: return null
         val userId = preferences[USER_ID_KEY] ?: return null
@@ -246,7 +235,6 @@ class MediaRepository(private val context: Context) {
             timeoutConfig = networkPreferences.getTimeoutConfig()
         ).also {
             cachedSessionConfig = it
-            cachedSessionConfigAt = now
         }
     }
 

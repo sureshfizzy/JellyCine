@@ -74,9 +74,12 @@ import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -175,9 +178,18 @@ fun FeatureTab(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val userFallback = stringResource(R.string.settings_unknown_user)
-
-    val currentUsername by authRepository.getUsername().collectAsState(initial = CachedData.username)
-    val currentServerUrl by authRepository.getServerUrl().collectAsState(initial = null)
+    val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
+        initial = com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot(
+            serverName = null,
+            serverUrl = null,
+            serverType = null,
+            username = CachedData.username,
+            savedServers = emptyList(),
+            activeServerId = null
+        )
+    )
+    val currentUsername = sessionSnapshot.username
+    val currentServerUrl = sessionSnapshot.serverUrl
     val userSessionKey = remember(currentServerUrl, currentUsername) {
         "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
@@ -293,8 +305,15 @@ fun FeatureTab(
         }
 
         val profileUrl = withContext(Dispatchers.IO) {
-            runCatching { mediaRepository.getUserProfileImageUrl() }.getOrNull()
+            try {
+                mediaRepository.getUserProfileImageUrl()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
         }
+        currentCoroutineContext().ensureActive()
         userProfileImageUrl = profileUrl
         CachedData.updateUserData(displayUsername, profileUrl, userSessionKey)
     }
