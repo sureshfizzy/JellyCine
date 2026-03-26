@@ -138,7 +138,13 @@ private fun SearchResultCard(
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            val imageUrl = rememberImageUrl(itemId = item.id, imageType = "Primary")
+            val imageUrl = rememberImageUrl(
+                itemId = item.id,
+                imageType = "Primary",
+                width = 300,
+                height = 450,
+                quality = 80
+            )
             LazyImageLoader(
                 imageUrl = imageUrl,
                 contentDescription = item.name,
@@ -202,6 +208,9 @@ private fun EpisodeResultCard(
             val imageUrl = rememberImageUrl(
                 itemId = item.id,
                 imageType = "Primary",
+                width = 240,
+                height = 180,
+                quality = 75,
                 enableImageEnhancers = false
             )
             LazyImageLoader(

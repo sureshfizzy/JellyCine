@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,19 +54,14 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.SearchResultsSkeleton
 import coil3.imageLoader
 import coil3.request.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import java.util.concurrent.ConcurrentHashMap
 
 private object SearchBurstImagePrefetcher {
     private val prefetchedPrimary = ConcurrentHashMap.newKeySet<String>()
-    private val prefetchedBackdrop = ConcurrentHashMap.newKeySet<String>()
 
     fun clear() {
         prefetchedPrimary.clear()
-        prefetchedBackdrop.clear()
     }
 
     suspend fun preload(
@@ -74,72 +69,59 @@ private object SearchBurstImagePrefetcher {
         mediaRepository: com.jellycine.data.repository.MediaRepository,
         context: android.content.Context,
         enableImageEnhancers: Boolean
-    ) = coroutineScope {
-        if (items.isEmpty()) return@coroutineScope
+    ) {
+        if (items.isEmpty()) return
         val imageLoader = context.imageLoader
-        items.asSequence()
+        val distinctItems = items.asSequence()
             .filter { !it.id.isNullOrBlank() }
             .distinctBy { it.id }
-            .take(120)
-            .map { item ->
-                async(Dispatchers.IO) {
-                    val itemId = item.id ?: return@async
-                    val itemEnhancersEnabled = if (item.type.equals("Episode", ignoreCase = true)) {
-                        false
-                    } else {
-                        enableImageEnhancers
-                    }
-                    if (prefetchedPrimary.add(itemId)) {
-                        val primaryUrl = mediaRepository.getImageUrlString(
-                            itemId = itemId,
-                            imageType = "Primary",
-                            width = 300,
-                            height = 450,
-                            quality = 80,
-                            enableImageEnhancers = itemEnhancersEnabled
-                        )
-                        if (!primaryUrl.isNullOrBlank()) {
-                            imageLoader.enqueue(
-                                ImageRequest.Builder(context)
-                                    .data(primaryUrl)
-                                    .memoryCachePolicy(CachePolicy.ENABLED)
-                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                    .networkCachePolicy(CachePolicy.ENABLED)
-                                    .crossfade(false)
-                                    .allowHardware(true)
-                                    .allowRgb565(true)
-                                    .build()
-                            )
-                        }
-                    }
-
-                    if (prefetchedBackdrop.add(itemId)) {
-                        val backdropUrl = mediaRepository.getImageUrlString(
-                            itemId = itemId,
-                            imageType = "Backdrop",
-                            width = 1280,
-                            height = 720,
-                            quality = 85,
-                            enableImageEnhancers = itemEnhancersEnabled
-                        )
-                        if (!backdropUrl.isNullOrBlank()) {
-                            imageLoader.enqueue(
-                                ImageRequest.Builder(context)
-                                    .data(backdropUrl)
-                                    .memoryCachePolicy(CachePolicy.ENABLED)
-                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                    .networkCachePolicy(CachePolicy.ENABLED)
-                                    .crossfade(false)
-                                    .allowHardware(true)
-                                    .allowRgb565(true)
-                                    .build()
-                            )
-                        }
-                    }
-                }
-            }
             .toList()
-            .awaitAll()
+            .take(36)
+
+        suspend fun enqueuePrimary(item: BaseItemDto) {
+            val itemId = item.id ?: return
+            if (!prefetchedPrimary.add(itemId)) return
+
+            val itemEnhancersEnabled = if (item.type.equals("Episode", ignoreCase = true)) {
+                false
+            } else {
+                enableImageEnhancers
+            }
+
+            val primaryUrl = mediaRepository.getImageUrlString(
+                itemId = itemId,
+                imageType = "Primary",
+                width = 300,
+                height = 450,
+                quality = 80,
+                enableImageEnhancers = itemEnhancersEnabled
+            )
+
+            if (!primaryUrl.isNullOrBlank()) {
+                imageLoader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(primaryUrl)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
+                        .crossfade(false)
+                        .allowHardware(true)
+                        .allowRgb565(true)
+                        .build()
+                )
+            }
+        }
+
+        distinctItems.take(10).forEach { item ->
+            enqueuePrimary(item)
+        }
+
+        if (distinctItems.size > 10) {
+            delay(200)
+            distinctItems.drop(10).forEach { item ->
+                enqueuePrimary(item)
+            }
+        }
     }
 }
 
@@ -169,18 +151,21 @@ fun SearchContainer(
             uiState.episodeResults.isNotEmpty()
     }
     val burstPrefetchItems = remember(
-        uiState.suggestions,
+        isSearchActive,
         uiState.movieResults,
         uiState.showResults,
         uiState.episodeResults
     ) {
-        buildList {
-            addAll(uiState.suggestions.take(24))
-            addAll(uiState.movieResults.take(30))
-            addAll(uiState.showResults.take(30))
-            addAll(uiState.episodeResults.take(30))
-        }.filter { it.id != null && !it.name.isNullOrBlank() }
-            .distinctBy { it.id }
+        if (isSearchActive) {
+            buildList {
+                addAll(uiState.movieResults.take(12))
+                addAll(uiState.showResults.take(12))
+                addAll(uiState.episodeResults.take(12))
+            }.filter { it.id != null && !it.name.isNullOrBlank() }
+                .distinctBy { it.id }
+        } else {
+            emptyList()
+        }
     }
 
     LaunchedEffect(disablePosterEnhancers) {

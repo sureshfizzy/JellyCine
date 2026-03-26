@@ -63,7 +63,6 @@ fun LazyImageLoader(
                     .allowHardware(true)
                     .allowRgb565(true)
                     .crossfade(if (blurImageUrl != null) 300 else 150)
-                    .size(coil3.size.Size.ORIGINAL)
                     .build(),
                 contentDescription = contentDescription,
                 modifier = Modifier
