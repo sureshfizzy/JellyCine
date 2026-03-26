@@ -51,7 +51,6 @@ import com.jellycine.app.R
 import com.jellycine.app.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.app.ui.screens.dashboard.SearchResultsSkeleton
 import coil3.imageLoader
 import coil3.request.*
 import kotlinx.coroutines.delay
@@ -195,7 +194,7 @@ fun SearchContainer(
                     .padding(top = 72.dp)
             ) {
                 if (uiState.isSearching) {
-                    SearchResultsSkeleton()
+                    SearchResultsViewSkeleton()
                 } else if (hasSearchResults) {
                     SearchResultsView(
                         uiState = uiState,

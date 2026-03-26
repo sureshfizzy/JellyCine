@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,15 +20,100 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.LazyImageLoader
 import com.jellycine.app.ui.components.common.episodeDisplaySubtitle
 import com.jellycine.app.ui.components.common.preferredDisplayTitle
+import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
+import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.app.util.image.rememberImageUrl
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
+
+@Composable
+fun SearchResultsViewSkeleton(
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        searchPosterSectionSkeleton(titleWidth = 90.dp)
+        searchPosterSectionSkeleton(titleWidth = 100.dp)
+
+        item {
+            SectionTitleSkeleton(
+                modifier = Modifier.padding(bottom = 12.dp),
+                width = 120.dp
+            )
+        }
+
+        items(3) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier.size(80.dp, 60.dp),
+                    cornerRadius = 8f
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.75f)
+                            .height(16.dp),
+                        cornerRadius = 4f
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.45f)
+                            .height(12.dp),
+                        cornerRadius = 4f
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.searchPosterSectionSkeleton(titleWidth: Dp) {
+    item {
+        SectionTitleSkeleton(
+            modifier = Modifier.padding(bottom = 12.dp),
+            width = titleWidth
+        )
+    }
+
+    item {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            items(4) {
+                PosterSkeleton(
+                    width = 120.dp,
+                    height = 230.dp,
+                    cornerRadius = 12f
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun SearchResultsView(

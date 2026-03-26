@@ -1152,7 +1152,7 @@ fun PosterSkeleton(
         ShimmerEffect(
             modifier = Modifier
                 .width(width)
-                .height(210.dp),
+                .aspectRatio(0.67f),
             cornerRadius = cornerRadius
         )
 
@@ -1258,68 +1258,6 @@ fun LibrarySkeleton(
     ) {
         items(itemCount) {
             PosterSkeleton()
-        }
-    }
-}
-
-/**
- * Skeleton for search results (list view with poster + text)
- */
-@Composable
-fun SearchResultsSkeleton(
-    modifier: Modifier = Modifier,
-    itemCount: Int = 8
-) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 100.dp),
-        modifier = modifier.fillMaxSize()
-    ) {
-        items(itemCount) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Poster skeleton
-                ShimmerEffect(
-                    modifier = Modifier.size(70.dp),
-                    cornerRadius = 12f
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // Text content skeleton
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(16.dp),
-                        cornerRadius = 4f
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.5f)
-                            .height(12.dp),
-                        cornerRadius = 4f
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .width(60.dp)
-                            .height(12.dp),
-                        cornerRadius = 4f
-                    )
-                }
-            }
         }
     }
 }
