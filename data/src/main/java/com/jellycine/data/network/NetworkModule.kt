@@ -9,6 +9,7 @@ import android.util.Log
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.BuildConfig
 import com.google.gson.Gson
+import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
 import kotlinx.coroutines.Job
@@ -358,18 +359,14 @@ object NetworkModule {
         deviceId: String,
         serverType: ServerType
     ): String {
-        val headerPrefix = if (serverType == ServerType.EMBY) "Emby" else "MediaBrowser"
-        return buildString {
-            append("$headerPrefix ")
-            append("Client=\"$CLIENT_NAME\", ")
-            append("Device=\"$DEVICE_NAME\", ")
-            append("DeviceId=\"$deviceId\", ")
-            append("Version=\"${BuildConfig.CLIENT_VERSION}\"")
-
-            if (!accessToken.isNullOrEmpty()) {
-                append(", Token=\"$accessToken\"")
-            }
-        }
+        return AuthHeaderDto.fromServerType(
+            serverType = serverType,
+            deviceId = deviceId,
+            version = BuildConfig.CLIENT_VERSION,
+            accessToken = accessToken,
+            clientName = CLIENT_NAME,
+            deviceName = DEVICE_NAME
+        ).asHeaderValue()
     }
 
     private fun buildBaseUrlCandidates(serverUrl: String): List<String> {

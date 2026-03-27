@@ -147,10 +147,15 @@ object PlayerUtils {
     @UnstableApi
     fun createStreamingMediaSource(
         context: Context,
-        mediaItem: MediaItem
+        mediaItem: MediaItem,
+        requestHeaders: Map<String, String> = emptyMap()
     ): MediaSource {
         val cacheSizeMb = PlayerPreferences(context).getPlayerCacheSizeMb()
-        val dataSourceFactory = PlayerCacheManager.createDataSourceFactory(context, cacheSizeMb)
+        val dataSourceFactory = PlayerCacheManager.createDataSourceFactory(
+            context = context,
+            cacheSizeMb = cacheSizeMb,
+            defaultRequestHeaders = requestHeaders
+        )
         return DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
     }
 

@@ -303,7 +303,7 @@ object CastController {
     ): Result<CastLoadPayload> {
         return runCatching {
             val enforceTrackSelectionStream = audioStreamIndex != null || subtitleStreamIndex != null
-            val streamingUrl = mediaRepository.getStreamingUrl(
+            val streamingUrl = mediaRepository.getCastStreamingUrl(
                 itemId = itemId,
                 maxStreamingBitrate = if (enforceTrackSelectionStream) CAST_TRACK_SELECTION_BITRATE else null,
                 audioStreamIndex = audioStreamIndex,

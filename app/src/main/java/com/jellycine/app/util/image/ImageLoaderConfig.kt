@@ -11,6 +11,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
+import com.jellycine.data.model.AuthHeaderDto
+import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.AuthSessionIds
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
@@ -29,10 +31,6 @@ import kotlin.math.max
 import kotlin.math.min
 
 object ImageLoaderConfig {
-
-    private const val CLIENT_NAME = "JellyCine"
-    private const val DEVICE_NAME = "Android"
-
     private val SERVER_URL_KEY = androidx.datastore.preferences.core.stringPreferencesKey("server_url")
     private val USER_ID_KEY = androidx.datastore.preferences.core.stringPreferencesKey("user_id")
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
@@ -123,19 +121,15 @@ object ImageLoaderConfig {
                 } else {
                     null
                 } ?: preferences?.get(LEGACY_ACCESS_TOKEN_KEY)
-                val serverType = preferences?.get(SERVER_TYPE_KEY)
-                val headerPrefix = if (serverType.equals("EMBY", ignoreCase = true)) "Emby" else "MediaBrowser"
-                val header = buildString {
-                    append("$headerPrefix ")
-                    append("Client=\"$CLIENT_NAME\", ")
-                    append("Device=\"$DEVICE_NAME\", ")
-                    append("DeviceId=\"$deviceId\", ")
-                    append("Version=\"${BuildConfig.VERSION_NAME}\"")
-
-                    if (!accessToken.isNullOrEmpty()) {
-                        append(", Token=\"$accessToken\"")
-                    }
+                val serverType = preferences?.get(SERVER_TYPE_KEY)?.let {
+                    runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
                 }
+                val header = AuthHeaderDto.fromServerType(
+                    serverType = serverType,
+                    deviceId = deviceId,
+                    version = BuildConfig.VERSION_NAME,
+                    accessToken = accessToken
+                ).asHeaderValue()
                 cachedAuthHeader = header
                 cachedAuthHeaderAt = now
                 return header

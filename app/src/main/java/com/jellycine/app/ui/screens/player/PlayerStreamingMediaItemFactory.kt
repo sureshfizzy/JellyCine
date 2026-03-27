@@ -34,7 +34,6 @@ internal fun streamingMediaItem(
 
 private fun streamCacheKey(streamUri: Uri): String {
     val metaParams = setOf(
-        "api_key",
         "deviceid",
         "playsessionid"
     )

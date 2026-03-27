@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
@@ -23,13 +24,18 @@ internal object PlayerCacheManager {
     @Synchronized
     fun createDataSourceFactory(
         context: Context,
-        cacheSizeMb: Int
+        cacheSizeMb: Int,
+        defaultRequestHeaders: Map<String, String> = emptyMap()
     ): DataSource.Factory {
         val appContext = context.applicationContext
-        val upstreamFactory = DefaultDataSource.Factory(appContext)
+        val httpDataSource = DefaultHttpDataSource.Factory()
+        if (defaultRequestHeaders.isNotEmpty()) {
+            httpDataSource.setDefaultRequestProperties(defaultRequestHeaders)
+        }
+        val upstream = DefaultDataSource.Factory(appContext, httpDataSource)
         return CacheDataSource.Factory()
             .setCache(getOrCreateCache(appContext, cacheSizeMb))
-            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 

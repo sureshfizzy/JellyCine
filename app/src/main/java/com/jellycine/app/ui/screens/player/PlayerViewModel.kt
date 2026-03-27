@@ -246,7 +246,7 @@ class PlayerViewModel @Inject constructor(
                         else -> PlayMethod.TRANSCODE
                     }
 
-                    val streamingResult = mediaRepository.getStreamingUrl(
+                    val playbackRequestResult = mediaRepository.getPlaybackRequest(
                         itemId = mediaId,
                         maxStreamingBitrate = maxStreamingBitrate,
                         maxStreamingHeight = maxStreamingHeight,
@@ -255,15 +255,16 @@ class PlayerViewModel @Inject constructor(
                         audioTranscodeMode = audioTranscodeMode,
                         playbackInfo = playbackInfo
                     )
-                    if (streamingResult.isFailure) {
-                        val error = streamingResult.exceptionOrNull()?.message ?: "Failed to get streaming URL"
+                    if (playbackRequestResult.isFailure) {
+                        val error = playbackRequestResult.exceptionOrNull()?.message ?: "Failed to get playback request"
                         _playerState.value = _playerState.value.copy(isLoading = false, error = error)
                         return@launch
                     }
 
-                    val streamingUrl = streamingResult.getOrNull()
+                    val playbackRequest = playbackRequestResult.getOrNull()
+                    val streamingUrl = playbackRequest?.url
                     if (streamingUrl.isNullOrEmpty()) {
-                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get streaming URL")
+                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get playback URL")
                         return@launch
                     }
                     val streamUri = Uri.parse(streamingUrl)
@@ -290,7 +291,8 @@ class PlayerViewModel @Inject constructor(
                     )
                     streamingMediaSource = PlayerUtils.createStreamingMediaSource(
                         context = context,
-                        mediaItem = streamingMediaItem
+                        mediaItem = streamingMediaItem,
+                        requestHeaders = playbackRequest.requestHeaders
                     )
                     streamingMediaItem
                 }
