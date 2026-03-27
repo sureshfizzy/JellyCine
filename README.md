@@ -103,4 +103,4 @@ Issues and pull requests are welcome. For large feature work, open an issue firs
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).

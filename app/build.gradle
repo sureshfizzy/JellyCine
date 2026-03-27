@@ -124,6 +124,7 @@ dependencies {
     implementation 'io.coil-kt.coil3:coil-compose:3.4.0'
     implementation 'io.coil-kt.coil3:coil-gif:3.4.0'
     implementation 'io.coil-kt.coil3:coil-network-okhttp:3.4.0'
+    implementation 'io.coil-kt.coil3:coil-svg:3.4.0'
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
@@ -161,7 +162,6 @@ dependencies {
 
     // Google Cast / screen casting
     implementation 'com.google.android.gms:play-services-cast-framework:22.3.0'
-
     // Hilt
     implementation 'com.google.dagger:hilt-android:2.59.2'
     ksp 'com.google.dagger:hilt-compiler:2.59.2'

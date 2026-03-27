@@ -377,10 +377,29 @@
     <string name="settings_unavailable">Unavailable</string>
     <string name="settings_add_server">Add Server</string>
     <string name="settings_auto">Auto</string>
+    <string name="cd_about_button">About</string>
     <plurals name="settings_saved_users_count">
         <item quantity="one">%d user</item>
         <item quantity="other">%d users</item>
     </plurals>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_version_chip">Version %1$s</string>
+    <string name="about_section_project">Legal</string>
+    <string name="about_section_connect">Connect</string>
+    <string name="about_privacy_policy">Privacy Policy</string>
+    <string name="about_privacy_policy_subtitle">Read how JellyCine handles playback data and privacy</string>
+    <string name="about_open_source_license">License</string>
+    <string name="about_open_source_license_subtitle">GNU General Public License v3.0</string>
+    <string name="about_source_code">Source Code</string>
+    <string name="about_rate_app">Rate on Google Play</string>
+    <string name="about_rate_app_subtitle">Leave a rating or review to help more people find JellyCine</string>
+    <string name="about_contact_developer">Contact Developer</string>
+    <string name="about_contact_developer_subtitle">Send feedback, bug reports, or privacy questions by email</string>
+    <string name="about_feedback_subject">JellyCine Feedback</string>
+    <string name="about_buy_me_a_coffee">Buy Me a Coffee</string>
+    <string name="about_patreon">Patreon</string>
 
     <!-- Interface Settings -->
     <string name="interface_feature_carousel">Feature Carousel</string>

@@ -22,6 +22,7 @@ import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
@@ -176,6 +177,9 @@ fun AppNavigation() {
                     },
                     onNavigateToCacheSettings = {
                         navController.navigate("cache_settings")
+                    },
+                    onNavigateToAbout = {
+                        navController.navigate("about")
                     },
                     onAddServer = {
                         navController.navigate("server_connection") {
@@ -434,6 +438,18 @@ fun AppNavigation() {
                 exitTransition = { textExitTransition(350) }
             ) {
                 CacheSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "about",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                AboutScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }
