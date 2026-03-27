@@ -186,7 +186,7 @@ internal object PlaybackUrlBuilder {
                 serverUrl = authContext.serverUrl,
                 itemId = itemId,
                 queryParams = streamQueryParams,
-                useStaticStream = mediaSource.supportsDirectPlay == true || mediaSource.supportsDirectStream == true
+                useStaticStream = mediaSource.supportsDirectPlay == true
             )
 
             Result.success(streamingUrl)
