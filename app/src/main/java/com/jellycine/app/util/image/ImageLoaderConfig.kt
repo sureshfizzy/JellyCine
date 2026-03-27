@@ -12,6 +12,9 @@ import coil3.request.CachePolicy
 import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.preferences.NetworkPreferences
+import com.jellycine.data.security.AuthSessionIds
+import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
+import com.jellycine.data.security.SecureSessionStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.ConnectionPool
@@ -30,7 +33,8 @@ object ImageLoaderConfig {
     private const val CLIENT_NAME = "JellyCine"
     private const val DEVICE_NAME = "Android"
 
-    private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
+    private val SERVER_URL_KEY = androidx.datastore.preferences.core.stringPreferencesKey("server_url")
+    private val USER_ID_KEY = androidx.datastore.preferences.core.stringPreferencesKey("user_id")
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
     private const val BYTES_PER_MB = 1024L * 1024L
 
@@ -95,6 +99,7 @@ object ImageLoaderConfig {
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
         val dataStore = DataStoreProvider.getDataStore(context)
+        val secureSessionStore = SecureSessionStore(context)
         val authHeaderLock = Any()
         var cachedAuthHeader: String? = null
         var cachedAuthHeaderAt = 0L
@@ -111,7 +116,13 @@ object ImageLoaderConfig {
                 val preferences = runBlocking {
                     runCatching { dataStore.data.first() }.getOrNull()
                 }
-                val accessToken = preferences?.get(ACCESS_TOKEN_KEY)
+                val serverUrl = preferences?.get(SERVER_URL_KEY)
+                val userId = preferences?.get(USER_ID_KEY)
+                val accessToken = if (!serverUrl.isNullOrBlank() && !userId.isNullOrBlank()) {
+                    secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
+                } else {
+                    null
+                } ?: preferences?.get(LEGACY_ACCESS_TOKEN_KEY)
                 val serverType = preferences?.get(SERVER_TYPE_KEY)
                 val headerPrefix = if (serverType.equals("EMBY", ignoreCase = true)) "Emby" else "MediaBrowser"
                 val header = buildString {

@@ -16,22 +16,31 @@ import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
+import com.jellycine.data.security.AuthSessionIds
+import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
+import com.jellycine.data.security.SecureSessionStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class AuthRepository(private val context: Context) {
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
+    private val secureSessionStore = SecureSessionStore(context)
     private val gson = Gson()
-    private val savedServerListType = object : TypeToken<List<SavedServer>>() {}.type
+    private val storedSavedServerListType = object : TypeToken<List<StoredSavedServer>>() {}.type
+    private val legacyMigrationMutex = Mutex()
+
+    @Volatile
+    private var migrationExecuted = false
 
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_NAME_KEY = stringPreferencesKey("server_name")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
-        private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val USERNAME_KEY = stringPreferencesKey("username")
         private val IS_AUTHENTICATED_KEY = booleanPreferencesKey("is_authenticated")
@@ -46,8 +55,18 @@ class AuthRepository(private val context: Context) {
         val serverTypeRaw: String,
         val username: String,
         val userId: String,
-        val accessToken: String,
         val lastUsedAt: Long
+    )
+
+    private data class StoredSavedServer(
+        val id: String,
+        val serverUrl: String,
+        val serverName: String,
+        val serverTypeRaw: String,
+        val username: String,
+        val userId: String,
+        val lastUsedAt: Long,
+        val accessToken: String? = null
     )
 
     data class ActiveSessionSnapshot(
@@ -77,26 +96,38 @@ class AuthRepository(private val context: Context) {
             ?: defaultServerName(serverType)
     }
 
-    private fun normalizeServerUrlForId(serverUrl: String): String {
-        return NetworkModule.canonicalServerUrlKey(serverUrl)
-    }
-
     private fun buildServerId(serverUrl: String, userId: String): String {
-        return "${normalizeServerUrlForId(serverUrl)}|${userId.trim()}"
+        return AuthSessionIds.buildServerId(serverUrl, userId)
     }
 
-    private fun savedServers(raw: String?): List<SavedServer> {
+    private fun currentServerId(preferences: Preferences): String? {
+        val explicitId = preferences[ACTIVE_SERVER_ID_KEY]?.takeIf { it.isNotBlank() }
+        if (explicitId != null) return explicitId
+
+        val serverUrl = preferences[SERVER_URL_KEY]?.takeIf { it.isNotBlank() } ?: return null
+        val userId = preferences[USER_ID_KEY]?.takeIf { it.isNotBlank() } ?: return null
+        return buildServerId(serverUrl = serverUrl, userId = userId)
+    }
+
+    private fun persistedSavedServers(raw: String?): List<StoredSavedServer> {
         if (raw.isNullOrBlank()) return emptyList()
         return runCatching {
-            gson.fromJson<List<SavedServer>>(raw, savedServerListType)
+            gson.fromJson<List<StoredSavedServer>>(raw, storedSavedServerListType)
                 ?.filter {
                     it.id.isNotBlank() &&
                         it.serverUrl.isNotBlank() &&
-                        it.userId.isNotBlank() &&
-                        it.accessToken.isNotBlank()
+                        it.userId.isNotBlank()
                 }
                 .orEmpty()
         }.getOrDefault(emptyList())
+    }
+
+    private fun savedServers(raw: String?): List<SavedServer> {
+        return persistedSavedServers(raw)
+            .mapNotNull { storedServer ->
+                storedServer.toSavedServerOrNull()
+                    ?.takeIf { savedServer -> secureSessionStore.hasToken(savedServer.id) }
+            }
     }
 
     private fun serializeSavedServers(savedServers: List<SavedServer>): String {
@@ -115,7 +146,8 @@ class AuthRepository(private val context: Context) {
     private fun activeServer(preferences: Preferences): SavedServer? {
         val serverUrl = preferences[SERVER_URL_KEY]?.takeIf { it.isNotBlank() } ?: return null
         val userId = preferences[USER_ID_KEY]?.takeIf { it.isNotBlank() } ?: return null
-        val accessToken = preferences[ACCESS_TOKEN_KEY]?.takeIf { it.isNotBlank() } ?: return null
+        val serverId = buildServerId(serverUrl = serverUrl, userId = userId)
+        if (!secureSessionStore.hasToken(serverId)) return null
         val serverTypeRaw = preferences[SERVER_TYPE_KEY]
             ?.takeIf { it.isNotBlank() }
             ?: NetworkModule.ServerType.UNKNOWN.name
@@ -133,13 +165,14 @@ class AuthRepository(private val context: Context) {
             serverTypeRaw = serverTypeRaw,
             username = username,
             userId = userId,
-            accessToken = accessToken,
             lastUsedAt = System.currentTimeMillis()
         )
     }
 
     val isAuthenticated: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[IS_AUTHENTICATED_KEY] ?: false
+        legacyStorageMigrated()
+        (preferences[IS_AUTHENTICATED_KEY] ?: false) &&
+            secureSessionStore.hasToken(currentServerId(preferences))
     }
 
     fun getServerUrl(): Flow<String?> = dataStore.data.map { preferences ->
@@ -159,6 +192,7 @@ class AuthRepository(private val context: Context) {
     }
 
     fun observeActiveSession(): Flow<ActiveSessionSnapshot> = dataStore.data.map { preferences ->
+        legacyStorageMigrated()
         val storedServers = savedServers(preferences[SAVED_SERVERS_KEY])
         val activeServer = activeServer(preferences)
         val currentSavedServers = if (activeServer != null && storedServers.none { it.id == activeServer.id }) {
@@ -180,10 +214,12 @@ class AuthRepository(private val context: Context) {
     }
 
     fun getAccessToken(): Flow<String?> = dataStore.data.map { preferences ->
-        preferences[ACCESS_TOKEN_KEY]
+        legacyStorageMigrated()
+        currentServerId(preferences)?.let(secureSessionStore::getToken)
     }
 
     fun getSavedServers(): Flow<List<SavedServer>> = dataStore.data.map { preferences ->
+        legacyStorageMigrated()
         val storedServers = savedServers(preferences[SAVED_SERVERS_KEY])
         val activeServer = activeServer(preferences)
         val currentSavedServers = if (activeServer != null && storedServers.none { it.id == activeServer.id }) {
@@ -195,12 +231,16 @@ class AuthRepository(private val context: Context) {
     }
 
     fun getActiveServerId(): Flow<String?> = dataStore.data.map { preferences ->
-        preferences[ACTIVE_SERVER_ID_KEY]
-            ?.takeIf { it.isNotBlank() }
-            ?: activeServer(preferences)?.id
+        legacyStorageMigrated()
+        activeServer(preferences)?.id
+            ?: preferences[ACTIVE_SERVER_ID_KEY]
+                ?.takeIf { candidateId ->
+                    candidateId.isNotBlank() && savedServers(preferences[SAVED_SERVERS_KEY]).any { it.id == candidateId }
+                }
     }
 
     suspend fun savedServer() {
+        legacyStorageMigrated()
         dataStore.edit { preferences ->
             val activeServer = activeServer(preferences) ?: return@edit
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
@@ -218,11 +258,14 @@ class AuthRepository(private val context: Context) {
         }
 
         return try {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
             val targetServer = existingServers.firstOrNull { it.id == serverId }
                 ?: activeServer(preferences)?.takeIf { it.id == serverId }
                 ?: return Result.failure(Exception("Saved server not found"))
+            val accessToken = secureSessionStore.getToken(targetServer.id)
+                ?: return Result.failure(Exception("Saved session expired. Please sign in again."))
 
             val switchedServer = targetServer.copy(lastUsedAt = System.currentTimeMillis())
 
@@ -234,10 +277,10 @@ class AuthRepository(private val context: Context) {
                 prefs[SERVER_URL_KEY] = switchedServer.serverUrl
                 prefs[SERVER_NAME_KEY] = switchedServer.serverName
                 prefs[SERVER_TYPE_KEY] = switchedServer.serverTypeRaw
-                prefs[ACCESS_TOKEN_KEY] = switchedServer.accessToken
+                prefs[LEGACY_ACCESS_TOKEN_KEY] = ""
                 prefs[USER_ID_KEY] = switchedServer.userId
                 prefs[USERNAME_KEY] = switchedServer.username
-                prefs[IS_AUTHENTICATED_KEY] = switchedServer.accessToken.isNotBlank() &&
+                prefs[IS_AUTHENTICATED_KEY] = accessToken.isNotBlank() &&
                     switchedServer.userId.isNotBlank()
             }
 
@@ -253,6 +296,7 @@ class AuthRepository(private val context: Context) {
         }
 
         return try {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
             val activeServerId = preferences[ACTIVE_SERVER_ID_KEY]
@@ -278,6 +322,7 @@ class AuthRepository(private val context: Context) {
                     prefs[ACTIVE_SERVER_ID_KEY] = ""
                 }
             }
+            secureSessionStore.removeToken(removeServer.id)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -286,6 +331,7 @@ class AuthRepository(private val context: Context) {
     }
 
     suspend fun testServerConnection(serverUrl: String): Result<ServerInfo> {
+        legacyStorageMigrated()
         return try {
             if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
                 return Result.failure(Exception("Invalid URL format. URL must start with http:// or https://"))
@@ -337,6 +383,7 @@ class AuthRepository(private val context: Context) {
         serverUrl: String,
         preferences: Preferences
     ): Result<NetworkModule.ServerEndpoint> {
+        legacyStorageMigrated()
         val savedServerUrl = preferences[SERVER_URL_KEY]
         val savedServerType = preferences[SERVER_TYPE_KEY]?.let {
             runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
@@ -371,6 +418,7 @@ class AuthRepository(private val context: Context) {
         password: String
     ): Result<AuthenticationResult> {
         return try {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val savedServerUrl = preferences[SERVER_URL_KEY]
             val savedServerType = preferences[SERVER_TYPE_KEY]?.let {
@@ -421,22 +469,27 @@ class AuthRepository(private val context: Context) {
                     serverTypeRaw = endpoint.serverType.name,
                     username = username,
                     userId = authResult.user.id,
-                    accessToken = authResult.accessToken,
                     lastUsedAt = System.currentTimeMillis()
                 )
 
-                dataStore.edit { prefs ->
-                    val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
-                    val updatedServers = upsertSavedServer(existingServers, savedServer)
-                    prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
-                    prefs[ACTIVE_SERVER_ID_KEY] = savedServer.id
-                    prefs[SERVER_URL_KEY] = endpoint.baseUrl
-                    prefs[SERVER_NAME_KEY] = serverName
-                    prefs[SERVER_TYPE_KEY] = endpoint.serverType.name
-                    prefs[ACCESS_TOKEN_KEY] = authResult.accessToken
-                    prefs[USER_ID_KEY] = authResult.user.id
-                    prefs[USERNAME_KEY] = username
-                    prefs[IS_AUTHENTICATED_KEY] = true
+                secureSessionStore.putToken(savedServer.id, authResult.accessToken)
+                try {
+                    dataStore.edit { prefs ->
+                        val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
+                        val updatedServers = upsertSavedServer(existingServers, savedServer)
+                        prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
+                        prefs[ACTIVE_SERVER_ID_KEY] = savedServer.id
+                        prefs[SERVER_URL_KEY] = endpoint.baseUrl
+                        prefs[SERVER_NAME_KEY] = serverName
+                        prefs[SERVER_TYPE_KEY] = endpoint.serverType.name
+                        prefs[LEGACY_ACCESS_TOKEN_KEY] = ""
+                        prefs[USER_ID_KEY] = authResult.user.id
+                        prefs[USERNAME_KEY] = username
+                        prefs[IS_AUTHENTICATED_KEY] = true
+                    }
+                } catch (error: Exception) {
+                    secureSessionStore.removeToken(savedServer.id)
+                    throw error
                 }
                 Result.success(authResult)
             } else {
@@ -449,6 +502,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun initiateQuickConnect(serverUrl: String): Result<QuickConnectResult> {
         return try {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val endpoint = authEndpoint(serverUrl, preferences).getOrElse { error ->
                 return Result.failure(error)
@@ -474,6 +528,7 @@ class AuthRepository(private val context: Context) {
     suspend fun isQuickConnectSupported(serverUrl: String): Boolean {
         if (serverUrl.isBlank()) return false
         return runCatching {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val endpoint = authEndpoint(serverUrl, preferences).getOrNull()
             endpoint?.serverType != NetworkModule.ServerType.EMBY
@@ -489,6 +544,7 @@ class AuthRepository(private val context: Context) {
         }
 
         return try {
+            legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val endpoint = authEndpoint(serverUrl, preferences).getOrElse { error ->
                 return Result.failure(error)
@@ -516,22 +572,27 @@ class AuthRepository(private val context: Context) {
                     serverTypeRaw = endpoint.serverType.name,
                     username = persistedUsername,
                     userId = authResult.user.id,
-                    accessToken = authResult.accessToken,
                     lastUsedAt = System.currentTimeMillis()
                 )
 
-                dataStore.edit { prefs ->
-                    val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
-                    val updatedServers = upsertSavedServer(existingServers, savedServer)
-                    prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
-                    prefs[ACTIVE_SERVER_ID_KEY] = savedServer.id
-                    prefs[SERVER_URL_KEY] = endpoint.baseUrl
-                    prefs[SERVER_NAME_KEY] = serverName
-                    prefs[SERVER_TYPE_KEY] = endpoint.serverType.name
-                    prefs[ACCESS_TOKEN_KEY] = authResult.accessToken
-                    prefs[USER_ID_KEY] = authResult.user.id
-                    prefs[USERNAME_KEY] = persistedUsername
-                    prefs[IS_AUTHENTICATED_KEY] = true
+                secureSessionStore.putToken(savedServer.id, authResult.accessToken)
+                try {
+                    dataStore.edit { prefs ->
+                        val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
+                        val updatedServers = upsertSavedServer(existingServers, savedServer)
+                        prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
+                        prefs[ACTIVE_SERVER_ID_KEY] = savedServer.id
+                        prefs[SERVER_URL_KEY] = endpoint.baseUrl
+                        prefs[SERVER_NAME_KEY] = serverName
+                        prefs[SERVER_TYPE_KEY] = endpoint.serverType.name
+                        prefs[LEGACY_ACCESS_TOKEN_KEY] = ""
+                        prefs[USER_ID_KEY] = authResult.user.id
+                        prefs[USERNAME_KEY] = persistedUsername
+                        prefs[IS_AUTHENTICATED_KEY] = true
+                    }
+                } catch (error: Exception) {
+                    secureSessionStore.removeToken(savedServer.id)
+                    throw error
                 }
                 Result.success(authResult)
             } else {
@@ -543,12 +604,87 @@ class AuthRepository(private val context: Context) {
     }
 
     suspend fun logout() {
+        legacyStorageMigrated()
         dataStore.edit { preferences ->
-            preferences[ACCESS_TOKEN_KEY] = ""
+            val activeServerId = currentServerId(preferences)
+            if (activeServerId != null) {
+                val updatedServers = savedServers(preferences[SAVED_SERVERS_KEY])
+                    .filterNot { it.id == activeServerId }
+                preferences[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
+                secureSessionStore.removeToken(activeServerId)
+            }
+            preferences[LEGACY_ACCESS_TOKEN_KEY] = ""
             preferences[USER_ID_KEY] = ""
             preferences[USERNAME_KEY] = ""
+            preferences[SERVER_URL_KEY] = ""
+            preferences[SERVER_NAME_KEY] = ""
+            preferences[SERVER_TYPE_KEY] = ""
+            preferences[ACTIVE_SERVER_ID_KEY] = ""
             preferences[IS_AUTHENTICATED_KEY] = false
         }
+    }
+
+    private suspend fun legacyStorageMigrated() {
+        if (migrationExecuted) return
+
+        legacyMigrationMutex.withLock {
+            if (migrationExecuted) return
+
+            val preferences = dataStore.data.first()
+            val storedServers = persistedSavedServers(preferences[SAVED_SERVERS_KEY])
+            val activeServerId = currentServerId(preferences)
+            val legacyAccessToken = preferences[LEGACY_ACCESS_TOKEN_KEY]?.takeIf { it.isNotBlank() }
+
+            storedServers.forEach { storedServer ->
+                storedServer.accessToken
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { secureSessionStore.putToken(storedServer.id, it) }
+            }
+
+            if (activeServerId != null && !legacyAccessToken.isNullOrBlank()) {
+                secureSessionStore.putToken(activeServerId, legacyAccessToken)
+            }
+
+            val authenticatedServers = storedServers
+                .mapNotNull { storedServer ->
+                    storedServer.toSavedServerOrNull()
+                        ?.takeIf { savedServer -> secureSessionStore.hasToken(savedServer.id) }
+                }
+                .sortedByDescending { it.lastUsedAt }
+
+            val serializedServers = serializeSavedServers(authenticatedServers)
+            if (
+                preferences[LEGACY_ACCESS_TOKEN_KEY].orEmpty().isNotBlank() ||
+                preferences[SAVED_SERVERS_KEY] != serializedServers
+            ) {
+                dataStore.edit { prefs ->
+                    prefs[LEGACY_ACCESS_TOKEN_KEY] = ""
+                    prefs[SAVED_SERVERS_KEY] = serializedServers
+                }
+            }
+
+            migrationExecuted = true
+        }
+    }
+
+    private fun StoredSavedServer.toSavedServerOrNull(): SavedServer? {
+        if (
+            id.isBlank() ||
+            serverUrl.isBlank() ||
+            userId.isBlank()
+        ) {
+            return null
+        }
+
+        return SavedServer(
+            id = id,
+            serverUrl = serverUrl,
+            serverName = serverName,
+            serverTypeRaw = serverTypeRaw,
+            username = username,
+            userId = userId,
+            lastUsedAt = lastUsedAt
+        )
     }
 
     private fun isSameServer(inputUrl: String, savedUrl: String?): Boolean {

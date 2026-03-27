@@ -19,6 +19,9 @@ import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.preferences.NetworkTimeoutConfig
+import com.jellycine.data.security.AuthSessionIds
+import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
+import com.jellycine.data.security.SecureSessionStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,11 +41,11 @@ import java.net.URI
 class MediaRepository(private val context: Context) {
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
+    private val secureSessionStore = SecureSessionStore(context)
     
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
-        private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
 
@@ -118,9 +121,15 @@ class MediaRepository(private val context: Context) {
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->
+            val serverUrl = preferences[SERVER_URL_KEY]
+            val userId = preferences[USER_ID_KEY]
             ImageAuthState(
-                serverUrl = preferences[SERVER_URL_KEY],
-                accessToken = preferences[ACCESS_TOKEN_KEY]
+                serverUrl = serverUrl,
+                accessToken = if (!serverUrl.isNullOrBlank() && !userId.isNullOrBlank()) {
+                    secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
+                } else {
+                    null
+                } ?: preferences[LEGACY_ACCESS_TOKEN_KEY]
             )
         }
         .distinctUntilChanged()
@@ -224,7 +233,8 @@ class MediaRepository(private val context: Context) {
         val serverType = serverTypeRaw?.let {
             runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
         }
-        val accessToken = preferences[ACCESS_TOKEN_KEY]
+        val accessToken = secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
+            ?: preferences[LEGACY_ACCESS_TOKEN_KEY]
 
         return SessionConfig(
             serverUrl = serverUrl,
