@@ -418,7 +418,7 @@ class PlayerViewModel @Inject constructor(
 
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
 
-    fun getDuration(): Long = exoPlayer?.duration ?: 0L
+    fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
 
     private fun skipIntroWindow(chapters: List<ChapterInfo>?): Pair<Long, Long>? {
         val chapterList = chapters
@@ -938,7 +938,7 @@ class PlayerViewModel @Inject constructor(
         ) {
             _playerState.value = _playerState.value.copy(
                 currentPosition = newPosition.positionMs,
-                duration = exoPlayer?.duration ?: 0L
+                duration = getDuration()
             )
 
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {

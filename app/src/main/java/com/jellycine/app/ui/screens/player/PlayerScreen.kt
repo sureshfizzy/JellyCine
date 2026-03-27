@@ -461,9 +461,7 @@ fun PlayerScreen(
             },
             onSeek = { delta ->
                 if (!playerState.isLocked) {
-                    val newPosition = (uiState.currentPosition + delta)
-                        .coerceIn(0L, viewModel.getDuration())
-                    viewModel.seekTo(newPosition)
+                    viewModel.seekBy(delta)
 
                     // Show seek indicator
                     val isForward = delta > 0
