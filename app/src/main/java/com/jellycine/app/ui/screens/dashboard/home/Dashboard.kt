@@ -1830,10 +1830,17 @@ fun Dashboard(
 
     ServerSwitchDialogsHost(
         state = serverSwitchDialogsState,
-        uiState = serverSwitchUiState,
+        savedServers = serverSwitchUiState.savedServers,
+        currentServerName = serverSwitchUiState.serverName,
+        currentServerUrl = serverSwitchUiState.serverUrl,
+        isSwitching = serverSwitchUiState.isSwitchingServer || serverSwitchUiState.isRemovingServer,
         onAddServer = onAddServer,
         onAddUser = onAddUser,
-        onSwitchServer = serverSwitchViewModel::switchServer,
+        onServerSelected = { server, dismissDialog ->
+            serverSwitchViewModel.switchServer(server.id, dismissDialog)
+        },
+        onRequestRemoveServer = serverSwitchDialogsState::requestRemoval,
+        onRequestRemoveUser = serverSwitchDialogsState::requestRemoval,
         onRemoveServer = serverSwitchViewModel::removeServer
     )
 }

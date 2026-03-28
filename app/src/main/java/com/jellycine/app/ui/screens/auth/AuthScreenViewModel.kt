@@ -5,9 +5,9 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.app.R
+import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -44,6 +44,10 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             password = password,
             loginErrorMessage = null
         )
+    }
+
+    fun setLoginError(error: Throwable) {
+        _uiState.value = _uiState.value.copy(loginErrorMessage = mapLoginError(error))
     }
     
     fun connectToServer(onSuccess: (serverUrl: String, serverName: String?) -> Unit) {
@@ -243,8 +247,7 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 message.contains("timeout", ignoreCase = true) -> string(R.string.auth_error_login_timeout)
                 message.contains("unable to resolve host", ignoreCase = true) -> string(R.string.auth_error_login_cannot_reach_server)
                 message.contains("failed to connect", ignoreCase = true) -> string(R.string.auth_error_login_cannot_connect)
-                message.isBlank() -> string(R.string.auth_error_login_generic)
-                else -> message
+                else -> string(R.string.auth_error_login_generic)
             }
         }
     }

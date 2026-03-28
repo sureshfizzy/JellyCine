@@ -279,10 +279,17 @@ fun Settings(
 
     ServerSwitchDialogsHost(
         state = serverSwitchDialogsState,
-        uiState = uiState,
+        savedServers = uiState.savedServers,
+        currentServerName = uiState.serverName,
+        currentServerUrl = uiState.serverUrl,
+        isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer,
         onAddServer = onAddServer,
         onAddUser = onAddUser,
-        onSwitchServer = viewModel::switchServer,
+        onServerSelected = { server, dismissDialog ->
+            viewModel.switchServer(server.id, dismissDialog)
+        },
+        onRequestRemoveServer = serverSwitchDialogsState::requestRemoval,
+        onRequestRemoveUser = serverSwitchDialogsState::requestRemoval,
         onRemoveServer = viewModel::removeServer
     )
 }
@@ -297,6 +304,8 @@ internal class ServerSwitchDialogsState {
         private set
     var userSwitchServerName by mutableStateOf<String?>(null)
         private set
+    var userSwitchServerUrl by mutableStateOf<String?>(null)
+        private set
     var serverPendingRemoval by mutableStateOf<SavedServerUiModel?>(null)
         private set
 
@@ -309,7 +318,9 @@ internal class ServerSwitchDialogsState {
     }
 
     fun openUsers(serverName: String?, users: List<SavedServerUiModel>) {
+        showServerSwitchDialog = false
         userSwitchServerName = serverName
+        userSwitchServerUrl = users.firstOrNull()?.serverUrl
         userSwitchUsers = users
         showUserSwitchDialog = true
     }
@@ -318,6 +329,15 @@ internal class ServerSwitchDialogsState {
         showUserSwitchDialog = false
         userSwitchUsers = emptyList()
         userSwitchServerName = null
+        userSwitchServerUrl = null
+    }
+
+    fun returnToServers() {
+        showUserSwitchDialog = false
+        userSwitchUsers = emptyList()
+        userSwitchServerName = null
+        userSwitchServerUrl = null
+        showServerSwitchDialog = true
     }
 
     fun requestRemoval(server: SavedServerUiModel) {
@@ -337,30 +357,44 @@ internal fun rememberServerSwitchDialogsState(): ServerSwitchDialogsState {
 @Composable
 internal fun ServerSwitchDialogsHost(
     state: ServerSwitchDialogsState,
-    uiState: SettingsUiState,
+    savedServers: List<SavedServerUiModel>,
+    currentServerName: String?,
+    currentServerUrl: String?,
+    isSwitching: Boolean,
     onAddServer: () -> Unit,
     onAddUser: (serverUrl: String, serverName: String?) -> Unit,
-    onSwitchServer: (String, () -> Unit) -> Unit,
-    onRemoveServer: (String, () -> Unit) -> Unit
+    onServerSelected: (SavedServerUiModel, () -> Unit) -> Unit,
+    onRequestRemoveServer: (SavedServerUiModel) -> Unit = {},
+    onRequestRemoveUser: (SavedServerUiModel) -> Unit = {},
+    onRemoveServer: ((String, () -> Unit) -> Unit)? = null,
+    showRemoveAction: Boolean = true,
+    dismissServerDialogOnRequest: Boolean = true,
+    dismissUserDialogOnRequest: Boolean = true,
+    showServerCloseAction: Boolean = true,
+    onServerDialogDismiss: (() -> Unit)? = null,
+    onUserDialogDismiss: (() -> Unit)? = null
 ) {
-    val isSwitching = uiState.isSwitchingServer || uiState.isRemovingServer
+    val dismissServers = onServerDialogDismiss ?: state::dismissServers
+    val dismissUsers = onUserDialogDismiss ?: state::dismissUsers
 
     if (state.showServerSwitchDialog) {
         ServerSwitchDialog(
-            servers = uiState.savedServers,
+            servers = savedServers,
             isSwitching = isSwitching,
-            onDismiss = state::dismissServers,
+            showRemoveAction = showRemoveAction,
+            dismissOnRequest = dismissServerDialogOnRequest,
+            showCloseAction = showServerCloseAction,
+            onDismiss = dismissServers,
             onAddServer = {
                 state.dismissServers()
                 onAddServer()
             },
-            onRequestRemoveServer = state::requestRemoval,
+            onRequestRemoveServer = onRequestRemoveServer,
             onOpenServerUsers = { serverName, users ->
-                state.dismissServers()
                 state.openUsers(serverName, users)
             },
             onServerSelected = { server ->
-                onSwitchServer(server.id, state::dismissServers)
+                onServerSelected(server, state::dismissServers)
             }
         )
     }
@@ -370,33 +404,40 @@ internal fun ServerSwitchDialogsHost(
             users = state.userSwitchUsers,
             serverName = state.userSwitchServerName,
             isSwitching = isSwitching,
-            onDismiss = state::dismissUsers,
+            showRemoveAction = showRemoveAction,
+            dismissOnRequest = dismissUserDialogOnRequest,
+            onDismiss = dismissUsers,
             onAddUser = {
-                state.dismissUsers()
-                uiState.serverUrl
+                val targetServerUrl = state.userSwitchServerUrl ?: currentServerUrl
+                targetServerUrl
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { onAddUser(it, uiState.serverName) }
+                    ?.let { serverUrl ->
+                        state.dismissUsers()
+                        onAddUser(serverUrl, state.userSwitchServerName ?: currentServerName)
+                    }
             },
-            onRequestRemoveUser = state::requestRemoval,
+            onRequestRemoveUser = onRequestRemoveUser,
             onUserSelected = { server ->
-                onSwitchServer(server.id, state::dismissUsers)
+                onServerSelected(server, state::dismissUsers)
             }
         )
     }
 
-    state.serverPendingRemoval?.let { server ->
-        RemoveServerConfirmDialog(
-            server = server,
-            isRemoving = uiState.isRemovingServer,
-            onDismiss = {
-                if (!uiState.isRemovingServer) {
-                    state.clearRemoval()
+    if (showRemoveAction && onRemoveServer != null) {
+        state.serverPendingRemoval?.let { server ->
+            RemoveServerConfirmDialog(
+                server = server,
+                isRemoving = isSwitching,
+                onDismiss = {
+                    if (!isSwitching) {
+                        state.clearRemoval()
+                    }
+                },
+                onConfirm = {
+                    onRemoveServer(server.id, state::clearRemoval)
                 }
-            },
-            onConfirm = {
-                onRemoveServer(server.id, state::clearRemoval)
-            }
-        )
+            )
+        }
     }
 }
 
@@ -959,6 +1000,9 @@ private fun NetworkDialogItem(
 internal fun ServerSwitchDialog(
     servers: List<SavedServerUiModel>,
     isSwitching: Boolean,
+    showRemoveAction: Boolean = true,
+    dismissOnRequest: Boolean = true,
+    showCloseAction: Boolean = true,
     onDismiss: () -> Unit,
     onAddServer: () -> Unit,
     onRequestRemoveServer: (SavedServerUiModel) -> Unit,
@@ -989,7 +1033,11 @@ internal fun ServerSwitchDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (dismissOnRequest) {
+                onDismiss()
+            }
+        },
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
@@ -1077,7 +1125,7 @@ internal fun ServerSwitchDialog(
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        if (singleUser != null) {
+                                        if (showRemoveAction && singleUser != null) {
                                             IconButton(
                                                 enabled = !isSwitching,
                                                 onClick = { onRequestRemoveServer(singleUser) }
@@ -1107,8 +1155,10 @@ internal fun ServerSwitchDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
+            if (showCloseAction) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
+                }
             }
         },
         dismissButton = {
@@ -1134,13 +1184,19 @@ internal fun UserSwitchDialog(
     users: List<SavedServerUiModel>,
     serverName: String?,
     isSwitching: Boolean,
+    showRemoveAction: Boolean = true,
+    dismissOnRequest: Boolean = true,
     onDismiss: () -> Unit,
     onAddUser: () -> Unit,
     onRequestRemoveUser: (SavedServerUiModel) -> Unit,
     onUserSelected: (SavedServerUiModel) -> Unit
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (dismissOnRequest) {
+                onDismiss()
+            }
+        },
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
@@ -1170,6 +1226,7 @@ internal fun UserSwitchDialog(
                     WhoWatchingGrid(
                         users = users,
                         isSwitching = isSwitching,
+                        showRemoveAction = showRemoveAction,
                         onUserSelected = onUserSelected,
                         onRequestRemoveUser = onRequestRemoveUser
                     )
@@ -1196,6 +1253,7 @@ internal fun UserSwitchDialog(
 private fun WhoWatchingGrid(
     users: List<SavedServerUiModel>,
     isSwitching: Boolean,
+    showRemoveAction: Boolean = true,
     onUserSelected: (SavedServerUiModel) -> Unit,
     onRequestRemoveUser: (SavedServerUiModel) -> Unit
 ) {
@@ -1214,6 +1272,7 @@ private fun WhoWatchingGrid(
                     WhoWatchingUserCard(
                         user = user,
                         isSwitching = isSwitching,
+                        showRemoveAction = showRemoveAction,
                         onUserSelected = onUserSelected,
                         onRequestRemoveUser = onRequestRemoveUser,
                         modifier = Modifier.weight(1f)
@@ -1231,6 +1290,7 @@ private fun WhoWatchingGrid(
 private fun WhoWatchingUserCard(
     user: SavedServerUiModel,
     isSwitching: Boolean,
+    showRemoveAction: Boolean,
     onUserSelected: (SavedServerUiModel) -> Unit,
     onRequestRemoveUser: (SavedServerUiModel) -> Unit,
     modifier: Modifier = Modifier
@@ -1326,7 +1386,7 @@ private fun WhoWatchingUserCard(
                 Spacer(modifier = Modifier.height(1.dp))
             }
 
-            if (!user.isActive) {
+            if (showRemoveAction && !user.isActive) {
                 IconButton(
                     enabled = !isSwitching,
                     onClick = { onRequestRemoveUser(user) },

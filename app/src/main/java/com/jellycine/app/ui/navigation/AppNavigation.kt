@@ -63,9 +63,22 @@ fun AppNavigation() {
             composable(
                 "splash",
                 enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                exitTransition = {
+                    if (targetState.destination.route == "server_connection") {
+                        ExitTransition.None
+                    } else {
+                        textExitTransition(400)
+                    }
+                }
             ) {
                 AuthScreen(
+                    preferSavedServers = true,
+                    onAddServer = {
+                        navController.navigate("server_connection") {
+                            popUpTo("splash") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onAuthSuccess = {
                         navController.navigate("dashboard") {
                             popUpTo("splash") { inclusive = true }
@@ -83,9 +96,22 @@ fun AppNavigation() {
                         textTransition(500)
                     }
                 },
-                exitTransition = { textExitTransition(400) }
+                exitTransition = {
+                    if (targetState.destination.route == "server_connection") {
+                        ExitTransition.None
+                    } else {
+                        textExitTransition(400)
+                    }
+                }
             ) {
                 AuthScreen(
+                    preferSavedServers = true,
+                    onAddServer = {
+                        navController.navigate("server_connection") {
+                            popUpTo("auth") { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onAuthSuccess = {
                         navController.navigate("dashboard") {
                             popUpTo("auth") { inclusive = true }
@@ -96,7 +122,16 @@ fun AppNavigation() {
 
             composable(
                 "server_connection",
-                enterTransition = { textTransition(500) },
+                enterTransition = {
+                    if (
+                        initialState.destination.route == "auth" ||
+                        initialState.destination.route == "splash"
+                    ) {
+                        EnterTransition.None
+                    } else {
+                        textTransition(500)
+                    }
+                },
                 exitTransition = { textExitTransition(400) }
             ) {
                 AuthScreen(

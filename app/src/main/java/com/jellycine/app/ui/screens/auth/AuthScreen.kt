@@ -72,6 +72,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.R
+import com.jellycine.app.ui.screens.dashboard.settings.ServerSwitchDialogsHost
+import com.jellycine.app.ui.screens.dashboard.settings.SettingsViewModel
+import com.jellycine.app.ui.screens.dashboard.settings.rememberServerSwitchDialogsState
 import com.jellycine.app.ui.theme.JellyBlue
 import com.jellycine.app.ui.theme.JellyRed
 import kotlinx.coroutines.launch
@@ -86,21 +89,47 @@ fun AuthScreen(
     serverUrl: String? = null,
     serverName: String? = null,
     startAtLogin: Boolean = false,
+    preferSavedServers: Boolean = false,
+    onAddServer: () -> Unit = {},
     onAuthSuccess: () -> Unit
 ) {
     val context = LocalContext.current
     val authViewModel: AuthScreenViewModel = viewModel {
         AuthScreenViewModel(context.applicationContext as android.app.Application)
     }
+    val serverSwitchViewModel: SettingsViewModel = viewModel {
+        SettingsViewModel(
+            context = context,
+            includeProfileData = false,
+            includeLocalSettings = false
+        )
+    }
     val uiState by authViewModel.uiState.collectAsState()
+    val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
+    val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     val login = startAtLogin && !serverUrl.isNullOrBlank()
+    val waitingForSavedServers = preferSavedServers && !login && !serverSwitchUiState.savedServersLoaded
+    val displaySavedServers = preferSavedServers && !login && serverSwitchUiState.savedServers.isNotEmpty()
     var currentStep by remember(login) {
         mutableStateOf(if (login) AuthStep.LOGIN else AuthStep.SERVER_CONNECTION)
     }
+    val showServerConnection = currentStep == AuthStep.SERVER_CONNECTION &&
+        (waitingForSavedServers || displaySavedServers)
     var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
     val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
+
+    LaunchedEffect(displaySavedServers, currentStep) {
+        if (
+            displaySavedServers &&
+            currentStep == AuthStep.SERVER_CONNECTION &&
+            !serverSwitchDialogsState.showServerSwitchDialog &&
+            !serverSwitchDialogsState.showUserSwitchDialog
+        ) {
+            serverSwitchDialogsState.openServers()
+        }
+    }
 
     BackHandler(enabled = canNavigateBackToServerStep && !uiState.isLoginLoading) {
         authViewModel.clearLoginError()
@@ -135,6 +164,51 @@ fun AuthScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
+            ServerSwitchDialogsHost(
+                state = serverSwitchDialogsState,
+                savedServers = serverSwitchUiState.savedServers,
+                currentServerName = selectedServerName,
+                currentServerUrl = selectedServerUrl,
+                isSwitching = serverSwitchUiState.isSwitchingServer,
+                onAddServer = onAddServer,
+                onAddUser = { restoredServerUrl, restoredServerName ->
+                    selectedServerUrl = restoredServerUrl
+                    selectedServerName = restoredServerName
+                    currentStep = AuthStep.LOGIN
+                },
+                onServerSelected = { savedServer, dismissDialog ->
+                    serverSwitchViewModel.switchServer(
+                        serverId = savedServer.id,
+                        onSwitchComplete = {
+                            dismissDialog()
+                            onAuthSuccess()
+                        },
+                        onSwitchFailed = { error ->
+                            authViewModel.updateServerUrl(savedServer.serverUrl)
+                            authViewModel.updateUsername(savedServer.username)
+                            authViewModel.updatePassword("")
+                            authViewModel.setLoginError(error)
+                            selectedServerUrl = savedServer.serverUrl
+                            selectedServerName = savedServer.serverName
+                            dismissDialog()
+                            currentStep = AuthStep.LOGIN
+                        }
+                    )
+                },
+                showRemoveAction = false,
+                dismissServerDialogOnRequest = false,
+                dismissUserDialogOnRequest = true,
+                showServerCloseAction = false,
+                onServerDialogDismiss = {},
+                onUserDialogDismiss = {
+                    if (displaySavedServers) {
+                        serverSwitchDialogsState.returnToServers()
+                    } else {
+                        serverSwitchDialogsState.dismissUsers()
+                    }
+                }
+            )
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -144,6 +218,7 @@ fun AuthScreen(
                     AuthStep.SERVER_CONNECTION -> ServerConnectionContent(
                         modifier = Modifier.fillMaxSize(),
                         serverUrl = uiState.serverUrl,
+                        isAwaitingSavedServers = showServerConnection,
                         isLoading = uiState.isServerLoading,
                         errorMessage = uiState.serverErrorMessage,
                         onServerUrlChange = authViewModel::updateServerUrl,
@@ -268,6 +343,7 @@ private fun AnimatedBrandHero(
 private fun ServerConnectionContent(
     modifier: Modifier = Modifier,
     serverUrl: String,
+    isAwaitingSavedServers: Boolean,
     isLoading: Boolean,
     errorMessage: String?,
     onServerUrlChange: (String) -> Unit,
@@ -284,14 +360,35 @@ private fun ServerConnectionContent(
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        ConnectionForm(
-            serverUrl = serverUrl,
-            isLoading = isLoading,
-            errorMessage = errorMessage,
-            onServerUrlChange = onServerUrlChange,
-            onConnect = onConnect,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (isAwaitingSavedServers) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        } else {
+            ConnectionForm(
+                serverUrl = serverUrl,
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onServerUrlChange = onServerUrlChange,
+                onConnect = onConnect,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -663,6 +760,7 @@ private fun ServerConnectionContentPreview() {
     ServerConnectionContent(
         modifier = Modifier,
         serverUrl = "http://192.168.1.100:8096",
+        isAwaitingSavedServers = false,
         isLoading = false,
         errorMessage = null,
         onServerUrlChange = {},

@@ -31,6 +31,7 @@ data class SettingsUiState(
     val username: String? = CachedData.username,
     val profileImageUrl: String? = CachedData.userImageUrl,
     val savedServers: List<SavedServerUiModel> = emptyList(),
+    val savedServersLoaded: Boolean = false,
     val activeServerId: String? = null,
     val isSwitchingServer: Boolean = false,
     val isRemovingServer: Boolean = false,
@@ -128,6 +129,7 @@ class SettingsViewModel(
                             else -> null
                         },
                         savedServers = serverUiModels,
+                        savedServersLoaded = true,
                         activeServerId = activeServerId,
                         user = if (includeProfileData && isSameSession) currentState.user else null,
                         isLoading = if (includeProfileData) {
@@ -200,7 +202,11 @@ class SettingsViewModel(
         }
     }
 
-    fun switchServer(serverId: String, onSwitchComplete: () -> Unit = {}) {
+    fun switchServer(
+        serverId: String,
+        onSwitchComplete: () -> Unit = {},
+        onSwitchFailed: (Throwable) -> Unit = {}
+    ) {
         if (serverId.isBlank()) return
         val currentState = _uiState.value
         if (currentState.isSwitchingServer || currentState.isRemovingServer) return
@@ -231,6 +237,7 @@ class SettingsViewModel(
                         isSwitchingServer = false,
                         error = error.message ?: "Failed to switch server"
                     )
+                    onSwitchFailed(error)
                 }
             )
         }
