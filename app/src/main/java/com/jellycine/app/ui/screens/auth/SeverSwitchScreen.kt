@@ -503,7 +503,7 @@ internal fun ServerSwitchDialog(
                                 hasMultipleUsers -> {
                                     Icon(
                                         imageVector = Icons.Rounded.ChevronRight,
-                                        contentDescription = stringResource(R.string.settings_choose_user),
+                                        contentDescription = stringResource(R.string.settings_change_user),
                                         tint = Color.White.copy(alpha = 0.48f)
                                     )
                                 }

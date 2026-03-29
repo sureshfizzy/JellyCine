@@ -18,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,6 +52,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
+import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.player.preferences.PlayerPreferences
@@ -1132,12 +1134,14 @@ fun Dashboard(
     dashboardScrollState: LazyListState? = null
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
+    var showAccountOverview by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
+    val scope = rememberCoroutineScope()
     val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
@@ -1181,10 +1185,16 @@ fun Dashboard(
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
         initial = initialSessionSnapshot
     )
+    val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
+        sessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == sessionSnapshot.activeServerId
+        }
+    }
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
     val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
     val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
     val currentServerType = sessionSnapshot.serverType
+    val currentProfileImageUrl = activeSavedServer?.profileImageUrl ?: persistedHomeSnapshot?.profileImageUrl
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
@@ -1195,6 +1205,22 @@ fun Dashboard(
         ?: "User"
     var noCarouselProfileImageUrl by remember(dashboardSessionKey) {
         mutableStateOf(persistedHomeSnapshot?.profileImageUrl)
+    }
+    val usersForCurrentServer = remember(
+        sessionSnapshot.savedServers,
+        currentServerUrl,
+        sessionSnapshot.activeServerId
+    ) {
+        sessionSnapshot.savedServers
+            .filter { savedServer ->
+                currentServerUrl != null &&
+                    NetworkModule.sameServerUrl(savedServer.serverUrl, currentServerUrl)
+            }
+            .sortedWith(
+                compareByDescending<com.jellycine.data.repository.AuthRepository.SavedServer> {
+                    it.id == sessionSnapshot.activeServerId
+                }.thenBy { it.username.lowercase() }
+            )
     }
     LaunchedEffect(featureCarouselEnabled, dashboardSessionKey, HeaderUserName) {
         if (featureCarouselEnabled) return@LaunchedEffect
@@ -1669,6 +1695,7 @@ fun Dashboard(
                             verticalParallaxOffsetPx = featureParallaxOffsetPx,
                             onItemClick = onNavigateToDetail,
                             onLogout = onLogout,
+                            onProfileClick = { showAccountOverview = true },
                             onCategorySelected = { category ->
                                 selectedCategory = category
                             }
@@ -1681,6 +1708,7 @@ fun Dashboard(
                             serverTypeRaw = currentServerType,
                             userName = HeaderUserName,
                             userImageUrl = noCarouselProfileImageUrl,
+                            onProfileClick = { showAccountOverview = true },
                             onServerClick = serverSwitchDialogsState::openServers
                         )
                     }
@@ -1841,6 +1869,30 @@ fun Dashboard(
         }
     }
 
+    if (showAccountOverview) {
+        AccountOverview(
+            userName = currentUsername,
+            serverName = currentServerName,
+            profileImageUrl = currentProfileImageUrl ?: noCarouselProfileImageUrl,
+            serverTypeRaw = currentServerType,
+            canChangeUser = usersForCurrentServer.isNotEmpty(),
+            onDismiss = { showAccountOverview = false },
+            onChangeUser = {
+                showAccountOverview = false
+                serverSwitchDialogsState.openUsers(currentServerName, usersForCurrentServer)
+            },
+            onLogout = {
+                showAccountOverview = false
+                scope.launch {
+                    authRepository.logout()
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    onLogout()
+                }
+            }
+        )
+    }
+
     ServerSwitchDialogsHost(
         state = serverSwitchDialogsState,
         savedServers = sessionSnapshot.savedServers,
@@ -1874,6 +1926,7 @@ private fun TopHeader(
     serverTypeRaw: String?,
     userName: String?,
     userImageUrl: String?,
+    onProfileClick: (() -> Unit)? = null,
     onServerClick: (() -> Unit)? = null
 ) {
     BrandHeader(
@@ -1885,6 +1938,7 @@ private fun TopHeader(
         userName = userName,
         userImageUrl = userImageUrl,
         userServerTypeRaw = serverTypeRaw,
+        onProfileClick = onProfileClick,
         onServerClick = onServerClick
     )
 }
@@ -1897,6 +1951,7 @@ private fun BrandHeader(
     userName: String? = null,
     userImageUrl: String? = null,
     userServerTypeRaw: String? = null,
+    onProfileClick: (() -> Unit)? = null,
     onServerClick: (() -> Unit)? = null
 ) {
     val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dashboard_server_fallback)
@@ -2056,7 +2111,7 @@ private fun BrandHeader(
                 UserProfileAvatar(
                     imageUrl = userImageUrl,
                     serverTypeRaw = userServerTypeRaw,
-                    onClick = {},
+                    onClick = { onProfileClick?.invoke() },
                     modifier = Modifier.size(34.dp)
                 )
             }
@@ -2087,6 +2142,139 @@ private fun BrandHeader(
                     }
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountOverview(
+    userName: String?,
+    serverName: String?,
+    profileImageUrl: String?,
+    serverTypeRaw: String?,
+    canChangeUser: Boolean,
+    onDismiss: () -> Unit,
+    onChangeUser: () -> Unit,
+    onLogout: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Black,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        scrimColor = Color.Black.copy(alpha = 0.76f),
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = Color.White.copy(alpha = 0.18f)
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Black)
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(58.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black)
+                ) {
+                    ProfileImageLoader(
+                        imageUrl = profileImageUrl,
+                        serverTypeRaw = serverTypeRaw,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = userName?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.settings_unknown_user),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = serverName?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.settings_unknown_server),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.68f)
+                    )
+                }
+            }
+
+            HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
+
+            AccountActionRow(
+                icon = Icons.Rounded.Person,
+                label = stringResource(R.string.settings_change_user),
+                tint = Color(0xFF22D3EE),
+                enabled = canChangeUser,
+                onClick = onChangeUser
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 34.dp),
+                color = Color.White.copy(alpha = 0.08f)
+            )
+
+            AccountActionRow(
+                icon = Icons.Rounded.ExitToApp,
+                label = stringResource(R.string.logout),
+                tint = Color(0xFFFF6B6B),
+                onClick = onLogout
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (enabled) tint else Color.White.copy(alpha = 0.34f),
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (enabled) Color.White else Color.White.copy(alpha = 0.34f),
+            modifier = Modifier.weight(1f)
+        )
+        if (!enabled) {
+            Text(
+                text = stringResource(R.string.settings_unavailable),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.34f)
+            )
         }
     }
 }

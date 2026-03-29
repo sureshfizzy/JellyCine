@@ -148,6 +148,7 @@ fun FeatureTab(
     verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
     onCategorySelected: (String) -> Unit = {},
     refreshTrigger: Int = 0
 ) {
@@ -495,7 +496,7 @@ fun FeatureTab(
                 UserProfileAvatar(
                     imageUrl = userProfileImageUrl,
                     serverTypeRaw = sessionSnapshot.serverType,
-                    onClick = {},
+                    onClick = onProfileClick,
                     modifier = Modifier.size(34.dp)
                 )
             }
