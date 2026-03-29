@@ -7,9 +7,7 @@
         <exclude domain="database" />
     </cloud-backup>
     <device-transfer>
-        <!-- Allow device transfer for user preferences but not auth/session data -->
-        <exclude domain="file" path="datastore/auth_prefs.preferences_pb" />
-        <exclude domain="sharedpref" path="secure_auth_store.xml" />
+        <!-- Allow transfer for user preferences -->
         <include domain="sharedpref" path="user_prefs.xml" />
     </device-transfer>
 </data-extraction-rules>
