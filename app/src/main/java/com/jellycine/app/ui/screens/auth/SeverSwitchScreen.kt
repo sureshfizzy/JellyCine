@@ -277,7 +277,7 @@ internal fun ProfileImageLoader(
                     imageVector = Icons.Rounded.Person,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.fillMaxSize(0.5f)
                 )
             }
         } else {

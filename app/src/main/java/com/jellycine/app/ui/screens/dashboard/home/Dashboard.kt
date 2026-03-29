@@ -2053,7 +2053,6 @@ private fun BrandHeader(
                 )
                 UserProfileAvatar(
                     imageUrl = userImageUrl,
-                    userName = userName,
                     onClick = {},
                     modifier = Modifier.size(34.dp)
                 )

@@ -68,6 +68,7 @@ import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.app.R
+import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PersistedHomeSnapshot
@@ -493,7 +494,6 @@ fun FeatureTab(
 
                 UserProfileAvatar(
                     imageUrl = userProfileImageUrl,
-                    userName = displayUsername,
                     onClick = {},
                     modifier = Modifier.size(34.dp)
                 )
@@ -924,13 +924,9 @@ private fun FeatureHeroCard(
 @Composable
 internal fun UserProfileAvatar(
     imageUrl: String?,
-    userName: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val displayUserName = userName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_unknown_user)
-
     Box(
         modifier = modifier
             .clip(CircleShape)
@@ -938,40 +934,10 @@ internal fun UserProfileAvatar(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (!imageUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(imageUrl)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .networkCachePolicy(CachePolicy.ENABLED)
-                    .crossfade(false)
-                    .allowHardware(true)
-                    .allowRgb565(true)
-                    .build(),
-                contentDescription = stringResource(
-                    R.string.feature_profile_picture_content_description,
-                    displayUserName
-                ),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            val initials = userName
-                .orEmpty()
-                .split(" ")
-                .mapNotNull { token -> token.firstOrNull()?.uppercase() }
-                .take(2)
-                .joinToString(separator = "")
-                .ifBlank { "U" }
-
-            Text(
-                text = initials,
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        ProfileImageLoader(
+            imageUrl = imageUrl,
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
