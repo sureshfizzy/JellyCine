@@ -51,13 +51,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -77,6 +81,7 @@ import coil3.request.crossfade
 import com.jellycine.app.R
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepository
+import kotlinx.coroutines.launch
 
 private fun AuthRepository.SavedServer.isActiveServer(activeServerId: String?): Boolean {
     return id == activeServerId
@@ -290,6 +295,94 @@ internal fun ProfileImageLoader(
 }
 
 @Composable
+private fun AmoledDialogFrame(
+    dismissOnRequest: Boolean,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val scrimInteractionSource = remember { MutableInteractionSource() }
+    val sheetInteractionSource = remember { MutableInteractionSource() }
+
+    Dialog(
+        onDismissRequest = {
+            if (dismissOnRequest) {
+                onDismiss()
+            }
+        },
+        properties = DialogProperties(
+            dismissOnBackPress = dismissOnRequest,
+            dismissOnClickOutside = dismissOnRequest,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.76f))
+                .clickable(
+                    enabled = dismissOnRequest,
+                    indication = null,
+                    interactionSource = scrimInteractionSource
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .widthIn(max = 880.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .blur(64.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0x2211B6FF),
+                                    Color(0x1400E5FF),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = RoundedCornerShape(36.dp)
+                        )
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            indication = null,
+                            interactionSource = sheetInteractionSource
+                        ) {},
+                    shape = RoundedCornerShape(30.dp),
+                    color = Color(0xFF020202),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFF090909),
+                                        Color(0xFF020202)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 24.dp, vertical = 28.dp)
+                    ) {
+                        content()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun ServerSwitchDialog(
     servers: List<AuthRepository.SavedServer>,
     activeServerId: String?,
@@ -327,17 +420,23 @@ internal fun ServerSwitchDialog(
             )
     }
 
-    AlertDialog(
-        onDismissRequest = {
-            if (dismissOnRequest) {
-                onDismiss()
-            }
-        },
-        containerColor = Color.Black,
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
-        title = { Text(stringResource(R.string.settings_switch_server)) },
-        text = {
+    AmoledDialogFrame(
+        dismissOnRequest = dismissOnRequest,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(R.string.settings_switch_server),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             if (serverGroups.isEmpty()) {
                 Text(
                     text = stringResource(R.string.settings_no_saved_servers),
@@ -354,9 +453,7 @@ internal fun ServerSwitchDialog(
                     serverGroups.forEachIndexed { index, group ->
                         val hasMultipleUsers = group.users.size > 1
                         val singleUser = group.users.firstOrNull()
-                        val selectSingleUser = singleUser != null &&
-                            !singleUser.isActiveServer(activeServerId)
-                        val clickGroup = !isSwitching && (hasMultipleUsers || selectSingleUser)
+                        val clickGroup = !isSwitching && (hasMultipleUsers || singleUser != null)
 
                         Row(
                             modifier = Modifier
@@ -375,7 +472,7 @@ internal fun ServerSwitchDialog(
                                 Text(
                                     text = group.serverName.ifBlank { stringResource(R.string.settings_media_server) },
                                     style = MaterialTheme.typography.titleMedium,
-                                    color = if (group.activeUser != null) Color(0xFF22D3EE) else Color.White
+                                    color = if (group.activeUser != null) Color(0xFF4FD06B) else Color.White
                                 )
                                 Text(
                                     text = group.serverUrl,
@@ -399,7 +496,7 @@ internal fun ServerSwitchDialog(
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
                                         strokeWidth = 2.dp,
-                                        color = Color(0xFF22D3EE)
+                                        color = Color(0xFF4FD06B)
                                     )
                                 }
 
@@ -415,7 +512,7 @@ internal fun ServerSwitchDialog(
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
                                         contentDescription = stringResource(R.string.settings_active_server),
-                                        tint = Color(0xFF22D3EE),
+                                        tint = Color(0xFF4FD06B),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -450,23 +547,29 @@ internal fun ServerSwitchDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            if (showCloseAction) {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (showCloseAction) Arrangement.SpaceBetween else Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showCloseAction) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.settings_close), color = Color(0xFFD0D0D0))
+                    }
+                }
+
+                TextButton(
+                    enabled = !isSwitching,
+                    onClick = onAddServer
+                ) {
+                    Text(stringResource(R.string.settings_add_server), color = Color(0xFFF97316))
                 }
             }
-        },
-        dismissButton = {
-            TextButton(
-                enabled = !isSwitching,
-                onClick = onAddServer
-            ) {
-                Text(stringResource(R.string.settings_add_server), color = Color(0xFFF97316))
-            }
         }
-    )
+    }
 }
 
 private data class ServerGroupUiModel(
@@ -502,143 +605,263 @@ internal fun UserSwitchDialog(
             usePlatformDefaultWidth = false
         )
     ) {
-        Surface(
+        val scrimInteractionSource = remember { MutableInteractionSource() }
+        val sheetInteractionSource = remember { MutableInteractionSource() }
+
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .widthIn(max = 880.dp),
-            shape = RoundedCornerShape(30.dp),
-            color = Color(0xFF111628),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.76f))
+                .clickable(
+                    enabled = dismissOnRequest,
+                    indication = null,
+                    interactionSource = scrimInteractionSource
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color(0xFF161C31), Color(0xFF101524))
-                        )
-                    )
-                    .padding(horizontal = 24.dp, vertical = 28.dp)
+                    .padding(horizontal = 16.dp)
+                    .widthIn(max = 880.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = serverName?.takeIf { it.isNotBlank() }
-                            ?: stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White.copy(alpha = 0.58f)
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = stringResource(R.string.settings_whos_watching),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    if (users.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.settings_no_saved_users_for_server),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.78f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 18.dp)
+                        .blur(64.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0x2211B6FF),
+                                    Color(0x1400E5FF),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = RoundedCornerShape(36.dp)
                         )
-                    } else {
-                        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                            val compactLayout = maxWidth < 640.dp
-                            val activeUserIndex = remember(users, activeServerId) {
-                                users.indexOfFirst { it.isActiveServer(activeServerId) }.coerceAtLeast(0)
+                )
+
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            indication = null,
+                            interactionSource = sheetInteractionSource
+                        ) {},
+                    shape = RoundedCornerShape(30.dp),
+                    color = Color(0xFF020202),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFF090909),
+                                        Color(0xFF020202)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 24.dp, vertical = 28.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = serverName?.takeIf { it.isNotBlank() }
+                                    ?: stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Text(
+                                text = stringResource(R.string.settings_whos_watching),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+
+                            Spacer(modifier = Modifier.height(28.dp))
+
+                            if (users.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.settings_no_saved_users_for_server),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.78f)
+                                )
+                            } else {
+                                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                    val compactLayout = maxWidth < 640.dp
+                                    val activeUserIndex = remember(users, activeServerId) {
+                                        users.indexOfFirst { it.isActiveServer(activeServerId) }.coerceAtLeast(0)
+                                    }
+
+                                    if (compactLayout) {
+                                        val listState = rememberLazyListState()
+                                        val scope = rememberCoroutineScope()
+                                        val showLeftIndicator by remember(listState) {
+                                            derivedStateOf { listState.canScrollBackward }
+                                        }
+                                        val showRightIndicator by remember(listState) {
+                                            derivedStateOf { listState.canScrollForward }
+                                        }
+
+                                        LaunchedEffect(users, activeUserIndex) {
+                                            if (users.isNotEmpty()) {
+                                                listState.scrollToItem(activeUserIndex)
+                                            }
+                                        }
+
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            LazyRow(
+                                                state = listState,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp)
+                                            ) {
+                                                items(items = users, key = { it.id }) { user ->
+                                                    WhoWatchingUserCard(
+                                                        user = user,
+                                                        activeServerId = activeServerId,
+                                                        isSwitching = isSwitching,
+                                                        showRemoveAction = showRemoveAction,
+                                                        onUserSelected = onUserSelected,
+                                                        onRequestRemoveUser = onRequestRemoveUser,
+                                                        modifier = Modifier.width(104.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            if (showLeftIndicator) {
+                                                WhoWatchingScrollIndicator(
+                                                    modifier = Modifier
+                                                        .align(Alignment.CenterStart)
+                                                        .padding(start = 4.dp),
+                                                    rotateDegrees = 180f,
+                                                    onClick = {
+                                                        val targetIndex =
+                                                            (listState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+                                                        scope.launch {
+                                                            listState.animateScrollToItem(targetIndex)
+                                                        }
+                                                    }
+                                                )
+                                            }
+
+                                            if (showRightIndicator) {
+                                                WhoWatchingScrollIndicator(
+                                                    modifier = Modifier
+                                                        .align(Alignment.CenterEnd)
+                                                        .padding(end = 4.dp),
+                                                    onClick = {
+                                                        val targetIndex =
+                                                            (listState.firstVisibleItemIndex + 1)
+                                                                .coerceAtMost((users.lastIndex).coerceAtLeast(0))
+                                                        scope.launch {
+                                                            listState.animateScrollToItem(targetIndex)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        val maxItemsPerRow = if (maxWidth >= 920.dp) 5 else 4
+
+                                        FlowRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(
+                                                space = 28.dp,
+                                                alignment = Alignment.CenterHorizontally
+                                            ),
+                                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                                            maxItemsInEachRow = maxItemsPerRow
+                                        ) {
+                                            users.forEach { user ->
+                                                WhoWatchingUserCard(
+                                                    user = user,
+                                                    activeServerId = activeServerId,
+                                                    isSwitching = isSwitching,
+                                                    showRemoveAction = showRemoveAction,
+                                                    onUserSelected = onUserSelected,
+                                                    onRequestRemoveUser = onRequestRemoveUser,
+                                                    modifier = Modifier.width(112.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
-                            if (compactLayout) {
-                                val listState = rememberLazyListState()
+                            Spacer(modifier = Modifier.height(28.dp))
 
-                                LaunchedEffect(users, activeUserIndex) {
-                                    if (users.isNotEmpty()) {
-                                        listState.scrollToItem(activeUserIndex)
-                                    }
-                                }
-
-                                LazyRow(
-                                    state = listState,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(22.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp)
-                                ) {
-                                    items(items = users, key = { it.id }) { user ->
-                                        WhoWatchingUserCard(
-                                            user = user,
-                                            activeServerId = activeServerId,
-                                            isSwitching = isSwitching,
-                                            showRemoveAction = showRemoveAction,
-                                            onUserSelected = onUserSelected,
-                                            onRequestRemoveUser = onRequestRemoveUser,
-                                            modifier = Modifier.width(104.dp)
-                                        )
-                                    }
-                                }
-                            } else {
-                                val maxItemsPerRow = if (maxWidth >= 920.dp) 5 else 4
-
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        space = 28.dp,
-                                        alignment = Alignment.CenterHorizontally
-                                    ),
-                                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                                    maxItemsInEachRow = maxItemsPerRow
-                                ) {
-                                    users.forEach { user ->
-                                        WhoWatchingUserCard(
-                                            user = user,
-                                            activeServerId = activeServerId,
-                                            isSwitching = isSwitching,
-                                            showRemoveAction = showRemoveAction,
-                                            onUserSelected = onUserSelected,
-                                            onRequestRemoveUser = onRequestRemoveUser,
-                                            modifier = Modifier.width(112.dp)
-                                        )
-                                    }
-                                }
+                            OutlinedButton(
+                                enabled = !isSwitching,
+                                onClick = onAddUser,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color.White,
+                                    containerColor = Color(0x14000000)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PersonAddAlt1,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = stringResource(R.string.settings_add_user),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    OutlinedButton(
-                        enabled = !isSwitching,
-                        onClick = onAddUser,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White,
-                            containerColor = Color(0x14161C31)
-                        ),
-                        contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PersonAddAlt1,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = stringResource(R.string.settings_add_user),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WhoWatchingScrollIndicator(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    rotateDegrees: Float = 0f
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(
+        modifier = modifier
+            .clickable(
+                indication = null,
+                interactionSource = interactionSource,
+                onClick = onClick
+            )
+            .background(
+                color = Color.Black.copy(alpha = 0.48f),
+                shape = CircleShape
+            )
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.82f),
+            modifier = Modifier
+                .size(16.dp)
+                .rotate(rotateDegrees)
+        )
     }
 }
 
@@ -653,7 +876,7 @@ private fun WhoWatchingUserCard(
     modifier: Modifier = Modifier
 ) {
     val isActiveUser = user.isActiveServer(activeServerId)
-    val canSelect = !isSwitching && !isActiveUser
+    val canSelect = !isSwitching
     val interactionSource = remember { MutableInteractionSource() }
 
     Column(
@@ -709,7 +932,7 @@ private fun WhoWatchingUserCard(
         Text(
             text = user.username.ifBlank { stringResource(R.string.settings_unknown_username) },
             style = MaterialTheme.typography.titleSmall,
-            color = if (isActiveUser) Color(0xFF11B6FF) else Color.White,
+            color = if (isActiveUser) Color(0xFF4FD06B) else Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -725,7 +948,7 @@ private fun WhoWatchingUserCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFF11B6FF)
+                        color = Color(0xFF4FD06B)
                     )
                 }
 
@@ -733,7 +956,7 @@ private fun WhoWatchingUserCard(
                     Text(
                         text = stringResource(R.string.settings_watching),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF11B6FF)
+                        color = Color(0xFFD0D0D0)
                     )
                 }
             }
