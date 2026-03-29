@@ -113,6 +113,7 @@ fun Settings(
                     serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
                     serverUrl = uiState.serverUrl,
                     profileImageUrl = uiState.profileImageUrl,
+                    isAdministrator = uiState.isAdministrator,
                     onUserClick = {
                         serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
                     },
@@ -448,6 +449,7 @@ private fun UserProfileSection(
     serverName: String,
     serverUrl: String?,
     profileImageUrl: String?,
+    isAdministrator: Boolean?,
     onUserClick: () -> Unit,
     onServerClick: () -> Unit,
     onNavigateToDownloads: () -> Unit
@@ -510,7 +512,7 @@ private fun UserProfileSection(
                 }
             }
 
-            if (user?.policy?.isAdministrator == true) {
+            if (isAdministrator == true) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(R.string.settings_administrator),

@@ -94,11 +94,11 @@ import com.jellycine.app.R
 import com.jellycine.data.network.NetworkModule
 
 private fun DashboardEnterTransition(): EnterTransition {
-    return fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing))
+    return fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing))
 }
 
 private fun DashboardExitTransition(): ExitTransition {
-    return fadeOut(animationSpec = tween(300, easing = LinearOutSlowInEasing))
+    return fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing))
 }
 
 sealed class DashboardDestination(
@@ -301,12 +301,11 @@ fun DashboardContainer(
     val navigateToDestination: (DashboardDestination) -> Unit = { destination ->
         if (currentRoute != destination.route) {
             navController.navigate(destination.route) {
-                currentRoute?.let { route ->
-                    popUpTo(route) {
-                        inclusive = true
-                    }
+                popUpTo(navController.graph.startDestinationId) {
+                    saveState = true
                 }
                 launchSingleTop = true
+                restoreState = true
             }
         }
     }
@@ -354,10 +353,7 @@ fun DashboardContainer(
                     // Track when Home tab becomes active
                     val isHomeActive = currentRoute == DashboardDestination.Home.route
 
-                    ContentWrapper(
-                        isActive = isHomeActive,
-                        route = DashboardDestination.Home.route
-                    ) {
+                    ContentWrapper {
                         Dashboard(
                             onLogout = onLogout,
                             onNavigateToDetail = onNavigateToDetail,
@@ -374,10 +370,7 @@ fun DashboardContainer(
                     enterTransition = { DashboardEnterTransition() },
                     exitTransition = { DashboardExitTransition() }
                 ) {
-                    ContentWrapper(
-                        isActive = currentRoute == DashboardDestination.MyMedia.route,
-                        route = DashboardDestination.MyMedia.route
-                    ) {
+                    ContentWrapper {
                         if (useMyMediaTabEnabled) {
                             MyMedia(
                                 onLibraryClick = { contentType, parentId, title ->
@@ -394,11 +387,7 @@ fun DashboardContainer(
                     enterTransition = { DashboardEnterTransition() },
                     exitTransition = { DashboardExitTransition() }
                 ) {
-                    ContentWrapper(
-                        isActive = currentRoute == DashboardDestination.Search.route,
-                        route = DashboardDestination.Search.route,
-                        isSearchScreen = true
-                    ) {
+                    ContentWrapper {
                         SearchContainer(
                             onNavigateToDetail = onNavigateToDetail,
                             onCancel = {
@@ -412,10 +401,7 @@ fun DashboardContainer(
                     enterTransition = { DashboardEnterTransition() },
                     exitTransition = { DashboardExitTransition() }
                 ) {
-                    ContentWrapper(
-                        isActive = currentRoute == DashboardDestination.Favorites.route,
-                        route = DashboardDestination.Favorites.route
-                    ) {
+                    ContentWrapper {
                         Favorites(
                             onItemClick = onNavigateToDetail
                         )
@@ -426,10 +412,7 @@ fun DashboardContainer(
                     enterTransition = { DashboardEnterTransition() },
                     exitTransition = { DashboardExitTransition() }
                 ) {
-                    ContentWrapper(
-                        isActive = currentRoute == DashboardDestination.Settings.route,
-                        route = DashboardDestination.Settings.route
-                    ) {
+                    ContentWrapper {
                         Settings(
                             onLogout = onLogout,
                             onNavigateToPlayerSettings = onNavigateToPlayerSettings,
@@ -885,39 +868,12 @@ private fun NavigationItem(
 
 @Composable
 private fun ContentWrapper(
-    isActive: Boolean,
-    route: String,
-    isSearchScreen: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val density = LocalDensity.current
-    // transformation states
-    val scale by animateFloatAsState(
-        targetValue = if (isActive) 1f else 0.95f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-    
-    val alpha by animateFloatAsState(
-        targetValue = if (isActive) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = if (isSearchScreen) 400 else 300,
-            easing = if (isSearchScreen) FastOutSlowInEasing else LinearOutSlowInEasing
-        )
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                alpha = alpha,
-                transformOrigin = TransformOrigin.Center
-            )
     ) {
         content()
     }

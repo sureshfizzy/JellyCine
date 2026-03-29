@@ -225,7 +225,6 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             authRepository.logout()
             mediaRepository.clearPersistedHomeSnapshot()
             CachedData.clearAllCache()
-            // Reset UI state
             _uiState.value = AuthScreenUiState()
         }
     }

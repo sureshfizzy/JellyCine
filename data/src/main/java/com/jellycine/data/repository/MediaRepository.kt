@@ -91,7 +91,14 @@ class MediaRepository(private val context: Context) {
         val continueWatchingItems: List<BaseItemDto>,
         val nextUpItems: List<BaseItemDto>? = null,
         val homeLibrarySections: List<HomeLibrarySectionData>,
-        val myMediaLibraries: List<BaseItemDto>? = null
+        val myMediaLibraries: List<BaseItemDto>? = null,
+        val username: String? = null,
+        val serverName: String? = null,
+        val serverUrl: String? = null,
+        val profileImageUrl: String? = null,
+        val isAdministrator: Boolean? = null,
+        val isVideoTranscodingAllowed: Boolean? = null,
+        val isAudioTranscodingAllowed: Boolean? = null
     )
 
     data class ItemDownloadRequest(
@@ -258,6 +265,12 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    fun getPersistedHomeSnapshot(): PersistedHomeSnapshot? {
+        return runCatching {
+            HomeSnapshot(getHomeSnapshotFile())
+        }.getOrNull()
+    }
+
     suspend fun loadPersistedHomeSnapshot(
         maxAgeMs: Long? = null
     ): PersistedHomeSnapshot? {
@@ -283,7 +296,14 @@ class MediaRepository(private val context: Context) {
         continueWatchingItems: List<BaseItemDto>? = null,
         nextUpItems: List<BaseItemDto>? = null,
         homeLibrarySections: List<HomeLibrarySectionData>? = null,
-        myMediaLibraries: List<BaseItemDto>? = null
+        myMediaLibraries: List<BaseItemDto>? = null,
+        username: String? = null,
+        serverName: String? = null,
+        serverUrl: String? = null,
+        profileImageUrl: String? = null,
+        isAdministrator: Boolean? = null,
+        isVideoTranscodingAllowed: Boolean? = null,
+        isAudioTranscodingAllowed: Boolean? = null
     ) {
         val config = getSessionConfig() ?: return
         val snapshotKey = buildSnapshotKey(config)
@@ -300,7 +320,16 @@ class MediaRepository(private val context: Context) {
                         continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
                         nextUpItems = nextUpItems ?: sameSessionSnapshot?.nextUpItems.orEmpty(),
                         homeLibrarySections = homeLibrarySections ?: sameSessionSnapshot?.homeLibrarySections.orEmpty(),
-                        myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty()
+                        myMediaLibraries = myMediaLibraries ?: sameSessionSnapshot?.myMediaLibraries.orEmpty(),
+                        username = username ?: sameSessionSnapshot?.username,
+                        serverName = serverName ?: sameSessionSnapshot?.serverName,
+                        serverUrl = serverUrl ?: sameSessionSnapshot?.serverUrl,
+                        profileImageUrl = profileImageUrl ?: sameSessionSnapshot?.profileImageUrl,
+                        isAdministrator = isAdministrator ?: sameSessionSnapshot?.isAdministrator,
+                        isVideoTranscodingAllowed = isVideoTranscodingAllowed
+                            ?: sameSessionSnapshot?.isVideoTranscodingAllowed,
+                        isAudioTranscodingAllowed = isAudioTranscodingAllowed
+                            ?: sameSessionSnapshot?.isAudioTranscodingAllowed
                     )
                     writePersistedHomeSnapshotAtomically(file, next)
                 }
@@ -1175,13 +1204,17 @@ class MediaRepository(private val context: Context) {
         }
     }
 
-    suspend fun getUserProfileImageUrl(): String? {
+    suspend fun getUserProfileImageUrl(primaryImageTag: String? = null): String? {
         val config = getSessionConfig()
         val serverUrl = config?.serverUrl
         val userId = config?.userId
 
         return if (serverUrl != null && userId != null) {
-            buildServerUrl(baseUrl = serverUrl, encodedPath = "Users/$userId/Images/Primary")
+            buildServerUrl(
+                baseUrl = serverUrl,
+                encodedPath = "Users/$userId/Images/Primary",
+                queryParams = listOf("tag" to primaryImageTag)
+            )
         } else {
             null
         }

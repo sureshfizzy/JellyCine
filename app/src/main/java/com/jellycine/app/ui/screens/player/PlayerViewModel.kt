@@ -489,6 +489,10 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
         videoTranscodingAllowed?.let { return it }
+        mediaRepository.loadPersistedHomeSnapshot()?.isVideoTranscodingAllowed?.let {
+            videoTranscodingAllowed = it
+            return it
+        }
 
         val user = mediaRepository.getCurrentUser().getOrNull()
         val allowed = user?.policy?.enableVideoPlaybackTranscoding
@@ -496,11 +500,16 @@ class PlayerViewModel @Inject constructor(
             ?: false
 
         videoTranscodingAllowed = allowed
+        mediaRepository.persistHomeSnapshot(isVideoTranscodingAllowed = allowed)
         return allowed
     }
 
     private suspend fun isAudioTranscodingAllowedForUser(): Boolean {
         audioTranscodingAllowed?.let { return it }
+        mediaRepository.loadPersistedHomeSnapshot()?.isAudioTranscodingAllowed?.let {
+            audioTranscodingAllowed = it
+            return it
+        }
 
         val user = mediaRepository.getCurrentUser().getOrNull()
         val allowed = user?.policy?.enableAudioPlaybackTranscoding
@@ -508,6 +517,7 @@ class PlayerViewModel @Inject constructor(
             ?: false
 
         audioTranscodingAllowed = allowed
+        mediaRepository.persistHomeSnapshot(isAudioTranscodingAllowed = allowed)
         return allowed
     }
 

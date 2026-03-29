@@ -46,8 +46,14 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     
     private val playerPreferences = PlayerPreferences(context)
     private val mediaRepository = MediaRepositoryProvider.getInstance(context)
+    private val initialPersistedSnapshot = mediaRepository.getPersistedHomeSnapshot()
     
-    private val _uiState = MutableStateFlow(PlayerSettingsUiState())
+    private val _uiState = MutableStateFlow(
+        PlayerSettingsUiState(
+            isVideoTranscodingAllowed = initialPersistedSnapshot?.isVideoTranscodingAllowed ?: false,
+            isAudioTranscodingAllowed = initialPersistedSnapshot?.isAudioTranscodingAllowed ?: false
+        )
+    )
     val uiState: StateFlow<PlayerSettingsUiState> = _uiState.asStateFlow()
     
     init {
@@ -110,17 +116,43 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
 
     private fun userTranscodingPolicy() {
         viewModelScope.launch {
+            val persistedSnapshot = mediaRepository.loadPersistedHomeSnapshot()
+            val persistedVideoAllowed =
+                persistedSnapshot?.isVideoTranscodingAllowed
+                    ?: initialPersistedSnapshot?.isVideoTranscodingAllowed
+            val persistedAudioAllowed =
+                persistedSnapshot?.isAudioTranscodingAllowed
+                    ?: initialPersistedSnapshot?.isAudioTranscodingAllowed
+
+            if (persistedVideoAllowed != null || persistedAudioAllowed != null) {
+                _uiState.value = _uiState.value.copy(
+                    isVideoTranscodingAllowed = persistedVideoAllowed
+                        ?: _uiState.value.isVideoTranscodingAllowed,
+                    isAudioTranscodingAllowed = persistedAudioAllowed
+                        ?: _uiState.value.isAudioTranscodingAllowed
+                )
+                if (persistedVideoAllowed != null && persistedAudioAllowed != null) {
+                    return@launch
+                }
+            }
+
             val user = mediaRepository.getCurrentUser().getOrNull()
-            val isVideoAllowed = user?.policy?.enableVideoPlaybackTranscoding
+            val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding
                 ?: user?.let { true }
+                ?: persistedVideoAllowed
                 ?: _uiState.value.isVideoTranscodingAllowed
-            val isAudioAllowed = user?.policy?.enableAudioPlaybackTranscoding
+            val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding
                 ?: user?.let { true }
+                ?: persistedAudioAllowed
                 ?: _uiState.value.isAudioTranscodingAllowed
 
             _uiState.value = _uiState.value.copy(
-                isVideoTranscodingAllowed = isVideoAllowed,
-                isAudioTranscodingAllowed = isAudioAllowed
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+            )
+            mediaRepository.persistHomeSnapshot(
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
             )
         }
     }

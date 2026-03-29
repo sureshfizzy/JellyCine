@@ -47,6 +47,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
+import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
@@ -1178,58 +1179,52 @@ fun Dashboard(
         }
     }
 
-    val cachedSessionServerUrl = remember {
-        CachedData.userSessionKey
-            ?.substringBefore('|')
-            ?.takeIf { it.isNotBlank() }
+    var persistedHomeSnapshot by remember {
+        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
     }
-    val cachedSessionUsername = remember { CachedData.username }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot(
+        initial = ActiveSessionSnapshot(
             serverName = null,
-            serverUrl = cachedSessionServerUrl,
+            serverUrl = null,
             serverType = null,
-            username = cachedSessionUsername,
+            username = null,
             savedServers = emptyList(),
             activeServerId = null
         )
     )
-    val currentUsername = sessionSnapshot.username
-    val currentServerName = sessionSnapshot.serverName
-    val currentServerUrl = sessionSnapshot.serverUrl
+    val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
+    val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
+    val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
     val currentServerType = sessionSnapshot.serverType
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
         "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
-    val HeaderUserName = (currentUsername ?: CachedData.username)
+    val HeaderUserName = currentUsername
         ?.takeIf { it.isNotBlank() }
         ?: "User"
     var noCarouselProfileImageUrl by remember(dashboardSessionKey) {
-        mutableStateOf(
-            if (CachedData.userSessionKey == dashboardSessionKey) {
-                CachedData.userImageUrl
-            } else {
-                null
-            }
-        )
+        mutableStateOf(persistedHomeSnapshot?.profileImageUrl)
     }
     LaunchedEffect(featureCarouselEnabled, dashboardSessionKey, HeaderUserName) {
         if (featureCarouselEnabled) return@LaunchedEffect
 
         if (!noCarouselProfileImageUrl.isNullOrBlank()) return@LaunchedEffect
 
-        if (CachedData.userSessionKey == dashboardSessionKey &&
-            !CachedData.userImageUrl.isNullOrBlank()
-        ) {
-            noCarouselProfileImageUrl = CachedData.userImageUrl
-            return@LaunchedEffect
+        val user = withContext(Dispatchers.IO) {
+            try {
+                mediaRepository.getCurrentUser().getOrNull()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
         }
-
+        currentCoroutineContext().ensureActive()
         val profileUrl = withContext(Dispatchers.IO) {
             try {
-                mediaRepository.getUserProfileImageUrl()
+                mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -1238,13 +1233,9 @@ fun Dashboard(
         }
         currentCoroutineContext().ensureActive()
         noCarouselProfileImageUrl = profileUrl
-        CachedData.updateUserData(HeaderUserName, profileUrl, dashboardSessionKey)
     }
     val queryManager = remember(dashboardSessionKey) {
         DashboardHomeQueryStore.get(dashboardSessionKey)
-    }
-    var persistedHomeSnapshot by remember(dashboardSessionKey) {
-        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(null)
     }
     var previousSessionKey by remember { mutableStateOf<String?>(null) }
 
@@ -1253,10 +1244,14 @@ fun Dashboard(
             Cache.clear()
         }
         previousSessionKey = dashboardSessionKey
-        persistedHomeSnapshot = if (isNetworkAvailable) {
-            mediaRepository.loadPersistedHomeSnapshot()
-        } else {
-            null
+        persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
+    }
+
+    LaunchedEffect(dashboardSessionKey, persistedHomeSnapshot) {
+        val snapshot = persistedHomeSnapshot ?: return@LaunchedEffect
+        val persistedProfileUrl = snapshot.profileImageUrl
+        if (!persistedProfileUrl.isNullOrBlank() && noCarouselProfileImageUrl.isNullOrBlank()) {
+            noCarouselProfileImageUrl = persistedProfileUrl
         }
     }
 
@@ -1264,8 +1259,33 @@ fun Dashboard(
         if (!isNetworkAvailable) return@LaunchedEffect
 
         val userResult = mediaRepository.getCurrentUser()
+        currentCoroutineContext().ensureActive()
         val forceLogout = if (userResult.isSuccess) {
-            userResult.getOrNull()?.policy?.isDisabled == true
+            val user = userResult.getOrNull()
+            val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
+            val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
+            val profileUrl = try {
+                mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+            currentCoroutineContext().ensureActive()
+            if (!profileUrl.isNullOrBlank()) {
+                noCarouselProfileImageUrl = profileUrl
+            }
+            val activeUsername = currentUsername ?: persistedHomeSnapshot?.username
+            mediaRepository.persistHomeSnapshot(
+                username = activeUsername,
+                serverName = currentServerName,
+                serverUrl = currentServerUrl,
+                profileImageUrl = profileUrl,
+                isAdministrator = user?.policy?.isAdministrator,
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+            )
+            user?.policy?.isDisabled == true
         } else {
             val message = userResult.exceptionOrNull()?.message.orEmpty()
             message.contains("401") ||

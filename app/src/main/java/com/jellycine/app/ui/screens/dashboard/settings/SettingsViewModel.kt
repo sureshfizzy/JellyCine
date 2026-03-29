@@ -3,13 +3,13 @@ package com.jellycine.app.ui.screens.dashboard.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
-import com.jellycine.app.preferences.Preferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -28,8 +28,9 @@ data class SettingsUiState(
     val user: UserDto? = null,
     val serverName: String? = null,
     val serverUrl: String? = null,
-    val username: String? = CachedData.username,
-    val profileImageUrl: String? = CachedData.userImageUrl,
+    val username: String? = null,
+    val profileImageUrl: String? = null,
+    val isAdministrator: Boolean? = null,
     val savedServers: List<SavedServerUiModel> = emptyList(),
     val savedServersLoaded: Boolean = false,
     val activeServerId: String? = null,
@@ -54,9 +55,18 @@ class SettingsViewModel(
     private val mediaRepository = MediaRepository(context)
     private val preferences = Preferences(context)
     private val networkPreferences = NetworkPreferences(context)
+    private val initialPersistedSnapshot = mediaRepository.getPersistedHomeSnapshot()
     private var activeUserSessionKey: String? = null
     
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(
+            serverName = initialPersistedSnapshot?.serverName,
+            serverUrl = initialPersistedSnapshot?.serverUrl,
+            username = initialPersistedSnapshot?.username,
+            profileImageUrl = initialPersistedSnapshot?.profileImageUrl,
+            isAdministrator = initialPersistedSnapshot?.isAdministrator
+        )
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
     init {
@@ -89,20 +99,23 @@ class SettingsViewModel(
     
     private fun loadUserData() {
         viewModelScope.launch {
+            mediaRepository.loadPersistedHomeSnapshot()?.let { persistedSnapshot ->
+                _uiState.value = _uiState.value.copy(
+                    serverName = persistedSnapshot.serverName,
+                    serverUrl = persistedSnapshot.serverUrl,
+                    username = persistedSnapshot.username,
+                    profileImageUrl = persistedSnapshot.profileImageUrl,
+                    isAdministrator = persistedSnapshot.isAdministrator
+                )
+            }
             authRepository.observeActiveSession()
                 .distinctUntilChanged()
                 .collectLatest { snapshot ->
                     val sessionKey = buildSessionKey(snapshot.serverUrl, snapshot.username)
+                    val persistedSnapshot = mediaRepository.loadPersistedHomeSnapshot()
                     val currentState = _uiState.value
                     val isSameSession = activeUserSessionKey == sessionKey
-                    val cachedProfileUrl = if (
-                        CachedData.userSessionKey == sessionKey &&
-                        CachedData.username == snapshot.username
-                    ) {
-                        CachedData.userImageUrl
-                    } else {
-                        null
-                    }
+                    val persistedProfileUrl = persistedSnapshot?.profileImageUrl
                     val activeServerId = snapshot.activeServerId
                         ?: snapshot.savedServers.firstOrNull { savedServer ->
                             NetworkModule.trimTrailingSlash(savedServer.serverUrl)
@@ -120,14 +133,16 @@ class SettingsViewModel(
                     }
 
                     _uiState.value = _uiState.value.copy(
-                        serverName = snapshot.serverName,
-                        serverUrl = snapshot.serverUrl,
-                        username = snapshot.username ?: currentState.username ?: CachedData.username,
+                        serverName = snapshot.serverName ?: currentState.serverName ?: persistedSnapshot?.serverName,
+                        serverUrl = snapshot.serverUrl ?: currentState.serverUrl ?: persistedSnapshot?.serverUrl,
+                        username = snapshot.username ?: currentState.username ?: persistedSnapshot?.username,
                         profileImageUrl = when {
-                            !cachedProfileUrl.isNullOrBlank() -> cachedProfileUrl
+                            !persistedProfileUrl.isNullOrBlank() -> persistedProfileUrl
                             isSameSession -> currentState.profileImageUrl
                             else -> null
                         },
+                        isAdministrator = persistedSnapshot?.isAdministrator
+                            ?: if (isSameSession) currentState.isAdministrator else null,
                         savedServers = serverUiModels,
                         savedServersLoaded = true,
                         activeServerId = activeServerId,
@@ -160,24 +175,6 @@ class SettingsViewModel(
     }
 
     private suspend fun refreshCurrentUserAndProfile(sessionKey: String, username: String?) {
-        val profileUrl = try {
-            mediaRepository.getUserProfileImageUrl()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            null
-        }
-        currentCoroutineContext().ensureActive()
-        if (activeUserSessionKey != sessionKey) return
-        if (!profileUrl.isNullOrBlank()) {
-            _uiState.value = _uiState.value.copy(profileImageUrl = profileUrl)
-            CachedData.updateUserData(
-                name = username ?: CachedData.username,
-                imageUrl = profileUrl,
-                sessionKey = sessionKey
-            )
-        }
-
         val userResult = try {
             mediaRepository.getCurrentUser()
         } catch (error: CancellationException) {
@@ -188,11 +185,40 @@ class SettingsViewModel(
         currentCoroutineContext().ensureActive()
         if (activeUserSessionKey != sessionKey) return
 
+        val user = userResult.getOrNull()
+        val profileUrl = try {
+            mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+        currentCoroutineContext().ensureActive()
+        if (activeUserSessionKey != sessionKey) return
+
+        if (!profileUrl.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(profileImageUrl = profileUrl)
+        }
+
         if (userResult.isSuccess) {
+            val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
+            val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
             _uiState.value = _uiState.value.copy(
-                user = userResult.getOrNull(),
+                user = user,
+                profileImageUrl = profileUrl ?: _uiState.value.profileImageUrl,
+                isAdministrator = user?.policy?.isAdministrator,
                 isLoading = false,
                 error = null
+            )
+            val activeUsername = username ?: _uiState.value.username
+            mediaRepository.persistHomeSnapshot(
+                username = activeUsername,
+                serverName = _uiState.value.serverName,
+                serverUrl = _uiState.value.serverUrl,
+                profileImageUrl = profileUrl ?: _uiState.value.profileImageUrl,
+                isAdministrator = user?.policy?.isAdministrator,
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
             )
         } else {
             _uiState.value = _uiState.value.copy(

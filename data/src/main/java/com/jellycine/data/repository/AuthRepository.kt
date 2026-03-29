@@ -200,16 +200,32 @@ class AuthRepository(private val context: Context) {
         } else {
             storedServers.sortedByDescending { it.lastUsedAt }
         }
+        val selectedServerId = preferences[ACTIVE_SERVER_ID_KEY]
+            ?.takeIf { candidateId ->
+                candidateId.isNotBlank() && currentSavedServers.any { savedServer -> savedServer.id == candidateId }
+            }
+            ?: activeServer?.id
+        val resolvedActiveServer = selectedServerId
+            ?.let { candidateId ->
+                currentSavedServers.firstOrNull { savedServer -> savedServer.id == candidateId }
+            }
+            ?: activeServer
 
         ActiveSessionSnapshot(
-            serverName = preferences[SERVER_NAME_KEY],
-            serverUrl = preferences[SERVER_URL_KEY],
-            serverType = preferences[SERVER_TYPE_KEY],
-            username = preferences[USERNAME_KEY],
-            savedServers = currentSavedServers,
-            activeServerId = preferences[ACTIVE_SERVER_ID_KEY]
+            serverName = preferences[SERVER_NAME_KEY]
                 ?.takeIf { it.isNotBlank() }
-                ?: activeServer?.id
+                ?: resolvedActiveServer?.serverName,
+            serverUrl = preferences[SERVER_URL_KEY]
+                ?.takeIf { it.isNotBlank() }
+                ?: resolvedActiveServer?.serverUrl,
+            serverType = preferences[SERVER_TYPE_KEY]
+                ?.takeIf { it.isNotBlank() }
+                ?: resolvedActiveServer?.serverTypeRaw,
+            username = preferences[USERNAME_KEY]
+                ?.takeIf { it.isNotBlank() }
+                ?: resolvedActiveServer?.username,
+            savedServers = currentSavedServers,
+            activeServerId = selectedServerId
         )
     }
 

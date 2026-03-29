@@ -70,8 +70,9 @@ import coil3.request.*
 import com.jellycine.app.R
 import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.CancellationException
@@ -87,9 +88,6 @@ import kotlin.math.abs
 internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
     var continueWatchingItems: List<BaseItemDto> = emptyList()
-    var username: String? = null
-    var userImageUrl: String? = null
-    var userSessionKey: String? = null
     var lastLoadTime: Long = 0
     var continueWatchingLastLoadTime: Long = 0
     private var _isCurrentlyLoading: Boolean = false
@@ -98,11 +96,6 @@ internal object CachedData {
 
     fun shouldRefresh(): Boolean {
         return featuredItems.isEmpty() || System.currentTimeMillis() - lastLoadTime > 300_000
-    }
-
-    fun shouldRefreshContinueWatching(): Boolean {
-        return continueWatchingItems.isEmpty() ||
-            System.currentTimeMillis() - continueWatchingLastLoadTime > 300_000
     }
 
     fun updateFeaturedItems(items: List<BaseItemDto>) {
@@ -116,26 +109,9 @@ internal object CachedData {
         continueWatchingLastLoadTime = System.currentTimeMillis()
     }
 
-    fun updateUserData(name: String?, imageUrl: String?, sessionKey: String?) {
-        username = name
-        userImageUrl = imageUrl
-        userSessionKey = sessionKey
-    }
-
-    fun clearCache() {
-        featuredItems = emptyList()
-        continueWatchingItems = emptyList()
-        lastLoadTime = 0
-        continueWatchingLastLoadTime = 0
-        _isCurrentlyLoading = false
-    }
-
     fun clearAllCache() {
         featuredItems = emptyList()
         continueWatchingItems = emptyList()
-        username = null
-        userImageUrl = null
-        userSessionKey = null
         lastLoadTime = 0
         continueWatchingLastLoadTime = 0
         _isCurrentlyLoading = false
@@ -178,32 +154,26 @@ fun FeatureTab(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val userFallback = stringResource(R.string.settings_unknown_user)
+    var persistedHomeSnapshot by remember {
+        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
+    }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot(
+        initial = ActiveSessionSnapshot(
             serverName = null,
             serverUrl = null,
             serverType = null,
-            username = CachedData.username,
+            username = null,
             savedServers = emptyList(),
             activeServerId = null
         )
     )
-    val currentUsername = sessionSnapshot.username
-    val currentServerUrl = sessionSnapshot.serverUrl
-    val userSessionKey = remember(currentServerUrl, currentUsername) {
-        "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
-    }
+    val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
+    val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
     var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
-        mutableStateOf(currentUsername ?: CachedData.username ?: userFallback)
+        mutableStateOf(currentUsername ?: persistedHomeSnapshot?.username ?: userFallback)
     }
     var userProfileImageUrl by rememberSaveable(currentUsername, currentServerUrl) {
-        mutableStateOf(
-            if (CachedData.userSessionKey == userSessionKey && currentUsername == CachedData.username) {
-                CachedData.userImageUrl
-            } else {
-                null
-            }
-        )
+        mutableStateOf<String?>(persistedHomeSnapshot?.profileImageUrl)
     }
 
     val featuredRowState = remember(selectedCategory) { LazyListState() }
@@ -292,21 +262,32 @@ fun FeatureTab(
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
 
-    LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
-        val resolvedUsername = currentUsername ?: CachedData.username
-        displayUsername = resolvedUsername?.takeIf { it.isNotBlank() } ?: "User"
+    LaunchedEffect(currentServerUrl, currentUsername) {
+        persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
+    }
 
-        if (CachedData.userSessionKey == userSessionKey &&
-            CachedData.username == displayUsername &&
-            !CachedData.userImageUrl.isNullOrBlank()
-        ) {
-            userProfileImageUrl = CachedData.userImageUrl
-            return@LaunchedEffect
+    LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
+        val activeUsername = currentUsername ?: persistedHomeSnapshot?.username
+        displayUsername = activeUsername?.takeIf { it.isNotBlank() } ?: "User"
+
+        val persistedProfileUrl = persistedHomeSnapshot?.profileImageUrl
+        if (!persistedProfileUrl.isNullOrBlank()) {
+            userProfileImageUrl = persistedProfileUrl
         }
 
+        val user = withContext(Dispatchers.IO) {
+            try {
+                mediaRepository.getCurrentUser().getOrNull()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+        }
+        currentCoroutineContext().ensureActive()
         val profileUrl = withContext(Dispatchers.IO) {
             try {
-                mediaRepository.getUserProfileImageUrl()
+                mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -315,7 +296,6 @@ fun FeatureTab(
         }
         currentCoroutineContext().ensureActive()
         userProfileImageUrl = profileUrl
-        CachedData.updateUserData(displayUsername, profileUrl, userSessionKey)
     }
 
     LaunchedEffect(featuredItems, isLoading) {
