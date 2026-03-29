@@ -17,6 +17,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.*
 import com.jellycine.app.util.image.ImageUrlViewModel
+import com.jellycine.app.util.image.WarmImageUrl
 
 @Composable
 fun JellyfinImageLoader(
@@ -35,6 +36,7 @@ fun JellyfinImageLoader(
 
     val imageUrl by viewModel.getImageUrl(itemId ?: "", imageType).collectAsStateWithLifecycle(initialValue = null)
     val context = LocalContext.current
+    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
 
     Box(modifier = modifier) {
         if (!imageUrl.isNullOrEmpty() && !hasError) {

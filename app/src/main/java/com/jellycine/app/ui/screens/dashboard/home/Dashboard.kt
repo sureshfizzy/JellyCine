@@ -104,6 +104,7 @@ import coil3.imageLoader
 import coil3.request.*
 import coil3.size.Precision
 import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.app.util.image.WarmImageUrl
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable
@@ -877,6 +878,7 @@ fun ImageLoader(
         mutableStateOf(!initialUrl.isNullOrBlank())
     }
     val context = LocalContext.current
+    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = allowRgb565)
 
     LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         if (actualItemId != null) {

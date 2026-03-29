@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.*
+import com.jellycine.app.util.image.WarmImageUrl
 
 @Composable
 fun LazyImageLoader(
@@ -32,6 +33,8 @@ fun LazyImageLoader(
     var isSuccess by remember(imageUrl) { mutableStateOf(false) }
 
     val context = LocalContext.current
+    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
+    WarmImageUrl(imageUrl = blurImageUrl, allowRgb565 = true)
 
     Box(modifier = modifier) {
         if (!blurImageUrl.isNullOrEmpty() && !isSuccess && !hasError) {

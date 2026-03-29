@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import coil3.imageLoader
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
@@ -33,6 +34,30 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 import com.jellycine.app.ui.components.common.ShimmerEffect
+
+@Composable
+fun WarmImageUrl(
+    imageUrl: String?,
+    allowRgb565: Boolean = true
+) {
+    val context = LocalContext.current
+
+    LaunchedEffect(context, imageUrl, allowRgb565) {
+        if (imageUrl.isNullOrBlank()) return@LaunchedEffect
+
+        context.imageLoader.enqueue(
+            ImageRequest.Builder(context)
+                .data(imageUrl)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .networkCachePolicy(CachePolicy.ENABLED)
+                .allowHardware(true)
+                .allowRgb565(allowRgb565)
+                .crossfade(false)
+                .build()
+        )
+    }
+}
 
 // Skeleton loading animation with optional placeholder
 @Composable
@@ -74,6 +99,7 @@ fun JellyfinPosterImage(
     onErrorStateChange: (Boolean) -> Unit = {}
 ) {
     var imageState by remember(imageUrl) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
 
     // Notify parent about loading and error state changes
     LaunchedEffect(imageState) {

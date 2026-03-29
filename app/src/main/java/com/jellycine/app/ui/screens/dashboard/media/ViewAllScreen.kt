@@ -59,6 +59,7 @@ import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.app.ui.components.common.PosterCountBadge
 import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
+import com.jellycine.app.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
@@ -542,6 +543,8 @@ private fun PosterCard(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
