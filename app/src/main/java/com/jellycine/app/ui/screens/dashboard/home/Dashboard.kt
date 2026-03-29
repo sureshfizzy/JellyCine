@@ -49,13 +49,12 @@ import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
-import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
+import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
+import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
-import com.jellycine.app.ui.screens.dashboard.settings.ServerSwitchDialogsHost
-import com.jellycine.app.ui.screens.dashboard.settings.SettingsViewModel
-import com.jellycine.app.ui.screens.dashboard.settings.rememberServerSwitchDialogsState
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -1141,13 +1140,11 @@ fun Dashboard(
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
-    val serverSwitchViewModel: SettingsViewModel = viewModel {
-        SettingsViewModel(
-            context = context,
-            includeProfileData = false,
-            includeLocalSettings = false
-        )
+    val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
+        ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
+    val initialSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
+    val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
@@ -1172,7 +1169,6 @@ fun Dashboard(
             initialValue = preferences.isPosterEnhancersEnabled()
         )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
-    val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     LaunchedEffect(featureCarouselEnabled) {
@@ -1185,14 +1181,7 @@ fun Dashboard(
         mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
     }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = ActiveSessionSnapshot(
-            serverName = null,
-            serverUrl = null,
-            serverType = null,
-            username = null,
-            savedServers = emptyList(),
-            activeServerId = null
-        )
+        initial = initialSessionSnapshot
     )
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
     val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
@@ -1277,6 +1266,9 @@ fun Dashboard(
             if (!profileUrl.isNullOrBlank()) {
                 noCarouselProfileImageUrl = profileUrl
             }
+            authRepository.updateActiveServerProfileImage(
+                profileImageUrl = profileUrl ?: persistedHomeSnapshot?.profileImageUrl
+            )
             val activeUsername = currentUsername ?: persistedHomeSnapshot?.username
             mediaRepository.persistHomeSnapshot(
                 username = activeUsername,
@@ -1852,18 +1844,28 @@ fun Dashboard(
 
     ServerSwitchDialogsHost(
         state = serverSwitchDialogsState,
-        savedServers = serverSwitchUiState.savedServers,
-        currentServerName = serverSwitchUiState.serverName,
-        currentServerUrl = serverSwitchUiState.serverUrl,
-        isSwitching = serverSwitchUiState.isSwitchingServer || serverSwitchUiState.isRemovingServer,
+        savedServers = sessionSnapshot.savedServers,
+        activeServerId = sessionSnapshot.activeServerId,
+        currentServerName = sessionSnapshot.serverName,
+        currentServerUrl = sessionSnapshot.serverUrl,
+        isSwitching = serverSwitchUiState.isBusy,
         onAddServer = onAddServer,
         onAddUser = onAddUser,
         onServerSelected = { server, dismissDialog ->
-            serverSwitchViewModel.switchServer(server.id, dismissDialog)
+            serverSwitchViewModel.switchServer(
+                serverId = server.id,
+                activeServerId = sessionSnapshot.activeServerId,
+                onSwitchComplete = dismissDialog
+            )
         },
         onRequestRemoveServer = serverSwitchDialogsState::requestRemoval,
         onRequestRemoveUser = serverSwitchDialogsState::requestRemoval,
-        onRemoveServer = serverSwitchViewModel::removeServer
+        onRemoveServer = { serverId, onRemoveComplete ->
+            serverSwitchViewModel.removeServer(
+                serverId = serverId,
+                onRemoveComplete = onRemoveComplete
+            )
+        }
     )
 }
 

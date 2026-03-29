@@ -72,11 +72,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.R
-import com.jellycine.app.ui.screens.dashboard.settings.ServerSwitchDialogsHost
-import com.jellycine.app.ui.screens.dashboard.settings.SettingsViewModel
-import com.jellycine.app.ui.screens.dashboard.settings.rememberServerSwitchDialogsState
 import com.jellycine.app.ui.theme.JellyBlue
 import com.jellycine.app.ui.theme.JellyRed
+import com.jellycine.data.repository.AuthRepositoryProvider
 import kotlinx.coroutines.launch
 
 enum class AuthStep {
@@ -97,25 +95,24 @@ fun AuthScreen(
     val authViewModel: AuthScreenViewModel = viewModel {
         AuthScreenViewModel(context.applicationContext as android.app.Application)
     }
-    val serverSwitchViewModel: SettingsViewModel = viewModel {
-        SettingsViewModel(
-            context = context,
-            includeProfileData = false,
-            includeLocalSettings = false
-        )
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
+        ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
+    val initialSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
     val uiState by authViewModel.uiState.collectAsState()
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
+    val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
+        initial = initialSessionSnapshot
+    )
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     val login = startAtLogin && !serverUrl.isNullOrBlank()
-    val waitingForSavedServers = preferSavedServers && !login && !serverSwitchUiState.savedServersLoaded
-    val displaySavedServers = preferSavedServers && !login && serverSwitchUiState.savedServers.isNotEmpty()
+    val displaySavedServers = preferSavedServers && !login && sessionSnapshot.savedServers.isNotEmpty()
     var currentStep by remember(login) {
         mutableStateOf(if (login) AuthStep.LOGIN else AuthStep.SERVER_CONNECTION)
     }
-    val showServerConnection = currentStep == AuthStep.SERVER_CONNECTION &&
-        (waitingForSavedServers || displaySavedServers)
+    val showServerConnection = currentStep == AuthStep.SERVER_CONNECTION && displaySavedServers
     var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
     val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
@@ -166,10 +163,11 @@ fun AuthScreen(
         ) {
             ServerSwitchDialogsHost(
                 state = serverSwitchDialogsState,
-                savedServers = serverSwitchUiState.savedServers,
+                savedServers = sessionSnapshot.savedServers,
+                activeServerId = sessionSnapshot.activeServerId,
                 currentServerName = selectedServerName,
                 currentServerUrl = selectedServerUrl,
-                isSwitching = serverSwitchUiState.isSwitchingServer,
+                isSwitching = serverSwitchUiState.isBusy,
                 onAddServer = onAddServer,
                 onAddUser = { restoredServerUrl, restoredServerName ->
                     selectedServerUrl = restoredServerUrl
@@ -179,6 +177,7 @@ fun AuthScreen(
                 onServerSelected = { savedServer, dismissDialog ->
                     serverSwitchViewModel.switchServer(
                         serverId = savedServer.id,
+                        activeServerId = sessionSnapshot.activeServerId,
                         onSwitchComplete = {
                             dismissDialog()
                             onAuthSuccess()

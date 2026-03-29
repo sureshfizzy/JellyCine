@@ -362,7 +362,7 @@
     <string name="settings_choose_user">Choose user</string>
     <string name="settings_active_server">Active server</string>
     <string name="settings_remove_user">Remove user</string>
-    <string name="settings_whos_watching">Who is watching?</string>
+    <string name="settings_whos_watching">Who\'s watching?</string>
     <string name="settings_no_saved_users_for_server">No saved users found for this server.</string>
     <string name="settings_unknown_username">Unknown</string>
     <string name="settings_watching">Watching</string>

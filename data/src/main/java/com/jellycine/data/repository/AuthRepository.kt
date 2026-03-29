@@ -22,6 +22,7 @@ import com.jellycine.data.security.SecureSessionStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -55,6 +56,7 @@ class AuthRepository(private val context: Context) {
         val serverTypeRaw: String,
         val username: String,
         val userId: String,
+        val profileImageUrl: String? = null,
         val lastUsedAt: Long
     )
 
@@ -65,6 +67,7 @@ class AuthRepository(private val context: Context) {
         val serverTypeRaw: String,
         val username: String,
         val userId: String,
+        val profileImageUrl: String? = null,
         val lastUsedAt: Long,
         val accessToken: String? = null
     )
@@ -148,6 +151,8 @@ class AuthRepository(private val context: Context) {
         val userId = preferences[USER_ID_KEY]?.takeIf { it.isNotBlank() } ?: return null
         val serverId = buildServerId(serverUrl = serverUrl, userId = userId)
         if (!secureSessionStore.hasToken(serverId)) return null
+        val existingSavedServer = savedServers(preferences[SAVED_SERVERS_KEY])
+            .firstOrNull { savedServer -> savedServer.id == serverId }
         val serverTypeRaw = preferences[SERVER_TYPE_KEY]
             ?.takeIf { it.isNotBlank() }
             ?: NetworkModule.ServerType.UNKNOWN.name
@@ -165,6 +170,7 @@ class AuthRepository(private val context: Context) {
             serverTypeRaw = serverTypeRaw,
             username = username,
             userId = userId,
+            profileImageUrl = existingSavedServer?.profileImageUrl,
             lastUsedAt = System.currentTimeMillis()
         )
     }
@@ -227,6 +233,21 @@ class AuthRepository(private val context: Context) {
             savedServers = currentSavedServers,
             activeServerId = selectedServerId
         )
+    }
+
+    fun getActiveSessionSnapshot(): ActiveSessionSnapshot {
+        return runCatching {
+            runBlocking { observeActiveSession().first() }
+        }.getOrElse {
+            ActiveSessionSnapshot(
+                serverName = null,
+                serverUrl = null,
+                serverType = null,
+                username = null,
+                savedServers = emptyList(),
+                activeServerId = null
+            )
+        }
     }
 
     fun getAccessToken(): Flow<String?> = dataStore.data.map { preferences ->
@@ -344,6 +365,38 @@ class AuthRepository(private val context: Context) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun updateSavedServerProfileImage(
+        serverId: String,
+        profileImageUrl: String?
+    ) {
+        if (serverId.isBlank()) return
+
+        legacyStorageMigrated()
+        dataStore.edit { prefs ->
+            val existingServers = savedServers(prefs[SAVED_SERVERS_KEY])
+            val targetServer = existingServers.firstOrNull { savedServer -> savedServer.id == serverId }
+                ?: return@edit
+            val updatedServers = upsertSavedServer(
+                existing = existingServers,
+                incoming = targetServer.copy(profileImageUrl = profileImageUrl)
+            )
+            prefs[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
+        }
+    }
+
+    suspend fun updateActiveServerProfileImage(profileImageUrl: String?) {
+        legacyStorageMigrated()
+        val preferences = dataStore.data.first()
+        val activeServerId = preferences[ACTIVE_SERVER_ID_KEY]
+            ?.takeIf { it.isNotBlank() }
+            ?: activeServer(preferences)?.id
+            ?: return
+        updateSavedServerProfileImage(
+            serverId = activeServerId,
+            profileImageUrl = profileImageUrl
+        )
     }
 
     suspend fun testServerConnection(serverUrl: String): Result<ServerInfo> {
@@ -485,6 +538,7 @@ class AuthRepository(private val context: Context) {
                     serverTypeRaw = endpoint.serverType.name,
                     username = username,
                     userId = authResult.user.id,
+                    profileImageUrl = null,
                     lastUsedAt = System.currentTimeMillis()
                 )
 
@@ -588,6 +642,7 @@ class AuthRepository(private val context: Context) {
                     serverTypeRaw = endpoint.serverType.name,
                     username = persistedUsername,
                     userId = authResult.user.id,
+                    profileImageUrl = null,
                     lastUsedAt = System.currentTimeMillis()
                 )
 
@@ -699,6 +754,7 @@ class AuthRepository(private val context: Context) {
             serverTypeRaw = serverTypeRaw,
             username = username,
             userId = userId,
+            profileImageUrl = profileImageUrl,
             lastUsedAt = lastUsedAt
         )
     }

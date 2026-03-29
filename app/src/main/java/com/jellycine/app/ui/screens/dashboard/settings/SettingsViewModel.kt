@@ -7,6 +7,7 @@ import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
@@ -16,14 +17,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-data class SavedServerUiModel(
-    val id: String,
-    val serverName: String,
-    val serverUrl: String,
-    val username: String,
-    val isActive: Boolean
-)
-
 data class SettingsUiState(
     val user: UserDto? = null,
     val serverName: String? = null,
@@ -31,11 +24,8 @@ data class SettingsUiState(
     val username: String? = null,
     val profileImageUrl: String? = null,
     val isAdministrator: Boolean? = null,
-    val savedServers: List<SavedServerUiModel> = emptyList(),
-    val savedServersLoaded: Boolean = false,
+    val savedServers: List<AuthRepository.SavedServer> = emptyList(),
     val activeServerId: String? = null,
-    val isSwitchingServer: Boolean = false,
-    val isRemovingServer: Boolean = false,
     val wifiOnlyDownloads: Boolean = false,
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
     val connectionTimeoutMs: Int = NetworkPreferences.DEFAULT_CONNECTION_TIMEOUT_MS,
@@ -55,18 +45,10 @@ class SettingsViewModel(
     private val mediaRepository = MediaRepository(context)
     private val preferences = Preferences(context)
     private val networkPreferences = NetworkPreferences(context)
-    private val initialPersistedSnapshot = mediaRepository.getPersistedHomeSnapshot()
+    private val initialSessionSnapshot = authRepository.getActiveSessionSnapshot()
     private var activeUserSessionKey: String? = null
-    
-    private val _uiState = MutableStateFlow(
-        SettingsUiState(
-            serverName = initialPersistedSnapshot?.serverName,
-            serverUrl = initialPersistedSnapshot?.serverUrl,
-            username = initialPersistedSnapshot?.username,
-            profileImageUrl = initialPersistedSnapshot?.profileImageUrl,
-            isAdministrator = initialPersistedSnapshot?.isAdministrator
-        )
-    )
+
+    private val _uiState = MutableStateFlow(initialUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
     init {
@@ -96,56 +78,57 @@ class SettingsViewModel(
             imageCachingEnabled = networkPreferences.isImageCachingEnabled()
         )
     }
+
+    private fun initialUiState(): SettingsUiState {
+        val activeSavedServer = initialSessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == initialSessionSnapshot.activeServerId
+        }
+        return SettingsUiState(
+            serverName = initialSessionSnapshot.serverName,
+            serverUrl = initialSessionSnapshot.serverUrl,
+            username = initialSessionSnapshot.username,
+            profileImageUrl = activeSavedServer?.profileImageUrl,
+            savedServers = initialSessionSnapshot.savedServers,
+            activeServerId = initialSessionSnapshot.activeServerId
+        )
+    }
     
     private fun loadUserData() {
         viewModelScope.launch {
-            mediaRepository.loadPersistedHomeSnapshot()?.let { persistedSnapshot ->
-                _uiState.value = _uiState.value.copy(
-                    serverName = persistedSnapshot.serverName,
-                    serverUrl = persistedSnapshot.serverUrl,
-                    username = persistedSnapshot.username,
-                    profileImageUrl = persistedSnapshot.profileImageUrl,
-                    isAdministrator = persistedSnapshot.isAdministrator
-                )
-            }
             authRepository.observeActiveSession()
                 .distinctUntilChanged()
                 .collectLatest { snapshot ->
                     val sessionKey = buildSessionKey(snapshot.serverUrl, snapshot.username)
-                    val persistedSnapshot = mediaRepository.loadPersistedHomeSnapshot()
                     val currentState = _uiState.value
                     val isSameSession = activeUserSessionKey == sessionKey
-                    val persistedProfileUrl = persistedSnapshot?.profileImageUrl
-                    val activeServerId = snapshot.activeServerId
-                        ?: snapshot.savedServers.firstOrNull { savedServer ->
-                            NetworkModule.trimTrailingSlash(savedServer.serverUrl)
-                                .equals(snapshot.serverUrl?.let(NetworkModule::trimTrailingSlash), ignoreCase = true) &&
-                                savedServer.username == snapshot.username
-                        }?.id
-                    val serverUiModels = snapshot.savedServers.map { savedServer ->
-                        SavedServerUiModel(
-                            id = savedServer.id,
-                            serverName = savedServer.serverName,
-                            serverUrl = savedServer.serverUrl,
-                            username = savedServer.username,
-                            isActive = savedServer.id == activeServerId
-                        )
+                    val activeSavedServer = snapshot.savedServers.firstOrNull { savedServer ->
+                        savedServer.id == snapshot.activeServerId
+                    }
+                    val availableServers = snapshot.savedServers.map { savedServer ->
+                        val isActiveServer = savedServer.id == snapshot.activeServerId
+                        val displayProfileImageUrl = if (isActiveServer) {
+                            if (isSameSession) {
+                                currentState.profileImageUrl ?: savedServer.profileImageUrl
+                            } else {
+                                savedServer.profileImageUrl
+                            }
+                        } else {
+                            savedServer.profileImageUrl
+                        }
+                        savedServer.copy(profileImageUrl = displayProfileImageUrl)
                     }
 
                     _uiState.value = _uiState.value.copy(
-                        serverName = snapshot.serverName ?: currentState.serverName ?: persistedSnapshot?.serverName,
-                        serverUrl = snapshot.serverUrl ?: currentState.serverUrl ?: persistedSnapshot?.serverUrl,
-                        username = snapshot.username ?: currentState.username ?: persistedSnapshot?.username,
+                        serverName = snapshot.serverName ?: currentState.serverName,
+                        serverUrl = snapshot.serverUrl ?: currentState.serverUrl,
+                        username = snapshot.username ?: currentState.username,
                         profileImageUrl = when {
-                            !persistedProfileUrl.isNullOrBlank() -> persistedProfileUrl
-                            isSameSession -> currentState.profileImageUrl
-                            else -> null
+                            isSameSession && !currentState.profileImageUrl.isNullOrBlank() -> currentState.profileImageUrl
+                            else -> activeSavedServer?.profileImageUrl
                         },
-                        isAdministrator = persistedSnapshot?.isAdministrator
-                            ?: if (isSameSession) currentState.isAdministrator else null,
-                        savedServers = serverUiModels,
-                        savedServersLoaded = true,
-                        activeServerId = activeServerId,
+                        isAdministrator = if (isSameSession) currentState.isAdministrator else null,
+                        savedServers = availableServers,
+                        activeServerId = snapshot.activeServerId,
                         user = if (includeProfileData && isSameSession) currentState.user else null,
                         isLoading = if (includeProfileData) {
                             !isSameSession || currentState.user == null
@@ -196,16 +179,28 @@ class SettingsViewModel(
         currentCoroutineContext().ensureActive()
         if (activeUserSessionKey != sessionKey) return
 
-        if (!profileUrl.isNullOrBlank()) {
-            _uiState.value = _uiState.value.copy(profileImageUrl = profileUrl)
-        }
+        val latestState = _uiState.value
+        val fallbackProfileUrl = latestState.savedServers
+            .firstOrNull { savedServer -> savedServer.id == latestState.activeServerId }
+            ?.profileImageUrl
+            ?: latestState.profileImageUrl
+        val updatedProfileUrl = profileUrl ?: fallbackProfileUrl
 
         if (userResult.isSuccess) {
             val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
             val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
-            _uiState.value = _uiState.value.copy(
+            authRepository.updateActiveServerProfileImage(updatedProfileUrl)
+            val updatedState = _uiState.value
+            _uiState.value = updatedState.copy(
                 user = user,
-                profileImageUrl = profileUrl ?: _uiState.value.profileImageUrl,
+                profileImageUrl = updatedProfileUrl,
+                savedServers = updatedState.savedServers.map { savedServer ->
+                    if (savedServer.id == updatedState.activeServerId) {
+                        savedServer.copy(profileImageUrl = updatedProfileUrl)
+                    } else {
+                        savedServer
+                    }
+                },
                 isAdministrator = user?.policy?.isAdministrator,
                 isLoading = false,
                 error = null
@@ -215,7 +210,7 @@ class SettingsViewModel(
                 username = activeUsername,
                 serverName = _uiState.value.serverName,
                 serverUrl = _uiState.value.serverUrl,
-                profileImageUrl = profileUrl ?: _uiState.value.profileImageUrl,
+                profileImageUrl = updatedProfileUrl,
                 isAdministrator = user?.policy?.isAdministrator,
                 isVideoTranscodingAllowed = isVideoTranscodingEnabled,
                 isAudioTranscodingAllowed = isAudioTranscodingEnabled
@@ -224,77 +219,6 @@ class SettingsViewModel(
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 error = userResult.exceptionOrNull()?.message
-            )
-        }
-    }
-
-    fun switchServer(
-        serverId: String,
-        onSwitchComplete: () -> Unit = {},
-        onSwitchFailed: (Throwable) -> Unit = {}
-    ) {
-        if (serverId.isBlank()) return
-        val currentState = _uiState.value
-        if (currentState.isSwitchingServer || currentState.isRemovingServer) return
-        if (currentState.activeServerId == serverId) {
-            onSwitchComplete()
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isSwitchingServer = true,
-                error = null
-            )
-            authRepository.savedServer()
-            val switchResult = authRepository.switchServer(serverId)
-            switchResult.fold(
-                onSuccess = {
-                    mediaRepository.clearPersistedHomeSnapshot()
-                    CachedData.clearAllCache()
-                    _uiState.value = _uiState.value.copy(
-                        isSwitchingServer = false,
-                        error = null
-                    )
-                    onSwitchComplete()
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isSwitchingServer = false,
-                        error = error.message ?: "Failed to switch server"
-                    )
-                    onSwitchFailed(error)
-                }
-            )
-        }
-    }
-
-    fun removeServer(serverId: String, onRemoveComplete: () -> Unit = {}) {
-        if (serverId.isBlank()) return
-        val currentState = _uiState.value
-        if (currentState.isSwitchingServer || currentState.isRemovingServer) return
-
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isRemovingServer = true,
-                error = null
-            )
-            authRepository.savedServer()
-            val removeResult = authRepository.removeSavedServer(serverId)
-            removeResult.fold(
-                onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isRemovingServer = false,
-                        error = null
-                    )
-                    onRemoveComplete()
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isRemovingServer = false,
-                        error = error.message ?: "Failed to remove server"
-                    )
-                }
             )
         }
     }

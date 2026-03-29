@@ -296,6 +296,9 @@ fun FeatureTab(
         }
         currentCoroutineContext().ensureActive()
         userProfileImageUrl = profileUrl
+        authRepository.updateActiveServerProfileImage(
+            profileImageUrl = profileUrl ?: persistedProfileUrl
+        )
     }
 
     LaunchedEffect(featuredItems, isLoading) {
