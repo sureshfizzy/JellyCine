@@ -70,9 +70,9 @@ import coil3.request.*
 import com.jellycine.app.R
 import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.CancellationException
@@ -155,7 +155,7 @@ fun FeatureTab(
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val userFallback = stringResource(R.string.settings_unknown_user)
     var persistedHomeSnapshot by remember {
-        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
+        mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
     }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
         initial = ActiveSessionSnapshot(

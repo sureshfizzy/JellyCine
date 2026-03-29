@@ -58,8 +58,8 @@
 }
 
 # Preserve snapshot DTO generic metadata used by Gson during home cache restore.
--keep class com.jellycine.data.repository.MediaRepository$PersistedHomeSnapshot { *; }
--keep class com.jellycine.data.repository.MediaRepository$HomeLibrarySectionData { *; }
+-keep class com.jellycine.data.model.PersistedHomeSnapshot { *; }
+-keep class com.jellycine.data.model.HomeLibrarySectionData { *; }
 
 # Google Cast
 -keep class com.jellycine.app.cast.JellyCineCastOptionsProvider { *; }

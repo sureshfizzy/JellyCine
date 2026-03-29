@@ -44,6 +44,8 @@ import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.HomeLibrarySectionData
+import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
@@ -1180,7 +1182,7 @@ fun Dashboard(
     }
 
     var persistedHomeSnapshot by remember {
-        mutableStateOf<MediaRepository.PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
+        mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
     }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
         initial = ActiveSessionSnapshot(
@@ -2481,20 +2483,20 @@ private data class HomeLibrarySectionUi(
     val items: List<BaseItemDto>
 )
 
-private fun HomeLibrarySectionUi.toPersistedSection(): MediaRepository.HomeLibrarySectionData {
+private fun HomeLibrarySectionUi.toPersistedSection(): HomeLibrarySectionData {
     val library = BaseItemDto(
         id = libraryId,
         name = libraryName,
         collectionType = collectionType,
         type = "CollectionFolder"
     )
-    return MediaRepository.HomeLibrarySectionData(
+    return HomeLibrarySectionData(
         library = library,
         items = items
     )
 }
 
-private fun MediaRepository.HomeLibrarySectionData.toUiSection(): HomeLibrarySectionUi {
+private fun HomeLibrarySectionData.toUiSection(): HomeLibrarySectionUi {
     return HomeLibrarySectionUi(
         libraryId = library.id.orEmpty(),
         libraryName = library.name.orEmpty(),
