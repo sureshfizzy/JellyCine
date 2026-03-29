@@ -1,6 +1,5 @@
 package com.jellycine.app.ui.screens.detail
 
-// AnimatedVisibility import removed to avoid ColumnScope conflict
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut

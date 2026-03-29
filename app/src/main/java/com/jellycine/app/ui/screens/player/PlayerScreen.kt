@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -132,13 +133,31 @@ fun PlayerScreen(
     // System managers
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val playerPreferences = remember { PlayerPreferences(context) }
+    val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
+    val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
 
     // Store original values to restore on exit
     val originalVolume = remember { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
 
     // Player-level brightness and volume (persistent)
-    var playerBrightness by remember { mutableStateOf(playerPreferences.getPlayerBrightness()) }
-    var playerVolume by remember { mutableStateOf(playerPreferences.getPlayerVolume()) }
+    var playerBrightness by remember(useDeviceBrightnessInPlayer) {
+        mutableStateOf(
+            if (useDeviceBrightnessInPlayer) {
+                readCurrentDeviceBrightness(context)
+            } else {
+                playerPreferences.getPlayerBrightness()
+            }
+        )
+    }
+    var playerVolume by remember(useDeviceVolumeInPlayer) {
+        mutableStateOf(
+            if (useDeviceVolumeInPlayer) {
+                readCurrentDeviceVolume(audioManager)
+            } else {
+                playerPreferences.getPlayerVolume()
+            }
+        )
+    }
     var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
     val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
     var currentAudioTranscodeMode by remember {
@@ -164,7 +183,9 @@ fun PlayerScreen(
             activity?.let { act ->
                 act.requestedOrientation = originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                if (!useDeviceVolumeInPlayer) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+                }
                 val layoutParams = act.window.attributes
                 layoutParams.screenBrightness = -1f
                 act.window.attributes = layoutParams
@@ -433,7 +454,9 @@ fun PlayerScreen(
             onVolumeChange = { level ->
                 if (!playerState.isLocked) {
                     playerVolume = level.coerceIn(0f, 1f)
-                    playerPreferences.setPlayerVolume(playerVolume)
+                    if (!useDeviceVolumeInPlayer) {
+                        playerPreferences.setPlayerVolume(playerVolume)
+                    }
 
                     // Apply volume to system
                     val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
@@ -449,7 +472,9 @@ fun PlayerScreen(
                     activity?.let { act ->
                         val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
                         playerBrightness = newPlayerBrightness
-                        playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                        if (!useDeviceBrightnessInPlayer) {
+                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                        }
 
                         val layoutParams = act.window.attributes
                         layoutParams.screenBrightness = newPlayerBrightness
@@ -459,6 +484,8 @@ fun PlayerScreen(
                     }
                 }
             },
+            getCurrentVolumeLevel = { playerVolume },
+            getCurrentBrightnessLevel = { playerBrightness },
             onSeek = { delta ->
                 if (!playerState.isLocked) {
                     viewModel.seekBy(delta)
@@ -674,6 +701,21 @@ fun PlayerScreen(
             }
         }
     }
+}
+
+private fun readCurrentDeviceVolume(audioManager: AudioManager): Float {
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    if (maxVolume <= 0) return 0f
+    return audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVolume.toFloat()
+}
+
+private fun readCurrentDeviceBrightness(context: Context): Float {
+    return runCatching {
+        Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            .toFloat()
+            .div(255f)
+            .coerceIn(0.01f, 1f)
+    }.getOrDefault(PlayerPreferences(context).getPlayerBrightness())
 }
 
 @Composable

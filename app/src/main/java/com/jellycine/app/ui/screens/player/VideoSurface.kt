@@ -38,6 +38,8 @@ fun VideoSurface(
     onScaleChange: (Float, Float, Float) -> Unit,
     onVolumeChange: (Float) -> Unit,
     onBrightnessChange: (Float) -> Unit,
+    getCurrentVolumeLevel: () -> Float,
+    getCurrentBrightnessLevel: () -> Float,
     onSeek: (Long) -> Unit,
     onToggleControls: () -> Unit,
     onZoomChange: (Boolean) -> Unit = {},
@@ -146,6 +148,8 @@ fun VideoSurface(
                         onSeek = onSeek,
                         onVolumeChange = onVolumeChange,
                         onBrightnessChange = onBrightnessChange,
+                        getCurrentVolumeLevel = getCurrentVolumeLevel,
+                        getCurrentBrightnessLevel = getCurrentBrightnessLevel,
                         onZoomChange = onZoomChange
                     )
                 }

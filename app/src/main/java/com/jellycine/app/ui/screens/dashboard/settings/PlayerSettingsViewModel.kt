@@ -24,6 +24,8 @@ data class PlayerSettingsUiState(
     val isAudioTranscodingAllowed: Boolean = false,
     val playerGesturesEnabled: Boolean = true,
     val volumeBrightnessGesturesEnabled: Boolean = true,
+    val useDeviceVolumeInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER,
+    val useDeviceBrightnessInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER,
     val progressSeekGestureEnabled: Boolean = true,
     val zoomGestureEnabled: Boolean = true,
     val startMaximized: Boolean = false,
@@ -65,6 +67,8 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         _uiState.value = _uiState.value.copy(
             playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
             volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+            useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
+            useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
             progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
             zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
             startMaximized = playerPreferences.isStartMaximizedEnabled()
@@ -81,6 +85,8 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
                 playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
                 volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+                useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
+                useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
                 progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
                 zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
@@ -175,6 +181,16 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
 
     fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
         playerPreferences.setVolumeBrightnessGesturesEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setUseDeviceVolumeInPlayer(enabled: Boolean) {
+        playerPreferences.setUseDeviceVolumeInPlayerEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setUseDeviceBrightnessInPlayer(enabled: Boolean) {
+        playerPreferences.setUseDeviceBrightnessInPlayerEnabled(enabled)
         updateGestureState()
     }
 

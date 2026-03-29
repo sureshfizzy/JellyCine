@@ -25,6 +25,8 @@ import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Devices
+import androidx.compose.material.icons.rounded.DisplaySettings
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -205,6 +207,26 @@ fun PlayerSettingsScreen(
                         subtitle = stringResource(R.string.player_settings_start_maximized_summary),
                         checked = uiState.startMaximized,
                         onCheckedChange = viewModel::setStartMaximized,
+                        accentColor = videoColor
+                    )
+
+                    SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.Devices,
+                        title = stringResource(R.string.player_settings_use_device_volume_in_player),
+                        subtitle = stringResource(R.string.player_settings_use_device_volume_in_player_summary),
+                        checked = uiState.useDeviceVolumeInPlayer,
+                        onCheckedChange = viewModel::setUseDeviceVolumeInPlayer,
+                        accentColor = videoColor
+                    )
+
+                    SettingsDivider()
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.DisplaySettings,
+                        title = stringResource(R.string.player_settings_use_device_brightness_in_player),
+                        subtitle = stringResource(R.string.player_settings_use_device_brightness_in_player_summary),
+                        checked = uiState.useDeviceBrightnessInPlayer,
+                        onCheckedChange = viewModel::setUseDeviceBrightnessInPlayer,
                         accentColor = videoColor
                     )
                 }

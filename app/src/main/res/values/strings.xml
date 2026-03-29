@@ -173,6 +173,10 @@
     <string name="player_settings_gestures_summary">Enable player gesture shortcuts during playback</string>
     <string name="player_settings_volume_brightness_gestures">Volume and Brightness Gestures</string>
     <string name="player_settings_volume_brightness_gestures_summary">Swipe up or down on the right side for volume and on the left side for brightness</string>
+    <string name="player_settings_use_device_volume_in_player">Use Device Volume In Player</string>
+    <string name="player_settings_use_device_volume_in_player_summary">Start playback with the current device media volume instead of a saved player volume</string>
+    <string name="player_settings_use_device_brightness_in_player">Use Device Brightness In Player</string>
+    <string name="player_settings_use_device_brightness_in_player_summary">Start playback with the current device brightness instead of a saved player brightness</string>
     <string name="player_settings_progress_seek_gesture">Double-Tap Forward / Backward</string>
     <string name="player_settings_progress_seek_gesture_summary">Double tap the left side to seek backward and the right side to seek forward</string>
     <string name="player_settings_zoom_gesture">Zoom Gesture</string>

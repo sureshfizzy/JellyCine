@@ -29,6 +29,8 @@ class GestureHelper(
     private val onSeek: (Long) -> Unit,
     private val onVolumeChange: (Float) -> Unit,
     private val onBrightnessChange: (Float) -> Unit,
+    private val getCurrentVolumeLevel: () -> Float,
+    private val getCurrentBrightnessLevel: () -> Float,
     private val onZoomChange: (Boolean) -> Unit
 ) {
     private val playerPreferences = PlayerPreferences(context)
@@ -166,7 +168,7 @@ class GestureHelper(
                 if (firstEvent.x.toInt() > viewCenterX) {
                     if (swipeGestureValueTrackerVolume == -1f) {
                         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        swipeGestureValueTrackerVolume = playerPreferences.getPlayerVolume() * maxVolume
+                        swipeGestureValueTrackerVolume = getCurrentVolumeLevel() * maxVolume
                     }
                     val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                     val change = ratioChange * maxVolume
@@ -178,7 +180,7 @@ class GestureHelper(
                     swipeGestureVolumeOpen = true
                 } else {
                     if (swipeGestureValueTrackerBrightness == -1f) {
-                        swipeGestureValueTrackerBrightness = playerPreferences.getPlayerBrightness()
+                        swipeGestureValueTrackerBrightness = getCurrentBrightnessLevel()
                     }
                     
                     val newBrightness = (swipeGestureValueTrackerBrightness + ratioChange)

@@ -23,6 +23,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_BATTERY_OPTIMIZATION = "battery_optimization_enabled"
         private const val KEY_PLAYER_GESTURES_ENABLED = "player_gestures_enabled"
         private const val KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED = "volume_brightness_gestures_enabled"
+        private const val KEY_USE_DEVICE_VOLUME_IN_PLAYER = "use_device_volume_in_player"
+        private const val KEY_USE_DEVICE_BRIGHTNESS_IN_PLAYER = "use_device_brightness_in_player"
         private const val KEY_PROGRESS_SEEK_GESTURE_ENABLED = "progress_seek_gesture_enabled"
         private const val KEY_ZOOM_GESTURE_ENABLED = "zoom_gesture_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
@@ -112,6 +114,8 @@ class PlayerPreferences(context: Context) {
         const val MAX_SEEK_INTERVAL_SECONDS = 30
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
+        const val DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER = false
+        const val DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER = false
         const val DEFAULT_SKIP_INTRO_ENABLED = true
         const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
@@ -259,6 +263,32 @@ class PlayerPreferences(context: Context) {
     fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
         prefs.edit()
             .putBoolean(KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED, enabled)
+            .apply()
+    }
+
+    fun isUseDeviceVolumeInPlayerEnabled(): Boolean {
+        return prefs.getBoolean(
+            KEY_USE_DEVICE_VOLUME_IN_PLAYER,
+            DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER
+        )
+    }
+
+    fun setUseDeviceVolumeInPlayerEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_USE_DEVICE_VOLUME_IN_PLAYER, enabled)
+            .apply()
+    }
+
+    fun isUseDeviceBrightnessInPlayerEnabled(): Boolean {
+        return prefs.getBoolean(
+            KEY_USE_DEVICE_BRIGHTNESS_IN_PLAYER,
+            DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER
+        )
+    }
+
+    fun setUseDeviceBrightnessInPlayerEnabled(enabled: Boolean) {
+        prefs.edit()
+            .putBoolean(KEY_USE_DEVICE_BRIGHTNESS_IN_PLAYER, enabled)
             .apply()
     }
 
