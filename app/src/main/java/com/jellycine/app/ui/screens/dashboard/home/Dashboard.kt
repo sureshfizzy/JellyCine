@@ -1680,6 +1680,7 @@ fun Dashboard(
                     item(key = "no_carousel_top_header") {
                         TopHeader(
                             serverName = currentServerName,
+                            serverTypeRaw = currentServerType,
                             userName = HeaderUserName,
                             userImageUrl = noCarouselProfileImageUrl,
                             onServerClick = serverSwitchDialogsState::openServers
@@ -1872,6 +1873,7 @@ fun Dashboard(
 @Composable
 private fun TopHeader(
     serverName: String?,
+    serverTypeRaw: String?,
     userName: String?,
     userImageUrl: String?,
     onServerClick: (() -> Unit)? = null
@@ -1884,6 +1886,7 @@ private fun TopHeader(
         showUserIcon = true,
         userName = userName,
         userImageUrl = userImageUrl,
+        userServerTypeRaw = serverTypeRaw,
         onServerClick = onServerClick
     )
 }
@@ -1895,6 +1898,7 @@ private fun BrandHeader(
     showUserIcon: Boolean = false,
     userName: String? = null,
     userImageUrl: String? = null,
+    userServerTypeRaw: String? = null,
     onServerClick: (() -> Unit)? = null
 ) {
     val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dashboard_server_fallback)
@@ -2053,6 +2057,7 @@ private fun BrandHeader(
                 )
                 UserProfileAvatar(
                     imageUrl = userImageUrl,
+                    serverTypeRaw = userServerTypeRaw,
                     onClick = {},
                     modifier = Modifier.size(34.dp)
                 )

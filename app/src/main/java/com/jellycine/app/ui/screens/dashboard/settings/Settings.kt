@@ -65,6 +65,9 @@ fun Settings(
 
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
+    val activeSavedServer = remember(uiState.savedServers, uiState.activeServerId) {
+        uiState.savedServers.firstOrNull { it.id == uiState.activeServerId }
+    }
     val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl, uiState.activeServerId) {
         val currentServerUrl = uiState.serverUrl
         uiState.savedServers
@@ -113,6 +116,7 @@ fun Settings(
                     username = uiState.username ?: stringResource(R.string.settings_unknown_user),
                     serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
                     serverUrl = uiState.serverUrl,
+                    serverTypeRaw = activeSavedServer?.serverTypeRaw,
                     profileImageUrl = uiState.profileImageUrl,
                     isAdministrator = uiState.isAdministrator,
                     onUserClick = {
@@ -312,6 +316,7 @@ private fun UserProfileSection(
     username: String,
     serverName: String,
     serverUrl: String?,
+    serverTypeRaw: String?,
     profileImageUrl: String?,
     isAdministrator: Boolean?,
     onUserClick: () -> Unit,
@@ -338,6 +343,7 @@ private fun UserProfileSection(
         ) {
             ProfileImageLoader(
                 imageUrl = profileImageUrl,
+                serverTypeRaw = serverTypeRaw,
                 modifier = Modifier
                     .size(120.dp)
                     .clickable(onClick = onUserClick)

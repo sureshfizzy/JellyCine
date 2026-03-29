@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.auth
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,7 +34,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAddAlt1
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -234,6 +235,7 @@ internal fun ServerSwitchDialogsHost(
 @Composable
 internal fun ProfileImageLoader(
     imageUrl: String?,
+    serverTypeRaw: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -253,33 +255,24 @@ internal fun ProfileImageLoader(
         hasError = false
     }
     val avatarImage = profileRequest == null || hasError
+    val placeholderResId = remember(serverTypeRaw) {
+        when {
+            serverTypeRaw.equals("EMBY", ignoreCase = true) -> R.drawable.ic_emby_placeholder
+            else -> R.drawable.ic_jellyfin_placeholder
+        }
+    }
 
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         if (avatarImage) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary
-                            )
-                        ),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.fillMaxSize(0.5f)
-                )
-            }
+            Image(
+                painter = painterResource(id = placeholderResId),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(0.62f)
+            )
         } else {
             AsyncImage(
                 model = profileRequest,
@@ -681,6 +674,7 @@ private fun WhoWatchingUserCard(
             ) {
                 ProfileImageLoader(
                     imageUrl = user.profileImageUrl,
+                    serverTypeRaw = user.serverTypeRaw,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)

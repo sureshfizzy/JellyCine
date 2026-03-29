@@ -494,6 +494,7 @@ fun FeatureTab(
 
                 UserProfileAvatar(
                     imageUrl = userProfileImageUrl,
+                    serverTypeRaw = sessionSnapshot.serverType,
                     onClick = {},
                     modifier = Modifier.size(34.dp)
                 )
@@ -924,6 +925,7 @@ private fun FeatureHeroCard(
 @Composable
 internal fun UserProfileAvatar(
     imageUrl: String?,
+    serverTypeRaw: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -936,6 +938,7 @@ internal fun UserProfileAvatar(
     ) {
         ProfileImageLoader(
             imageUrl = imageUrl,
+            serverTypeRaw = serverTypeRaw,
             modifier = Modifier.fillMaxSize()
         )
     }
