@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Movie
@@ -41,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.PosterCountBadge
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.util.image.JellyfinPosterImage
 import com.jellycine.app.util.image.imageTagFor
@@ -545,11 +545,11 @@ private fun PersonTitleCard(
                 )
 
                 seriesCount?.let { count ->
-                    RelatedSeriesCountBadge(
+                    PosterCountBadge(
                         count = count,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 8.dp)
+                            .padding(top = 8.dp, end = 4.dp)
                     )
                 }
             }
@@ -582,32 +582,6 @@ private fun PersonTitleCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 2.dp, start = 4.dp, end = 4.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun RelatedSeriesCountBadge(
-    count: Int,
-    modifier: Modifier = Modifier
-) {
-    if (count <= 0) return
-
-    val badgeSize = if (count >= 100) 22.dp else 20.dp
-    val displayCount = if (count >= 100) "99+" else count.toString()
-
-    Surface(
-        modifier = modifier.size(badgeSize),
-        shape = CircleShape,
-        color = Color(0xFF4B62BE).copy(alpha = 0.96f)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = displayCount,
-                color = Color.White,
-                fontSize = if (count >= 100) 7.sp else 8.sp,
-                fontWeight = FontWeight.Bold
             )
         }
     }

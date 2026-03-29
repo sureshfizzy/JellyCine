@@ -15,9 +15,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.FilterList
@@ -45,8 +44,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,6 +57,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.FilterChip as MediaFilterChip
+import com.jellycine.app.ui.components.common.PosterCountBadge
 import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -617,37 +615,12 @@ private fun PosterCard(
                 }
 
                 itemCount?.let { count ->
-                    if (count > 0) {
-                        val badgeSize = if (count >= 100) 24.dp else 20.dp
-                        val displayCount = if (count >= 100) "99+" else count.toString()
-                        val textSize = if (count >= 100) 7.sp else 8.sp
-                        Surface(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 8.dp, end = 4.dp)
-                                .size(badgeSize),
-                            shape = CircleShape,
-                            color = Color.Black.copy(alpha = 0.7f)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = displayCount,
-                                    color = Color.White,
-                                    fontSize = textSize,
-                                    lineHeight = textSize,
-                                    fontWeight = FontWeight.Bold,
-                                    style = TextStyle(
-                                        platformStyle = PlatformTextStyle(
-                                            includeFontPadding = false
-                                        )
-                                    )
-                                )
-                            }
-                        }
-                    }
+                    PosterCountBadge(
+                        count = count,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 8.dp, end = 4.dp)
+                    )
                 }
 
 

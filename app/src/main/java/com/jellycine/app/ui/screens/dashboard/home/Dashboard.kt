@@ -28,8 +28,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.PlatformTextStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -2709,7 +2707,7 @@ internal fun LibraryItemCard(
                 }
 
                 episodeCount?.let { count ->
-                    LibraryCountBadge(
+                    PosterCountBadge(
                         count = count,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -2801,41 +2799,6 @@ private fun buildMetadataText(item: BaseItemDto): String {
                 StartYear?.let { year ->
                     append(year.toString())
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LibraryCountBadge(
-    count: Int,
-    modifier: Modifier = Modifier
-) {
-    if (count > 0) {
-        val badgeSize = if (count >= 100) 24.dp else 20.dp
-        val displayCount = if (count >= 100) "99+" else count.toString()
-        Surface(
-            modifier = modifier.size(badgeSize),
-            shape = CircleShape,
-            color = Color.Black.copy(alpha = 0.7f)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val textSize = if (count >= 100) 7.sp else 8.sp
-                Text(
-                    text = displayCount,
-                    fontSize = textSize,
-                    lineHeight = textSize,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    style = TextStyle(
-                        platformStyle = PlatformTextStyle(
-                            includeFontPadding = false
-                        )
-                    )
-                )
             }
         }
     }
