@@ -723,7 +723,7 @@ internal fun UserSwitchDialog(
                                             LazyRow(
                                                 state = listState,
                                                 modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
                                                 contentPadding = PaddingValues(horizontal = 10.dp)
                                             ) {
                                                 items(items = users, key = { it.id }) { user ->
