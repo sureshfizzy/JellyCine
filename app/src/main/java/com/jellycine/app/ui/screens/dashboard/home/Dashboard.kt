@@ -227,7 +227,7 @@ class QueryManager(private val scope: CoroutineScope) {
     fun invalidateQuery(key: String) {
         val currentState = queries[key]
         if (currentState != null) {
-            queries[key] = currentState.copy(isStale = true)
+            queries[key] = currentState.copy(isStale = true, lastFetched = 0L)
         }
     }
 
@@ -264,18 +264,21 @@ fun <T> useQuery(
     var hasInitiated by remember(key, queryManager) { mutableStateOf(false) }
 
     LaunchedEffect(key, config.enabled, queryManager) {
-        if (config.enabled) {
-            hasInitiated = true
-            val newState = queryManager.executeQuery(key, config, fetcher)
-            state = newState
+        if (!config.enabled) return@LaunchedEffect
 
-            while (true) {
-                delay(24)
-                val currentState = queryManager.getQuery<T>(key)
-                if (currentState != state) {
-                    state = currentState
-                }
-                if (!currentState.isLoading) break
+        hasInitiated = true
+        state = queryManager.executeQuery(key, config, fetcher)
+
+        while (true) {
+            delay(24)
+
+            var currentState = queryManager.getQuery<T>(key)
+            if (currentState.isStale && !currentState.isLoading) {
+                currentState = queryManager.executeQuery(key, config, fetcher)
+            }
+
+            if (currentState != state) {
+                state = currentState
             }
         }
     }
@@ -1562,6 +1565,7 @@ fun Dashboard(
         }
         LaunchedEffect(isTabActive, selectedCategory, isNetworkAvailable) {
             if (isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
+                queryManager.invalidateQuery("home_library_burst")
                 if (continueWatchingEnabled) {
                     val cachedContinueWatching =
                         queryManager.getQuery<List<BaseItemDto>>("continue_watching_resume_api_v2")
