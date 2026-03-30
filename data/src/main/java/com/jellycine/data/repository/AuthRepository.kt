@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
 import com.google.gson.reflect.TypeToken
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
@@ -50,25 +51,42 @@ class AuthRepository(private val context: Context) {
     }
 
     data class SavedServer(
+        @SerializedName("id")
         val id: String,
+        @SerializedName("serverUrl")
         val serverUrl: String,
+        @SerializedName("serverName")
         val serverName: String,
+        @SerializedName("serverTypeRaw")
         val serverTypeRaw: String,
+        @SerializedName("username")
         val username: String,
+        @SerializedName("userId")
         val userId: String,
+        @SerializedName("profileImageUrl")
         val profileImageUrl: String? = null,
+        @SerializedName("lastUsedAt")
         val lastUsedAt: Long
     )
 
     private data class StoredSavedServer(
+        @SerializedName("id")
         val id: String,
+        @SerializedName("serverUrl")
         val serverUrl: String,
+        @SerializedName("serverName")
         val serverName: String,
+        @SerializedName("serverTypeRaw")
         val serverTypeRaw: String,
+        @SerializedName("username")
         val username: String,
+        @SerializedName("userId")
         val userId: String,
+        @SerializedName("profileImageUrl")
         val profileImageUrl: String? = null,
+        @SerializedName("lastUsedAt")
         val lastUsedAt: Long,
+        @SerializedName("accessToken")
         val accessToken: String? = null
     )
 
