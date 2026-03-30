@@ -68,6 +68,7 @@ import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
@@ -149,6 +150,7 @@ fun FeatureTab(
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onCastButtonClick: () -> Unit = {},
     onCategorySelected: (String) -> Unit = {},
     refreshTrigger: Int = 0
 ) {
@@ -493,12 +495,21 @@ fun FeatureTab(
                     onCategorySelected = onCategorySelected
                 )
 
-                UserProfileAvatar(
-                    imageUrl = userProfileImageUrl,
-                    serverTypeRaw = sessionSnapshot.serverType,
-                    onClick = onProfileClick,
-                    modifier = Modifier.size(34.dp)
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ScreenCastButton(
+                        onConnectedClick = onCastButtonClick,
+                        size = 34.dp
+                    )
+                    UserProfileAvatar(
+                        imageUrl = userProfileImageUrl,
+                        serverTypeRaw = sessionSnapshot.serverType,
+                        onClick = onProfileClick,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
             }
         }
 

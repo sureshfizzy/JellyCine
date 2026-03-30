@@ -2012,7 +2012,6 @@ private fun BrandHeader(
             val playerPreferences = remember { PlayerPreferences(context) }
             val scope = rememberCoroutineScope()
             val castPlaybackState by CastController.playbackState.collectAsState()
-            var showCastDevicePicker by remember { mutableStateOf(false) }
             var showCastPlaybackSheet by remember { mutableStateOf(false) }
             var castPlaybackArtworkUrl by remember { mutableStateOf<String?>(null) }
             var castPlaybackStreams by remember { mutableStateOf<List<MediaStream>>(emptyList()) }
@@ -2045,13 +2044,6 @@ private fun BrandHeader(
             }
 
             fun openCastPlayback() {
-                if (!castPlaybackState.isConnected) {
-                    showCastPlaybackSheet = false
-                    showCastDevicePicker = true
-                    return
-                }
-
-                showCastDevicePicker = false
                 showCastPlaybackSheet = true
                 val castItemId = castPlaybackState.currentItemId
                 if (castItemId.isNullOrBlank()) return
@@ -2105,9 +2097,8 @@ private fun BrandHeader(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CastActionButton(
-                    isConnected = castPlaybackState.isConnected,
-                    onClick = { openCastPlayback() },
+                ScreenCastButton(
+                    onConnectedClick = { openCastPlayback() },
                     size = 34.dp
                 )
                 UserProfileAvatar(
@@ -2117,11 +2108,6 @@ private fun BrandHeader(
                     modifier = Modifier.size(34.dp)
                 )
             }
-
-            CastDevicePicker(
-                isVisible = showCastDevicePicker,
-                onDismissRequest = { showCastDevicePicker = false }
-            )
 
             if (showCastPlaybackSheet) {
                 CastPlayback(

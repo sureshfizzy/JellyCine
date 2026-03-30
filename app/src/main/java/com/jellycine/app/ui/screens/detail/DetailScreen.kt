@@ -49,12 +49,11 @@ import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.app.ui.components.common.CastSection
-import com.jellycine.app.ui.components.common.CastActionButton
-import com.jellycine.app.ui.components.common.CastDevicePicker
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DownloadLabelContent
 import com.jellycine.app.ui.components.common.OverviewSection
+import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.app.ui.components.common.ScreenWrapper
 import com.jellycine.app.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.canResumeDownloads
@@ -607,8 +606,6 @@ fun DetailContent(
     val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
                              configuration.screenWidthDp >= 600
     val metadataScrollState = rememberScrollState()
-    var showCastDevicePicker by remember { mutableStateOf(false) }
-
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
         item.type,
@@ -981,16 +978,7 @@ fun DetailContent(
                         .statusBarsPadding()
                         .padding(top = 12.dp, end = 14.dp)
                 ) {
-                    CastActionButton(
-                        isConnected = castPlaybackState.isConnected,
-                        onClick = {
-                            if (castPlaybackState.isConnected) {
-                                onCastButtonClick()
-                            } else {
-                                showCastDevicePicker = true
-                            }
-                        }
-                    )
+                    ScreenCastButton(onConnectedClick = onCastButtonClick)
                 }
 
             }
@@ -1745,11 +1733,6 @@ fun DetailContent(
             }
         }
     }
-
-    CastDevicePicker(
-        isVisible = showCastDevicePicker,
-        onDismissRequest = { showCastDevicePicker = false }
-    )
 
     seriesStorageSelectionDialogState?.let { dialogState ->
         DownloadDialog(
