@@ -18,4 +18,3 @@ Lcom/jellycine/data/network/NetworkModule;
 
 Lcoil/ImageLoader;
 Lokhttp3/OkHttpClient;
-Lretrofit2/Retrofit;

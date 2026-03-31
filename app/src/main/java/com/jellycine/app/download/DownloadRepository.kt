@@ -1042,13 +1042,13 @@ class DownloadRepository(context: Context) {
             )
 
             val resolvedTitle = fullItem?.name?.takeIf { it.isNotBlank() } ?: metadata.title
-            val resolvedType = fullItem?.type ?: metadata.mediaType
+            val endpointType = fullItem?.type ?: metadata.mediaType
             val resolvedYear = fullItem?.productionYear ?: metadata.year
             TrackedDownload(
                 itemId = itemId,
                 item = fullItem,
                 title = resolvedTitle,
-                mediaType = resolvedType,
+                mediaType = endpointType,
                 year = resolvedYear,
                 state = state,
                 isOfflineAvailable = isOffline,

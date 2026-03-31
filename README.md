@@ -61,7 +61,7 @@
 - Kotlin, Coroutines, Flow
 - Jetpack Compose + Material 3 + Navigation Compose
 - Hilt + KSP for DI/code generation
-- Retrofit 3 + OkHttp 5
+- Ktor Client + OkHttp 5
 - Coil 3 for image loading
 - Media3 ExoPlayer (`exoplayer`, `ui`, `session`, `dash`, `hls`, `smoothstreaming`, `effect`)
 - `org.jellyfin.media3:media3-ffmpeg-decoder` extension

@@ -28,10 +28,11 @@ kotlin {
             dependencies {
                 implementation 'androidx.core:core-ktx:1.18.0'
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
-                implementation 'com.squareup.retrofit2:retrofit:3.0.0'
-                implementation 'com.squareup.retrofit2:converter-gson:3.0.0'
-                implementation 'com.squareup.okhttp3:logging-interceptor:5.3.2'
                 implementation 'com.google.code.gson:gson:2.13.2'
+                implementation "io.ktor:ktor-client-core:3.4.2"
+                implementation "io.ktor:ktor-client-okhttp:3.4.2"
+                implementation "io.ktor:ktor-client-content-negotiation:3.4.2"
+                implementation "io.ktor:ktor-serialization-gson:3.4.2"
                 implementation 'androidx.datastore:datastore-preferences:1.2.1'
                 implementation 'androidx.security:security-crypto:1.0.0'
             }

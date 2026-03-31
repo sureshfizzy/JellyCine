@@ -6,12 +6,18 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
-import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.DataModuleConfig
-import com.google.gson.Gson
+import com.jellycine.data.api.MediaServerApiClient
+import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
+import com.google.gson.Gson
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.serialization.gson.gson
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
@@ -22,11 +28,8 @@ import kotlinx.coroutines.launch
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
-import okhttp3.Headers
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -147,15 +150,15 @@ object NetworkModule {
         storageDir: File? = null,
         timeoutConfig: NetworkTimeoutConfig? = null
     ): MediaServerApi {
-        val normalizedBaseUrl = trimTrailingSlash(baseUrl, trailingSlash = true)
-        val resolvedType = serverType ?: inferServerType(normalizedBaseUrl)
+        val baseUrlStd = trimTrailingSlash(baseUrl, trailingSlash = true)
+        val endpointType = serverType ?: inferServerType(baseUrlStd)
         val resolvedTimeoutConfig = timeoutConfig ?: defaultTimeoutConfig()
         val cacheKey = buildString {
-            append(trimTrailingSlash(normalizedBaseUrl))
+            append(trimTrailingSlash(baseUrlStd))
             append("|")
             append(accessToken.orEmpty())
             append("|")
-            append(resolvedType.name)
+            append(endpointType.name)
             append("|")
             append(resolvedTimeoutConfig.requestTimeoutMs)
             append("|")
@@ -167,32 +170,19 @@ object NetworkModule {
 
         val okHttpClient = createOkHttpClient(
             accessToken = accessToken,
-            serverType = resolvedType,
+            serverType = endpointType,
             storageDir = storageDir,
             timeoutConfig = resolvedTimeoutConfig
         )
-        val retrofit = Retrofit.Builder()
-            .baseUrl(normalizedBaseUrl)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        return retrofit.create(MediaServerApi::class.java).also { apiCache[cacheKey] = it }
-    }
-
-    fun createJellyfinApi(
-        baseUrl: String,
-        accessToken: String? = null,
-        storageDir: File? = null,
-        timeoutConfig: NetworkTimeoutConfig? = null
-    ): MediaServerApi {
-        return createMediaServerApi(
-            baseUrl = baseUrl,
-            accessToken = accessToken,
-            serverType = ServerType.JELLYFIN,
-            storageDir = storageDir,
-            timeoutConfig = timeoutConfig
+        val httpClient = createHttpClient(
+            baseUrl = baseUrlStd,
+            okHttpClient = okHttpClient
         )
+
+        return MediaServerApiClient(
+            client = httpClient,
+            baseUrl = baseUrlStd
+        ).also { apiCache[cacheKey] = it }
     }
 
     suspend fun serverEndpoint(
@@ -325,6 +315,24 @@ object NetworkModule {
         return builder.build()
     }
 
+    private fun createHttpClient(
+        baseUrl: String,
+        okHttpClient: OkHttpClient
+    ): HttpClient {
+        return HttpClient(OkHttp) {
+            expectSuccess = false
+            engine {
+                preconfigured = okHttpClient
+            }
+            defaultRequest {
+                url(baseUrl)
+            }
+            install(ContentNegotiation) {
+                gson()
+            }
+        }
+    }
+
     private fun defaultTimeoutConfig(): NetworkTimeoutConfig {
         return NetworkTimeoutConfig(
             requestTimeoutMs = 30000,
@@ -386,7 +394,7 @@ object NetworkModule {
         }
     }
 
-    private fun detectServerType(serverInfo: ServerInfo, headers: Headers? = null): ServerType {
+    private fun detectServerType(serverInfo: ServerInfo, headers: ApiHeaders? = null): ServerType {
         val appHeader = headers?.get("X-Application").orEmpty()
         if (appHeader.contains("jellyfin", ignoreCase = true)) {
             return ServerType.JELLYFIN

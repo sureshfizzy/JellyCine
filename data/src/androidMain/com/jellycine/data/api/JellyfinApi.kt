@@ -1,7 +1,7 @@
 package com.jellycine.data.api
 
+import com.google.gson.JsonObject
 import com.jellycine.data.model.AuthenticationRequest
-import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PlaybackInfoResponse
 import com.jellycine.data.model.PlaybackInfoRequest
@@ -13,255 +13,199 @@ import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.UserDto
-import com.google.gson.JsonObject
-import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
-import retrofit2.http.Url
+import com.jellycine.data.network.ApiResponse
 
 interface MediaServerApi {
 
-    @GET("System/Info/Public")
-    suspend fun getPublicSystemInfo(): Response<JsonObject>
+    suspend fun getPublicSystemInfo(): ApiResponse<JsonObject>
 
-    @GET("System/Info")
-    suspend fun getSystemInfo(): Response<JsonObject>
+    suspend fun authenticateByName(request: AuthenticationRequest): ApiResponse<AuthenticationResult>
 
-    @POST("Users/AuthenticateByName")
-    suspend fun authenticateByName(@Body request: AuthenticationRequest): Response<AuthenticationResult>
+    suspend fun initiateQuickConnect(): ApiResponse<QuickConnectResult>
 
-    @POST("QuickConnect/Initiate")
-    suspend fun initiateQuickConnect(): Response<QuickConnectResult>
-
-    @POST("Users/AuthenticateWithQuickConnect")
     suspend fun authenticateWithQuickConnect(
-        @Body request: QuickConnectDto
-    ): Response<AuthenticationResult>
+        request: QuickConnectDto
+    ): ApiResponse<AuthenticationResult>
 
-    @GET("Users/{userId}/Items/Latest")
     suspend fun getLatestItems(
-        @Path("userId") userId: String,
-        @Query("parentId") parentId: String? = null,
-        @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("limit") limit: Int? = null,
-        @Query("fields") fields: String? = null
-    ): Response<List<BaseItemDto>>
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<List<BaseItemDto>>
 
-    @GET("Users/{userId}/Items")
     suspend fun getUserItems(
-        @Path("userId") userId: String,
-        @Query("parentId") parentId: String? = null,
-        @Query("PersonIds") personIds: String? = null,
-        @Query("genres") genres: String? = null,
-        @Query("genreIds") genreIds: String? = null,
-        @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("recursive") recursive: Boolean? = null,
-        @Query("sortBy") sortBy: String? = null,
-        @Query("sortOrder") sortOrder: String? = null,
-        @Query("limit") limit: Int? = null,
-        @Query("startIndex") startIndex: Int? = null,
-        @Query("filters") filters: String? = null,
-        @Query("fields") fields: String? = null
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        parentId: String? = null,
+        personIds: String? = null,
+        genres: String? = null,
+        genreIds: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        filters: String? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET
     suspend fun getSuggestions(
-        @Url endpoint: String,
-        @Query("userId") userId: String? = null,
-        @Query("mediaType") mediaType: String? = null,
-        @Query("type") type: String? = null,
-        @Query("IncludeItemTypes") includeItemTypes: String? = null,
-        @Query("limit") limit: Int? = null,
-        @Query("fields") fields: String? = null
-    ): Response<QueryResult<BaseItemDto>>
+        endpoint: String,
+        userId: String? = null,
+        mediaType: String? = null,
+        type: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Users/{userId}/Views")
-    suspend fun getUserViews(@Path("userId") userId: String): Response<QueryResult<BaseItemDto>>
+    suspend fun getUserViews(userId: String): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Movies/Recommendations")
     suspend fun getMovieRecommendations(
-        @Query("userId") userId: String,
-        @Query("parentId") parentId: String? = null,
-        @Query("categoryLimit") categoryLimit: Int? = null,
-        @Query("itemLimit") itemLimit: Int? = null,
-        @Query("fields") fields: String? = null
-    ): Response<List<RecommendationDto>>
+        userId: String,
+        parentId: String? = null,
+        categoryLimit: Int? = null,
+        itemLimit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<List<RecommendationDto>>
 
-    @GET("Users/{userId}/Items/Resume")
     suspend fun getResumeItems(
-        @Path("userId") userId: String,
-        @Query("parentId") parentId: String? = null,
-        @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("limit") limit: Int? = null,
-        @Query("startIndex") startIndex: Int? = null,
-        @Query("recursive") recursive: Boolean = true,
-        @Query("sortBy") sortBy: String = "DatePlayed",
-        @Query("sortOrder") sortOrder: String = "Descending",
-        @Query("fields") fields: String? = null
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        recursive: Boolean = true,
+        sortBy: String = "DatePlayed",
+        sortOrder: String = "Descending",
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Shows/NextUp")
     suspend fun getNextUp(
-        @Query("userId") userId: String,
-        @Query("seriesId") seriesId: String? = null,
-        @Query("parentId") parentId: String? = null,
-        @Query("limit") limit: Int? = null,
-        @Query("startIndex") startIndex: Int? = null,
-        @Query("LegacyNextUp") legacyNextUp: Boolean? = null,
-        @Query("fields") fields: String? = null,
-        @Query("enableUserData") enableUserData: Boolean? = null,
-        @Query("enableImages") enableImages: Boolean? = null,
-        @Query("imageTypeLimit") imageTypeLimit: Int? = null,
-        @Query("enableImageTypes") enableImageTypes: String? = null
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        seriesId: String? = null,
+        parentId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        legacyNextUp: Boolean? = null,
+        fields: String? = null,
+        enableUserData: Boolean? = null,
+        enableImages: Boolean? = null,
+        imageTypeLimit: Int? = null,
+        enableImageTypes: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Users/{userId}")
-    suspend fun getUserById(@Path("userId") userId: String): Response<UserDto>
+    suspend fun getUserById(userId: String): ApiResponse<UserDto>
 
-    @GET("Users/{userId}/Items/{itemId}")
     suspend fun getItemById(
-        @Path("userId") userId: String,
-        @Path("itemId") itemId: String,
-        @Query("fields") fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData,Chapters"
-    ): Response<BaseItemDto>
+        userId: String,
+        itemId: String,
+        fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData,Chapters"
+    ): ApiResponse<BaseItemDto>
 
-    @GET("Items/{itemId}/Similar")
     suspend fun getSimilarItems(
-        @Path("itemId") itemId: String,
-        @Query("userId") userId: String,
-        @Query("limit") limit: Int? = null,
-        @Query("fields") fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
-    ): Response<QueryResult<BaseItemDto>>
+        itemId: String,
+        userId: String,
+        limit: Int? = null,
+        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @POST("Users/{userId}/FavoriteItems/{itemId}")
     suspend fun markAsFavorite(
-        @Path("userId") userId: String,
-        @Path("itemId") itemId: String
-    ): Response<Unit>
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
 
-    @DELETE("Users/{userId}/FavoriteItems/{itemId}")
     suspend fun unmarkAsFavorite(
-        @Path("userId") userId: String,
-        @Path("itemId") itemId: String
-    ): Response<Unit>
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
 
-    @GET("Genres")
     suspend fun getGenres(
-        @Query("userId") userId: String,
-        @Query("parentId") parentId: String? = null,
-        @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("recursive") recursive: Boolean? = null,
-        @Query("sortBy") sortBy: String? = null,
-        @Query("sortOrder") sortOrder: String? = null,
-        @Query("enableTotalRecordCount") enableTotalRecordCount: Boolean? = null,
-        @Query("enableImages") enableImages: Boolean? = null,
-        @Query("startIndex") startIndex: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        enableTotalRecordCount: Boolean? = null,
+        enableImages: Boolean? = null,
+        startIndex: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Items")
     suspend fun getItemsByGenre(
-        @Query("userId") userId: String,
-        @Query("genreIds") genreIds: String,
-        @Query("includeItemTypes") includeItemTypes: String? = null,
-        @Query("recursive") recursive: Boolean? = true,
-        @Query("limit") limit: Int? = null,
-        @Query("sortBy") sortBy: String? = null,
-        @Query("sortOrder") sortOrder: String? = null,
-        @Query("fields") fields: String? = null
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        genreIds: String,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        limit: Int? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    // TV Show specific endpoints
-    @GET("Shows/{seriesId}/Seasons")
     suspend fun getSeasons(
-        @Path("seriesId") seriesId: String,
-        @Query("userId") userId: String,
-        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
-    ): Response<QueryResult<BaseItemDto>>
+        seriesId: String,
+        userId: String,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    @GET("Shows/{seriesId}/Episodes")
     suspend fun getEpisodes(
-        @Path("seriesId") seriesId: String,
-        @Query("userId") userId: String,
-        @Query("seasonId") seasonId: String? = null,
-        @Query("fields") fields: String? = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
-        @Query("limit") limit: Int? = null,
-        @Query("startIndex") startIndex: Int? = null
-    ): Response<QueryResult<BaseItemDto>>
+        seriesId: String,
+        userId: String,
+        seasonId: String? = null,
+        fields: String? = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    // Streaming/Playback endpoints
-    @GET("Items/{itemId}/PlaybackInfo")
     suspend fun getPlaybackInfoGet(
-        @Path("itemId") itemId: String,
-        @Query("userId") userId: String,
-        @Query("maxStreamingBitrate") maxStreamingBitrate: Int? = null,
-        @Query("audioStreamIndex") audioStreamIndex: Int? = null,
-        @Query("subtitleStreamIndex") subtitleStreamIndex: Int? = null,
-        @Query("enableDirectPlay") enableDirectPlay: Boolean? = null,
-        @Query("enableDirectStream") enableDirectStream: Boolean? = null,
-        @Query("enableTranscoding") enableTranscoding: Boolean? = null
-    ): Response<PlaybackInfoResponse>
+        itemId: String,
+        userId: String,
+        maxStreamingBitrate: Int? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        enableDirectPlay: Boolean? = null,
+        enableDirectStream: Boolean? = null,
+        enableTranscoding: Boolean? = null
+    ): ApiResponse<PlaybackInfoResponse>
 
-    @POST("Items/{itemId}/PlaybackInfo")
     suspend fun getPlaybackInfoPost(
-        @Path("itemId") itemId: String,
-        @Body request: PlaybackInfoRequest
-    ): Response<PlaybackInfoResponse>
+        itemId: String,
+        request: PlaybackInfoRequest
+    ): ApiResponse<PlaybackInfoResponse>
 
-    @GET("Videos/{itemId}/stream")
     suspend fun getVideoStreamUrl(
-        @Path("itemId") itemId: String,
-        @Query("static") static: Boolean = true,
-        @Query("mediaSourceId") mediaSourceId: String? = null,
-        @Query("deviceId") deviceId: String? = null,
-        @Query("api_key") apiKey: String? = null
+        itemId: String,
+        static: Boolean = true,
+        mediaSourceId: String? = null,
+        deviceId: String? = null,
+        apiKey: String? = null
     ): String
 
-    @GET("Audio/{itemId}/stream")
-    suspend fun getAudioStreamUrl(
-        @Path("itemId") itemId: String,
-        @Query("static") static: Boolean = true,
-        @Query("mediaSourceId") mediaSourceId: String? = null,
-        @Query("deviceId") deviceId: String? = null,
-        @Query("api_key") apiKey: String? = null
-    ): String
-
-    // Search endpoint - using the correct Jellyfin search parameter
-    @GET("Users/{userId}/Items")
     suspend fun searchItems(
-        @Path("userId") userId: String,
-        @Query("searchTerm") searchTerm: String,
-        @Query("includeItemTypes") includeItemTypes: String? = "Movie,Series",
-        @Query("recursive") recursive: Boolean = true,
-        @Query("limit") limit: Int? = 50,
-        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        searchTerm: String,
+        includeItemTypes: String? = "Movie,Series",
+        recursive: Boolean = true,
+        limit: Int? = 50,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    // Alternative search endpoint using nameStartsWith
-    @GET("Users/{userId}/Items")
     suspend fun searchItemsByName(
-        @Path("userId") userId: String,
-        @Query("nameStartsWith") nameStartsWith: String,
-        @Query("includeItemTypes") includeItemTypes: String? = "Movie,Series",
-        @Query("recursive") recursive: Boolean = true,
-        @Query("limit") limit: Int? = 50,
-        @Query("fields") fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
-    ): Response<QueryResult<BaseItemDto>>
+        userId: String,
+        nameStartsWith: String,
+        includeItemTypes: String? = "Movie,Series",
+        recursive: Boolean = true,
+        limit: Int? = 50,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
-    // Session reporting endpoints for playback progress tracking
-    @POST("Sessions/Playing")
-    suspend fun reportPlaybackStart(@Body request: PlaybackStartRequest): Response<Unit>
+    suspend fun reportPlaybackStart(request: PlaybackStartRequest): ApiResponse<Unit>
 
-    @POST("Sessions/Playing/Progress")
-    suspend fun reportPlaybackProgress(@Body request: PlaybackProgressRequest): Response<Unit>
+    suspend fun reportPlaybackProgress(request: PlaybackProgressRequest): ApiResponse<Unit>
 
-    @POST("Sessions/Playing/Stopped")
-    suspend fun reportPlaybackStopped(@Body request: PlaybackStoppedRequest): Response<Unit>
+    suspend fun reportPlaybackStopped(request: PlaybackStoppedRequest): ApiResponse<Unit>
 }
-
-typealias JellyfinApi = MediaServerApi
-typealias EmbyApi = MediaServerApi
