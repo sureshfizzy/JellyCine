@@ -5,7 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.gson.Gson
-import com.jellycine.data.BuildConfig
+import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
@@ -127,7 +127,7 @@ class MediaRepository(private val context: Context) {
             serverType = config.serverType,
             accessToken = config.accessToken,
             deviceId = NetworkModule.getClientDeviceId(),
-            clientVersion = BuildConfig.CLIENT_VERSION
+            clientVersion = DataModuleConfig.CLIENT_VERSION
         )
     }
 
