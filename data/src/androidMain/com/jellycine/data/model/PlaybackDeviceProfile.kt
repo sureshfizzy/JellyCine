@@ -1,60 +1,65 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Minimal playback device profile used for server-side stream negotiation.
  */
+@Serializable
 data class DeviceProfile(
-    @SerializedName("Name")
+    @SerialName("Name")
     val name: String? = null,
-    @SerializedName("MaxStreamingBitrate")
+    @SerialName("MaxStreamingBitrate")
     val maxStreamingBitrate: Long? = null,
-    @SerializedName("MaxStaticBitrate")
+    @SerialName("MaxStaticBitrate")
     val maxStaticBitrate: Long? = null,
-    @SerializedName("SupportedMediaTypes")
+    @SerialName("SupportedMediaTypes")
     val supportedMediaTypes: String? = null,
-    @SerializedName("DirectPlayProfiles")
+    @SerialName("DirectPlayProfiles")
     val directPlayProfiles: List<DirectPlayProfile>? = null,
-    @SerializedName("TranscodingProfiles")
+    @SerialName("TranscodingProfiles")
     val transcodingProfiles: List<TranscodingProfile>? = null,
-    @SerializedName("SubtitleProfiles")
+    @SerialName("SubtitleProfiles")
     val subtitleProfiles: List<SubtitleProfile>? = null
 )
 
+@Serializable
 data class DirectPlayProfile(
-    @SerializedName("Container")
+    @SerialName("Container")
     val container: String? = null,
-    @SerializedName("AudioCodec")
+    @SerialName("AudioCodec")
     val audioCodec: String? = null,
-    @SerializedName("VideoCodec")
+    @SerialName("VideoCodec")
     val videoCodec: String? = null,
-    @SerializedName("Type")
+    @SerialName("Type")
     val type: String? = null
 )
 
+@Serializable
 data class TranscodingProfile(
-    @SerializedName("Container")
+    @SerialName("Container")
     val container: String? = null,
-    @SerializedName("Type")
+    @SerialName("Type")
     val type: String? = null,
-    @SerializedName("VideoCodec")
+    @SerialName("VideoCodec")
     val videoCodec: String? = null,
-    @SerializedName("AudioCodec")
+    @SerialName("AudioCodec")
     val audioCodec: String? = null,
-    @SerializedName("Protocol")
+    @SerialName("Protocol")
     val protocol: String? = null,
-    @SerializedName("Context")
+    @SerialName("Context")
     val context: String? = null,
-    @SerializedName("EnableSubtitlesInManifest")
+    @SerialName("EnableSubtitlesInManifest")
     val enableSubtitlesInManifest: Boolean? = null,
-    @SerializedName("MaxAudioChannels")
+    @SerialName("MaxAudioChannels")
     val maxAudioChannels: String? = null
 )
 
+@Serializable
 data class SubtitleProfile(
-    @SerializedName("Format")
+    @SerialName("Format")
     val format: String? = null,
-    @SerializedName("Method")
+    @SerialName("Method")
     val method: String? = null
 )

@@ -26,22 +26,5 @@
 -dontwarn javax.annotation.**
 -keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
 
-# Gson
--keepattributes Signature
--keepattributes *Annotation*
--dontwarn sun.misc.**
--keep class com.google.gson.examples.android.model.** { <fields>; }
--keep class * extends com.google.gson.TypeAdapter
--keep class * implements com.google.gson.TypeAdapterFactory
--keep class * implements com.google.gson.JsonSerializer
--keep class * implements com.google.gson.JsonDeserializer
--keepclassmembers,allowobfuscation class * {
-  @com.google.gson.annotations.SerializedName <fields>;
-}
-
-# Preserve snapshot DTO generic metadata used by Gson during home cache restore.
--keep class com.jellycine.data.model.PersistedHomeSnapshot { *; }
--keep class com.jellycine.data.model.HomeLibrarySectionData { *; }
-
 # Google Cast
 -keep class com.jellycine.app.cast.JellyCineCastOptionsProvider { *; }

@@ -6,9 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import com.google.gson.reflect.TypeToken
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
@@ -20,20 +17,23 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.AuthSessionIds
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
 import com.jellycine.data.security.SecureSessionStore
+import com.jellycine.data.network.JellyCineJson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 
 class AuthRepository(private val context: Context) {
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
     private val secureSessionStore = SecureSessionStore(context)
-    private val gson = Gson()
-    private val storedSavedServerListType = object : TypeToken<List<StoredSavedServer>>() {}.type
     private val legacyMigrationMutex = Mutex()
 
     @Volatile
@@ -50,43 +50,45 @@ class AuthRepository(private val context: Context) {
         private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
     }
 
+    @Serializable
     data class SavedServer(
-        @SerializedName("id")
+        @SerialName("id")
         val id: String,
-        @SerializedName("serverUrl")
+        @SerialName("serverUrl")
         val serverUrl: String,
-        @SerializedName("serverName")
+        @SerialName("serverName")
         val serverName: String,
-        @SerializedName("serverTypeRaw")
+        @SerialName("serverTypeRaw")
         val serverTypeRaw: String,
-        @SerializedName("username")
+        @SerialName("username")
         val username: String,
-        @SerializedName("userId")
+        @SerialName("userId")
         val userId: String,
-        @SerializedName("profileImageUrl")
+        @SerialName("profileImageUrl")
         val profileImageUrl: String? = null,
-        @SerializedName("lastUsedAt")
+        @SerialName("lastUsedAt")
         val lastUsedAt: Long
     )
 
+    @Serializable
     private data class StoredSavedServer(
-        @SerializedName("id")
+        @SerialName("id")
         val id: String,
-        @SerializedName("serverUrl")
+        @SerialName("serverUrl")
         val serverUrl: String,
-        @SerializedName("serverName")
+        @SerialName("serverName")
         val serverName: String,
-        @SerializedName("serverTypeRaw")
+        @SerialName("serverTypeRaw")
         val serverTypeRaw: String,
-        @SerializedName("username")
+        @SerialName("username")
         val username: String,
-        @SerializedName("userId")
+        @SerialName("userId")
         val userId: String,
-        @SerializedName("profileImageUrl")
+        @SerialName("profileImageUrl")
         val profileImageUrl: String? = null,
-        @SerializedName("lastUsedAt")
+        @SerialName("lastUsedAt")
         val lastUsedAt: Long,
-        @SerializedName("accessToken")
+        @SerialName("accessToken")
         val accessToken: String? = null
     )
 
@@ -133,7 +135,7 @@ class AuthRepository(private val context: Context) {
     private fun persistedSavedServers(raw: String?): List<StoredSavedServer> {
         if (raw.isNullOrBlank()) return emptyList()
         return runCatching {
-            gson.fromJson<List<StoredSavedServer>>(raw, storedSavedServerListType)
+            JellyCineJson.decodeFromString<List<StoredSavedServer>>(raw)
                 ?.filter {
                     it.id.isNotBlank() &&
                         it.serverUrl.isNotBlank() &&
@@ -152,7 +154,7 @@ class AuthRepository(private val context: Context) {
     }
 
     private fun serializeSavedServers(savedServers: List<SavedServer>): String {
-        return gson.toJson(savedServers)
+        return JellyCineJson.encodeToString(savedServers)
     }
 
     private fun upsertSavedServer(

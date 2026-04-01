@@ -1,141 +1,145 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class UserDto(
-    @SerializedName("Name")
+    @SerialName("Name")
     val name: String? = null,
     
-    @SerializedName("ServerId")
+    @SerialName("ServerId")
     val serverId: String? = null,
     
-    @SerializedName("ServerName")
+    @SerialName("ServerName")
     val serverName: String? = null,
     
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String? = null,
     
-    @SerializedName("PrimaryImageTag")
+    @SerialName("PrimaryImageTag")
     val primaryImageTag: String? = null,
     
-    @SerializedName("HasPassword")
+    @SerialName("HasPassword")
     val hasPassword: Boolean? = null,
     
-    @SerializedName("HasConfiguredPassword")
+    @SerialName("HasConfiguredPassword")
     val hasConfiguredPassword: Boolean? = null,
     
-    @SerializedName("HasConfiguredEasyPassword")
+    @SerialName("HasConfiguredEasyPassword")
     val hasConfiguredEasyPassword: Boolean? = null,
     
-    @SerializedName("EnableAutoLogin")
+    @SerialName("EnableAutoLogin")
     val enableAutoLogin: Boolean? = null,
     
-    @SerializedName("LastLoginDate")
+    @SerialName("LastLoginDate")
     val lastLoginDate: String? = null,
     
-    @SerializedName("LastActivityDate")
+    @SerialName("LastActivityDate")
     val lastActivityDate: String? = null,
     
-    @SerializedName("Configuration")
+    @SerialName("Configuration")
     val configuration: UserConfiguration? = null,
     
-    @SerializedName("Policy")
+    @SerialName("Policy")
     val policy: UserPolicy? = null,
     
-    @SerializedName("PrimaryImageAspectRatio")
+    @SerialName("PrimaryImageAspectRatio")
     val primaryImageAspectRatio: Double? = null
 )
 
+@Serializable
 data class UserConfiguration(
-    @SerializedName("AudioLanguagePreference")
+    @SerialName("AudioLanguagePreference")
     val audioLanguagePreference: String? = null,
     
-    @SerializedName("PlayDefaultAudioTrack")
+    @SerialName("PlayDefaultAudioTrack")
     val playDefaultAudioTrack: Boolean? = null,
     
-    @SerializedName("SubtitleLanguagePreference")
+    @SerialName("SubtitleLanguagePreference")
     val subtitleLanguagePreference: String? = null,
     
-    @SerializedName("DisplayMissingEpisodes")
+    @SerialName("DisplayMissingEpisodes")
     val displayMissingEpisodes: Boolean? = null,
     
-    @SerializedName("GroupedFolders")
+    @SerialName("GroupedFolders")
     val groupedFolders: List<String>? = null,
     
-    @SerializedName("SubtitleMode")
+    @SerialName("SubtitleMode")
     val subtitleMode: String? = null,
     
-    @SerializedName("DisplayCollectionsView")
+    @SerialName("DisplayCollectionsView")
     val displayCollectionsView: Boolean? = null,
     
-    @SerializedName("EnableLocalPassword")
+    @SerialName("EnableLocalPassword")
     val enableLocalPassword: Boolean? = null,
     
-    @SerializedName("OrderedViews")
+    @SerialName("OrderedViews")
     val orderedViews: List<String>? = null,
     
-    @SerializedName("LatestItemsExcludes")
+    @SerialName("LatestItemsExcludes")
     val latestItemsExcludes: List<String>? = null,
     
-    @SerializedName("MyMediaExcludes")
+    @SerialName("MyMediaExcludes")
     val myMediaExcludes: List<String>? = null,
     
-    @SerializedName("HidePlayedInLatest")
+    @SerialName("HidePlayedInLatest")
     val hidePlayedInLatest: Boolean? = null,
     
-    @SerializedName("RememberAudioSelections")
+    @SerialName("RememberAudioSelections")
     val rememberAudioSelections: Boolean? = null,
     
-    @SerializedName("RememberSubtitleSelections")
+    @SerialName("RememberSubtitleSelections")
     val rememberSubtitleSelections: Boolean? = null,
     
-    @SerializedName("EnableNextEpisodeAutoPlay")
+    @SerialName("EnableNextEpisodeAutoPlay")
     val enableNextEpisodeAutoPlay: Boolean? = null
 )
 
+@Serializable
 data class UserPolicy(
-    @SerializedName("IsAdministrator")
+    @SerialName("IsAdministrator")
     val isAdministrator: Boolean? = null,
     
-    @SerializedName("IsHidden")
+    @SerialName("IsHidden")
     val isHidden: Boolean? = null,
     
-    @SerializedName("IsDisabled")
+    @SerialName("IsDisabled")
     val isDisabled: Boolean? = null,
     
-    @SerializedName("MaxParentalRating")
+    @SerialName("MaxParentalRating")
     val maxParentalRating: Int? = null,
     
-    @SerializedName("BlockedTags")
+    @SerialName("BlockedTags")
     val blockedTags: List<String>? = null,
     
-    @SerializedName("EnableUserPreferenceAccess")
+    @SerialName("EnableUserPreferenceAccess")
     val enableUserPreferenceAccess: Boolean? = null,
     
-    @SerializedName("BlockUnratedItems")
+    @SerialName("BlockUnratedItems")
     val blockUnratedItems: List<String>? = null,
     
-    @SerializedName("EnableRemoteControlOfOtherUsers")
+    @SerialName("EnableRemoteControlOfOtherUsers")
     val enableRemoteControlOfOtherUsers: Boolean? = null,
     
-    @SerializedName("EnableSharedDeviceControl")
+    @SerialName("EnableSharedDeviceControl")
     val enableSharedDeviceControl: Boolean? = null,
     
-    @SerializedName("EnableRemoteAccess")
+    @SerialName("EnableRemoteAccess")
     val enableRemoteAccess: Boolean? = null,
     
-    @SerializedName("EnableLiveTvManagement")
+    @SerialName("EnableLiveTvManagement")
     val enableLiveTvManagement: Boolean? = null,
     
-    @SerializedName("EnableLiveTvAccess")
+    @SerialName("EnableLiveTvAccess")
     val enableLiveTvAccess: Boolean? = null,
     
-    @SerializedName("EnableMediaPlayback")
+    @SerialName("EnableMediaPlayback")
     val enableMediaPlayback: Boolean? = null,
     
-    @SerializedName("EnableAudioPlaybackTranscoding")
+    @SerialName("EnableAudioPlaybackTranscoding")
     val enableAudioPlaybackTranscoding: Boolean? = null,
     
-    @SerializedName("EnableVideoPlaybackTranscoding")
+    @SerialName("EnableVideoPlaybackTranscoding")
     val enableVideoPlaybackTranscoding: Boolean? = null
 )

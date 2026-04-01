@@ -12,12 +12,12 @@ import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
-import com.google.gson.Gson
+import com.jellycine.data.network.JellyCineJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.serialization.gson.gson
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
@@ -43,8 +43,6 @@ object NetworkModule {
     private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
-    private val gson = Gson()
-
     enum class ServerType {
         UNKNOWN,
         JELLYFIN,
@@ -202,8 +200,7 @@ object NetworkModule {
                 )
                 val response = api.getPublicSystemInfo()
                 if (response.isSuccessful && response.body() != null) {
-                    val rawPublicInfo = response.body()!!
-                    val serverInfo = gson.fromJson(rawPublicInfo, ServerInfo::class.java)
+                    val serverInfo = response.body()!!
                     val detectedType = detectServerType(serverInfo, response.headers())
                     return Result.success(
                         ServerEndpoint(
@@ -328,7 +325,7 @@ object NetworkModule {
                 url(baseUrl)
             }
             install(ContentNegotiation) {
-                gson()
+                json(JellyCineJson)
             }
         }
     }

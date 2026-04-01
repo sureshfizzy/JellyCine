@@ -1,12 +1,13 @@
 package com.jellycine.data.datastore
 
 import android.util.AtomicFile
-import com.google.gson.Gson
-import com.google.gson.JsonParser
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
+import com.jellycine.data.network.JellyCineJson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -14,8 +15,7 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 
 class HomeSnapshotStore(
-    private val filesDir: File,
-    private val gson: Gson = Gson()
+    private val filesDir: File
 ) {
     private val homeSnapshotMutex = Mutex()
     private val homeSnapshotFileName = "JellyCineSnapshot.json"
@@ -108,8 +108,7 @@ class HomeSnapshotStore(
         if (!file.exists()) return null
         return runCatching {
             val rawJson = file.readText()
-            val jsonElement = JsonParser.parseString(rawJson)
-            gson.fromJson(jsonElement, PersistedHomeSnapshot::class.java)
+            JellyCineJson.decodeFromString<PersistedHomeSnapshot>(rawJson)
         }.getOrElse {
             file.delete()
             null
@@ -124,7 +123,7 @@ class HomeSnapshotStore(
         var stream: java.io.FileOutputStream? = null
         try {
             stream = atomicFile.startWrite()
-            stream.write(gson.toJson(snapshot).toByteArray(StandardCharsets.UTF_8))
+            stream.write(JellyCineJson.encodeToString(snapshot).toByteArray(StandardCharsets.UTF_8))
             stream.flush()
             atomicFile.finishWrite(stream)
         } catch (error: Exception) {

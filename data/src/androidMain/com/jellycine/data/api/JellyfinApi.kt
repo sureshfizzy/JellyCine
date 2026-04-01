@@ -1,7 +1,7 @@
 package com.jellycine.data.api
 
-import com.google.gson.JsonObject
 import com.jellycine.data.model.AuthenticationRequest
+import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PlaybackInfoResponse
 import com.jellycine.data.model.PlaybackInfoRequest
@@ -12,12 +12,13 @@ import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
+import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiResponse
 
 interface MediaServerApi {
 
-    suspend fun getPublicSystemInfo(): ApiResponse<JsonObject>
+    suspend fun getPublicSystemInfo(): ApiResponse<ServerInfo>
 
     suspend fun authenticateByName(request: AuthenticationRequest): ApiResponse<AuthenticationResult>
 

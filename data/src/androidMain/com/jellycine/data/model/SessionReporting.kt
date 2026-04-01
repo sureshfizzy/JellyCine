@@ -1,118 +1,124 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Request model for reporting playback start to Jellyfin server
  */
+@Serializable
 data class PlaybackStartRequest(
-    @SerializedName("ItemId")
+    @SerialName("ItemId")
     val itemId: String,
-    @SerializedName("PlaySessionId")
+    @SerialName("PlaySessionId")
     val playSessionId: String? = null,
-    @SerializedName("MediaSourceId")
+    @SerialName("MediaSourceId")
     val mediaSourceId: String? = null,
-    @SerializedName("AudioStreamIndex")
+    @SerialName("AudioStreamIndex")
     val audioStreamIndex: Int? = null,
-    @SerializedName("SubtitleStreamIndex")
+    @SerialName("SubtitleStreamIndex")
     val subtitleStreamIndex: Int? = null,
-    @SerializedName("IsPaused")
+    @SerialName("IsPaused")
     val isPaused: Boolean = false,
-    @SerializedName("IsMuted")
+    @SerialName("IsMuted")
     val isMuted: Boolean = false,
-    @SerializedName("PositionTicks")
+    @SerialName("PositionTicks")
     val positionTicks: Long? = null,
-    @SerializedName("VolumeLevel")
+    @SerialName("VolumeLevel")
     val volumeLevel: Int? = null,
-    @SerializedName("Brightness")
+    @SerialName("Brightness")
     val brightness: Int? = null,
-    @SerializedName("AspectRatio")
+    @SerialName("AspectRatio")
     val aspectRatio: String? = null,
-    @SerializedName("PlayMethod")
+    @SerialName("PlayMethod")
     val playMethod: String? = null,
-    @SerializedName("LiveStreamId")
+    @SerialName("LiveStreamId")
     val liveStreamId: String? = null,
-    @SerializedName("PlaylistItemId")
+    @SerialName("PlaylistItemId")
     val playlistItemId: String? = null,
-    @SerializedName("CanSeek")
+    @SerialName("CanSeek")
     val canSeek: Boolean = true
 )
 
 /**
  * Request model for reporting playback progress to Jellyfin server
  */
+@Serializable
 data class PlaybackProgressRequest(
-    @SerializedName("ItemId")
+    @SerialName("ItemId")
     val itemId: String,
-    @SerializedName("PlaySessionId")
+    @SerialName("PlaySessionId")
     val playSessionId: String? = null,
-    @SerializedName("MediaSourceId")
+    @SerialName("MediaSourceId")
     val mediaSourceId: String? = null,
-    @SerializedName("AudioStreamIndex")
+    @SerialName("AudioStreamIndex")
     val audioStreamIndex: Int? = null,
-    @SerializedName("SubtitleStreamIndex")
+    @SerialName("SubtitleStreamIndex")
     val subtitleStreamIndex: Int? = null,
-    @SerializedName("IsPaused")
+    @SerialName("IsPaused")
     val isPaused: Boolean = false,
-    @SerializedName("IsMuted")
+    @SerialName("IsMuted")
     val isMuted: Boolean = false,
-    @SerializedName("PositionTicks")
+    @SerialName("PositionTicks")
     val positionTicks: Long,
-    @SerializedName("VolumeLevel")
+    @SerialName("VolumeLevel")
     val volumeLevel: Int? = null,
-    @SerializedName("Brightness")
+    @SerialName("Brightness")
     val brightness: Int? = null,
-    @SerializedName("AspectRatio")
+    @SerialName("AspectRatio")
     val aspectRatio: String? = null,
-    @SerializedName("PlayMethod")
+    @SerialName("PlayMethod")
     val playMethod: String? = null,
-    @SerializedName("LiveStreamId")
+    @SerialName("LiveStreamId")
     val liveStreamId: String? = null,
-    @SerializedName("PlaylistItemId")
+    @SerialName("PlaylistItemId")
     val playlistItemId: String? = null,
-    @SerializedName("RepeatMode")
+    @SerialName("RepeatMode")
     val repeatMode: String? = null,
-    @SerializedName("BufferedRanges")
+    @SerialName("BufferedRanges")
     val bufferedRanges: List<BufferedRange>? = null
 )
 
 /**
  * Request model for reporting playback stopped to Jellyfin server
  */
+@Serializable
 data class PlaybackStoppedRequest(
-    @SerializedName("ItemId")
+    @SerialName("ItemId")
     val itemId: String,
-    @SerializedName("PlaySessionId")
+    @SerialName("PlaySessionId")
     val playSessionId: String? = null,
-    @SerializedName("MediaSourceId")
+    @SerialName("MediaSourceId")
     val mediaSourceId: String? = null,
-    @SerializedName("PositionTicks")
+    @SerialName("PositionTicks")
     val positionTicks: Long? = null,
-    @SerializedName("LiveStreamId")
+    @SerialName("LiveStreamId")
     val liveStreamId: String? = null,
-    @SerializedName("PlaylistItemId")
+    @SerialName("PlaylistItemId")
     val playlistItemId: String? = null,
-    @SerializedName("Failed")
+    @SerialName("Failed")
     val failed: Boolean = false,
-    @SerializedName("NextMediaType")
+    @SerialName("NextMediaType")
     val nextMediaType: String? = null,
-    @SerializedName("PlaybackOrder")
+    @SerialName("PlaybackOrder")
     val playbackOrder: String? = null
 )
 
 /**
  * Represents a buffered range in the media
  */
+@Serializable
 data class BufferedRange(
-    @SerializedName("start")
+    @SerialName("start")
     val start: Long,
-    @SerializedName("end")
+    @SerialName("end")
     val end: Long
 )
 
 /**
  * Enum class for play methods
  */
+@Serializable
 enum class PlayMethod {
     DirectPlay,
     DirectStream,

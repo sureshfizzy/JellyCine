@@ -1,7 +1,6 @@
 package com.jellycine.app.download
 
 import android.content.Context
-import com.google.gson.Gson
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.app.ui.components.common.isPausedDownloadState
 import com.jellycine.app.ui.components.common.pausedDownloadMessage
@@ -10,6 +9,7 @@ import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.network.JellyCineJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -93,6 +96,7 @@ data class TrackedDownload(
     val completedAt: Long?
 )
 
+@Serializable
 private data class PersistedDownloadMetadata(
     val itemId: String,
     val title: String,
@@ -135,7 +139,6 @@ class DownloadRepository(context: Context) {
     private val preferences = Preferences(appContext)
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val gson = Gson()
     private val httpClient = OkHttpClient.Builder().retryOnConnectionFailure(true).build()
 
     private val stateFlows = ConcurrentHashMap<String, MutableStateFlow<ItemDownloadState>>()
@@ -1097,12 +1100,12 @@ class DownloadRepository(context: Context) {
 
     private fun serializeItem(item: BaseItemDto?): String? {
         if (item == null) return null
-        return runCatching { gson.toJson(item) }.getOrNull()
+        return runCatching { JellyCineJson.encodeToString(item) }.getOrNull()
     }
 
     private fun parseItem(raw: String?): BaseItemDto? {
         if (raw.isNullOrBlank()) return null
-        return runCatching { gson.fromJson(raw, BaseItemDto::class.java) }.getOrNull()
+        return runCatching { JellyCineJson.decodeFromString<BaseItemDto>(raw) }.getOrNull()
     }
 
     private fun createDestinationFile(extension: String?): File {
@@ -1153,12 +1156,12 @@ class DownloadRepository(context: Context) {
     }
 
     private fun persistMetadata(metadata: PersistedDownloadMetadata) {
-        prefs.edit().putString(metadataKey(metadata.itemId), gson.toJson(metadata)).apply()
+        prefs.edit().putString(metadataKey(metadata.itemId), JellyCineJson.encodeToString(metadata)).apply()
     }
 
     private fun readMetadata(itemId: String): PersistedDownloadMetadata? {
         val raw = prefs.getString(metadataKey(itemId), null) ?: return null
-        return runCatching { gson.fromJson(raw, PersistedDownloadMetadata::class.java) }.getOrNull()
+        return runCatching { JellyCineJson.decodeFromString<PersistedDownloadMetadata>(raw) }.getOrNull()
     }
 
     private fun allTrackedItemIds(): Set<String> {
@@ -1190,4 +1193,3 @@ class DownloadRepository(context: Context) {
         private val ID_GENERATOR = AtomicLong(System.currentTimeMillis())
     }
 }
-

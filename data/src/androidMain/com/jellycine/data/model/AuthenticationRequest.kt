@@ -1,11 +1,13 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class AuthenticationRequest(
-    @SerializedName("Username")
+    @SerialName("Username")
     val username: String,
     
-    @SerializedName("Pw")
+    @SerialName("Pw")
     val password: String
 )

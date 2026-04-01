@@ -1,6 +1,5 @@
 package com.jellycine.data.api
 
-import com.google.gson.JsonObject
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
@@ -13,6 +12,7 @@ import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.network.ApiResponse
@@ -33,7 +33,7 @@ internal class MediaServerApiClient(
     private val baseUrl: String
 ) : MediaServerApi {
 
-    override suspend fun getPublicSystemInfo(): ApiResponse<JsonObject> =
+    override suspend fun getPublicSystemInfo(): ApiResponse<ServerInfo> =
         get("System/Info/Public")
 
     override suspend fun authenticateByName(

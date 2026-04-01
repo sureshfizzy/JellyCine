@@ -1,431 +1,433 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class BaseItemDto(
-    @SerializedName("Name")
+    @SerialName("Name")
     val name: String? = null,
     
-    @SerializedName("OriginalTitle")
+    @SerialName("OriginalTitle")
     val originalTitle: String? = null,
     
-    @SerializedName("ServerId")
+    @SerialName("ServerId")
     val serverId: String? = null,
     
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String? = null,
     
-    @SerializedName("Etag")
+    @SerialName("Etag")
     val etag: String? = null,
     
-    @SerializedName("DateCreated")
+    @SerialName("DateCreated")
     val dateCreated: String? = null,
     
-    @SerializedName("DateLastMediaAdded")
+    @SerialName("DateLastMediaAdded")
     val dateLastMediaAdded: String? = null,
     
-    @SerializedName("CanDelete")
+    @SerialName("CanDelete")
     val canDelete: Boolean? = null,
     
-    @SerializedName("CanDownload")
+    @SerialName("CanDownload")
     val canDownload: Boolean? = null,
     
-    @SerializedName("HasSubtitles")
+    @SerialName("HasSubtitles")
     val hasSubtitles: Boolean? = null,
     
-    @SerializedName("Container")
+    @SerialName("Container")
     val container: String? = null,
     
-    @SerializedName("SortName")
+    @SerialName("SortName")
     val sortName: String? = null,
     
-    @SerializedName("ForcedSortName")
+    @SerialName("ForcedSortName")
     val forcedSortName: String? = null,
     
-    @SerializedName("Video3DFormat")
+    @SerialName("Video3DFormat")
     val video3DFormat: String? = null,
     
-    @SerializedName("PremiereDate")
+    @SerialName("PremiereDate")
     val premiereDate: String? = null,
     
-    @SerializedName("ExternalUrls")
+    @SerialName("ExternalUrls")
     val externalUrls: List<ExternalUrl>? = null,
     
-    @SerializedName("MediaSources")
+    @SerialName("MediaSources")
     val mediaSources: List<MediaSourceInfo>? = null,
     
-    @SerializedName("CriticRating")
+    @SerialName("CriticRating")
     val criticRating: Float? = null,
     
-    @SerializedName("ProductionLocations")
+    @SerialName("ProductionLocations")
     val productionLocations: List<String>? = null,
     
-    @SerializedName("Path")
+    @SerialName("Path")
     val path: String? = null,
     
-    @SerializedName("EnableMediaSourceDisplay")
+    @SerialName("EnableMediaSourceDisplay")
     val enableMediaSourceDisplay: Boolean? = null,
     
-    @SerializedName("OfficialRating")
+    @SerialName("OfficialRating")
     val officialRating: String? = null,
     
-    @SerializedName("CustomRating")
+    @SerialName("CustomRating")
     val customRating: String? = null,
     
-    @SerializedName("ChannelId")
+    @SerialName("ChannelId")
     val channelId: String? = null,
     
-    @SerializedName("ChannelName")
+    @SerialName("ChannelName")
     val channelName: String? = null,
     
-    @SerializedName("Overview")
+    @SerialName("Overview")
     val overview: String? = null,
     
-    @SerializedName("Taglines")
+    @SerialName("Taglines")
     val taglines: List<String>? = null,
     
-    @SerializedName("Genres")
+    @SerialName("Genres")
     val genres: List<String>? = null,
     
-    @SerializedName("CommunityRating")
+    @SerialName("CommunityRating")
     val communityRating: Float? = null,
     
-    @SerializedName("CumulativeRunTimeTicks")
+    @SerialName("CumulativeRunTimeTicks")
     val cumulativeRunTimeTicks: Long? = null,
     
-    @SerializedName("RunTimeTicks")
+    @SerialName("RunTimeTicks")
     val runTimeTicks: Long? = null,
     
-    @SerializedName("PlayAccess")
+    @SerialName("PlayAccess")
     val playAccess: String? = null,
     
-    @SerializedName("AspectRatio")
+    @SerialName("AspectRatio")
     val aspectRatio: String? = null,
     
-    @SerializedName("ProductionYear")
+    @SerialName("ProductionYear")
     val productionYear: Int? = null,
     
-    @SerializedName("IsPlaceHolder")
+    @SerialName("IsPlaceHolder")
     val isPlaceHolder: Boolean? = null,
     
-    @SerializedName("Number")
+    @SerialName("Number")
     val number: String? = null,
     
-    @SerializedName("ChannelNumber")
+    @SerialName("ChannelNumber")
     val channelNumber: String? = null,
     
-    @SerializedName("IndexNumber")
+    @SerialName("IndexNumber")
     val indexNumber: Int? = null,
     
-    @SerializedName("IndexNumberEnd")
+    @SerialName("IndexNumberEnd")
     val indexNumberEnd: Int? = null,
     
-    @SerializedName("ParentIndexNumber")
+    @SerialName("ParentIndexNumber")
     val parentIndexNumber: Int? = null,
     
-    @SerializedName("RemoteTrailers")
+    @SerialName("RemoteTrailers")
     val remoteTrailers: List<MediaUrl>? = null,
     
-    @SerializedName("ProviderIds")
+    @SerialName("ProviderIds")
     val providerIds: Map<String, String>? = null,
     
-    @SerializedName("IsHD")
+    @SerialName("IsHD")
     val isHD: Boolean? = null,
     
-    @SerializedName("IsFolder")
+    @SerialName("IsFolder")
     val isFolder: Boolean? = null,
     
-    @SerializedName("ParentId")
+    @SerialName("ParentId")
     val parentId: String? = null,
     
-    @SerializedName("Type")
+    @SerialName("Type")
     val type: String? = null,
     
-    @SerializedName("People")
+    @SerialName("People")
     val people: List<BaseItemPerson>? = null,
     
-    @SerializedName("Studios")
+    @SerialName("Studios")
     val studios: List<NameGuidPair>? = null,
     
-    @SerializedName("GenreItems")
+    @SerialName("GenreItems")
     val genreItems: List<NameGuidPair>? = null,
     
-    @SerializedName("ParentLogoItemId")
+    @SerialName("ParentLogoItemId")
     val parentLogoItemId: String? = null,
     
-    @SerializedName("ParentBackdropItemId")
+    @SerialName("ParentBackdropItemId")
     val parentBackdropItemId: String? = null,
     
-    @SerializedName("ParentBackdropImageTags")
+    @SerialName("ParentBackdropImageTags")
     val parentBackdropImageTags: List<String>? = null,
     
-    @SerializedName("LocalTrailerCount")
+    @SerialName("LocalTrailerCount")
     val localTrailerCount: Int? = null,
     
-    @SerializedName("UserData")
+    @SerialName("UserData")
     val userData: UserItemDataDto? = null,
     
-    @SerializedName("RecursiveItemCount")
+    @SerialName("RecursiveItemCount")
     val recursiveItemCount: Int? = null,
     
-    @SerializedName("ChildCount")
+    @SerialName("ChildCount")
     val childCount: Int? = null,
     
-    @SerializedName("SeriesName")
+    @SerialName("SeriesName")
     val seriesName: String? = null,
     
-    @SerializedName("SeriesId")
+    @SerialName("SeriesId")
     val seriesId: String? = null,
     
-    @SerializedName("SeasonId")
+    @SerialName("SeasonId")
     val seasonId: String? = null,
     
-    @SerializedName("SpecialFeatureCount")
+    @SerialName("SpecialFeatureCount")
     val specialFeatureCount: Int? = null,
     
-    @SerializedName("DisplayPreferencesId")
+    @SerialName("DisplayPreferencesId")
     val displayPreferencesId: String? = null,
     
-    @SerializedName("Status")
+    @SerialName("Status")
     val status: String? = null,
     
-    @SerializedName("AirTime")
+    @SerialName("AirTime")
     val airTime: String? = null,
     
-    @SerializedName("AirDays")
+    @SerialName("AirDays")
     val airDays: List<String>? = null,
     
-    @SerializedName("Tags")
+    @SerialName("Tags")
     val tags: List<String>? = null,
     
-    @SerializedName("PrimaryImageAspectRatio")
+    @SerialName("PrimaryImageAspectRatio")
     val primaryImageAspectRatio: Double? = null,
     
-    @SerializedName("Artists")
+    @SerialName("Artists")
     val artists: List<String>? = null,
     
-    @SerializedName("ArtistItems")
+    @SerialName("ArtistItems")
     val artistItems: List<NameGuidPair>? = null,
     
-    @SerializedName("Album")
+    @SerialName("Album")
     val album: String? = null,
     
-    @SerializedName("CollectionType")
+    @SerialName("CollectionType")
     val collectionType: String? = null,
     
-    @SerializedName("DisplayOrder")
+    @SerialName("DisplayOrder")
     val displayOrder: String? = null,
     
-    @SerializedName("AlbumId")
+    @SerialName("AlbumId")
     val albumId: String? = null,
     
-    @SerializedName("AlbumPrimaryImageTag")
+    @SerialName("AlbumPrimaryImageTag")
     val albumPrimaryImageTag: String? = null,
     
-    @SerializedName("SeriesPrimaryImageTag")
+    @SerialName("SeriesPrimaryImageTag")
     val seriesPrimaryImageTag: String? = null,
     
-    @SerializedName("AlbumArtist")
+    @SerialName("AlbumArtist")
     val albumArtist: String? = null,
     
-    @SerializedName("AlbumArtists")
+    @SerialName("AlbumArtists")
     val albumArtists: List<NameGuidPair>? = null,
     
-    @SerializedName("SeasonName")
+    @SerialName("SeasonName")
     val seasonName: String? = null,
     
-    @SerializedName("MediaStreams")
+    @SerialName("MediaStreams")
     val mediaStreams: List<MediaStream>? = null,
     
-    @SerializedName("VideoType")
+    @SerialName("VideoType")
     val videoType: String? = null,
     
-    @SerializedName("PartCount")
+    @SerialName("PartCount")
     val partCount: Int? = null,
     
-    @SerializedName("MediaSourceCount")
+    @SerialName("MediaSourceCount")
     val mediaSourceCount: Int? = null,
     
-    @SerializedName("ImageTags")
+    @SerialName("ImageTags")
     val imageTags: Map<String, String>? = null,
     
-    @SerializedName("BackdropImageTags")
+    @SerialName("BackdropImageTags")
     val backdropImageTags: List<String>? = null,
     
-    @SerializedName("ScreenshotImageTags")
+    @SerialName("ScreenshotImageTags")
     val screenshotImageTags: List<String>? = null,
     
-    @SerializedName("ParentLogoImageTag")
+    @SerialName("ParentLogoImageTag")
     val parentLogoImageTag: String? = null,
     
-    @SerializedName("ParentArtItemId")
+    @SerialName("ParentArtItemId")
     val parentArtItemId: String? = null,
     
-    @SerializedName("ParentArtImageTag")
+    @SerialName("ParentArtImageTag")
     val parentArtImageTag: String? = null,
     
-    @SerializedName("SeriesThumbImageTag")
+    @SerialName("SeriesThumbImageTag")
     val seriesThumbImageTag: String? = null,
     
-    @SerializedName("ImageBlurHashes")
+    @SerialName("ImageBlurHashes")
     val imageBlurHashes: Map<String, Map<String, String>>? = null,
     
-    @SerializedName("SeriesStudio")
+    @SerialName("SeriesStudio")
     val seriesStudio: String? = null,
     
-    @SerializedName("ParentThumbItemId")
+    @SerialName("ParentThumbItemId")
     val parentThumbItemId: String? = null,
     
-    @SerializedName("ParentThumbImageTag")
+    @SerialName("ParentThumbImageTag")
     val parentThumbImageTag: String? = null,
     
-    @SerializedName("ParentPrimaryImageItemId")
+    @SerialName("ParentPrimaryImageItemId")
     val parentPrimaryImageItemId: String? = null,
     
-    @SerializedName("ParentPrimaryImageTag")
+    @SerialName("ParentPrimaryImageTag")
     val parentPrimaryImageTag: String? = null,
     
-    @SerializedName("Chapters")
+    @SerialName("Chapters")
     val chapters: List<ChapterInfo>? = null,
     
-    @SerializedName("LocationType")
+    @SerialName("LocationType")
     val locationType: String? = null,
     
-    @SerializedName("IsoType")
+    @SerialName("IsoType")
     val isoType: String? = null,
     
-    @SerializedName("MediaType")
+    @SerialName("MediaType")
     val mediaType: String? = null,
     
-    @SerializedName("EndDate")
+    @SerialName("EndDate")
     val endDate: String? = null,
     
-    @SerializedName("LockedFields")
+    @SerialName("LockedFields")
     val lockedFields: List<String>? = null,
     
-    @SerializedName("TrailerCount")
+    @SerialName("TrailerCount")
     val trailerCount: Int? = null,
     
-    @SerializedName("MovieCount")
+    @SerialName("MovieCount")
     val movieCount: Int? = null,
     
-    @SerializedName("SeriesCount")
+    @SerialName("SeriesCount")
     val seriesCount: Int? = null,
     
-    @SerializedName("ProgramCount")
+    @SerialName("ProgramCount")
     val programCount: Int? = null,
     
-    @SerializedName("EpisodeCount")
+    @SerialName("EpisodeCount")
     val episodeCount: Int? = null,
     
-    @SerializedName("SongCount")
+    @SerialName("SongCount")
     val songCount: Int? = null,
     
-    @SerializedName("AlbumCount")
+    @SerialName("AlbumCount")
     val albumCount: Int? = null,
     
-    @SerializedName("ArtistCount")
+    @SerialName("ArtistCount")
     val artistCount: Int? = null,
     
-    @SerializedName("MusicVideoCount")
+    @SerialName("MusicVideoCount")
     val musicVideoCount: Int? = null,
     
-    @SerializedName("LockData")
+    @SerialName("LockData")
     val lockData: Boolean? = null,
     
-    @SerializedName("Width")
+    @SerialName("Width")
     val width: Int? = null,
     
-    @SerializedName("Height")
+    @SerialName("Height")
     val height: Int? = null,
     
-    @SerializedName("CameraMake")
+    @SerialName("CameraMake")
     val cameraMake: String? = null,
     
-    @SerializedName("CameraModel")
+    @SerialName("CameraModel")
     val cameraModel: String? = null,
     
-    @SerializedName("Software")
+    @SerialName("Software")
     val software: String? = null,
     
-    @SerializedName("ExposureTime")
+    @SerialName("ExposureTime")
     val exposureTime: Double? = null,
     
-    @SerializedName("FocalLength")
+    @SerialName("FocalLength")
     val focalLength: Double? = null,
     
-    @SerializedName("ImageOrientation")
+    @SerialName("ImageOrientation")
     val imageOrientation: String? = null,
     
-    @SerializedName("Aperture")
+    @SerialName("Aperture")
     val aperture: Double? = null,
     
-    @SerializedName("ShutterSpeed")
+    @SerialName("ShutterSpeed")
     val shutterSpeed: Double? = null,
     
-    @SerializedName("Latitude")
+    @SerialName("Latitude")
     val latitude: Double? = null,
     
-    @SerializedName("Longitude")
+    @SerialName("Longitude")
     val longitude: Double? = null,
     
-    @SerializedName("Altitude")
+    @SerialName("Altitude")
     val altitude: Double? = null,
     
-    @SerializedName("IsoSpeedRating")
+    @SerialName("IsoSpeedRating")
     val isoSpeedRating: Int? = null,
     
-    @SerializedName("SeriesTimerId")
+    @SerialName("SeriesTimerId")
     val seriesTimerId: String? = null,
     
-    @SerializedName("ProgramId")
+    @SerialName("ProgramId")
     val programId: String? = null,
     
-    @SerializedName("ChannelPrimaryImageTag")
+    @SerialName("ChannelPrimaryImageTag")
     val channelPrimaryImageTag: String? = null,
     
-    @SerializedName("StartDate")
+    @SerialName("StartDate")
     val startDate: String? = null,
     
-    @SerializedName("CompletionPercentage")
+    @SerialName("CompletionPercentage")
     val completionPercentage: Double? = null,
     
-    @SerializedName("IsRepeat")
+    @SerialName("IsRepeat")
     val isRepeat: Boolean? = null,
     
-    @SerializedName("EpisodeTitle")
+    @SerialName("EpisodeTitle")
     val episodeTitle: String? = null,
     
-    @SerializedName("ChannelType")
+    @SerialName("ChannelType")
     val channelType: String? = null,
     
-    @SerializedName("Audio")
+    @SerialName("Audio")
     val audio: String? = null,
     
-    @SerializedName("IsMovie")
+    @SerialName("IsMovie")
     val isMovie: Boolean? = null,
     
-    @SerializedName("IsSports")
+    @SerialName("IsSports")
     val isSports: Boolean? = null,
     
-    @SerializedName("IsSeries")
+    @SerialName("IsSeries")
     val isSeries: Boolean? = null,
     
-    @SerializedName("IsLive")
+    @SerialName("IsLive")
     val isLive: Boolean? = null,
     
-    @SerializedName("IsNews")
+    @SerialName("IsNews")
     val isNews: Boolean? = null,
     
-    @SerializedName("IsKids")
+    @SerialName("IsKids")
     val isKids: Boolean? = null,
     
-    @SerializedName("IsPremiere")
+    @SerialName("IsPremiere")
     val isPremiere: Boolean? = null,
     
-    @SerializedName("TimerId")
+    @SerialName("TimerId")
     val timerId: String? = null,
     
-    @SerializedName("CurrentProgram")
+    @SerialName("CurrentProgram")
     val currentProgram: BaseItemDto? = null
 )

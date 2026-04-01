@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.serialization'
     id 'com.google.dagger.hilt.android'
     id 'com.google.devtools.ksp'
 }
@@ -98,6 +99,7 @@ dependencies {
     // Project modules
     implementation project(':data')
     implementation project(':core')
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0'
 
     // Core Android
     implementation 'androidx.core:core-ktx:1.18.0'
@@ -128,9 +130,6 @@ dependencies {
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
-
-    // JSON
-    implementation 'com.google.code.gson:gson:2.13.2'
 
     // Networking
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'

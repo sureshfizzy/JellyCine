@@ -1,16 +1,19 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class QuickConnectDto(
-    @SerializedName("Secret")
+    @SerialName("Secret")
     val secret: String
 )
 
+@Serializable
 data class QuickConnectResult(
-    @SerializedName("Code")
+    @SerialName("Code")
     val code: String? = null,
 
-    @SerializedName("Secret")
+    @SerialName("Secret")
     val secret: String? = null
 )

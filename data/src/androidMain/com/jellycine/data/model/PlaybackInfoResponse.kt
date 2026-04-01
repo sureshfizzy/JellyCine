@@ -1,237 +1,242 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Response model for Jellyfin playback info
  */
+@Serializable
 data class PlaybackInfoResponse(
-    @SerializedName("MediaSources")
+    @SerialName("MediaSources")
     val mediaSources: List<MediaSource>? = null,
-    @SerializedName("PlaySessionId")
+    @SerialName("PlaySessionId")
     val playSessionId: String? = null,
-    @SerializedName("ErrorCode")
+    @SerialName("ErrorCode")
     val errorCode: String? = null
 )
 
 /**
  * Media source information
  */
+@Serializable
 data class MediaSource(
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String? = null,
-    @SerializedName("Path")
+    @SerialName("Path")
     val path: String? = null,
-    @SerializedName("Type")
+    @SerialName("Type")
     val type: String? = null,
-    @SerializedName("Container")
+    @SerialName("Container")
     val container: String? = null,
-    @SerializedName("Size")
+    @SerialName("Size")
     val size: Long? = null,
-    @SerializedName("Name")
+    @SerialName("Name")
     val name: String? = null,
-    @SerializedName("IsRemote")
+    @SerialName("IsRemote")
     val isRemote: Boolean? = null,
-    @SerializedName("ETag")
+    @SerialName("ETag")
     val eTag: String? = null,
-    @SerializedName("RunTimeTicks")
+    @SerialName("RunTimeTicks")
     val runTimeTicks: Long? = null,
-    @SerializedName("ReadAtNativeFramerate")
+    @SerialName("ReadAtNativeFramerate")
     val readAtNativeFramerate: Boolean? = null,
-    @SerializedName("IgnoreDts")
+    @SerialName("IgnoreDts")
     val ignoreDts: Boolean? = null,
-    @SerializedName("IgnoreIndex")
+    @SerialName("IgnoreIndex")
     val ignoreIndex: Boolean? = null,
-    @SerializedName("GenPtsInput")
+    @SerialName("GenPtsInput")
     val genPtsInput: Boolean? = null,
-    @SerializedName("SupportsTranscoding")
+    @SerialName("SupportsTranscoding")
     val supportsTranscoding: Boolean? = null,
-    @SerializedName("SupportsDirectStream")
+    @SerialName("SupportsDirectStream")
     val supportsDirectStream: Boolean? = null,
-    @SerializedName("SupportsDirectPlay")
+    @SerialName("SupportsDirectPlay")
     val supportsDirectPlay: Boolean? = null,
-    @SerializedName("IsInfiniteStream")
+    @SerialName("IsInfiniteStream")
     val isInfiniteStream: Boolean? = null,
-    @SerializedName("RequiresOpening")
+    @SerialName("RequiresOpening")
     val requiresOpening: Boolean? = null,
-    @SerializedName("OpenToken")
+    @SerialName("OpenToken")
     val openToken: String? = null,
-    @SerializedName("RequiresClosing")
+    @SerialName("RequiresClosing")
     val requiresClosing: Boolean? = null,
-    @SerializedName("LiveStreamId")
+    @SerialName("LiveStreamId")
     val liveStreamId: String? = null,
-    @SerializedName("BufferMs")
+    @SerialName("BufferMs")
     val bufferMs: Int? = null,
-    @SerializedName("RequiresLooping")
+    @SerialName("RequiresLooping")
     val requiresLooping: Boolean? = null,
-    @SerializedName("SupportsProbing")
+    @SerialName("SupportsProbing")
     val supportsProbing: Boolean? = null,
-    @SerializedName("VideoType")
+    @SerialName("VideoType")
     val videoType: String? = null,
-    @SerializedName("MediaStreams")
+    @SerialName("MediaStreams")
     val mediaStreams: List<MediaStream>? = null,
-    @SerializedName("MediaAttachments")
+    @SerialName("MediaAttachments")
     val mediaAttachments: List<MediaAttachment>? = null,
-    @SerializedName("Formats")
+    @SerialName("Formats")
     val formats: List<String>? = null,
-    @SerializedName("Bitrate")
+    @SerialName("Bitrate")
     val bitrate: Int? = null,
-    @SerializedName("Timestamp")
+    @SerialName("Timestamp")
     val timestamp: String? = null,
-    @SerializedName("RequiredHttpHeaders")
+    @SerialName("RequiredHttpHeaders")
     val requiredHttpHeaders: Map<String, String>? = null,
-    @SerializedName("TranscodingUrl")
+    @SerialName("TranscodingUrl")
     val transcodingUrl: String? = null,
-    @SerializedName("TranscodingSubProtocol")
+    @SerialName("TranscodingSubProtocol")
     val transcodingSubProtocol: String? = null,
-    @SerializedName("TranscodingContainer")
+    @SerialName("TranscodingContainer")
     val transcodingContainer: String? = null,
-    @SerializedName("AnalyzeDurationMs")
+    @SerialName("AnalyzeDurationMs")
     val analyzeDurationMs: Int? = null,
-    @SerializedName("DefaultAudioStreamIndex")
+    @SerialName("DefaultAudioStreamIndex")
     val defaultAudioStreamIndex: Int? = null,
-    @SerializedName("DefaultSubtitleStreamIndex")
+    @SerialName("DefaultSubtitleStreamIndex")
     val defaultSubtitleStreamIndex: Int? = null
 )
 
 /**
  * Media stream information (audio/video/subtitle tracks)
  */
+@Serializable
 data class MediaStream(
-    @SerializedName("Codec")
+    @SerialName("Codec")
     val codec: String? = null,
-    @SerializedName("CodecTag")
+    @SerialName("CodecTag")
     val codecTag: String? = null,
-    @SerializedName("Language")
+    @SerialName("Language")
     val language: String? = null,
-    @SerializedName("ColorRange")
+    @SerialName("ColorRange")
     val colorRange: String? = null,
-    @SerializedName("ColorSpace")
+    @SerialName("ColorSpace")
     val colorSpace: String? = null,
-    @SerializedName("ColorTransfer")
+    @SerialName("ColorTransfer")
     val colorTransfer: String? = null,
-    @SerializedName("ColorPrimaries")
+    @SerialName("ColorPrimaries")
     val colorPrimaries: String? = null,
-    @SerializedName("DvVersionMajor")
+    @SerialName("DvVersionMajor")
     val dvVersionMajor: Int? = null,
-    @SerializedName("DvVersionMinor")
+    @SerialName("DvVersionMinor")
     val dvVersionMinor: Int? = null,
-    @SerializedName("DvProfile")
+    @SerialName("DvProfile")
     val dvProfile: Int? = null,
-    @SerializedName("DvLevel")
+    @SerialName("DvLevel")
     val dvLevel: Int? = null,
-    @SerializedName("RpuPresentFlag")
+    @SerialName("RpuPresentFlag")
     val rpuPresentFlag: Int? = null,
-    @SerializedName("ElPresentFlag")
+    @SerialName("ElPresentFlag")
     val elPresentFlag: Int? = null,
-    @SerializedName("BlPresentFlag")
+    @SerialName("BlPresentFlag")
     val blPresentFlag: Int? = null,
-    @SerializedName("DvBlSignalCompatibilityId")
+    @SerialName("DvBlSignalCompatibilityId")
     val dvBlSignalCompatibilityId: Int? = null,
-    @SerializedName("Comment")
+    @SerialName("Comment")
     val comment: String? = null,
-    @SerializedName("TimeBase")
+    @SerialName("TimeBase")
     val timeBase: String? = null,
-    @SerializedName("CodecTimeBase")
+    @SerialName("CodecTimeBase")
     val codecTimeBase: String? = null,
-    @SerializedName("Title")
+    @SerialName("Title")
     val title: String? = null,
-    @SerializedName("VideoRange")
+    @SerialName("VideoRange")
     val videoRange: String? = null,
-    @SerializedName("VideoRangeType")
+    @SerialName("VideoRangeType")
     val videoRangeType: String? = null,
-    @SerializedName("VideoDoViTitle")
+    @SerialName("VideoDoViTitle")
     val videoDoViTitle: String? = null,
-    @SerializedName("LocalizedUndefined")
+    @SerialName("LocalizedUndefined")
     val localizedUndefined: String? = null,
-    @SerializedName("LocalizedDefault")
+    @SerialName("LocalizedDefault")
     val localizedDefault: String? = null,
-    @SerializedName("LocalizedForced")
+    @SerialName("LocalizedForced")
     val localizedForced: String? = null,
-    @SerializedName("LocalizedExternal")
+    @SerialName("LocalizedExternal")
     val localizedExternal: String? = null,
-    @SerializedName("DisplayTitle")
+    @SerialName("DisplayTitle")
     val displayTitle: String? = null,
-    @SerializedName("NalLengthSize")
+    @SerialName("NalLengthSize")
     val nalLengthSize: String? = null,
-    @SerializedName("IsInterlaced")
+    @SerialName("IsInterlaced")
     val isInterlaced: Boolean? = null,
-    @SerializedName("IsAVC")
+    @SerialName("IsAVC")
     val isAVC: Boolean? = null,
-    @SerializedName("ChannelLayout")
+    @SerialName("ChannelLayout")
     val channelLayout: String? = null,
-    @SerializedName("BitRate")
+    @SerialName("BitRate")
     val bitRate: Int? = null,
-    @SerializedName("BitDepth")
+    @SerialName("BitDepth")
     val bitDepth: Int? = null,
-    @SerializedName("RefFrames")
+    @SerialName("RefFrames")
     val refFrames: Int? = null,
-    @SerializedName("PacketLength")
+    @SerialName("PacketLength")
     val packetLength: Int? = null,
-    @SerializedName("Channels")
+    @SerialName("Channels")
     val channels: Int? = null,
-    @SerializedName("SampleRate")
+    @SerialName("SampleRate")
     val sampleRate: Int? = null,
-    @SerializedName("IsDefault")
+    @SerialName("IsDefault")
     val isDefault: Boolean? = null,
-    @SerializedName("IsForced")
+    @SerialName("IsForced")
     val isForced: Boolean? = null,
-    @SerializedName("Height")
+    @SerialName("Height")
     val height: Int? = null,
-    @SerializedName("Width")
+    @SerialName("Width")
     val width: Int? = null,
-    @SerializedName("AverageFrameRate")
+    @SerialName("AverageFrameRate")
     val averageFrameRate: Float? = null,
-    @SerializedName("RealFrameRate")
+    @SerialName("RealFrameRate")
     val realFrameRate: Float? = null,
-    @SerializedName("Profile")
+    @SerialName("Profile")
     val profile: String? = null,
-    @SerializedName("Type")
+    @SerialName("Type")
     val type: String? = null,
-    @SerializedName("AspectRatio")
+    @SerialName("AspectRatio")
     val aspectRatio: String? = null,
-    @SerializedName("Index")
+    @SerialName("Index")
     val index: Int? = null,
-    @SerializedName("Score")
+    @SerialName("Score")
     val score: Int? = null,
-    @SerializedName("IsExternal")
+    @SerialName("IsExternal")
     val isExternal: Boolean? = null,
-    @SerializedName("DeliveryMethod")
+    @SerialName("DeliveryMethod")
     val deliveryMethod: String? = null,
-    @SerializedName("DeliveryUrl")
+    @SerialName("DeliveryUrl")
     val deliveryUrl: String? = null,
-    @SerializedName("IsExternalUrl")
+    @SerialName("IsExternalUrl")
     val isExternalUrl: Boolean? = null,
-    @SerializedName("IsTextSubtitleStream")
+    @SerialName("IsTextSubtitleStream")
     val isTextSubtitleStream: Boolean? = null,
-    @SerializedName("SupportsExternalStream")
+    @SerialName("SupportsExternalStream")
     val supportsExternalStream: Boolean? = null,
-    @SerializedName("Path")
+    @SerialName("Path")
     val path: String? = null,
-    @SerializedName("PixelFormat")
+    @SerialName("PixelFormat")
     val pixelFormat: String? = null,
-    @SerializedName("Level")
+    @SerialName("Level")
     val level: Double? = null,
-    @SerializedName("IsAnamorphic")
+    @SerialName("IsAnamorphic")
     val isAnamorphic: Boolean? = null
 )
 
 /**
  * Media attachment information
  */
+@Serializable
 data class MediaAttachment(
-    @SerializedName("Codec")
+    @SerialName("Codec")
     val codec: String? = null,
-    @SerializedName("CodecTag")
+    @SerialName("CodecTag")
     val codecTag: String? = null,
-    @SerializedName("Comment")
+    @SerialName("Comment")
     val comment: String? = null,
-    @SerializedName("Index")
+    @SerialName("Index")
     val index: Int? = null,
-    @SerializedName("FileName")
+    @SerialName("FileName")
     val fileName: String? = null,
-    @SerializedName("MimeType")
+    @SerialName("MimeType")
     val mimeType: String? = null,
-    @SerializedName("DeliveryUrl")
+    @SerialName("DeliveryUrl")
     val deliveryUrl: String? = null
 )

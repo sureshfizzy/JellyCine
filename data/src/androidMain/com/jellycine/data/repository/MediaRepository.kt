@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.google.gson.Gson
 import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
@@ -102,8 +101,7 @@ class MediaRepository(private val context: Context) {
     @Volatile
     private var cachedImageAuthAt: Long = 0L
 
-    private val gson = Gson()
-    private val homeSnapshotStore = HomeSnapshotStore(context.filesDir, gson)
+    private val homeSnapshotStore = HomeSnapshotStore(context.filesDir)
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->

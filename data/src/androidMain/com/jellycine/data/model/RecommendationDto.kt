@@ -1,17 +1,19 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class RecommendationDto(
-    @SerializedName("BaselineItemName")
+    @SerialName("BaselineItemName")
     val baselineItemName: String? = null,
 
-    @SerializedName("CategoryId")
+    @SerialName("CategoryId")
     val categoryId: String? = null,
 
-    @SerializedName("Items")
+    @SerialName("Items")
     val items: List<BaseItemDto>? = null,
 
-    @SerializedName("RecommendationType")
+    @SerialName("RecommendationType")
     val recommendationType: String? = null
 )

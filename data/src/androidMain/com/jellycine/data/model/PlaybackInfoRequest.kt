@@ -1,30 +1,32 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Request body for POST /Items/{id}/PlaybackInfo.
  * Using explicit serialized names keeps request compatibility with Emby and Jellyfin.
  */
+@Serializable
 data class PlaybackInfoRequest(
-    @SerializedName("UserId")
+    @SerialName("UserId")
     val userId: String,
-    @SerializedName("MaxStreamingBitrate")
+    @SerialName("MaxStreamingBitrate")
     val maxStreamingBitrate: Long? = null,
-    @SerializedName("AudioStreamIndex")
+    @SerialName("AudioStreamIndex")
     val audioStreamIndex: Int? = null,
-    @SerializedName("SubtitleStreamIndex")
+    @SerialName("SubtitleStreamIndex")
     val subtitleStreamIndex: Int? = null,
-    @SerializedName("IsPlayback")
+    @SerialName("IsPlayback")
     val isPlayback: Boolean = true,
-    @SerializedName("AutoOpenLiveStream")
+    @SerialName("AutoOpenLiveStream")
     val autoOpenLiveStream: Boolean = true,
-    @SerializedName("EnableDirectPlay")
+    @SerialName("EnableDirectPlay")
     val enableDirectPlay: Boolean? = null,
-    @SerializedName("EnableDirectStream")
+    @SerialName("EnableDirectStream")
     val enableDirectStream: Boolean? = null,
-    @SerializedName("EnableTranscoding")
+    @SerialName("EnableTranscoding")
     val enableTranscoding: Boolean? = null,
-    @SerializedName("DeviceProfile")
+    @SerialName("DeviceProfile")
     val deviceProfile: DeviceProfile? = null
 )

@@ -1,23 +1,25 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class ServerInfo(
-    @SerializedName("ServerName")
+    @SerialName("ServerName")
     val serverName: String? = null,
 
-    @SerializedName("ProductName")
+    @SerialName("ProductName")
     val productName: String? = null,
 
-    @SerializedName("Version")
+    @SerialName("Version")
     val version: String? = null,
 
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String? = null,
 
-    @SerializedName("LocalAddress")
+    @SerialName("LocalAddress")
     val localAddress: String? = null,
 
-    @SerializedName("WanAddress")
+    @SerialName("WanAddress")
     val wanAddress: String? = null
 )

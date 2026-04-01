@@ -1,10 +1,14 @@
 package com.jellycine.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class HomeLibrarySectionData(
     val library: BaseItemDto,
     val items: List<BaseItemDto>
 )
 
+@Serializable
 data class PersistedHomeSnapshot(
     val snapshotKey: String,
     val updatedAt: Long,

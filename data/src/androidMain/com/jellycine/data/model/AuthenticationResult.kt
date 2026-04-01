@@ -1,60 +1,64 @@
 package com.jellycine.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class AuthenticationResult(
-    @SerializedName("User")
+    @SerialName("User")
     val user: User,
     
-    @SerializedName("SessionInfo")
+    @SerialName("SessionInfo")
     val sessionInfo: SessionInfo? = null,
     
-    @SerializedName("AccessToken")
+    @SerialName("AccessToken")
     val accessToken: String,
     
-    @SerializedName("ServerId")
+    @SerialName("ServerId")
     val serverId: String
 )
 
+@Serializable
 data class User(
-    @SerializedName("Name")
+    @SerialName("Name")
     val name: String,
     
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String,
     
-    @SerializedName("HasPassword")
+    @SerialName("HasPassword")
     val hasPassword: Boolean = false,
     
-    @SerializedName("HasConfiguredPassword")
+    @SerialName("HasConfiguredPassword")
     val hasConfiguredPassword: Boolean = false,
     
-    @SerializedName("HasConfiguredEasyPassword")
+    @SerialName("HasConfiguredEasyPassword")
     val hasConfiguredEasyPassword: Boolean = false
 )
 
+@Serializable
 data class SessionInfo(
-    @SerializedName("Id")
+    @SerialName("Id")
     val id: String,
     
-    @SerializedName("UserId")
+    @SerialName("UserId")
     val userId: String,
     
-    @SerializedName("UserName")
+    @SerialName("UserName")
     val userName: String,
     
-    @SerializedName("Client")
+    @SerialName("Client")
     val client: String,
     
-    @SerializedName("LastActivityDate")
+    @SerialName("LastActivityDate")
     val lastActivityDate: String,
     
-    @SerializedName("DeviceName")
+    @SerialName("DeviceName")
     val deviceName: String,
     
-    @SerializedName("DeviceId")
+    @SerialName("DeviceId")
     val deviceId: String,
     
-    @SerializedName("ApplicationVersion")
+    @SerialName("ApplicationVersion")
     val applicationVersion: String
 )
