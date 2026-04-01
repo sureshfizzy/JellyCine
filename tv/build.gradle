@@ -24,7 +24,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.jellycine.app"
+        applicationId = "com.jellycine.tv"
         minSdk = 27
         targetSdk = 36
         versionCode = rootProject.ext.appVersionCode as Integer
@@ -90,7 +90,7 @@ androidComponents {
         variant.outputs.each { output ->
             def buildTypeName = variant.buildType
             def versionName = rootProject.ext.appVersionName as String
-            output.outputFileName.set("jellycine-${buildTypeName}-${versionName}.apk")
+            output.outputFileName.set("jellycine-tv-${buildTypeName}-${versionName}.apk")
         }
     }
 }

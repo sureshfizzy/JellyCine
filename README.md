@@ -85,7 +85,7 @@
 CLI build:
 
 ```bash
-./gradlew :app:assembleDebug
+./gradlew :phone:assembleDebug
 ```
 
 Debug and release APKs are named as:

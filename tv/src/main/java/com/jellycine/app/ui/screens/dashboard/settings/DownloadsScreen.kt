@@ -1,0 +1,1022 @@
+package com.jellycine.app.ui.screens.dashboard.settings
+
+import android.content.res.Resources
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.jellycine.app.download.DownloadStatus
+import com.jellycine.app.download.DownloadRepositoryProvider
+import com.jellycine.app.download.TrackedDownload
+import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.isPausedTrackedDownload
+import com.jellycine.app.ui.screens.player.PlayerScreen
+import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.app.util.image.rememberImageUrl
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.MediaRepositoryProvider
+import kotlinx.coroutines.launch
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DownloadsScreen(
+    onBackPressed: () -> Unit = {},
+    embedded: Boolean = false,
+    onPlayItem: ((String) -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val resources = context.resources
+    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val downloads by downloadRepository.observeTrackedDownloads().collectAsState()
+    val scope = rememberCoroutineScope()
+
+    val visibleDownloads = remember(downloads) {
+        downloads.filter {
+            it.isOfflineAvailable ||
+                it.state.status == DownloadStatus.DOWNLOADING ||
+                it.state.status == DownloadStatus.QUEUED
+        }
+    }
+    val movieEntries = remember(visibleDownloads) {
+        visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Movie", ignoreCase = true) }
+            .sortedWith(
+                compareByDescending<TrackedDownload> {
+                    it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
+                }
+                    .thenBy { it.title.lowercase(Locale.getDefault()) }
+            )
+    }
+    val seriesGroups = remember(visibleDownloads, resources) {
+        buildSeriesGroups(
+            visibleDownloads.filter { (it.item?.type ?: it.mediaType).equals("Episode", ignoreCase = true) },
+            resources
+        )
+    }
+
+    var selectedSeriesId by remember { mutableStateOf<String?>(null) }
+    var playbackItemId by remember { mutableStateOf<String?>(null) }
+    val deletingState = remember { mutableStateMapOf<String, Boolean>() }
+
+    val selectedSeries = remember(selectedSeriesId, seriesGroups) {
+        seriesGroups.firstOrNull { it.id == selectedSeriesId }
+    }
+
+    val activePlaybackId = playbackItemId
+    BackHandler(enabled = !activePlaybackId.isNullOrBlank() || selectedSeries != null || !embedded) {
+        when {
+            !activePlaybackId.isNullOrBlank() -> playbackItemId = null
+            selectedSeries != null -> selectedSeriesId = null
+            !embedded -> onBackPressed()
+        }
+    }
+
+    if (!activePlaybackId.isNullOrBlank()) {
+        PlayerScreen(
+            mediaId = activePlaybackId,
+            onBackPressed = { playbackItemId = null }
+        )
+        return
+    }
+
+    val playDownloadedItem: (String) -> Unit = { itemId ->
+        if (onPlayItem != null) {
+            onPlayItem(itemId)
+        } else {
+            playbackItemId = itemId
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(selectedSeries?.title ?: stringResource(R.string.downloads)) },
+                navigationIcon = {
+                    if (selectedSeries != null || !embedded) {
+                        IconButton(onClick = {
+                            if (selectedSeries != null) {
+                                selectedSeriesId = null
+                            } else {
+                                onBackPressed()
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = stringResource(R.string.cd_back_button)
+                            )
+                        }
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
+        when {
+            visibleDownloads.isEmpty() -> {
+                EmptyDownloadsState(innerPadding = innerPadding)
+            }
+            selectedSeries != null -> {
+                SeriesDetailContent(
+                    innerPadding = innerPadding,
+                    group = selectedSeries,
+                    mediaRepository = mediaRepository,
+                    deletingState = deletingState,
+                    onDeleteEpisode = { entry ->
+                        val itemId = entry.itemId
+                        scope.launch {
+                            deletingState[itemId] = true
+                            downloadRepository.deleteDownloadedItem(itemId)
+                            deletingState.remove(itemId)
+                        }
+                    },
+                    onPlayEpisode = { entry ->
+                        playDownloadedItem(entry.item?.id ?: entry.itemId)
+                    },
+                    onPause = { entry ->
+                        if (isPausedState(entry, resources)) {
+                            downloadRepository.resumeDownload(entry.itemId)
+                        } else {
+                            downloadRepository.pauseDownload(entry.itemId)
+                        }
+                    },
+                    onCancel = { entry ->
+                        downloadRepository.cancelDownload(entry.itemId)
+                    }
+                )
+            }
+            else -> {
+                DownloadsRootContent(
+                    innerPadding = innerPadding,
+                    seriesGroups = seriesGroups,
+                    movieEntries = movieEntries,
+                    mediaRepository = mediaRepository,
+                    deletingState = deletingState,
+                    onSeriesClick = { selectedSeriesId = it.id },
+                    onDeleteMovie = { entry ->
+                        val itemId = entry.itemId
+                        scope.launch {
+                            deletingState[itemId] = true
+                            downloadRepository.deleteDownloadedItem(itemId)
+                            deletingState.remove(itemId)
+                        }
+                    },
+                    onPlayMovie = { entry ->
+                        playDownloadedItem(entry.item?.id ?: entry.itemId)
+                    },
+                    onPause = { entry ->
+                        if (isPausedState(entry, resources)) {
+                            downloadRepository.resumeDownload(entry.itemId)
+                        } else {
+                            downloadRepository.pauseDownload(entry.itemId)
+                        }
+                    },
+                    onCancel = { entry ->
+                        downloadRepository.cancelDownload(entry.itemId)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyDownloadsState(innerPadding: PaddingValues) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Rounded.Download,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                modifier = Modifier.size(34.dp)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.downloads_empty),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DownloadsRootContent(
+    innerPadding: PaddingValues,
+    seriesGroups: List<OfflineSeriesGroup>,
+    movieEntries: List<TrackedDownload>,
+    mediaRepository: MediaRepository,
+    deletingState: Map<String, Boolean>,
+    onSeriesClick: (OfflineSeriesGroup) -> Unit,
+    onDeleteMovie: (TrackedDownload) -> Unit,
+    onPlayMovie: (TrackedDownload) -> Unit,
+    onPause: (TrackedDownload) -> Unit,
+    onCancel: (TrackedDownload) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+    ) {
+        if (seriesGroups.isNotEmpty()) {
+            item { SectionLabel(stringResource(R.string.tv_shows)) }
+            items(seriesGroups, key = { "series_${it.id}" }) { group ->
+                SeriesSummaryRow(
+                    group = group,
+                    mediaRepository = mediaRepository,
+                    onClick = { onSeriesClick(group) }
+                )
+            }
+        }
+
+        if (movieEntries.isNotEmpty()) {
+            item { SectionLabel(stringResource(R.string.movies)) }
+            items(movieEntries, key = { "movie_${it.itemId}" }) { entry ->
+                MovieRow(
+                    entry = entry,
+                    mediaRepository = mediaRepository,
+                    deleting = deletingState[entry.itemId] == true,
+                    onDelete = { onDeleteMovie(entry) },
+                    onPlay = { onPlayMovie(entry) },
+                    onPauseAction = { onPause(entry) },
+                    onCancelAction = { onCancel(entry) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 4.dp)
+    )
+}
+
+@Composable
+private fun artwork(
+    title: String,
+    imageUrl: String?,
+    logoUrl: String?,
+    width: Dp,
+    height: Dp
+) {
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+    ) {
+        JellyfinPosterImage(
+            imageUrl = imageUrl,
+            contentDescription = title,
+            context = context,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        if (!logoUrl.isNullOrBlank()) {
+            JellyfinPosterImage(
+                imageUrl = logoUrl,
+                contentDescription = title,
+                context = context,
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(height * 0.28f)
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 6.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeriesSummaryRow(
+    group: OfflineSeriesGroup,
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
+) {
+    val resources = LocalContext.current.resources
+    val primaryImageUrl = rememberImageUrl(
+        itemId = group.posterItemId,
+        imageType = "Primary",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val backdropImageUrl = rememberImageUrl(
+        itemId = group.posterItemId,
+        imageType = "Backdrop",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val logoImageUrl = rememberImageUrl(
+        itemId = group.posterItemId,
+        imageType = "Logo",
+        width = 1000,
+        quality = 95,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = backdropImageUrl ?: primaryImageUrl
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        artwork(
+            title = group.title,
+            imageUrl = imageUrl,
+            logoUrl = logoImageUrl,
+            width = 148.dp,
+            height = 84.dp
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = group.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(
+                    R.string.downloads_series_meta,
+                    resources.getQuantityString(
+                        R.plurals.downloads_episodes_count,
+                        group.totalEpisodes,
+                        group.totalEpisodes
+                    ),
+                    formatBytes(group.totalSizeBytes)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            val progressLabel = groupProgressLabel(group, resources)
+            if (!progressLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = progressLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.75f),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun MovieRow(
+    entry: TrackedDownload,
+    mediaRepository: MediaRepository,
+    deleting: Boolean,
+    onDelete: () -> Unit,
+    onPlay: () -> Unit,
+    onPauseAction: () -> Unit,
+    onCancelAction: () -> Unit
+) {
+    val resources = LocalContext.current.resources
+    val posterId = entry.item?.id ?: entry.itemId
+    val primaryImageUrl = rememberImageUrl(
+        itemId = posterId,
+        imageType = "Primary",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val backdropImageUrl = rememberImageUrl(
+        itemId = posterId,
+        imageType = "Backdrop",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val logoImageUrl = rememberImageUrl(
+        itemId = posterId,
+        imageType = "Logo",
+        width = 1000,
+        quality = 95,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = backdropImageUrl ?: primaryImageUrl
+    val canPlay = entry.isOfflineAvailable
+    val statusLabel = downloadStatusLabel(entry, resources)
+    val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
+    val yearText = (entry.item?.productionYear ?: entry.year)?.toString().orEmpty()
+    val sizeText = formatBytes(entry.displayBytes())
+    val metaText = if (yearText.isBlank()) {
+        sizeText
+    } else {
+        stringResource(R.string.downloads_series_meta, yearText, sizeText)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(enabled = canPlay, onClick = onPlay)
+            .padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        artwork(
+            title = entry.title,
+            imageUrl = imageUrl,
+            logoUrl = logoImageUrl,
+            width = 148.dp,
+            height = 84.dp
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = entry.title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = metaText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            if (!statusLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = statusColor,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        DownloadRowAction(
+            entry = entry,
+            deleting = deleting,
+            onDelete = onDelete,
+            onPause = onPauseAction,
+            onCancel = onCancelAction
+        )
+    }
+}
+
+@Composable
+private fun SeriesDetailContent(
+    innerPadding: PaddingValues,
+    group: OfflineSeriesGroup,
+    mediaRepository: MediaRepository,
+    deletingState: Map<String, Boolean>,
+    onDeleteEpisode: (TrackedDownload) -> Unit,
+    onPlayEpisode: (TrackedDownload) -> Unit,
+    onPause: (TrackedDownload) -> Unit,
+    onCancel: (TrackedDownload) -> Unit
+) {
+    val resources = LocalContext.current.resources
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+    ) {
+        items(group.seasons, key = { it.id }) { season ->
+                Text(
+                    text = season.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+
+            season.episodes.forEach { entry ->
+                EpisodeRow(
+                    entry = entry,
+                    mediaRepository = mediaRepository,
+                    deleting = deletingState[entry.itemId] == true,
+                    onDelete = { onDeleteEpisode(entry) },
+                    onPlay = { onPlayEpisode(entry) },
+                    onPauseAction = { onPause(entry) },
+                    onCancelAction = { onCancel(entry) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeRow(
+    entry: TrackedDownload,
+    mediaRepository: MediaRepository,
+    deleting: Boolean,
+    onDelete: () -> Unit,
+    onPlay: () -> Unit,
+    onPauseAction: () -> Unit,
+    onCancelAction: () -> Unit
+) {
+    val resources = LocalContext.current.resources
+    val item = entry.item
+    val primaryImageUrl = rememberImageUrl(
+        itemId = item?.id ?: entry.itemId,
+        imageType = "Primary",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val backdropImageUrl = rememberImageUrl(
+        itemId = item?.id ?: entry.itemId,
+        imageType = "Backdrop",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val seriesPrimaryImageUrl = rememberImageUrl(
+        itemId = item?.seriesId,
+        imageType = "Primary",
+        width = 1280,
+        height = 720,
+        quality = 100,
+        enableImageEnhancers = false,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = primaryImageUrl ?: backdropImageUrl ?: seriesPrimaryImageUrl
+    val episodeNumber = item?.indexNumber ?: 0
+    val runtime = item?.runTimeTicks?.let { ticksToMinutes(it) } ?: "-"
+    val size = formatBytes(entry.displayBytes())
+    val canPlay = entry.isOfflineAvailable
+    val statusLabel = downloadStatusLabel(entry, resources)
+    val statusColor = if (entry.state.status == DownloadStatus.DOWNLOADING) Color.White else Color.White.copy(alpha = 0.82f)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(enabled = canPlay, onClick = onPlay)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(136.dp)
+                .height(74.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+        ) {
+            JellyfinPosterImage(
+                imageUrl = imageUrl,
+                contentDescription = entry.title,
+                context = LocalContext.current,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.downloads_episode_title, episodeNumber, entry.title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.downloads_series_meta, runtime, size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+            if (!statusLabel.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = statusColor,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        DownloadRowAction(
+            entry = entry,
+            deleting = deleting,
+            onDelete = onDelete,
+            onPause = onPauseAction,
+            onCancel = onCancelAction
+        )
+    }
+}
+
+@Composable
+private fun DownloadRowAction(
+    entry: TrackedDownload,
+    deleting: Boolean,
+    onDelete: () -> Unit,
+    onPause: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val isActive = entry.state.status == DownloadStatus.DOWNLOADING || entry.state.status == DownloadStatus.QUEUED
+    val resources = LocalContext.current.resources
+    val isPaused = isPausedState(entry, resources)
+    var menuExpanded by remember(entry.itemId, entry.state.status, entry.state.message) { mutableStateOf(false) }
+
+    Box {
+        IconButton(
+            onClick = {
+                if (isActive) {
+                    menuExpanded = true
+                } else {
+                    onDelete()
+                }
+            },
+            enabled = !deleting
+        ) {
+            when {
+                deleting -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                }
+
+                entry.state.status == DownloadStatus.DOWNLOADING -> {
+                    val progress = downloadProgress(entry).coerceIn(0.02f, 1f)
+                    val hasKnownTotal = entry.state.totalBytes > 0L
+                    Box(
+                        modifier = Modifier.size(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (hasKnownTotal) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            CircularProgressIndicator(
+                                modifier = Modifier.fillMaxSize(),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Stop,
+                            contentDescription = stringResource(R.string.downloads_action_options),
+                            tint = Color.White.copy(alpha = 0.92f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                entry.state.status == DownloadStatus.QUEUED -> {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .border(
+                                width = 1.3.dp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Stop,
+                            contentDescription = stringResource(R.string.downloads_queue_options),
+                            tint = Color.White.copy(alpha = 0.92f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                else -> {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = stringResource(R.string.delete),
+                        tint = Color.White.copy(alpha = 0.88f)
+                    )
+                }
+            }
+        }
+
+        DropdownMenu(
+            modifier = Modifier.widthIn(min = 108.dp, max = 136.dp),
+            expanded = menuExpanded && isActive,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            if (entry.state.status == DownloadStatus.DOWNLOADING) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.downloads_action_pause), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    onClick = {
+                        menuExpanded = false
+                        onPause()
+                    }
+                )
+            } else if (isPaused) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.resume), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    onClick = {
+                        menuExpanded = false
+                        onPause()
+                    }
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.downloads_action_cancel), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)) },
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                onClick = {
+                    menuExpanded = false
+                    onCancel()
+                }
+            )
+        }
+    }
+}
+
+private data class OfflineSeriesGroup(
+    val id: String,
+    val title: String,
+    val posterItemId: String,
+    val seasons: List<OfflineSeasonGroup>,
+    val totalEpisodes: Int,
+    val totalSizeBytes: Long
+)
+
+private data class OfflineSeasonGroup(
+    val id: String,
+    val label: String,
+    val episodes: List<TrackedDownload>
+)
+
+private fun buildSeriesGroups(entries: List<TrackedDownload>, resources: Resources): List<OfflineSeriesGroup> {
+    return entries
+        .groupBy { entry ->
+            val item = entry.item
+            item?.seriesId ?: item?.parentId ?: entry.itemId
+        }
+        .map { (seriesId, episodes) ->
+            val firstItem = episodes.firstNotNullOfOrNull { it.item }
+            val seriesTitle = firstItem?.seriesName?.takeIf { it.isNotBlank() }
+                ?: episodes.firstOrNull()?.title
+                ?: resources.getString(R.string.downloads_series_fallback)
+            val posterItemId = firstItem?.seriesId ?: firstItem?.id ?: seriesId
+
+            val seasons = episodes
+                .groupBy { ep ->
+                    val item = ep.item
+                    item?.seasonId ?: item?.parentIndexNumber?.toString() ?: "unknown"
+                }
+                .map { (_, seasonEpisodes) ->
+                    val first = seasonEpisodes.firstOrNull()?.item
+                    val seasonId = first?.seasonId ?: first?.parentIndexNumber?.toString() ?: "unknown"
+                    val label = when {
+                        !first?.seasonName.isNullOrBlank() -> first.seasonName.orEmpty()
+                        first?.parentIndexNumber != null -> resources.getString(
+                            R.string.downloads_season_number,
+                            first.parentIndexNumber
+                        )
+                        else -> resources.getString(R.string.downloads_season_fallback)
+                    }
+                    OfflineSeasonGroup(
+                        id = seasonId,
+                        label = label,
+                        episodes = seasonEpisodes.sortedBy { it.item?.indexNumber ?: Int.MAX_VALUE }
+                    )
+                }
+                .sortedBy { it.label.lowercase(Locale.getDefault()) }
+
+            OfflineSeriesGroup(
+                id = seriesId,
+                title = seriesTitle,
+                posterItemId = posterItemId,
+                seasons = seasons,
+                totalEpisodes = episodes.size,
+                totalSizeBytes = episodes.sumOf { it.displayBytes() ?: 0L }
+            )
+        }
+        .sortedWith(
+            compareByDescending<OfflineSeriesGroup> { group ->
+                group.seasons.any { season ->
+                    season.episodes.any { episode ->
+                        episode.state.status == DownloadStatus.DOWNLOADING ||
+                            episode.state.status == DownloadStatus.QUEUED
+                    }
+                }
+            }
+                .thenBy { it.title.lowercase(Locale.getDefault()) }
+        )
+}
+
+private fun formatBytes(bytes: Long?): String {
+    val safe = bytes ?: return "-"
+    if (safe <= 0L) return "-"
+    val kb = 1024.0
+    val mb = kb * 1024.0
+    val gb = mb * 1024.0
+    return when {
+        safe >= gb -> String.format(Locale.US, "%.1f GB", safe / gb)
+        safe >= mb -> String.format(Locale.US, "%.1f MB", safe / mb)
+        safe >= kb -> String.format(Locale.US, "%.0f KB", safe / kb)
+        else -> "$safe B"
+    }
+}
+
+private fun ticksToMinutes(ticks: Long): String {
+    val minutes = ticks / 10_000_000L / 60L
+    val hours = minutes / 60
+    val remMin = minutes % 60
+    return when {
+        hours > 0L && remMin > 0L -> "${hours}h ${remMin}m"
+        hours > 0L -> "${hours}h"
+        minutes > 0L -> "${minutes}m"
+        else -> "-"
+    }
+}
+
+private fun TrackedDownload.displayBytes(): Long? {
+    return fileSizeBytes
+        ?: state.totalBytes.takeIf { it > 0L }
+        ?: state.downloadedBytes.takeIf { it > 0L }
+}
+
+private fun isPausedState(entry: TrackedDownload, resources: Resources): Boolean {
+    return isPausedTrackedDownload(entry, resources.getString(R.string.downloads_status_paused))
+}
+
+private fun downloadStatusLabel(entry: TrackedDownload, resources: Resources): String? {
+    return when (entry.state.status) {
+        DownloadStatus.DOWNLOADING -> {
+            val size = if (entry.state.totalBytes > 0L) {
+                resources.getString(
+                    R.string.downloads_progress_with_total,
+                    formatProgressBytes(entry.state.downloadedBytes),
+                    formatProgressBytes(entry.state.totalBytes)
+                )
+            } else if (entry.state.downloadedBytes > 0L) {
+                resources.getString(
+                    R.string.downloads_progress_downloaded_only,
+                    formatProgressBytes(entry.state.downloadedBytes)
+                )
+            } else {
+                ""
+            }
+            if (entry.state.totalBytes > 0L) {
+                val percent = (downloadProgress(entry) * 100f).toInt()
+                resources.getString(R.string.downloads_status_downloading_percent, percent, size)
+            } else {
+                resources.getString(R.string.downloads_status_downloading, size)
+            }
+        }
+        DownloadStatus.QUEUED -> {
+            if (isPausedState(entry, resources)) {
+                resources.getString(R.string.downloads_status_paused)
+            } else {
+                resources.getString(R.string.downloads_status_queued)
+            }
+        }
+        else -> null
+    }
+}
+
+private fun downloadProgress(entry: TrackedDownload): Float {
+    val downloadedBytes = entry.state.downloadedBytes
+    val totalBytes = entry.state.totalBytes
+    if (downloadedBytes > 0L && totalBytes > 0L) {
+        return (downloadedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+    }
+    return 0f
+}
+
+private fun formatProgressBytes(bytes: Long): String {
+    return if (bytes <= 0L) "0 B" else formatBytes(bytes)
+}
+
+private fun groupProgressLabel(group: OfflineSeriesGroup, resources: Resources): String? {
+    val episodes = group.seasons.flatMap { it.episodes }
+    val totalEpisodes = episodes.size
+    val completedEpisodes = episodes.count { it.isOfflineAvailable }
+    val downloadingEpisodes = episodes.count { it.state.status == DownloadStatus.DOWNLOADING }
+    val pausedEpisodes = episodes.count { isPausedState(it, resources) }
+    val queuedEpisodes = episodes.count { it.state.status == DownloadStatus.QUEUED } - pausedEpisodes
+
+    return when {
+        downloadingEpisodes > 0 ->
+            resources.getString(
+                R.string.downloads_group_downloading,
+                completedEpisodes + downloadingEpisodes,
+                totalEpisodes
+            )
+        queuedEpisodes > 0 ->
+            resources.getQuantityString(R.plurals.downloads_group_queued, queuedEpisodes, queuedEpisodes)
+        pausedEpisodes > 0 ->
+            resources.getQuantityString(R.plurals.downloads_group_paused, pausedEpisodes, pausedEpisodes)
+        else -> null
+    }
+}
+

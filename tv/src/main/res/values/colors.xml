@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Splash Screen Colors -->
+    <color name="splash_background">#000000</color>
+    <color name="splash_icon_background">@android:color/transparent</color>
+</resources>

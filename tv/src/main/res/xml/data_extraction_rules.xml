@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Exclude auth metadata and encrypted tokens from cloud backup -->
+        <exclude domain="file" path="datastore/auth_prefs.preferences_pb" />
+        <exclude domain="sharedpref" path="secure_auth_store.xml" />
+        <exclude domain="database" />
+    </cloud-backup>
+    <device-transfer>
+        <!-- Allow transfer for user preferences -->
+        <include domain="sharedpref" path="user_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

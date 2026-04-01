@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom splash screen theme -->
+    <style name="Theme.JellyCine.Splash" parent="Theme.JellyCine">
+        <!-- Splash screen attributes are only available from API 31+ -->
+        <!-- For lower API levels, the core-splashscreen library will handle the splash -->
+    </style>
+</resources>
