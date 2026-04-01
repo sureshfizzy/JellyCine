@@ -36,7 +36,7 @@ import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.jellycine.app.R
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 
@@ -73,7 +73,7 @@ fun Settings(
         uiState.savedServers
             .filter { savedServer ->
                 currentServerUrl != null &&
-                    NetworkModule.sameServerUrl(savedServer.serverUrl, currentServerUrl)
+                    sameServerUrl(savedServer.serverUrl, currentServerUrl)
             }
             .sortedWith(
                 compareByDescending<AuthRepository.SavedServer> {

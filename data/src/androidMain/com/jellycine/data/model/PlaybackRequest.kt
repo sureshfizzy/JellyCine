@@ -1,7 +1,7 @@
 package com.jellycine.data.model
 
 import android.net.Uri
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.ServerType
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
 import com.jellycine.data.util.removeQueryParameter
@@ -13,7 +13,7 @@ data class PlaybackRequest(
 
 internal data class PlaybackAuthContext(
     val serverUrl: String,
-    val serverType: NetworkModule.ServerType?,
+    val serverType: ServerType?,
     val accessToken: String?,
     val deviceId: String,
     val clientVersion: String

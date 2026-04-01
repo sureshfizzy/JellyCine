@@ -47,6 +47,8 @@ import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.sameServerUrl
+import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -1203,7 +1205,7 @@ fun Dashboard(
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
-        "${currentServerUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
+        "${currentServerUrl?.let(::trimTrailingSlash).orEmpty()}|${currentUsername.orEmpty()}"
     }
     val HeaderUserName = currentUsername
         ?.takeIf { it.isNotBlank() }
@@ -1219,7 +1221,7 @@ fun Dashboard(
         sessionSnapshot.savedServers
             .filter { savedServer ->
                 currentServerUrl != null &&
-                    NetworkModule.sameServerUrl(savedServer.serverUrl, currentServerUrl)
+                    sameServerUrl(savedServer.serverUrl, currentServerUrl)
             }
             .sortedWith(
                 compareByDescending<com.jellycine.data.repository.AuthRepository.SavedServer> {

@@ -21,6 +21,8 @@ import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.ServerType
+import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.preferences.NetworkTimeoutConfig
 import com.jellycine.data.security.AuthSessionIds
@@ -58,7 +60,7 @@ class MediaRepository(private val context: Context) {
     private data class ApiSession(
         val api: MediaServerApi,
         val userId: String,
-        val serverType: NetworkModule.ServerType?,
+        val serverType: ServerType?,
         val baseUrl: String
     )
 
@@ -70,7 +72,7 @@ class MediaRepository(private val context: Context) {
     private data class SessionConfig(
         val serverUrl: String,
         val serverTypeRaw: String?,
-        val serverType: NetworkModule.ServerType?,
+        val serverType: ServerType?,
         val accessToken: String?,
         val userId: String,
         val timeoutConfig: NetworkTimeoutConfig
@@ -135,7 +137,7 @@ class MediaRepository(private val context: Context) {
         val userId = preferences[USER_ID_KEY] ?: return null
         val serverTypeRaw = preferences[SERVER_TYPE_KEY]
         val serverType = serverTypeRaw?.let {
-            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+            runCatching { ServerType.valueOf(it) }.getOrNull()
         }
         val accessToken = secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
             ?: preferences[LEGACY_ACCESS_TOKEN_KEY]
@@ -204,7 +206,7 @@ class MediaRepository(private val context: Context) {
     }
 
     private fun buildSnapshotKey(config: SessionConfig): String {
-        return "${NetworkModule.trimTrailingSlash(config.serverUrl)}|${config.userId}"
+        return "${trimTrailingSlash(config.serverUrl)}|${config.userId}"
     }
 
     fun getPersistedHomeSnapshot(): PersistedHomeSnapshot? {
@@ -362,10 +364,10 @@ class MediaRepository(private val context: Context) {
     }
 
     private fun SuggestionsEndpoint(
-        serverType: NetworkModule.ServerType?,
+        serverType: ServerType?,
         userId: String
     ): SuggestionsRoute {
-        val isEmby = serverType == NetworkModule.ServerType.EMBY
+        val isEmby = serverType == ServerType.EMBY
         return if (isEmby) {
             SuggestionsRoute(endpoint = "Users/$userId/Suggestions", userIdQuery = null)
         } else {
@@ -1017,7 +1019,7 @@ class MediaRepository(private val context: Context) {
     ): Result<List<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
-            val legacyNextUp = if (session.serverType == NetworkModule.ServerType.EMBY) true else null
+            val legacyNextUp = if (session.serverType == ServerType.EMBY) true else null
 
             val response = session.api.getNextUp(
                 userId = session.userId,
@@ -1148,7 +1150,7 @@ class MediaRepository(private val context: Context) {
             val forceTranscode = (maxStreamingBitrate ?: 0) > 0
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
             // Emby resolves original-playback requests more reliably through the query-based endpoint.
-            val preferGetPlaybackInfo = serverType == NetworkModule.ServerType.EMBY &&
+            val preferGetPlaybackInfo = serverType == ServerType.EMBY &&
                 !forceTranscode && audioTranscodeMode == AudioTranscodeMode.AUTO
             val deviceProfile = PlaybackDeviceProfileFactory.create(
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
@@ -1677,4 +1679,3 @@ fun BaseItemDto.getFormattedResumePosition(): String? {
         String.format("%d:%02d", minutes, seconds % 60)
     }
 }
-

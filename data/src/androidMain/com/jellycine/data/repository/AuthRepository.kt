@@ -12,6 +12,9 @@ import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.network.ServerEndpoint
+import com.jellycine.data.network.ServerType
+import com.jellycine.data.network.canonicalServerUrl
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.AuthSessionIds
@@ -101,17 +104,17 @@ class AuthRepository(private val context: Context) {
         val activeServerId: String?
     )
 
-    private fun defaultServerName(serverType: NetworkModule.ServerType): String {
+    private fun defaultServerName(serverType: ServerType): String {
         return when (serverType) {
-            NetworkModule.ServerType.EMBY -> "Emby Server"
-            NetworkModule.ServerType.JELLYFIN -> "Jellyfin Server"
-            NetworkModule.ServerType.UNKNOWN -> "Media Server"
+            ServerType.EMBY -> "Emby Server"
+            ServerType.JELLYFIN -> "Jellyfin Server"
+            ServerType.UNKNOWN -> "Media Server"
         }
     }
 
     private fun serverName(
         serverInfo: ServerInfo,
-        serverType: NetworkModule.ServerType
+        serverType: ServerType
     ): String {
         return serverInfo.serverName
             ?.takeIf { it.isNotBlank() }
@@ -175,9 +178,9 @@ class AuthRepository(private val context: Context) {
             .firstOrNull { savedServer -> savedServer.id == serverId }
         val serverTypeRaw = preferences[SERVER_TYPE_KEY]
             ?.takeIf { it.isNotBlank() }
-            ?: NetworkModule.ServerType.UNKNOWN.name
-        val serverType = runCatching { NetworkModule.ServerType.valueOf(serverTypeRaw) }
-            .getOrDefault(NetworkModule.ServerType.UNKNOWN)
+            ?: ServerType.UNKNOWN.name
+        val serverType = runCatching { ServerType.valueOf(serverTypeRaw) }
+            .getOrDefault(ServerType.UNKNOWN)
         val serverName = preferences[SERVER_NAME_KEY]
             ?.takeIf { it.isNotBlank() }
             ?: defaultServerName(serverType)
@@ -471,15 +474,15 @@ class AuthRepository(private val context: Context) {
     private suspend fun authEndpoint(
         serverUrl: String,
         preferences: Preferences
-    ): Result<NetworkModule.ServerEndpoint> {
+    ): Result<ServerEndpoint> {
         legacyStorageMigrated()
         val savedServerUrl = preferences[SERVER_URL_KEY]
         val savedServerType = preferences[SERVER_TYPE_KEY]?.let {
-            runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+            runCatching { ServerType.valueOf(it) }.getOrNull()
         }
         if (isSameServer(serverUrl, savedServerUrl) && savedServerUrl != null && savedServerType != null) {
             return Result.success(
-                NetworkModule.ServerEndpoint(
+                ServerEndpoint(
                     baseUrl = savedServerUrl,
                     serverType = savedServerType,
                     serverInfo = ServerInfo(
@@ -511,19 +514,19 @@ class AuthRepository(private val context: Context) {
             val preferences = dataStore.data.first()
             val savedServerUrl = preferences[SERVER_URL_KEY]
             val savedServerType = preferences[SERVER_TYPE_KEY]?.let {
-                runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+                runCatching { ServerType.valueOf(it) }.getOrNull()
             }
 
             val endpoint = if (isSameServer(serverUrl, savedServerUrl) && savedServerUrl != null && savedServerType != null) {
-                NetworkModule.ServerEndpoint(
+                ServerEndpoint(
                     baseUrl = savedServerUrl,
                     serverType = savedServerType,
                     serverInfo = ServerInfo(
                         serverName = preferences[SERVER_NAME_KEY] ?: "",
                         productName = when (savedServerType) {
-                            NetworkModule.ServerType.EMBY -> "Emby"
-                            NetworkModule.ServerType.JELLYFIN -> "Jellyfin"
-                            NetworkModule.ServerType.UNKNOWN -> "Media Server"
+                            ServerType.EMBY -> "Emby"
+                            ServerType.JELLYFIN -> "Jellyfin"
+                            ServerType.UNKNOWN -> "Media Server"
                         }
                     )
                 )
@@ -621,7 +624,7 @@ class AuthRepository(private val context: Context) {
             legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val endpoint = authEndpoint(serverUrl, preferences).getOrNull()
-            endpoint?.serverType != NetworkModule.ServerType.EMBY
+            endpoint?.serverType != ServerType.EMBY
         }.getOrDefault(true)
     }
 
@@ -782,8 +785,8 @@ class AuthRepository(private val context: Context) {
     private fun isSameServer(inputUrl: String, savedUrl: String?): Boolean {
         if (savedUrl.isNullOrBlank()) return false
 
-        val normalizedInput = NetworkModule.canonicalServerUrl(inputUrl)
-        val normalizedSaved = NetworkModule.canonicalServerUrl(savedUrl)
+        val normalizedInput = canonicalServerUrl(inputUrl)
+        val normalizedSaved = canonicalServerUrl(savedUrl)
         val normalizedSavedWithoutEmby = normalizedSaved.removeSuffix("/emby")
 
         return normalizedInput.equals(normalizedSaved, ignoreCase = true) ||

@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.app.preferences.Preferences
 import com.jellycine.data.model.UserDto
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -154,7 +154,7 @@ class SettingsViewModel(
     }
 
     private fun buildSessionKey(serverUrl: String?, username: String?): String {
-        return "${serverUrl?.let(NetworkModule::trimTrailingSlash).orEmpty()}|${username.orEmpty()}"
+        return "${serverUrl?.let(::trimTrailingSlash).orEmpty()}|${username.orEmpty()}"
     }
 
     private suspend fun refreshCurrentUserAndProfile(sessionKey: String, username: String?) {

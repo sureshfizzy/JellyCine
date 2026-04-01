@@ -12,7 +12,7 @@ import coil3.request.CachePolicy
 import com.jellycine.app.BuildConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthHeaderDto
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.ServerType
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.AuthSessionIds
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
@@ -122,7 +122,7 @@ object ImageLoaderConfig {
                     null
                 } ?: preferences?.get(LEGACY_ACCESS_TOKEN_KEY)
                 val serverType = preferences?.get(SERVER_TYPE_KEY)?.let {
-                    runCatching { NetworkModule.ServerType.valueOf(it) }.getOrNull()
+                    runCatching { ServerType.valueOf(it) }.getOrNull()
                 }
                 val header = AuthHeaderDto.fromServerType(
                     serverType = serverType,
@@ -218,4 +218,3 @@ object ImageLoaderConfig {
     }
 
 }
-

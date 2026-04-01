@@ -3,12 +3,12 @@ package com.jellycine.data.security
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.canonicalServerUrlKey
 import java.security.MessageDigest
 
 object AuthSessionIds {
     fun buildServerId(serverUrl: String, userId: String): String {
-        return "${NetworkModule.canonicalServerUrlKey(serverUrl)}|${userId.trim()}"
+        return "${canonicalServerUrlKey(serverUrl)}|${userId.trim()}"
     }
 }
 

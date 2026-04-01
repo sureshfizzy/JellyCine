@@ -7,12 +7,10 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
 import com.jellycine.data.DataModuleConfig
-import com.jellycine.data.api.MediaServerApiClient
 import com.jellycine.data.api.MediaServerApi
+import com.jellycine.data.api.MediaServerApiClient
 import com.jellycine.data.model.AuthHeaderDto
-import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.preferences.NetworkTimeoutConfig
-import com.jellycine.data.network.JellyCineJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -43,17 +41,6 @@ object NetworkModule {
     private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
-    enum class ServerType {
-        UNKNOWN,
-        JELLYFIN,
-        EMBY
-    }
-
-    data class ServerEndpoint(
-        val baseUrl: String,
-        val serverType: ServerType,
-        val serverInfo: ServerInfo
-    )
 
     fun getClientDeviceId(): String = deviceId
 
@@ -338,27 +325,6 @@ object NetworkModule {
         )
     }
 
-    fun trimTrailingSlash(url: String, trailingSlash: Boolean = false): String {
-        var normalized = url
-        while (normalized.endsWith("/")) {
-            normalized = normalized.dropLast(1)
-        }
-        return if (trailingSlash) "$normalized/" else normalized
-    }
-
-    fun canonicalServerUrl(url: String): String {
-        return trimTrailingSlash(url.trim())
-    }
-
-    fun canonicalServerUrlKey(url: String): String {
-        return canonicalServerUrl(url).lowercase()
-    }
-
-    fun sameServerUrl(left: String?, right: String?): Boolean {
-        if (left.isNullOrBlank() || right.isNullOrBlank()) return false
-        return canonicalServerUrl(left).equals(canonicalServerUrl(right), ignoreCase = true)
-    }
-
     private fun buildAuthHeader(
         accessToken: String?,
         deviceId: String,
@@ -374,44 +340,4 @@ object NetworkModule {
         ).asHeaderValue()
     }
 
-    private fun buildBaseUrlCandidates(serverUrl: String): List<String> {
-        val normalized = trimTrailingSlash(serverUrl.trim())
-        if (normalized.endsWith("/emby", ignoreCase = true)) {
-            return listOf(normalized)
-        }
-
-        return listOf(normalized, "$normalized/emby")
-    }
-
-    private fun inferServerType(baseUrl: String): ServerType {
-        return if (trimTrailingSlash(baseUrl).endsWith("/emby", ignoreCase = true)) {
-            ServerType.EMBY
-        } else {
-            ServerType.UNKNOWN
-        }
-    }
-
-    private fun detectServerType(serverInfo: ServerInfo, headers: ApiHeaders? = null): ServerType {
-        val appHeader = headers?.get("X-Application").orEmpty()
-        if (appHeader.contains("jellyfin", ignoreCase = true)) {
-            return ServerType.JELLYFIN
-        }
-        if (appHeader.contains("emby", ignoreCase = true)) {
-            return ServerType.EMBY
-        }
-        val productName = serverInfo.productName.orEmpty()
-        if (productName.contains("jellyfin", ignoreCase = true)) {
-            return ServerType.JELLYFIN
-        }
-        if (productName.contains("emby", ignoreCase = true)) {
-            return ServerType.EMBY
-        }
-        val version = serverInfo.version.orEmpty()
-        if (version.startsWith("4.")) {
-            return ServerType.EMBY
-        }
-        return ServerType.UNKNOWN
-    }
-
 }
-

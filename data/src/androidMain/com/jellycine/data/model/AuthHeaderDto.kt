@@ -1,6 +1,6 @@
 package com.jellycine.data.model
 
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.ServerType
 
 data class AuthHeaderDto(
     val scheme: String,
@@ -26,14 +26,14 @@ data class AuthHeaderDto(
 
     companion object {
         fun fromServerType(
-            serverType: NetworkModule.ServerType?,
+            serverType: ServerType?,
             deviceId: String,
             version: String,
             accessToken: String? = null,
             clientName: String = "JellyCine",
             deviceName: String = "Android"
         ): AuthHeaderDto {
-            val scheme = if (serverType == NetworkModule.ServerType.EMBY) "Emby" else "MediaBrowser"
+            val scheme = if (serverType == ServerType.EMBY) "Emby" else "MediaBrowser"
             return AuthHeaderDto(
                 scheme = scheme,
                 clientName = clientName,

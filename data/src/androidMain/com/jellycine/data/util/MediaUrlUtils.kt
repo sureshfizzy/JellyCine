@@ -1,7 +1,7 @@
 package com.jellycine.data.util
 
 import android.net.Uri
-import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.trimTrailingSlash
 import java.net.URI
 
 internal fun buildServerUrl(
@@ -9,7 +9,7 @@ internal fun buildServerUrl(
     encodedPath: String,
     queryParams: List<Pair<String, String?>> = emptyList()
 ): String {
-    val builder = Uri.parse(NetworkModule.trimTrailingSlash(baseUrl))
+    val builder = Uri.parse(trimTrailingSlash(baseUrl))
         .buildUpon()
         .appendEncodedPath(encodedPath.trimStart('/'))
     queryParams.forEach { (key, value) ->
@@ -26,7 +26,7 @@ internal fun getServerUrl(
 ): String? {
     val rawUrl = url?.takeIf { it.isNotBlank() } ?: return null
     return runCatching {
-        URI.create(NetworkModule.trimTrailingSlash(baseUrl, trailingSlash = true))
+        URI.create(trimTrailingSlash(baseUrl, trailingSlash = true))
             .resolve(rawUrl)
             .toString()
     }.getOrNull()
