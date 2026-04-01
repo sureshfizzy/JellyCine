@@ -1,6 +1,6 @@
 package com.jellycine.app.ui.screens.detail
 
-import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.flow.first

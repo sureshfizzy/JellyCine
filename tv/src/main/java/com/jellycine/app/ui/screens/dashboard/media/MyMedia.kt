@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
-import com.jellycine.app.util.image.disableEmbyPosterEnhancers
+import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch

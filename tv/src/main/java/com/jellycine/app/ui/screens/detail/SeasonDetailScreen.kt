@@ -32,8 +32,8 @@ import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
-import com.jellycine.app.util.image.JellyfinPosterImage
-import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider

@@ -17,7 +17,7 @@ import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.google.android.gms.common.images.WebImage
 import com.jellycine.app.R
-import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

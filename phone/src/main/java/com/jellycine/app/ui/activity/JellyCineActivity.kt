@@ -23,7 +23,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.locale.AppLanguageManager
-import com.jellycine.app.ui.theme.JellyCineTheme
+import com.jellycine.shared.ui.theme.JellyCineTheme
 import com.jellycine.app.ui.navigation.AppNavigation
 import com.jellycine.app.ui.splash.SplashScreen
 import com.jellycine.app.ui.splash.SplashViewModel

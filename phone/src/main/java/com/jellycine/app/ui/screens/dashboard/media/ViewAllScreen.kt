@@ -56,10 +56,10 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.R
-import com.jellycine.app.ui.components.common.FilterChip as MediaFilterChip
-import com.jellycine.app.ui.components.common.PosterCountBadge
-import com.jellycine.app.util.image.DisableEmbyPosterEnhancers
-import com.jellycine.app.util.image.WarmImageUrl
+import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
+import com.jellycine.shared.ui.components.common.PosterCountBadge
+import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
+import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto

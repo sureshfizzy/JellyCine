@@ -29,7 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.detail.CodecUtils
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository

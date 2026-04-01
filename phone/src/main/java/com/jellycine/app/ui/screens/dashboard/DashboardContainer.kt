@@ -46,8 +46,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.jellycine.app.preferences.Preferences
-import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia

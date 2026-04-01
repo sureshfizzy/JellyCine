@@ -33,11 +33,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import com.jellycine.app.preferences.Preferences
-import com.jellycine.app.util.image.JellyfinPosterImage
-import com.jellycine.app.util.image.imageTagFor
-import com.jellycine.app.ui.components.common.AnimatedCard
-import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.ui.components.common.AnimatedCard
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository

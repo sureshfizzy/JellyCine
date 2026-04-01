@@ -70,7 +70,7 @@ import coil3.request.*
 import com.jellycine.app.R
 import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
-import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot

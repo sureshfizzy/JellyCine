@@ -16,5 +16,6 @@ dependencyResolutionManagement {
 rootProject.name = "JellyCine"
 include ':phone'
 include ':tv'
+include ':shared'
 include ':data'
 include ':core'

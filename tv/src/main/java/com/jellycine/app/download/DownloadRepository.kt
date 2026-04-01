@@ -1,7 +1,7 @@
 package com.jellycine.app.download
 
 import android.content.Context
-import com.jellycine.app.preferences.Preferences
+import com.jellycine.shared.preferences.Preferences
 import com.jellycine.app.ui.components.common.isPausedDownloadState
 import com.jellycine.app.ui.components.common.pausedDownloadMessage
 import com.jellycine.data.model.BaseItemDto

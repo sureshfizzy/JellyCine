@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
-import com.jellycine.app.util.image.primaryImageTagOrNull
+import com.jellycine.shared.util.image.primaryImageTagOrNull
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson

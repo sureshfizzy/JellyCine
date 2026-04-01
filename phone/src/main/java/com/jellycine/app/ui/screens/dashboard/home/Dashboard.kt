@@ -35,12 +35,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.preferences.Preferences
-import com.jellycine.app.util.image.JellyfinPosterImage
+import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
-import com.jellycine.app.ui.components.common.*
+import com.jellycine.app.ui.components.common.ScreenCastButton
+import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
@@ -105,8 +106,8 @@ import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import coil3.size.Precision
-import com.jellycine.app.util.image.imageTagFor
-import com.jellycine.app.util.image.WarmImageUrl
+import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.util.image.WarmImageUrl
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable

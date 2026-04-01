@@ -36,9 +36,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
-import com.jellycine.app.util.image.JellyfinPosterImage
-import com.jellycine.app.util.image.imageTagFor
-import com.jellycine.app.util.image.rememberImageUrl
+import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
@@ -52,10 +52,10 @@ import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DownloadLabelContent
-import com.jellycine.app.ui.components.common.OverviewSection
+import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.app.ui.components.common.ScreenWrapper
-import com.jellycine.app.ui.components.common.ShimmerEffect
+import com.jellycine.shared.ui.components.common.ScreenWrapper
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.canResumeDownloads
 import com.jellycine.app.ui.components.common.downloadButtonVisualState
 import com.jellycine.app.ui.components.common.hasActiveDownloads

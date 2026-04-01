@@ -11,7 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.util.image.disableEmbyPosterEnhancers
+import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.imageLoader

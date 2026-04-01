@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
-import com.jellycine.app.util.image.disableEmbyPosterEnhancers
+import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.repository.MediaRepository

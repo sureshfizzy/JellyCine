@@ -56,9 +56,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
-import com.jellycine.app.util.image.ImageSkeleton
-import com.jellycine.app.util.image.JellyfinPosterImage
-import com.jellycine.app.util.image.rememberImageUrl
+import com.jellycine.shared.util.image.ImageSkeleton
+import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider

@@ -7,7 +7,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.jellycine.app.locale.AppLanguageManager
 import com.jellycine.app.util.logging.CrashHandler
-import com.jellycine.app.util.image.ImageLoaderConfig
+import com.jellycine.shared.util.image.ImageLoaderConfig
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp

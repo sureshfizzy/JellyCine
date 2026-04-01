@@ -24,13 +24,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
-import com.jellycine.app.ui.components.common.ShimmerEffect
-import com.jellycine.app.ui.components.common.LazyImageLoader
-import com.jellycine.app.ui.components.common.episodeDisplaySubtitle
-import com.jellycine.app.ui.components.common.preferredDisplayTitle
+import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.shared.ui.components.common.LazyImageLoader
+import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle
+import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
-import com.jellycine.app.util.image.rememberImageUrl
+import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
 

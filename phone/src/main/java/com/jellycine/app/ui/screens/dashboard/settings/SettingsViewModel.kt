@@ -3,7 +3,7 @@ package com.jellycine.app.ui.screens.dashboard.settings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.app.preferences.Preferences
+import com.jellycine.shared.preferences.Preferences
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences

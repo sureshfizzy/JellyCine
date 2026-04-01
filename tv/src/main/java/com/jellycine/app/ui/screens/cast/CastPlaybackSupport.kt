@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.jellycine.app.cast.CastPlaybackState
-import com.jellycine.app.util.image.imageTagFor
+import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
