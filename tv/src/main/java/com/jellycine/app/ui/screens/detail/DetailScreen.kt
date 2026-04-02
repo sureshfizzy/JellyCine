@@ -53,7 +53,6 @@ import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DownloadLabelContent
 import com.jellycine.shared.ui.components.common.OverviewSection
-import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.canResumeDownloads
@@ -150,17 +149,6 @@ fun DetailScreenContainer(
         playbackItemId = targetItemId
         castingDisplay = false
         showPlayer = true
-    }
-
-    fun openCastingDisplay() {
-        if (!castPlaybackState.isConnected) return
-        val castItemId = castPlaybackState.currentItemId
-            ?: castDisplayItem?.id
-        castingDisplay = true
-        if (castItemId.isNullOrBlank()) return
-        scope.launch {
-            castDisplayState(castItemId = castItemId)
-        }
     }
 
     fun updateCastStreams(
@@ -460,7 +448,6 @@ fun DetailScreenContainer(
                                     onPersonClick = { personId ->
                                         onNavigateToPerson(personId)
                                     },
-                                    onCastButtonClick = { openCastingDisplay() },
                                     onSeasonClick = { seriesId, seasonId, seasonName ->
                                         seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                         currentScreen = "season"
@@ -528,7 +515,6 @@ fun DetailScreenContainer(
                                             onPersonClick = { personId ->
                                                 onNavigateToPerson(personId)
                                             },
-                                            onCastButtonClick = { openCastingDisplay() },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
                                                 seasonDetailData = Triple(seriesId, seasonId, seasonName)
                                                 currentScreen = "season"
@@ -585,7 +571,6 @@ fun DetailScreen(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
-    onCastButtonClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     DetailContent(
@@ -597,7 +582,6 @@ fun DetailScreen(
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
         onPersonClick = onPersonClick,
-        onCastButtonClick = onCastButtonClick,
         onSeasonClick = onSeasonClick
     )
 }
@@ -612,7 +596,6 @@ fun DetailContent(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
-    onCastButtonClick: () -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -991,15 +974,6 @@ fun DetailContent(
                         )
                 )
 
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(top = 12.dp, end = 14.dp)
-                ) {
-                    ScreenCastButton(onConnectedClick = onCastButtonClick)
-                }
-
             }
         }
 
@@ -1152,7 +1126,7 @@ fun DetailContent(
                     )
                 }
 
-                if (castPlaybackState.isConnected) {
+                if (item.type != "Series" && castPlaybackState.isConnected) {
                     Surface(
                         color = Color(0xFF173025),
                         shape = RoundedCornerShape(8.dp)

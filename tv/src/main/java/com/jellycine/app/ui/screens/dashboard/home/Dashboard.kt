@@ -37,13 +37,8 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.app.cast.CastController
-import com.jellycine.app.ui.screens.cast.CastPlayback
-import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
-import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.UserItemDataDto
@@ -58,7 +53,6 @@ import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
-import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -2119,129 +2113,12 @@ private fun BrandHeader(
         }
 
         if (showUserIcon) {
-            val context = LocalContext.current
-            val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-            val playerPreferences = remember { PlayerPreferences(context) }
-            val scope = rememberCoroutineScope()
-            val castPlaybackState by CastController.playbackState.collectAsState()
-            var showCastPlaybackSheet by remember { mutableStateOf(false) }
-            var castPlaybackArtworkUrl by remember { mutableStateOf<String?>(null) }
-            var castPlaybackStreams by remember { mutableStateOf<List<MediaStream>>(emptyList()) }
-            var castPlaybackAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
-            var castPlaybackSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
-            var castTracks by remember { mutableStateOf(false) }
-
-            LaunchedEffect(context) {
-                CastController.ensureInitialized(context)
-            }
-
-            fun clearCastPlaybackState() {
-                castPlaybackArtworkUrl = null
-                castPlaybackStreams = emptyList()
-                castPlaybackAudioStreamIndex = null
-                castPlaybackSubtitleStreamIndex = null
-                castTracks = false
-            }
-
-            suspend fun prepareCastPlaybackState(castItemId: String) {
-                val playbackData = loadCastPlaybackData(
-                    mediaRepository = mediaRepository,
-                    playerPreferences = playerPreferences,
-                    itemId = castItemId
-                )
-                castPlaybackArtworkUrl = playbackData.artworkUrl
-                castPlaybackStreams = playbackData.streams
-                castPlaybackAudioStreamIndex = playbackData.selectedAudioStreamIndex
-                castPlaybackSubtitleStreamIndex = playbackData.selectedSubtitleStreamIndex
-            }
-
-            fun openCastPlayback() {
-                showCastPlaybackSheet = true
-                val castItemId = castPlaybackState.currentItemId
-                if (castItemId.isNullOrBlank()) return
-                scope.launch {
-                    prepareCastPlaybackState(castItemId)
-                }
-            }
-
-            fun updateCastTracks(audioStreamIndex: Int?, subtitleStreamIndex: Int?) {
-                if (castTracks) return
-                val castItemId = castPlaybackState.currentItemId ?: return
-
-                scope.launch {
-                    castTracks = true
-                    try {
-                        val castResult = CastController.castItem(
-                            context = context,
-                            mediaRepository = mediaRepository,
-                            itemId = castItemId,
-                            title = castPlaybackState.mediaTitle,
-                            subtitle = castPlaybackState.mediaSubtitle,
-                            itemType = null,
-                            artworkUrl = castPlaybackState.artworkUrl ?: castPlaybackArtworkUrl,
-                            startPositionMs = castPlaybackState.positionMs,
-                            audioStreamIndex = audioStreamIndex,
-                            subtitleStreamIndex = subtitleStreamIndex
-                        )
-
-                        if (castResult.isSuccess) {
-                            castPlaybackAudioStreamIndex = audioStreamIndex
-                            castPlaybackSubtitleStreamIndex = subtitleStreamIndex
-                            playerPreferences.setPreferredAudioStreamIndex(castItemId, audioStreamIndex)
-                            playerPreferences.setPreferredSubtitleStreamIndex(castItemId, subtitleStreamIndex)
-                        }
-                    } finally {
-                        castTracks = false
-                    }
-                }
-            }
-
-            LaunchedEffect(castPlaybackState.isConnected, castPlaybackState.isCastingMedia) {
-                if (showCastPlaybackSheet && !castPlaybackState.isConnected) {
-                    showCastPlaybackSheet = false
-                }
-                if (!castPlaybackState.isConnected) {
-                    clearCastPlaybackState()
-                }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ScreenCastButton(
-                    onConnectedClick = { openCastPlayback() },
-                    size = 34.dp
-                )
-                UserProfileAvatar(
-                    imageUrl = userImageUrl,
-                    serverTypeRaw = userServerTypeRaw,
-                    onClick = { onProfileClick?.invoke() },
-                    modifier = Modifier.size(34.dp)
-                )
-            }
-
-            if (showCastPlaybackSheet) {
-                CastPlayback(
-                    castState = castPlaybackState,
-                    streams = castPlaybackStreams,
-                    fallbackArtworkUrl = castPlaybackArtworkUrl,
-                    selectedAudioStreamIndex = castPlaybackAudioStreamIndex,
-                    selectedSubtitleStreamIndex = castPlaybackSubtitleStreamIndex,
-                    isTrackSelectionUpdating = castTracks,
-                    onDismissRequest = { showCastPlaybackSheet = false },
-                    onTogglePlayPause = { CastController.togglePlayPause(context) },
-                    onStopCasting = { CastController.stopPlayback(context) },
-                    onDisconnect = {
-                        CastController.disconnect(context)
-                        showCastPlaybackSheet = false
-                    },
-                    onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
-                    onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
-                        updateCastTracks(audioStreamIndex, subtitleStreamIndex)
-                    }
-                )
-            }
+            UserProfileAvatar(
+                imageUrl = userImageUrl,
+                serverTypeRaw = userServerTypeRaw,
+                onClick = { onProfileClick?.invoke() },
+                modifier = Modifier.size(34.dp)
+            )
         }
     }
 }
