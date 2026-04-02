@@ -83,6 +83,8 @@ import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import com.jellycine.detail.CodecUtils
 import androidx.compose.foundation.gestures.ScrollableDefaults
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Immutable
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -97,6 +99,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -1132,6 +1138,7 @@ data class StableBaseItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Dashboard(
     onLogout: () -> Unit = {},
@@ -1141,10 +1148,17 @@ fun Dashboard(
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
     isTabActive: Boolean = true,
-    dashboardScrollState: LazyListState? = null
+    dashboardScrollState: LazyListState? = null,
+    sidebarFocusRequester: FocusRequester? = null,
+    headerFocusRequester: FocusRequester? = null,
+    headerEndFocusRequester: FocusRequester? = null,
+    contentFocusRequester: FocusRequester? = null,
+    onHomeReturnTargetChanged: ((FocusRequester) -> Unit)? = null
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
     var showAccountOverview by rememberSaveable { mutableStateOf(false) }
+    val contentEntryFocusRequester = contentFocusRequester ?: remember(selectedCategory) { FocusRequester() }
+    val heroActionEntryFocusRequester = remember(selectedCategory) { FocusRequester() }
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -1331,8 +1345,26 @@ fun Dashboard(
     }
 
     val lazyColumnState = dashboardScrollState ?: rememberLazyListState()
+    val dashboardBringIntoViewSpec = remember {
+        object : BringIntoViewSpec {
+            override fun calculateScrollDistance(
+                offset: Float,
+                size: Float,
+                containerSize: Float
+            ): Float {
+                val leadingEdge = offset
+                val trailingEdge = offset + size
+                return when {
+                    leadingEdge < 0f -> leadingEdge
+                    trailingEdge > containerSize -> trailingEdge - containerSize
+                    else -> 0f
+                }
+            }
+        }
+    }
 
     CompositionLocalProvider(LocalQueryManager provides queryManager) {
+        CompositionLocalProvider(LocalBringIntoViewSpec provides dashboardBringIntoViewSpec) {
 
         val featuredQuery = useQuery(
             key = "featured_$selectedCategory",
@@ -1717,7 +1749,8 @@ fun Dashboard(
             LazyColumn(
                 state = lazyColumnState,
                 modifier = Modifier
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(Color.Black),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
@@ -1730,10 +1763,17 @@ fun Dashboard(
                             selectedCategory = selectedCategory,
                             verticalParallaxOffsetPx = featureParallaxOffsetPx,
                             onItemClick = onNavigateToDetail,
-                            onLogout = onLogout,
-                            onProfileClick = { showAccountOverview = true },
                             onCategorySelected = { category ->
                                 selectedCategory = category
+                            },
+                            onProfileClick = { showAccountOverview = true },
+                            sidebarFocusRequester = sidebarFocusRequester,
+                            initialChipFocusRequester = headerFocusRequester,
+                            lastChipFocusRequester = headerEndFocusRequester,
+                            heroActionFocusRequester = heroActionEntryFocusRequester,
+                            contentFocusRequester = contentEntryFocusRequester,
+                            onHeroZoneFocused = {
+                                onHomeReturnTargetChanged?.invoke(heroActionEntryFocusRequester)
                             }
                         )
                     }
@@ -1778,6 +1818,9 @@ fun Dashboard(
                             error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
                             mediaRepository = mediaRepository,
                             disablePosterEnhancers = disablePosterEnhancers,
+                            initialFocusRequester = if (ShowMyMediaSection) contentEntryFocusRequester else null,
+                            returnFocusRequester = if (ShowMyMediaSection) heroActionEntryFocusRequester else null,
+                            onReturnTargetChanged = onHomeReturnTargetChanged,
                             onLibraryClick = { library ->
                                 val contentType = when (library.collectionType) {
                                     "movies" -> "MOVIES"
@@ -1805,6 +1848,9 @@ fun Dashboard(
                                 items = ContinueWatchingItems,
                                 isLoading = continueWatchingQuery.isLoading && ContinueWatchingItems.isEmpty(),
                                 error = if (continueWatchingQuery.isError) continueWatchingQuery.error else null,
+                                initialFocusRequester = if (!ShowMyMediaSection) contentEntryFocusRequester else null,
+                                returnFocusRequester = if (!ShowMyMediaSection) heroActionEntryFocusRequester else null,
+                                onReturnTargetChanged = onHomeReturnTargetChanged,
                                 onItemClick = onNavigateToDetail
                             )
                         }
@@ -1824,6 +1870,9 @@ fun Dashboard(
                                 items = NextUpItems,
                                 isLoading = nextUpQuery.isLoading && NextUpItems.isEmpty(),
                                 error = if (nextUpQuery.isError) nextUpQuery.error else null,
+                                initialFocusRequester = if (!ShowMyMediaSection && !ShowContinueWatchingSection) contentEntryFocusRequester else null,
+                                returnFocusRequester = if (!ShowMyMediaSection && !ShowContinueWatchingSection) heroActionEntryFocusRequester else null,
+                                onReturnTargetChanged = onHomeReturnTargetChanged,
                                 onItemClick = onNavigateToDetail
                             )
                         }
@@ -1863,6 +1912,27 @@ fun Dashboard(
                                 section = section,
                                 mediaRepository = mediaRepository,
                                 disablePosterEnhancers = disablePosterEnhancers,
+                                initialFocusRequester = if (
+                                    index == 0 &&
+                                    !ShowMyMediaSection &&
+                                    !ShowContinueWatchingSection &&
+                                    !ShowNextUpSection
+                                ) {
+                                    contentEntryFocusRequester
+                                } else {
+                                    null
+                                },
+                                returnFocusRequester = if (
+                                    index == 0 &&
+                                        !ShowMyMediaSection &&
+                                        !ShowContinueWatchingSection &&
+                                        !ShowNextUpSection
+                                ) {
+                                    heroActionEntryFocusRequester
+                                } else {
+                                    null
+                                },
+                                onReturnTargetChanged = onHomeReturnTargetChanged,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1881,6 +1951,9 @@ fun Dashboard(
                         ) {
                             MovieGenreSections(
                                 disablePosterEnhancers = disablePosterEnhancers,
+                                initialFocusRequester = contentEntryFocusRequester,
+                                returnFocusRequester = heroActionEntryFocusRequester,
+                                onReturnTargetChanged = onHomeReturnTargetChanged,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1895,6 +1968,9 @@ fun Dashboard(
                         ) {
                             TVShowGenreSections(
                                 disablePosterEnhancers = disablePosterEnhancers,
+                                initialFocusRequester = contentEntryFocusRequester,
+                                returnFocusRequester = heroActionEntryFocusRequester,
+                                onReturnTargetChanged = onHomeReturnTargetChanged,
                                 onItemClick = onNavigateToDetail,
                                 onNavigateToViewAll = onNavigateToViewAll
                             )
@@ -1903,6 +1979,8 @@ fun Dashboard(
                 }
             }
         }
+    }
+
     }
 
     if (showAccountOverview) {
@@ -2167,7 +2245,6 @@ private fun BrandHeader(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AccountOverview(
@@ -2356,6 +2433,9 @@ private fun HomeMyMediaSection(
     error: String?,
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onLibraryClick: (BaseItemDto) -> Unit = {}
 ) {
     val lazyRowState = rememberLazyListState()
@@ -2410,9 +2490,16 @@ private fun HomeMyMediaSection(
                         items = libraries,
                         key = { library -> library.id ?: library.name ?: "library_item" }
                     ) { library ->
+                        val cardFocusRequester = remember(library.id, library.name) { FocusRequester() }
                         val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
                         LibraryItemCard(
                             item = library,
+                            cardModifier = entryCardModifier(
+                                cardFocusRequester = cardFocusRequester,
+                                initialFocusRequester = if (libraries.firstOrNull()?.id == library.id) initialFocusRequester else null,
+                                returnFocusRequester = if (libraries.firstOrNull()?.id == library.id) returnFocusRequester else null,
+                                onReturnTargetChanged = onReturnTargetChanged
+                            ),
                             mediaRepository = mediaRepository,
                             disableImageEnhancers = disablePosterEnhancers,
                             useLandscapeLayout = true,
@@ -2432,6 +2519,9 @@ private fun ContinueWatchingSection(
     items: List<BaseItemDto>,
     isLoading: Boolean,
     error: String?,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -2498,11 +2588,18 @@ private fun ContinueWatchingSection(
                     ) { index ->
                         val item = items.getOrNull(index)
                         if (item != null) {
+                            val cardFocusRequester = remember(item.id, index) { FocusRequester() }
                             val stableOnClick = remember(item.id) { { onItemClick(item) } }
 
                             Box {
                                 ContinueWatchingCard(
                                     item = item,
+                                    cardModifier = entryCardModifier(
+                                        cardFocusRequester = cardFocusRequester,
+                                        initialFocusRequester = if (index == 0) initialFocusRequester else null,
+                                        returnFocusRequester = if (index == 0) returnFocusRequester else null,
+                                        onReturnTargetChanged = onReturnTargetChanged
+                                    ),
                                     mediaRepository = mediaRepository,
                                     onClick = stableOnClick
                                 )
@@ -2552,6 +2649,7 @@ private fun ContinueWatchingSection(
 @Composable
 private fun ContinueWatchingCard(
     item: BaseItemDto,
+    cardModifier: Modifier = Modifier,
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
@@ -2612,7 +2710,7 @@ private fun ContinueWatchingCard(
             .height(180.dp)
     ) {
         Card(
-            modifier = Modifier
+            modifier = cardModifier
                 .width(200.dp)
                 .height(120.dp),
             shape = RoundedCornerShape(12.dp),
@@ -2738,12 +2836,40 @@ private fun HomeLibrarySectionData.toUiSection(): HomeLibrarySectionUi {
     )
 }
 
+private fun entryCardModifier(
+    cardFocusRequester: FocusRequester,
+    initialFocusRequester: FocusRequester?,
+    returnFocusRequester: FocusRequester?,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null
+): Modifier {
+    val dpadFocusRequester = initialFocusRequester ?: cardFocusRequester
+    return Modifier
+        .focusRequester(dpadFocusRequester)
+        .onFocusChanged { state ->
+            if (state.isFocused) {
+                onReturnTargetChanged?.invoke(dpadFocusRequester)
+            }
+        }
+        .then(
+            if (returnFocusRequester != null) {
+                Modifier.focusProperties {
+                    up = returnFocusRequester
+                }
+            } else {
+                Modifier
+            }
+        )
+}
+
 
 @Composable
 private fun BurstLibrarySection(
     section: HomeLibrarySectionUi,
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -2823,6 +2949,7 @@ private fun BurstLibrarySection(
                 items = section.items,
                 key = { index, item -> item.id ?: "${section.libraryId}_$index" }
             ) { index, item ->
+                val cardFocusRequester = remember(item.id, index) { FocusRequester() }
                 val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
                 val isVisible by remember(libraryRowState, index) {
                     derivedStateOf {
@@ -2852,6 +2979,12 @@ private fun BurstLibrarySection(
                         scaleX = scale
                         scaleY = scale
                     },
+                    cardModifier = entryCardModifier(
+                        cardFocusRequester = cardFocusRequester,
+                        initialFocusRequester = if (index == 0) initialFocusRequester else null,
+                        returnFocusRequester = if (index == 0) returnFocusRequester else null,
+                        onReturnTargetChanged = onReturnTargetChanged
+                    ),
                     mediaRepository = mediaRepository,
                     disableImageEnhancers = disablePosterEnhancers,
                     onClick = stableOnClick
@@ -2866,6 +2999,7 @@ private fun BurstLibrarySection(
 internal fun LibraryItemCard(
     item: BaseItemDto,
     modifier: Modifier = Modifier,
+    cardModifier: Modifier = Modifier,
     mediaRepository: MediaRepository,
     disableImageEnhancers: Boolean = false,
     useLandscapeLayout: Boolean = false,
@@ -2897,7 +3031,7 @@ internal fun LibraryItemCard(
             .height(cardHeight)
     ) {
         Card(
-            modifier = Modifier
+            modifier = cardModifier
                 .width(cardWidth)
                 .height(imageHeight),
             shape = RoundedCornerShape(12.dp),
@@ -3201,6 +3335,9 @@ private object LibraryCache {
 @Composable
 private fun MovieGenreSections(
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -3252,6 +3389,9 @@ private fun MovieGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     disablePosterEnhancers = disablePosterEnhancers,
+                    initialFocusRequester = if (index == 0) initialFocusRequester else null,
+                    returnFocusRequester = if (index == 0) returnFocusRequester else null,
+                    onReturnTargetChanged = onReturnTargetChanged,
                     onItemClick = onItemClick,
                     onNavigateToViewAll = onNavigateToViewAll
                 )
@@ -3264,6 +3404,9 @@ private fun MovieGenreSections(
 @Composable
 private fun TVShowGenreSections(
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -3310,6 +3453,9 @@ private fun TVShowGenreSections(
                     genre = genre,
                     mediaRepository = mediaRepository,
                     disablePosterEnhancers = disablePosterEnhancers,
+                    initialFocusRequester = if (index == 0) initialFocusRequester else null,
+                    returnFocusRequester = if (index == 0) returnFocusRequester else null,
+                    onReturnTargetChanged = onReturnTargetChanged,
                     onItemClick = onItemClick,
                     onNavigateToViewAll = onNavigateToViewAll
                 )
@@ -3324,6 +3470,9 @@ private fun ProgressiveMovieGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -3424,8 +3573,15 @@ private fun ProgressiveMovieGenreSection(
                         count = genreMovies.size,
                         key = { index -> genreMovies[index].id ?: index }
                     ) { index ->
+                        val cardFocusRequester = remember(genreMovies[index].id, index) { FocusRequester() }
                         LibraryItemCard(
                             item = genreMovies[index],
+                            cardModifier = entryCardModifier(
+                                cardFocusRequester = cardFocusRequester,
+                                initialFocusRequester = if (index == 0) initialFocusRequester else null,
+                                returnFocusRequester = if (index == 0) returnFocusRequester else null,
+                                onReturnTargetChanged = onReturnTargetChanged
+                            ),
                             mediaRepository = mediaRepository,
                             disableImageEnhancers = disablePosterEnhancers,
                             onClick = { onItemClick(genreMovies[index]) }
@@ -3452,6 +3608,9 @@ private fun ProgressiveTVShowGenreSection(
     genre: BaseItemDto,
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
+    initialFocusRequester: FocusRequester? = null,
+    returnFocusRequester: FocusRequester? = null,
+    onReturnTargetChanged: ((FocusRequester) -> Unit)? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> }
 ) {
@@ -3551,8 +3710,15 @@ private fun ProgressiveTVShowGenreSection(
                         items = genreShows,
                         key = { show -> show.id ?: "${show.name}_${show.type}" }
                     ) { show ->
+                        val cardFocusRequester = remember(show.id, show.name) { FocusRequester() }
                         LibraryItemCard(
                             item = show,
+                            cardModifier = entryCardModifier(
+                                cardFocusRequester = cardFocusRequester,
+                                initialFocusRequester = if (genreShows.firstOrNull()?.id == show.id) initialFocusRequester else null,
+                                returnFocusRequester = if (genreShows.firstOrNull()?.id == show.id) returnFocusRequester else null,
+                                onReturnTargetChanged = onReturnTargetChanged
+                            ),
                             mediaRepository = mediaRepository,
                             disableImageEnhancers = disablePosterEnhancers,
                             onClick = { onItemClick(show) }

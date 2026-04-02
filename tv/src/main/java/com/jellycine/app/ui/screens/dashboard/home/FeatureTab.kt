@@ -13,23 +13,19 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,6 +47,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,7 +65,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
@@ -68,7 +74,6 @@ import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.app.R
-import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
@@ -76,7 +81,6 @@ import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
-import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -85,7 +89,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
 
 internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
@@ -129,8 +132,6 @@ private fun FeatureCardImages?.isHeroReady(): Boolean {
 }
 
 @Composable
-@Suppress("UNUSED_PARAMETER")
-@OptIn(ExperimentalFoundationApi::class)
 fun FeatureTab(
     modifier: Modifier = Modifier,
     featuredItems: List<BaseItemDto> = emptyList(),
@@ -139,15 +140,20 @@ fun FeatureTab(
     selectedCategory: String = HomeCategory.HOME,
     verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
-    onLogout: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onCastButtonClick: () -> Unit = {},
     onCategorySelected: (String) -> Unit = {},
-    refreshTrigger: Int = 0
+    sidebarFocusRequester: FocusRequester? = null,
+    initialChipFocusRequester: FocusRequester? = null,
+    lastChipFocusRequester: FocusRequester? = null,
+    heroActionFocusRequester: FocusRequester? = null,
+    contentFocusRequester: FocusRequester? = null,
+    onHeroZoneFocused: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val profileFocusRequester = remember { FocusRequester() }
+    val resolvedHeroActionFocusRequester = heroActionFocusRequester ?: remember { FocusRequester() }
     val userFallback = stringResource(R.string.settings_unknown_user)
     var persistedHomeSnapshot by remember {
         mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
@@ -171,8 +177,6 @@ fun FeatureTab(
         mutableStateOf<String?>(persistedHomeSnapshot?.profileImageUrl)
     }
 
-    val featuredRowState = remember(selectedCategory) { LazyListState() }
-    val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val metadataQualifiedFeaturedItems = remember(featuredItems) {
@@ -249,19 +253,17 @@ fun FeatureTab(
             metadataQualifiedFeaturedItems.value.isNotEmpty() &&
             resolvedFeaturedItems.value.isEmpty()
     }
-    val infiniteStartIndex = remember(featuredKeys) {
-        if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
-    }
     var autoScroll by rememberSaveable(selectedCategory) { mutableStateOf(false) }
-    var hasSeededCarousel by rememberSaveable(selectedCategory) { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
-    val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
+    val heroHeight = (configuration.screenHeightDp.dp * 0.68f).coerceIn(440.dp, 720.dp)
+
+    var currentHeroIndex by rememberSaveable(selectedCategory) { mutableStateOf(0) }
 
     LaunchedEffect(currentServerUrl, currentUsername) {
         persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
     }
 
-    LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
+    LaunchedEffect(currentUsername, currentServerUrl) {
         val activeUsername = currentUsername ?: persistedHomeSnapshot?.username
         displayUsername = activeUsername?.takeIf { it.isNotBlank() } ?: "User"
 
@@ -301,12 +303,6 @@ fun FeatureTab(
         if (featuredItems.isNotEmpty()) {
             CachedData.updateFeaturedItems(featuredItems)
         }
-    }
-
-    LaunchedEffect(featuredKeys, isLoading, selectedCategory) {
-        if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
-        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
-        hasSeededCarousel = true
     }
 
     LaunchedEffect(metadataQualifiedFeaturedItems.value) {
@@ -401,7 +397,9 @@ fun FeatureTab(
     LaunchedEffect(featuredKeys) {
         if (featuredKeys.isEmpty()) {
             autoScroll = false
-            hasSeededCarousel = false
+            currentHeroIndex = 0
+        } else {
+            currentHeroIndex = currentHeroIndex.coerceIn(0, featuredKeys.lastIndex)
         }
     }
 
@@ -416,17 +414,13 @@ fun FeatureTab(
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
         while (true) {
             delay(10_000L)
-            val nextIndex = featuredRowState.firstVisibleItemIndex + 1
-            runCatching {
-                featuredRowState.animateScrollToItem(index = nextIndex)
-            }
+            currentHeroIndex = (currentHeroIndex + 1) % resolvedFeaturedItems.value.size
         }
     }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.Black)
     ) {
         Box(
             modifier = Modifier
@@ -435,33 +429,27 @@ fun FeatureTab(
         ) {
             when {
                 resolvedFeaturedItems.value.isNotEmpty() -> {
-                    LazyRow(
-                        state = featuredRowState,
-                        modifier = Modifier
-                            .fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp),
-                        flingBehavior = featuredFlingBehavior
-                    ) {
-                        items(
-                            count = Int.MAX_VALUE,
-                            key = { index ->
-                                val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
-                                item.id ?: item.name ?: index.toString()
-                            }
-                        ) { index ->
-                            val item = resolvedFeaturedItems.value[index % resolvedFeaturedItems.value.size]
-                            val cachedImages = item.id?.let { imageCacheByItemId[it] }
-                            FeatureHeroCard(
-                                item = item,
-                                itemIndex = index,
-                                listState = featuredRowState,
-                                verticalParallaxOffsetPx = verticalParallaxOffsetPx,
-                                images = cachedImages,
-                                onClick = { onItemClick(item) },
-                                heroHeight = heroHeight,
-                                modifier = Modifier.fillParentMaxWidth()
-                            )
-                        }
+                    val activeItem = resolvedFeaturedItems.value.getOrNull(currentHeroIndex)
+                    if (activeItem != null) {
+                        FeatureHeroCard(
+                            item = activeItem,
+                            verticalParallaxOffsetPx = verticalParallaxOffsetPx,
+                            images = activeItem.id?.let { imageCacheByItemId[it] },
+                            headerFocusRequester = initialChipFocusRequester,
+                            entryActionFocusRequester = resolvedHeroActionFocusRequester,
+                            belowContentFocusRequester = contentFocusRequester,
+                            onHeroZoneFocused = onHeroZoneFocused,
+                            onAdvanceToNextFeature = {
+                                if (resolvedFeaturedItems.value.size > 1) {
+                                    currentHeroIndex =
+                                        (currentHeroIndex + 1) % resolvedFeaturedItems.value.size
+                                    resolvedHeroActionFocusRequester.requestFocus()
+                                }
+                            },
+                            onClick = { onItemClick(activeItem) },
+                            heroHeight = heroHeight,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
 
@@ -472,39 +460,76 @@ fun FeatureTab(
                 else -> FeatureHeroError(error = "No featured content available", heroHeight = heroHeight)
             }
 
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .align(Alignment.TopStart),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .align(Alignment.TopStart)
             ) {
-                CategoryChipMenu(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = onCategorySelected
-                )
-
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ScreenCastButton(
-                        onConnectedClick = onCastButtonClick,
-                        size = 34.dp
-                    )
-                    UserProfileAvatar(
-                        imageUrl = userProfileImageUrl,
-                        serverTypeRaw = sessionSnapshot.serverType,
-                        onClick = onProfileClick,
-                        modifier = Modifier.size(34.dp)
+                    CategoryBubbleTabs(
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = onCategorySelected,
+                        sidebarFocusRequester = sidebarFocusRequester,
+                        initialChipFocusRequester = initialChipFocusRequester,
+                        profileFocusRequester = profileFocusRequester,
+                        lastChipFocusRequester = lastChipFocusRequester,
+                        onHeroZoneFocused = onHeroZoneFocused,
+                        contentFocusRequester = resolvedHeroActionFocusRequester
                     )
                 }
+
+                UserProfileAvatar(
+                    imageUrl = userProfileImageUrl,
+                    serverTypeRaw = sessionSnapshot.serverType,
+                    onClick = onProfileClick,
+                    modifier = Modifier
+                        .focusRequester(profileFocusRequester)
+                        .focusProperties {
+                            left = lastChipFocusRequester ?: initialChipFocusRequester ?: FocusRequester.Default
+                            down = resolvedHeroActionFocusRequester
+                        }
+                        .onPreviewKeyEvent { keyEvent ->
+                            if (keyEvent.type == KeyEventType.KeyDown &&
+                                keyEvent.key == Key.DirectionDown
+                            ) {
+                                resolvedHeroActionFocusRequester.requestFocus()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        .onFocusChanged { state ->
+                            if (state.isFocused) {
+                                onHeroZoneFocused?.invoke()
+                            }
+                        }
+                        .align(Alignment.TopEnd)
+                        .size(34.dp)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0f),
+                            Color.Black.copy(alpha = 0.40f),
+                            Color.Black.copy(alpha = 0.72f),
+                            Color.Black
+                        )
+                    )
+                )
+        )
     }
 }
 
@@ -522,20 +547,18 @@ private fun hasFeatureHeroAssets(item: BaseItemDto): Boolean {
 }
 
 @Composable
-private fun CategoryChipMenu(
+private fun CategoryBubbleTabs(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit,
+    sidebarFocusRequester: FocusRequester? = null,
+    initialChipFocusRequester: FocusRequester? = null,
+    profileFocusRequester: FocusRequester? = null,
+    lastChipFocusRequester: FocusRequester? = null,
+    onHeroZoneFocused: (() -> Unit)? = null,
+    contentFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
-    val menuOptions = remember(selectedCategory) {
-        HomeCategory.all.filterNot { it == selectedCategory }
-    }
-    var expanded by remember { mutableStateOf(false) }
-    val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 180f else 0f,
-        label = "category_arrow"
-    )
-    val pillShape = RoundedCornerShape(18.dp)
+    val containerShape = RoundedCornerShape(18.dp)
     val glassGradient = Brush.horizontalGradient(
         colors = listOf(
             Color.White.copy(alpha = 0.12f),
@@ -543,96 +566,152 @@ private fun CategoryChipMenu(
         )
     )
     val glassBorder = Color.White.copy(alpha = 0.22f)
+    var focusedCategory by remember(selectedCategory) { mutableStateOf(selectedCategory) }
+    val lastIndex = HomeCategory.all.lastIndex
 
-    Box(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .clip(pillShape)
-                .background(glassGradient)
-                .border(1.dp, glassBorder, pillShape)
-                .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.jellycine_logo),
-                contentDescription = stringResource(R.string.app_name),
-                modifier = Modifier.size(28.dp),
-                contentScale = ContentScale.Fit
+    Row(
+        modifier = modifier
+            .clip(containerShape)
+            .background(glassGradient)
+            .border(1.dp, glassBorder, containerShape)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        HomeCategory.all.forEachIndexed { index, category ->
+            val isSelected = selectedCategory == category
+            val isFocused = focusedCategory == category
+            val itemShape = RoundedCornerShape(14.dp)
+            val itemScale by animateFloatAsState(
+                targetValue = if (isFocused) 1.04f else 1f,
+                label = "category_tab_scale"
             )
-            Text(
-                text = stringResource(HomeCategory.titleRes(selectedCategory)),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
+            val itemBackground by animateColorAsState(
+                targetValue = when {
+                    isFocused && isSelected -> Color.White
+                    isFocused -> Color.White.copy(alpha = 0.18f)
+                    isSelected -> Color.White
+                    else -> Color.Transparent
+                },
+                label = "category_tab_background"
             )
-            Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = null,
-                tint = Color.White,
+            val itemBorder by animateColorAsState(
+                targetValue = when {
+                    isFocused -> Color.White.copy(alpha = 0.95f)
+                    isSelected -> Color.White.copy(alpha = 0.28f)
+                    else -> Color.Transparent
+                },
+                label = "category_tab_border"
+            )
+            val textColor by animateColorAsState(
+                targetValue = when {
+                    isSelected -> Color(0xFF10131A)
+                    isFocused -> Color.White
+                    else -> Color.White.copy(alpha = 0.82f)
+                },
+                label = "category_tab_text"
+            )
+            Row(
                 modifier = Modifier
-                    .size(18.dp)
-                    .graphicsLayer(rotationZ = arrowRotation)
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color.Transparent,
-            shadowElevation = 0.dp,
-            tonalElevation = 0.dp,
-            border = null,
-            modifier = Modifier.background(Color.Transparent)
-        ) {
-            Column(
-                modifier = Modifier.padding(6.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                menuOptions.forEach { category ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(pillShape)
-                            .background(glassGradient)
-                            .border(1.dp, glassBorder, pillShape)
-                            .clickable {
-                                expanded = false
-                                onCategorySelected(category)
-                            }
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(HomeCategory.titleRes(category)),
-                            color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Icon(
-                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.55f),
-                            modifier = Modifier
-                                .size(16.dp)
-                                .graphicsLayer(rotationZ = -90f)
-                        )
+                    .then(
+                        if (index == 0 && initialChipFocusRequester != null) {
+                            Modifier.focusRequester(initialChipFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .graphicsLayer {
+                        scaleX = itemScale
+                        scaleY = itemScale
                     }
-                }
+                    .clip(itemShape)
+                    .background(itemBackground)
+                    .border(1.5.dp, itemBorder, itemShape)
+                    .focusProperties {
+                        if (index == 0 && sidebarFocusRequester != null) {
+                            left = sidebarFocusRequester
+                        }
+                        if (index == lastIndex && profileFocusRequester != null) {
+                            right = profileFocusRequester
+                        }
+                        if (contentFocusRequester != null) {
+                            down = contentFocusRequester
+                        }
+                    }
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown &&
+                            keyEvent.key == Key.DirectionDown &&
+                            contentFocusRequester != null
+                        ) {
+                            contentFocusRequester.requestFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    .onFocusChanged { state ->
+                        if (state.isFocused) {
+                            focusedCategory = category
+                            onHeroZoneFocused?.invoke()
+                        }
+                    }
+                    .then(
+                        if (index == lastIndex && lastChipFocusRequester != null) {
+                            Modifier.focusRequester(lastChipFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .clickable { onCategorySelected(category) }
+                    .focusable()
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = stringResource(HomeCategory.titleRes(category)),
+                    color = textColor,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                )
             }
         }
     }
 }
 
 @Composable
+internal fun UserProfileAvatar(
+    imageUrl: String?,
+    serverTypeRaw: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.1f))
+            .clickable(onClick = onClick)
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        ProfileImageLoader(
+            imageUrl = imageUrl,
+            serverTypeRaw = serverTypeRaw,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
 private fun FeatureHeroCard(
     item: BaseItemDto,
-    itemIndex: Int,
-    listState: LazyListState,
     verticalParallaxOffsetPx: Float,
     images: FeatureCardImages?,
+    headerFocusRequester: FocusRequester?,
+    entryActionFocusRequester: FocusRequester?,
+    belowContentFocusRequester: FocusRequester?,
+    onHeroZoneFocused: (() -> Unit)?,
+    onAdvanceToNextFeature: (() -> Unit)?,
     onClick: () -> Unit,
     heroHeight: Dp,
     modifier: Modifier = Modifier
@@ -640,6 +719,8 @@ private fun FeatureHeroCard(
     val context = LocalContext.current
     val itemName = item.name ?: stringResource(R.string.search_result_unknown_title)
     var contentVisible by remember(item.id) { mutableStateOf(false) }
+    var playButtonFocused by remember(item.id) { mutableStateOf(false) }
+    var moreInfoButtonFocused by remember(item.id) { mutableStateOf(false) }
     LaunchedEffect(item.id) { contentVisible = true }
     val logoAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
@@ -659,23 +740,28 @@ private fun FeatureHeroCard(
     val logoUrl = images?.logoUrl
     var lowResImage by remember(item.id, lowBackdropUrl) { mutableStateOf(false) }
     val backdropParallaxShift = remember(verticalParallaxOffsetPx) { verticalParallaxOffsetPx * 0.4f }
-    val pageOffset by remember(listState, itemIndex) {
-        derivedStateOf {
-            val visibleItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }
-            if (visibleItemInfo == null || visibleItemInfo.size == 0) {
-                1f
-            } else {
-                visibleItemInfo.offset.toFloat() / visibleItemInfo.size.toFloat()
-            }
-        }
-    }
-    val scrollInfluence = abs(pageOffset).coerceIn(0f, 1f)
-    val contentAlpha = 1f - (0.35f * scrollInfluence)
-    val contentScale = 1f - (0.05f * scrollInfluence)
-    val contentShift = 12f * scrollInfluence
+    val localPlayFocusRequester = remember(item.id) { FocusRequester() }
+    val playFocusRequester = entryActionFocusRequester ?: localPlayFocusRequester
+    val moreInfoFocusRequester = remember(item.id) { FocusRequester() }
+    val heroActionsActive = playButtonFocused || moreInfoButtonFocused
+    val heroDetailsAlpha by animateFloatAsState(
+        targetValue = if (heroActionsActive) 1f else 0f,
+        label = "hero_details_alpha"
+    )
+    val heroDetailsShift by animateFloatAsState(
+        targetValue = if (heroActionsActive) 0f else 12f,
+        label = "hero_details_shift"
+    )
+    val heroActionsAlpha by animateFloatAsState(
+        targetValue = if (heroActionsActive) 1f else 0f,
+        label = "hero_actions_alpha"
+    )
+    val heroActionsScale by animateFloatAsState(
+        targetValue = if (heroActionsActive) 1f else 0.96f,
+        label = "hero_actions_scale"
+    )
 
     Card(
-        onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .height(heroHeight),
@@ -762,12 +848,26 @@ private fun FeatureHeroCard(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Black.copy(alpha = 0.42f),
+                                0.18f to Color.Black.copy(alpha = 0.24f),
+                                0.40f to Color.Black.copy(alpha = 0.08f),
+                                1.0f to Color.Transparent
+                            )
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
-                                0.0f to Color.Black.copy(alpha = 0.22f),
+                                0.0f to Color.Black.copy(alpha = 0.12f),
                                 0.50f to Color.Transparent,
-                                0.78f to Color.Black.copy(alpha = 0.55f),
-                                1.0f to Color.Black.copy(alpha = 0.78f)
+                                0.82f to Color.Black.copy(alpha = 0.34f),
+                                1.0f to Color.Black.copy(alpha = 0.58f)
                             )
                         )
                     )
@@ -776,12 +876,12 @@ private fun FeatureHeroCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(36.dp)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.92f)
+                                Color.Black.copy(alpha = 0.46f)
                             )
                         )
                     )
@@ -794,7 +894,7 @@ private fun FeatureHeroCard(
                         val brush = Brush.radialGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.45f)
+                                Color.Black.copy(alpha = 0.22f)
                             ),
                             center = Offset(size.width / 2f, size.height / 2f),
                             radius = radius
@@ -805,17 +905,12 @@ private fun FeatureHeroCard(
 
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 18.dp)
-                    .graphicsLayer(
-                        alpha = contentAlpha,
-                        scaleX = contentScale,
-                        scaleY = contentScale,
-                        translationY = contentShift
-                    ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth(0.34f)
+                    .widthIn(max = 380.dp)
+                    .padding(start = 42.dp, end = 20.dp, top = 20.dp, bottom = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.Start
             ) {
                 if (!logoUrl.isNullOrBlank()) {
                     AsyncImage(
@@ -834,8 +929,8 @@ private fun FeatureHeroCard(
                         ),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .height(96.dp)
-                            .fillMaxWidth(0.82f)
+                            .height(88.dp)
+                            .fillMaxWidth(0.88f)
                             .graphicsLayer(
                                 alpha = logoAlpha
                             )
@@ -843,10 +938,60 @@ private fun FeatureHeroCard(
                 } else {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.72f)
-                            .height(30.dp)
+                            .fillMaxWidth(0.88f)
+                            .height(42.dp)
                             .background(Color.Black, RoundedCornerShape(4.dp))
                     )
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val heroBadgeText = when (item.type) {
+                        "Movie" -> stringResource(R.string.movies)
+                        "Series" -> stringResource(R.string.tv_shows)
+                        else -> item.type?.takeIf { it.isNotBlank() } ?: stringResource(R.string.home)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.10f),
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = heroBadgeText,
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    item.runTimeTicks
+                        ?.takeIf { it > 0L }
+                        ?.let { runtimeTicks ->
+                            val totalMinutes = (runtimeTicks / 600_000_000L).toInt()
+                            if (totalMinutes > 0) {
+                                val hours = totalMinutes / 60
+                                val minutes = totalMinutes % 60
+                                val runtimeText = if (hours > 0) {
+                                    "${hours}h ${minutes}m"
+                                } else {
+                                    "${minutes}m"
+                                }
+                                Text(
+                                    text = runtimeText,
+                                    color = Color.White.copy(alpha = 0.78f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                 }
 
                 val ratingText = item.communityRating?.let { String.format("%.1f", it) }
@@ -859,12 +1004,14 @@ private fun FeatureHeroCard(
                 val hasMetaRow = !ratingText.isNullOrBlank() || resolvedYear != null || genres.isNotEmpty() || !certificateText.isNullOrBlank()
                 if (hasMetaRow) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer(
+                                alpha = metaAlpha,
+                                translationY = metaOffset
+                            ),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.graphicsLayer(
-                            alpha = metaAlpha,
-                            translationY = metaOffset
-                        )
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (!ratingText.isNullOrBlank()) {
                             Row(
@@ -875,50 +1022,107 @@ private fun FeatureHeroCard(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
                                     tint = Color(0xFFE84B3C),
-                                    modifier = Modifier.size(12.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
                                 Text(
                                     text = ratingText,
                                     color = Color.White,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
-                        if (resolvedYear != null) {
+
+                        val trailingMetaText = buildList {
+                            resolvedYear?.let { add(it.toString()) }
+                            if (genres.isNotEmpty()) {
+                                add(genres.take(2).joinToString(separator = "/"))
+                            }
+                            certificateText?.let { add(it) }
+                        }.joinToString(separator = "  ")
+
+                        if (trailingMetaText.isNotBlank()) {
                             Text(
-                                text = resolvedYear.toString(),
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        if (genres.isNotEmpty()) {
-                            Text(
-                                text = genres.joinToString(separator = "/"),
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.sp,
+                                text = trailingMetaText,
+                                color = Color.White.copy(alpha = 0.88f),
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                         }
-                        if (!certificateText.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(5.dp))
-                                    .padding(horizontal = 6.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = certificateText,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
                     }
+                }
+
+                item.overview
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { overview ->
+                        Text(
+                            text = overview,
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer(
+                                    alpha = heroDetailsAlpha,
+                                    translationY = heroDetailsShift
+                                )
+                        )
+                    }
+
+                Row(
+                    modifier = Modifier.graphicsLayer(
+                        alpha = heroActionsAlpha,
+                        scaleX = heroActionsScale,
+                        scaleY = heroActionsScale,
+                        translationY = heroDetailsShift
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FeatureHeroActionButton(
+                        text = stringResource(R.string.play),
+                        icon = Icons.Rounded.PlayArrow,
+                        isPrimary = true,
+                        onFocusChanged = { isFocused ->
+                            playButtonFocused = isFocused
+                            if (isFocused) {
+                                onHeroZoneFocused?.invoke()
+                            }
+                        },
+                        modifier = Modifier
+                            .focusRequester(playFocusRequester)
+                            .focusProperties {
+                                up = headerFocusRequester ?: FocusRequester.Default
+                                right = moreInfoFocusRequester
+                                down = belowContentFocusRequester ?: FocusRequester.Default
+                            },
+                        onClick = onClick
+                    )
+
+                    FeatureHeroActionButton(
+                        text = stringResource(R.string.dashboard_more_info),
+                        isPrimary = false,
+                        onFocusChanged = { isFocused ->
+                            moreInfoButtonFocused = isFocused
+                            if (isFocused) {
+                                onHeroZoneFocused?.invoke()
+                            }
+                        },
+                        onRightPressed = onAdvanceToNextFeature,
+                        modifier = Modifier
+                            .focusRequester(moreInfoFocusRequester)
+                            .focusProperties {
+                                up = headerFocusRequester ?: FocusRequester.Default
+                                left = playFocusRequester
+                                down = belowContentFocusRequester ?: FocusRequester.Default
+                            },
+                        onClick = onClick
+                    )
                 }
             }
         }
@@ -926,23 +1130,74 @@ private fun FeatureHeroCard(
 }
 
 @Composable
-internal fun UserProfileAvatar(
-    imageUrl: String?,
-    serverTypeRaw: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun FeatureHeroActionButton(
+    text: String,
+    isPrimary: Boolean,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
+    onRightPressed: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit
 ) {
-    Box(
+    var isFocused by remember(text, isPrimary) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(999.dp)
+
+    Row(
         modifier = modifier
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.1f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+            .widthIn(min = 104.dp)
+            .clip(shape)
+            .background(
+                when {
+                    isPrimary -> Color.White
+                    isFocused -> Color.White.copy(alpha = 0.22f)
+                    else -> Color.White.copy(alpha = 0.14f)
+                }
+            )
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = when {
+                    isFocused -> Color.White
+                    isPrimary -> Color.Transparent
+                    else -> Color.White.copy(alpha = 0.14f)
+                },
+                shape = shape
+            )
+            .onFocusChanged { state ->
+                isFocused = state.isFocused
+                onFocusChanged?.invoke(state.isFocused)
+            }
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown &&
+                    keyEvent.key == Key.DirectionRight &&
+                    onRightPressed != null
+                ) {
+                    onRightPressed()
+                    true
+                } else {
+                    false
+                }
+            }
+            .clickable(onClick = onClick)
+            .focusable()
+            .padding(horizontal = 9.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        ProfileImageLoader(
-            imageUrl = imageUrl,
-            serverTypeRaw = serverTypeRaw,
-            modifier = Modifier.fillMaxSize()
+        icon?.let { imageVector ->
+            Icon(
+                imageVector = imageVector,
+                contentDescription = null,
+                tint = if (isPrimary) Color.Black else Color.White,
+                modifier = Modifier.size(11.dp)
+            )
+        }
+        Text(
+            text = text,
+            color = if (isPrimary) Color.Black else Color.White,
+            fontSize = 9.sp,
+            fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

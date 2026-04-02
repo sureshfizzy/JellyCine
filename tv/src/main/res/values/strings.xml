@@ -255,6 +255,7 @@
     <string name="dashboard_offline_notice">No network connection. Showing downloaded media only.</string>
     <string name="dashboard_no_movies_found">No movies found</string>
     <string name="dashboard_no_tv_shows_found">No TV shows found</string>
+    <string name="dashboard_more_info">More Info</string>
     <string name="feature_logo_content_description">%1$s logo</string>
     <string name="feature_profile_picture_content_description">Profile picture of %1$s</string>
 
