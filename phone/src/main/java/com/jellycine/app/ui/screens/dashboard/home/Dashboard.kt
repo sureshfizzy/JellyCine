@@ -108,6 +108,7 @@ import coil3.request.*
 import coil3.size.Precision
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.WarmImageUrl
+import com.jellycine.shared.playback.PlaybackRefreshSignals
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable
@@ -1180,6 +1181,7 @@ fun Dashboard(
         )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
+    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
 
     LaunchedEffect(featureCarouselEnabled) {
         if (!featureCarouselEnabled && selectedCategory != HomeCategory.HOME) {
@@ -1582,6 +1584,30 @@ fun Dashboard(
                         queryManager.invalidateQuery("home_next_up_api_v1")
                     }
                 }
+            }
+        }
+        LaunchedEffect(
+            latestPlaybackStopEvent?.timestampMs,
+            isTabActive,
+            selectedCategory,
+            isNetworkAvailable,
+            continueWatchingEnabled,
+            nextUpEnabled
+        ) {
+            if (
+                latestPlaybackStopEvent == null ||
+                !isTabActive ||
+                selectedCategory != HomeCategory.HOME ||
+                !isNetworkAvailable
+            ) {
+                return@LaunchedEffect
+            }
+
+            if (continueWatchingEnabled) {
+                queryManager.invalidateQuery("continue_watching_resume_api_v2")
+            }
+            if (nextUpEnabled) {
+                queryManager.invalidateQuery("home_next_up_api_v1")
             }
         }
         LaunchedEffect(continueWatchingQuery.data?.hashCode(), isNetworkAvailable) {
@@ -3076,31 +3102,6 @@ private object Cache {
     fun getStats(): String {
         return "Cache size: ${cache.size}/$MAX_CACHE_SIZE"
     }
-}
-
-private object DashboardCache {
-    fun RefreshFeaturedItems(category: String): Boolean {
-        return Cache.isStale("featured_$category", 300_000L)
-    }
-
-    fun getFeaturedItems(category: String): List<BaseItemDto> {
-        return Cache.get<List<BaseItemDto>>("featured_$category") ?: emptyList()
-    }
-
-    fun updateFeaturedItems(category: String, items: List<BaseItemDto>) {
-        Cache.put("featured_$category", items)
-    }
-
-    fun RefreshContinueWatching(): Boolean {
-        return Cache.isStale("continue_watching", 120_000L)
-    }
-
-    fun updateContinueWatching(items: List<BaseItemDto>) {
-        Cache.put("continue_watching", items)
-    }
-
-    val continueWatchingItems: List<BaseItemDto>
-        get() = Cache.get("continue_watching") ?: emptyList()
 }
 
 private object GenreCache {

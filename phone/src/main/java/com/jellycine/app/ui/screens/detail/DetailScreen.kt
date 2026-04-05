@@ -75,6 +75,7 @@ import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.core.defaultSubtitleDisplayTitle
 import com.jellycine.player.core.mediaStreamDisplayTitles
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.shared.playback.PlaybackRefreshSignals
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
@@ -118,6 +119,7 @@ fun DetailScreenContainer(
     var castTracks by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
+    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
 
     LaunchedEffect(context) {
         CastController.ensureInitialized(context)
@@ -348,6 +350,23 @@ fun DetailScreenContainer(
             episodeError = e.message
             episodeItem = null
             isEpisodeLoading = false
+        }
+    }
+
+    LaunchedEffect(latestPlaybackStopEvent?.timestampMs) {
+        val playbackStopEvent = latestPlaybackStopEvent ?: return@LaunchedEffect
+        val refreshedItemId = playbackStopEvent.itemId ?: return@LaunchedEffect
+
+        if (item?.id == refreshedItemId || itemId == refreshedItemId) {
+            mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedItem ->
+                item = refreshedItem
+            }
+        }
+
+        if (episodeItem?.id == refreshedItemId || episodeDetailId == refreshedItemId) {
+            mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedEpisode ->
+                episodeItem = refreshedEpisode
+            }
         }
     }
 

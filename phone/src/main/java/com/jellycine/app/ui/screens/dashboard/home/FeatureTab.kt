@@ -89,9 +89,7 @@ import kotlin.math.abs
 
 internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
-    var continueWatchingItems: List<BaseItemDto> = emptyList()
     var lastLoadTime: Long = 0
-    var continueWatchingLastLoadTime: Long = 0
     private var _isCurrentlyLoading: Boolean = false
 
     val isCurrentlyLoading: Boolean get() = _isCurrentlyLoading
@@ -106,16 +104,9 @@ internal object CachedData {
         _isCurrentlyLoading = false
     }
 
-    fun updateContinueWatchingItems(items: List<BaseItemDto>) {
-        continueWatchingItems = items
-        continueWatchingLastLoadTime = System.currentTimeMillis()
-    }
-
     fun clearAllCache() {
         featuredItems = emptyList()
-        continueWatchingItems = emptyList()
         lastLoadTime = 0
-        continueWatchingLastLoadTime = 0
         _isCurrentlyLoading = false
     }
 

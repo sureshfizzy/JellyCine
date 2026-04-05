@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.player
 
 import android.util.Log
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.shared.playback.PlaybackRefreshSignals
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -84,13 +85,21 @@ internal class PlayerPlaybackReporter(
 
         scope.launch {
             try {
-                mediaRepository.reportPlaybackStopped(
+                val result = mediaRepository.reportPlaybackStopped(
                     itemId = mediaId,
                     positionTicks = positionProvider() * TICKS_PER_MILLISECOND,
                     playSessionId = sessionSnapshot.playSessionId,
                     mediaSourceId = sessionSnapshot.mediaSourceId,
                     failed = failed
                 )
+                if (result.isSuccess) {
+                    PlaybackRefreshSignals.notifyPlaybackStopped(mediaId)
+                } else {
+                    Log.e(
+                        TAG,
+                        "Failed to report playback stopped: ${result.exceptionOrNull()?.message}"
+                    )
+                }
             } catch (error: Exception) {
                 Log.e(TAG, "Error reporting playback stopped", error)
             }
