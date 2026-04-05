@@ -24,7 +24,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.jellycine.phone"
+        applicationId = "com.jellycine.app"
         minSdk = 27
         targetSdk = 36
         versionCode = rootProject.ext.appVersionCode as Integer
