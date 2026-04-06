@@ -42,6 +42,6 @@ private fun candidateSegment(
         type = type,
         startMs = segmentStartMs,
         endMs = segmentEndMs,
-        seekToMs = boundedDurationMs ?: endMs ?: segmentEndMs
+        seekToMs = endMs ?: boundedDurationMs ?: segmentEndMs
     )
 }
