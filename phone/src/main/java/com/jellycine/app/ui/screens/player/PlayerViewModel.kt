@@ -16,28 +16,29 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.jellycine.data.model.AudioTranscodeMode
-import com.jellycine.data.model.ChapterInfo
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.MediaSource
+import com.jellycine.data.model.MediaStream
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.detail.CodecCapabilityManager
+import com.jellycine.player.audio.SpatializerHelper
+import com.jellycine.player.core.PlaybackMarkerUtils
+import com.jellycine.player.core.PlayerState
+import com.jellycine.player.core.PlayerTrack
+import com.jellycine.player.core.PlayerUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import javax.inject.Inject
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.MediaSource
-import com.jellycine.player.core.ChapterMarker
-import com.jellycine.player.core.PlayerState
-import com.jellycine.player.core.PlayerTrack
-import com.jellycine.player.core.PlayerUtils
-import com.jellycine.player.audio.SpatializerHelper
-import com.jellycine.detail.CodecCapabilityManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import com.jellycine.app.download.DownloadRepository
 import com.jellycine.app.download.DownloadRepositoryProvider
 import java.io.File
+import javax.inject.Inject
 
 /**
  * Player ViewModel
@@ -75,6 +76,7 @@ class PlayerViewModel @Inject constructor(
     private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
     private var downloadRepository: DownloadRepository? = null
+    private var communityIntroLookupJob: Job? = null
 
     fun initializePlayer(
         context: Context,
@@ -128,6 +130,8 @@ class PlayerViewModel @Inject constructor(
 
                 audioDiagnosticsSignature = null
                 playbackReporter.reset()
+                communityIntroLookupJob?.cancel()
+                communityIntroLookupJob = null
                 spatializerHelper = SpatializerHelper(context)
                 exoPlayer = PlayerUtils.createPlayer(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
@@ -188,9 +192,9 @@ class PlayerViewModel @Inject constructor(
                         null
                     }
                 }
-                val chapterMarkers = buildChapterMarkers(itemDetails?.chapters)
+                val chapterMarkers = PlaybackMarkerUtils.buildChapterMarkers(itemDetails?.chapters)
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
-                val introWindow = skipIntroWindow(itemDetails?.chapters)
+                val introWindow = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
 
                 var primaryMediaSource: MediaSource? = null
                 var sessionPlaySessionId: String? = null
@@ -361,8 +365,8 @@ class PlayerViewModel @Inject constructor(
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
                     chapterMarkers = chapterMarkers,
-                    introStartMs = introWindow?.first,
-                    introEndMs = introWindow?.second,
+                    introStartMs = introWindow?.startMs,
+                    introEndMs = introWindow?.endMs,
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
                     isAudioTranscodingAllowed = isAudioTranscodingAllowed,
                     currentAudioTranscodeMode = audioTranscodeMode,
@@ -371,6 +375,9 @@ class PlayerViewModel @Inject constructor(
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
                     isHdrEnabled = isHdrPlayback
                 )
+                if (introWindow == null && itemDetails != null) {
+                    applyCommunityIntroWindow(mediaId = mediaId, itemDetails = itemDetails)
+                }
 
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Player initialization failed", e)
@@ -379,6 +386,25 @@ class PlayerViewModel @Inject constructor(
                     error = e.message ?: "Unknown error occurred"
                 )
             }
+        }
+    }
+
+    private fun applyCommunityIntroWindow(mediaId: String, itemDetails: BaseItemDto) {
+        if (!itemDetails.type.equals("Episode", ignoreCase = true)) return
+
+        communityIntroLookupJob?.cancel()
+        communityIntroLookupJob = viewModelScope.launch {
+            val introWindow = mediaRepository.getCommunityIntroWindow(itemDetails).getOrNull()
+                ?: return@launch
+            if (playbackSession.mediaId != mediaId) return@launch
+
+            val currentState = _playerState.value
+            if (currentState.introStartMs != null || currentState.introEndMs != null) return@launch
+
+            _playerState.value = currentState.copy(
+                introStartMs = introWindow.startMs,
+                introEndMs = introWindow.endMs
+            )
         }
     }
 
@@ -419,73 +445,6 @@ class PlayerViewModel @Inject constructor(
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
 
     fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
-
-    private fun skipIntroWindow(chapters: List<ChapterInfo>?): Pair<Long, Long>? {
-        val chapterList = chapters
-            ?.mapNotNull { chapter ->
-                val positionMs = chapter.startPositionTicks
-                    ?.takeIf { it >= 0L }
-                    ?.div(10_000L)
-                    ?: return@mapNotNull null
-                chapter to positionMs
-            }
-            ?.sortedBy { it.second }
-            .orEmpty()
-
-        if (chapterList.isEmpty()) return null
-
-        val introStartIndex = chapterList.indexOfFirst { (chapter, _) ->
-            chapter.name.isIntroStartMarker()
-        }
-        if (introStartIndex == -1) return null
-
-        val introStartMs = chapterList[introStartIndex].second
-        val explicitIntroEndMs = chapterList
-            .drop(introStartIndex + 1)
-            .firstOrNull { (chapter, _) -> chapter.name.isIntroEndMarker() }
-            ?.second
-        val fallbackIntroEndMs = chapterList
-            .getOrNull(introStartIndex + 1)
-            ?.second
-        val introEndMs = explicitIntroEndMs ?: fallbackIntroEndMs
-
-        return introEndMs
-            ?.takeIf { it > introStartMs }
-            ?.let { introStartMs to it }
-    }
-
-    private fun buildChapterMarkers(chapters: List<ChapterInfo>?): List<ChapterMarker> {
-        return chapters
-            ?.mapNotNull { chapter ->
-                val positionMs = chapter.startPositionTicks
-                    ?.takeIf { it >= 0L }
-                    ?.div(10_000L)
-                    ?: return@mapNotNull null
-                ChapterMarker(
-                    positionMs = positionMs,
-                    label = chapter.name?.trim()?.takeIf { it.isNotEmpty() }
-                )
-            }
-            ?.distinctBy { it.positionMs }
-            ?.sortedBy { it.positionMs }
-            .orEmpty()
-    }
-
-    private fun String?.isIntroStartMarker(): Boolean {
-        val key = markerKey()
-        return key == "intro" || key == "introstart"
-    }
-
-    private fun String?.isIntroEndMarker(): Boolean {
-        return markerKey() == "introend"
-    }
-
-    private fun String?.markerKey(): String {
-        return this
-            ?.lowercase()
-            ?.filterNot { it.isWhitespace() || it == '_' || it == '-' }
-            .orEmpty()
-    }
 
     private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
         videoTranscodingAllowed?.let { return it }
@@ -548,6 +507,8 @@ class PlayerViewModel @Inject constructor(
     fun releasePlayer() {
         persistPosition()
         playbackReporter.reportPlaybackStopped()
+        communityIntroLookupJob?.cancel()
+        communityIntroLookupJob = null
         exoPlayer?.apply {
             removeListener(playerListener)
             release()

@@ -11,6 +11,7 @@ import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
+import com.jellycine.data.model.IntroWindow
 import com.jellycine.data.model.PlaybackAuthContext
 import com.jellycine.data.model.PlaybackUrlBuilder
 import com.jellycine.data.model.PlaybackRequest
@@ -40,18 +41,17 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 
 class MediaRepository(private val context: Context) {
-    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
-    private val networkPreferences = NetworkPreferences(context)
-    private val secureSessionStore = SecureSessionStore(context)
-    
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
+
+    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
+    private val networkPreferences = NetworkPreferences(context)
+    private val secureSessionStore = SecureSessionStore(context)
 
     private data class ImageAuthState(
         val serverUrl: String?
@@ -104,6 +104,9 @@ class MediaRepository(private val context: Context) {
     private var cachedImageAuthAt: Long = 0L
 
     private val homeSnapshotStore = HomeSnapshotStore(context.filesDir)
+    private val introDbClient = IntroDbClient(
+        getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
+    )
 
     private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
         .map { preferences ->
@@ -379,7 +382,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))
             val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
-            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters"
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber"
 
             val response = api.getItemById(
                 userId = userId,
@@ -417,6 +420,14 @@ class MediaRepository(private val context: Context) {
             } else {
                 Result.failure(Exception("Failed to fetch item: ${response.code()}"))
             }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCommunityIntroWindow(item: BaseItemDto): Result<IntroWindow?> {
+        return try {
+            Result.success(introDbClient.getIntroWindow(item))
         } catch (e: Exception) {
             Result.failure(e)
         }
