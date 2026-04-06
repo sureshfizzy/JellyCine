@@ -81,6 +81,7 @@ import androidx.compose.ui.res.stringResource
 import com.jellycine.app.R
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
+import com.jellycine.detail.CodecUtils
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Immutable
@@ -2594,6 +2595,16 @@ private fun ContinueWatchingCard(
             else -> ""
         }
     }
+    val remainingText = remember(item.runTimeTicks, item.userData?.playbackPositionTicks) {
+        val runtimeTicks = item.runTimeTicks
+        val playbackPositionTicks = item.userData?.playbackPositionTicks ?: 0L
+        if (runtimeTicks != null && runtimeTicks > 0L && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks) {
+            val remainingTicks = (runtimeTicks - playbackPositionTicks).coerceAtLeast(0L)
+            "${CodecUtils.formatRuntime(remainingTicks)} left"
+        } else {
+            ""
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -2632,6 +2643,15 @@ private fun ContinueWatchingCard(
                     itemType = stableItem.type, // Pass item type for proper episode handling
                     imageTag = null
                 )
+
+                remainingText.takeIf { it.isNotBlank() }?.let { text ->
+                    PosterTextBadge(
+                        text = text,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 8.dp, end = 4.dp)
+                    )
+                }
 
                 stableItem.userData?.playedPercentage?.let { percentage ->
                     val progress = remember(percentage) {

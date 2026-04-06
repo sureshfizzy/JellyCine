@@ -2,7 +2,9 @@ package com.jellycine.shared.ui.components.common
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +44,38 @@ fun PosterCountBadge(
                 lineHeight = textSize,
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(
+                        includeFontPadding = false
+                    )
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun PosterTextBadge(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    if (text.isBlank()) return
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = Color.Black.copy(alpha = 0.7f)
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontSize = 10.sp,
+                lineHeight = 10.sp,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
                 style = TextStyle(
                     platformStyle = PlatformTextStyle(
                         includeFontPadding = false
