@@ -1,8 +1,8 @@
 package com.jellycine.player.core
 
 import com.jellycine.data.model.ChapterInfo
-import com.jellycine.data.model.IntroWindow
-import com.jellycine.data.model.IntroWindowSource
+import com.jellycine.data.model.PlaybackSegmentSource
+import com.jellycine.data.model.PlaybackSegmentWindow
 
 object PlaybackMarkerUtils {
     fun buildChapterMarkers(chapters: List<ChapterInfo>?): List<ChapterMarker> {
@@ -22,7 +22,7 @@ object PlaybackMarkerUtils {
             .orEmpty()
     }
 
-    fun extractIntroWindow(chapters: List<ChapterInfo>?): IntroWindow? {
+    fun extractIntroWindow(chapters: List<ChapterInfo>?): PlaybackSegmentWindow? {
         val chapterList = chapters
             ?.mapNotNull { chapter ->
                 val positionMs = chapter.startPositionTicks
@@ -54,10 +54,10 @@ object PlaybackMarkerUtils {
         return introEndMs
             ?.takeIf { it > introStartMs }
             ?.let {
-                IntroWindow(
+                PlaybackSegmentWindow(
                     startMs = introStartMs,
                     endMs = it,
-                    source = IntroWindowSource.SERVER_MARKER
+                    source = PlaybackSegmentSource.SERVER_MARKER
                 )
             }
     }

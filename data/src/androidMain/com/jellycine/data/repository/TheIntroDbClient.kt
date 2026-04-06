@@ -15,7 +15,7 @@ import okhttp3.Request
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-internal class IntroDbClient(
+internal class TheIntroDbClient(
     private val getSeriesItem: suspend (String) -> BaseItemDto?
 ) {
     private data class CachedPlaybackSegments(
@@ -23,26 +23,28 @@ internal class IntroDbClient(
         val cachedAtMs: Long
     )
 
-    private data class IntroDbLookupRequest(
-        val imdbId: String,
+    private data class TheIntroDbLookupRequest(
+        val tmdbId: String,
         val seasonNumber: Int,
         val episodeNumber: Int
     ) {
         val cacheKey: String
-            get() = "introdb|$imdbId|s$seasonNumber|e$episodeNumber|intro"
+            get() = "theintrodb|$tmdbId|s$seasonNumber|e$episodeNumber|segments"
     }
 
     @Serializable
-    private data class IntroDbSegmentsResponse(
-        @SerialName("imdb_id")
-        val imdbId: String? = null,
-        val season: Int? = null,
-        val episode: Int? = null,
-        val intro: IntroDbSegmentWindow? = null
+    private data class TheIntroDbMediaResponse(
+        @SerialName("tmdb_id")
+        val tmdbId: Long? = null,
+        val type: String? = null,
+        val intro: List<TheIntroDbSegment> = emptyList(),
+        val recap: List<TheIntroDbSegment> = emptyList(),
+        val credits: List<TheIntroDbSegment> = emptyList(),
+        val preview: List<TheIntroDbSegment> = emptyList()
     )
 
     @Serializable
-    private data class IntroDbSegmentWindow(
+    private data class TheIntroDbSegment(
         @SerialName("start_ms")
         val startMs: Long? = null,
         @SerialName("end_ms")
@@ -66,7 +68,7 @@ internal class IntroDbClient(
         }
 
         val playbackSegments = withContext(Dispatchers.IO) {
-            fetchIntroDbSegments(lookupRequest)
+            fetchPlaybackSegments(lookupRequest)
         }
         playbackSegmentsCache[lookupRequest.cacheKey] = CachedPlaybackSegments(
             segments = playbackSegments,
@@ -84,21 +86,21 @@ internal class IntroDbClient(
         return cachedEntry
     }
 
-    private suspend fun buildLookupRequest(item: BaseItemDto): IntroDbLookupRequest? {
-        val seriesImdbId = item.seriesId
+    private suspend fun buildLookupRequest(item: BaseItemDto): TheIntroDbLookupRequest? {
+        val seriesTmdbId = item.seriesId
             ?.takeIf { it.isNotBlank() && it != item.id }
             ?.let { seriesId ->
                 getSeriesItem(seriesId)
                     ?.providerIds
-                    .providerId("imdb")
+                    .providerId("tmdb")
             }
-        val episodeImdbId = item.providerIds.providerId("imdb")
-        val imdbId = seriesImdbId ?: episodeImdbId ?: return null
+        val episodeTmdbId = item.providerIds.providerId("tmdb")
+        val tmdbId = seriesTmdbId ?: episodeTmdbId ?: return null
         val seasonNumber = item.parentIndexNumber ?: return null
         val episodeNumber = item.indexNumber ?: return null
 
-        return IntroDbLookupRequest(
-            imdbId = imdbId,
+        return TheIntroDbLookupRequest(
+            tmdbId = tmdbId,
             seasonNumber = seasonNumber,
             episodeNumber = episodeNumber
         )
@@ -115,8 +117,9 @@ internal class IntroDbClient(
             ?.takeIf { it.isNotEmpty() }
     }
 
-    private fun fetchIntroDbSegments(requestParams: IntroDbLookupRequest): PlaybackSegments? {
-        val url = "https://api.introdb.app/segments?imdb_id=${requestParams.imdbId}&season=${requestParams.seasonNumber}&episode=${requestParams.episodeNumber}&segment_type=intro"
+    private fun fetchPlaybackSegments(requestParams: TheIntroDbLookupRequest): PlaybackSegments? {
+        val url = "https://api.theintrodb.org/v2/media?tmdb_id=${requestParams.tmdbId}&season=${requestParams.seasonNumber}&episode=${requestParams.episodeNumber}"
+
         val request = Request.Builder()
             .url(url)
             .get()
@@ -126,18 +129,28 @@ internal class IntroDbClient(
             if (!response.isSuccessful) return null
 
             val responseBody = response.body?.string()?.takeIf { it.isNotBlank() } ?: return null
-            val payload = JellyCineJson.decodeFromString<IntroDbSegmentsResponse>(responseBody)
-            val startMs = payload.intro?.startMs ?: return null
-            val endMs = payload.intro?.endMs ?: return null
-            if (endMs <= startMs) return null
+            val payload = JellyCineJson.decodeFromString<TheIntroDbMediaResponse>(responseBody)
+            val playbackSegments = PlaybackSegments(
+                intro = payload.intro.firstOrNull()?.toPlaybackSegmentWindow(),
+                recap = payload.recap.firstOrNull()?.toPlaybackSegmentWindow(),
+                credits = payload.credits.firstOrNull()?.toPlaybackSegmentWindow(),
+                preview = payload.preview.firstOrNull()?.toPlaybackSegmentWindow()
+            ).takeIf { it.hasAnySegments() } ?: return null
 
-            return PlaybackSegments(
-                intro = PlaybackSegmentWindow(
-                    startMs = startMs,
-                    endMs = endMs,
-                    source = PlaybackSegmentSource.INTRO_DB
-                )
-            )
+            return playbackSegments
         }
+    }
+
+    private fun TheIntroDbSegment.toPlaybackSegmentWindow(): PlaybackSegmentWindow? {
+        val segmentStartMs = startMs ?: 0L
+        val segmentEndMs = endMs
+        if (startMs == null && segmentEndMs == null) return null
+        if (segmentEndMs != null && segmentEndMs <= segmentStartMs) return null
+
+        return PlaybackSegmentWindow(
+            startMs = segmentStartMs,
+            endMs = segmentEndMs,
+            source = PlaybackSegmentSource.THE_INTRO_DB
+        )
     }
 }

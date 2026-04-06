@@ -76,7 +76,7 @@ class PlayerViewModel @Inject constructor(
     private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
     private var downloadRepository: DownloadRepository? = null
-    private var communityIntroLookupJob: Job? = null
+    private var communityPlaybackSegmentsJob: Job? = null
 
     fun initializePlayer(
         context: Context,
@@ -90,8 +90,14 @@ class PlayerViewModel @Inject constructor(
             try {
                 _playerState.value = _playerState.value.copy(isLoading = true, error = null)
                 _playerState.value = _playerState.value.copy(
+                    recapStartMs = null,
+                    recapEndMs = null,
                     introStartMs = null,
                     introEndMs = null,
+                    creditsStartMs = null,
+                    creditsEndMs = null,
+                    previewStartMs = null,
+                    previewEndMs = null,
                     chapterMarkers = emptyList()
                 )
 
@@ -130,8 +136,8 @@ class PlayerViewModel @Inject constructor(
 
                 audioDiagnosticsSignature = null
                 playbackReporter.reset()
-                communityIntroLookupJob?.cancel()
-                communityIntroLookupJob = null
+                communityPlaybackSegmentsJob?.cancel()
+                communityPlaybackSegmentsJob = null
                 spatializerHelper = SpatializerHelper(context)
                 exoPlayer = PlayerUtils.createPlayer(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
@@ -194,7 +200,7 @@ class PlayerViewModel @Inject constructor(
                 }
                 val chapterMarkers = PlaybackMarkerUtils.buildChapterMarkers(itemDetails?.chapters)
                 val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
-                val introWindow = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
+                val introSegment = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
 
                 var primaryMediaSource: MediaSource? = null
                 var sessionPlaySessionId: String? = null
@@ -365,8 +371,8 @@ class PlayerViewModel @Inject constructor(
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
                     chapterMarkers = chapterMarkers,
-                    introStartMs = introWindow?.startMs,
-                    introEndMs = introWindow?.endMs,
+                    introStartMs = introSegment?.startMs,
+                    introEndMs = introSegment?.endMs,
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
                     isAudioTranscodingAllowed = isAudioTranscodingAllowed,
                     currentAudioTranscodeMode = audioTranscodeMode,
@@ -375,8 +381,8 @@ class PlayerViewModel @Inject constructor(
                     spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
                     isHdrEnabled = isHdrPlayback
                 )
-                if (introWindow == null && itemDetails != null) {
-                    applyCommunityIntroWindow(mediaId = mediaId, itemDetails = itemDetails)
+                if (itemDetails != null) {
+                    applyCommunityPlaybackSegments(mediaId = mediaId, itemDetails = itemDetails)
                 }
 
             } catch (e: Exception) {
@@ -389,21 +395,25 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun applyCommunityIntroWindow(mediaId: String, itemDetails: BaseItemDto) {
+    private fun applyCommunityPlaybackSegments(mediaId: String, itemDetails: BaseItemDto) {
         if (!itemDetails.type.equals("Episode", ignoreCase = true)) return
 
-        communityIntroLookupJob?.cancel()
-        communityIntroLookupJob = viewModelScope.launch {
-            val introWindow = mediaRepository.getCommunityIntroWindow(itemDetails).getOrNull()
+        communityPlaybackSegmentsJob?.cancel()
+        communityPlaybackSegmentsJob = viewModelScope.launch {
+            val playbackSegments = mediaRepository.getCommunityPlaybackSegments(itemDetails).getOrNull()
                 ?: return@launch
             if (playbackSession.mediaId != mediaId) return@launch
 
             val currentState = _playerState.value
-            if (currentState.introStartMs != null || currentState.introEndMs != null) return@launch
-
             _playerState.value = currentState.copy(
-                introStartMs = introWindow.startMs,
-                introEndMs = introWindow.endMs
+                recapStartMs = currentState.recapStartMs ?: playbackSegments.recap?.startMs,
+                recapEndMs = currentState.recapEndMs ?: playbackSegments.recap?.endMs,
+                introStartMs = currentState.introStartMs ?: playbackSegments.intro?.startMs,
+                introEndMs = currentState.introEndMs ?: playbackSegments.intro?.endMs,
+                creditsStartMs = currentState.creditsStartMs ?: playbackSegments.credits?.startMs,
+                creditsEndMs = currentState.creditsEndMs ?: playbackSegments.credits?.endMs,
+                previewStartMs = currentState.previewStartMs ?: playbackSegments.preview?.startMs,
+                previewEndMs = currentState.previewEndMs ?: playbackSegments.preview?.endMs
             )
         }
     }
@@ -507,8 +517,8 @@ class PlayerViewModel @Inject constructor(
     fun releasePlayer() {
         persistPosition()
         playbackReporter.reportPlaybackStopped()
-        communityIntroLookupJob?.cancel()
-        communityIntroLookupJob = null
+        communityPlaybackSegmentsJob?.cancel()
+        communityPlaybackSegmentsJob = null
         exoPlayer?.apply {
             removeListener(playerListener)
             release()

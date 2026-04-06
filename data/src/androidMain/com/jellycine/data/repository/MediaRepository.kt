@@ -11,7 +11,7 @@ import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
-import com.jellycine.data.model.IntroWindow
+import com.jellycine.data.model.PlaybackSegments
 import com.jellycine.data.model.PlaybackAuthContext
 import com.jellycine.data.model.PlaybackUrlBuilder
 import com.jellycine.data.model.PlaybackRequest
@@ -104,6 +104,9 @@ class MediaRepository(private val context: Context) {
     private var cachedImageAuthAt: Long = 0L
 
     private val homeSnapshotStore = HomeSnapshotStore(context.filesDir)
+    private val theIntroDbClient = TheIntroDbClient(
+        getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
+    )
     private val introDbClient = IntroDbClient(
         getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
     )
@@ -425,12 +428,30 @@ class MediaRepository(private val context: Context) {
         }
     }
 
-    suspend fun getCommunityIntroWindow(item: BaseItemDto): Result<IntroWindow?> {
-        return try {
-            Result.success(introDbClient.getIntroWindow(item))
+    suspend fun getCommunityPlaybackSegments(item: BaseItemDto): Result<PlaybackSegments?> {
+        val theIntroDbSegments = try {
+            theIntroDbClient.getPlaybackSegments(item)
         } catch (e: Exception) {
-            Result.failure(e)
+            null
         }
+        if (theIntroDbSegments?.intro != null) {
+            return Result.success(theIntroDbSegments)
+        }
+
+        val introDbSegments = try {
+            introDbClient.getPlaybackSegments(item)
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+
+        val mergedSegments = when {
+            theIntroDbSegments == null && introDbSegments == null -> null
+            theIntroDbSegments == null -> introDbSegments
+            introDbSegments?.intro == null -> theIntroDbSegments.takeIf { it.hasAnySegments() }
+            else -> theIntroDbSegments.copy(intro = theIntroDbSegments.intro ?: introDbSegments.intro)
+        }
+
+        return Result.success(mergedSegments)
     }
 
     suspend fun getSimilarItems(

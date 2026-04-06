@@ -43,6 +43,8 @@ import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
+import com.jellycine.player.core.SkippableSegmentType
+import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.app.ui.screens.player.MediaInfoDialog
 import kotlinx.coroutines.delay
@@ -266,20 +268,29 @@ fun PlayerScreen(
 
     val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
         playerState.isAudioTranscodingAllowed
-    val showSkipIntroButton = remember(
+    val playbackDuration = viewModel.getDuration()
+    val activeSkippableSegment = remember(
         skipIntroEnabled,
         playerState.isLocked,
+        playerState.recapStartMs,
+        playerState.recapEndMs,
         playerState.introStartMs,
         playerState.introEndMs,
+        playerState.creditsStartMs,
+        playerState.creditsEndMs,
+        playerState.previewStartMs,
+        playerState.previewEndMs,
+        playbackDuration,
         uiState.currentPosition
     ) {
-        val introStartMs = playerState.introStartMs
-        val introEndMs = playerState.introEndMs
-        skipIntroEnabled &&
-            !playerState.isLocked &&
-            introStartMs != null &&
-            introEndMs != null &&
-            uiState.currentPosition in introStartMs until introEndMs
+        if (!skipIntroEnabled || playerState.isLocked) {
+            null
+        } else {
+            playerState.findActiveSkippableSegment(
+                positionMs = uiState.currentPosition,
+                durationMs = playbackDuration
+            )
+        }
     }
 
     val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
@@ -591,7 +602,7 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(
-            visible = showSkipIntroButton && uiState.controlsVisible,
+            visible = activeSkippableSegment != null && uiState.controlsVisible,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -602,7 +613,7 @@ fun PlayerScreen(
             FilledTonalButton(
                 onClick = {
                     resetAutoHideTimer()
-                    playerState.introEndMs?.let(viewModel::seekTo)
+                    activeSkippableSegment?.seekToMs?.let(viewModel::seekTo)
                 },
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.filledTonalButtonColors(
@@ -617,7 +628,14 @@ fun PlayerScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.player_skip_intro),
+                    text = stringResource(
+                        when (activeSkippableSegment?.type) {
+                            SkippableSegmentType.RECAP -> R.string.player_skip_recap
+                            SkippableSegmentType.PREVIEW -> R.string.player_skip_preview
+                            SkippableSegmentType.CREDITS -> R.string.player_skip_credits
+                            else -> R.string.player_skip_intro
+                        }
+                    ),
                     fontSize = 14.sp
                 )
             }

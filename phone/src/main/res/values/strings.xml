@@ -243,6 +243,9 @@
     <string name="player_dialog_audio_mode_channels_8">Max 8 channels</string>
     <string name="player_dialog_no_tracks_available">No tracks available</string>
     <string name="player_skip_intro">Skip Intro</string>
+    <string name="player_skip_recap">Skip Recap</string>
+    <string name="player_skip_credits">Skip Credits</string>
+    <string name="player_skip_preview">Skip Preview</string>
 
     <!-- Home Dashboard -->
     <string name="dashboard_server_fallback">Server</string>
