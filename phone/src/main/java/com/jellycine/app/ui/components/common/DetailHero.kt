@@ -65,6 +65,18 @@ private val tabletDetailHeroBottomFadeGradient = arrayOf(
     1.0f to Color.Black.copy(alpha = 0.82f)
 )
 
+private fun overlayStartPos(startFraction: Float): Array<Pair<Float, Color>> {
+    val clampedStartFraction = startFraction.coerceIn(0f, 1f)
+    return arrayOf(
+        0.0f to Color.Transparent,
+        clampedStartFraction to Color.Transparent,
+        (clampedStartFraction + 0.06f).coerceIn(0f, 1f) to Color.Black.copy(alpha = 0.08f),
+        (clampedStartFraction + 0.14f).coerceIn(0f, 1f) to Color.Black.copy(alpha = 0.18f),
+        (clampedStartFraction + 0.24f).coerceIn(0f, 1f) to Color.Black.copy(alpha = 0.28f),
+        1.0f to Color.Black.copy(alpha = 0.34f)
+    )
+}
+
 private fun detailBackdropHeroStyleSpec(style: DetailBackdropHeroStyle): DetailBackdropHeroStyleSpec {
     return when (style) {
         DetailBackdropHeroStyle.Default -> DetailBackdropHeroStyleSpec(
@@ -92,6 +104,7 @@ fun DetailBackdropHero(
     bottomFadeHeight: Dp? = null,
     fallbackColor: Color = Color(0xFF20202A),
     imageAlignment: Alignment? = null,
+    contentFadeStartFraction: Float? = null,
     overlayGradient: Array<Pair<Float, Color>>? = null,
     bottomFadeGradient: Array<Pair<Float, Color>>? = null,
     onErrorStateChange: (Boolean) -> Unit = {},
@@ -101,7 +114,11 @@ fun DetailBackdropHero(
     val styleSpec = detailBackdropHeroStyleSpec(style)
     val resolvedBottomFadeHeight = bottomFadeHeight ?: styleSpec.bottomFadeHeight
     val resolvedImageAlignment = imageAlignment ?: styleSpec.imageAlignment
-    val resolvedOverlayGradient = overlayGradient ?: styleSpec.overlayGradient
+    val overlayGrad = when {
+        contentFadeStartFraction != null -> overlayStartPos(contentFadeStartFraction)
+        overlayGradient != null -> overlayGradient
+        else -> styleSpec.overlayGradient
+    }
     val resolvedBottomFadeGradient = bottomFadeGradient ?: styleSpec.bottomFadeGradient
 
     Box(
@@ -132,7 +149,7 @@ fun DetailBackdropHero(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colorStops = resolvedOverlayGradient
+                        colorStops = overlayGrad
                     )
                 )
         )

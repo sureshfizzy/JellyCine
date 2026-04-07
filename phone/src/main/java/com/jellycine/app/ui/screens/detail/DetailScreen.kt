@@ -808,6 +808,14 @@ fun DetailContent(
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
+    val contentFadeStart = if (isWidescreenLayout && layout.backdropHeight.value > 0f) {
+        (
+            ((layout.contentTopPadding + layout.logoContainerHeight) - 56.dp).value /
+                layout.backdropHeight.value
+            ).coerceIn(0f, 1f)
+    } else {
+        null
+    }
     val onBackdropLoadError: (Boolean) -> Unit = { hasError ->
         if (
             hasError &&
@@ -992,6 +1000,8 @@ fun DetailContent(
                 contentDescription = item.name,
                 heroHeight = layout.backdropHeight,
                 style = DetailBackdropHeroStyle.TabletBackdrop,
+                bottomFadeHeight = 0.dp,
+                contentFadeStartFraction = contentFadeStart,
                 onErrorStateChange = onBackdropLoadError
             ) {
                 DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
