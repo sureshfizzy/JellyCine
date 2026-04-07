@@ -1598,10 +1598,13 @@ fun DetailContent(
                     }
                 }
 
-                item.overview?.let { overview ->
+                val descriptionTagline = item.taglines
+                    ?.firstOrNull { !it.isNullOrBlank() }
+
+                if (!item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()) {
                     OverviewSection(
-                        overview = overview,
-                        title = "Description",
+                        overview = item.overview,
+                        tagline = descriptionTagline,
                         modifier = Modifier.padding(top = 18.dp)
                     )
                 }

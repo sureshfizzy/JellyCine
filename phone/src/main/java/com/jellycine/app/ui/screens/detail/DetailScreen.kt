@@ -721,6 +721,10 @@ fun DetailContent(
     val genresText = remember(item.genres) {
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     }
+    val descriptionTagline = remember(item.taglines) {
+        item.taglines?.firstOrNull { !it.isNullOrBlank() }
+    }
+    val hasDescriptionContent = !item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()
     val canDownloadItem = item.id != null && item.canDownload != false
     val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
     val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
@@ -1274,6 +1278,14 @@ fun DetailContent(
                             }
                         }
 
+                        if (isWidescreenLayout && hasDescriptionContent) {
+                            OverviewSection(
+                                overview = item.overview,
+                                tagline = descriptionTagline,
+                                modifier = Modifier.padding(top = 14.dp)
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(layout.logoBottomSpacing))
 
                         val hasVideoSection = videoOptions.isNotEmpty()
@@ -1655,10 +1667,10 @@ fun DetailContent(
                             }
                         }
 
-                        item.overview?.let { overview ->
+                        if (!isWidescreenLayout && hasDescriptionContent) {
                             OverviewSection(
-                                overview = overview,
-                                title = "Description",
+                                overview = item.overview,
+                                tagline = descriptionTagline,
                                 modifier = Modifier.padding(top = 18.dp)
                             )
                         }
