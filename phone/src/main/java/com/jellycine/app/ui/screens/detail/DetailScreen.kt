@@ -79,6 +79,8 @@ import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.app.ui.components.common.detailContentMaxWidth
+import com.jellycine.app.ui.components.common.detailActionWidth
 import com.jellycine.app.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
@@ -1407,7 +1409,7 @@ fun DetailContent(
                         if (item.type != "Series") {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .fillMaxWidth(detailActionWidth(screenWidthDp))
                                     .padding(top = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
@@ -1697,7 +1699,7 @@ fun DetailContent(
                         if (item.type == "Series") {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .fillMaxWidth(detailActionWidth(screenWidthDp))
                                     .padding(top = 14.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -2084,11 +2086,6 @@ private fun detailScreenLayoutSpec(
     screenHeightDp: Dp
 ): DetailScreenLayoutSpec {
     val horizontalPadding = if (isWidescreenLayout) 30.dp else 14.dp
-    val contentMaxWidth = if (isWidescreenLayout) {
-        (screenWidthDp - (horizontalPadding * 2)).coerceAtMost(780.dp)
-    } else {
-        null
-    }
 
     return DetailScreenLayoutSpec(
         heroHeight = 330.dp,
@@ -2096,7 +2093,10 @@ private fun detailScreenLayoutSpec(
         headerOffset = if (isWidescreenLayout) 0.dp else (-42).dp,
         contentTopPadding = if (isWidescreenLayout) 312.dp else 0.dp,
         horizontalPadding = horizontalPadding,
-        contentMaxWidth = contentMaxWidth,
+        contentMaxWidth = detailContentMaxWidth(
+            screenWidthDp = screenWidthDp,
+            horizontalPadding = horizontalPadding
+        ),
         logoContainerHeight = if (isWidescreenLayout) 74.dp else 78.dp,
         logoBottomSpacing = if (isWidescreenLayout) 18.dp else 8.dp
     )

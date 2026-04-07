@@ -21,3 +21,17 @@ fun containerHeightDp(): Dp {
 }
 
 fun isTabletLayout(screenWidthDp: Dp): Boolean = screenWidthDp >= 600.dp
+
+fun detailContentMaxWidth(
+    screenWidthDp: Dp,
+    horizontalPadding: Dp
+): Dp? {
+    return if (isTabletLayout(screenWidthDp)) {
+        (screenWidthDp - (horizontalPadding * 2)).coerceAtMost(780.dp)
+    } else {
+        null
+    }
+}
+
+fun detailActionWidth(screenWidthDp: Dp): Float =
+    if (isTabletLayout(screenWidthDp)) 0.40f else 1f
