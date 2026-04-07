@@ -1,31 +1,20 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import coil3.compose.AsyncImage
 import coil3.request.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,11 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -50,12 +36,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
@@ -63,7 +49,6 @@ import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -79,6 +64,23 @@ fun ViewAllScreen(
     val items by viewModel.items.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val screenWidthDp = containerWidthDp()
+    val isTablet = isTabletLayout(screenWidthDp)
+
+    val gridCells = remember(screenWidthDp) {
+        if (screenWidthDp >= 1200.dp) {
+            GridCells.Adaptive(minSize = 160.dp)
+        } else if (screenWidthDp >= 600.dp) {
+            GridCells.Adaptive(minSize = 140.dp)
+        } else {
+            GridCells.Fixed(3)
+        }
+    }
+
+    val horizontalPadding = if (isTablet) 24.dp else 16.dp
+    val verticalSpacing = if (isTablet) 20.dp else 16.dp
+    val horizontalSpacing = if (isTablet) 16.dp else 12.dp
+
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     
     var showSortSheet by remember { mutableStateOf(false) }
@@ -189,15 +191,15 @@ fun ViewAllScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                        .padding(horizontal = horizontalPadding, vertical = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = resolvedTitle,
                             color = Color.White,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontSize = if (isTablet) 28.sp else 24.sp,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -205,8 +207,8 @@ fun ViewAllScreen(
                             Text(
                                 text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
                                 color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(top = 2.dp)
+                                fontSize = if (isTablet) 15.sp else 13.sp,
+                                modifier = Modifier.padding(top = 4.dp)
                             )
                         }
                     }
@@ -219,13 +221,18 @@ fun ViewAllScreen(
                 when {
                     uiState.isLoading && items.isEmpty() -> {
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(3),
-                            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 120.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            columns = gridCells,
+                            contentPadding = PaddingValues(
+                                start = horizontalPadding,
+                                top = 16.dp,
+                                end = horizontalPadding,
+                                bottom = 120.dp
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+                            verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(15) {
+                            items(24) {
                                 SkeletonPosterCard()
                             }
                         }
@@ -238,7 +245,7 @@ fun ViewAllScreen(
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(32.dp)
+                                modifier = Modifier.padding(horizontal = 32.dp, vertical = 48.dp)
                             ) {
                                 Text(
                                     text = stringResource(R.string.view_all_error_title),
@@ -298,16 +305,16 @@ fun ViewAllScreen(
                     else -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
+                                columns = gridCells,
                                 state = gridState,
                                 contentPadding = PaddingValues(
-                                    start = 16.dp,
+                                    start = horizontalPadding,
                                     top = 16.dp,
-                                    end = 16.dp,
+                                    end = horizontalPadding,
                                     bottom = 120.dp
                                 ),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+                                verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(
@@ -316,6 +323,7 @@ fun ViewAllScreen(
                                 ) { item ->
                                     PosterCard(
                                         item = item,
+                                        isTablet = isTablet,
                                         mediaRepository = mediaRepository,
                                         onClick = { onItemClick(item) }
                                     )
@@ -326,13 +334,13 @@ fun ViewAllScreen(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(24.dp),
+                                                .padding(32.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (uiState.isLoading) {
                                                 CircularProgressIndicator(
                                                     color = Color(0xFF0080FF),
-                                                    modifier = Modifier.size(28.dp),
+                                                    modifier = Modifier.size(32.dp),
                                                     strokeWidth = 3.dp
                                                 )
                                             }
@@ -355,9 +363,9 @@ fun ViewAllScreen(
                                     tonalElevation = 2.dp
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         CircularProgressIndicator(
                                             color = Color(0xFF0080FF),
@@ -367,7 +375,7 @@ fun ViewAllScreen(
                                         Text(
                                             text = stringResource(R.string.loading),
                                             color = Color.White,
-                                            fontSize = 12.sp,
+                                            fontSize = 13.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
@@ -498,6 +506,7 @@ private fun RecentlyAddedCard(
 @Composable
 private fun PosterCard(
     item: BaseItemDto,
+    isTablet: Boolean,
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
@@ -549,7 +558,7 @@ private fun PosterCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -583,7 +592,7 @@ private fun PosterCard(
                                         Color(0xFF16213E)
                                     )
                                 ),
-                                shape = RoundedCornerShape(16.dp)
+                                shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -597,7 +606,7 @@ private fun PosterCard(
                             Text(
                                 text = displayName.take(2).uppercase(),
                                 color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 18.sp,
+                                fontSize = if (isTablet) 22.sp else 18.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -635,12 +644,12 @@ private fun PosterCard(
         Text(
             text = displayName,
             color = Color.White,
-            fontSize = 13.sp,
+            fontSize = if (isTablet) 15.sp else 13.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            lineHeight = 16.sp,
+            lineHeight = if (isTablet) 18.sp else 16.sp,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp)
@@ -650,7 +659,7 @@ private fun PosterCard(
             Text(
                 text = year.toString(),
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 11.sp,
+                fontSize = if (isTablet) 13.sp else 11.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -714,8 +723,8 @@ private fun SortFAB(
         onClick = onClick,
         modifier = modifier
             .navigationBarsPadding()
-            .padding(end = 20.dp, bottom = 20.dp)
-            .size(56.dp),
+            .padding(end = 24.dp, bottom = 24.dp)
+            .size(64.dp),
         containerColor = Color(0xFF1A1A1A),
         contentColor = Color.White,
         elevation = FloatingActionButtonDefaults.elevation(
@@ -726,7 +735,7 @@ private fun SortFAB(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Sort,
             contentDescription = stringResource(R.string.view_all_sort),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(28.dp)
         )
     }
 }
@@ -744,6 +753,8 @@ private fun SortBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val screenWidthDp = containerWidthDp()
+    val isTablet = isTabletLayout(screenWidthDp)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -760,8 +771,12 @@ private fun SortBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 560.dp)
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+                .let { 
+                    if (isTablet) it.widthIn(max = 640.dp).align(Alignment.CenterHorizontally) 
+                    else it 
+                }
+                .heightIn(max = if (isTablet) 700.dp else 560.dp)
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -772,7 +787,7 @@ private fun SortBottomSheet(
                 modifier = Modifier.padding(bottom = 24.dp)
             ) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(44.dp),
                     color = Color(0xFF0080FF).copy(alpha = 0.15f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -781,7 +796,7 @@ private fun SortBottomSheet(
                             imageVector = Icons.AutoMirrored.Filled.Sort,
                             contentDescription = null,
                             tint = Color(0xFF0080FF),
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -791,7 +806,7 @@ private fun SortBottomSheet(
                 Text(
                     text = stringResource(R.string.view_all_sort_and_filter),
                     color = Color.White,
-                    fontSize = 24.sp,
+                    fontSize = if (isTablet) 28.sp else 24.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -807,8 +822,8 @@ private fun SortBottomSheet(
             )
 
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 sortOptions.forEach { option ->
                     MediaFilterChip(
@@ -819,7 +834,7 @@ private fun SortBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -830,7 +845,7 @@ private fun SortBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(40.dp),
                         color = Color(0xFFFF9F43).copy(alpha = 0.14f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -839,7 +854,7 @@ private fun SortBottomSheet(
                                 imageVector = Icons.Filled.LocalOffer,
                                 contentDescription = null,
                                 tint = Color(0xFFFF9F43),
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -849,7 +864,7 @@ private fun SortBottomSheet(
                     Text(
                         text = stringResource(R.string.view_all_genres),
                         color = Color.White,
-                        fontSize = 18.sp,
+                        fontSize = if (isTablet) 20.sp else 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -858,13 +873,14 @@ private fun SortBottomSheet(
                     TextButton(onClick = onClearFilters) {
                         Text(
                             text = stringResource(R.string.view_all_clear_filters),
-                            color = Color(0xFF3AA0FF)
+                            color = Color(0xFF3AA0FF),
+                            fontSize = if (isTablet) 16.sp else 14.sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (availableGenres.isEmpty()) {
                 Text(
@@ -874,8 +890,8 @@ private fun SortBottomSheet(
                 )
             } else {
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     availableGenres.forEach { genre ->
                         MediaFilterChip(

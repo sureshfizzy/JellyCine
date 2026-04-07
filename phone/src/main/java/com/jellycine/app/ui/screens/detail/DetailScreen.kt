@@ -20,19 +20,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
@@ -76,6 +75,11 @@ import com.jellycine.player.core.defaultSubtitleDisplayTitle
 import com.jellycine.player.core.mediaStreamDisplayTitles
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.app.ui.components.common.DetailBackdropHero
+import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
+import com.jellycine.app.ui.components.common.containerHeightDp
+import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.app.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
@@ -191,7 +195,10 @@ fun DetailScreenContainer(
                     castDisplayAudioStreamIndex = audioStreamIndex
                     castDisplaySubtitleStreamIndex = subtitleStreamIndex
                     playerPreferences.setPreferredAudioStreamIndex(castItemId, audioStreamIndex)
-                    playerPreferences.setPreferredSubtitleStreamIndex(castItemId, subtitleStreamIndex)
+                    playerPreferences.setPreferredSubtitleStreamIndex(
+                        castItemId,
+                        subtitleStreamIndex
+                    )
                 }
             } finally {
                 castTracks = false
@@ -253,20 +260,26 @@ fun DetailScreenContainer(
             castingDisplay -> {
                 castingDisplay = false
             }
+
             showPlayer -> {
                 val playedItemId = playbackItemId ?: itemId
-                preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
-                preferredSubtitleStreamIndex = playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                preferredAudioStreamIndex =
+                    playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                preferredSubtitleStreamIndex =
+                    playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
                 trackSelectionSyncVersion += 1
                 showPlayer = false
                 playbackItemId = null
             }
+
             currentScreen == "episode" && seasonDetailData != null -> {
                 currentScreen = "season"
             }
+
             currentScreen == "season" -> {
                 currentScreen = "detail"
             }
+
             else -> onBackPressed()
         }
     }
@@ -404,8 +417,10 @@ fun DetailScreenContainer(
                 },
                 onBackPressed = {
                     val playedItemId = playbackItemId ?: itemId
-                    preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
-                    preferredSubtitleStreamIndex = playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                    preferredAudioStreamIndex =
+                        playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                    preferredSubtitleStreamIndex =
+                        playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
                     trackSelectionSyncVersion += 1
                     showPlayer = false
                     playbackItemId = null
@@ -530,7 +545,8 @@ fun DetailScreenContainer(
                                             },
                                             onCastButtonClick = { openCastingDisplay() },
                                             onSeasonClick = { seriesId, seasonId, seasonName ->
-                                                seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                                seasonDetailData =
+                                                    Triple(seriesId, seasonId, seasonName)
                                                 currentScreen = "season"
                                             }
                                         )
@@ -621,9 +637,9 @@ fun DetailContent(
     val playerPreferences = remember { PlayerPreferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
-    val configuration = LocalConfiguration.current
-    val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
-                             configuration.screenWidthDp >= 600
+    val screenWidthDp = containerWidthDp()
+    val screenHeightDp = containerHeightDp()
+    val isWidescreenLayout = isTabletLayout(screenWidthDp)
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -668,11 +684,20 @@ fun DetailContent(
         savedSubtitleOption ?: buildDefaultSubtitleOption(effectiveMediaStreams)
     }
     var selectedVideo by rememberSaveable(item.id) { mutableStateOf(initialVideoOption) }
-    var selectedAudio by rememberSaveable(item.id, trackSelectionSyncVersion) { mutableStateOf(initialAudioOption) }
-    var selectedSubtitle by rememberSaveable(item.id, trackSelectionSyncVersion) { mutableStateOf(initialSubtitleOption) }
+    var selectedAudio by rememberSaveable(item.id, trackSelectionSyncVersion) {
+        mutableStateOf(
+            initialAudioOption
+        )
+    }
+    var selectedSubtitle by rememberSaveable(item.id, trackSelectionSyncVersion) {
+        mutableStateOf(
+            initialSubtitleOption
+        )
+    }
     val runtimeTicks = item.runTimeTicks
     val playbackPositionTicks = item.userData?.playbackPositionTicks ?: 0L
-    val isPartiallyWatched = runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
+    val isPartiallyWatched =
+        runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
     val playButtonText = if (isPartiallyWatched) {
         val remainingTicks = (runtimeTicks - playbackPositionTicks).coerceAtLeast(0L)
         "${CodecUtils.formatRuntime(remainingTicks)} left"
@@ -703,15 +728,24 @@ fun DetailContent(
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
     val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
     val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
-        itemDownloadState.status == DownloadStatus.QUEUED
+            itemDownloadState.status == DownloadStatus.QUEUED
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
-    var downloadActionMenu by remember(item.id, itemDownloadState.status, itemDownloadState.message) {
+    var downloadActionMenu by remember(
+        item.id,
+        itemDownloadState.status,
+        itemDownloadState.message
+    ) {
         mutableStateOf(false)
     }
     var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
     var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
-    var seriesStorageSelectionDialogState by remember(item.id) { mutableStateOf<SeriesSeasonSelectionDialogState?>(null) }
-    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
+    var seriesStorageSelectionDialogState by remember(item.id) {
+        mutableStateOf<SeriesSeasonSelectionDialogState?>(
+            null
+        )
+    }
+    val trackedDownloads by downloadRepository.observeTrackedDownloads()
+        .collectAsState(initial = emptyList())
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
@@ -736,6 +770,7 @@ fun DetailContent(
         seriesDownload.activeItemIds.size,
         seriesDownload.pausedItemIds.size
     ) { mutableStateOf(false) }
+
     fun toggleFavorite() {
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
@@ -749,12 +784,13 @@ fun DetailContent(
             }
         }
     }
+
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
             DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
             DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
             DownloadStatus.COMPLETED -> 1f
-        else -> 0f
+            else -> 0f
         },
         animationSpec = tween(durationMillis = 350),
         label = "detail_download_progress"
@@ -763,7 +799,20 @@ fun DetailContent(
         panelState = seriesDownload,
         label = "series_download_progress"
     )
-
+    val layout = detailScreenLayoutSpec(
+        isWidescreenLayout = isWidescreenLayout,
+        screenWidthDp = screenWidthDp,
+        screenHeightDp = screenHeightDp
+    )
+    val onBackdropLoadError: (Boolean) -> Unit = { hasError ->
+        if (
+            hasError &&
+            backdropImageUrl == heroImageCandidates.getOrNull(heroImageIndex) &&
+            heroImageIndex < heroImageCandidates.lastIndex
+        ) {
+            heroImageIndex += 1
+        }
+    }
     LaunchedEffect(itemDownloadState.status) {
         if (
             previousDownloadStatus != DownloadStatus.FAILED &&
@@ -865,8 +914,10 @@ fun DetailContent(
 
     val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
-    val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
-    val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
+    val subtitleOptions =
+        remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
+    val defaultSubtitleOption =
+        remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
     val codecBadges = CodecBadges(
         streams = effectiveMediaStreams,
         selectedVideo = selectedVideo,
@@ -926,379 +977,379 @@ fun DetailContent(
         }
     }
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+            .background(Color.Black)
     ) {
-
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(330.dp)
-                    .clipToBounds()
+        if (isWidescreenLayout) {
+            DetailBackdropHero(
+                imageUrl = backdropImageUrl,
+                contentDescription = item.name,
+                heroHeight = layout.backdropHeight,
+                style = DetailBackdropHeroStyle.TabletBackdrop,
+                onErrorStateChange = onBackdropLoadError
             ) {
-
-                JellyfinPosterImage(
-                    imageUrl = backdropImageUrl,
-                    contentDescription = item.name,
-                    modifier = Modifier.fillMaxSize(),
-                    context = context,
-                    contentScale = ContentScale.Crop,
-                    alignment = Alignment.Center,
-                    onErrorStateChange = { hasError ->
-                        if (
-                            hasError &&
-                            backdropImageUrl == heroImageCandidates.getOrNull(heroImageIndex) &&
-                            heroImageIndex < heroImageCandidates.lastIndex
-                        ) {
-                            heroImageIndex += 1
-                        }
-                    }
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.82f to Color.Transparent,
-                                    0.90f to Color.Black.copy(alpha = 0.25f),
-                                    0.96f to Color.Black.copy(alpha = 0.52f),
-                                    1.0f to Color.Black.copy(alpha = 0.72f)
-                                )
-                            )
-                        )
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.78f to Color.Transparent,
-                                    0.92f to Color.Black.copy(alpha = 0.86f),
-                                    1.0f to Color.Black
-                                )
-                            )
-                        )
-                )
-
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(top = 12.dp, end = 14.dp)
-                ) {
-                    ScreenCastButton(onConnectedClick = onCastButtonClick)
-                }
-
+                DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
             }
         }
 
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .offset(y = (-42).dp)
-            ) {
-                if (reserveLogoSpace) {
-                    Box(
-                        modifier = Modifier
-                            .height(78.dp)
-                            .fillMaxWidth()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isWidescreenLayout) Color.Transparent else Color.Black),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+
+            if (!isWidescreenLayout) {
+                item {
+                    DetailBackdropHero(
+                        imageUrl = backdropImageUrl,
+                        contentDescription = item.name,
+                        heroHeight = layout.heroHeight,
+                        onErrorStateChange = onBackdropLoadError
                     ) {
-                        if (!logoImageUrl.isNullOrBlank()) {
-                            JellyfinPosterImage(
-                                imageUrl = if (isLoading) null else logoImageUrl,
-                                contentDescription = item.name,
-                                modifier = Modifier
-                                    .fillMaxWidth(0.94f)
-                                    .height(78.dp)
-                                    .align(Alignment.CenterStart),
-                                context = context,
-                                contentScale = ContentScale.Fit,
-                                alignment = Alignment.CenterStart,
-                                onErrorStateChange = { hasError ->
-                                    logoLoadError = hasError
-                                }
-                            )
-                        }
-                    }
-                } else if (showTitleFallback) {
-                    Text(
-                        text = logoFallbackTitle,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        lineHeight = 30.sp
-                    )
-                }
-
-                if (isEpisode) {
-                    episodeHeaderText?.let { header ->
-                        Text(
-                            text = header,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.88f),
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            item {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (isWidescreenLayout) {
-                                Modifier.horizontalScroll(metadataScrollState)
-                            } else {
-                                Modifier
-                            }
-                        )
+                        .padding(horizontal = layout.horizontalPadding)
+                        .padding(top = layout.contentTopPadding)
+                        .offset(y = layout.headerOffset)
                 ) {
-                    item.communityRating?.let { rating ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Star,
-                                contentDescription = "Rating",
-                                tint = Color(0xFFFF4D4F),
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.1f", rating),
-                                fontSize = 14.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
-                            )
+                    Column(
+                        modifier = if (layout.contentMaxWidth != null) {
+                            Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = layout.contentMaxWidth)
+                        } else {
+                            Modifier.fillMaxWidth()
                         }
-                    }
-
-                    item.productionYear?.let { year ->
-                        Text(
-                            text = year.toString(),
-                            fontSize = 14.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
-
-                    item.runTimeTicks?.let { ticks ->
-                        Text(
-                            text = CodecUtils.formatRuntime(ticks),
-                            fontSize = 14.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
-
-                    val officialRatingLabel = item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
-                    Surface(
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(5.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
                     ) {
-                        Text(
-                            text = officialRatingLabel,
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                            maxLines = 1
-                        )
-                    }
-
-                    if (isWidescreenLayout && !genresText.isNullOrBlank()) {
-                        Text(
-                            text = genresText,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.85f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                if (!isWidescreenLayout && !genresText.isNullOrBlank()) {
-                    Text(
-                        text = genresText,
-                        fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.85f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 6.dp)
-                    )
-                }
-
-                if (castPlaybackState.isConnected) {
-                    Surface(
-                        color = Color(0xFF173025),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Cast,
-                                contentDescription = null,
-                                tint = Color(0xFFA7FFD7),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = if (castPlaybackState.isCastingMedia) {
-                                    "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                } else {
-                                    "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                },
-                                fontSize = 12.sp,
-                                color = Color(0xFFE6FFF3),
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                if (codecBadges.hasAnyBadges) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        contentPadding = PaddingValues(0.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                    ) {
-                        if (codecBadges.has4K) {
-                            item {
-                                CapabilityBadge(text = "4K")
-                            }
-                        }
-
-                        if (codecBadges.hdrBadgeText.isNotBlank()) {
-                            item {
-                                CapabilityBadge(
-                                    text = codecBadges.hdrBadgeText,
-                                    icon = if (codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)) null else Icons.Rounded.HdrOn,
-                                    customIcon = if (codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)) R.drawable.ic_dolby_logo else null,
-                                    iconTintUnspecified = codecBadges.hdrBadgeText.equals("Dolby Vision", ignoreCase = true)
-                                )
-                            }
-                        }
-
-                        if (codecBadges.hasSpatialAudio) {
-                            item {
-                                CapabilityBadge(
-                                    text = "Spatial Audio",
-                                    customIcon = R.drawable.ic_spatial_audio,
-                                    customIconTint = Color(0xFF8DFFB3)
-                                )
-                            }
-                        }
-
-                        if (codecBadges.dolbyAudioBadgeText.isNotBlank()) {
-                            item {
-                                CapabilityBadge(
-                                    text = codecBadges.dolbyAudioBadgeText,
-                                    customIcon = if (codecBadges.hasDolbyAtmos) R.drawable.ic_dolby_atmos else R.drawable.ic_dolby_logo,
-                                    iconTintUnspecified = true
-                                )
-                            }
-                        }
-
-                        if (codecBadges.audioChannelBadgeText.isNotBlank()) {
-                            item {
-                                CapabilityBadge(
-                                    text = codecBadges.audioChannelBadgeText
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val hasVideoSection = videoOptions.isNotEmpty()
-                val hasAudioSection = audioOptions.isNotEmpty()
-                val hasSubtitleSection = subtitleOptions.size > 1
-                val isVideoAudioOnlyWideLayout = hasVideoSection && hasAudioSection && !hasSubtitleSection
-
-                if (isWidescreenLayout) {
-                    if (isVideoAudioOnlyWideLayout) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val videoModifier = if (videoOptions.size > 1) {
-                                Modifier.widthIn(max = 520.dp)
-                            } else {
-                                Modifier.wrapContentWidth()
-                            }
-                            TrackField(
-                                modifier = videoModifier,
-                                label = "Video",
-                                selectedOption = selectedVideo,
-                                options = videoOptions,
-                                inlineMetaText = videoInlineMetaText,
-                                singleValueFillWidth = false,
-                                onOptionSelected = onVideoOptionSelected
-                            )
-
-                            val audioModifier = if (audioOptions.size > 1) {
-                                Modifier.widthIn(min = 260.dp, max = 560.dp)
-                            } else {
-                                Modifier.wrapContentWidth()
-                            }
-                            TrackField(
-                                modifier = audioModifier,
-                                label = "Audio",
-                                selectedOption = selectedAudio,
-                                options = audioOptions,
-                                singleValueFillWidth = false,
-                                onOptionSelected = onAudioOptionSelected
-                            )
-
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    } else if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (hasVideoSection) {
-                                val videoModifier = when {
-                                    hasSubtitleSection -> Modifier.weight(1f)
-                                    hasAudioSection -> Modifier.widthIn(max = 520.dp)
-                                    else -> Modifier.fillMaxWidth()
+                        if (reserveLogoSpace) {
+                            Box(
+                                modifier = Modifier
+                                    .height(layout.logoContainerHeight)
+                                    .fillMaxWidth()
+                            ) {
+                                if (!logoImageUrl.isNullOrBlank()) {
+                                    JellyfinPosterImage(
+                                        imageUrl = if (isLoading) null else logoImageUrl,
+                                        contentDescription = item.name,
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.94f)
+                                            .height(layout.logoContainerHeight)
+                                            .align(Alignment.CenterStart),
+                                        context = context,
+                                        contentScale = ContentScale.Fit,
+                                        alignment = Alignment.CenterStart,
+                                        onErrorStateChange = { hasError ->
+                                            logoLoadError = hasError
+                                        }
+                                    )
                                 }
+                            }
+                        } else if (showTitleFallback) {
+                            Text(
+                                text = logoFallbackTitle,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                lineHeight = 30.sp
+                            )
+                        }
+
+                        if (isEpisode) {
+                            episodeHeaderText?.let { header ->
+                                Text(
+                                    text = header,
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.88f),
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isWidescreenLayout) {
+                                        Modifier.horizontalScroll(metadataScrollState)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            item.communityRating?.let { rating ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Star,
+                                        contentDescription = "Rating",
+                                        tint = Color(0xFFFF4D4F),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                    Text(
+                                        text = String.format(Locale.US, "%.1f", rating),
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+
+                            item.productionYear?.let { year ->
+                                Text(
+                                    text = year.toString(),
+                                    fontSize = 14.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+
+                            item.runTimeTicks?.let { ticks ->
+                                Text(
+                                    text = CodecUtils.formatRuntime(ticks),
+                                    fontSize = 14.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+
+                            val officialRatingLabel =
+                                item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
+                            Surface(
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(5.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                            ) {
+                                Text(
+                                    text = officialRatingLabel,
+                                    fontSize = 13.sp,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    maxLines = 1
+                                )
+                            }
+
+                            if (isWidescreenLayout && !genresText.isNullOrBlank()) {
+                                Text(
+                                    text = genresText,
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (!isWidescreenLayout && !genresText.isNullOrBlank()) {
+                            Text(
+                                text = genresText,
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp)
+                            )
+                        }
+
+                        if (castPlaybackState.isConnected) {
+                            Surface(
+                                color = Color(0xFF173025),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Cast,
+                                        contentDescription = null,
+                                        tint = Color(0xFFA7FFD7),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = if (castPlaybackState.isCastingMedia) {
+                                            "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                        } else {
+                                            "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                        },
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFE6FFF3),
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        if (codecBadges.hasAnyBadges) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                            ) {
+                                if (codecBadges.has4K) {
+                                    item {
+                                        CapabilityBadge(text = "4K")
+                                    }
+                                }
+
+                                if (codecBadges.hdrBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.hdrBadgeText,
+                                            icon = if (codecBadges.hdrBadgeText.equals(
+                                                    "Dolby Vision",
+                                                    ignoreCase = true
+                                                )
+                                            ) null else Icons.Rounded.HdrOn,
+                                            customIcon = if (codecBadges.hdrBadgeText.equals(
+                                                    "Dolby Vision",
+                                                    ignoreCase = true
+                                                )
+                                            ) R.drawable.ic_dolby_logo else null,
+                                            iconTintUnspecified = codecBadges.hdrBadgeText.equals(
+                                                "Dolby Vision",
+                                                ignoreCase = true
+                                            )
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.hasSpatialAudio) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = "Spatial Audio",
+                                            customIcon = R.drawable.ic_spatial_audio,
+                                            customIconTint = Color(0xFF8DFFB3)
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.dolbyAudioBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.dolbyAudioBadgeText,
+                                            customIcon = if (codecBadges.hasDolbyAtmos) R.drawable.ic_dolby_atmos else R.drawable.ic_dolby_logo,
+                                            iconTintUnspecified = true
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.audioChannelBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.audioChannelBadgeText
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(layout.logoBottomSpacing))
+
+                        val hasVideoSection = videoOptions.isNotEmpty()
+                        val hasAudioSection = audioOptions.isNotEmpty()
+                        val hasSubtitleSection = subtitleOptions.size > 1
+                        val trackFieldCount =
+                            listOf(hasVideoSection, hasAudioSection, hasSubtitleSection)
+                                .count { it }
+                        val tabletTrackFieldMaxWidth = when (trackFieldCount) {
+                            3 -> 230.dp
+                            2 -> 300.dp
+                            else -> 360.dp
+                        }
+
+                        if (isWidescreenLayout) {
+                            if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (hasVideoSection) {
+                                        val sharesRow = hasSubtitleSection || hasAudioSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "Video",
+                                            selectedOption = selectedVideo,
+                                            options = videoOptions,
+                                            inlineMetaText = videoInlineMetaText,
+                                            singleValueFillWidth = !sharesRow,
+                                            onOptionSelected = onVideoOptionSelected
+                                        )
+                                    }
+
+                                    if (hasAudioSection) {
+                                        val sharesRow = hasSubtitleSection || hasVideoSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "Audio",
+                                            selectedOption = selectedAudio,
+                                            options = audioOptions,
+                                            singleValueFillWidth = !sharesRow,
+                                            onOptionSelected = onAudioOptionSelected
+                                        )
+                                    }
+
+                                    if (hasSubtitleSection) {
+                                        val sharesRow = hasVideoSection || hasAudioSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "Subtitles",
+                                            selectedOption = selectedSubtitle,
+                                            options = subtitleOptions,
+                                            singleValueFillWidth = !sharesRow,
+                                            onOptionSelected = onSubtitleOptionSelected
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        } else {
+                            if (hasVideoSection) {
                                 TrackField(
-                                    modifier = videoModifier,
                                     label = "Video",
                                     selectedOption = selectedVideo,
                                     options = videoOptions,
@@ -1307,14 +1358,12 @@ fun DetailContent(
                                 )
                             }
 
+                            if (hasVideoSection && hasAudioSection) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+
                             if (hasAudioSection) {
-                                val audioModifier = if (hasSubtitleSection || hasVideoSection) {
-                                    Modifier.weight(1f)
-                                } else {
-                                    Modifier.fillMaxWidth()
-                                }
                                 TrackField(
-                                    modifier = audioModifier,
                                     label = "Audio",
                                     selectedOption = selectedAudio,
                                     options = audioOptions,
@@ -1323,13 +1372,8 @@ fun DetailContent(
                             }
 
                             if (hasSubtitleSection) {
-                                val subtitleModifier = if (hasVideoSection || hasAudioSection) {
-                                    Modifier.weight(1f)
-                                } else {
-                                    Modifier.fillMaxWidth()
-                                }
+                                Spacer(modifier = Modifier.height(4.dp))
                                 TrackField(
-                                    modifier = subtitleModifier,
                                     label = "Subtitles",
                                     selectedOption = selectedSubtitle,
                                     options = subtitleOptions,
@@ -1337,418 +1381,425 @@ fun DetailContent(
                                 )
                             }
                         }
-                    }
-                } else {
-                    if (hasVideoSection) {
-                        TrackField(
-                            label = "Video",
-                            selectedOption = selectedVideo,
-                            options = videoOptions,
-                            inlineMetaText = videoInlineMetaText,
-                            onOptionSelected = onVideoOptionSelected
-                        )
-                    }
 
-                    if (hasVideoSection && hasAudioSection) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
-
-                    if (hasAudioSection) {
-                        TrackField(
-                            label = "Audio",
-                            selectedOption = selectedAudio,
-                            options = audioOptions,
-                            onOptionSelected = onAudioOptionSelected
-                        )
-                    }
-
-                    if (hasSubtitleSection) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        TrackField(
-                            label = "Subtitles",
-                            selectedOption = selectedSubtitle,
-                            options = subtitleOptions,
-                            onOptionSelected = onSubtitleOptionSelected
-                        )
-                    }
-                }
-
-                if (item.type != "Series") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                        ) {
-                            Button(
-                                onClick = {
-                                    val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) = persistTrackSelection(
-                                        audioOption = selectedAudio,
-                                        subtitleOption = selectedSubtitle
-                                    )
-                                    onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isPartiallyWatched) Color(0xFF1F1F24) else Color.White,
-                                    contentColor = Color.Black
-                                ),
-                                contentPadding = PaddingValues(0.dp)
+                        if (item.type != "Series") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    val progressFraction = resumeProgress.coerceIn(0f, 1f)
-
-                                    if (isPartiallyWatched) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(progressFraction)
-                                                .background(Color.White)
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 14.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp)
+                                        .clip(RoundedCornerShape(24.dp))
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) = persistTrackSelection(
+                                                audioOption = selectedAudio,
+                                                subtitleOption = selectedSubtitle
+                                            )
+                                            onPlayClick(
+                                                selectedAudioStreamIndex,
+                                                selectedSubtitleStreamIndex
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isPartiallyWatched) Color(
+                                                0xFF1F1F24
+                                            ) else Color.White,
+                                            contentColor = Color.Black
+                                        ),
+                                        contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        if (isPartiallyWatched) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_resume_playback),
-                                                contentDescription = "Continue playback",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.White
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = "Play",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.Black
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = playButtonText,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = if (isPartiallyWatched) Color.White else Color.Black
-                                        )
-                                    }
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            val progressFraction = resumeProgress.coerceIn(0f, 1f)
 
-                                    if (isPartiallyWatched) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(horizontal = 14.dp)
-                                                .drawWithContent {
-                                                    clipRect(right = size.width * progressFraction) {
-                                                        this@drawWithContent.drawContent()
-                                                    }
-                                                },
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_resume_playback),
-                                                contentDescription = "Continue playback",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.Black
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = playButtonText,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = Color.Black
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    when {
-                                        !canDownloadItem -> Unit
-                                        hasActiveDownload -> downloadActionMenu = true
-                                        else -> {
-                                            coroutineScope.launch {
-                                                downloadRepository.enqueueItemDownload(item)
-                                                    .onFailure { throwable ->
-                                                        downloadErrorDialogMessage = downloadFailureDialogMessage(
-                                                            rawMessage = throwable.message
-                                                        )
-                                                    }
-                                            }
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFF1F1F24),
-                                    contentColor = Color.White
-                                ),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
-                            ) {
-                                val buttonState = when {
-                                    !canDownloadItem -> "unavailable"
-                                    itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
-                                    itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
-                                    isPausedDownload -> "paused"
-                                    itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
-                                    else -> "idle"
-                                }
-                                AnimatedContent(
-                                    targetState = buttonState,
-                                    transitionSpec = {
-                                        fadeIn(animationSpec = tween(220)) togetherWith
-                                            fadeOut(animationSpec = tween(180))
-                                    },
-                                    label = "download_button_state"
-                                ) { state ->
-                                    when (state) {
-                                        "downloading" -> {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    progress = { animatedDownloadProgress.coerceIn(0f, 0.99f) },
-                                                    modifier = Modifier.size(18.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = Color(0xFF03A9F4)
+                                            if (isPartiallyWatched) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxHeight()
+                                                        .fillMaxWidth(progressFraction)
+                                                        .background(Color.White)
                                                 )
+                                            }
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(horizontal = 14.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (isPartiallyWatched) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_resume_playback),
+                                                        contentDescription = "Continue playback",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = Color.White
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.PlayArrow,
+                                                        contentDescription = "Play",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = Color.Black
+                                                    )
+                                                }
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "${(animatedDownloadProgress * 100).toInt()}%",
+                                                    text = playButtonText,
                                                     fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Medium
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    color = if (isPartiallyWatched) Color.White else Color.Black
                                                 )
                                             }
-                                        }
-                                        "queued" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.downloads_status_queued),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                        "completed" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.CheckCircle,
-                                                label = stringResource(R.string.downloads_status_downloaded),
-                                                iconSize = 18.dp,
-                                                fontSize = 12.sp,
-                                                tint = Color(0xFF4CAF50),
-                                                textColor = Color(0xFF4CAF50)
-                                            )
-                                        }
-                                        "paused" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.PauseCircle,
-                                                label = stringResource(R.string.downloads_status_paused),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp,
-                                                tint = Color(0xFFFFC107)
-                                            )
-                                        }
-                                        "unavailable" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.settings_unavailable),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                        else -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.downloads_action_download),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
 
-                            DownloadActionMenu(
-                                expanded = downloadActionMenu,
-                                canResume = isPausedDownload,
-                                hasActiveDownloads = hasActiveDownload,
-                                onDismissRequest = { downloadActionMenu = false },
-                                onPauseResume = {
-                                    downloadActionMenu = false
-                                    item.id?.let { itemId ->
-                                        if (isPausedDownload) {
-                                            downloadRepository.resumeDownload(itemId)
-                                        } else {
-                                            downloadRepository.pauseDownload(itemId)
-                                        }
-                                    }
-                                },
-                                onCancel = {
-                                    downloadActionMenu = false
-                                    item.id?.let(downloadRepository::cancelDownload)
-                                }
-                            )
-                        }
-
-                        FavoriteActionButton(
-                            isFavorite = isFavorite,
-                            onClick = ::toggleFavorite
-                        )
-                    }
-                }
-
-                item.overview?.let { overview ->
-                    OverviewSection(
-                        overview = overview,
-                        title = "Description",
-                        modifier = Modifier.padding(top = 18.dp)
-                    )
-                }
-
-                if (isEpisode) {
-                    MoreFromSeasonSection(
-                        episodes = moreFromSeasonEpisodes,
-                        mediaRepository = mediaRepository,
-                        title = moreFromSeasonTitle,
-                        onEpisodeClick = onSimilarItemClick
-                    )
-                }
-
-                if (item.type == "Series") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    when {
-                                        hasActiveSeriesDownloads -> seriesDownloadActionMenu = true
-                                        else -> {
-                                            coroutineScope.launch {
-                                                val seriesId = item.id
-                                                if (seriesId.isNullOrBlank()) {
-                                                    return@launch
-                                                }
-                                                seriesQueueInProgress = true
-                                                try {
-                                                    val estimateResult = downloadRepository.buildSeriesDownloadEstimate(seriesId)
-                                                    estimateResult.fold(
-                                                        onSuccess = { estimate ->
-                                                            seriesStorageSelectionDialogState = SeriesSeasonSelectionDialogState.fromEstimate(estimate)
+                                            if (isPartiallyWatched) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 14.dp)
+                                                        .drawWithContent {
+                                                            clipRect(right = size.width * progressFraction) {
+                                                                this@drawWithContent.drawContent()
+                                                            }
                                                         },
-                                                        onFailure = { throwable ->
-                                                            downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
-                                                        }
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_resume_playback),
+                                                        contentDescription = "Continue playback",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = Color.Black
                                                     )
-                                                } finally {
-                                                    seriesQueueInProgress = false
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = playButtonText,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = Color.Black
+                                                    )
                                                 }
                                             }
                                         }
                                     }
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFF1F1F24),
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                DownloadContent(
-                                    visualState = downloadButtonVisualState(
-                                        panelState = seriesDownload,
-                                        isQueueing = seriesQueueInProgress
-                                    ),
-                                    progress = animatedSeriesDownloadProgress,
-                                    idleLabelRes = R.string.downloads_action_download_series,
-                                    fontSize = 14.sp,
-                                    iconSize = 18.dp,
-                                    progressSize = 18.dp
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            when {
+                                                !canDownloadItem -> Unit
+                                                hasActiveDownload -> downloadActionMenu = true
+                                                else -> {
+                                                    coroutineScope.launch {
+                                                        downloadRepository.enqueueItemDownload(item)
+                                                            .onFailure { throwable ->
+                                                                downloadErrorDialogMessage =
+                                                                    downloadFailureDialogMessage(
+                                                                        rawMessage = throwable.message
+                                                                    )
+                                                            }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            Color.White.copy(alpha = 0.18f)
+                                        ),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = Color(0xFF1F1F24),
+                                            contentColor = Color.White
+                                        ),
+                                        contentPadding = PaddingValues(
+                                            horizontal = 14.dp,
+                                            vertical = 0.dp
+                                        )
+                                    ) {
+                                        val buttonState = when {
+                                            !canDownloadItem -> "unavailable"
+                                            itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
+                                            itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
+                                            isPausedDownload -> "paused"
+                                            itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
+                                            else -> "idle"
+                                        }
+                                        AnimatedContent(
+                                            targetState = buttonState,
+                                            transitionSpec = {
+                                                fadeIn(animationSpec = tween(220)) togetherWith
+                                                        fadeOut(animationSpec = tween(180))
+                                            },
+                                            label = "download_button_state"
+                                        ) { state ->
+                                            when (state) {
+                                                "downloading" -> {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.Center
+                                                    ) {
+                                                        CircularProgressIndicator(
+                                                            progress = {
+                                                                animatedDownloadProgress.coerceIn(
+                                                                    0f,
+                                                                    0.99f
+                                                                )
+                                                            },
+                                                            modifier = Modifier.size(18.dp),
+                                                            strokeWidth = 2.dp,
+                                                            color = Color(0xFF03A9F4)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(
+                                                            text = "${(animatedDownloadProgress * 100).toInt()}%",
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                    }
+                                                }
+
+                                                "queued" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.downloads_status_queued),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+
+                                                "completed" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.CheckCircle,
+                                                        label = stringResource(R.string.downloads_status_downloaded),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 12.sp,
+                                                        tint = Color(0xFF4CAF50),
+                                                        textColor = Color(0xFF4CAF50)
+                                                    )
+                                                }
+
+                                                "paused" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.PauseCircle,
+                                                        label = stringResource(R.string.downloads_status_paused),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp,
+                                                        tint = Color(0xFFFFC107)
+                                                    )
+                                                }
+
+                                                "unavailable" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.settings_unavailable),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+
+                                                else -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.downloads_action_download),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    DownloadActionMenu(
+                                        expanded = downloadActionMenu,
+                                        canResume = isPausedDownload,
+                                        hasActiveDownloads = hasActiveDownload,
+                                        onDismissRequest = { downloadActionMenu = false },
+                                        onPauseResume = {
+                                            downloadActionMenu = false
+                                            item.id?.let { itemId ->
+                                                if (isPausedDownload) {
+                                                    downloadRepository.resumeDownload(itemId)
+                                                } else {
+                                                    downloadRepository.pauseDownload(itemId)
+                                                }
+                                            }
+                                        },
+                                        onCancel = {
+                                            downloadActionMenu = false
+                                            item.id?.let(downloadRepository::cancelDownload)
+                                        }
+                                    )
+                                }
+
+                                FavoriteActionButton(
+                                    isFavorite = isFavorite,
+                                    onClick = ::toggleFavorite
                                 )
                             }
+                        }
 
-                            DownloadActionMenu(
-                                expanded = seriesDownloadActionMenu,
-                                canResume = canResumeSeriesDownloads,
-                                hasActiveDownloads = hasActiveSeriesDownloads,
-                                onDismissRequest = { seriesDownloadActionMenu = false },
-                                onPauseResume = {
-                                    seriesDownloadActionMenu = false
-                                    if (canResumeSeriesDownloads) {
-                                        seriesDownload.pausedItemIds.forEach(downloadRepository::resumeDownload)
-                                    } else {
-                                        seriesDownload.pausableItemIds.forEach(downloadRepository::pauseDownload)
-                                    }
-                                },
-                                onCancel = {
-                                    seriesDownloadActionMenu = false
-                                    seriesDownload.activeItemIds.forEach(downloadRepository::cancelDownload)
-                                }
+                        item.overview?.let { overview ->
+                            OverviewSection(
+                                overview = overview,
+                                title = "Description",
+                                modifier = Modifier.padding(top = 18.dp)
                             )
                         }
 
-                        FavoriteActionButton(
-                            isFavorite = isFavorite,
-                            onClick = ::toggleFavorite
-                        )
-                    }
+                        if (isEpisode) {
+                            MoreFromSeasonSection(
+                                episodes = moreFromSeasonEpisodes,
+                                mediaRepository = mediaRepository,
+                                title = moreFromSeasonTitle,
+                                onEpisodeClick = onSimilarItemClick
+                            )
+                        }
 
-                    item.id?.let { seriesId ->
-                        SeasonsSection(
-                            seriesId = seriesId,
+                        if (item.type == "Series") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(46.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            when {
+                                                hasActiveSeriesDownloads -> seriesDownloadActionMenu =
+                                                    true
+
+                                                else -> {
+                                                    coroutineScope.launch {
+                                                        val seriesId = item.id
+                                                        if (seriesId.isNullOrBlank()) {
+                                                            return@launch
+                                                        }
+                                                        seriesQueueInProgress = true
+                                                        try {
+                                                            val estimateResult =
+                                                                downloadRepository.buildSeriesDownloadEstimate(
+                                                                    seriesId
+                                                                )
+                                                            estimateResult.fold(
+                                                                onSuccess = { estimate ->
+                                                                    seriesStorageSelectionDialogState =
+                                                                        SeriesSeasonSelectionDialogState.fromEstimate(
+                                                                            estimate
+                                                                        )
+                                                                },
+                                                                onFailure = { throwable ->
+                                                                    downloadErrorDialogMessage =
+                                                                        downloadFailureDialogMessage(
+                                                                            rawMessage = throwable.message
+                                                                        )
+                                                                }
+                                                            )
+                                                        } finally {
+                                                            seriesQueueInProgress = false
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            Color.White.copy(alpha = 0.18f)
+                                        ),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = Color(0xFF1F1F24),
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        DownloadContent(
+                                            visualState = downloadButtonVisualState(
+                                                panelState = seriesDownload,
+                                                isQueueing = seriesQueueInProgress
+                                            ),
+                                            progress = animatedSeriesDownloadProgress,
+                                            idleLabelRes = R.string.downloads_action_download_series,
+                                            fontSize = 14.sp,
+                                            iconSize = 18.dp,
+                                            progressSize = 18.dp
+                                        )
+                                    }
+
+                                    DownloadActionMenu(
+                                        expanded = seriesDownloadActionMenu,
+                                        canResume = canResumeSeriesDownloads,
+                                        hasActiveDownloads = hasActiveSeriesDownloads,
+                                        onDismissRequest = { seriesDownloadActionMenu = false },
+                                        onPauseResume = {
+                                            seriesDownloadActionMenu = false
+                                            if (canResumeSeriesDownloads) {
+                                                seriesDownload.pausedItemIds.forEach(
+                                                    downloadRepository::resumeDownload
+                                                )
+                                            } else {
+                                                seriesDownload.pausableItemIds.forEach(
+                                                    downloadRepository::pauseDownload
+                                                )
+                                            }
+                                        },
+                                        onCancel = {
+                                            seriesDownloadActionMenu = false
+                                            seriesDownload.activeItemIds.forEach(downloadRepository::cancelDownload)
+                                        }
+                                    )
+                                }
+
+                                FavoriteActionButton(
+                                    isFavorite = isFavorite,
+                                    onClick = ::toggleFavorite
+                                )
+                            }
+
+                            item.id?.let { seriesId ->
+                                SeasonsSection(
+                                    seriesId = seriesId,
+                                    mediaRepository = mediaRepository,
+                                    onSeasonClick = onSeasonClick
+                                )
+                            }
+                        }
+
+                        CastSection(
+                            item = item,
                             mediaRepository = mediaRepository,
-                            onSeasonClick = onSeasonClick
+                            onPersonClick = onPersonClick
+                        )
+
+                        SimilarItemsSection(
+                            similarItems = similarItems,
+                            mediaRepository = mediaRepository,
+                            onItemClick = onSimilarItemClick
                         )
                     }
                 }
-
-                CastSection(
-                    item = item,
-                    mediaRepository = mediaRepository,
-                    onPersonClick = onPersonClick
-                )
-
-                SimilarItemsSection(
-                    similarItems = similarItems,
-                    mediaRepository = mediaRepository,
-                    onItemClick = onSimilarItemClick
-                )
             }
         }
     }
@@ -1770,9 +1821,11 @@ fun DetailContent(
                 coroutineScope.launch {
                     seriesQueueInProgress = true
                     try {
-                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes).onFailure { throwable ->
-                            downloadErrorDialogMessage = downloadFailureDialogMessage(rawMessage = throwable.message)
-                        }
+                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes)
+                            .onFailure { throwable ->
+                                downloadErrorDialogMessage =
+                                    downloadFailureDialogMessage(rawMessage = throwable.message)
+                            }
                     } finally {
                         seriesQueueInProgress = false
                     }
@@ -1992,6 +2045,55 @@ private fun SimilarItemCard(
     }
 }
 
+private data class DetailScreenLayoutSpec(
+    val heroHeight: Dp,
+    val backdropHeight: Dp,
+    val headerOffset: Dp,
+    val contentTopPadding: Dp,
+    val horizontalPadding: Dp,
+    val contentMaxWidth: Dp?,
+    val logoContainerHeight: Dp,
+    val logoBottomSpacing: Dp
+)
+
+private fun detailScreenLayoutSpec(
+    isWidescreenLayout: Boolean,
+    screenWidthDp: Dp,
+    screenHeightDp: Dp
+): DetailScreenLayoutSpec {
+    val horizontalPadding = if (isWidescreenLayout) 30.dp else 14.dp
+    val contentMaxWidth = if (isWidescreenLayout) {
+        (screenWidthDp - (horizontalPadding * 2)).coerceAtMost(780.dp)
+    } else {
+        null
+    }
+
+    return DetailScreenLayoutSpec(
+        heroHeight = 330.dp,
+        backdropHeight = if (isWidescreenLayout) screenHeightDp else 330.dp,
+        headerOffset = if (isWidescreenLayout) 0.dp else (-42).dp,
+        contentTopPadding = if (isWidescreenLayout) 312.dp else 0.dp,
+        horizontalPadding = horizontalPadding,
+        contentMaxWidth = contentMaxWidth,
+        logoContainerHeight = if (isWidescreenLayout) 74.dp else 78.dp,
+        logoBottomSpacing = if (isWidescreenLayout) 18.dp else 8.dp
+    )
+}
+
+@Composable
+private fun BoxScope.DetailHeroCastButtonOverlay(
+    onCastButtonClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            .padding(top = 12.dp, end = 14.dp)
+    ) {
+        ScreenCastButton(onConnectedClick = onCastButtonClick)
+    }
+}
+
 @Composable
 private fun DetailInfoRow(
     label: String,
@@ -2162,10 +2264,10 @@ private fun buildVideoInlineText(
 private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourceInfo? {
     return sources.firstOrNull { source ->
         !source.name.isNullOrBlank() ||
-            !source.container.isNullOrBlank() ||
-            source.size != null ||
-            source.bitrate != null ||
-            source.mediaStreams.orEmpty().isNotEmpty()
+                !source.container.isNullOrBlank() ||
+                source.size != null ||
+                source.bitrate != null ||
+                source.mediaStreams.orEmpty().isNotEmpty()
     } ?: sources.firstOrNull()
 }
 
@@ -2336,58 +2438,23 @@ private suspend fun heroImageCandidates(
     }
 
     if (item.type == "Episode") {
-        addCandidate(mediaRepository.getBackdropImageUrl(
-            itemId = itemId,
-            width = 1920,
-            height = 1080,
-            quality = 100,
-            enableImageEnhancers = false,
-            imageTag = item.imageTagFor(
-                imageType = "Backdrop",
-                targetItemId = itemId
-            )
-        ).first())
-
-        addCandidate(mediaRepository.getImageUrl(
-            itemId = itemId,
-            imageType = "Primary",
-            width = 1920,
-            height = 1080,
-            quality = 100,
-            enableImageEnhancers = false,
-            imageTag = item.imageTagFor(
-                imageType = "Primary",
-                targetItemId = itemId
-            )
-        ).first())
-
-        addCandidate(mediaRepository.getImageUrl(
-            itemId = itemId,
-            imageType = "Thumb",
-            width = 1920,
-            height = 1080,
-            quality = 100,
-            enableImageEnhancers = false,
-            imageTag = item.imageTagFor(
-                imageType = "Thumb",
-                targetItemId = itemId
-            )
-        ).first())
-
-        if (!seriesId.isNullOrBlank()) {
-            addCandidate(mediaRepository.getBackdropImageUrl(
-                itemId = seriesId,
+        addCandidate(
+            mediaRepository.getBackdropImageUrl(
+                itemId = itemId,
                 width = 1920,
                 height = 1080,
                 quality = 100,
                 enableImageEnhancers = false,
                 imageTag = item.imageTagFor(
                     imageType = "Backdrop",
-                    targetItemId = seriesId
+                    targetItemId = itemId
                 )
-            ).first())
-            addCandidate(mediaRepository.getImageUrl(
-                itemId = seriesId,
+            ).first()
+        )
+
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
                 imageType = "Primary",
                 width = 1920,
                 height = 1080,
@@ -2395,33 +2462,82 @@ private suspend fun heroImageCandidates(
                 enableImageEnhancers = false,
                 imageTag = item.imageTagFor(
                     imageType = "Primary",
-                    targetItemId = seriesId
+                    targetItemId = itemId
                 )
-            ).first())
+            ).first()
+        )
+
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Thumb",
+                width = 1920,
+                height = 1080,
+                quality = 100,
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Thumb",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+
+        if (!seriesId.isNullOrBlank()) {
+            addCandidate(
+                mediaRepository.getBackdropImageUrl(
+                    itemId = seriesId,
+                    width = 1920,
+                    height = 1080,
+                    quality = 100,
+                    enableImageEnhancers = false,
+                    imageTag = item.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = seriesId
+                    )
+                ).first()
+            )
+            addCandidate(
+                mediaRepository.getImageUrl(
+                    itemId = seriesId,
+                    imageType = "Primary",
+                    width = 1920,
+                    height = 1080,
+                    quality = 100,
+                    enableImageEnhancers = false,
+                    imageTag = item.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seriesId
+                    )
+                ).first()
+            )
         }
     } else {
-        addCandidate(mediaRepository.getBackdropImageUrl(
-            itemId = itemId,
-            width = 1200,
-            height = 675,
-            quality = 95,
-            imageTag = item.imageTagFor(
-                imageType = "Backdrop",
-                targetItemId = itemId
-            )
-        ).first())
+        addCandidate(
+            mediaRepository.getBackdropImageUrl(
+                itemId = itemId,
+                width = 1200,
+                height = 675,
+                quality = 95,
+                imageTag = item.imageTagFor(
+                    imageType = "Backdrop",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
 
-        addCandidate(mediaRepository.getImageUrl(
-            itemId = itemId,
-            imageType = "Primary",
-            width = 1200,
-            height = 675,
-            quality = 95,
-            imageTag = item.imageTagFor(
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
                 imageType = "Primary",
-                targetItemId = itemId
-            )
-        ).first())
+                width = 1200,
+                height = 675,
+                quality = 95,
+                imageTag = item.imageTagFor(
+                    imageType = "Primary",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
     }
 
     return candidates
@@ -2599,6 +2715,7 @@ private fun SeasonsSection(
                     }
                 }
             }
+
             seasons.isNotEmpty() -> {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -2752,7 +2869,18 @@ fun DetailScreenManyGenresPreview() {
             runTimeTicks = 7200000000L, // 2h
             communityRating = 8.2f,
             officialRating = "R",
-            genres = listOf("Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mystery", "Romance", "Sci-Fi", "Thriller"),
+            genres = listOf(
+                "Action",
+                "Adventure",
+                "Comedy",
+                "Drama",
+                "Fantasy",
+                "Horror",
+                "Mystery",
+                "Romance",
+                "Sci-Fi",
+                "Thriller"
+            ),
             userData = null,
             people = null,
             studios = null,
@@ -2853,16 +2981,26 @@ fun DetailScreenSkeleton(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ShimmerEffect(modifier = Modifier.width(56.dp).height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier.width(42.dp).height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier.width(64.dp).height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier.width(50.dp).height(18.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier
+                        .width(56.dp)
+                        .height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier
+                        .width(42.dp)
+                        .height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier
+                        .width(64.dp)
+                        .height(16.dp), cornerRadius = 8f)
+                    ShimmerEffect(modifier = Modifier
+                        .width(50.dp)
+                        .height(18.dp), cornerRadius = 8f)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 ShimmerEffect(
-                    modifier = Modifier.fillMaxWidth(0.78f).height(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth(0.78f)
+                        .height(14.dp),
                     cornerRadius = 8f
                 )
 
@@ -2870,7 +3008,9 @@ fun DetailScreenSkeleton(
 
                 repeat(2) {
                     ShimmerEffect(
-                        modifier = Modifier.fillMaxWidth(0.82f).height(18.dp),
+                        modifier = Modifier
+                            .fillMaxWidth(0.82f)
+                            .height(18.dp),
                         cornerRadius = 8f
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -2903,7 +3043,9 @@ fun DetailScreenSkeleton(
                 Spacer(modifier = Modifier.height(22.dp))
 
                 ShimmerEffect(
-                    modifier = Modifier.width(110.dp).height(22.dp),
+                    modifier = Modifier
+                        .width(110.dp)
+                        .height(22.dp),
                     cornerRadius = 10f
                 )
                 Spacer(modifier = Modifier.height(10.dp))

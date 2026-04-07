@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,9 +25,12 @@ import com.jellycine.app.R
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
+import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.downloadButtonVisualState
 import com.jellycine.app.ui.components.common.hasActiveDownloads
+import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
@@ -50,6 +52,8 @@ fun SeasonDetailScreen(
     onEpisodeClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val screenWidthDp = containerWidthDp()
+    val isWidescreenLayout = isTabletLayout(screenWidthDp)
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
@@ -251,6 +255,7 @@ fun SeasonDetailScreen(
         panelState = seasonDownload,
         label = "season_download_progress"
     )
+    val heroHeight = if (isWidescreenLayout) 430.dp else 380.dp
 
     when {
         error != null -> {
@@ -268,50 +273,17 @@ fun SeasonDetailScreen(
             ) {
                 item {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(380.dp)
-                        ) {
-                            if (currentHeroImageUrl != null) {
-                                JellyfinPosterImage(
-                                    context = context,
-                                    imageUrl = currentHeroImageUrl,
-                                    contentDescription = seasonName,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop,
-                                    onErrorStateChange = { hasError ->
-                                        if (hasError) {
-                                            if (heroImageIndex < heroImageCandidates.lastIndex) {
-                                                heroImageIndex += 1
-                                            }
-                                        }
-                                    }
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color(0xFF20202A))
-                                )
+                        DetailBackdropHero(
+                            imageUrl = currentHeroImageUrl,
+                            contentDescription = seasonName,
+                            heroHeight = heroHeight,
+                            bottomFadeHeight = 120.dp,
+                            onErrorStateChange = { hasError ->
+                                if (hasError && heroImageIndex < heroImageCandidates.lastIndex) {
+                                    heroImageIndex += 1
+                                }
                             }
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colorStops = arrayOf(
-                                                0.0f to Color.Transparent,
-                                                0.62f to Color.Transparent,
-                                                0.86f to Color.Black.copy(alpha = 0.58f),
-                                                1.0f to Color.Black
-                                            )
-                                        )
-                                    )
-                            )
-
-                        }
+                        )
 
                         Column(
                             modifier = Modifier
