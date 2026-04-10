@@ -209,7 +209,11 @@ object CodecCapabilityManager {
      * Check if the device can spatialize the given audio stream.
      * Returns true only when content is spatializable and the current route can render it.
      */
-    fun canSpatializeAudioStream(context: Context, audioStream: MediaStream): SpatializationResult {
+    fun canSpatializeAudioStream(
+        context: Context,
+        audioStream: MediaStream,
+        spatializerHelper: SpatializerHelper? = null
+    ): SpatializationResult {
         val spatialFormat = detectSpatialAudio(
             audioStream.codec?.uppercase() ?: "",
             audioStream.channels ?: 0,
@@ -226,17 +230,20 @@ object CodecCapabilityManager {
             )
         }
 
-        val spatializerHelper = SpatializerHelper(context)
+        val helper = spatializerHelper ?: SpatializerHelper(context)
         val requestedChannelCount = (audioStream.channels ?: 2).coerceAtLeast(2)
+        val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
 
-        val routeSupportsSpatialization = spatializerHelper.let { helper ->
-            val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
-            audioFormat?.let { helper.canSpatializeOnTrack(it) } ?: false
+        if (audioFormat == null) {
+            return SpatializationResult(
+                canSpatialize = false,
+                reason = "Spatializable content detected, but no compatible spatial audio format is available",
+                spatialFormat = spatialFormat
+            )
         }
-        val spatializerActive = spatializerHelper.let { helper ->
-            val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
-            audioFormat?.let { helper.canSpatializeAudio(it) } ?: false
-        }
+
+        val routeSupportsSpatialization = helper.canSpatializeOnTrack(audioFormat)
+        val spatializerActive = helper.canSpatializeAudio(audioFormat)
 
         return if (spatializerActive) {
             SpatializationResult(

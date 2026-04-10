@@ -11,7 +11,7 @@ import androidx.annotation.RequiresApi
 /**
  * Helper class for proper spatial audio implementation following Google's guidelines
  */
-class SpatializerHelper(private val context: Context) {
+class SpatializerHelper(context: Context) {
     
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var spatializer: Spatializer? = null
@@ -60,23 +60,7 @@ class SpatializerHelper(private val context: Context) {
             .build()
     ): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return spatializer?.let { spatializer ->
-                val hasImmersiveLevel = spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
-                val isAvailable = spatializer.isAvailable
-                val canBeSpatialized = if (isOplusDevice()) {
-                    // Oplus framework may spam AudioEffect getParameter warnings for this probe.
-                    // Use route availability + immersive support instead.
-                    true
-                } else {
-                    spatializer.canBeSpatialized(audioAttributes, audioFormat)
-                }
-                
-                android.util.Log.d(
-                    "SpatializerHelper",
-                    "Spatial Route Check: immersiveLevel=$hasImmersiveLevel, available=$isAvailable, canBeSpatialized=$canBeSpatialized")
-
-                hasImmersiveLevel && isAvailable && canBeSpatialized
-            } ?: false
+            return evaluateSpatialization(audioFormat, audioAttributes).routeSupportsSpatialization
         }
         return false
     }
@@ -92,47 +76,14 @@ class SpatializerHelper(private val context: Context) {
             .build()
     ): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return spatializer?.let { spatializer ->
-                val routeSupportsSpatialization = canSpatializeOnTrack(audioFormat, audioAttributes)
-                val isEnabled = spatializer.isEnabled
-                val isAvailable = spatializer.isAvailable
-
-                android.util.Log.d(
-                    "SpatializerHelper",
-                    "Spatial Active Check: routeSupports=$routeSupportsSpatialization, available=$isAvailable, enabled=$isEnabled")
-
-                routeSupportsSpatialization && isAvailable && isEnabled
-            } ?: false
+            val state = evaluateSpatialization(audioFormat, audioAttributes)
+            android.util.Log.d(
+                "SpatializerHelper",
+                "Spatial Active Check: routeSupports=${state.routeSupportsSpatialization}, available=${state.isAvailable}, enabled=${state.isEnabled}"
+            )
+            return state.routeSupportsSpatialization && state.isAvailable && state.isEnabled
         }
         return false
-    }
-    
-    /**
-     * Check whether the current output route can spatialize multichannel content.
-     * Uses runtime capability checks and never assumes support.
-     */
-    fun canSpatializeMultiChannel(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return false
-        }
-
-        val candidateChannelCounts = intArrayOf(8, 6)
-        return candidateChannelCounts.any { channelCount ->
-            val audioFormat = getRecommendedAudioFormat(channelCount) ?: return@any false
-            canSpatializeOnTrack(audioFormat)
-        }
-    }
-
-    /**
-     * Check whether device spatializer is currently enabled in system settings for active route.
-     */
-    fun isSpatializerEnabled(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return false
-        }
-
-        val info = getSpatialAudioInfo()
-        return info.isSupported && info.isAvailable && info.isEnabled
     }
     
     /**
@@ -177,7 +128,34 @@ class SpatializerHelper(private val context: Context) {
      * Clean up resources
      */
     fun cleanup() {
-        // No resources to clean up currently.
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun evaluateSpatialization(
+        audioFormat: AudioFormat,
+        audioAttributes: AudioAttributes
+    ): SpatializationState {
+        return spatializer?.let { spatializer ->
+            val hasImmersiveLevel =
+                spatializer.immersiveAudioLevel != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
+            val isAvailable = spatializer.isAvailable
+            val canBeSpatialized = if (isOplusDevice()) {
+                true
+            } else {
+                spatializer.canBeSpatialized(audioAttributes, audioFormat)
+            }
+            val routeSupportsSpatialization = hasImmersiveLevel && isAvailable && canBeSpatialized
+
+            android.util.Log.d(
+                "SpatializerHelper",
+                "Spatial Route Check: immersiveLevel=$hasImmersiveLevel, available=$isAvailable, canBeSpatialized=$canBeSpatialized"
+            )
+            SpatializationState(
+                routeSupportsSpatialization = routeSupportsSpatialization,
+                isAvailable = isAvailable,
+                isEnabled = spatializer.isEnabled
+            )
+        } ?: SpatializationState()
     }
 
     private fun isOplusDevice(): Boolean {
@@ -190,6 +168,12 @@ class SpatializerHelper(private val context: Context) {
             brand.contains("oppo") ||
             brand.contains("realme")
     }
+
+    private data class SpatializationState(
+        val routeSupportsSpatialization: Boolean = false,
+        val isAvailable: Boolean = false,
+        val isEnabled: Boolean = false
+    )
 }
 
 /**

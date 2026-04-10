@@ -140,17 +140,17 @@ dependencies {
     implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
 
     // Media3 ExoPlayer for video playback
-    implementation 'androidx.media3:media3-exoplayer:1.9.3'
-    implementation 'androidx.media3:media3-exoplayer-dash:1.9.3'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.9.3'
-    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.9.3'
-    implementation 'androidx.media3:media3-ui:1.9.3'
-    implementation 'androidx.media3:media3-session:1.9.3'
-    implementation 'androidx.media3:media3-common:1.9.3'
+    implementation 'androidx.media3:media3-exoplayer:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.10.0'
+    implementation 'androidx.media3:media3-ui:1.10.0'
+    implementation 'androidx.media3:media3-session:1.10.0'
+    implementation 'androidx.media3:media3-common:1.10.0'
     implementation 'org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1'
 
     // Audio and video processing
-    implementation 'androidx.media3:media3-effect:1.9.3'
+    implementation 'androidx.media3:media3-effect:1.10.0'
 
     // Permissions handling
     implementation 'com.google.accompanist:accompanist-permissions:0.37.3'

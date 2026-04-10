@@ -382,8 +382,15 @@ fun DetailScreenContainer(
         }
     } else {
         if (showPlayer) {
+            val activePlaybackId = playbackItemId ?: itemId
+            val initialPlaybackItemDetails = when (activePlaybackId) {
+                item?.id -> item
+                episodeItem?.id -> episodeItem
+                else -> null
+            }
             PlayerScreen(
-                mediaId = playbackItemId ?: itemId,
+                mediaId = activePlaybackId,
+                initialItemDetails = initialPlaybackItemDetails,
                 preferredAudioStreamIndex = preferredAudioStreamIndex,
                 preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
                 onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->

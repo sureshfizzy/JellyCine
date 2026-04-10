@@ -28,7 +28,6 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PROGRESS_SEEK_GESTURE_ENABLED = "progress_seek_gesture_enabled"
         private const val KEY_ZOOM_GESTURE_ENABLED = "zoom_gesture_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
-        private const val KEY_HDR_ENABLED = "hdr_enabled"
         private const val KEY_PLAYER_CACHE_SIZE_MB = "player_cache_size_mb"
         private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
         private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
@@ -326,20 +325,6 @@ class PlayerPreferences(context: Context) {
         prefs.edit().putBoolean(KEY_START_MAXIMIZED, enabled).apply()
     }
     
-    /**
-     * Get HDR enabled preference
-     */
-    fun isHdrEnabled(): Boolean {
-        return prefs.getBoolean(KEY_HDR_ENABLED, true)
-    }
-    
-    /**
-     * Set HDR enabled preference
-     */
-    fun setHdrEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_HDR_ENABLED, enabled).apply()
-    }
-
     fun getPlayerCacheSizeMb(): Int {
         return prefs.getInt(KEY_PLAYER_CACHE_SIZE_MB, DEFAULT_PLAYER_CACHE_SIZE_MB)
             .coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)

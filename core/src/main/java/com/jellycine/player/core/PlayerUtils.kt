@@ -13,7 +13,6 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.video.HardwareAcceleration
 import com.jellycine.player.video.HdrCapabilityManager
 import com.jellycine.player.preferences.PlayerPreferences
@@ -47,47 +46,9 @@ object PlayerUtils {
     @UnstableApi
     fun createPlayer(context: Context): ExoPlayer {
         val playerPreferences = PlayerPreferences(context)
-        val hdrEnabled = playerPreferences.isHdrEnabled()
-        
+
         try {
-            // Check device HDR capabilities and user preference
-            val deviceHdrSupport = HdrCapabilityManager.getDeviceHdrSupport(context)
-            
-            // Only use HDR capabilities if user has enabled HDR
-            val effectiveHdrSupport = if (hdrEnabled) {
-                deviceHdrSupport
-            } else {
-                HdrCapabilityManager.HdrSupport.SDR
-            }
-            
-            val spatializerHelper = SpatializerHelper(context)
-            val canSpatializeMultiChannel = spatializerHelper.canSpatializeMultiChannel()
-            val spatializerActive = spatializerHelper.isSpatializerEnabled()
-            
-            val trackSelector = DefaultTrackSelector(context).apply {
-                parameters = buildUponParameters()
-                    .apply {
-                        when (effectiveHdrSupport) {
-                            HdrCapabilityManager.HdrSupport.DOLBY_VISION -> {
-                                // Device supports Dolby Vision and user enabled HDR, allow all HDR formats
-                            }
-                            HdrCapabilityManager.HdrSupport.HDR10_PLUS,
-                            HdrCapabilityManager.HdrSupport.HDR10 -> {
-                                Log.d("PlayerUtils", "Configuring for HDR playback")
-                            }
-                            else -> {
-                                Log.d("PlayerUtils", "Configuring for SDR playback (HDR disabled or not supported)")
-                            }
-                        }
-                    }
-                    .build()
-            }
-            
-            Log.d(
-                "PlayerUtils", 
-                "Track selector configured without audio channel/bitrate caps " +
-                    "(device multi-channel: $canSpatializeMultiChannel, spatializer active: $spatializerActive)"
-            )
+            val trackSelector = DefaultTrackSelector(context)
 
             // Configure AudioAttributes to let system spatializer decide when active
             val audioAttributesBuilder = AudioAttributes.Builder()
@@ -97,11 +58,9 @@ object PlayerUtils {
                 audioAttributesBuilder.setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_AUTO)
             }
             val audioAttributes = audioAttributesBuilder.build()
-            
-            Log.d("PlayerUtils", "Audio attributes configured with spatialization behavior AUTO")
 
             // Create hardware acceleration
-            val renderersFactory = createHardwareAcceleration(context)
+            val renderersFactory = HardwareAcceleration(context)
             
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
@@ -118,11 +77,7 @@ object PlayerUtils {
                 Log.d("PlayerUtils", "Applying battery optimization settings")
                 applyBatteryOptimization(playerBuilder)
             }
-
-            Log.d("PlayerUtils", "ExoPlayer builder configured with HDR fallback support")
-            
             return playerBuilder.build()
-            
         } catch (e: Exception) {
             Log.e("PlayerUtils", "Player creation failed", e)
             throw e // Re-throw to let caller handle it
@@ -195,64 +150,6 @@ object PlayerUtils {
             .build()
     }
     
-    /**
-     * Create enhanced hardware acceleration
-     */
-    @UnstableApi
-    private fun createHardwareAcceleration(context: Context): HardwareAcceleration {
-        return HardwareAcceleration(context)
-    }
-    
-    /**
-     * Configure spatial audio based on content detection and device spatializer state.
-     */
-    @UnstableApi
-    fun configureSpatialAudioForContent(
-        exoPlayer: ExoPlayer, 
-        spatializationResult: com.jellycine.detail.SpatializationResult?
-    ) {
-        Log.d("PlayerUtils", "Configuring spatial audio based on content and device spatializer state")
-
-        try {
-            val spatialFormat = spatializationResult?.spatialFormat ?: ""
-            val contentSupportsSpatialization = spatializationResult?.canSpatialize == true
-            val shouldUseDeviceSpatializer = contentSupportsSpatialization
-
-            Log.d("PlayerUtils", "Content format: '$spatialFormat'")
-            Log.d("PlayerUtils", "Content supports spatialization: $contentSupportsSpatialization")
-            Log.d("PlayerUtils", "Should use device spatializer: $shouldUseDeviceSpatializer")
-            
-            // Apply system spatialization behavior directly.
-            val contentLooksSpatial = spatialFormat.contains("Dolby Atmos", ignoreCase = true) ||
-                spatialFormat.contains("Atmos", ignoreCase = true) ||
-                spatialFormat.contains("5.1") ||
-                spatialFormat.contains("7.1") ||
-                spatialFormat.contains("ch")
-            val enableSpatialization = shouldUseDeviceSpatializer && contentLooksSpatial
-            val audioAttributesBuilder = AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                audioAttributesBuilder.setSpatializationBehavior(
-                    if (enableSpatialization) {
-                        C.SPATIALIZATION_BEHAVIOR_AUTO
-                    } else {
-                        C.SPATIALIZATION_BEHAVIOR_NEVER
-                    }
-                )
-            }
-            exoPlayer.setAudioAttributes(audioAttributesBuilder.build(), true)
-            Log.d(
-                "PlayerUtils",
-                "Spatialization behavior set to ${if (enableSpatialization) "AUTO" else "NEVER"}"
-            )
-            
-        } catch (e: Exception) {
-            Log.e("PlayerUtils", "Failed to configure spatial audio for content", e)
-            throw e
-        }
-    }
-
     /**
      * Get HDR capability information for display in UI
      */

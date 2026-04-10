@@ -77,10 +77,12 @@ class PlayerViewModel @Inject constructor(
     private var audioDiagnosticsSignature: String? = null
     private var downloadRepository: DownloadRepository? = null
     private var communityPlaybackSegmentsJob: Job? = null
+    private var currentItemDetails: BaseItemDto? = null
 
     fun initializePlayer(
         context: Context,
         mediaId: String,
+        initialItemDetails: BaseItemDto? = null,
         preferredAudioStreamIndex: Int? = null,
         preferredSubtitleStreamIndex: Int? = null,
         initialSeekPositionMs: Long? = null,
@@ -135,6 +137,7 @@ class PlayerViewModel @Inject constructor(
                 )
 
                 audioDiagnosticsSignature = null
+                currentItemDetails = null
                 playbackReporter.reset()
                 communityPlaybackSegmentsJob?.cancel()
                 communityPlaybackSegmentsJob = null
@@ -150,11 +153,14 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 // Get item details to check for resume position
-                val itemDetails = if (hasOfflineFile) {
+                val itemDetails = if (initialItemDetails?.id == mediaId) {
+                    initialItemDetails
+                } else if (hasOfflineFile) {
                     offlineItemDetails ?: mediaRepository.getItemById(mediaId).getOrNull()
                 } else {
                     mediaRepository.getItemById(mediaId).getOrNull()
                 }
+                currentItemDetails = itemDetails
                 val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
                 val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
                     resumePositionTicks / 10000L
@@ -718,6 +724,7 @@ class PlayerViewModel @Inject constructor(
         initializePlayer(
             context = context,
             mediaId = mediaId,
+            initialItemDetails = currentItemDetails,
             preferredAudioStreamIndex = audioStreamIndex,
             preferredSubtitleStreamIndex = subtitleStreamIndex,
             initialSeekPositionMs = resumePositionMs,

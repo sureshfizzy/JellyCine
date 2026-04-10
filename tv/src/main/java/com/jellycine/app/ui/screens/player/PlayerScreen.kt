@@ -41,6 +41,7 @@ import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
+import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.core.SkippableSegmentType
@@ -72,6 +73,7 @@ data class PlayerUiState(
 @Composable
 fun PlayerScreen(
     mediaId: String,
+    initialItemDetails: BaseItemDto? = null,
     preferredAudioStreamIndex: Int? = null,
     preferredSubtitleStreamIndex: Int? = null,
     modifier: Modifier = Modifier,
@@ -223,6 +225,7 @@ fun PlayerScreen(
             viewModel.initializePlayer(
                 context = context,
                 mediaId = mediaId,
+                initialItemDetails = initialItemDetails,
                 preferredAudioStreamIndex = preferredAudioStreamIndex,
                 preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
             )
@@ -324,6 +327,7 @@ fun PlayerScreen(
         viewModel.initializePlayer(
             context = context,
             mediaId = mediaId,
+            initialItemDetails = initialItemDetails,
             preferredAudioStreamIndex = preferredAudio,
             preferredSubtitleStreamIndex = preferredSubtitle,
             initialSeekPositionMs = resumePositionMs,

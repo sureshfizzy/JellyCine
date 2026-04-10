@@ -26,6 +26,7 @@ import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.jellycine.app.download.DownloadRepository
 import com.jellycine.app.download.DownloadRepositoryProvider
 import java.io.File
@@ -48,6 +50,10 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
+    companion object {
+        private const val TAG = "PlayerViewModel"
+    }
+
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
     private val _preferredStreamIndexes = MutableStateFlow(PreferredStreamIndexes())
@@ -77,10 +83,13 @@ class PlayerViewModel @Inject constructor(
     private var audioDiagnosticsSignature: String? = null
     private var downloadRepository: DownloadRepository? = null
     private var communityPlaybackSegmentsJob: Job? = null
+    private var spatialAudioAnalysisJob: Job? = null
+    private var currentItemDetails: BaseItemDto? = null
 
     fun initializePlayer(
         context: Context,
         mediaId: String,
+        initialItemDetails: BaseItemDto? = null,
         preferredAudioStreamIndex: Int? = null,
         preferredSubtitleStreamIndex: Int? = null,
         initialSeekPositionMs: Long? = null,
@@ -135,9 +144,12 @@ class PlayerViewModel @Inject constructor(
                 )
 
                 audioDiagnosticsSignature = null
+                currentItemDetails = null
                 playbackReporter.reset()
                 communityPlaybackSegmentsJob?.cancel()
                 communityPlaybackSegmentsJob = null
+                spatialAudioAnalysisJob?.cancel()
+                spatialAudioAnalysisJob = null
                 spatializerHelper = SpatializerHelper(context)
                 exoPlayer = PlayerUtils.createPlayer(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
@@ -150,11 +162,14 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 // Get item details to check for resume position
-                val itemDetails = if (hasOfflineFile) {
+                val itemDetails = if (initialItemDetails?.id == mediaId) {
+                    initialItemDetails
+                } else if (hasOfflineFile) {
                     offlineItemDetails ?: mediaRepository.getItemById(mediaId).getOrNull()
                 } else {
                     mediaRepository.getItemById(mediaId).getOrNull()
                 }
+                currentItemDetails = itemDetails
                 val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
                 val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
                     resumePositionTicks / 10000L
@@ -255,7 +270,6 @@ class PlayerViewModel @Inject constructor(
                         primaryMediaSource?.supportsDirectStream == true -> PlayMethod.DIRECT_STREAM
                         else -> PlayMethod.TRANSCODE
                     }
-
                     val playbackRequestResult = mediaRepository.getPlaybackRequest(
                         itemId = mediaId,
                         maxStreamingBitrate = maxStreamingBitrate,
@@ -323,17 +337,6 @@ class PlayerViewModel @Inject constructor(
                     itemDetails = itemDetails,
                     playbackMediaSource = primaryMediaSource
                 )
-
-                val spatializationResult = apiMediaStreams?.let { streams ->
-                    val audioStreams = streams.filter { it.type == "Audio" }
-                    val primaryAudioStream = audioStreams.firstOrNull()
-                    if (primaryAudioStream != null) {
-                        val result = CodecCapabilityManager.canSpatializeAudioStream(context, primaryAudioStream)
-                        result
-                    } else {
-                        null
-                    }
-                }
                 
                 exoPlayer?.apply {
                     addListener(playerListener)
@@ -352,12 +355,6 @@ class PlayerViewModel @Inject constructor(
                 }
 
                 // Spatial audio analysis and device capabilities
-                val spatialInfo = spatializerHelper?.getSpatialAudioInfo()
-                val contentSupportsSpatialization = spatializationResult?.canSpatialize == true
-                val deviceSpatializerEnabled = spatialInfo?.let { it.isAvailable && it.isEnabled } == true
-                val shouldEnableSpatialAudio = contentSupportsSpatialization && deviceSpatializerEnabled
-
-                // Update track information after player is ready
                 updateTrackInformation()
                 val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
                 
@@ -376,22 +373,57 @@ class PlayerViewModel @Inject constructor(
                     isVideoTranscodingAllowed = isVideoTranscodingAllowed,
                     isAudioTranscodingAllowed = isAudioTranscodingAllowed,
                     currentAudioTranscodeMode = audioTranscodeMode,
-                    spatializationResult = spatializationResult,
-                    isSpatialAudioEnabled = shouldEnableSpatialAudio,
-                    spatialAudioFormat = spatializationResult?.spatialFormat ?: "Stereo",
+                    spatializationResult = null,
+                    isSpatialAudioEnabled = false,
+                    spatialAudioFormat = "",
                     isHdrEnabled = isHdrPlayback
                 )
                 if (itemDetails != null) {
                     applyCommunityPlaybackSegments(mediaId = mediaId, itemDetails = itemDetails)
                 }
+                analyzeSpatialAudioAsync(
+                    context = context,
+                    mediaId = mediaId,
+                    mediaStreams = apiMediaStreams,
+                    helper = spatializerHelper
+                )
 
             } catch (e: Exception) {
-                Log.e("PlayerViewModel", "Player initialization failed", e)
+                Log.e(TAG, "Player initialization failed", e)
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Unknown error occurred"
                 )
             }
+        }
+    }
+
+    private fun analyzeSpatialAudioAsync(
+        context: Context,
+        mediaId: String,
+        mediaStreams: List<MediaStream>?,
+        helper: SpatializerHelper?
+    ) {
+        spatialAudioAnalysisJob?.cancel()
+        val primaryAudioStream = mediaStreams
+            ?.firstOrNull { it.type == "Audio" }
+            ?: return
+
+        spatialAudioAnalysisJob = viewModelScope.launch {
+            val spatializationResult = withContext(Dispatchers.Default) {
+                CodecCapabilityManager.canSpatializeAudioStream(
+                    context = context,
+                    audioStream = primaryAudioStream,
+                    spatializerHelper = helper
+                )
+            }
+            if (playbackSession.mediaId != mediaId) return@launch
+
+            _playerState.value = _playerState.value.copy(
+                spatializationResult = spatializationResult,
+                isSpatialAudioEnabled = spatializationResult.canSpatialize,
+                spatialAudioFormat = spatializationResult.spatialFormat
+            )
         }
     }
 
@@ -519,6 +551,8 @@ class PlayerViewModel @Inject constructor(
         playbackReporter.reportPlaybackStopped()
         communityPlaybackSegmentsJob?.cancel()
         communityPlaybackSegmentsJob = null
+        spatialAudioAnalysisJob?.cancel()
+        spatialAudioAnalysisJob = null
         exoPlayer?.apply {
             removeListener(playerListener)
             release()
@@ -718,6 +752,7 @@ class PlayerViewModel @Inject constructor(
         initializePlayer(
             context = context,
             mediaId = mediaId,
+            initialItemDetails = currentItemDetails,
             preferredAudioStreamIndex = audioStreamIndex,
             preferredSubtitleStreamIndex = subtitleStreamIndex,
             initialSeekPositionMs = resumePositionMs,

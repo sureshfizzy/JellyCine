@@ -2,15 +2,9 @@ package com.jellycine.app.ui.screens.player
 
 import android.app.Activity
 import android.content.Context
-import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.provider.Settings
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -35,19 +29,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.app.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
-import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
-import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
-import com.jellycine.player.core.SkippableSegmentType
+import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.app.ui.screens.player.MediaInfoDialog
-import kotlinx.coroutines.delay
 
 /**
  * Player state data class to group related states
@@ -72,6 +61,7 @@ data class PlayerUiState(
 @Composable
 fun PlayerScreen(
     mediaId: String,
+    initialItemDetails: BaseItemDto? = null,
     preferredAudioStreamIndex: Int? = null,
     preferredSubtitleStreamIndex: Int? = null,
     modifier: Modifier = Modifier,
@@ -90,14 +80,15 @@ fun PlayerScreen(
     var autoHideKey by remember { mutableStateOf(0) }
     var isScrubbing by remember { mutableStateOf(false) }
 
-    val hideSystemBars = {
+    val hideSystemBars: () -> Unit = {
         (context as? Activity)?.let { act ->
             val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
-            windowInsetsController.apply {
+            windowInsetsController?.apply {
                 hide(WindowInsetsCompat.Type.systemBars())
                 systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         }
+        Unit
     }
 
     // Helper function to reset auto-hide timer
@@ -169,102 +160,42 @@ fun PlayerScreen(
     val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
     val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
 
-    // Setup player-specific settings
-    DisposableEffect(Unit) {
-        currentView.keepScreenOn = true
-        val activity = context as? Activity
-        val originalRequestedOrientation = activity?.requestedOrientation
-        activity?.let { act ->
-            act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            hideSystemBars()
-        }
-
-        onDispose {
-            currentView.keepScreenOn = false
-            activity?.let { act ->
-                act.requestedOrientation = originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                if (!useDeviceVolumeInPlayer) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                }
-                val layoutParams = act.window.attributes
-                layoutParams.screenBrightness = -1f
-                act.window.attributes = layoutParams
-                val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
-                windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
-            }
-        }
-    }
-
-    // Handle lifecycle events
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            lifecycle = event
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
     // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
-    
-    // Initialize player
-    LaunchedEffect(mediaId) {
-        if (initializedMediaId == mediaId) return@LaunchedEffect
 
-        try {
-            if (initializedMediaId != null) {
-                viewModel.releasePlayer()
-            }
-            uiState = uiState.copy(currentPosition = 0L, isPlaying = false)
-            viewModel.initializePlayer(
-                context = context,
-                mediaId = mediaId,
-                preferredAudioStreamIndex = preferredAudioStreamIndex,
-                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
-            )
-            initializedMediaId = mediaId
-        } catch (e: Exception) {
-            // Initialization failed, will be handled by PlayerViewModel
-        }
-    }
-
-    LaunchedEffect(viewModel, onPlaybackCompleted) {
-        viewModel.playbackCompletedEvents.collect { completedMediaId ->
-            onPlaybackCompleted?.invoke(completedMediaId)
-        }
-    }
-
-    // Update position and playing state
-    LaunchedEffect(viewModel.exoPlayer) {
-        while (true) {
-            uiState = uiState.copy(
-                currentPosition = viewModel.getCurrentPosition(),
-                isPlaying = viewModel.isPlayingNow()
-            )
-            delay(100)
-        }
-    }
-
-    LaunchedEffect(
-        initializedMediaId,
-        preferredStreamIndexes.audioStreamIndex,
-        preferredStreamIndexes.subtitleStreamIndex
-    ) {
-        if (initializedMediaId == mediaId) {
-            onPreferredStreamIndexesChanged(
-                preferredStreamIndexes.audioStreamIndex,
-                preferredStreamIndexes.subtitleStreamIndex
-            )
-        }
-    }
-
-    LaunchedEffect(playerState.currentAudioTranscodeMode) {
-        currentAudioTranscodeMode = playerState.currentAudioTranscodeMode
-    }
+    PlayerScreenEffects(
+        context = context,
+        currentView = currentView,
+        lifecycleOwner = lifecycleOwner,
+        mediaId = mediaId,
+        initialItemDetails = initialItemDetails,
+        preferredAudioStreamIndex = preferredAudioStreamIndex,
+        preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+        viewModel = viewModel,
+        onPlaybackCompleted = onPlaybackCompleted,
+        preferredStreamIndexes = preferredStreamIndexes,
+        playerState = playerState,
+        useDeviceVolumeInPlayer = useDeviceVolumeInPlayer,
+        audioManager = audioManager,
+        originalVolume = originalVolume,
+        playerBrightness = playerBrightness,
+        playerVolume = playerVolume,
+        showAudioTrackDialog = showAudioTrackDialog,
+        showSubtitleTrackDialog = showSubtitleTrackDialog,
+        showStreamingQualityDialog = showStreamingQualityDialog,
+        showAudioTranscodingDialog = showAudioTranscodingDialog,
+        showMediaInfo = showMediaInfo,
+        autoHideKey = autoHideKey,
+        isScrubbing = isScrubbing,
+        hideSystemBars = hideSystemBars,
+        uiStateProvider = { uiState },
+        onUiStateChange = { uiState = it },
+        initializedMediaIdProvider = { initializedMediaId },
+        onInitializedMediaIdChange = { initializedMediaId = it },
+        onLifecycleChange = { lifecycle = it },
+        onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
+        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged
+    )
 
     val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
         playerState.isAudioTranscodingAllowed
@@ -324,6 +255,7 @@ fun PlayerScreen(
         viewModel.initializePlayer(
             context = context,
             mediaId = mediaId,
+            initialItemDetails = initialItemDetails,
             preferredAudioStreamIndex = preferredAudio,
             preferredSubtitleStreamIndex = preferredSubtitle,
             initialSeekPositionMs = resumePositionMs,
@@ -357,63 +289,6 @@ fun PlayerScreen(
         }
     }
 
-    // Initialize player brightness
-    LaunchedEffect(Unit) {
-        val activity = context as? Activity
-        activity?.let { act ->
-            val layoutParams = act.window.attributes
-            layoutParams.screenBrightness = playerBrightness
-            act.window.attributes = layoutParams
-        }
-
-        // Set initial volume
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val initialVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, initialVolume, 0)
-    }
-
-    // Auto-hide gesture indicators
-    LaunchedEffect(uiState.volumeLevel) {
-        uiState.volumeLevel?.let {
-            delay(CONTROLS_AUTO_HIDE_DELAY)
-            uiState = uiState.copy(volumeLevel = null)
-        }
-    }
-
-    LaunchedEffect(uiState.brightnessLevel) {
-        uiState.brightnessLevel?.let {
-            delay(CONTROLS_AUTO_HIDE_DELAY)
-            uiState = uiState.copy(brightnessLevel = null)
-        }
-    }
-
-    LaunchedEffect(uiState.seekPosition) {
-        uiState.seekPosition?.let {
-            delay(GESTURE_INDICATOR_HIDE_DELAY)
-            uiState = uiState.copy(seekPosition = null)
-        }
-    }
-
-    LaunchedEffect(
-        uiState.controlsVisible,
-        showAudioTrackDialog,
-        showSubtitleTrackDialog,
-        showStreamingQualityDialog,
-        showAudioTranscodingDialog,
-        showMediaInfo
-    ) {
-        if (
-            uiState.controlsVisible ||
-            showAudioTrackDialog ||
-            showSubtitleTrackDialog ||
-            showStreamingQualityDialog ||
-            showAudioTranscodingDialog ||
-            showMediaInfo
-        ) {
-            hideSystemBars()
-        }
-    }
-
     LaunchedEffect(
         playerState.isVideoTranscodingAllowed,
         playerState.isAudioTranscodingAllowed
@@ -426,14 +301,6 @@ fun PlayerScreen(
         if (!playerState.isAudioTranscodingAllowed) {
             pendingStreamingQualitySelection = null
             showAudioTranscodingDialog = false
-        }
-    }
-
-    // Auto-hide controls after 3 seconds
-    LaunchedEffect(uiState.controlsVisible, autoHideKey, isScrubbing) {
-        if (uiState.controlsVisible && !isScrubbing) {
-            delay(3000L)
-            uiState = uiState.copy(controlsVisible = false)
         }
     }
 
@@ -520,204 +387,62 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        if (uiState.controlsVisible) {
-            ControlsOverlay(
-                title = playerState.mediaTitle,
-                mediaLogoUrl = playerState.mediaLogoUrl,
-                seasonEpisodeLabel = playerState.seasonEpisodeLabel,
-                chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
-                isPlaying = uiState.isPlaying,
-                currentPosition = uiState.currentPosition,
-                duration = viewModel.getDuration(),
-                onBackClick = {
-                    viewModel.releasePlayer()
-                    onBackPressed?.invoke()
-                },
-                onPlayPause = {
-                    resetAutoHideTimer()
-                    if (uiState.isPlaying) {
-                        viewModel.pause()
-                    } else {
-                        viewModel.play()
-                    }
-                },
-                onSeek = { progress ->
-                    resetAutoHideTimer()
-                    viewModel.seekToProgress(progress)
-                },
-                onScrubStateChange = { scrubbing ->
-                    isScrubbing = scrubbing
-                    resetAutoHideTimer()
-                },
-                // Media info parameters
-                spatializationResult = playerState.spatializationResult,
-                isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
-                isHdrEnabled = playerState.isHdrEnabled,
-                onShowMediaInfo = {
-                    resetAutoHideTimer()
-                    showMediaInfo = true
-                },
-                // Lock and track selection parameters
-                isLocked = playerState.isLocked,
-                onToggleLock = {
-                    resetAutoHideTimer()
-                    viewModel.toggleLock()
-                },
-                currentStreamingQuality = currentStreamingQuality,
-                showPlaybackSettingsButton = hasPlaybackSettings,
-                onShowPlaybackSettings = {
-                    resetAutoHideTimer()
-                    if (playerState.isVideoTranscodingAllowed) {
-                        showStreamingQualityDialog = true
-                    } else if (playerState.isAudioTranscodingAllowed) {
-                        pendingStreamingQualitySelection = null
-                        showAudioTranscodingDialog = true
-                    }
-                },
-                onShowAudioTrackSelection = {
-                    resetAutoHideTimer()
-                    showAudioTrackDialog = true
-                },
-                onShowSubtitleTrackSelection = {
-                    resetAutoHideTimer()
-                    showSubtitleTrackDialog = true
-                },
-                onCycleAspectRatio = {
-                    resetAutoHideTimer()
-                    viewModel.cycleAspectRatio()
-                },
-                // Seek functions
-                onSeekBackward = {
-                    resetAutoHideTimer()
-                    viewModel.seekBackward()
-                },
-                onSeekForward = {
-                    resetAutoHideTimer()
-                    viewModel.seekForward()
-                },
-                seekBackwardSeconds = seekBackwardSeconds,
-                seekForwardSeconds = seekForwardSeconds,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        AnimatedVisibility(
-            visible = activeSkippableSegment != null && uiState.controlsVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(end = 24.dp, bottom = 28.dp)
-        ) {
-            FilledTonalButton(
-                onClick = {
-                    resetAutoHideTimer()
-                    activeSkippableSegment?.seekToMs?.let(viewModel::seekTo)
-                },
-                shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.52f),
-                    contentColor = Color.White
-                ),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                elevation = ButtonDefaults.filledTonalButtonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 1.dp
-                ),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = stringResource(
-                        when (activeSkippableSegment?.type) {
-                            SkippableSegmentType.RECAP -> R.string.player_skip_recap
-                            SkippableSegmentType.PREVIEW -> R.string.player_skip_preview
-                            SkippableSegmentType.CREDITS -> R.string.player_skip_credits
-                            else -> R.string.player_skip_intro
-                        }
-                    ),
-                    fontSize = 14.sp
-                )
-            }
-        }
-
-        // Gesture indicators
-        GestureIndicators(
-            volumeLevel = uiState.volumeLevel,
-            brightnessLevel = uiState.brightnessLevel,
-            seekPosition = uiState.seekPosition,
-            seekSide = uiState.seekSide
+        PlayerOverlayHost(
+            uiState = uiState,
+            playerState = playerState,
+            currentStreamingQuality = currentStreamingQuality,
+            hasPlaybackSettings = hasPlaybackSettings,
+            chapterMarkersEnabled = chapterMarkersEnabled,
+            seekBackwardSeconds = seekBackwardSeconds,
+            seekForwardSeconds = seekForwardSeconds,
+            activeSkippableSegment = activeSkippableSegment,
+            viewModel = viewModel,
+            onBackPressed = onBackPressed,
+            resetAutoHideTimer = resetAutoHideTimer,
+            onScrubbingChange = { isScrubbing = it },
+            onShowMediaInfo = { showMediaInfo = true },
+            onShowStreamingQualityDialog = { showStreamingQualityDialog = true },
+            onShowAudioTranscodingDialog = {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = true
+            },
+            onShowAudioTrackDialog = { showAudioTrackDialog = true },
+            onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true }
         )
 
-        // Track selection dialogs
-        AudioTrackSelectionDialog(
-            isVisible = showAudioTrackDialog,
-            audioTracks = playerState.availableAudioTracks,
-            currentAudioTrack = playerState.currentAudioTrack,
-            onTrackSelected = { trackId ->
+        PlayerDialogsHost(
+            playerState = playerState,
+            showAudioTrackDialog = showAudioTrackDialog,
+            showSubtitleTrackDialog = showSubtitleTrackDialog,
+            showStreamingQualityDialog = showStreamingQualityDialog,
+            showAudioTranscodingDialog = showAudioTranscodingDialog,
+            showMediaInfo = showMediaInfo,
+            availableStreamingQualityOptions = availableStreamingQualityOptions,
+            currentStreamingQuality = currentStreamingQuality,
+            currentAudioTranscodeMode = currentAudioTranscodeMode,
+            mediaInfoSnapshot = mediaInfoSnapshot,
+            onAudioTrackSelected = { trackId ->
                 viewModel.selectAudioTrack(trackId)
                 showAudioTrackDialog = false
             },
-            onDismiss = { showAudioTrackDialog = false }
-        )
-
-        SubtitleTrackSelectionDialog(
-            isVisible = showSubtitleTrackDialog,
-            subtitleTracks = playerState.availableSubtitleTracks,
-            currentSubtitleTrack = playerState.currentSubtitleTrack,
-            onTrackSelected = { trackId ->
+            onSubtitleTrackSelected = { trackId ->
                 viewModel.selectSubtitleTrack(trackId)
                 showSubtitleTrackDialog = false
             },
-            onDismiss = { showSubtitleTrackDialog = false }
-        )
-
-        StreamingQualitySelectionDialog(
-            isVisible = showStreamingQualityDialog && playerState.isVideoTranscodingAllowed,
-            qualityOptions = availableStreamingQualityOptions,
-            currentQuality = currentStreamingQuality,
-            onQualitySelected = applyStreamingQualitySelection,
-            onDismiss = { showStreamingQualityDialog = false }
-        )
-
-        AudioTranscodingModeDialog(
-            isVisible = showAudioTranscodingDialog && playerState.isAudioTranscodingAllowed,
-            currentMode = currentAudioTranscodeMode,
-            onModeSelected = { selectedMode ->
+            onStreamingQualitySelected = applyStreamingQualitySelection,
+            onAudioTranscodingSelected = { selectedMode ->
                 val targetQuality = pendingStreamingQualitySelection ?: currentStreamingQuality
                 applyPlaybackSettingsSelection(targetQuality, selectedMode)
             },
-            onDismiss = {
+            onDismissAudioTrackDialog = { showAudioTrackDialog = false },
+            onDismissSubtitleTrackDialog = { showSubtitleTrackDialog = false },
+            onDismissStreamingQualityDialog = { showStreamingQualityDialog = false },
+            onDismissAudioTranscodingDialog = {
                 pendingStreamingQualitySelection = null
                 showAudioTranscodingDialog = false
-            }
+            },
+            onDismissMediaInfo = { showMediaInfo = false }
         )
-
-        // Loading indicator
-        if (playerState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    strokeWidth = 3.dp,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-        }
-
-        // Media Information Dialog
-        if (showMediaInfo) {
-            mediaInfoSnapshot?.let { mediaInfo ->
-                MediaInfoDialog(
-                    mediaInfo = mediaInfo,
-                    onDismiss = { showMediaInfo = false }
-                )
-            }
-        }
     }
 }
 
