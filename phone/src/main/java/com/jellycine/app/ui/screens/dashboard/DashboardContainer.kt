@@ -69,6 +69,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.animateScrollToItem
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -155,6 +157,7 @@ fun DashboardContainer(
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
     val navController = rememberNavController()
+    val homeScrollState = rememberLazyListState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
@@ -190,6 +193,7 @@ fun DashboardContainer(
     val showThresholdPx = with(density) { 14.dp.toPx() }
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
+    var homeScrollToTop by remember { mutableStateOf(0) }
 
     val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
@@ -299,6 +303,12 @@ fun DashboardContainer(
         )
     }
     val navigateToDestination: (DashboardDestination) -> Unit = { destination ->
+        if (
+            destination == DashboardDestination.Home &&
+            currentRoute == DashboardDestination.Home.route
+        ) {
+            homeScrollToTop += 1
+        }
         if (currentRoute != destination.route) {
             navController.navigate(destination.route) {
                 popUpTo(navController.graph.startDestinationId) {
@@ -308,6 +318,23 @@ fun DashboardContainer(
                 restoreState = true
             }
         }
+    }
+
+    LaunchedEffect(currentRoute, homeScrollToTop) {
+        if (
+            currentRoute != DashboardDestination.Home.route ||
+            homeScrollToTop == 0
+        ) {
+            return@LaunchedEffect
+        }
+
+        if (
+            homeScrollState.firstVisibleItemIndex != 0 ||
+            homeScrollState.firstVisibleItemScrollOffset != 0
+        ) {
+            homeScrollState.animateScrollToItem(0)
+        }
+        homeScrollToTop = 0
     }
 
     LaunchedEffect(isNetworkAvailable, currentRoute) {
@@ -361,7 +388,8 @@ fun DashboardContainer(
                             onNavigateToPlayer = onNavigateToPlayer,
                             onAddServer = onAddServer,
                             onAddUser = onAddUser,
-                            isTabActive = isHomeActive
+                            isTabActive = isHomeActive,
+                            dashboardScrollState = homeScrollState
                         )
                     }
                 }
