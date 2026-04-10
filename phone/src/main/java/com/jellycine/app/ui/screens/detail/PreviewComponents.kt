@@ -219,7 +219,7 @@ fun EpisodePreviewCard(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 18.sp
                     )
