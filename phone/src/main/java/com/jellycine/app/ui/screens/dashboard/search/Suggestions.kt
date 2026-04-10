@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.res.stringResource
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
@@ -67,6 +70,20 @@ fun SuggestionsStoriesView(
         pageCount = { if (itemCount <= 1) 1 else Int.MAX_VALUE }
     )
     val currentItemIndex = ((pagerState.currentPage % itemCount) + itemCount) % itemCount
+    val screenWidthDp = containerWidthDp()
+    val isTablet = isTabletLayout(screenWidthDp)
+    val tabletPageWidth = 320.dp
+    val navigationBarInset = WindowInsets.navigationBars
+        .asPaddingValues()
+        .calculateBottomPadding()
+    val horizontalContentPadding = if (isTablet) {
+        ((screenWidthDp - tabletPageWidth) / 2).coerceAtLeast(24.dp)
+    } else {
+        60.dp
+    }
+    val pagerBottomPadding = 72.dp + navigationBarInset
+    val detailsBottomPadding = 160.dp + navigationBarInset
+    val indicatorBottomPadding = 118.dp + navigationBarInset
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -117,9 +134,10 @@ fun SuggestionsStoriesView(
             state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 72.dp),
-            contentPadding = PaddingValues(horizontal = 60.dp),
-            pageSpacing = 16.dp
+                .padding(bottom = pagerBottomPadding),
+            contentPadding = PaddingValues(horizontal = horizontalContentPadding),
+            pageSpacing = 16.dp,
+            pageSize = if (isTablet) PageSize.Fixed(tabletPageWidth) else PageSize.Fill
         ) { page ->
             val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
             val itemIndex = ((page % itemCount) + itemCount) % itemCount
@@ -157,7 +175,7 @@ fun SuggestionsStoriesView(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 32.dp)
-                .padding(bottom = 160.dp),
+                .padding(bottom = detailsBottomPadding),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -187,7 +205,7 @@ fun SuggestionsStoriesView(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 118.dp),
+                    .padding(bottom = indicatorBottomPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
