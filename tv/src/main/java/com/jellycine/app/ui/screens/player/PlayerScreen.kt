@@ -80,7 +80,9 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel(),
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onBackPressed: (() -> Unit)? = null,
-    onPlaybackCompleted: ((String) -> Unit)? = null
+    onPlaybackCompleted: ((String) -> Unit)? = null,
+    nextEpisodeId: String? = null,
+    onWatchNextEpisode: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentView = LocalView.current
@@ -91,6 +93,7 @@ fun PlayerScreen(
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var autoHideKey by remember { mutableStateOf(0) }
     var isScrubbing by remember { mutableStateOf(false) }
+    var dismissedCreditsPrompt by remember(mediaId) { mutableStateOf(false) }
 
     val hideSystemBars = {
         (context as? Activity)?.let { act ->
@@ -293,6 +296,16 @@ fun PlayerScreen(
                 positionMs = uiState.currentPosition,
                 durationMs = playbackDuration
             )
+        }
+    }
+    val activeCreditsSegment = activeSkippableSegment?.takeIf {
+        it.type == SkippableSegmentType.CREDITS
+    }
+    val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
+
+    LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
+        if (activeCreditsSegment == null) {
+            dismissedCreditsPrompt = false
         }
     }
 
@@ -606,7 +619,9 @@ fun PlayerScreen(
         }
 
         AnimatedVisibility(
-            visible = activeSkippableSegment != null && uiState.controlsVisible,
+            visible = activeSkippableSegment != null &&
+                activeSkippableSegment?.type != SkippableSegmentType.CREDITS &&
+                uiState.controlsVisible,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -636,12 +651,74 @@ fun PlayerScreen(
                         when (activeSkippableSegment?.type) {
                             SkippableSegmentType.RECAP -> R.string.player_skip_recap
                             SkippableSegmentType.PREVIEW -> R.string.player_skip_preview
-                            SkippableSegmentType.CREDITS -> R.string.player_skip_credits
                             else -> R.string.player_skip_intro
                         }
                     ),
                     fontSize = 14.sp
                 )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = activeCreditsSegment != null &&
+                uiState.controlsVisible &&
+                !dismissedCreditsPrompt,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(end = 24.dp, bottom = 28.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        resetAutoHideTimer()
+                        dismissedCreditsPrompt = true
+                        uiState = uiState.copy(controlsVisible = false)
+                    },
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.44f),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.player_watch_credits),
+                        fontSize = 14.sp
+                    )
+                }
+
+                if (canWatchNextEpisode) {
+                    FilledTonalButton(
+                        onClick = {
+                            resetAutoHideTimer()
+                            nextEpisodeId
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { onWatchNextEpisode?.invoke(it) }
+                        },
+                        shape = RoundedCornerShape(999.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.52f),
+                            contentColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                        elevation = ButtonDefaults.filledTonalButtonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 1.dp
+                        ),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.player_watch_next_episode),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
             }
         }
 

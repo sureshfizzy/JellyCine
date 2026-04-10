@@ -13,9 +13,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -247,10 +250,15 @@ internal fun BoxScope.PlayerOverlayHost(
     seekBackwardSeconds: Int,
     seekForwardSeconds: Int,
     activeSkippableSegment: SkippableSegmentAction?,
+    activeCreditsSegment: SkippableSegmentAction?,
+    dismissedCreditsPrompt: Boolean,
+    canWatchNextEpisode: Boolean,
     viewModel: PlayerViewModel,
     onBackPressed: (() -> Unit)?,
     resetAutoHideTimer: () -> Unit,
     onScrubbingChange: (Boolean) -> Unit,
+    onWatchCredits: () -> Unit,
+    onWatchNextEpisode: () -> Unit,
     onShowMediaInfo: () -> Unit,
     onShowStreamingQualityDialog: () -> Unit,
     onShowAudioTranscodingDialog: () -> Unit,
@@ -335,7 +343,9 @@ internal fun BoxScope.PlayerOverlayHost(
     }
 
     AnimatedVisibility(
-        visible = activeSkippableSegment != null && uiState.controlsVisible,
+        visible = activeSkippableSegment != null &&
+            activeSkippableSegment.type != SkippableSegmentType.CREDITS &&
+            uiState.controlsVisible,
         enter = fadeIn(),
         exit = fadeOut(),
         modifier = Modifier
@@ -364,12 +374,70 @@ internal fun BoxScope.PlayerOverlayHost(
                     when (activeSkippableSegment?.type) {
                         SkippableSegmentType.RECAP -> R.string.player_skip_recap
                         SkippableSegmentType.PREVIEW -> R.string.player_skip_preview
-                        SkippableSegmentType.CREDITS -> R.string.player_skip_credits
                         else -> R.string.player_skip_intro
                     }
                 ),
                 fontSize = 14.sp
             )
+        }
+    }
+
+    AnimatedVisibility(
+        visible = activeCreditsSegment != null &&
+            uiState.controlsVisible &&
+            !dismissedCreditsPrompt,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 24.dp, bottom = 28.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    resetAutoHideTimer()
+                    onWatchCredits()
+                },
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.44f),
+                    contentColor = Color.White
+                ),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.player_watch_credits),
+                    fontSize = 14.sp
+                )
+            }
+
+            if (canWatchNextEpisode) {
+                FilledTonalButton(
+                    onClick = {
+                        resetAutoHideTimer()
+                        onWatchNextEpisode()
+                    },
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.52f),
+                        contentColor = Color.White
+                    ),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                    elevation = ButtonDefaults.filledTonalButtonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 1.dp
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.player_watch_next_episode),
+                        fontSize = 14.sp
+                    )
+                }
+            }
         }
     }
 

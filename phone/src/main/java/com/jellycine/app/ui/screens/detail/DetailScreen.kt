@@ -105,6 +105,7 @@ fun DetailScreenContainer(
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
     var playbackItemId by remember { mutableStateOf<String?>(null) }
+    var availableNextEpisodeId by remember { mutableStateOf<String?>(null) }
     var preferredAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var preferredSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var trackSelectionSyncVersion by rememberSaveable { mutableStateOf(0) }
@@ -316,6 +317,14 @@ fun DetailScreenContainer(
         return nextEpisodeId?.takeIf { it.isNotBlank() && it != completedItemId }
     }
 
+    fun playNextEpisode(nextEpisodeId: String) {
+        playbackItemId = nextEpisodeId
+        availableNextEpisodeId = null
+        if (currentScreen == "episode") {
+            episodeDetailId = nextEpisodeId
+        }
+    }
+
     LaunchedEffect(itemId) {
         try {
             isLoading = true
@@ -366,6 +375,16 @@ fun DetailScreenContainer(
             episodeItem = null
             isEpisodeLoading = false
         }
+    }
+
+    LaunchedEffect(showPlayer, playbackItemId, itemId) {
+        if (!showPlayer) {
+            availableNextEpisodeId = null
+            return@LaunchedEffect
+        }
+
+        val activePlaybackId = playbackItemId ?: itemId
+        availableNextEpisodeId = nextEpisodeId(activePlaybackId)
     }
 
     LaunchedEffect(latestPlaybackStopEvent?.timestampMs) {
@@ -434,13 +453,12 @@ fun DetailScreenContainer(
                     showPlayer = false
                     playbackItemId = null
                 },
+                nextEpisodeId = availableNextEpisodeId,
+                onWatchNextEpisode = ::playNextEpisode,
                 onPlaybackCompleted = { completedItemId ->
                     scope.launch {
                         val nextEpisodeId = nextEpisodeId(completedItemId) ?: return@launch
-                        playbackItemId = nextEpisodeId
-                        if (currentScreen == "episode") {
-                            episodeDetailId = nextEpisodeId
-                        }
+                        playNextEpisode(nextEpisodeId)
                     }
                 }
             )

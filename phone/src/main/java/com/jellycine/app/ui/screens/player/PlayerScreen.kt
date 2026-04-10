@@ -35,6 +35,7 @@ import com.jellycine.app.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
 
@@ -68,7 +69,9 @@ fun PlayerScreen(
     viewModel: PlayerViewModel = hiltViewModel(),
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onBackPressed: (() -> Unit)? = null,
-    onPlaybackCompleted: ((String) -> Unit)? = null
+    onPlaybackCompleted: ((String) -> Unit)? = null,
+    nextEpisodeId: String? = null,
+    onWatchNextEpisode: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currentView = LocalView.current
@@ -79,6 +82,7 @@ fun PlayerScreen(
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var autoHideKey by remember { mutableStateOf(0) }
     var isScrubbing by remember { mutableStateOf(false) }
+    var dismissedCreditsPrompt by remember(mediaId) { mutableStateOf(false) }
 
     val hideSystemBars: () -> Unit = {
         (context as? Activity)?.let { act ->
@@ -221,6 +225,16 @@ fun PlayerScreen(
                 positionMs = uiState.currentPosition,
                 durationMs = playbackDuration
             )
+        }
+    }
+    val activeCreditsSegment = activeSkippableSegment?.takeIf {
+        it.type == SkippableSegmentType.CREDITS
+    }
+    val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
+
+    LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
+        if (activeCreditsSegment == null) {
+            dismissedCreditsPrompt = false
         }
     }
 
@@ -396,10 +410,22 @@ fun PlayerScreen(
             seekBackwardSeconds = seekBackwardSeconds,
             seekForwardSeconds = seekForwardSeconds,
             activeSkippableSegment = activeSkippableSegment,
+            activeCreditsSegment = activeCreditsSegment,
+            dismissedCreditsPrompt = dismissedCreditsPrompt,
+            canWatchNextEpisode = canWatchNextEpisode,
             viewModel = viewModel,
             onBackPressed = onBackPressed,
             resetAutoHideTimer = resetAutoHideTimer,
             onScrubbingChange = { isScrubbing = it },
+            onWatchCredits = {
+                dismissedCreditsPrompt = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onWatchNextEpisode = {
+                nextEpisodeId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { onWatchNextEpisode?.invoke(it) }
+            },
             onShowMediaInfo = { showMediaInfo = true },
             onShowStreamingQualityDialog = { showStreamingQualityDialog = true },
             onShowAudioTranscodingDialog = {
