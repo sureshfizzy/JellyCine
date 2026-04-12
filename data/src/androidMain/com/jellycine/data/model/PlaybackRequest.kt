@@ -153,13 +153,17 @@ internal object PlaybackUrlBuilder {
                     url = mediaSource.transcodingUrl
                 )
                 if (!resolvedTranscodingUrl.isNullOrBlank()) {
-                    val selectedTranscodingUrl = applyTranscodingSelectionOverrides(
-                        streamingUrl = resolvedTranscodingUrl,
-                        audioStreamIndex = options.audioStreamIndex,
-                        audioTranscodeMode = options.audioTranscodeMode,
-                        sourceVideoBitrate = mediaSource.bitrate,
-                        preserveOriginalVideo = !hasQualityCap && needsAudioTranscoding
-                    )
+                    val selectedTranscodingUrl = if (authContext.serverType == ServerType.JELLYFIN) {
+                        resolvedTranscodingUrl
+                    } else {
+                        applyTranscodingSelectionOverrides(
+                            streamingUrl = resolvedTranscodingUrl,
+                            audioStreamIndex = options.audioStreamIndex,
+                            audioTranscodeMode = options.audioTranscodeMode,
+                            sourceVideoBitrate = mediaSource.bitrate,
+                            preserveOriginalVideo = !hasQualityCap && needsAudioTranscoding
+                        )
+                    }
                     return Result.success(selectedTranscodingUrl)
                 }
             }

@@ -1211,6 +1211,11 @@ class MediaRepository(private val context: Context) {
 
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
+                mediaSourceId = if (serverType == ServerType.JELLYFIN) {
+                    itemId.replace("-", "")
+                } else {
+                    null
+                },
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,

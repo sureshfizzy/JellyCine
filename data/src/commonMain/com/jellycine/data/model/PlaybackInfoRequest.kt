@@ -11,6 +11,8 @@ import kotlinx.serialization.Serializable
 data class PlaybackInfoRequest(
     @SerialName("UserId")
     val userId: String,
+    @SerialName("MediaSourceId")
+    val mediaSourceId: String? = null,
     @SerialName("MaxStreamingBitrate")
     val maxStreamingBitrate: Long? = null,
     @SerialName("AudioStreamIndex")
