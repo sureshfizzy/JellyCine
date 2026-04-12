@@ -18,6 +18,8 @@ object PlayerConstants {
     // Auto-hide delays (in milliseconds)
     const val CONTROLS_AUTO_HIDE_DELAY = 3000L
     const val GESTURE_INDICATOR_HIDE_DELAY = 2000L
+    const val NEXT_EPISODE_AUTOPLAY_DELAY = 10_000L
+    const val NEXT_EPISODE_PROGRESS_UPDATE_DELAY = 16L
     
     // Player preferences defaults
     const val DEFAULT_BRIGHTNESS = 0.5f

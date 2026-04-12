@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,7 +24,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -49,6 +55,9 @@ import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.app.ui.screens.player.MediaInfoDialog
 import kotlinx.coroutines.delay
+
+private const val NEXT_EPISODE_AUTOPLAY_DELAY_MS = 10_000L
+private const val NEXT_EPISODE_PROGRESS_UPDATE_MS = 16L
 
 /**
  * Player state data class to group related states
@@ -302,11 +311,45 @@ fun PlayerScreen(
         it.type == SkippableSegmentType.CREDITS
     }
     val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
+    var nextEpisodeButtonProgress by remember(
+        activeCreditsSegment?.startMs,
+        activeCreditsSegment?.endMs,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt
+    ) {
+        mutableFloatStateOf(0f)
+    }
 
     LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
         if (activeCreditsSegment == null) {
             dismissedCreditsPrompt = false
         }
+    }
+
+    LaunchedEffect(
+        activeCreditsSegment?.startMs,
+        activeCreditsSegment?.endMs,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt
+    ) {
+        nextEpisodeButtonProgress = 0f
+
+        if (activeCreditsSegment == null || !canWatchNextEpisode || dismissedCreditsPrompt) {
+            return@LaunchedEffect
+        }
+
+        var elapsedMs = 0L
+        while (elapsedMs < NEXT_EPISODE_AUTOPLAY_DELAY_MS) {
+            nextEpisodeButtonProgress =
+                elapsedMs.toFloat() / NEXT_EPISODE_AUTOPLAY_DELAY_MS.toFloat()
+            delay(NEXT_EPISODE_PROGRESS_UPDATE_MS)
+            elapsedMs += NEXT_EPISODE_PROGRESS_UPDATE_MS
+        }
+
+        nextEpisodeButtonProgress = 1f
+        nextEpisodeId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { onWatchNextEpisode?.invoke(it) }
     }
 
     LaunchedEffect(
@@ -683,7 +726,6 @@ fun PlayerScreen(
 
         AnimatedVisibility(
             visible = activeCreditsSegment != null &&
-                uiState.controlsVisible &&
                 !dismissedCreditsPrompt,
             enter = fadeIn(),
             exit = fadeOut(),
@@ -716,28 +758,60 @@ fun PlayerScreen(
                 }
 
                 if (canWatchNextEpisode) {
-                    FilledTonalButton(
-                        onClick = {
-                            resetAutoHideTimer()
-                            nextEpisodeId
-                                ?.takeIf { it.isNotBlank() }
-                                ?.let { onWatchNextEpisode?.invoke(it) }
-                        },
-                        shape = RoundedCornerShape(999.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = Color.Black.copy(alpha = 0.52f),
-                            contentColor = Color.White
-                        ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                        elevation = ButtonDefaults.filledTonalButtonElevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 1.dp
-                        ),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+                    val buttonLabel = stringResource(R.string.player_watch_next_episode)
+                    val progressFraction = nextEpisodeButtonProgress.coerceIn(0f, 1f)
+                    val buttonShape = RoundedCornerShape(999.dp)
+                    Box(
+                        modifier = Modifier
+                            .clip(buttonShape)
+                            .drawBehind {
+                                drawRect(color = Color.Black.copy(alpha = 0.44f))
+                                if (progressFraction > 0f) {
+                                    drawRect(
+                                        color = Color.White,
+                                        size = Size(size.width * progressFraction, size.height)
+                                    )
+                                }
+                            }
+                            .clickable {
+                                resetAutoHideTimer()
+                                nextEpisodeId
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?.let { onWatchNextEpisode?.invoke(it) }
+                            }
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.12f),
+                                shape = buttonShape
+                            )
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.player_watch_next_episode),
-                            fontSize = 14.sp
+                            text = buttonLabel,
+                            fontSize = 14.sp,
+                            modifier = Modifier.drawWithContent {
+                                val progressEdge = (size.width * progressFraction)
+                                    .coerceIn(0f, size.width)
+                                clipRect(left = progressEdge) {
+                                    this@drawWithContent.drawContent()
+                                }
+                            },
+                            color = Color.White
+                        )
+
+                        Text(
+                            text = buttonLabel,
+                            fontSize = 14.sp,
+                            modifier = Modifier.drawWithContent {
+                                val progressEdge = (size.width * progressFraction)
+                                    .coerceIn(0f, size.width)
+                                val overlapPx = 1.dp.toPx()
+                                clipRect(right = (progressEdge + overlapPx).coerceAtMost(size.width)) {
+                                    this@drawWithContent.drawContent()
+                                }
+                            },
+                            color = Color.Black
                         )
                     }
                 }

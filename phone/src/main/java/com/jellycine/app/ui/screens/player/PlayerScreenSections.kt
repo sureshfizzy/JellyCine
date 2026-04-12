@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -30,9 +32,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +57,8 @@ import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
+import com.jellycine.player.core.PlayerConstants.NEXT_EPISODE_AUTOPLAY_DELAY
+import com.jellycine.player.core.PlayerConstants.NEXT_EPISODE_PROGRESS_UPDATE_DELAY
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.SkippableSegmentAction
 import com.jellycine.player.core.SkippableSegmentType
@@ -265,6 +278,39 @@ internal fun BoxScope.PlayerOverlayHost(
     onShowAudioTrackDialog: () -> Unit,
     onShowSubtitleTrackDialog: () -> Unit
 ) {
+    var nextEpisodeButtonProgress by remember(
+        activeCreditsSegment?.startMs,
+        activeCreditsSegment?.endMs,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt
+    ) {
+        mutableFloatStateOf(0f)
+    }
+
+    LaunchedEffect(
+        activeCreditsSegment?.startMs,
+        activeCreditsSegment?.endMs,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt
+    ) {
+        nextEpisodeButtonProgress = 0f
+
+        if (activeCreditsSegment == null || !canWatchNextEpisode || dismissedCreditsPrompt) {
+            return@LaunchedEffect
+        }
+
+        var elapsedMs = 0L
+        while (elapsedMs < NEXT_EPISODE_AUTOPLAY_DELAY) {
+            nextEpisodeButtonProgress =
+                elapsedMs.toFloat() / NEXT_EPISODE_AUTOPLAY_DELAY.toFloat()
+            delay(NEXT_EPISODE_PROGRESS_UPDATE_DELAY)
+            elapsedMs += NEXT_EPISODE_PROGRESS_UPDATE_DELAY
+        }
+
+        nextEpisodeButtonProgress = 1f
+        onWatchNextEpisode()
+    }
+
     if (uiState.controlsVisible) {
         ControlsOverlay(
             title = playerState.mediaTitle,
@@ -384,7 +430,6 @@ internal fun BoxScope.PlayerOverlayHost(
 
     AnimatedVisibility(
         visible = activeCreditsSegment != null &&
-            uiState.controlsVisible &&
             !dismissedCreditsPrompt,
         enter = fadeIn(),
         exit = fadeOut(),
@@ -415,28 +460,14 @@ internal fun BoxScope.PlayerOverlayHost(
             }
 
             if (canWatchNextEpisode) {
-                FilledTonalButton(
+                NextEpisodeProgressPill(
+                    label = stringResource(R.string.player_watch_next_episode),
+                    progressFraction = nextEpisodeButtonProgress,
                     onClick = {
                         resetAutoHideTimer()
                         onWatchNextEpisode()
-                    },
-                    shape = RoundedCornerShape(999.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color.Black.copy(alpha = 0.52f),
-                        contentColor = Color.White
-                    ),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                    elevation = ButtonDefaults.filledTonalButtonElevation(
-                        defaultElevation = 0.dp,
-                        pressedElevation = 1.dp
-                    ),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.player_watch_next_episode),
-                        fontSize = 14.sp
-                    )
-                }
+                    }
+                )
             }
         }
     }
@@ -461,6 +492,63 @@ internal fun BoxScope.PlayerOverlayHost(
                 modifier = Modifier.size(48.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun NextEpisodeProgressPill(
+    label: String,
+    progressFraction: Float,
+    onClick: () -> Unit
+) {
+    val clampedProgress = progressFraction.coerceIn(0f, 1f)
+    val pillShape = RoundedCornerShape(999.dp)
+
+    Box(
+        modifier = Modifier
+            .clip(pillShape)
+            .drawBehind {
+                drawRect(color = Color.Black.copy(alpha = 0.44f))
+                if (clampedProgress > 0f) {
+                    drawRect(
+                        color = Color.White,
+                        size = Size(size.width * clampedProgress, size.height)
+                    )
+                }
+            }
+            .clickable(onClick = onClick)
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.12f),
+                shape = pillShape
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            modifier = Modifier.drawWithContent {
+                val progressEdge = (size.width * clampedProgress).coerceIn(0f, size.width)
+                clipRect(left = progressEdge) {
+                    this@drawWithContent.drawContent()
+                }
+            },
+            color = Color.White
+        )
+
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            modifier = Modifier.drawWithContent {
+                val progressEdge = (size.width * clampedProgress).coerceIn(0f, size.width)
+                val overlapPx = 1.dp.toPx()
+                clipRect(right = (progressEdge + overlapPx).coerceAtMost(size.width)) {
+                    this@drawWithContent.drawContent()
+                }
+            },
+            color = Color.Black
+        )
     }
 }
 
