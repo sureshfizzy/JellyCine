@@ -87,6 +87,26 @@ import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
 
+private val heroOverlayGradient = arrayOf(
+    0.0f to Color.Transparent,
+    0.62f to Color.Transparent,
+    0.78f to Color.Black.copy(alpha = 0.08f),
+    0.88f to Color.Black.copy(alpha = 0.18f),
+    0.95f to Color.Black.copy(alpha = 0.30f),
+    1.0f to Color.Black.copy(alpha = 0.46f)
+)
+
+private val heroBottomFadeGradient = arrayOf(
+    0.0f to Color.Transparent,
+    0.12f to Color.Transparent,
+    0.34f to Color.Black.copy(alpha = 0.05f),
+    0.56f to Color.Black.copy(alpha = 0.16f),
+    0.74f to Color.Black.copy(alpha = 0.34f),
+    0.88f to Color.Black.copy(alpha = 0.62f),
+    0.96f to Color.Black.copy(alpha = 0.86f),
+    1.0f to Color.Black
+)
+
 
 @UnstableApi
 @Composable
@@ -1049,6 +1069,9 @@ fun DetailContent(
                         imageUrl = backdropImageUrl,
                         contentDescription = item.name,
                         heroHeight = layout.heroHeight,
+                        bottomFadeHeight = 156.dp,
+                        overlayGradient = heroOverlayGradient,
+                        bottomFadeGradient = heroBottomFadeGradient,
                         onErrorStateChange = onBackdropLoadError
                     ) {
                         DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
@@ -2115,7 +2138,7 @@ private fun detailScreenLayoutSpec(
     return DetailScreenLayoutSpec(
         heroHeight = 330.dp,
         backdropHeight = if (isWidescreenLayout) screenHeightDp else 330.dp,
-        headerOffset = if (isWidescreenLayout) 0.dp else (-42).dp,
+        headerOffset = if (isWidescreenLayout) 0.dp else (-96).dp,
         contentTopPadding = if (isWidescreenLayout) 312.dp else 0.dp,
         horizontalPadding = horizontalPadding,
         contentMaxWidth = detailContentMaxWidth(
