@@ -25,7 +25,9 @@ import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
+import com.jellycine.player.preferences.PlayerPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -78,6 +80,8 @@ class PlayerViewModel @Inject constructor(
     private var downloadRepository: DownloadRepository? = null
     private var communityPlaybackSegmentsJob: Job? = null
     private var currentItemDetails: BaseItemDto? = null
+    private var nextEpisodePrefetchJob: Job? = null
+    private var nextEpisodePrefetchSignature: String? = null
 
     fun initializePlayer(
         context: Context,
@@ -138,6 +142,7 @@ class PlayerViewModel @Inject constructor(
 
                 audioDiagnosticsSignature = null
                 currentItemDetails = null
+                cancelNextEpisodePrefetch()
                 playbackReporter.reset()
                 communityPlaybackSegmentsJob?.cancel()
                 communityPlaybackSegmentsJob = null
@@ -462,6 +467,153 @@ class PlayerViewModel @Inject constructor(
 
     fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
 
+    fun updateNextEpisodeCache(
+        context: Context,
+        nextEpisodeId: String?,
+        preferredAudioStreamIndex: Int?,
+        preferredSubtitleStreamIndex: Int?
+    ) {
+        val playerPreferences = PlayerPreferences(context)
+        val targetEpisodeId = nextEpisodeId?.takeIf { it.isNotBlank() }
+        if (
+            targetEpisodeId == null ||
+            targetEpisodeId == playbackSession.mediaId ||
+            !playerPreferences.isCacheNextEpisodeEnabled()
+        ) {
+            cancelNextEpisodePrefetch()
+            return
+        }
+        val prefetchSignature = buildString {
+            append(targetEpisodeId)
+            append('|')
+            append(preferredAudioStreamIndex ?: "auto")
+            append('|')
+            append(preferredSubtitleStreamIndex ?: "auto")
+            append('|')
+            append(playerPreferences.getStreamingQuality())
+            append('|')
+            append(playerPreferences.getAudioTranscodeMode().name)
+        }
+
+        if (
+            nextEpisodePrefetchSignature == prefetchSignature &&
+            nextEpisodePrefetchJob?.isActive == true
+        ) {
+            return
+        }
+
+        cancelNextEpisodePrefetch()
+        nextEpisodePrefetchSignature = prefetchSignature
+        nextEpisodePrefetchJob = viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                prefetchNextEpisode(
+                    context = context.applicationContext,
+                    nextEpisodeId = targetEpisodeId,
+                    preferredAudioStreamIndex = preferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+                    playerPreferences = playerPreferences
+                )
+            }.onFailure { error ->
+                Log.d("PlayerViewModel", "Skipping next-episode cache prefetch for $targetEpisodeId", error)
+            }
+        }
+    }
+
+    private suspend fun prefetchNextEpisode(
+        context: Context,
+        nextEpisodeId: String,
+        preferredAudioStreamIndex: Int?,
+        preferredSubtitleStreamIndex: Int?,
+        playerPreferences: PlayerPreferences
+    ) {
+        val nextDownloadRepository = downloadRepository ?: DownloadRepositoryProvider.getInstance(context)
+        val offlinePath = nextDownloadRepository.getOfflineFilePath(nextEpisodeId)
+        if (!offlinePath.isNullOrBlank() && File(offlinePath).exists()) {
+            return
+        }
+
+        val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
+        val isAudioTranscodingAllowed = isAudioTranscodingAllowedForUser()
+        val audioTranscodeMode = if (isAudioTranscodingAllowed) {
+            playerPreferences.getAudioTranscodeMode()
+        } else {
+            AudioTranscodeMode.AUTO
+        }
+        val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
+            playerPreferences.getMaxStreamingBitrate()
+        } else {
+            null
+        }
+        val maxStreamingHeight = if (isVideoTranscodingAllowed) {
+            playerPreferences.getStreamingQualityMaxHeight()
+        } else {
+            null
+        }
+
+        val playbackInfo = mediaRepository.getPlaybackInfo(
+            itemId = nextEpisodeId,
+            maxStreamingBitrate = maxStreamingBitrate,
+            audioStreamIndex = preferredAudioStreamIndex,
+            subtitleStreamIndex = preferredSubtitleStreamIndex,
+            audioTranscodeMode = audioTranscodeMode
+        ).getOrNull() ?: return
+
+        val playbackRequest = mediaRepository.getPlaybackRequest(
+            itemId = nextEpisodeId,
+            maxStreamingBitrate = maxStreamingBitrate,
+            maxStreamingHeight = maxStreamingHeight,
+            audioStreamIndex = preferredAudioStreamIndex,
+            subtitleStreamIndex = preferredSubtitleStreamIndex,
+            audioTranscodeMode = audioTranscodeMode,
+            playbackInfo = playbackInfo
+        ).getOrNull() ?: return
+
+        val streamingUrl = playbackRequest.url?.takeIf { it.isNotBlank() } ?: return
+        val nextMediaItem = streamingMediaItem(streamingUrl = streamingUrl)
+        val localConfiguration = nextMediaItem.localConfiguration ?: return
+        val prefetchBytes = nextEpisodePrefetchBytes(
+            playerPreferences = playerPreferences,
+            sourceBitrate = playbackInfo.mediaSources?.firstOrNull()?.bitrate,
+            maxStreamingBitrate = maxStreamingBitrate
+        )
+
+        PlayerUtils.prefetchStreamingMedia(
+            context = context,
+            streamUri = localConfiguration.uri,
+            cacheKey = localConfiguration.customCacheKey,
+            maxBytes = prefetchBytes,
+            requestHeaders = playbackRequest.requestHeaders
+        )
+    }
+
+    private fun nextEpisodePrefetchBytes(
+        playerPreferences: PlayerPreferences,
+        sourceBitrate: Int?,
+        maxStreamingBitrate: Int?
+    ): Long {
+        val bitrateBitsPerSecond = when {
+            maxStreamingBitrate != null && maxStreamingBitrate > 0 -> maxStreamingBitrate.toLong()
+            sourceBitrate != null && sourceBitrate > 0 -> sourceBitrate.toLong()
+            else -> 8_000_000L
+        }.coerceAtLeast(2_000_000L)
+        val prefetchWindowSeconds = minOf(playerPreferences.getPlayerCacheTimeSeconds(), 45)
+        val desiredBytes = bitrateBitsPerSecond
+            .times(prefetchWindowSeconds.toLong())
+            .div(8L)
+        val cacheBudgetBytes = playerPreferences.getPlayerCacheSizeMb()
+            .toLong()
+            .times(1024L * 1024L)
+            .div(3L)
+
+        return minOf(desiredBytes, cacheBudgetBytes).coerceAtLeast(8L * 1024L * 1024L)
+    }
+
+    private fun cancelNextEpisodePrefetch() {
+        nextEpisodePrefetchJob?.cancel()
+        nextEpisodePrefetchJob = null
+        nextEpisodePrefetchSignature = null
+    }
+
     private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
         videoTranscodingAllowed?.let { return it }
         mediaRepository.loadPersistedHomeSnapshot()?.isVideoTranscodingAllowed?.let {
@@ -523,6 +675,7 @@ class PlayerViewModel @Inject constructor(
     fun releasePlayer() {
         persistPosition()
         playbackReporter.reportPlaybackStopped()
+        cancelNextEpisodePrefetch()
         communityPlaybackSegmentsJob?.cancel()
         communityPlaybackSegmentsJob = null
         exoPlayer?.apply {

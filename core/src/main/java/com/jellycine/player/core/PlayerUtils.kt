@@ -1,6 +1,7 @@
 package com.jellycine.player.core
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.media3.common.AudioAttributes
@@ -112,6 +113,23 @@ object PlayerUtils {
             defaultRequestHeaders = requestHeaders
         )
         return DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
+    }
+
+    @UnstableApi
+    fun prefetchStreamingMedia(
+        context: Context,
+        streamUri: Uri,
+        cacheKey: String?,
+        maxBytes: Long,
+        requestHeaders: Map<String, String> = emptyMap()
+    ) {
+        PlayerCacheManager.prefetchToCache(
+            context = context,
+            uri = streamUri,
+            cacheKey = cacheKey,
+            maxBytes = maxBytes,
+            defaultRequestHeaders = requestHeaders
+        )
     }
 
     @UnstableApi

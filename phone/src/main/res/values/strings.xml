@@ -424,6 +424,8 @@
     <!-- Cache Settings -->
     <string name="cache_settings_cache_images">Cache Images</string>
     <string name="cache_settings_cache_images_summary">Keep images cached for faster loading and smoother scrolling.</string>
+    <string name="cache_settings_cache_next_episode">Cache Next Episode</string>
+    <string name="cache_settings_cache_next_episode_summary">Preload part of the upcoming episode into the player cache while you watch.</string>
     <string name="cache_settings_cache_size">Cache Size</string>
     <string name="cache_settings_cache_size_value_mb">%1$d MB</string>
     <string name="cache_settings_cache_size_dialog_title">Cache Size (MB)</string>

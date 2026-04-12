@@ -345,6 +345,16 @@ fun PlayerSettingsScreen(
             item { SectionLabel(stringResource(R.string.player_settings_section_player_cache)) }
             item {
                 SettingsSection {
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.SkipNext,
+                        title = stringResource(R.string.cache_settings_cache_next_episode),
+                        subtitle = stringResource(R.string.cache_settings_cache_next_episode_summary),
+                        checked = uiState.cacheNextEpisodeEnabled,
+                        onCheckedChange = viewModel::setCacheNextEpisodeEnabled,
+                        accentColor = cacheColor
+                    )
+
+                    SettingsDivider()
                     ValueSliderSettingsItem(
                         icon = Icons.Rounded.Storage,
                         title = stringResource(R.string.player_settings_player_cache_size),

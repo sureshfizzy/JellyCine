@@ -4,12 +4,12 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.AudioTranscodeMode
+import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.data.repository.MediaRepositoryProvider
 
 data class PlayerSettingsUiState(
     // Hardware Acceleration
@@ -29,6 +29,7 @@ data class PlayerSettingsUiState(
     val progressSeekGestureEnabled: Boolean = true,
     val zoomGestureEnabled: Boolean = true,
     val startMaximized: Boolean = false,
+    val cacheNextEpisodeEnabled: Boolean = false,
     val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
     val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
     val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
@@ -90,6 +91,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
                 zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
+                cacheNextEpisodeEnabled = playerPreferences.isCacheNextEpisodeEnabled(),
                 playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
                 seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
@@ -207,6 +209,13 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setStartMaximized(enabled: Boolean) {
         playerPreferences.setStartMaximizedEnabled(enabled)
         updateGestureState()
+    }
+
+    fun setCacheNextEpisodeEnabled(enabled: Boolean) {
+        playerPreferences.setCacheNextEpisodeEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            cacheNextEpisodeEnabled = playerPreferences.isCacheNextEpisodeEnabled()
+        )
     }
 
     fun setPlayerCacheSizeMb(sizeMb: Int) {

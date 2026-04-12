@@ -28,6 +28,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PROGRESS_SEEK_GESTURE_ENABLED = "progress_seek_gesture_enabled"
         private const val KEY_ZOOM_GESTURE_ENABLED = "zoom_gesture_enabled"
         private const val KEY_START_MAXIMIZED = "start_maximized"
+        private const val KEY_CACHE_NEXT_EPISODE = "cache_next_episode"
         private const val KEY_PLAYER_CACHE_SIZE_MB = "player_cache_size_mb"
         private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
         private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
@@ -115,6 +116,7 @@ class PlayerPreferences(context: Context) {
         const val SEEK_INTERVAL_STEP_SECONDS = 5
         const val DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER = false
         const val DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER = false
+        const val DEFAULT_CACHE_NEXT_EPISODE = false
         const val DEFAULT_SKIP_INTRO_ENABLED = true
         const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
@@ -323,6 +325,14 @@ class PlayerPreferences(context: Context) {
      */
     fun setStartMaximizedEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_START_MAXIMIZED, enabled).apply()
+    }
+
+    fun isCacheNextEpisodeEnabled(): Boolean {
+        return prefs.getBoolean(KEY_CACHE_NEXT_EPISODE, DEFAULT_CACHE_NEXT_EPISODE)
+    }
+
+    fun setCacheNextEpisodeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CACHE_NEXT_EPISODE, enabled).apply()
     }
     
     fun getPlayerCacheSizeMb(): Int {

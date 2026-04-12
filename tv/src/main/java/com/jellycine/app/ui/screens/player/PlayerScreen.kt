@@ -309,6 +309,28 @@ fun PlayerScreen(
         }
     }
 
+    LaunchedEffect(
+        initializedMediaId,
+        nextEpisodeId,
+        activeCreditsSegment != null,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt,
+        preferredStreamIndexes.audioStreamIndex,
+        preferredStreamIndexes.subtitleStreamIndex
+    ) {
+        viewModel.updateNextEpisodeCache(
+            context = context,
+            nextEpisodeId = nextEpisodeId.takeIf {
+                initializedMediaId == mediaId &&
+                    activeCreditsSegment != null &&
+                    canWatchNextEpisode &&
+                    !dismissedCreditsPrompt
+            },
+            preferredAudioStreamIndex = preferredStreamIndexes.audioStreamIndex,
+            preferredSubtitleStreamIndex = preferredStreamIndexes.subtitleStreamIndex
+        )
+    }
+
     val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
         val selectedQuality = quality.trim()
         val qualityChanged = selectedQuality.isNotEmpty() && selectedQuality != currentStreamingQuality
