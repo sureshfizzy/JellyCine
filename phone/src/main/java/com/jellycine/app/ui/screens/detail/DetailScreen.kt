@@ -1365,6 +1365,7 @@ fun DetailContent(
                             2 -> 300.dp
                             else -> 360.dp
                         }
+                        val detailActionButtonHeight = if (useTabletBackdropLayout) 40.dp else 46.dp
 
                         if (isWidescreenLayout) {
                             if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
@@ -1463,14 +1464,19 @@ fun DetailContent(
                         if (item.type != "Series") {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth(detailActionWidth(screenWidthDp))
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
                                     .padding(top = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(46.dp)
+                                        .height(detailActionButtonHeight)
                                         .clip(RoundedCornerShape(24.dp))
                                 ) {
                                     Button(
@@ -1576,7 +1582,7 @@ fun DetailContent(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(46.dp)
+                                        .height(detailActionButtonHeight)
                                 ) {
                                     OutlinedButton(
                                         onClick = {
@@ -1606,10 +1612,7 @@ fun DetailContent(
                                             containerColor = Color(0xFF1F1F24),
                                             contentColor = Color.White
                                         ),
-                                        contentPadding = PaddingValues(
-                                            horizontal = 14.dp,
-                                            vertical = 0.dp
-                                        )
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                                     ) {
                                         val buttonState = when {
                                             !canDownloadItem -> "unavailable"
@@ -1753,7 +1756,12 @@ fun DetailContent(
                         if (item.type == "Series") {
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth(detailActionWidth(screenWidthDp))
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
                                     .padding(top = 14.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -1761,7 +1769,7 @@ fun DetailContent(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(46.dp)
+                                        .height(detailActionButtonHeight)
                                 ) {
                                     OutlinedButton(
                                         onClick = {
