@@ -34,7 +34,7 @@
 - Subtitle styling controls with improved subtitle and audio track handling
 - Google Cast support with inline remote playback controls
 - Gesture controls in player (seek, volume, brightness), lock mode, and start-maximized preference
-- HDR and Dolby Vision capability analysis with fallback handling
+- Skip Intro support: shows a Skip Intro button when IntroDB/TheIntroDB markers are available; configurable in player settings
 
 ## Screenshots
 
@@ -52,9 +52,12 @@
 
 ## Project Structure
 
-- `app`: Android app module (Compose UI, navigation, settings, downloads, player screens)
-- `data`: APIs, repositories, models, DataStore/shared preference backed configuration
-- `core`: Shared player/auth utilities (player preferences, codec/HDR helpers, audio device detection)
+- `phone`: Phone-specific Android app module (Compose UI, navigation, player, settings)
+- `tv`: TV-specific Android app module (leanback/DPAD support, sidebar rail, TV-specific UI/flows)
+- `data`: APIs, repositories, models; multiplatform/shared networking and serialization helpers
+- `core`: Shared player, preferences, and utility code used by app modules
+- `shared`: Shared UI components and image infrastructure moved into its own module
+- `docs`: Screenshots and documentation assets
 
 ## Tech Stack
 
