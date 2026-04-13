@@ -81,6 +81,7 @@ import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.detailContentMaxWidth
 import com.jellycine.app.ui.components.common.detailActionWidth
+import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
@@ -687,6 +688,10 @@ fun DetailContent(
     val screenWidthDp = containerWidthDp()
     val screenHeightDp = containerHeightDp()
     val isWidescreenLayout = isTabletLayout(screenWidthDp)
+    val useTabletBackdropLayout = isTabletDetailLayout(
+        screenWidthDp = screenWidthDp,
+        screenHeightDp = screenHeightDp
+    )
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -852,10 +857,11 @@ fun DetailContent(
     )
     val layout = detailScreenLayoutSpec(
         isWidescreenLayout = isWidescreenLayout,
+        useTabletBackdropLayout = useTabletBackdropLayout,
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
-    val contentFadeStart = if (isWidescreenLayout && layout.backdropHeight.value > 0f) {
+    val contentFadeStart = if (useTabletBackdropLayout && layout.backdropHeight.value > 0f) {
         (
             ((layout.contentTopPadding + layout.logoContainerHeight) - 56.dp).value /
                 layout.backdropHeight.value
@@ -1041,7 +1047,7 @@ fun DetailContent(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (isWidescreenLayout) {
+        if (useTabletBackdropLayout) {
             DetailBackdropHero(
                 imageUrl = backdropImageUrl,
                 contentDescription = item.name,
@@ -1058,12 +1064,12 @@ fun DetailContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (isWidescreenLayout) Color.Transparent else Color.Black),
+                .background(if (useTabletBackdropLayout) Color.Transparent else Color.Black),
             verticalArrangement = Arrangement.spacedBy(0.dp),
             contentPadding = PaddingValues(bottom = 24.dp)
         ) {
 
-            if (!isWidescreenLayout) {
+            if (!useTabletBackdropLayout) {
                 item {
                     DetailBackdropHero(
                         imageUrl = backdropImageUrl,
@@ -2130,6 +2136,7 @@ private data class DetailScreenLayoutSpec(
 
 private fun detailScreenLayoutSpec(
     isWidescreenLayout: Boolean,
+    useTabletBackdropLayout: Boolean,
     screenWidthDp: Dp,
     screenHeightDp: Dp
 ): DetailScreenLayoutSpec {
@@ -2137,9 +2144,9 @@ private fun detailScreenLayoutSpec(
 
     return DetailScreenLayoutSpec(
         heroHeight = 330.dp,
-        backdropHeight = if (isWidescreenLayout) screenHeightDp else 330.dp,
-        headerOffset = if (isWidescreenLayout) 0.dp else (-96).dp,
-        contentTopPadding = if (isWidescreenLayout) 312.dp else 0.dp,
+        backdropHeight = if (useTabletBackdropLayout) screenHeightDp else 330.dp,
+        headerOffset = if (useTabletBackdropLayout) 0.dp else (-96).dp,
+        contentTopPadding = if (useTabletBackdropLayout) 312.dp else 0.dp,
         horizontalPadding = horizontalPadding,
         contentMaxWidth = detailContentMaxWidth(
             screenWidthDp = screenWidthDp,

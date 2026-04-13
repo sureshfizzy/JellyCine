@@ -27,10 +27,11 @@ import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.downloadButtonVisualState
 import com.jellycine.app.ui.components.common.hasActiveDownloads
-import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
@@ -53,7 +54,11 @@ fun SeasonDetailScreen(
 ) {
     val context = LocalContext.current
     val screenWidthDp = containerWidthDp()
-    val isWidescreenLayout = isTabletLayout(screenWidthDp)
+    val screenHeightDp = containerHeightDp()
+    val useTabletBackdropLayout = isTabletDetailLayout(
+        screenWidthDp = screenWidthDp,
+        screenHeightDp = screenHeightDp
+    )
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
@@ -255,7 +260,7 @@ fun SeasonDetailScreen(
         panelState = seasonDownload,
         label = "season_download_progress"
     )
-    val heroHeight = if (isWidescreenLayout) 430.dp else 380.dp
+    val heroHeight = if (useTabletBackdropLayout) 430.dp else 380.dp
 
     when {
         error != null -> {
