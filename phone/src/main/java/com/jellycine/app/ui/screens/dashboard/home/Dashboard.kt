@@ -2751,13 +2751,16 @@ private fun BurstLibrarySection(
     val libraryFlingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
     val firstSectionItemId = section.items.firstOrNull()?.id
     val sectionTitle = section.libraryName.ifBlank { stringResource(R.string.my_media_library_fallback) }
-
+    var lastFirstSectionItemId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(firstSectionItemId, section.items.size) {
         val hasScrolled = libraryRowState.firstVisibleItemIndex > 0 ||
             libraryRowState.firstVisibleItemScrollOffset > 0
-        if (hasScrolled) {
-            libraryRowState.scrollToItem(0)
+        if (firstSectionItemId != null && lastFirstSectionItemId != null && firstSectionItemId != lastFirstSectionItemId) {
+            if (hasScrolled) {
+                libraryRowState.scrollToItem(0)
+            }
         }
+        lastFirstSectionItemId = firstSectionItemId ?: lastFirstSectionItemId
     }
 
     Column {
