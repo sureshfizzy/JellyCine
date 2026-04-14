@@ -387,7 +387,7 @@ private fun UserProfileSection(
                 Text(
                     text = stringResource(R.string.settings_administrator),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = Color(0xFF4FD06B),
                     fontWeight = FontWeight.Medium
                 )
             }
