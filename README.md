@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/assets/jellycine_logo.png" alt="JellyCine Logo">
+  <img src="phone/src/main/assets/jellycine_logo.png" alt="JellyCine Logo">
 </p>
 
 <p align="center"><strong>JellyCine</strong></p>
@@ -49,6 +49,8 @@
   <img src="docs/screenshots/details.jpg" alt="Details" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
   <img src="docs/screenshots/searchscreen.jpg" alt="Search Screen" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
 </div>
+
+For community discussions and support, see [Discussions](https://github.com/sureshfizzy/JellyCine/discussions).
 
 ## Project Structure
 
