@@ -727,6 +727,15 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    val directors = remember(item.people) {
+        item.people?.filter { person ->
+            listOf(person.role, person.type).any { field ->
+                field?.contains("Director", ignoreCase = true) == true
+            }
+        }.orEmpty()
+    }
+    var directorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var isDirectorLoading by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf(false) }
     val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
         val seriesId = item.id
         if (item.type != "Series" || seriesId.isNullOrBlank()) {
@@ -1634,6 +1643,38 @@ fun DetailContent(
                     )
                 }
 
+                if (directors.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Director:",
+                            fontSize = 13.sp,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Row {
+                            directors.forEachIndexed { idx, person ->
+                                val name = person.name ?: "Unknown"
+                                Text(
+                                    text = name + if (idx < directors.lastIndex) ", " else "",
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF89ECFF),
+                                    modifier = Modifier.clickable(enabled = !person.id.isNullOrBlank()) {
+                                        person.id?.let { onPersonClick(it) }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (isEpisode) {
                     MoreFromSeasonSection(
                         episodes = moreFromSeasonEpisodes,
@@ -1745,6 +1786,41 @@ fun DetailContent(
                     mediaRepository = mediaRepository,
                     onPersonClick = onPersonClick
                 )
+
+                val primaryDirector = directors.firstOrNull()
+
+                LaunchedEffect(item.id, primaryDirector?.id) {
+                    val directorId = primaryDirector?.id
+                    if (directorId.isNullOrBlank()) {
+                        directorTitles = emptyList()
+                        isDirectorLoading = false
+                        return@LaunchedEffect
+                    }
+
+                    isDirectorLoading = true
+                    try {
+                        mediaRepository.getItemsForPerson(directorId).fold(
+                            onSuccess = { items ->
+                                val targetType = if (item.type.equals("Movie", ignoreCase = true)) "Movie" else "Series"
+                                directorTitles = items.filter { it.type.equals(targetType, ignoreCase = true) }
+                            },
+                            onFailure = {
+                                directorTitles = emptyList()
+                            }
+                        )
+                    } finally {
+                        isDirectorLoading = false
+                    }
+                }
+
+                if (primaryDirector != null && directorTitles.isNotEmpty()) {
+                    SimilarItemsSection(
+                        similarItems = directorTitles,
+                        mediaRepository = mediaRepository,
+                        onItemClick = onSimilarItemClick,
+                        title = "Directed by ${primaryDirector.name}"
+                    )
+                }
 
                 SimilarItemsSection(
                     similarItems = similarItems,
