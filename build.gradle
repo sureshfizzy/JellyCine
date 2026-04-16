@@ -10,6 +10,6 @@ plugins {
 }
 
 ext {
-    appVersionCode = 18
-    appVersionName = "1.2.9"
+    appVersionCode = 19
+    appVersionName = "1.3.0"
 }
