@@ -88,6 +88,7 @@ class PlayerViewModel @Inject constructor(
     private var currentItemDetails: BaseItemDto? = null
     private var nextEpisodePrefetchJob: Job? = null
     private var nextEpisodePrefetchSignature: String? = null
+    private var hasRenderedFirstFrame = false
 
     fun initializePlayer(
         context: Context,
@@ -100,7 +101,13 @@ class PlayerViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             try {
-                _playerState.value = _playerState.value.copy(isLoading = true, error = null)
+                _playerState.value = _playerState.value.copy(
+                    isLoading = true,
+                    isPlaying = false,
+                    playWhenReady = startPlayback,
+                    hasStartedPlayback = false,
+                    error = null
+                )
                 _playerState.value = _playerState.value.copy(
                     recapStartMs = null,
                     recapEndMs = null,
@@ -154,6 +161,7 @@ class PlayerViewModel @Inject constructor(
                 communityPlaybackSegmentsJob = null
                 spatialAudioAnalysisJob?.cancel()
                 spatialAudioAnalysisJob = null
+                hasRenderedFirstFrame = false
                 spatializerHelper = SpatializerHelper(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
                 val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
@@ -370,8 +378,10 @@ class PlayerViewModel @Inject constructor(
                 applyStartMaximizedSetting(context)
 
                 _playerState.value = _playerState.value.copy(
-                    isLoading = false,
-                    isPlaying = startPlayback,
+                    isLoading = true,
+                    isPlaying = false,
+                    playWhenReady = startPlayback,
+                    hasStartedPlayback = false,
                     mediaTitle = mediaTitle,
                     mediaLogoUrl = mediaLogoUrl,
                     seasonEpisodeLabel = seasonEpisodeLabel,
@@ -747,6 +757,7 @@ class PlayerViewModel @Inject constructor(
         playerContext = null
         downloadRepository = null
         hasHandledPlaybackCompletion = false
+        hasRenderedFirstFrame = false
         audioDiagnosticsSignature = null
         _preferredStreamIndexes.value = PreferredStreamIndexes()
         _playerState.value = PlayerState()
@@ -1065,19 +1076,23 @@ class PlayerViewModel @Inject constructor(
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            val wasPlaying = _playerState.value.isPlaying
+            val currentState = _playerState.value
+            val wasPlaying = currentState.isPlaying
             val playWhenReady = exoPlayer?.playWhenReady == true
             val isNowPlaying = playbackState == Player.STATE_READY && playWhenReady
             val hasReportedStart = playbackReporter.hasReportedStart()
             val shouldShowLoading = when (playbackState) {
                 Player.STATE_IDLE -> !hasReportedStart
                 Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
+                Player.STATE_READY -> playWhenReady && !hasRenderedFirstFrame
                 else -> false
             }
             
-            _playerState.value = _playerState.value.copy(
+            _playerState.value = currentState.copy(
                 isLoading = shouldShowLoading,
-                isPlaying = isNowPlaying
+                isPlaying = isNowPlaying,
+                playWhenReady = playWhenReady,
+                hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame
             )
 
             if (playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart) {
@@ -1100,23 +1115,36 @@ class PlayerViewModel @Inject constructor(
         }
 
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            val currentState = _playerState.value
             val playbackState = exoPlayer?.playbackState ?: Player.STATE_IDLE
             val hasReportedStart = playbackReporter.hasReportedStart()
             val shouldShowLoading = when (playbackState) {
                 Player.STATE_IDLE -> !hasReportedStart
                 Player.STATE_BUFFERING -> playWhenReady || !hasReportedStart
+                Player.STATE_READY -> playWhenReady && !hasRenderedFirstFrame
                 else -> false
             }
-            _playerState.value = _playerState.value.copy(
+            _playerState.value = currentState.copy(
+                playWhenReady = playWhenReady,
                 isPlaying = playWhenReady && playbackState == Player.STATE_READY,
                 isLoading = shouldShowLoading
             )
         }
 
+        override fun onRenderedFirstFrame() {
+            hasRenderedFirstFrame = true
+            _playerState.value = _playerState.value.copy(
+                isLoading = false,
+                hasStartedPlayback = true
+            )
+        }
+
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            hasRenderedFirstFrame = false
             _playerState.value = _playerState.value.copy(
                 error = error.message ?: "Playback error occurred",
                 isLoading = false,
+                playWhenReady = false,
                 isPlaying = false
             )
 

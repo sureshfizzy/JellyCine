@@ -245,8 +245,13 @@ internal fun PlayerScreenEffects(
         }
     }
 
-    LaunchedEffect(uiStateProvider().controlsVisible, autoHideKey, isScrubbing) {
-        if (uiStateProvider().controlsVisible && !isScrubbing) {
+    LaunchedEffect(
+        uiStateProvider().controlsVisible,
+        playerState.hasStartedPlayback,
+        autoHideKey,
+        isScrubbing
+    ) {
+        if (uiStateProvider().controlsVisible && playerState.hasStartedPlayback && !isScrubbing) {
             delay(3000L)
             onUiStateChange(uiStateProvider().copy(controlsVisible = false))
         }
@@ -317,7 +322,7 @@ internal fun BoxScope.PlayerOverlayHost(
             mediaLogoUrl = playerState.mediaLogoUrl,
             seasonEpisodeLabel = playerState.seasonEpisodeLabel,
             chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
-            isPlaying = uiState.isPlaying,
+            isPlaying = playerState.playWhenReady,
             currentPosition = uiState.currentPosition,
             duration = viewModel.getDuration(),
             onBackClick = {
@@ -326,7 +331,7 @@ internal fun BoxScope.PlayerOverlayHost(
             },
             onPlayPause = {
                 resetAutoHideTimer()
-                if (uiState.isPlaying) {
+                if (playerState.playWhenReady) {
                     viewModel.pause()
                 } else {
                     viewModel.play()

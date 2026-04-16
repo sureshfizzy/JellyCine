@@ -399,7 +399,7 @@ fun PlayerScreen(
         val preferredAudio = preferredStreamIndexes.audioStreamIndex
         val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
 
-        uiState = uiState.copy(controlsVisible = false)
+        uiState = uiState.copy(controlsVisible = true)
         viewModel.releasePlayer()
         initializedMediaId = null
         viewModel.initializePlayer(
@@ -512,8 +512,13 @@ fun PlayerScreen(
     }
 
     // Auto-hide controls after 3 seconds
-    LaunchedEffect(uiState.controlsVisible, autoHideKey, isScrubbing) {
-        if (uiState.controlsVisible && !isScrubbing) {
+    LaunchedEffect(
+        uiState.controlsVisible,
+        playerState.hasStartedPlayback,
+        autoHideKey,
+        isScrubbing
+    ) {
+        if (uiState.controlsVisible && playerState.hasStartedPlayback && !isScrubbing) {
             delay(3000L)
             uiState = uiState.copy(controlsVisible = false)
         }
@@ -608,7 +613,7 @@ fun PlayerScreen(
                 mediaLogoUrl = playerState.mediaLogoUrl,
                 seasonEpisodeLabel = playerState.seasonEpisodeLabel,
                 chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
-                isPlaying = uiState.isPlaying,
+                isPlaying = playerState.playWhenReady,
                 currentPosition = uiState.currentPosition,
                 duration = viewModel.getDuration(),
                 onBackClick = {
@@ -617,7 +622,7 @@ fun PlayerScreen(
                 },
                 onPlayPause = {
                     resetAutoHideTimer()
-                    if (uiState.isPlaying) {
+                    if (playerState.playWhenReady) {
                         viewModel.pause()
                     } else {
                         viewModel.play()

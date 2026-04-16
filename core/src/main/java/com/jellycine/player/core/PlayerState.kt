@@ -9,6 +9,8 @@ import com.jellycine.detail.SpatializationResult
 data class PlayerState(
     val isLoading: Boolean = false,
     val isPlaying: Boolean = false,
+    val playWhenReady: Boolean = false,
+    val hasStartedPlayback: Boolean = false,
     val error: String? = null,
     val mediaTitle: String = "",
     val mediaLogoUrl: String? = null,

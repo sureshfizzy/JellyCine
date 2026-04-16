@@ -285,7 +285,7 @@ fun PlayerScreen(
         val preferredAudio = preferredStreamIndexes.audioStreamIndex
         val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
 
-        uiState = uiState.copy(controlsVisible = false)
+        uiState = uiState.copy(controlsVisible = true)
         viewModel.releasePlayer()
         initializedMediaId = null
         viewModel.initializePlayer(
