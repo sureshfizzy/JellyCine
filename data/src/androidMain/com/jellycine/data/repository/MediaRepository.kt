@@ -1181,9 +1181,13 @@ class MediaRepository(private val context: Context) {
             val serverType = session.serverType
             val forceTranscode = (maxStreamingBitrate ?: 0) > 0
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
-            // Emby resolves original-playback requests more reliably through the query-based endpoint.
-            val preferGetPlaybackInfo = serverType == ServerType.EMBY &&
+            val preferGetPlaybackInfo = (
+                serverType == ServerType.EMBY || serverType == ServerType.JELLYFIN
+            ) &&
                 !forceTranscode && audioTranscodeMode == AudioTranscodeMode.AUTO
+            val enableDirectPlay = if (forceTranscode) false else true
+            val enableDirectStream = if (forceTranscode) false else true
+            val enableTranscoding = true
             val deviceProfile = PlaybackDeviceProfileFactory.create(
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioTranscodeMode = audioTranscodeMode
@@ -1195,9 +1199,9 @@ class MediaRepository(private val context: Context) {
                     maxStreamingBitrate = maxStreamingBitrate,
                     audioStreamIndex = audioStreamIndex,
                     subtitleStreamIndex = normalizedSubtitleStreamIndex,
-                    enableDirectPlay = null,
-                    enableDirectStream = null,
-                    enableTranscoding = null
+                    enableDirectPlay = enableDirectPlay,
+                    enableDirectStream = enableDirectStream,
+                    enableTranscoding = enableTranscoding
                 )
 
                 if (getResponse.isSuccessful && getResponse.body() != null) {
@@ -1211,17 +1215,13 @@ class MediaRepository(private val context: Context) {
 
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
-                mediaSourceId = if (serverType == ServerType.JELLYFIN) {
-                    itemId.replace("-", "")
-                } else {
-                    null
-                },
+                mediaSourceId = null,
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,
-                enableDirectPlay = if (forceTranscode) false else null,
-                enableDirectStream = if (forceTranscode) false else null,
-                enableTranscoding = if (forceTranscode) true else null,
+                enableDirectPlay = enableDirectPlay,
+                enableDirectStream = enableDirectStream,
+                enableTranscoding = enableTranscoding,
                 deviceProfile = deviceProfile
             )
 
@@ -1244,9 +1244,9 @@ class MediaRepository(private val context: Context) {
                 maxStreamingBitrate = maxStreamingBitrate,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,
-                enableDirectPlay = if (forceTranscode) false else null,
-                enableDirectStream = if (forceTranscode) false else null,
-                enableTranscoding = if (forceTranscode) true else null
+                enableDirectPlay = enableDirectPlay,
+                enableDirectStream = enableDirectStream,
+                enableTranscoding = enableTranscoding
             )
 
             if (getResponse.isSuccessful && getResponse.body() != null) {

@@ -147,7 +147,6 @@ class PlayerViewModel @Inject constructor(
                 communityPlaybackSegmentsJob?.cancel()
                 communityPlaybackSegmentsJob = null
                 spatializerHelper = SpatializerHelper(context)
-                exoPlayer = PlayerUtils.createPlayer(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
                 val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
                 val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
@@ -259,9 +258,7 @@ class PlayerViewModel @Inject constructor(
                     sessionMediaSourceId = primaryMediaSource?.id
                     sessionMediaSourceContainer = primaryMediaSource?.container
                     sessionMediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
-                    val bitrateCapApplied = (maxStreamingBitrate ?: 0) > 0
                     sessionPlayMethod = when {
-                        bitrateCapApplied -> PlayMethod.TRANSCODE
                         primaryMediaSource?.supportsDirectPlay == true -> PlayMethod.DIRECT_PLAY
                         primaryMediaSource?.supportsDirectStream == true -> PlayMethod.DIRECT_STREAM
                         else -> PlayMethod.TRANSCODE
@@ -294,6 +291,10 @@ class PlayerViewModel @Inject constructor(
                     if (!streamPlaySessionId.isNullOrBlank()) {
                         sessionPlaySessionId = streamPlaySessionId
                     }
+                    sessionPlayMethod = getPlayMethod(
+                        streamingUrl = streamingUrl,
+                        fallback = sessionPlayMethod
+                    )
 
                     val activeSubtitleStreamIndex = (
                         activePreferredSubtitleStreamIndex
@@ -318,6 +319,9 @@ class PlayerViewModel @Inject constructor(
                     streamingMediaItem
                 }
 
+                exoPlayer = PlayerUtils.createPlayer(
+                    context = context
+                )
                 playbackSession = PlaybackSessionContext(
                     mediaId = mediaId,
                     playSessionId = sessionPlaySessionId,
@@ -612,6 +616,28 @@ class PlayerViewModel @Inject constructor(
         nextEpisodePrefetchJob?.cancel()
         nextEpisodePrefetchJob = null
         nextEpisodePrefetchSignature = null
+    }
+
+    private fun getPlayMethod(
+        streamingUrl: String,
+        fallback: PlayMethod
+    ): PlayMethod {
+        val streamUri = Uri.parse(streamingUrl)
+        val path = streamUri.encodedPath.orEmpty().lowercase()
+        val isTranscodingUrl =
+            path.contains("master.m3u8") ||
+                path.contains("transcode") ||
+                path.contains("transcoding")
+
+        if (isTranscodingUrl) {
+            return PlayMethod.TRANSCODE
+        }
+
+        return when (streamUri.getQueryParameter("static")?.lowercase()) {
+            "true" -> PlayMethod.DIRECT_PLAY
+            "false" -> PlayMethod.DIRECT_STREAM
+            else -> fallback
+        }
     }
 
     private suspend fun isVideoTranscodingAllowedForUser(): Boolean {

@@ -45,6 +45,16 @@ internal object PlaybackDeviceProfileFactory {
                     maxAudioChannels = maxAudioChannels
                 ),
                 TranscodingProfile(
+                    type = "Video",
+                    context = "Streaming",
+                    protocol = "hls",
+                    container = "mp4",
+                    videoCodec = "h264",
+                    audioCodec = videoTranscodeAudioCodecs,
+                    enableSubtitlesInManifest = true,
+                    maxAudioChannels = maxAudioChannels
+                ),
+                TranscodingProfile(
                     type = "Audio",
                     context = "Streaming",
                     protocol = "http",
