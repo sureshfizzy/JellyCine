@@ -24,10 +24,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -84,6 +86,10 @@ fun Settings(
             )
     }
 
+    LaunchedEffect(uiState.activeServerId) {
+        viewModel.reloadSeerrConnection()
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -117,6 +123,7 @@ fun Settings(
                     username = uiState.username ?: stringResource(R.string.settings_unknown_user),
                     serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
                     serverUrl = uiState.serverUrl,
+                    seerr = uiState.seerr,
                     serverTypeRaw = activeSavedServer?.serverTypeRaw,
                     profileImageUrl = uiState.profileImageUrl,
                     isAdministrator = uiState.isAdministrator,
@@ -363,6 +370,7 @@ private fun UserProfileSection(
     username: String,
     serverName: String,
     serverUrl: String?,
+    seerr: SeerrUiState,
     serverTypeRaw: String?,
     profileImageUrl: String?,
     isAdministrator: Boolean?,
@@ -536,9 +544,144 @@ private fun UserProfileSection(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+
+                    val requestLimits = seerr.requestLimits
+                    if (
+                        requestLimits != null &&
+                        (seerr.status == SeerrConnectionStatus.CONNECTED ||
+                            seerr.status == SeerrConnectionStatus.CHECKING)
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                        )
+
+                        SeerrRequestLimitsRow(requestLimits = requestLimits)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SeerrRequestLimitsRow(
+    requestLimits: com.jellycine.data.repository.SeerrUserRequestLimits
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Link,
+                contentDescription = null,
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.settings_seerr_request_limits),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SeerrLimitStat(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Rounded.LocalMovies,
+                accentColor = Color(0xFFF59E0B),
+                label = stringResource(R.string.settings_seerr_movie_limit),
+                value = formatSeerrLimit(
+                    limit = requestLimits.movieQuotaLimit,
+                    days = requestLimits.movieQuotaDays
+                )
+            )
+            SeerrLimitStat(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Rounded.LiveTv,
+                accentColor = Color(0xFF06B6D4),
+                label = stringResource(R.string.settings_seerr_tv_limit),
+                value = formatSeerrLimit(
+                    limit = requestLimits.tvQuotaLimit,
+                    days = requestLimits.tvQuotaDays
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun SeerrLimitStat(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    accentColor: Color,
+    label: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = accentColor.copy(alpha = 0.1f),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Start,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun formatSeerrLimit(limit: Int?, days: Int?): String {
+    if (limit == null || limit <= 0) {
+        return stringResource(R.string.settings_seerr_unlimited)
+    }
+
+    val requestCount = pluralStringResource(
+        R.plurals.settings_seerr_requests_count,
+        limit,
+        limit
+    )
+
+    return if (days != null && days > 0) {
+        stringResource(R.string.settings_seerr_limit_every_days, requestCount, days)
+    } else {
+        requestCount
     }
 }
 

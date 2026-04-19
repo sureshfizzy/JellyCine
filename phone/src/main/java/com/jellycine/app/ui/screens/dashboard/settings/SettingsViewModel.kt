@@ -10,6 +10,7 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.SeerrConnectionInfo
+import com.jellycine.data.repository.SeerrUserRequestLimits
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
@@ -30,6 +31,7 @@ enum class SeerrConnectionStatus {
 data class SeerrUiState(
     val serverUrl: String? = null,
     val serverVersion: String? = null,
+    val requestLimits: SeerrUserRequestLimits? = null,
     val status: SeerrConnectionStatus = SeerrConnectionStatus.DISCONNECTED,
     val hasSavedConnection: Boolean = false,
     val message: String? = null
@@ -76,7 +78,6 @@ class SettingsViewModel(
             loadPreferences()
             loadNetworkPreferences()
         }
-        loadSeerrConnection(initialSessionSnapshot.activeServerId)
         activeUserSessionKey = buildSessionKey(
             initialSessionSnapshot.serverUrl,
             initialSessionSnapshot.username
@@ -121,7 +122,6 @@ class SettingsViewModel(
                 .distinctUntilChanged()
                 .collectLatest { snapshot ->
                     val sessionKey = buildSessionKey(snapshot.serverUrl, snapshot.username)
-                    val sessionChanged = activeUserSessionKey != sessionKey
                     val currentState = _uiState.value
                     val isSameSession = activeUserSessionKey == sessionKey
                     val activeSavedServer = snapshot.savedServers.firstOrNull { savedServer ->
@@ -160,11 +160,6 @@ class SettingsViewModel(
                         },
                         error = null
                     )
-
-                    if (sessionChanged) {
-                        loadSeerrConnection(snapshot.activeServerId)
-                    }
-
                     if (!includeProfileData) {
                         activeUserSessionKey = sessionKey
                         return@collectLatest
@@ -443,18 +438,19 @@ class SettingsViewModel(
         setSeerrState()
     }
 
-    private fun loadSeerrConnection(scopeId: String?) {
+    fun reloadSeerrConnection(scopeId: String? = _uiState.value.activeServerId) {
         val savedConnection = seerrRepository.getSavedConnectionInfo(scopeId) ?: run {
             setSeerrState()
             return
         }
+        val status = if (savedConnection.isVerified) {
+            SeerrConnectionStatus.CONNECTED
+        } else {
+            SeerrConnectionStatus.ERROR
+        }
         setSeerrState(
             savedConnection.toUiState(
-                status = if (savedConnection.isVerified) {
-                    SeerrConnectionStatus.CONNECTED
-                } else {
-                    SeerrConnectionStatus.ERROR
-                },
+                status = status,
                 hasSavedConnection = true,
                 message = null
             )
@@ -487,6 +483,7 @@ class SettingsViewModel(
         return SeerrUiState(
             serverUrl = serverUrl,
             serverVersion = serverVersion,
+            requestLimits = requestLimits,
             status = status,
             hasSavedConnection = hasSavedConnection,
             message = message

@@ -29,7 +29,15 @@ import javax.net.ssl.SSLException
 data class SeerrConnectionInfo(
     val serverUrl: String,
     val serverVersion: String? = null,
+    val requestLimits: SeerrUserRequestLimits? = null,
     val isVerified: Boolean = false
+)
+
+data class SeerrUserRequestLimits(
+    val movieQuotaLimit: Int? = null,
+    val movieQuotaDays: Int? = null,
+    val tvQuotaLimit: Int? = null,
+    val tvQuotaDays: Int? = null
 )
 
 class SeerrRepository(context: Context) {
@@ -60,6 +68,7 @@ class SeerrRepository(context: Context) {
         return SeerrConnectionInfo(
             serverUrl = storedConnection.serverUrl,
             serverVersion = prefs.getString(scopedKey(KEY_SERVER_VERSION, validScopeId), null),
+            requestLimits = getSavedRequestLimits(validScopeId),
             isVerified = prefs.getBoolean(scopedKey(KEY_IS_VERIFIED, validScopeId), false)
         )
     }
@@ -129,6 +138,10 @@ class SeerrRepository(context: Context) {
         prefs.edit()
             .remove(scopedKey(KEY_SERVER_URL, scopeId))
             .remove(scopedKey(KEY_SERVER_VERSION, scopeId))
+            .remove(scopedKey(KEY_MOVIE_QUOTA_LIMIT, scopeId))
+            .remove(scopedKey(KEY_MOVIE_QUOTA_DAYS, scopeId))
+            .remove(scopedKey(KEY_TV_QUOTA_LIMIT, scopeId))
+            .remove(scopedKey(KEY_TV_QUOTA_DAYS, scopeId))
             .remove(scopedKey(KEY_IS_VERIFIED, scopeId))
             .apply()
         securePrefs.edit()
@@ -154,11 +167,16 @@ class SeerrRepository(context: Context) {
         connection: SeerrConnectionInfo,
         sessionCookie: String
     ) {
-        prefs.edit()
-            .putString(scopedKey(KEY_SERVER_URL, scopeId), connection.serverUrl)
-            .putString(scopedKey(KEY_SERVER_VERSION, scopeId), connection.serverVersion)
-            .putBoolean(scopedKey(KEY_IS_VERIFIED, scopeId), connection.isVerified)
-            .apply()
+        prefs.edit().apply {
+            putString(scopedKey(KEY_SERVER_URL, scopeId), connection.serverUrl)
+            putString(scopedKey(KEY_SERVER_VERSION, scopeId), connection.serverVersion)
+            putBoolean(scopedKey(KEY_IS_VERIFIED, scopeId), connection.isVerified)
+            putScopedIntOrRemove(KEY_MOVIE_QUOTA_LIMIT, scopeId, connection.requestLimits?.movieQuotaLimit)
+            putScopedIntOrRemove(KEY_MOVIE_QUOTA_DAYS, scopeId, connection.requestLimits?.movieQuotaDays)
+            putScopedIntOrRemove(KEY_TV_QUOTA_LIMIT, scopeId, connection.requestLimits?.tvQuotaLimit)
+            putScopedIntOrRemove(KEY_TV_QUOTA_DAYS, scopeId, connection.requestLimits?.tvQuotaDays)
+            apply()
+        }
         securePrefs.edit()
             .putString(scopedKey(KEY_SESSION_COOKIE, scopeId), sessionCookie)
             .apply()
@@ -245,7 +263,12 @@ class SeerrRepository(context: Context) {
                         SignInResult(
                             connection = buildConnectionInfo(
                                 serverUrl = serverUrl,
-                                serverVersion = statusPayload.version
+                                serverVersion = statusPayload.version,
+                                requestLimits = fetchCurrentUserRequestLimits(
+                                    client = client,
+                                    serverUrl = serverUrl,
+                                    sessionCookie = sessionCookie
+                                )
                             ),
                             sessionCookie = sessionCookie
                         )
@@ -298,7 +321,15 @@ class SeerrRepository(context: Context) {
                         Result.success(
                             buildConnectionInfo(
                                 serverUrl = serverUrl,
-                                serverVersion = statusPayload.version
+                                serverVersion = statusPayload.version,
+                                requestLimits = decodeCurrentUserId(responseBody)?.let { userId ->
+                                    fetchEffectiveRequestLimits(
+                                        client = client,
+                                        serverUrl = serverUrl,
+                                        sessionCookie = sessionCookie,
+                                        userId = userId
+                                    )
+                                }
                             )
                         )
                     }
@@ -421,13 +452,88 @@ class SeerrRepository(context: Context) {
 
     private fun buildConnectionInfo(
         serverUrl: String,
-        serverVersion: String?
+        serverVersion: String?,
+        requestLimits: SeerrUserRequestLimits? = null
     ): SeerrConnectionInfo {
         return SeerrConnectionInfo(
             serverUrl = serverUrl,
             serverVersion = serverVersion.ifNotBlank(),
+            requestLimits = requestLimits,
             isVerified = true
         )
+    }
+
+    private fun fetchCurrentUserRequestLimits(
+        client: OkHttpClient,
+        serverUrl: String,
+        sessionCookie: String
+    ): SeerrUserRequestLimits? {
+        val currentUserId = fetchCurrentUserId(client, serverUrl, sessionCookie) ?: return null
+
+        return fetchEffectiveRequestLimits(
+            client = client,
+            serverUrl = serverUrl,
+            sessionCookie = sessionCookie,
+            userId = currentUserId
+        )
+    }
+
+    private fun fetchCurrentUserId(
+        client: OkHttpClient,
+        serverUrl: String,
+        sessionCookie: String
+    ): Int? {
+        val response = client.newCall(
+            Request.Builder()
+                .url(buildApiUrl(serverUrl, "auth/me"))
+                .get()
+                .addHeader("Accept", "application/json")
+                .addHeader("Cookie", sessionCookie)
+                .build()
+        ).execute()
+
+        return response.use { authResponse ->
+            if (!authResponse.isSuccessful) return@use null
+            decodeCurrentUserId(authResponse.body?.string().orEmpty())
+        }
+    }
+
+    private fun decodeCurrentUserId(responseBody: String): Int? {
+        return runCatching {
+            JellyCineJson.decodeFromString<SeerrCurrentUserResponse>(responseBody).id
+        }.getOrNull()
+    }
+
+    private fun fetchEffectiveRequestLimits(
+        client: OkHttpClient,
+        serverUrl: String,
+        sessionCookie: String,
+        userId: Int
+    ): SeerrUserRequestLimits? {
+        val response = client.newCall(
+            Request.Builder()
+                .url(buildApiUrl(serverUrl, "user/$userId/quota"))
+                .get()
+                .addHeader("Accept", "application/json")
+                .addHeader("Cookie", sessionCookie)
+                .build()
+        ).execute()
+
+        return response.use { quotaResponse ->
+            if (!quotaResponse.isSuccessful) return@use null
+            val payload = runCatching {
+                JellyCineJson.decodeFromString<SeerrQuotaResponse>(
+                    quotaResponse.body?.string().orEmpty()
+                )
+            }.getOrNull() ?: return@use null
+
+            SeerrUserRequestLimits(
+                movieQuotaLimit = payload.movie.limit,
+                movieQuotaDays = payload.movie.days,
+                tvQuotaLimit = payload.tv.limit,
+                tvQuotaDays = payload.tv.days
+            )
+        }
     }
 
     private inline fun <T> runRequestCatching(block: () -> Result<T>): Result<T> = try {
@@ -456,6 +562,45 @@ class SeerrRepository(context: Context) {
     }
 
     private fun String?.ifNotBlank(): String? = this?.takeIf { it.isNotBlank() }
+
+    private fun SharedPreferences.Editor.putScopedIntOrRemove(
+        baseKey: String,
+        scopeId: String,
+        value: Int?
+    ) {
+        val key = scopedKey(baseKey, scopeId)
+        if (value == null) {
+            remove(key)
+        } else {
+            putInt(key, value)
+        }
+    }
+
+    private fun getSavedRequestLimits(scopeId: String): SeerrUserRequestLimits? {
+        val movieQuotaLimit = prefs.getScopedIntOrNull(KEY_MOVIE_QUOTA_LIMIT, scopeId)
+        val movieQuotaDays = prefs.getScopedIntOrNull(KEY_MOVIE_QUOTA_DAYS, scopeId)
+        val tvQuotaLimit = prefs.getScopedIntOrNull(KEY_TV_QUOTA_LIMIT, scopeId)
+        val tvQuotaDays = prefs.getScopedIntOrNull(KEY_TV_QUOTA_DAYS, scopeId)
+        if (
+            movieQuotaLimit == null &&
+            movieQuotaDays == null &&
+            tvQuotaLimit == null &&
+            tvQuotaDays == null
+        ) {
+            return null
+        }
+        return SeerrUserRequestLimits(
+            movieQuotaLimit = movieQuotaLimit,
+            movieQuotaDays = movieQuotaDays,
+            tvQuotaLimit = tvQuotaLimit,
+            tvQuotaDays = tvQuotaDays
+        )
+    }
+
+    private fun SharedPreferences.getScopedIntOrNull(baseKey: String, scopeId: String): Int? {
+        val key = scopedKey(baseKey, scopeId)
+        return if (contains(key)) getInt(key, 0) else null
+    }
 
     private fun String.removeKnownApiSuffix(): String {
         return when {
@@ -488,6 +633,23 @@ class SeerrRepository(context: Context) {
         val hostname: String? = null
     )
 
+    @Serializable
+    private data class SeerrCurrentUserResponse(
+        val id: Int? = null
+    )
+
+    @Serializable
+    private data class SeerrQuotaResponse(
+        val movie: SeerrQuotaDetails = SeerrQuotaDetails(),
+        val tv: SeerrQuotaDetails = SeerrQuotaDetails()
+    )
+
+    @Serializable
+    private data class SeerrQuotaDetails(
+        val days: Int? = null,
+        val limit: Int? = null
+    )
+
     private data class StoredConnection(
         val serverUrl: String,
         val sessionCookie: String
@@ -504,6 +666,10 @@ class SeerrRepository(context: Context) {
         private const val SECURE_PREFS_NAME = "seerr_connection_secure_prefs"
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_SERVER_VERSION = "server_version"
+        private const val KEY_MOVIE_QUOTA_LIMIT = "movie_quota_limit"
+        private const val KEY_MOVIE_QUOTA_DAYS = "movie_quota_days"
+        private const val KEY_TV_QUOTA_LIMIT = "tv_quota_limit"
+        private const val KEY_TV_QUOTA_DAYS = "tv_quota_days"
         private const val KEY_IS_VERIFIED = "is_verified"
         private const val KEY_SESSION_COOKIE = "session_cookie"
     }

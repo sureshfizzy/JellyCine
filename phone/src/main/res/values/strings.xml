@@ -363,6 +363,11 @@
     <string name="settings_seerr_refresh_status">Refresh status</string>
     <string name="settings_seerr_reconnect">Reconnect</string>
     <string name="settings_seerr_disconnect">Disconnect</string>
+    <string name="settings_seerr_request_limits">Request Limits</string>
+    <string name="settings_seerr_movie_limit">Movies</string>
+    <string name="settings_seerr_tv_limit">Shows</string>
+    <string name="settings_seerr_unlimited">Unlimited</string>
+    <string name="settings_seerr_limit_every_days">%1$s / %2$dd</string>
     <string name="settings_cache">Cache</string>
     <string name="settings_cache_subtitle">Cache image and cache size</string>
     <string name="settings_device_info">Device Info</string>
@@ -407,6 +412,10 @@
     <plurals name="settings_saved_users_count">
         <item quantity="one">%d user</item>
         <item quantity="other">%d users</item>
+    </plurals>
+    <plurals name="settings_seerr_requests_count">
+        <item quantity="one">%d req</item>
+        <item quantity="other">%d req</item>
     </plurals>
 
     <!-- About -->
