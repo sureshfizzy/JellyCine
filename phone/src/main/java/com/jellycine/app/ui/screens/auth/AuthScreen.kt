@@ -25,7 +25,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
@@ -42,7 +41,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,6 +70,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.amoledAuthFieldColors
 import com.jellycine.shared.ui.theme.JellyBlue
 import com.jellycine.shared.ui.theme.JellyRed
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -484,19 +483,7 @@ private fun ConnectionForm(
                 enabled = !isLoading,
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedLabelColor = JellyBlue,
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                    focusedBorderColor = JellyBlue,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.26f),
-                    cursorColor = JellyBlue,
-                    selectionColors = TextSelectionColors(
-                        handleColor = JellyBlue,
-                        backgroundColor = JellyBlue.copy(alpha = 0.28f)
-                    )
-                )
+                colors = amoledAuthFieldColors()
             )
 
             AnimatedVisibility(
@@ -589,21 +576,7 @@ private fun LoginForm(
                 enabled = !isBusy,
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedLabelColor = JellyBlue,
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                    focusedBorderColor = JellyBlue,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.26f),
-                    focusedLeadingIconColor = JellyBlue,
-                    unfocusedLeadingIconColor = Color.White.copy(alpha = 0.65f),
-                    cursorColor = JellyBlue,
-                    selectionColors = TextSelectionColors(
-                        handleColor = JellyBlue,
-                        backgroundColor = JellyBlue.copy(alpha = 0.28f)
-                    )
-                )
+                colors = amoledAuthFieldColors(hasLeadingIcon = true)
             )
 
             OutlinedTextField(
@@ -648,21 +621,7 @@ private fun LoginForm(
                 enabled = !isBusy,
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedLabelColor = JellyBlue,
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-                    focusedBorderColor = JellyBlue,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.26f),
-                    focusedLeadingIconColor = JellyBlue,
-                    unfocusedLeadingIconColor = Color.White.copy(alpha = 0.65f),
-                    cursorColor = JellyBlue,
-                    selectionColors = TextSelectionColors(
-                        handleColor = JellyBlue,
-                        backgroundColor = JellyBlue.copy(alpha = 0.28f)
-                    )
-                )
+                colors = amoledAuthFieldColors(hasLeadingIcon = true)
             )
 
             AnimatedVisibility(

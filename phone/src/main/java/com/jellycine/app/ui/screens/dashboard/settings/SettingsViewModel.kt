@@ -9,6 +9,8 @@ import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.SeerrConnectionInfo
+import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.CancellationException
@@ -16,6 +18,22 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
+enum class SeerrConnectionStatus {
+    DISCONNECTED,
+    CHECKING,
+    CONNECTING,
+    CONNECTED,
+    ERROR
+}
+
+data class SeerrUiState(
+    val serverUrl: String? = null,
+    val serverVersion: String? = null,
+    val status: SeerrConnectionStatus = SeerrConnectionStatus.DISCONNECTED,
+    val hasSavedConnection: Boolean = false,
+    val message: String? = null
+)
 
 data class SettingsUiState(
     val user: UserDto? = null,
@@ -32,6 +50,7 @@ data class SettingsUiState(
     val socketTimeoutMs: Int = NetworkPreferences.DEFAULT_SOCKET_TIMEOUT_MS,
     val imageMemoryCacheMb: Int = NetworkPreferences.DEFAULT_IMAGE_MEMORY_CACHE_MB,
     val imageCachingEnabled: Boolean = NetworkPreferences.DEFAULT_IMAGE_CACHING_ENABLED,
+    val seerr: SeerrUiState = SeerrUiState(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -43,6 +62,7 @@ class SettingsViewModel(
 ) : ViewModel() {
     private val authRepository = AuthRepositoryProvider.getInstance(context)
     private val mediaRepository = MediaRepository(context)
+    private val seerrRepository = SeerrRepository(context)
     private val preferences = Preferences(context)
     private val networkPreferences = NetworkPreferences(context)
     private val initialSessionSnapshot = authRepository.getActiveSessionSnapshot()
@@ -52,13 +72,15 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
     init {
-        viewModelScope.launch {
-            authRepository.savedServer()
-        }
         if (includeLocalSettings) {
             loadPreferences()
             loadNetworkPreferences()
         }
+        loadSeerrConnection(initialSessionSnapshot.activeServerId)
+        activeUserSessionKey = buildSessionKey(
+            initialSessionSnapshot.serverUrl,
+            initialSessionSnapshot.username
+        )
         loadUserData()
     }
 
@@ -99,6 +121,7 @@ class SettingsViewModel(
                 .distinctUntilChanged()
                 .collectLatest { snapshot ->
                     val sessionKey = buildSessionKey(snapshot.serverUrl, snapshot.username)
+                    val sessionChanged = activeUserSessionKey != sessionKey
                     val currentState = _uiState.value
                     val isSameSession = activeUserSessionKey == sessionKey
                     val activeSavedServer = snapshot.savedServers.firstOrNull { savedServer ->
@@ -137,6 +160,10 @@ class SettingsViewModel(
                         },
                         error = null
                     )
+
+                    if (sessionChanged) {
+                        loadSeerrConnection(snapshot.activeServerId)
+                    }
 
                     if (!includeProfileData) {
                         activeUserSessionKey = sessionKey
@@ -277,6 +304,192 @@ class SettingsViewModel(
         networkPreferences.setImageCachingEnabled(enabled)
         _uiState.value = _uiState.value.copy(
             imageCachingEnabled = networkPreferences.isImageCachingEnabled()
+        )
+    }
+
+    fun connectSeerr(
+        serverUrl: String,
+        username: String,
+        password: String,
+        onComplete: (Result<SeerrConnectionInfo>) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val scopeId = _uiState.value.activeServerId
+            if (scopeId.isNullOrBlank()) {
+                val result = Result.failure<SeerrConnectionInfo>(
+                    Exception("No active JellyCine session is available.")
+                )
+                setSeerrState(
+                    SeerrUiState(
+                        serverUrl = serverUrl.trim().ifBlank { null },
+                        status = SeerrConnectionStatus.ERROR,
+                        hasSavedConnection = false,
+                        message = result.exceptionOrNull()?.message
+                    )
+                )
+                onComplete(result)
+                return@launch
+            }
+
+            val currentConnection = seerrRepository.getSavedConnectionInfo(scopeId)
+            val hasSavedConnection = currentConnection != null
+            val displayUrl = serverUrl.trim().ifBlank { currentConnection?.serverUrl }
+            _uiState.value = _uiState.value.copy(
+                seerr = _uiState.value.seerr.copy(
+                    serverUrl = displayUrl,
+                    serverVersion = currentConnection?.serverVersion,
+                    hasSavedConnection = hasSavedConnection,
+                    status = SeerrConnectionStatus.CONNECTING,
+                    message = null
+                )
+            )
+
+            val result = try {
+                seerrRepository.connect(
+                    scopeId = scopeId,
+                    serverUrl = serverUrl,
+                    username = username,
+                    password = password,
+                    mediaServerUrl = _uiState.value.serverUrl.orEmpty()
+                )
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+
+            if (_uiState.value.activeServerId != scopeId) {
+                onComplete(result)
+                return@launch
+            }
+
+            result.onSuccess { connection ->
+                setSeerrState(
+                    connection.toUiState(
+                        status = SeerrConnectionStatus.CONNECTED,
+                        hasSavedConnection = true,
+                        message = null
+                    )
+                )
+            }.onFailure { error ->
+                setSeerrState(
+                    savedSeerrState(
+                        scopeId = scopeId,
+                        verifiedStatus = SeerrConnectionStatus.CONNECTED,
+                        unverifiedStatus = SeerrConnectionStatus.ERROR,
+                        message = error.message
+                    ) ?: SeerrUiState(
+                        serverUrl = displayUrl,
+                        status = SeerrConnectionStatus.ERROR,
+                        hasSavedConnection = false,
+                        message = error.message
+                    )
+                )
+            }
+
+            onComplete(result)
+        }
+    }
+
+    fun refreshSeerrConnection() {
+        val scopeId = _uiState.value.activeServerId
+        val savedConnection = seerrRepository.getSavedConnectionInfo(scopeId) ?: run {
+            setSeerrState()
+            return
+        }
+
+        setSeerrState(
+            savedConnection.toUiState(
+                status = SeerrConnectionStatus.CHECKING,
+                hasSavedConnection = true,
+                message = null
+            )
+        )
+
+        viewModelScope.launch {
+            if (scopeId.isNullOrBlank()) {
+                setSeerrState()
+                return@launch
+            }
+
+            val result = seerrRepository.refreshConnection(scopeId)
+            if (_uiState.value.activeServerId != scopeId) {
+                return@launch
+            }
+            result.onSuccess { connection ->
+                setSeerrState(
+                    connection.toUiState(
+                        status = SeerrConnectionStatus.CONNECTED,
+                        hasSavedConnection = true,
+                        message = null
+                    )
+                )
+            }.onFailure { error ->
+                setSeerrState(
+                    savedSeerrState(
+                        scopeId = scopeId,
+                        verifiedStatus = SeerrConnectionStatus.ERROR,
+                        message = error.message
+                    ) ?: SeerrUiState(
+                        status = SeerrConnectionStatus.DISCONNECTED,
+                        hasSavedConnection = false,
+                        message = null
+                    )
+                )
+            }
+        }
+    }
+
+    fun disconnectSeerr() {
+        seerrRepository.disconnect(_uiState.value.activeServerId)
+        setSeerrState()
+    }
+
+    private fun loadSeerrConnection(scopeId: String?) {
+        val savedConnection = seerrRepository.getSavedConnectionInfo(scopeId) ?: run {
+            setSeerrState()
+            return
+        }
+        setSeerrState(
+            savedConnection.toUiState(
+                status = if (savedConnection.isVerified) {
+                    SeerrConnectionStatus.CONNECTED
+                } else {
+                    SeerrConnectionStatus.ERROR
+                },
+                hasSavedConnection = true,
+                message = null
+            )
+        )
+    }
+
+    private fun setSeerrState(seerrState: SeerrUiState = SeerrUiState()) {
+        _uiState.value = _uiState.value.copy(seerr = seerrState)
+    }
+
+    private fun savedSeerrState(
+        scopeId: String?,
+        verifiedStatus: SeerrConnectionStatus,
+        unverifiedStatus: SeerrConnectionStatus = verifiedStatus,
+        message: String?
+    ): SeerrUiState? {
+        val savedConnection = seerrRepository.getSavedConnectionInfo(scopeId) ?: return null
+        return savedConnection.toUiState(
+            status = if (savedConnection.isVerified) verifiedStatus else unverifiedStatus,
+            hasSavedConnection = true,
+            message = message
+        )
+    }
+
+    private fun SeerrConnectionInfo.toUiState(
+        status: SeerrConnectionStatus,
+        hasSavedConnection: Boolean,
+        message: String?
+    ): SeerrUiState {
+        return SeerrUiState(
+            serverUrl = serverUrl,
+            serverVersion = serverVersion,
+            status = status,
+            hasSavedConnection = hasSavedConnection,
+            message = message
         )
     }
 }

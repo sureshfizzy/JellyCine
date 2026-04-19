@@ -59,10 +59,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -72,13 +70,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.AmoledDialogFrame
 import com.jellycine.data.network.canonicalServerUrlKey
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
@@ -295,94 +292,6 @@ internal fun ProfileImageLoader(
 }
 
 @Composable
-private fun AmoledDialogFrame(
-    dismissOnRequest: Boolean,
-    onDismiss: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val scrimInteractionSource = remember { MutableInteractionSource() }
-    val sheetInteractionSource = remember { MutableInteractionSource() }
-
-    Dialog(
-        onDismissRequest = {
-            if (dismissOnRequest) {
-                onDismiss()
-            }
-        },
-        properties = DialogProperties(
-            dismissOnBackPress = dismissOnRequest,
-            dismissOnClickOutside = dismissOnRequest,
-            usePlatformDefaultWidth = false
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.76f))
-                .clickable(
-                    enabled = dismissOnRequest,
-                    indication = null,
-                    interactionSource = scrimInteractionSource
-                ) { onDismiss() },
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .widthIn(max = 880.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 18.dp)
-                        .blur(64.dp)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0x2211B6FF),
-                                    Color(0x1400E5FF),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = RoundedCornerShape(36.dp)
-                        )
-                )
-
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            indication = null,
-                            interactionSource = sheetInteractionSource
-                        ) {},
-                    shape = RoundedCornerShape(30.dp),
-                    color = Color(0xFF020202),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF090909),
-                                        Color(0xFF020202)
-                                    )
-                                )
-                            )
-                            .padding(horizontal = 24.dp, vertical = 28.dp)
-                    ) {
-                        content()
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 internal fun ServerSwitchDialog(
     servers: List<AuthRepository.SavedServer>,
     activeServerId: String?,
@@ -593,240 +502,166 @@ internal fun UserSwitchDialog(
     onRequestRemoveUser: (AuthRepository.SavedServer) -> Unit,
     onUserSelected: (AuthRepository.SavedServer) -> Unit
 ) {
-    Dialog(
-        onDismissRequest = {
-            if (dismissOnRequest) {
-                onDismiss()
-            }
-        },
-        properties = DialogProperties(
-            dismissOnBackPress = dismissOnRequest,
-            dismissOnClickOutside = dismissOnRequest,
-            usePlatformDefaultWidth = false
-        )
+    AmoledDialogFrame(
+        dismissOnRequest = dismissOnRequest,
+        onDismiss = onDismiss
     ) {
-        val scrimInteractionSource = remember { MutableInteractionSource() }
-        val sheetInteractionSource = remember { MutableInteractionSource() }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.76f))
-                .clickable(
-                    enabled = dismissOnRequest,
-                    indication = null,
-                    interactionSource = scrimInteractionSource
-                ) { onDismiss() },
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .widthIn(max = 880.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 18.dp)
-                        .blur(64.dp)
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0x2211B6FF),
-                                    Color(0x1400E5FF),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = RoundedCornerShape(36.dp)
-                        )
+            Text(
+                text = serverName?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = stringResource(R.string.settings_whos_watching),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            if (users.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.settings_no_saved_users_for_server),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.78f)
                 )
+            } else {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val compactLayout = maxWidth < 640.dp
+                    val activeUserIndex = remember(users, activeServerId) {
+                        users.indexOfFirst { it.isActiveServer(activeServerId) }.coerceAtLeast(0)
+                    }
 
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(
-                            indication = null,
-                            interactionSource = sheetInteractionSource
-                        ) {},
-                    shape = RoundedCornerShape(30.dp),
-                    color = Color(0xFF020202),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF090909),
-                                        Color(0xFF020202)
+                    if (compactLayout) {
+                        val listState = rememberLazyListState()
+                        val scope = rememberCoroutineScope()
+                        val showLeftIndicator by remember(listState) {
+                            derivedStateOf { listState.canScrollBackward }
+                        }
+                        val showRightIndicator by remember(listState) {
+                            derivedStateOf { listState.canScrollForward }
+                        }
+
+                        LaunchedEffect(users, activeUserIndex) {
+                            if (users.isNotEmpty()) {
+                                listState.scrollToItem(activeUserIndex)
+                            }
+                        }
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            LazyRow(
+                                state = listState,
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
+                                contentPadding = PaddingValues(horizontal = 10.dp)
+                            ) {
+                                items(items = users, key = { it.id }) { user ->
+                                    WhoWatchingUserCard(
+                                        user = user,
+                                        activeServerId = activeServerId,
+                                        isSwitching = isSwitching,
+                                        showRemoveAction = showRemoveAction,
+                                        onUserSelected = onUserSelected,
+                                        onRequestRemoveUser = onRequestRemoveUser,
+                                        modifier = Modifier.width(104.dp)
                                     )
-                                )
-                            )
-                            .padding(horizontal = 24.dp, vertical = 28.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = serverName?.takeIf { it.isNotBlank() }
-                                    ?: stringResource(R.string.app_name),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White
-                            )
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Text(
-                                text = stringResource(R.string.settings_whos_watching),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-
-                            Spacer(modifier = Modifier.height(28.dp))
-
-                            if (users.isEmpty()) {
-                                Text(
-                                    text = stringResource(R.string.settings_no_saved_users_for_server),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.78f)
-                                )
-                            } else {
-                                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                                    val compactLayout = maxWidth < 640.dp
-                                    val activeUserIndex = remember(users, activeServerId) {
-                                        users.indexOfFirst { it.isActiveServer(activeServerId) }.coerceAtLeast(0)
-                                    }
-
-                                    if (compactLayout) {
-                                        val listState = rememberLazyListState()
-                                        val scope = rememberCoroutineScope()
-                                        val showLeftIndicator by remember(listState) {
-                                            derivedStateOf { listState.canScrollBackward }
-                                        }
-                                        val showRightIndicator by remember(listState) {
-                                            derivedStateOf { listState.canScrollForward }
-                                        }
-
-                                        LaunchedEffect(users, activeUserIndex) {
-                                            if (users.isNotEmpty()) {
-                                                listState.scrollToItem(activeUserIndex)
-                                            }
-                                        }
-
-                                        Box(modifier = Modifier.fillMaxWidth()) {
-                                            LazyRow(
-                                                state = listState,
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterHorizontally),
-                                                contentPadding = PaddingValues(horizontal = 10.dp)
-                                            ) {
-                                                items(items = users, key = { it.id }) { user ->
-                                                    WhoWatchingUserCard(
-                                                        user = user,
-                                                        activeServerId = activeServerId,
-                                                        isSwitching = isSwitching,
-                                                        showRemoveAction = showRemoveAction,
-                                                        onUserSelected = onUserSelected,
-                                                        onRequestRemoveUser = onRequestRemoveUser,
-                                                        modifier = Modifier.width(104.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            if (showLeftIndicator) {
-                                                WhoWatchingScrollIndicator(
-                                                    modifier = Modifier
-                                                        .align(Alignment.CenterStart)
-                                                        .padding(start = 4.dp),
-                                                    rotateDegrees = 180f,
-                                                    onClick = {
-                                                        val targetIndex =
-                                                            (listState.firstVisibleItemIndex - 1).coerceAtLeast(0)
-                                                        scope.launch {
-                                                            listState.animateScrollToItem(targetIndex)
-                                                        }
-                                                    }
-                                                )
-                                            }
-
-                                            if (showRightIndicator) {
-                                                WhoWatchingScrollIndicator(
-                                                    modifier = Modifier
-                                                        .align(Alignment.CenterEnd)
-                                                        .padding(end = 4.dp),
-                                                    onClick = {
-                                                        val targetIndex =
-                                                            (listState.firstVisibleItemIndex + 1)
-                                                                .coerceAtMost((users.lastIndex).coerceAtLeast(0))
-                                                        scope.launch {
-                                                            listState.animateScrollToItem(targetIndex)
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        val maxItemsPerRow = if (maxWidth >= 920.dp) 5 else 4
-
-                                        FlowRow(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(
-                                                space = 28.dp,
-                                                alignment = Alignment.CenterHorizontally
-                                            ),
-                                            verticalArrangement = Arrangement.spacedBy(24.dp),
-                                            maxItemsInEachRow = maxItemsPerRow
-                                        ) {
-                                            users.forEach { user ->
-                                                WhoWatchingUserCard(
-                                                    user = user,
-                                                    activeServerId = activeServerId,
-                                                    isSwitching = isSwitching,
-                                                    showRemoveAction = showRemoveAction,
-                                                    onUserSelected = onUserSelected,
-                                                    onRequestRemoveUser = onRequestRemoveUser,
-                                                    modifier = Modifier.width(112.dp)
-                                                )
-                                            }
-                                        }
-                                    }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(28.dp))
-
-                            OutlinedButton(
-                                enabled = !isSwitching,
-                                onClick = onAddUser,
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White,
-                                    containerColor = Color(0x14000000)
-                                ),
-                                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.PersonAddAlt1,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                            if (showLeftIndicator) {
+                                WhoWatchingScrollIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = 4.dp),
+                                    rotateDegrees = 180f,
+                                    onClick = {
+                                        val targetIndex =
+                                            (listState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+                                        scope.launch {
+                                            listState.animateScrollToItem(targetIndex)
+                                        }
+                                    }
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = stringResource(R.string.settings_add_user),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
+                            }
+
+                            if (showRightIndicator) {
+                                WhoWatchingScrollIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .padding(end = 4.dp),
+                                    onClick = {
+                                        val targetIndex =
+                                            (listState.firstVisibleItemIndex + 1)
+                                                .coerceAtMost((users.lastIndex).coerceAtLeast(0))
+                                        scope.launch {
+                                            listState.animateScrollToItem(targetIndex)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        val maxItemsPerRow = if (maxWidth >= 920.dp) 5 else 4
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                space = 28.dp,
+                                alignment = Alignment.CenterHorizontally
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            maxItemsInEachRow = maxItemsPerRow
+                        ) {
+                            users.forEach { user ->
+                                WhoWatchingUserCard(
+                                    user = user,
+                                    activeServerId = activeServerId,
+                                    isSwitching = isSwitching,
+                                    showRemoveAction = showRemoveAction,
+                                    onUserSelected = onUserSelected,
+                                    onRequestRemoveUser = onRequestRemoveUser,
+                                    modifier = Modifier.width(112.dp)
                                 )
                             }
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            OutlinedButton(
+                enabled = !isSwitching,
+                onClick = onAddUser,
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White,
+                    containerColor = Color(0x14000000)
+                ),
+                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.PersonAddAlt1,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(R.string.settings_add_user),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

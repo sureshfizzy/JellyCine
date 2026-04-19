@@ -65,6 +65,7 @@ fun Settings(
 
     var showNetworkDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
+    var showSeerrDialog by remember { mutableStateOf(false) }
     val activeSavedServer = remember(uiState.savedServers, uiState.activeServerId) {
         uiState.savedServers.firstOrNull { it.id == uiState.activeServerId }
     }
@@ -125,6 +126,21 @@ fun Settings(
                     onServerClick = serverSwitchDialogsState::openServers,
                     onNavigateToDownloads = onNavigateToDownloads
                 )
+            }
+
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.Link,
+                        title = stringResource(R.string.settings_seerr),
+                        subtitle = seerrSubtitle(uiState.seerr),
+                        accentColor = seerrAccentColor(uiState.seerr.status),
+                        trailing = {
+                            SeerrStatusChip(uiState.seerr.status)
+                        },
+                        onClick = { showSeerrDialog = true }
+                    )
+                }
             }
 
             item {
@@ -280,6 +296,37 @@ fun Settings(
                 }
                 editingNetworkTimeout = null
             }
+        )
+    }
+
+    if (showSeerrDialog) {
+        SeerrConnectionDialog(
+            connectionState = uiState.seerr,
+            isBusy = uiState.seerr.status == SeerrConnectionStatus.CONNECTING ||
+                uiState.seerr.status == SeerrConnectionStatus.CHECKING,
+            onDismiss = {
+                if (uiState.seerr.status != SeerrConnectionStatus.CONNECTING &&
+                    uiState.seerr.status != SeerrConnectionStatus.CHECKING
+                ) {
+                    showSeerrDialog = false
+                }
+            },
+            onConnect = { serverUrl, username, password ->
+                viewModel.connectSeerr(
+                    serverUrl = serverUrl,
+                    username = username,
+                    password = password
+                ) { result ->
+                    if (result.isSuccess) {
+                        showSeerrDialog = false
+                    }
+                }
+            },
+            onDisconnect = {
+                viewModel.disconnectSeerr()
+                showSeerrDialog = false
+            },
+            onRefreshStatus = viewModel::refreshSeerrConnection
         )
     }
 
@@ -917,3 +964,4 @@ private fun readableCodecName(mimeType: String): String {
         }
     }
 }
+

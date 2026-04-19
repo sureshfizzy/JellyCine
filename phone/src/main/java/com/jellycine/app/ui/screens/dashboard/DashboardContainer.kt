@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -93,6 +94,10 @@ import kotlin.math.min
 import kotlin.math.round
 import com.jellycine.app.R
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 private fun DashboardEnterTransition(): EnterTransition {
     return fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing))
@@ -162,6 +167,8 @@ fun DashboardContainer(
     val context = LocalContext.current
     val preferences = remember(context) { Preferences(context) }
     val appContext = remember(context) { context.applicationContext }
+    val authRepository = remember(appContext) { AuthRepositoryProvider.getInstance(appContext) }
+    val seerrRepository = remember(appContext) { SeerrRepository(appContext) }
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
     }
@@ -340,6 +347,17 @@ fun DashboardContainer(
         if (!isNetworkAvailable && currentRoute != null && !offlineAllowedRoutes.contains(currentRoute)) {
             navigateToDestination(DashboardDestination.Home)
         }
+    }
+
+    LaunchedEffect(authRepository, seerrRepository) {
+        authRepository.observeActiveSession()
+            .map { snapshot -> snapshot.activeServerId }
+            .distinctUntilChanged()
+            .collect { scopeId ->
+                if (!scopeId.isNullOrBlank() && seerrRepository.getSavedConnectionInfo(scopeId) != null) {
+                    seerrRepository.refreshConnection(scopeId)
+                }
+            }
     }
 
     Box(
@@ -1319,4 +1337,3 @@ fun GenreSectionSkeleton(
         }
     }
 }
-
