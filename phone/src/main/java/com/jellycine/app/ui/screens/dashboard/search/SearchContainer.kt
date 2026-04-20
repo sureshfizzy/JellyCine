@@ -143,11 +143,15 @@ fun SearchContainer(
     val hasSearchResults = remember(
         uiState.movieResults,
         uiState.showResults,
-        uiState.episodeResults
+        uiState.episodeResults,
+        uiState.seerrMovieResults,
+        uiState.seerrShowResults
     ) {
         uiState.movieResults.isNotEmpty() ||
             uiState.showResults.isNotEmpty() ||
-            uiState.episodeResults.isNotEmpty()
+            uiState.episodeResults.isNotEmpty() ||
+            uiState.seerrMovieResults.isNotEmpty() ||
+            uiState.seerrShowResults.isNotEmpty()
     }
     val burstPrefetchItems = remember(
         isSearchActive,

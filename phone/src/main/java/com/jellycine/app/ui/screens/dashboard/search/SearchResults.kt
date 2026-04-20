@@ -10,8 +10,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,8 +33,11 @@ import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
+import coil3.compose.AsyncImage
+import java.util.Locale
 
 @Composable
 fun SearchResultsViewSkeleton(
@@ -127,7 +132,7 @@ fun SearchResultsView(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Movies Section
-        if (uiState.movieResults.isNotEmpty()) {
+        if (uiState.movieResults.isNotEmpty() || uiState.seerrMovieResults.isNotEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.movies),
@@ -149,12 +154,19 @@ fun SearchResultsView(
                             onItemClick = { onItemClick(movie) }
                         )
                     }
+
+                    items(
+                        items = uiState.seerrMovieResults,
+                        key = { seerrItem -> "seerr-movie-${seerrItem.tmdbId}" }
+                    ) { seerrItem ->
+                        SearchSeerrResultCard(item = seerrItem)
+                    }
                 }
             }
         }
         
         // TV Shows Section
-        if (uiState.showResults.isNotEmpty()) {
+        if (uiState.showResults.isNotEmpty() || uiState.seerrShowResults.isNotEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.search_results_shows),
@@ -175,6 +187,13 @@ fun SearchResultsView(
                             item = show,
                             onItemClick = { onItemClick(show) }
                         )
+                    }
+
+                    items(
+                        items = uiState.seerrShowResults,
+                        key = { seerrItem -> "seerr-show-${seerrItem.tmdbId}" }
+                    ) { seerrItem ->
+                        SearchSeerrResultCard(item = seerrItem)
                     }
                 }
             }
@@ -338,5 +357,82 @@ private fun EpisodeResultCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun SearchSeerrResultCard(
+    item: SeerrRecommendationTitle
+) {
+    val posterUrl = remember(item.posterPath) {
+        item.posterPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let { path -> "https://image.tmdb.org/t/p/w500$path" }
+    }
+
+    Column(
+        modifier = Modifier.width(120.dp)
+    ) {
+        Card(
+            modifier = Modifier
+                .width(120.dp)
+                .aspectRatio(0.67f),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Gray.copy(alpha = 0.2f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!posterUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = posterUrl,
+                        contentDescription = item.title,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    color = Color.Black.copy(alpha = 0.72f)
+                ) {
+                    Text(
+                        text = "Seerr",
+                        fontSize = 11.sp,
+                        color = Color(0xFF9CDCFE),
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = item.title,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 16.sp
+        )
+
+        Text(
+            text = item.productionYear?.toString()
+                ?: item.mediaType.replaceFirstChar { char ->
+                    if (char.isLowerCase()) char.titlecase(Locale.US) else char.toString()
+                },
+            color = Color.Gray,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

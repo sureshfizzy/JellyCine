@@ -241,6 +241,99 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    suspend fun searchTitles(
+        scopeId: String,
+        query: String,
+        limit: Int = 20
+    ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext Result.failure(
+            Exception("Seerr is not connected.")
+        )
+        val searchQuery = query.trim()
+        if (searchQuery.isBlank()) {
+            return@withContext Result.success(emptyList())
+        }
+
+        runRequestCatching {
+            val client = createHttpClient()
+            val response = client.newCall(
+                Request.Builder()
+                    .url(
+                        buildApiUrl(storedConnection.serverUrl, "search")
+                            .newBuilder()
+                            .addQueryParameter("query", searchQuery)
+                            .addQueryParameter("page", "1")
+                            .build()
+                    )
+                    .get()
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Cookie", storedConnection.sessionCookie)
+                    .build()
+            ).execute()
+
+            response.use { searchResponse ->
+                val responseBody = searchResponse.body?.string().orEmpty()
+                when {
+                    searchResponse.isSuccessful -> {
+                        val payload = runCatching {
+                            JellyCineJson.decodeFromString<SeerrSearchResponse>(responseBody)
+                        }.getOrNull()
+                            ?: return@use Result.failure(
+                                Exception("Could not parse Seerr search results.")
+                            )
+
+                        Result.success(
+                            payload.results
+                                .asSequence()
+                                .mapNotNull { result ->
+                                    val mediaType = result.mediaType.ifNotBlank()
+                                        ?: result.mediaTypeSnake.ifNotBlank()
+                                        ?: return@mapNotNull null
+                                    val normalizedMediaType = when {
+                                        mediaType.equals("tv", ignoreCase = true) -> "tv"
+                                        mediaType.equals("movie", ignoreCase = true) -> "movie"
+                                        else -> return@mapNotNull null
+                                    }
+                                    val tmdbId = result.id?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                                    val title = result.title.ifNotBlank()
+                                        ?: result.name.ifNotBlank()
+                                        ?: return@mapNotNull null
+
+                                    SeerrRecommendationTitle(
+                                        tmdbId = tmdbId,
+                                        title = title,
+                                        mediaType = normalizedMediaType,
+                                        productionYear = result.releaseDate.extractYear()
+                                            ?: result.releaseDateSnake.extractYear()
+                                            ?: result.firstAirDate.extractYear()
+                                            ?: result.firstAirDateSnake.extractYear(),
+                                        posterPath = result.posterPath.ifNotBlank()
+                                            ?: result.posterPathSnake.ifNotBlank(),
+                                        jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank()
+                                    )
+                                }
+                                .distinctBy { result -> "${result.mediaType}:${result.tmdbId}" }
+                                .take(limit)
+                                .toList()
+                        )
+                    }
+
+                    searchResponse.code == 401 || searchResponse.code == 403 -> {
+                        Result.failure(
+                            Exception("Your Seerr session expired. Please sign in again.")
+                        )
+                    }
+
+                    else -> {
+                        Result.failure(
+                            Exception("Failed to search Seerr titles. Server responded with HTTP ${searchResponse.code}.")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun disconnect(scopeId: String?) {
         if (scopeId.isNullOrBlank()) return
         prefs.edit()

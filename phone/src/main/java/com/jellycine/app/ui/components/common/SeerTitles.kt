@@ -95,6 +95,28 @@ internal fun filterSeerTitlesForRow(
     }
 }
 
+internal fun filterSeerTitles(
+    seerrTitles: List<SeerrRecommendationTitle>,
+    localItems: List<BaseItemDto>
+): List<SeerrRecommendationTitle> {
+    if (seerrTitles.isEmpty()) return emptyList()
+
+    val localTitles = localItems.map { item ->
+        item.name.normalizedMatchKey() to item.productionYear
+    }.toSet()
+    val localIds = localItems.mapNotNull { item -> item.id }.toSet()
+
+    return seerrTitles.filterNot { seerrTitle ->
+        val normalizedTitle = seerrTitle.title.normalizedMatchKey()
+        val localIdMatch = seerrTitle.jellyfinMediaId?.let(localIds::contains) == true
+        val titleMatch = localTitles.any { (titleKey, year) ->
+            titleKey == normalizedTitle && yearMatch(year, seerrTitle.productionYear)
+        }
+
+        localIdMatch || titleMatch
+    }
+}
+
 internal suspend fun seerPersonId(
     items: List<BaseItemDto>,
     personName: String,

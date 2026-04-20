@@ -60,3 +60,34 @@ internal data class SeerrCreditEntry(
 internal data class SeerrCreditMediaInfo(
     val jellyfinMediaId: String? = null
 )
+
+@Serializable
+internal data class SeerrSearchResponse(
+    val page: Int? = null,
+    val totalPages: Int? = null,
+    val totalResults: Int? = null,
+    val results: List<SeerrSearchResult> = emptyList()
+)
+
+@Serializable
+internal data class SeerrSearchResult(
+    val id: Long? = null,
+    val name: String? = null,
+    val title: String? = null,
+    val mediaType: String? = null,
+    @SerialName("media_type")
+    val mediaTypeSnake: String? = null,
+    @SerialName("posterPath")
+    val posterPath: String? = null,
+    @SerialName("poster_path")
+    val posterPathSnake: String? = null,
+    @SerialName("releaseDate")
+    val releaseDate: String? = null,
+    @SerialName("release_date")
+    val releaseDateSnake: String? = null,
+    @SerialName("firstAirDate")
+    val firstAirDate: String? = null,
+    @SerialName("first_air_date")
+    val firstAirDateSnake: String? = null,
+    val mediaInfo: SeerrCreditMediaInfo? = null
+)
