@@ -4,12 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.jellycine.data.model.SeerrPersonCreditType
+import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -23,6 +24,7 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.security.cert.CertificateException
 import java.security.MessageDigest
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
@@ -130,6 +132,112 @@ class SeerrRepository(context: Context) {
             prefs.edit()
                 .putBoolean(scopedKey(KEY_IS_VERIFIED, scopeId), false)
                 .apply()
+        }
+    }
+
+    suspend fun getPersonTitles(
+        scopeId: String,
+        personTmdbId: String,
+        mediaType: String,
+        creditType: SeerrPersonCreditType,
+        limit: Int = 12
+    ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext Result.failure(
+            Exception("Seerr is not connected.")
+        )
+        val seerPersonTmdbId = personTmdbId.trim()
+        if (seerPersonTmdbId.isBlank()) {
+            return@withContext Result.success(emptyList())
+        }
+
+        runRequestCatching {
+            val client = createHttpClient()
+            val response = client.newCall(
+                Request.Builder()
+                    .url(buildApiUrl(storedConnection.serverUrl, "person/$seerPersonTmdbId/combined_credits"))
+                    .get()
+                    .addHeader("Accept", "application/json")
+                    .addHeader("Cookie", storedConnection.sessionCookie)
+                    .build()
+            ).execute()
+
+            response.use { creditsResponse ->
+                val responseBody = creditsResponse.body?.string().orEmpty()
+                when {
+                    creditsResponse.isSuccessful -> {
+                        val payload = runCatching {
+                            JellyCineJson.decodeFromString<SeerrCombinedCreditsResponse>(responseBody)
+                        }.getOrNull()
+                            ?: return@use Result.failure(
+                                Exception("Could not parse Seerr person credits.")
+                            )
+
+                        val seerMediaType = if (mediaType.equals("tv", ignoreCase = true)) {
+                            "tv"
+                        } else {
+                            "movie"
+                        }
+                        val credits = buildList {
+                            when (creditType) {
+                                SeerrPersonCreditType.DIRECTOR -> {
+                                    addAll(
+                                        payload.crew.filter { credit ->
+                                            credit.job.crewRoleLabel() != null
+                                        }
+                                    )
+                                }
+
+                                SeerrPersonCreditType.ACTOR -> {
+                                    addAll(payload.cast)
+                                    addAll(
+                                        payload.crew.filter { credit ->
+                                            credit.job.crewRoleLabel() != null
+                                        }
+                                    )
+                                }
+                            }
+                        }.filter { it.mediaType.equals(seerMediaType, ignoreCase = true) }
+
+                        Result.success(
+                            credits
+                                .asSequence()
+                                .mapNotNull { credit ->
+                                    val tmdbId = credit.id?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                                    val title = credit.title.ifNotBlank()
+                                        ?: credit.name.ifNotBlank()
+                                        ?: return@mapNotNull null
+                                    SeerrRecommendationTitle(
+                                        tmdbId = tmdbId,
+                                        title = title,
+                                        mediaType = seerMediaType,
+                                        productionYear = credit.releaseDate.extractYear()
+                                            ?: credit.firstAirDate.extractYear(),
+                                        posterPath = credit.posterPath.ifNotBlank()
+                                            ?: credit.posterPathSnake.ifNotBlank(),
+                                        jellyfinMediaId = credit.mediaInfo?.jellyfinMediaId.ifNotBlank(),
+                                        roleLabel = credit.job.crewRoleLabel()
+                                            ?: creditType.defaultRoleLabel()
+                                    )
+                                }
+                                .distinctBy { it.tmdbId }
+                                .take(limit)
+                                .toList()
+                        )
+                    }
+
+                    creditsResponse.code == 401 || creditsResponse.code == 403 -> {
+                        Result.failure(
+                            Exception("Your Seerr session expired. Please sign in again.")
+                        )
+                    }
+
+                    else -> {
+                        Result.failure(
+                            Exception("Failed to fetch Seerr person credits. Server responded with HTTP ${creditsResponse.code}.")
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -563,6 +671,25 @@ class SeerrRepository(context: Context) {
 
     private fun String?.ifNotBlank(): String? = this?.takeIf { it.isNotBlank() }
 
+    private fun String?.extractYear(): Int? =
+        this?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
+
+    private fun String?.crewRoleLabel(): String? {
+        val seerJob = this?.trim()?.lowercase(Locale.US) ?: return null
+        return when {
+            seerJob == DIRECTOR_ROLE.lowercase(Locale.US) -> DIRECTOR_ROLE
+            seerJob in WRITER_JOBS -> WRITER_ROLE
+            seerJob in PRODUCER_JOBS -> PRODUCER_ROLE
+            seerJob == CREATOR_ROLE.lowercase(Locale.US) -> CREATOR_ROLE
+            else -> OTHER_ROLE
+        }
+    }
+
+    private fun SeerrPersonCreditType.defaultRoleLabel(): String = when (this) {
+        SeerrPersonCreditType.DIRECTOR -> DIRECTOR_ROLE
+        SeerrPersonCreditType.ACTOR -> ACTOR_ROLE
+    }
+
     private fun SharedPreferences.Editor.putScopedIntOrRemove(
         baseKey: String,
         scopeId: String,
@@ -621,35 +748,6 @@ class SeerrRepository(context: Context) {
             .apply()
     }
 
-    @Serializable
-    private data class SeerrStatusResponse(
-        val version: String? = null
-    )
-
-    @Serializable
-    private data class SeerrLoginRequest(
-        val username: String,
-        val password: String,
-        val hostname: String? = null
-    )
-
-    @Serializable
-    private data class SeerrCurrentUserResponse(
-        val id: Int? = null
-    )
-
-    @Serializable
-    private data class SeerrQuotaResponse(
-        val movie: SeerrQuotaDetails = SeerrQuotaDetails(),
-        val tv: SeerrQuotaDetails = SeerrQuotaDetails()
-    )
-
-    @Serializable
-    private data class SeerrQuotaDetails(
-        val days: Int? = null,
-        val limit: Int? = null
-    )
-
     private data class StoredConnection(
         val serverUrl: String,
         val sessionCookie: String
@@ -672,5 +770,13 @@ class SeerrRepository(context: Context) {
         private const val KEY_TV_QUOTA_DAYS = "tv_quota_days"
         private const val KEY_IS_VERIFIED = "is_verified"
         private const val KEY_SESSION_COOKIE = "session_cookie"
+        private const val DIRECTOR_ROLE = "Director"
+        private const val ACTOR_ROLE = "Actor"
+        private const val WRITER_ROLE = "Writer"
+        private const val PRODUCER_ROLE = "Producer"
+        private const val CREATOR_ROLE = "Creator"
+        private const val OTHER_ROLE = "Other"
+        private val WRITER_JOBS = setOf("writer", "screenplay", "story", "novel", "characters")
+        private val PRODUCER_JOBS = setOf("producer", "executive producer", "co-producer", "associate producer", "line producer")
     }
 }

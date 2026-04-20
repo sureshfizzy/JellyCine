@@ -335,7 +335,7 @@ class MediaRepository(private val context: Context) {
         parentId: String? = null,
         categoryLimit: Int = 8,
         itemLimit: Int = 16,
-        fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+        fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,People"
     ): Result<List<RecommendationDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception("API not available"))

@@ -1,5 +1,4 @@
 package com.jellycine.app.ui.screens.dashboard.media
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,13 +32,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.SeerPersonRole
+import com.jellycine.app.ui.components.common.SeerTitleCard
+import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
+import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
+import com.jellycine.app.ui.components.common.seerPersonId
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -46,7 +54,10 @@ import kotlinx.coroutines.launch
 
 private data class RecommendationSectionUi(
     val title: String,
-    val items: List<BaseItemDto>
+    val items: List<BaseItemDto>,
+    val seerItems: List<SeerrRecommendationTitle> = emptyList(),
+    val seerRole: SeerPersonRole? = null,
+    val personName: String? = null
 )
 
 private data class RecommendationFeedState(
@@ -61,9 +72,13 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(context) { SeerrRepository(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
+    val activeServerId by authRepository.getActiveServerId()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
 
     fun refresh() {
         scope.launch {
@@ -72,10 +87,52 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
             sections = result.sections
             error = result.error
             isLoading = false
+
+            result.sections
+                .filter { it.seerRole != null }
+                .forEach { section ->
+                    launch {
+                        val seerItems = loadSectionSeerRecommendations(
+                            section = section,
+                            activeServerId = activeServerId,
+                            mediaRepository = mediaRepository,
+                            seerrRepository = seerrRepository
+                        )
+                        var updatedSection = section.copy(seerItems = seerItems)
+                        if (updatedSection != section) {
+                            sections = sections.replaceSection(updatedSection)
+                        }
+
+                        seerItems
+                            .mapNotNull { seerItem ->
+                                val seedItemId = updatedSection.items.firstOrNull()?.id
+                                val jellyfinMediaId = seerItem.jellyfinMediaId
+                                    ?.takeIf { it.isNotBlank() && it != seedItemId }
+                                    ?: return@mapNotNull null
+                                jellyfinMediaId to seerItem
+                            }
+                            .distinctBy { (jellyfinMediaId, _) -> jellyfinMediaId }
+                            .forEach { (jellyfinMediaId, seerItem) ->
+                                val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull() ?: return@forEach
+                                val localItemId = localItem.id ?: return@forEach
+                                updatedSection = if (updatedSection.items.any { it.id == localItemId }) {
+                                    updatedSection.copy(
+                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
+                                    )
+                                } else {
+                                    updatedSection.copy(
+                                        items = updatedSection.items + localItem,
+                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
+                                    )
+                                }
+                                sections = sections.replaceSection(updatedSection)
+                            }
+                    }
+                }
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(activeServerId) {
         refresh()
     }
 
@@ -191,7 +248,9 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
                     } else {
                         RecommendationSectionUi(
                             title = title,
-                            items = items
+                            items = items,
+                            seerRole = recommendation.seerRole(),
+                            personName = recommendation.baselineItemName?.takeIf { it.isNotBlank() }
                         )
                     }
                 }
@@ -199,12 +258,15 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
 
         val sections = rawSections
             .groupBy { it.title }
-            .map { (title, groupedSections) ->
+            .map { (_, groupedSections) ->
+                val seed = groupedSections.first()
                 RecommendationSectionUi(
-                    title = title,
+                    title = seed.title,
                     items = groupedSections
                         .flatMap { it.items }
-                        .distinctBy { item -> item.id ?: item.name.orEmpty() }
+                        .distinctBy { item -> item.id ?: item.name.orEmpty() },
+                    seerRole = seed.seerRole,
+                    personName = seed.personName
                 )
             }
             .filter { it.items.isNotEmpty() }
@@ -262,6 +324,57 @@ private fun RecommendationDto.title(): String? {
     }
 }
 
+private fun RecommendationDto.seerRole(): SeerPersonRole? {
+    return when (recommendationType) {
+        "HasDirectorFromRecentlyPlayed",
+        "HasLikedDirector" -> SeerPersonRole.DIRECTOR
+
+        "HasActorFromRecentlyPlayed",
+        "HasLikedActor" -> SeerPersonRole.ACTOR
+
+        else -> null
+    }
+}
+
+private suspend fun loadSectionSeerRecommendations(
+    section: RecommendationSectionUi,
+    activeServerId: String?,
+    mediaRepository: MediaRepository,
+    seerrRepository: SeerrRepository
+): List<SeerrRecommendationTitle> {
+    val role = section.seerRole ?: return emptyList()
+    val personName = section.personName ?: return emptyList()
+    val seedItem = section.items.firstOrNull() ?: return emptyList()
+    if (activeServerId.isNullOrBlank()) return emptyList()
+    val personId = seerPersonId(
+        items = section.items,
+        personName = personName,
+        role = role,
+        mediaRepository = mediaRepository
+    ) ?: return emptyList()
+
+    return filterSeerTitlesForRow(
+        seerrTitles = fetchSeerCreditTitles(
+            item = seedItem,
+            personId = personId,
+            role = role,
+            activeServerId = activeServerId,
+            mediaRepository = mediaRepository,
+            seerrRepository = seerrRepository
+        ),
+        baseTitles = section.items,
+        item = seedItem,
+    )
+}
+
+private fun List<RecommendationSectionUi>.replaceSection(
+    updatedSection: RecommendationSectionUi
+): List<RecommendationSectionUi> {
+    return map { section ->
+        if (section.title == updatedSection.title) updatedSection else section
+    }
+}
+
 @Composable
 private fun RecommendationRail(
     section: RecommendationSectionUi,
@@ -269,6 +382,8 @@ private fun RecommendationRail(
     disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit
 ) {
+    if (section.items.size + section.seerItems.size <= 1) return
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -296,6 +411,13 @@ private fun RecommendationRail(
                     disableImageEnhancers = disablePosterEnhancers,
                     onClick = { onItemClick(item) }
                 )
+            }
+
+            items(
+                items = section.seerItems,
+                key = { item -> "seer-${section.title}-${item.tmdbId}" }
+            ) { item ->
+                SeerTitleCard(item)
             }
         }
     }
