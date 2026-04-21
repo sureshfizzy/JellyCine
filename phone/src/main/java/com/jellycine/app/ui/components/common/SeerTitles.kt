@@ -1,17 +1,23 @@
 package com.jellycine.app.ui.components.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -23,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,6 +40,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository
 import java.util.Locale
@@ -194,21 +203,10 @@ internal fun SeerTitleCard(
                     }
                 }
 
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(999.dp),
-                    color = Color.Black.copy(alpha = 0.72f)
-                ) {
-                    Text(
-                        text = "Seerr",
-                        fontSize = 11.sp,
-                        color = Color(0xFF9CDCFE),
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                SeerrTopBadges(
+                    requestState = item.requestState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
 
                 item.roleLabel
                     ?.takeIf { it.isNotBlank() }
@@ -257,6 +255,74 @@ internal fun SeerTitleCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 1.dp)
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SeerrTopBadges(
+    requestState: SeerrRequestState,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        SeerrSourceBadge()
+
+        if (requestState == SeerrRequestState.REQUESTED) {
+            SeerrRequestBadge()
+        }
+    }
+}
+
+@Composable
+internal fun SeerrSourceBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(20.dp),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.Black.copy(alpha = 0.72f)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Seerr",
+                fontSize = 9.sp,
+                color = Color(0xFF9CDCFE),
+                fontWeight = FontWeight.SemiBold,
+                style = TextStyle(
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SeerrRequestBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color(0xFFE4E5FF),
+        border = BorderStroke(1.dp, Color(0xFF8E90FF))
+    ) {
+        Box(
+            modifier = Modifier.size(18.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Schedule,
+                contentDescription = "Requested on Seerr",
+                tint = Color(0xFF5F65E8),
+                modifier = Modifier.size(13.dp)
             )
         }
     }

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.R
+import com.jellycine.app.ui.components.common.SeerrTopBadges
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle
@@ -394,21 +395,10 @@ private fun SearchSeerrResultCard(
                     )
                 }
 
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp),
-                    shape = RoundedCornerShape(999.dp),
-                    color = Color.Black.copy(alpha = 0.72f)
-                ) {
-                    Text(
-                        text = "Seerr",
-                        fontSize = 11.sp,
-                        color = Color(0xFF9CDCFE),
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                SeerrTopBadges(
+                    requestState = item.requestState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
             }
         }
 

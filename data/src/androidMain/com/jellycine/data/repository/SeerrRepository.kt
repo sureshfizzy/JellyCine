@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
@@ -215,6 +216,7 @@ class SeerrRepository(context: Context) {
                                         posterPath = credit.posterPath.ifNotBlank()
                                             ?: credit.posterPathSnake.ifNotBlank(),
                                         jellyfinMediaId = credit.mediaInfo?.jellyfinMediaId.ifNotBlank(),
+                                        requestState = credit.mediaInfo.toRequestState(),
                                         roleLabel = credit.job.crewRoleLabel()
                                             ?: creditType.defaultRoleLabel()
                                     )
@@ -309,7 +311,8 @@ class SeerrRepository(context: Context) {
                                             ?: result.firstAirDateSnake.extractYear(),
                                         posterPath = result.posterPath.ifNotBlank()
                                             ?: result.posterPathSnake.ifNotBlank(),
-                                        jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank()
+                                        jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank(),
+                                        requestState = result.mediaInfo.toRequestState()
                                     )
                                 }
                                 .distinctBy { result -> "${result.mediaType}:${result.tmdbId}" }
@@ -778,6 +781,22 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    private fun SeerrMediaInfo?.toRequestState(): SeerrRequestState {
+        if (this == null) return SeerrRequestState.NONE
+
+        val hasActiveRequest = requests.any { request ->
+            request.status == SEERR_REQUEST_PENDING || request.status == SEERR_REQUEST_APPROVED
+        }
+        val hasRequestedMediaStatus =
+            status == SEERR_MEDIA_PENDING || status == SEERR_MEDIA_PROCESSING
+
+        return if (hasActiveRequest || hasRequestedMediaStatus) {
+            SeerrRequestState.REQUESTED
+        } else {
+            SeerrRequestState.NONE
+        }
+    }
+
     private fun SeerrPersonCreditType.defaultRoleLabel(): String = when (this) {
         SeerrPersonCreditType.DIRECTOR -> DIRECTOR_ROLE
         SeerrPersonCreditType.ACTOR -> ACTOR_ROLE
@@ -863,6 +882,10 @@ class SeerrRepository(context: Context) {
         private const val KEY_TV_QUOTA_DAYS = "tv_quota_days"
         private const val KEY_IS_VERIFIED = "is_verified"
         private const val KEY_SESSION_COOKIE = "session_cookie"
+        private const val SEERR_MEDIA_PENDING = 2
+        private const val SEERR_MEDIA_PROCESSING = 3
+        private const val SEERR_REQUEST_PENDING = 1
+        private const val SEERR_REQUEST_APPROVED = 2
         private const val DIRECTOR_ROLE = "Director"
         private const val ACTOR_ROLE = "Actor"
         private const val WRITER_ROLE = "Writer"

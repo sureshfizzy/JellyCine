@@ -53,12 +53,19 @@ internal data class SeerrCreditEntry(
     val releaseDate: String? = null,
     @SerialName("firstAirDate")
     val firstAirDate: String? = null,
-    val mediaInfo: SeerrCreditMediaInfo? = null
+    val mediaInfo: SeerrMediaInfo? = null
 )
 
 @Serializable
-internal data class SeerrCreditMediaInfo(
-    val jellyfinMediaId: String? = null
+internal data class SeerrMediaInfo(
+    val jellyfinMediaId: String? = null,
+    val status: Int? = null,
+    val requests: List<SeerrMediaRequest> = emptyList()
+)
+
+@Serializable
+internal data class SeerrMediaRequest(
+    val status: Int? = null
 )
 
 @Serializable
@@ -89,5 +96,5 @@ internal data class SeerrSearchResult(
     val firstAirDate: String? = null,
     @SerialName("first_air_date")
     val firstAirDateSnake: String? = null,
-    val mediaInfo: SeerrCreditMediaInfo? = null
+    val mediaInfo: SeerrMediaInfo? = null
 )
