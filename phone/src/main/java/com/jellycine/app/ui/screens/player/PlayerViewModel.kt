@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,11 +15,15 @@ import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.jellycine.app.ui.screens.player.mpv.MPVPlayer
+import com.jellycine.app.ui.screens.player.mpv.MpvPlayerController
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.player.audio.SpatializerHelper
@@ -62,16 +67,19 @@ class PlayerViewModel @Inject constructor(
     private val _playbackCompletedEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val playbackCompletedEvents: SharedFlow<String> = _playbackCompletedEvents.asSharedFlow()
 
-    var exoPlayer: ExoPlayer? = null
+    var exoPlayer: ExoPlayer? by mutableStateOf(null)
         private set
+    var mpvPlayer: MpvPlayerController? by mutableStateOf(null)
+        private set
+    private var activePlayerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE
 
     private val trackSelectionCoordinator = PlayerTrackSelection()
     private var playbackSession = PlaybackSessionContext()
     private val playbackReporter = PlayerPlaybackReporter(
         mediaRepository = mediaRepository,
         scope = viewModelScope,
-        positionProvider = { exoPlayer?.currentPosition ?: 0L },
-        isPausedProvider = { exoPlayer?.playWhenReady != true }
+        positionProvider = { getCurrentPosition() },
+        isPausedProvider = { !isPlayingNow() }
     )
     private var spatializerHelper: SpatializerHelper? = null
     private var playerContext: Context? = null
@@ -89,6 +97,11 @@ class PlayerViewModel @Inject constructor(
     private var nextEpisodePrefetchJob: Job? = null
     private var nextEpisodePrefetchSignature: String? = null
     private var hasRenderedFirstFrame = false
+    private var mpvExternalSubtitleUrls: Map<Int, String> = emptyMap()
+
+    private fun isMpvPlayback(): Boolean {
+        return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
+    }
 
     fun initializePlayer(
         context: Context,
@@ -122,7 +135,8 @@ class PlayerViewModel @Inject constructor(
 
                 playerContext = context
                 hasHandledPlaybackCompletion = false
-                val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
+                val playerPreferences = PlayerPreferences(context)
+                activePlayerEngine = playerPreferences.getPlayerEngine()
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val activePreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
@@ -225,7 +239,7 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
                 val chapterMarkers = PlaybackMarkerUtils.buildChapterMarkers(itemDetails?.chapters)
-                val resolvedStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
+                val playerStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
                 val introSegment = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
 
                 var primaryMediaSource: MediaSource? = null
@@ -236,6 +250,7 @@ class PlayerViewModel @Inject constructor(
                 var sessionPlayMethod = PlayMethod.DIRECT_PLAY
                 var sessionIsOfflinePlayback = false
                 var streamingMediaSource: androidx.media3.exoplayer.source.MediaSource? = null
+                var playbackRequest: PlaybackRequest? = null
                 defaultAudioStreamIndex = null
                 defaultSubtitleStreamIndex = null
 
@@ -286,7 +301,8 @@ class PlayerViewModel @Inject constructor(
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
                         subtitleStreamIndex = activePreferredSubtitleStreamIndex,
                         audioTranscodeMode = audioTranscodeMode,
-                        playbackInfo = playbackInfo
+                        playbackInfo = playbackInfo,
+                        includeAccessToken = isMpvPlayback()
                     )
                     if (playbackRequestResult.isFailure) {
                         val error = playbackRequestResult.exceptionOrNull()?.message ?: "Failed to get playback request"
@@ -294,7 +310,7 @@ class PlayerViewModel @Inject constructor(
                         return@launch
                     }
 
-                    val playbackRequest = playbackRequestResult.getOrNull()
+                    playbackRequest = playbackRequestResult.getOrNull()
                     val streamingUrl = playbackRequest?.url
                     if (streamingUrl.isNullOrEmpty()) {
                         _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get playback URL")
@@ -326,17 +342,16 @@ class PlayerViewModel @Inject constructor(
                         streamingUrl = streamingUrl,
                         selectedSubtitleStream = activeSubtitleStream
                     )
-                    streamingMediaSource = PlayerUtils.createStreamingMediaSource(
-                        context = context,
-                        mediaItem = streamingMediaItem,
-                        requestHeaders = playbackRequest.requestHeaders
-                    )
+                    if (!isMpvPlayback()) {
+                        streamingMediaSource = PlayerUtils.createStreamingMediaSource(
+                            context = context,
+                            mediaItem = streamingMediaItem,
+                            requestHeaders = playbackRequest?.requestHeaders.orEmpty()
+                        )
+                    }
                     streamingMediaItem
                 }
 
-                exoPlayer = PlayerUtils.createPlayer(
-                    context = context
-                )
                 playbackSession = PlaybackSessionContext(
                     mediaId = mediaId,
                     playSessionId = sessionPlaySessionId,
@@ -353,26 +368,66 @@ class PlayerViewModel @Inject constructor(
                     itemDetails = itemDetails,
                     playbackMediaSource = primaryMediaSource
                 )
-                
-                exoPlayer?.apply {
-                    addListener(playerListener)
-                    if (streamingMediaSource != null) {
-                        setMediaSource(streamingMediaSource!!)
-                    } else {
-                        setMediaItem(mediaItem)
-                    }
-                    prepare()
+                mpvExternalSubtitleUrls = MPVPlayer.externalSubtitleUrls(
+                    playbackRequest = playbackRequest,
+                    mediaStreams = apiMediaStreams.orEmpty()
+                )
 
-                    if (resolvedStartPositionMs != null && resolvedStartPositionMs > 0) {
-                        seekTo(resolvedStartPositionMs)
+                if (isMpvPlayback()) {
+                    val selectedAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex
+                        ?: defaultAudioStreamIndex
+                    val selectedSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex
+                        ?: defaultSubtitleStreamIndex
+                    mpvPlayer = createMpvPlayer(context).also { player ->
+                        player.load(
+                            url = mediaItem.localConfiguration?.uri?.toString().orEmpty(),
+                            subtitleUrls = mpvExternalSubtitleUrls.values.toList(),
+                            audioTrackId = MPVPlayer.audioTrackId(
+                                apiMediaStreams,
+                                selectedAudioStreamIndex
+                            ),
+                            subtitleTrackId = MPVPlayer.subtitleTrackId(
+                                apiMediaStreams,
+                                selectedSubtitleStreamIndex
+                            ),
+                            selectedSubtitleUrl = selectedSubtitleStreamIndex?.let(
+                                mpvExternalSubtitleUrls::get
+                            ),
+                            startPositionMs = playerStartPositionMs,
+                            startPlayback = startPlayback
+                        )
                     }
-                    
-                    playWhenReady = startPlayback
+                } else {
+                    exoPlayer = PlayerUtils.createPlayer(
+                        context = context
+                    )
+                    exoPlayer?.apply {
+                        addListener(playerListener)
+                        if (streamingMediaSource != null) {
+                            setMediaSource(streamingMediaSource!!)
+                        } else {
+                            setMediaItem(mediaItem)
+                        }
+                        prepare()
+
+                        if (playerStartPositionMs != null && playerStartPositionMs > 0) {
+                            seekTo(playerStartPositionMs)
+                        }
+
+                        playWhenReady = startPlayback
+                    }
                 }
 
                 // Spatial audio analysis and device capabilities
-                updateTrackInformation()
-                val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                val usesMpv = isMpvPlayback()
+                if (!usesMpv) {
+                    updateTrackInformation()
+                }
+                val isHdrPlayback = if (usesMpv) {
+                    MPVPlayer.isHdr(apiMediaStreams)
+                } else {
+                    PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                }
                 
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
@@ -396,6 +451,9 @@ class PlayerViewModel @Inject constructor(
                     spatialAudioFormat = "",
                     isHdrEnabled = isHdrPlayback
                 )
+                if (usesMpv) {
+                    updateApiTrackInformation()
+                }
                 if (itemDetails != null) {
                     applyCommunityPlaybackSegments(mediaId = mediaId, itemDetails = itemDetails)
                 }
@@ -470,15 +528,18 @@ class PlayerViewModel @Inject constructor(
 
     fun seekTo(position: Long) {
         exoPlayer?.seekTo(position)
+        mpvPlayer?.seekTo(position)
         _playerState.value = _playerState.value.copy(currentPosition = position)
     }
 
     fun play() {
         exoPlayer?.play()
+        mpvPlayer?.play()
     }
 
     fun pause() {
         exoPlayer?.pause()
+        mpvPlayer?.pause()
         persistPosition()
     }
 
@@ -490,21 +551,21 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun seekBy(deltaMs: Long) {
-        val player = exoPlayer ?: return
-        val duration = player.duration
+        val currentPosition = getCurrentPosition()
+        val duration = getDuration()
         val targetPosition = if (duration > 0L) {
-            (player.currentPosition + deltaMs).coerceIn(0L, duration)
+            (currentPosition + deltaMs).coerceIn(0L, duration)
         } else {
-            (player.currentPosition + deltaMs).coerceAtLeast(0L)
+            (currentPosition + deltaMs).coerceAtLeast(0L)
         }
         seekTo(targetPosition)
     }
 
-    fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: 0L
+    fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
 
-    fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
+    fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
 
-    fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
+    fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: mpvPlayer?.duration ?: 0L
 
     fun updateNextEpisodeCache(
         context: Context,
@@ -710,18 +771,15 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun togglePlayPause() {
-        exoPlayer?.let { player ->
-            if (player.isPlaying) {
-                pause()
-            } else {
-                play()
-            }
+        if (exoPlayer != null || mpvPlayer != null) {
+            if (isPlayingNow()) pause() else play()
             playbackReporter.onPlaybackPauseStateChanged()
         }
     }
 
     fun setVolume(volume: Float) {
         exoPlayer?.volume = volume
+        mpvPlayer?.setVolume(volume)
         _playerState.value = _playerState.value.copy(volume = volume)
     }
 
@@ -746,6 +804,8 @@ class PlayerViewModel @Inject constructor(
             release()
         }
         exoPlayer = null
+        mpvPlayer?.release()
+        mpvPlayer = null
         spatializerHelper?.cleanup()
         spatializerHelper = null
         playbackSession = PlaybackSessionContext()
@@ -754,6 +814,7 @@ class PlayerViewModel @Inject constructor(
         apiMediaStreams = null
         defaultAudioStreamIndex = null
         defaultSubtitleStreamIndex = null
+        mpvExternalSubtitleUrls = emptyMap()
         playerContext = null
         downloadRepository = null
         hasHandledPlaybackCompletion = false
@@ -875,12 +936,81 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun updateApiTrackInformation() {
+        val trackState = MPVPlayer.trackState(
+            mediaStreams = apiMediaStreams,
+            selectedAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex,
+            selectedSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex,
+            defaultAudioStreamIndex = defaultAudioStreamIndex,
+            defaultSubtitleStreamIndex = defaultSubtitleStreamIndex
+        )
+
+        _playerState.value = _playerState.value.copy(
+            availableAudioTracks = trackState.availableAudioTracks,
+            currentAudioTrack = trackState.currentAudioTrack,
+            availableSubtitleTracks = trackState.availableSubtitleTracks,
+            currentSubtitleTrack = trackState.currentSubtitleTrack,
+            availableVideoTracks = trackState.availableVideoTracks,
+            isHdrEnabled = MPVPlayer.isHdr(apiMediaStreams)
+        )
+    }
+
+    private fun createMpvPlayer(context: Context): MpvPlayerController {
+        val preferences = PlayerPreferences(context)
+        return MpvPlayerController(
+            context = context,
+            hardwareDecoding = preferences.getMpvHardwareDecoding(),
+            videoOutput = preferences.getMpvVideoOutput(),
+            audioOutput = preferences.getMpvAudioOutput(),
+            listener = object : MpvPlayerController.Listener {
+                override fun onBuffering() {
+                    _playerState.value = _playerState.value.copy(isLoading = true)
+                }
+
+                override fun onReady() {
+                    val wasPlaying = _playerState.value.isPlaying
+                    _playerState.value = _playerState.value.copy(
+                        isLoading = false,
+                        isPlaying = isPlayingNow(),
+                        playWhenReady = isPlayingNow(),
+                        hasStartedPlayback = true,
+                        duration = getDuration()
+                    )
+                    if (!playbackReporter.hasReportedStart() && isPlayingNow()) {
+                        playbackReporter.reportPlaybackStatus()
+                    }
+                    if (wasPlaying != isPlayingNow()) {
+                        playbackReporter.onPlaybackPauseStateChanged()
+                    }
+                }
+
+                override fun onEnded() {
+                    _playerState.value = _playerState.value.copy(
+                        isPlaying = false,
+                        playWhenReady = false,
+                        isLoading = false
+                    )
+                    handlePlaybackCompleted()
+                }
+
+            }
+        )
+    }
+
     /**
      * Select audio track by ID
      */
     fun selectAudioTrack(trackId: String) {
         if (trackId == _playerState.value.currentAudioTrack?.id) return
         val selectedTrack = _playerState.value.availableAudioTracks.firstOrNull { it.id == trackId } ?: return
+        if (isMpvPlayback()) {
+            val streamIndex = MPVPlayer.selectAudioTrack(mpvPlayer, selectedTrack) ?: return
+            val (preferences, mediaId) = currentMediaPreferences() ?: return
+            preferences.setPreferredAudioStreamIndex(mediaId, streamIndex)
+            _preferredStreamIndexes.value = _preferredStreamIndexes.value.copy(audioStreamIndex = streamIndex)
+            _playerState.value = _playerState.value.copy(currentAudioTrack = selectedTrack)
+            return
+        }
         if (selectedTrack.requiresPlaybackRestart) {
             playbackTrackSelection(
                 audioStreamIndex = selectedTrack.streamIndex,
@@ -905,6 +1035,23 @@ class PlayerViewModel @Inject constructor(
     fun selectSubtitleTrack(trackId: String) {
         if (trackId == _playerState.value.currentSubtitleTrack?.id) return
         val selectedTrack = _playerState.value.availableSubtitleTracks.firstOrNull { it.id == trackId } ?: return
+        if (isMpvPlayback()) {
+            val streamIndex = MPVPlayer.selectSubtitleTrack(
+                controller = mpvPlayer,
+                track = selectedTrack,
+                externalSubtitleUrls = mpvExternalSubtitleUrls
+            ) ?: return
+            val (preferences, mediaId) = currentMediaPreferences() ?: return
+            preferences.setPreferredSubtitleStreamIndex(
+                mediaId,
+                streamIndex.takeUnless { it < 0 }
+            )
+            _preferredStreamIndexes.value = _preferredStreamIndexes.value.copy(
+                subtitleStreamIndex = streamIndex.takeUnless { it < 0 }
+            )
+            _playerState.value = _playerState.value.copy(currentSubtitleTrack = selectedTrack)
+            return
+        }
         if (selectedTrack.requiresPlaybackRestart) {
             playbackTrackSelection(
                 audioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex,
@@ -923,6 +1070,12 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun currentMediaPreferences(): Pair<PlayerPreferences, String>? {
+        val context = playerContext ?: return null
+        val mediaId = playbackSession.mediaId ?: return null
+        return PlayerPreferences(context) to mediaId
+    }
+
     private fun playbackTrackSelection(
         audioStreamIndex: Int?,
         subtitleStreamIndex: Int?
@@ -932,7 +1085,7 @@ class PlayerViewModel @Inject constructor(
         val resumePositionMs = getCurrentPosition()
         val shouldResumePlaying = isPlayingNow()
 
-        com.jellycine.player.preferences.PlayerPreferences(context).apply {
+        PlayerPreferences(context).apply {
             setPreferredAudioStreamIndex(mediaId, audioStreamIndex)
             setPreferredSubtitleStreamIndex(mediaId, subtitleStreamIndex)
         }
@@ -949,33 +1102,17 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    // Aspect ratio states
     private var currentAspectRatio by mutableIntStateOf(0)
     private val aspectRatioModes = listOf("Fit", "Zoom")
-    
-    // Keep track of ExoPlayer resize mode
-    private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+
+    private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
     /**
      * Toggle between fit and zoom modes
      * Uses ExoPlayer's native AspectRatioFrameLayout resize modes for proper aspect ratio handling
      */
     fun cycleAspectRatio() {
-        currentAspectRatio = (currentAspectRatio + 1) % aspectRatioModes.size
-        
-        currentResizeMode = when (currentAspectRatio) {
-            0 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT // Respects video aspect ratio
-            1 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Fills screen, crops if needed
-            else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-        }
-        
-        val mode = aspectRatioModes[currentAspectRatio]
-        _playerState.value = _playerState.value.copy(
-            aspectRatioMode = mode,
-            videoScale = 1f,
-            videoOffsetX = 0f,
-            videoOffsetY = 0f
-        )
+        setAspectRatioMode((currentAspectRatio + 1) % aspectRatioModes.size)
     }
     
     /**
@@ -988,24 +1125,9 @@ class PlayerViewModel @Inject constructor(
      */
     fun handlePinchZoom(isZooming: Boolean) {
         if (isZooming && currentAspectRatio == 0) {
-            currentAspectRatio = 1
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Zoom",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
+            setAspectRatioMode(1)
         } else if (!isZooming && currentAspectRatio == 1) {
-            // Switch to fit mode when user pinches to fit
-            currentAspectRatio = 0
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Fit",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
+            setAspectRatioMode(0)
         }
     }
 
@@ -1014,40 +1136,23 @@ class PlayerViewModel @Inject constructor(
      * Uses ExoPlayer's native resize modes for proper aspect ratio handling
      */
     private fun applyStartMaximizedSetting(context: Context) {
-        val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
+        val playerPreferences = PlayerPreferences(context)
         val startMaximized = playerPreferences.isStartMaximizedEnabled()
         
-        if (startMaximized) {
-            currentAspectRatio = 1 // Zoom mode
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Zoom",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
-        } else {
-            currentAspectRatio = 0 // Fit mode
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Fit",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
-        }
+        setAspectRatioMode(if (startMaximized) 1 else 0)
     }
 
-    /**
-     * Update video transform values
-     */
-    fun updateVideoTransform(scale: Float, offsetX: Float, offsetY: Float) {
-        val mode = aspectRatioModes[currentAspectRatio]
+    private fun setAspectRatioMode(modeIndex: Int) {
+        currentAspectRatio = modeIndex.coerceIn(0, aspectRatioModes.lastIndex)
+        currentResizeMode = when (currentAspectRatio) {
+            1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
         _playerState.value = _playerState.value.copy(
-            videoScale = scale,
-            videoOffsetX = offsetX,
-            videoOffsetY = offsetY,
-            aspectRatioMode = mode
+            aspectRatioMode = aspectRatioModes[currentAspectRatio],
+            videoScale = 1f,
+            videoOffsetX = 0f,
+            videoOffsetY = 0f
         )
     }
 
@@ -1055,7 +1160,7 @@ class PlayerViewModel @Inject constructor(
      * Seek backward by the configured interval
      */
     fun seekBackward() {
-        val seconds = com.jellycine.player.preferences.PlayerPreferences(playerContext ?: return)
+        val seconds = PlayerPreferences(playerContext ?: return)
             .getSeekBackwardIntervalSeconds()
         seekBy(deltaMs = -(seconds * 1000L))
     }
@@ -1064,7 +1169,7 @@ class PlayerViewModel @Inject constructor(
      * Seek forward by the configured interval
      */
     fun seekForward() {
-        val seconds = com.jellycine.player.preferences.PlayerPreferences(playerContext ?: return)
+        val seconds = PlayerPreferences(playerContext ?: return)
             .getSeekForwardIntervalSeconds()
         seekBy(deltaMs = seconds * 1000L)
     }

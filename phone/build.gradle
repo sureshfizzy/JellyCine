@@ -148,6 +148,7 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.10.0'
     implementation 'androidx.media3:media3-common:1.10.0'
     implementation 'org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1'
+    implementation 'dev.jdtech.mpv:libmpv:1.0.0'
 
     // Audio and video processing
     implementation 'androidx.media3:media3-effect:1.10.0'

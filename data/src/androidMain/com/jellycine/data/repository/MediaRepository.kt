@@ -1205,7 +1205,7 @@ class MediaRepository(private val context: Context) {
                 )
 
                 if (getResponse.isSuccessful && getResponse.body() != null) {
-                    val responseBody = PlaybackUrlBuilder.normalizePlaybackInfoUrls(
+                    val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
                         serverUrl = serverUrl,
                         playbackInfo = getResponse.body()!!
                     )
@@ -1231,7 +1231,7 @@ class MediaRepository(private val context: Context) {
             )
 
             if (postResponse.isSuccessful && postResponse.body() != null) {
-                val responseBody = PlaybackUrlBuilder.normalizePlaybackInfoUrls(
+                val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
                     serverUrl = serverUrl,
                     playbackInfo = postResponse.body()!!
                 )
@@ -1250,7 +1250,7 @@ class MediaRepository(private val context: Context) {
             )
 
             if (getResponse.isSuccessful && getResponse.body() != null) {
-                val responseBody = PlaybackUrlBuilder.normalizePlaybackInfoUrls(
+                val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
                     serverUrl = serverUrl,
                     playbackInfo = getResponse.body()!!
                 )
@@ -1332,7 +1332,8 @@ class MediaRepository(private val context: Context) {
         audioStreamIndex: Int? = null,
         subtitleStreamIndex: Int? = null,
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
-        playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null
+        playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null,
+        includeAccessToken: Boolean = false
     ): Result<PlaybackRequest> {
         val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
         val authContext = createPlaybackAuthContext(config)
@@ -1361,7 +1362,8 @@ class MediaRepository(private val context: Context) {
                 maxStreamingHeight = maxStreamingHeight,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
-                audioTranscodeMode = audioTranscodeMode
+                audioTranscodeMode = audioTranscodeMode,
+                includeAccessToken = includeAccessToken
             )
         )
     }

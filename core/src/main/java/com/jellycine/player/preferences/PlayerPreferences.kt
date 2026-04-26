@@ -17,6 +17,10 @@ class PlayerPreferences(context: Context) {
         private const val PREFS_NAME = "jellycine_player_prefs"
         private const val KEY_PLAYER_BRIGHTNESS = "player_brightness"
         private const val KEY_PLAYER_VOLUME = "player_volume"
+        private const val KEY_PLAYER_ENGINE = "player_engine"
+        private const val KEY_MPV_HARDWARE_DECODING = "mpv_hardware_decoding"
+        private const val KEY_MPV_VIDEO_OUTPUT = "mpv_video_output"
+        private const val KEY_MPV_AUDIO_OUTPUT = "mpv_audio_output"
         private const val KEY_HARDWARE_ACCELERATION = "hardware_acceleration_enabled"
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
@@ -119,6 +123,32 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_CACHE_NEXT_EPISODE = false
         const val DEFAULT_SKIP_INTRO_ENABLED = true
         const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
+        const val PLAYER_ENGINE_EXO = "ExoPlayer"
+        const val PLAYER_ENGINE_MPV = "MPV"
+        const val DEFAULT_PLAYER_ENGINE = PLAYER_ENGINE_EXO
+        val PLAYER_ENGINE_OPTIONS = listOf(PLAYER_ENGINE_EXO, PLAYER_ENGINE_MPV)
+        const val MPV_HARDWARE_DECODING_NONE = "no"
+        const val MPV_HARDWARE_DECODING_MEDIACODEC = "mediacodec"
+        const val MPV_HARDWARE_DECODING_MEDIACODEC_COPY = "mediacodec-copy"
+        const val DEFAULT_MPV_HARDWARE_DECODING = MPV_HARDWARE_DECODING_MEDIACODEC
+        val MPV_HARDWARE_DECODING_OPTIONS = listOf(
+            MPV_HARDWARE_DECODING_NONE,
+            MPV_HARDWARE_DECODING_MEDIACODEC,
+            MPV_HARDWARE_DECODING_MEDIACODEC_COPY
+        )
+        const val MPV_VIDEO_OUTPUT_GPU_NEXT = "gpu-next"
+        const val MPV_VIDEO_OUTPUT_GPU = "gpu"
+        const val DEFAULT_MPV_VIDEO_OUTPUT = MPV_VIDEO_OUTPUT_GPU_NEXT
+        val MPV_VIDEO_OUTPUT_OPTIONS = listOf(MPV_VIDEO_OUTPUT_GPU_NEXT, MPV_VIDEO_OUTPUT_GPU)
+        const val MPV_AUDIO_OUTPUT_AAUDIO = "aaudio"
+        const val MPV_AUDIO_OUTPUT_AUDIOTRACK = "audiotrack"
+        const val MPV_AUDIO_OUTPUT_OPENSLES = "opensles"
+        const val DEFAULT_MPV_AUDIO_OUTPUT = MPV_AUDIO_OUTPUT_AUDIOTRACK
+        val MPV_AUDIO_OUTPUT_OPTIONS = listOf(
+            MPV_AUDIO_OUTPUT_AAUDIO,
+            MPV_AUDIO_OUTPUT_AUDIOTRACK,
+            MPV_AUDIO_OUTPUT_OPENSLES
+        )
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
         const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
         const val DECODER_PRIORITY_AUTO = "Auto"
@@ -189,6 +219,69 @@ class PlayerPreferences(context: Context) {
      */
     fun clearPreferences() {
         prefs.edit().clear().apply()
+    }
+
+    fun getPlayerEngine(): String {
+        val engine = prefs.getString(KEY_PLAYER_ENGINE, DEFAULT_PLAYER_ENGINE) ?: DEFAULT_PLAYER_ENGINE
+        return if (engine in PLAYER_ENGINE_OPTIONS) engine else DEFAULT_PLAYER_ENGINE
+    }
+
+    fun setPlayerEngine(engine: String) {
+        prefs.edit()
+            .putString(
+                KEY_PLAYER_ENGINE,
+                if (engine in PLAYER_ENGINE_OPTIONS) engine else DEFAULT_PLAYER_ENGINE
+            )
+            .apply()
+    }
+
+    fun getMpvHardwareDecoding(): String {
+        val value = prefs.getString(KEY_MPV_HARDWARE_DECODING, DEFAULT_MPV_HARDWARE_DECODING)
+            ?: DEFAULT_MPV_HARDWARE_DECODING
+        return if (value in MPV_HARDWARE_DECODING_OPTIONS) value else DEFAULT_MPV_HARDWARE_DECODING
+    }
+
+    fun setMpvHardwareDecoding(hardwareDecoding: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_HARDWARE_DECODING,
+                if (hardwareDecoding in MPV_HARDWARE_DECODING_OPTIONS) {
+                    hardwareDecoding
+                } else {
+                    DEFAULT_MPV_HARDWARE_DECODING
+                }
+            )
+            .apply()
+    }
+
+    fun getMpvVideoOutput(): String {
+        val value = prefs.getString(KEY_MPV_VIDEO_OUTPUT, DEFAULT_MPV_VIDEO_OUTPUT)
+            ?: DEFAULT_MPV_VIDEO_OUTPUT
+        return if (value in MPV_VIDEO_OUTPUT_OPTIONS) value else DEFAULT_MPV_VIDEO_OUTPUT
+    }
+
+    fun setMpvVideoOutput(videoOutput: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_VIDEO_OUTPUT,
+                if (videoOutput in MPV_VIDEO_OUTPUT_OPTIONS) videoOutput else DEFAULT_MPV_VIDEO_OUTPUT
+            )
+            .apply()
+    }
+
+    fun getMpvAudioOutput(): String {
+        val value = prefs.getString(KEY_MPV_AUDIO_OUTPUT, DEFAULT_MPV_AUDIO_OUTPUT)
+            ?: DEFAULT_MPV_AUDIO_OUTPUT
+        return if (value in MPV_AUDIO_OUTPUT_OPTIONS) value else DEFAULT_MPV_AUDIO_OUTPUT
+    }
+
+    fun setMpvAudioOutput(audioOutput: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_AUDIO_OUTPUT,
+                if (audioOutput in MPV_AUDIO_OUTPUT_OPTIONS) audioOutput else DEFAULT_MPV_AUDIO_OUTPUT
+            )
+            .apply()
     }
     
     /**
@@ -507,7 +600,7 @@ class PlayerPreferences(context: Context) {
             .apply()
     }
 
-    fun getSubtitleBottomEdgePositionPercent(): Int {
+    fun getSubtitlePosition(): Int {
         return prefs.getInt(
             KEY_SUBTITLE_BOTTOM_EDGE_PERCENT,
             DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT

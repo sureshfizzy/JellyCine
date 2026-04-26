@@ -23,31 +23,32 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
+import com.jellycine.app.ui.screens.player.mpv.MpvVideoSurface
+import com.jellycine.app.ui.screens.player.mpv.MpvPlayerController
 import kotlin.math.roundToInt
 
 @UnstableApi
-@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun VideoSurface(
     player: ExoPlayer?,
+    mpvPlayer: MpvPlayerController? = null,
     lifecycle: Lifecycle.Event,
     scale: Float,
     offsetX: Float,
     offsetY: Float,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
-    onScaleChange: (Float, Float, Float) -> Unit,
     onVolumeChange: (Float) -> Unit,
     onBrightnessChange: (Float) -> Unit,
     getCurrentVolumeLevel: () -> Float,
     getCurrentBrightnessLevel: () -> Float,
     onSeek: (Long) -> Unit,
     onToggleControls: () -> Unit,
+    onTogglePlayPause: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
-    // Animation states for smooth transitions
+
     val animatedScale by animateFloatAsState(
         targetValue = scale,
         animationSpec = tween(durationMillis = 200),
@@ -63,120 +64,159 @@ fun VideoSurface(
         animationSpec = tween(durationMillis = 200),
         label = "video_offset_y"
     )
-
-    // Initialize gesture helper
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
-    val playerPreferences = remember { PlayerPreferences(context) }
-    var gestureHelper: GestureHelper? by remember { mutableStateOf(null) }
+    val surfaceModifier = Modifier
+        .fillMaxSize()
+        .clip(RoundedCornerShape(0.dp))
+        .graphicsLayer(
+            scaleX = animatedScale,
+            scaleY = animatedScale,
+            translationX = animatedOffsetX,
+            translationY = animatedOffsetY,
+            clip = false
+        )
 
     Box(
         modifier = modifier.background(Color.Black)
     ) {
-        AndroidView(
-            factory = { context ->
-                PlayerView(context).apply {
-                    useController = false
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-                    setKeepContentOnPlayerReset(true)
-                    this.resizeMode = resizeMode
-                    setBackgroundColor(android.graphics.Color.BLACK)
-                    setPadding(0, 0, 0, 0)
-                    layoutParams = android.view.ViewGroup.LayoutParams(
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                    )
+        if (mpvPlayer != null) {
+            MpvVideoSurface(
+                player = mpvPlayer,
+                lifecycle = lifecycle,
+                resizeMode = resizeMode,
+                audioManager = audioManager,
+                onToggleControls = onToggleControls,
+                onSeek = onSeek,
+                onVolumeChange = onVolumeChange,
+                onBrightnessChange = onBrightnessChange,
+                getCurrentVolumeLevel = getCurrentVolumeLevel,
+                getCurrentBrightnessLevel = getCurrentBrightnessLevel,
+                onZoomChange = onZoomChange,
+                onTogglePlayPause = onTogglePlayPause,
+                modifier = surfaceModifier
+            )
+        } else {
+            ExoPlayerView(
+                player = player,
+                lifecycle = lifecycle,
+                resizeMode = resizeMode,
+                audioManager = audioManager,
+                onToggleControls = onToggleControls,
+                onSeek = onSeek,
+                onVolumeChange = onVolumeChange,
+                onBrightnessChange = onBrightnessChange,
+                getCurrentVolumeLevel = getCurrentVolumeLevel,
+                getCurrentBrightnessLevel = getCurrentBrightnessLevel,
+                onZoomChange = onZoomChange,
+                onTogglePlayPause = onTogglePlayPause,
+                modifier = surfaceModifier
+            )
+        }
+    }
+}
 
-                    // Smooth video rendering
-                    setDefaultArtwork(null)
+@SuppressLint("ClickableViewAccessibility")
+@UnstableApi
+@Composable
+private fun ExoPlayerView(
+    player: ExoPlayer?,
+    lifecycle: Lifecycle.Event,
+    resizeMode: Int,
+    audioManager: AudioManager,
+    onToggleControls: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onVolumeChange: (Float) -> Unit,
+    onBrightnessChange: (Float) -> Unit,
+    getCurrentVolumeLevel: () -> Float,
+    getCurrentBrightnessLevel: () -> Float,
+    onZoomChange: (Boolean) -> Unit,
+    onTogglePlayPause: () -> Unit,
+    modifier: Modifier
+) {
+    val context = LocalContext.current
+    val playerPreferences = remember { PlayerPreferences(context) }
 
-                    // Set up  gesture handling
-                    setOnTouchListener { _, event ->
-                        val result = gestureHelper?.handleTouchEvent(event) ?: false
-                        result
-                    }
-                }
-            },
-            update = { playerView ->
-                playerView.player = player
-                playerView.resizeMode = resizeMode
-
-                playerView.subtitleView?.apply {
-                    setApplyEmbeddedStyles(true)
-                    setApplyEmbeddedFontSizes(false)
-
-                    setFractionalTextSize(
-                        subtitleTextSizeFraction(playerPreferences.getSubtitleTextSize())
-                    )
-                    setStyle(
-                        CaptionStyleCompat(
-                            subtitleTextColorArgb(
-                                playerPreferences.getSubtitleTextColor(),
-                                playerPreferences.getSubtitleTextOpacityPercent()
-                            ),
-                            subtitleBackgroundColorArgb(playerPreferences.getSubtitleBackgroundColor()),
-                            android.graphics.Color.TRANSPARENT,
-                            subtitleEdgeType(playerPreferences.getSubtitleEdgeType()),
-                            subtitleEdgeColor(playerPreferences.getSubtitleEdgeType()),
-                            null
-                        )
-                    )
-                    setBottomPaddingFraction(
-                        playerPreferences
-                            .getSubtitleBottomEdgePositionPercent()
-                            .coerceIn(0, 50) / 100f
-                    )
-
-                    if (playerView.height > 0) {
-                        val topPaddingPx = (
-                            playerView.height *
-                                (playerPreferences.getSubtitleTopEdgePositionPercent().coerceIn(0, 50) / 100f)
-                            ).roundToInt()
-                        if (paddingTop != topPaddingPx) {
-                            setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
-                        }
-                    }
-                }
-
-                // Initialize gesture helper
-                if (gestureHelper == null) {
-                    gestureHelper = GestureHelper(
-                        context = context,
-                        playerView = playerView,
-                        audioManager = audioManager,
-                        onShowControls = onToggleControls,
-                        onHideControls = onToggleControls,
-                        onSeek = onSeek,
-                        onVolumeChange = onVolumeChange,
-                        onBrightnessChange = onBrightnessChange,
-                        getCurrentVolumeLevel = getCurrentVolumeLevel,
-                        getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                        onZoomChange = onZoomChange
-                    )
-                }
-
-                when (lifecycle) {
-                    Lifecycle.Event.ON_PAUSE -> {
-                        playerView.onPause()
-                        playerView.player?.pause()
-                    }
-                    Lifecycle.Event.ON_RESUME -> {
-                        playerView.onResume()
-                    }
-                    else -> Unit
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(0.dp))
-                .graphicsLayer(
-                    scaleX = animatedScale,
-                    scaleY = animatedScale,
-                    translationX = animatedOffsetX,
-                    translationY = animatedOffsetY,
-                    clip = false
+    AndroidView(
+        factory = { viewContext ->
+            PlayerView(viewContext).apply {
+                useController = false
+                setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                setKeepContentOnPlayerReset(true)
+                this.resizeMode = resizeMode
+                setBackgroundColor(android.graphics.Color.BLACK)
+                setPadding(0, 0, 0, 0)
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                setDefaultArtwork(null)
+
+                val helper = GestureHelper(
+                    context = viewContext,
+                    touchView = this,
+                    audioManager = audioManager,
+                    onShowControls = onToggleControls,
+                    onSeek = onSeek,
+                    onVolumeChange = onVolumeChange,
+                    onBrightnessChange = onBrightnessChange,
+                    getCurrentVolumeLevel = getCurrentVolumeLevel,
+                    getCurrentBrightnessLevel = getCurrentBrightnessLevel,
+                    onZoomChange = onZoomChange,
+                    onTogglePlayPause = onTogglePlayPause,
+                    getPlayer = { this.player }
+                )
+                setOnTouchListener { _, event -> helper.handleTouchEvent(event) }
+            }
+        },
+        update = { playerView ->
+            playerView.player = player
+            playerView.resizeMode = resizeMode
+            playerView.applySubtitlePreferences(playerPreferences)
+
+            when (lifecycle) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    playerView.onPause()
+                    playerView.player?.pause()
+                }
+                Lifecycle.Event.ON_RESUME -> playerView.onResume()
+                else -> Unit
+            }
+        },
+        modifier = modifier
+    )
+}
+
+@UnstableApi
+private fun PlayerView.applySubtitlePreferences(playerPreferences: PlayerPreferences) {
+    subtitleView?.apply {
+        setApplyEmbeddedStyles(true)
+        setApplyEmbeddedFontSizes(false)
+        setFractionalTextSize(subtitleTextSizeFraction(playerPreferences.getSubtitleTextSize()))
+        setStyle(
+            CaptionStyleCompat(
+                subtitleTextColorArgb(
+                    playerPreferences.getSubtitleTextColor(),
+                    playerPreferences.getSubtitleTextOpacityPercent()
+                ),
+                subtitleBackgroundColorArgb(playerPreferences.getSubtitleBackgroundColor()),
+                android.graphics.Color.TRANSPARENT,
+                subtitleEdgeType(playerPreferences.getSubtitleEdgeType()),
+                subtitleEdgeColor(playerPreferences.getSubtitleEdgeType()),
+                null
+            )
+        )
+        setBottomPaddingFraction(
+            playerPreferences.getSubtitlePosition().coerceIn(0, 50) / 100f
         )
 
+        if (height > 0) {
+            val topPaddingPx = (
+                height * (playerPreferences.getSubtitleTopEdgePositionPercent().coerceIn(0, 50) / 100f)
+                ).roundToInt()
+            if (paddingTop != topPaddingPx) {
+                setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+            }
+        }
     }
 }
 

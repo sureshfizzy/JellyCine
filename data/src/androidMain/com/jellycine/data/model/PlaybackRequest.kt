@@ -6,10 +6,25 @@ import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
 import com.jellycine.data.util.removeQueryParameter
 
+private const val API_KEY_QUERY_PARAM = "api_key"
+
 data class PlaybackRequest(
     val url: String,
     val requestHeaders: Map<String, String> = emptyMap()
-)
+) {
+    fun authorizeRelatedUrl(relatedUrl: String): String {
+        val apiKey = url.apiKey() ?: return relatedUrl
+        if (relatedUrl.apiKey() != null) return relatedUrl
+        return Uri.parse(relatedUrl).buildUpon()
+            .appendQueryParameter(API_KEY_QUERY_PARAM, apiKey)
+            .build()
+            .toString()
+    }
+}
+
+private fun String.apiKey(): String? {
+    return Uri.parse(this).getQueryParameter(API_KEY_QUERY_PARAM)?.takeIf { it.isNotBlank() }
+}
 
 internal data class PlaybackAuthContext(
     val serverUrl: String,
@@ -25,13 +40,11 @@ internal data class PlaybackStreamOptions(
     val audioStreamIndex: Int? = null,
     val subtitleStreamIndex: Int? = null,
     val audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
-    val includeAccessTokenInQuery: Boolean = false
+    val includeAccessToken: Boolean = false
 )
 
 internal object PlaybackUrlBuilder {
-    private const val API_KEY_QUERY_PARAM = "api_key"
-
-    fun normalizePlaybackInfoUrls(
+    fun playbackInfoUrls(
         serverUrl: String,
         playbackInfo: PlaybackInfoResponse
     ): PlaybackInfoResponse {
@@ -46,21 +59,19 @@ internal object PlaybackUrlBuilder {
                         mediaStream.copy(
                             deliveryUrl = resolvePlaybackUrl(
                                 serverUrl = serverUrl,
-                                url = mediaStream.deliveryUrl,
-                                removeApiKey = true
+                                url = mediaStream.deliveryUrl
                             ),
-                            path = getServerUrl(
+                            path = finalUrl(
                                 baseUrl = serverUrl,
                                 url = mediaStream.path
-                            ) ?: mediaStream.path
+                            )
                         )
                     },
                     mediaAttachments = mediaSource.mediaAttachments?.map { mediaAttachment ->
                         mediaAttachment.copy(
                             deliveryUrl = resolvePlaybackUrl(
                                 serverUrl = serverUrl,
-                                url = mediaAttachment.deliveryUrl,
-                                removeApiKey = true
+                                url = mediaAttachment.deliveryUrl
                             )
                         )
                     }
@@ -79,11 +90,15 @@ internal object PlaybackUrlBuilder {
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
-            options = options.copy(includeAccessTokenInQuery = false)
+            options = options
         ).mapCatching { streamingUrl ->
             PlaybackRequest(
                 url = streamingUrl,
-                requestHeaders = buildPlaybackRequestHeaders(authContext)
+                requestHeaders = if (options.includeAccessToken) {
+                    emptyMap()
+                } else {
+                    buildPlaybackRequestHeaders(authContext)
+                }
             )
         }
     }
@@ -98,7 +113,7 @@ internal object PlaybackUrlBuilder {
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
-            options = options.copy(includeAccessTokenInQuery = true)
+            options = options.copy(includeAccessToken = true)
         )
     }
 
@@ -164,7 +179,13 @@ internal object PlaybackUrlBuilder {
                             preserveOriginalVideo = !hasQualityCap && needsAudioTranscoding
                         )
                     }
-                    return Result.success(selectedTranscodingUrl)
+                    return Result.success(
+                        appendToken(
+                            url = selectedTranscodingUrl,
+                            authContext = authContext,
+                            options = options
+                        )
+                    )
                 }
             }
 
@@ -176,8 +197,10 @@ internal object PlaybackUrlBuilder {
             }
             streamQueryParams.add("PlaySessionId" to playbackInfo.playSessionId)
             streamQueryParams.add("DeviceId" to authContext.deviceId)
-            if (options.includeAccessTokenInQuery) {
-                streamQueryParams.add(API_KEY_QUERY_PARAM to authContext.accessToken)
+            if (options.includeAccessToken) {
+                authContext.accessToken?.takeIf { it.isNotBlank() }?.let { accessToken ->
+                    streamQueryParams.add(API_KEY_QUERY_PARAM to accessToken)
+                }
             }
 
             if (hasQualityCap) {
@@ -205,20 +228,29 @@ internal object PlaybackUrlBuilder {
 
     private fun resolvePlaybackUrl(
         serverUrl: String,
-        url: String?,
-        removeApiKey: Boolean = false
+        url: String?
     ): String? {
-        val resolvedUrl = getServerUrl(
-            baseUrl = serverUrl,
-            url = url
-        ) ?: url
-        return resolvedUrl?.let { candidateUrl ->
-            if (removeApiKey) {
-                removeQueryParameter(candidateUrl, API_KEY_QUERY_PARAM)
-            } else {
-                candidateUrl
-            }
+        return finalUrl(serverUrl, url)?.let { parsedUrl ->
+            removeQueryParameter(parsedUrl, API_KEY_QUERY_PARAM)
         }
+    }
+
+    private fun finalUrl(baseUrl: String, url: String?): String? {
+        return getServerUrl(baseUrl = baseUrl, url = url) ?: url
+    }
+
+    private fun appendToken(
+        url: String,
+        authContext: PlaybackAuthContext,
+        options: PlaybackStreamOptions
+    ): String {
+        if (!options.includeAccessToken) return url
+        val apiKey = authContext.accessToken?.takeIf { it.isNotBlank() } ?: return url
+        if (url.apiKey() != null) return url
+        return Uri.parse(url).buildUpon()
+            .appendQueryParameter(API_KEY_QUERY_PARAM, apiKey)
+            .build()
+            .toString()
     }
 
     private fun buildStreamUrl(

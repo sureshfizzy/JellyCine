@@ -162,7 +162,7 @@ internal fun PlayerScreenEffects(
         }
     }
 
-    LaunchedEffect(viewModel.exoPlayer) {
+    LaunchedEffect(viewModel.exoPlayer, viewModel.mpvPlayer) {
         while (true) {
             onUiStateChange(
                 uiStateProvider().copy(

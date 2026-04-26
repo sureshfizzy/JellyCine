@@ -7,9 +7,8 @@ import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import androidx.media3.common.util.UnstableApi
+import android.view.View
+import androidx.media3.common.Player
 import kotlin.math.abs
 
 import com.jellycine.player.core.PlayerConstants.GESTURE_EXCLUSION_AREA_HORIZONTAL
@@ -19,19 +18,19 @@ import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_BASE
 import com.jellycine.player.core.PlayerConstants.ZOOM_SCALE_THRESHOLD
 import com.jellycine.player.preferences.PlayerPreferences
 
-@UnstableApi
 class GestureHelper(
     private val context: Context,
-    private val playerView: PlayerView,
+    private val touchView: View,
     private val audioManager: AudioManager,
     private val onShowControls: () -> Unit,
-    private val onHideControls: () -> Unit,
     private val onSeek: (Long) -> Unit,
     private val onVolumeChange: (Float) -> Unit,
     private val onBrightnessChange: (Float) -> Unit,
     private val getCurrentVolumeLevel: () -> Float,
     private val getCurrentBrightnessLevel: () -> Float,
-    private val onZoomChange: (Boolean) -> Unit
+    private val onZoomChange: (Boolean) -> Unit,
+    private val onTogglePlayPause: () -> Unit = {},
+    private val getPlayer: () -> Player? = { null }
 ) {
     private val playerPreferences = PlayerPreferences(context)
     // Gesture state tracking
@@ -62,18 +61,14 @@ class GestureHelper(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (!playerView.isControllerFullyVisible) {
-                    onShowControls()
-                } else {
-                    onHideControls()
-                }
+                onShowControls()
                 return true
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (!playerPreferences.arePlayerGesturesEnabled()) return false
 
-                val viewWidth = playerView.measuredWidth
+                val viewWidth = touchView.measuredWidth
                 val areaWidth = viewWidth / 5 // Divide into 5 parts: 2:1:2
                 
                 val leftmostAreaStart = 0
@@ -86,8 +81,11 @@ class GestureHelper(
                         onSeek(-seekBackwardDeltaMs())
                     }
                     in middleAreaStart until rightmostAreaStart -> {
-                        playerView.player?.let { player ->
+                        val player = getPlayer()
+                        if (player != null) {
                             player.playWhenReady = !player.playWhenReady
+                        } else {
+                            onTogglePlayPause()
                         }
                     }
                     in rightmostAreaStart until viewWidth -> {
@@ -161,8 +159,8 @@ class GestureHelper(
                     return false
                 }
 
-                val viewCenterX = playerView.measuredWidth / 2
-                val distanceFull = playerView.measuredHeight * FULL_SWIPE_RANGE_SCREEN_RATIO
+                val viewCenterX = touchView.measuredWidth / 2
+                val distanceFull = touchView.measuredHeight * FULL_SWIPE_RANGE_SCREEN_RATIO
                 val ratioChange = distanceY / distanceFull
 
                 if (firstEvent.x.toInt() > viewCenterX) {
@@ -271,8 +269,8 @@ class GestureHelper(
         currentNumberOfPointers = event.pointerCount
 
         if (screenWidth == 0 || screenHeight == 0) {
-            screenWidth = playerView.width
-            screenHeight = playerView.height
+            screenWidth = touchView.width
+            screenHeight = touchView.height
         }
 
         when (event.pointerCount) {

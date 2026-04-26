@@ -12,6 +12,11 @@ import kotlinx.coroutines.launch
 import com.jellycine.player.preferences.PlayerPreferences
 
 data class PlayerSettingsUiState(
+    val playerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE,
+    val mpvHardwareDecoding: String = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
+    val mpvVideoOutput: String = PlayerPreferences.DEFAULT_MPV_VIDEO_OUTPUT,
+    val mpvAudioOutput: String = PlayerPreferences.DEFAULT_MPV_AUDIO_OUTPUT,
+
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
     val asyncMediaCodecEnabled: Boolean = false,
@@ -80,6 +85,10 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 hardwareDecodingEnabled = playerPreferences.isHardwareAccelerationEnabled(),
+                playerEngine = playerPreferences.getPlayerEngine(),
+                mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding(),
+                mpvVideoOutput = playerPreferences.getMpvVideoOutput(),
+                mpvAudioOutput = playerPreferences.getMpvAudioOutput(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
@@ -104,6 +113,28 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     }
     
     // Setting update functions
+    fun setPlayerEngine(engine: String) {
+        playerPreferences.setPlayerEngine(engine)
+        _uiState.value = _uiState.value.copy(playerEngine = playerPreferences.getPlayerEngine())
+    }
+
+    fun setMpvHardwareDecoding(hardwareDecoding: String) {
+        playerPreferences.setMpvHardwareDecoding(hardwareDecoding)
+        _uiState.value = _uiState.value.copy(
+            mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding()
+        )
+    }
+
+    fun setMpvVideoOutput(videoOutput: String) {
+        playerPreferences.setMpvVideoOutput(videoOutput)
+        _uiState.value = _uiState.value.copy(mpvVideoOutput = playerPreferences.getMpvVideoOutput())
+    }
+
+    fun setMpvAudioOutput(audioOutput: String) {
+        playerPreferences.setMpvAudioOutput(audioOutput)
+        _uiState.value = _uiState.value.copy(mpvAudioOutput = playerPreferences.getMpvAudioOutput())
+    }
+
     fun setHardwareDecodingEnabled(enabled: Boolean) {
         playerPreferences.setHardwareAccelerationEnabled(enabled)
         _uiState.value = _uiState.value.copy(hardwareDecodingEnabled = enabled)

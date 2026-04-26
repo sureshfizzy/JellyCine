@@ -110,6 +110,52 @@ fun PlayerSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
+            item { SectionLabel(stringResource(R.string.player_settings_section_player)) }
+            item {
+                SettingsSection {
+                    DropdownSettingsItem(
+                        icon = Icons.Rounded.VideoSettings,
+                        title = stringResource(R.string.player_settings_player_engine),
+                        subtitle = uiState.playerEngine,
+                        options = PlayerPreferences.PLAYER_ENGINE_OPTIONS,
+                        onOptionSelected = viewModel::setPlayerEngine,
+                        accentColor = videoColor
+                    )
+
+                    if (uiState.playerEngine == PlayerPreferences.PLAYER_ENGINE_MPV) {
+                        SettingsDivider()
+                        DropdownSettingsItem(
+                            icon = Icons.Rounded.Speed,
+                            title = stringResource(R.string.player_settings_mpv_hardware_decoding),
+                            subtitle = uiState.mpvHardwareDecoding,
+                            options = PlayerPreferences.MPV_HARDWARE_DECODING_OPTIONS,
+                            onOptionSelected = viewModel::setMpvHardwareDecoding,
+                            accentColor = videoColor
+                        )
+
+                        SettingsDivider()
+                        DropdownSettingsItem(
+                            icon = Icons.Rounded.VideoSettings,
+                            title = stringResource(R.string.player_settings_mpv_video_output),
+                            subtitle = uiState.mpvVideoOutput,
+                            options = PlayerPreferences.MPV_VIDEO_OUTPUT_OPTIONS,
+                            onOptionSelected = viewModel::setMpvVideoOutput,
+                            accentColor = videoColor
+                        )
+
+                        SettingsDivider()
+                        DropdownSettingsItem(
+                            icon = Icons.Rounded.AudioFile,
+                            title = stringResource(R.string.player_settings_mpv_audio_output),
+                            subtitle = uiState.mpvAudioOutput,
+                            options = PlayerPreferences.MPV_AUDIO_OUTPUT_OPTIONS,
+                            onOptionSelected = viewModel::setMpvAudioOutput,
+                            accentColor = videoColor
+                        )
+                    }
+                }
+            }
+
             item { SectionLabel(stringResource(R.string.player_settings_section_decoding)) }
             item {
                 SettingsSection {
@@ -436,7 +482,7 @@ fun SubtitleSettingsScreen(
     var edgeType by remember { mutableStateOf(playerPreferences.getSubtitleEdgeType()) }
     var textOpacityPercent by remember { mutableStateOf(playerPreferences.getSubtitleTextOpacityPercent()) }
     var bottomEdgePercent by remember {
-        mutableStateOf(playerPreferences.getSubtitleBottomEdgePositionPercent())
+        mutableStateOf(playerPreferences.getSubtitlePosition())
     }
     var topEdgePercent by remember {
         mutableStateOf(playerPreferences.getSubtitleTopEdgePositionPercent())

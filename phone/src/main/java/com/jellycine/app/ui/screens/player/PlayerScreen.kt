@@ -354,17 +354,12 @@ fun PlayerScreen(
     ) {
         VideoSurface(
             player = viewModel.exoPlayer,
+            mpvPlayer = viewModel.mpvPlayer,
             lifecycle = lifecycle,
             scale = playerState.videoScale,
             offsetX = playerState.videoOffsetX,
             offsetY = playerState.videoOffsetY,
             resizeMode = viewModel.getCurrentResizeMode(),
-            onScaleChange = { scale, offsetX, offsetY ->
-                if (!playerState.isLocked) {
-                    // Update ViewModel state directly to avoid conflicts with start maximized setting
-                    viewModel.updateVideoTransform(scale, offsetX, offsetY)
-                }
-            },
             onVolumeChange = { level ->
                 if (!playerState.isLocked) {
                     playerVolume = level.coerceIn(0f, 1f)
@@ -417,6 +412,7 @@ fun PlayerScreen(
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
             },
+            onTogglePlayPause = viewModel::togglePlayPause,
             onZoomChange = { isZooming ->
                 viewModel.handlePinchZoom(isZooming)
             },
