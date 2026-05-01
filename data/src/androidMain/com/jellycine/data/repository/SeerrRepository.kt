@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import com.jellycine.data.api.SeerrApiClient
+import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.network.ApiResponse
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.model.BaseItemDto
@@ -315,6 +316,21 @@ class SeerrRepository(context: Context) {
                 }
         }
     }
+
+    suspend fun getTitleLogoUrl(
+        scopeId: String?,
+        itemId: String?
+    ): String? = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext null
+        val (mediaType, tmdbId) = SeerrItemIds.detailParams(itemId ?: return@withContext null)
+            ?: return@withContext null
+        val tmdbType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
+        val logoPath = TmdbApi(createHttpClient()).titleLogoPath(tmdbType, tmdbId)
+            ?: return@withContext null
+
+        seerrImageUrl(storedConnection.serverUrl, logoPath, "original")
+    }
+
     fun disconnect(scopeId: String?) {
         if (scopeId.isNullOrBlank()) return
         prefs.edit()

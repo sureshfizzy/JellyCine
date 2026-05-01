@@ -948,7 +948,6 @@ fun DetailContent(
 
     LaunchedEffect(item.id) {
         if (item.id == null) {
-            logoLookup = false
             return@LaunchedEffect
         }
         heroImageCandidates = heroImageCandidates(
@@ -956,21 +955,24 @@ fun DetailContent(
             mediaRepository = mediaRepository
         )
         heroImageIndex = 0
+    }
 
-        if (isSeerDetail) {
-            logoImageUrl = null
+    LaunchedEffect(item.id, activeServerId) {
+        if (item.id == null) {
             logoLookup = false
-            logoLoadError = false
             return@LaunchedEffect
         }
-
         logoLookup = true
         logoLoadError = false
         try {
-            logoImageUrl = logoImage(
-                item = item,
-                mediaRepository = mediaRepository
-            )
+            logoImageUrl = if (isSeerDetail) {
+                seerrRepository.getTitleLogoUrl(activeServerId, item.id)
+            } else {
+                logoImage(
+                    item = item,
+                    mediaRepository = mediaRepository
+                )
+            }
         } finally {
             logoLookup = false
         }
