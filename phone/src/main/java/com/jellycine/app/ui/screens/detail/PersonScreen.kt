@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,8 +47,14 @@ import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.app.ui.components.common.SeerTitlesRow
+import com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -60,30 +67,65 @@ fun PersonScreenContainer(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(context) { SeerrRepository(context) }
+    val activeServerId by authRepository.getActiveServerId()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+    val seerTmdbId = remember(personId) { SeerrItemIds.personTmdbId(personId) }
 
     var person by remember(personId) { mutableStateOf<BaseItemDto?>(null) }
     var relatedTitles by remember(personId) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var seerrRelatedTitles by remember(personId) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
     var isLoading by remember(personId) { mutableStateOf(true) }
     var hasError by remember(personId) { mutableStateOf(false) }
 
-    LaunchedEffect(personId) {
+    LaunchedEffect(personId, activeServerId) {
         isLoading = true
         hasError = false
 
         try {
-            val (personResult, relatedResult) = coroutineScope {
-                val personDeferred = async { mediaRepository.getItemById(personId) }
-                val relatedDeferred = async { mediaRepository.getItemsForPerson(personId) }
-                personDeferred.await() to relatedDeferred.await()
-            }
+            if (seerTmdbId != null) {
+                val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+                if (scopeId == null) {
+                    person = null
+                    relatedTitles = emptyList()
+                    seerrRelatedTitles = emptyList()
+                    hasError = true
+                } else {
+                    val (personResult, directedTitles) = coroutineScope {
+                        val personDeferred = async { seerrRepository.getPersonDetails(scopeId, seerTmdbId) }
+                        val directedTitlesDeferred = async {
+                            fetchSeerDirectedTitlesForTmdbPerson(
+                                personTmdbId = seerTmdbId,
+                                activeServerId = activeServerId,
+                                seerrRepository = seerrRepository
+                            )
+                        }
+                        personDeferred.await() to directedTitlesDeferred.await()
+                    }
 
-            person = personResult.getOrNull()
-            relatedTitles = relatedResult.getOrDefault(emptyList())
-            hasError = person == null
+                    person = personResult.getOrNull()
+                    relatedTitles = emptyList()
+                    seerrRelatedTitles = directedTitles
+                    hasError = person == null
+                }
+            } else {
+                val (personResult, relatedResult) = coroutineScope {
+                    val personDeferred = async { mediaRepository.getItemById(personId) }
+                    val relatedDeferred = async { mediaRepository.getItemsForPerson(personId) }
+                    personDeferred.await() to relatedDeferred.await()
+                }
+
+                person = personResult.getOrNull()
+                relatedTitles = relatedResult.getOrDefault(emptyList())
+                seerrRelatedTitles = emptyList()
+                hasError = person == null
+            }
         } catch (_: Exception) {
             hasError = true
             person = null
             relatedTitles = emptyList()
+            seerrRelatedTitles = emptyList()
         } finally {
             isLoading = false
         }
@@ -94,6 +136,7 @@ fun PersonScreenContainer(
     PersonScreen(
         person = person,
         relatedTitles = relatedTitles,
+        seerrRelatedTitles = seerrRelatedTitles,
         isLoading = isLoading,
         hasError = hasError,
         mediaRepository = mediaRepository,
@@ -106,6 +149,7 @@ fun PersonScreenContainer(
 private fun PersonScreen(
     person: BaseItemDto?,
     relatedTitles: List<BaseItemDto>,
+    seerrRelatedTitles: List<SeerrRecommendationTitle>,
     isLoading: Boolean,
     hasError: Boolean,
     mediaRepository: MediaRepository,
@@ -207,7 +251,21 @@ private fun PersonScreen(
             }
         }
 
-        if (!isLoading && movies.isEmpty() && shows.isEmpty() && episodes.isEmpty() && !hasError) {
+        if (seerrRelatedTitles.isNotEmpty()) {
+            item {
+                SeerTitlesRow(
+                    title = "Directed Titles",
+                    items = seerrRelatedTitles,
+                    onItemClick = onItemClick,
+                    topPadding = 14.dp,
+                    verticalSpacing = 9.dp,
+                    horizontalPadding = 14.dp,
+                    titleFontSize = 19.sp
+                )
+            }
+        }
+
+        if (!isLoading && movies.isEmpty() && shows.isEmpty() && episodes.isEmpty() && seerrRelatedTitles.isEmpty() && !hasError) {
             item {
                 Text(
                     text = stringResource(R.string.detail_person_no_related_titles),
@@ -282,7 +340,9 @@ private fun PersonHero(
 ) {
     val context = LocalContext.current
     val personId = person?.id
-    val personImageUrl = if (personId.isNullOrBlank()) {
+    val personImageUrl = if (!person?.imageUrl.isNullOrBlank()) {
+        person?.imageUrl
+    } else if (personId.isNullOrBlank()) {
         null
     } else {
         rememberImageUrl(

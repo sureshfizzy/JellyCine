@@ -250,9 +250,15 @@ data class BaseItemDto(
     
     @SerialName("ImageTags")
     val imageTags: Map<String, String>? = null,
+
+    @SerialName("ImageUrl")
+    val imageUrl: String? = null,
     
     @SerialName("BackdropImageTags")
     val backdropImageTags: List<String>? = null,
+
+    @SerialName("BackdropImageUrl")
+    val backdropImageUrl: String? = null,
     
     @SerialName("ScreenshotImageTags")
     val screenshotImageTags: List<String>? = null,

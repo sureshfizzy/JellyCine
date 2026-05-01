@@ -7,6 +7,8 @@ class ApiHeaders private constructor(
         return values[name.lowercase()]?.firstOrNull()
     }
 
+    fun getAll(name: String): List<String> = values[name.lowercase()].orEmpty()
+
     companion object {
         val Empty = ApiHeaders(emptyMap())
 

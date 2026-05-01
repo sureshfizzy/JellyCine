@@ -1,8 +1,10 @@
 package com.jellycine.app.ui.components.common
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,12 +38,15 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.SeerrPersonCreditType
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.MediaRepository
@@ -60,20 +68,138 @@ internal suspend fun fetchSeerCreditTitles(
     mediaRepository: MediaRepository,
     seerrRepository: SeerrRepository
 ): List<SeerrRecommendationTitle> {
-    val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return emptyList()
-    val connectionInfo = seerrRepository.getSavedConnectionInfo(scopeId)
-    if (connectionInfo?.isVerified != true) return emptyList()
-
     val personItem = mediaRepository.getItemById(personId).getOrNull() ?: return emptyList()
     val personTmdbId = personItem.providerIds.providerId("tmdb") ?: return emptyList()
-    val seerrMediaType = if (item.type.equals("Movie", ignoreCase = true)) "movie" else "tv"
+    return fetchSeerTmdbPerson(
+        item = item,
+        personTmdbId = personTmdbId,
+        role = role,
+        activeServerId = activeServerId,
+        seerrRepository = seerrRepository
+    )
+}
 
+internal suspend fun fetchSeerTmdbPerson(
+    item: BaseItemDto,
+    personTmdbId: String,
+    role: SeerPersonRole,
+    activeServerId: String?,
+    seerrRepository: SeerrRepository
+): List<SeerrRecommendationTitle> {
+    val scopeId = seerrRepository.verifiedScopeId(activeServerId) ?: return emptyList()
+
+    val seerrMediaType = if (item.type.equals("Movie", ignoreCase = true)) "movie" else "tv"
     return seerrRepository.getPersonTitles(
         scopeId = scopeId,
         personTmdbId = personTmdbId,
         mediaType = seerrMediaType,
         creditType = role.creditType
     ).getOrElse { emptyList() }
+}
+
+internal suspend fun fetchSeerTmdbPersonId(
+    item: BaseItemDto,
+    personId: String,
+    role: SeerPersonRole,
+    activeServerId: String?,
+    mediaRepository: MediaRepository,
+    seerrRepository: SeerrRepository
+): List<SeerrRecommendationTitle> {
+    val tmdbPersonId = SeerrItemIds.personTmdbId(personId)
+    return if (tmdbPersonId != null) {
+        fetchSeerTmdbPerson(
+            item = item,
+            personTmdbId = tmdbPersonId,
+            role = role,
+            activeServerId = activeServerId,
+            seerrRepository = seerrRepository
+        )
+    } else {
+        fetchSeerCreditTitles(
+            item = item,
+            personId = personId,
+            role = role,
+            activeServerId = activeServerId,
+            mediaRepository = mediaRepository,
+            seerrRepository = seerrRepository
+        )
+    }
+}
+
+internal suspend fun fetchSeerDirectedTitlesForTmdbPerson(
+    personTmdbId: String,
+    activeServerId: String?,
+    seerrRepository: SeerrRepository
+): List<SeerrRecommendationTitle> {
+    val movieTitles = fetchSeerTmdbPerson(
+        item = BaseItemDto(type = "Movie"),
+        personTmdbId = personTmdbId,
+        role = SeerPersonRole.DIRECTOR,
+        activeServerId = activeServerId,
+        seerrRepository = seerrRepository
+    )
+    val showTitles = fetchSeerTmdbPerson(
+        item = BaseItemDto(type = "Series"),
+        personTmdbId = personTmdbId,
+        role = SeerPersonRole.DIRECTOR,
+        activeServerId = activeServerId,
+        seerrRepository = seerrRepository
+    )
+    return (movieTitles + showTitles).distinctBy { item -> "${item.mediaType}:${item.tmdbId}" }
+}
+
+internal fun LazyListScope.seerTitleItems(
+    items: List<SeerrRecommendationTitle>,
+    onItemClick: (String) -> Unit
+) {
+    items(
+        items = items,
+        key = { item -> SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType) }
+    ) { item ->
+        SeerTitleCard(
+            item = item,
+            onClick = {
+                onItemClick(SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType))
+            }
+        )
+    }
+}
+
+@Composable
+internal fun SeerTitlesRow(
+    title: String,
+    items: List<SeerrRecommendationTitle>,
+    onItemClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    topPadding: Dp = 24.dp,
+    verticalSpacing: Dp = 12.dp,
+    horizontalPadding: Dp = 0.dp,
+    titleFontSize: TextUnit = 21.sp
+) {
+    if (items.isEmpty()) return
+
+    Column(
+        modifier = modifier.padding(top = topPadding),
+        verticalArrangement = Arrangement.spacedBy(verticalSpacing)
+    ) {
+        Text(
+            text = title,
+            fontSize = titleFontSize,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = horizontalPadding)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = horizontalPadding)
+        ) {
+            seerTitleItems(
+                items = items,
+                onItemClick = onItemClick
+            )
+        }
+    }
 }
 
 internal fun filterSeerTitlesForRow(
@@ -126,49 +252,30 @@ internal fun filterSeerTitles(
     }
 }
 
-internal suspend fun seerPersonId(
+internal fun seerPersonId(
     items: List<BaseItemDto>,
     personName: String,
-    role: SeerPersonRole,
-    mediaRepository: MediaRepository
+    role: SeerPersonRole
 ): String? {
     val seerPersonName = personName.normalizedMatchKey()
-    fun resolveFrom(people: Sequence<BaseItemPerson>) = findPersonId(
-        people = people,
+    return findPersonId(
+        people = items.asSequence().flatMap { item -> item.people.orEmpty().asSequence() },
         seerPersonName = seerPersonName
     ) { person -> role.matches(person) }
-
-    resolveFrom(items.asSequence().flatMap { item -> item.people.orEmpty().asSequence() })
-        ?.let { return it }
-
-    val fallbackItemIds = items
-        .asSequence()
-        .mapNotNull { item -> item.id }
-        .distinct()
-        .take(6)
-        .toList()
-
-    fallbackItemIds.forEach { itemId ->
-        val detailItem = mediaRepository.getItemById(itemId).getOrNull() ?: return@forEach
-        resolveFrom(detailItem.people.orEmpty().asSequence())?.let { return it }
-    }
-
-    return null
 }
 
 @Composable
 internal fun SeerTitleCard(
     item: SeerrRecommendationTitle,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
-    val posterUrl = remember(item.posterPath) {
-        item.posterPath
-            ?.takeIf { it.isNotBlank() }
-            ?.let { path -> "https://image.tmdb.org/t/p/w500$path" }
-    }
+    val posterUrl = remember(item.posterUrl) { item.posterUrl?.takeIf { it.isNotBlank() } }
+
+    val clickableModifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
 
     Column(
-        modifier = modifier.width(116.dp)
+        modifier = clickableModifier.width(116.dp)
     ) {
         Card(
             modifier = Modifier
@@ -385,4 +492,15 @@ private fun String?.normalizedMatchKey(): String {
 
 private fun yearMatch(localYear: Int?, seerrYear: Int?): Boolean {
     return localYear == null || seerrYear == null || localYear == seerrYear
+}
+
+private fun SeerrRepository.verifiedScopeId(activeServerId: String?): String? {
+    val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return null
+    return scopeId.takeIf { getSavedConnectionInfo(it)?.isVerified == true }
+}
+
+internal fun SeerrRecommendationTitle.toSeerDetailItem(): BaseItemDto {
+    return BaseItemDto(
+        id = SeerrItemIds.detailId(tmdbId = tmdbId, mediaType = mediaType)
+    )
 }

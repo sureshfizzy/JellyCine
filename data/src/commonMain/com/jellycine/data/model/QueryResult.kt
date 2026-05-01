@@ -178,6 +178,9 @@ data class BaseItemPerson(
     
     @SerialName("PrimaryImageTag")
     val primaryImageTag: String? = null,
+
+    @SerialName("ImageUrl")
+    val imageUrl: String? = null,
     
     @SerialName("ImageBlurHashes")
     val imageBlurHashes: Map<String, Map<String, String>>? = null

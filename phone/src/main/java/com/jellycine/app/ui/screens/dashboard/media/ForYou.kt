@@ -37,6 +37,8 @@ import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
 import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
 import com.jellycine.app.ui.components.common.seerPersonId
+import com.jellycine.app.ui.components.common.toSeerDetailItem
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
@@ -349,8 +351,7 @@ private suspend fun loadSectionSeerRecommendations(
     val personId = seerPersonId(
         items = section.items,
         personName = personName,
-        role = role,
-        mediaRepository = mediaRepository
+        role = role
     ) ?: return emptyList()
 
     return filterSeerTitlesForRow(
@@ -415,9 +416,12 @@ private fun RecommendationRail(
 
             items(
                 items = section.seerItems,
-                key = { item -> "seer-${section.title}-${item.tmdbId}" }
+                key = { item -> "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}" }
             ) { item ->
-                SeerTitleCard(item)
+                SeerTitleCard(
+                    item = item,
+                    onClick = { onItemClick(item.toSeerDetailItem()) }
+                )
             }
         }
     }

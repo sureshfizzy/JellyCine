@@ -83,15 +83,19 @@ private fun CastCrewMemberCard(
     onClick: () -> Unit
 ) {
     var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
-    val hasValidPersonId = !person.id.isNullOrBlank()
+    val hasValidPersonId = !person.id.isNullOrBlank() && person.imageUrl.isNullOrBlank()
 
-    LaunchedEffect(person.id, person.primaryImageTag) {
-        person.id?.let { id ->
-            personImageUrl = getPersonImageUrl(
-                personId = id,
-                imageTag = person.primaryImageTagOrNull(),
-                mediaRepository = mediaRepository
-            )
+    LaunchedEffect(person.id, person.primaryImageTag, person.imageUrl) {
+        if (!person.imageUrl.isNullOrBlank()) {
+            personImageUrl = person.imageUrl
+        } else {
+            person.id?.let { id ->
+                personImageUrl = getPersonImageUrl(
+                    personId = id,
+                    imageTag = person.primaryImageTagOrNull(),
+                    mediaRepository = mediaRepository
+                )
+            }
         }
     }
 

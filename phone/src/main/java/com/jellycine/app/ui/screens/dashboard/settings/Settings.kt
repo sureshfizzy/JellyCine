@@ -567,7 +567,7 @@ private fun UserProfileSection(
 
 @Composable
 private fun SeerrRequestLimitsRow(
-    requestLimits: com.jellycine.data.repository.SeerrUserRequestLimits
+    requestLimits: com.jellycine.data.model.SeerrUserRequestLimits
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)

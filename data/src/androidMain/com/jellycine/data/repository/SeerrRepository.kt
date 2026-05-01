@@ -4,21 +4,32 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.jellycine.data.api.SeerrApiClient
+import com.jellycine.data.network.ApiResponse
+import com.jellycine.data.network.ApiHeaders
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrConnectionInfo
+import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SeerrLoginRequest
+import com.jellycine.data.model.SeerrMediaInfo
+import com.jellycine.data.model.SeerrMapper
 import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.SeerrStatusResponse
+import com.jellycine.data.model.SeerrUserRequestLimits
+import com.jellycine.data.model.seerrImageUrl
 import com.jellycine.data.network.JellyCineJson
-import com.jellycine.data.network.trimTrailingSlash
+import com.jellycine.data.network.canonicalServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Request
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -28,20 +39,6 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
-
-data class SeerrConnectionInfo(
-    val serverUrl: String,
-    val serverVersion: String? = null,
-    val requestLimits: SeerrUserRequestLimits? = null,
-    val isVerified: Boolean = false
-)
-
-data class SeerrUserRequestLimits(
-    val movieQuotaLimit: Int? = null,
-    val movieQuotaDays: Int? = null,
-    val tvQuotaLimit: Int? = null,
-    val tvQuotaDays: Int? = null
-)
 
 class SeerrRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -58,10 +55,6 @@ class SeerrRepository(context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
-    }
-
-    init {
-        clearLegacyConnectionStorage()
     }
 
     fun getSavedConnectionInfo(scopeId: String?): SeerrConnectionInfo? {
@@ -83,7 +76,7 @@ class SeerrRepository(context: Context) {
         password: String,
         mediaServerUrl: String
     ): Result<SeerrConnectionInfo> = withContext(Dispatchers.IO) {
-        val normalizedUrl = normalizeServerUrl(serverUrl).getOrElse { error ->
+        val normalizedUrl = seerrServerUrl(serverUrl).getOrElse { error ->
             return@withContext Result.failure(error)
         }
         val sanitizedUsername = username.trim()
@@ -116,9 +109,7 @@ class SeerrRepository(context: Context) {
     }
 
     suspend fun refreshConnection(scopeId: String): Result<SeerrConnectionInfo> = withContext(Dispatchers.IO) {
-        val storedConnection = storedConnection(scopeId) ?: return@withContext Result.failure(
-            Exception("Seerr is not connected.")
-        )
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
 
         verifyConnection(
             serverUrl = storedConnection.serverUrl,
@@ -143,200 +134,187 @@ class SeerrRepository(context: Context) {
         creditType: SeerrPersonCreditType,
         limit: Int = 12
     ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
-        val storedConnection = storedConnection(scopeId) ?: return@withContext Result.failure(
-            Exception("Seerr is not connected.")
-        )
-        val seerPersonTmdbId = personTmdbId.trim()
-        if (seerPersonTmdbId.isBlank()) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val tmdbPersonId = personTmdbId.trim()
+        if (tmdbPersonId.isBlank()) {
             return@withContext Result.success(emptyList())
         }
 
         runRequestCatching {
-            val client = createHttpClient()
-            val response = client.newCall(
-                Request.Builder()
-                    .url(buildApiUrl(storedConnection.serverUrl, "person/$seerPersonTmdbId/combined_credits"))
-                    .get()
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Cookie", storedConnection.sessionCookie)
-                    .build()
-            ).execute()
-
-            response.use { creditsResponse ->
-                val responseBody = creditsResponse.body?.string().orEmpty()
-                when {
-                    creditsResponse.isSuccessful -> {
-                        val payload = runCatching {
-                            JellyCineJson.decodeFromString<SeerrCombinedCreditsResponse>(responseBody)
-                        }.getOrNull()
-                            ?: return@use Result.failure(
-                                Exception("Could not parse Seerr person credits.")
+            seerrApi(storedConnection)
+                .personCredits(tmdbPersonId)
+                .mapBody(
+                    parseError = "Could not parse Seerr person credits.",
+                    httpError = "Failed to fetch Seerr person credits."
+                ) { payload ->
+                    val seerMediaType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
+                    val credits = buildList {
+                        when (creditType) {
+                            SeerrPersonCreditType.DIRECTOR -> addAll(
+                                payload.crew.filter { credit -> credit.job.crewRoleLabel() != null }
                             )
 
-                        val seerMediaType = if (mediaType.equals("tv", ignoreCase = true)) {
-                            "tv"
-                        } else {
-                            "movie"
-                        }
-                        val credits = buildList {
-                            when (creditType) {
-                                SeerrPersonCreditType.DIRECTOR -> {
-                                    addAll(
-                                        payload.crew.filter { credit ->
-                                            credit.job.crewRoleLabel() != null
-                                        }
-                                    )
-                                }
-
-                                SeerrPersonCreditType.ACTOR -> {
-                                    addAll(payload.cast)
-                                    addAll(
-                                        payload.crew.filter { credit ->
-                                            credit.job.crewRoleLabel() != null
-                                        }
-                                    )
-                                }
+                            SeerrPersonCreditType.ACTOR -> {
+                                addAll(payload.cast)
+                                addAll(payload.crew.filter { credit -> credit.job.crewRoleLabel() != null })
                             }
-                        }.filter { it.mediaType.equals(seerMediaType, ignoreCase = true) }
+                        }
+                    }.filter { it.mediaType.equals(seerMediaType, ignoreCase = true) }
 
-                        Result.success(
-                            credits
-                                .asSequence()
-                                .mapNotNull { credit ->
-                                    val tmdbId = credit.id?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                                    val title = credit.title.ifNotBlank()
-                                        ?: credit.name.ifNotBlank()
-                                        ?: return@mapNotNull null
-                                    SeerrRecommendationTitle(
-                                        tmdbId = tmdbId,
-                                        title = title,
-                                        mediaType = seerMediaType,
-                                        productionYear = credit.releaseDate.extractYear()
-                                            ?: credit.firstAirDate.extractYear(),
-                                        posterPath = credit.posterPath.ifNotBlank()
-                                            ?: credit.posterPathSnake.ifNotBlank(),
-                                        jellyfinMediaId = credit.mediaInfo?.jellyfinMediaId.ifNotBlank(),
-                                        requestState = credit.mediaInfo.toRequestState(),
-                                        roleLabel = credit.job.crewRoleLabel()
-                                            ?: creditType.defaultRoleLabel()
-                                    )
-                                }
-                                .distinctBy { it.tmdbId }
-                                .take(limit)
-                                .toList()
-                        )
-                    }
-
-                    creditsResponse.code == 401 || creditsResponse.code == 403 -> {
-                        Result.failure(
-                            Exception("Your Seerr session expired. Please sign in again.")
-                        )
-                    }
-
-                    else -> {
-                        Result.failure(
-                            Exception("Failed to fetch Seerr person credits. Server responded with HTTP ${creditsResponse.code}.")
-                        )
-                    }
+                    Result.success(
+                        credits
+                            .asSequence()
+                            .mapNotNull { credit ->
+                                val tmdbId = credit.id?.toString()?.takeIf { it.isNotBlank() }
+                                    ?: return@mapNotNull null
+                                val title = credit.title.ifNotBlank()
+                                    ?: credit.name.ifNotBlank()
+                                    ?: return@mapNotNull null
+                                SeerrRecommendationTitle(
+                                    tmdbId = tmdbId,
+                                    title = title,
+                                    mediaType = seerMediaType,
+                                    productionYear = credit.releaseDate.extractYear()
+                                        ?: credit.firstAirDate.extractYear(),
+                                    posterUrl = seerrImageUrl(
+                                        storedConnection.serverUrl,
+                                        credit.posterPath.ifNotBlank(),
+                                        "w500"
+                                    ),
+                                    jellyfinMediaId = credit.mediaInfo?.jellyfinMediaId.ifNotBlank(),
+                                    requestState = credit.mediaInfo.toRequestState(),
+                                    roleLabel = credit.job.crewRoleLabel()
+                                        ?: creditType.defaultRoleLabel()
+                                )
+                            }
+                            .distinctBy { it.tmdbId }
+                            .take(limit)
+                            .toList()
+                    )
                 }
-            }
         }
     }
+    suspend fun getPersonDetails(
+        scopeId: String,
+        personTmdbId: String
+    ): Result<BaseItemDto> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val tmdbPersonId = personTmdbId.trim()
+        if (tmdbPersonId.isBlank()) {
+            return@withContext Result.failure(Exception("Seerr person id is missing."))
+        }
 
+        runRequestCatching {
+            seerrApi(storedConnection)
+                .personDetails(tmdbPersonId)
+                .mapBody(
+                    parseError = "Could not parse Seerr person details.",
+                    httpError = "Failed to load Seerr person details.",
+                    notFoundError = "Seerr could not find this person."
+                ) { payload ->
+                    Result.success(
+                        SeerrMapper.toBaseItem(
+                            response = payload,
+                            serverUrl = storedConnection.serverUrl
+                        ) ?: return@mapBody Result.failure(
+                            Exception("Seerr person details are incomplete.")
+                        )
+                    )
+                }
+        }
+    }
     suspend fun searchTitles(
         scopeId: String,
         query: String,
         limit: Int = 20
     ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
-        val storedConnection = storedConnection(scopeId) ?: return@withContext Result.failure(
-            Exception("Seerr is not connected.")
-        )
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
         val searchQuery = query.trim()
         if (searchQuery.isBlank()) {
             return@withContext Result.success(emptyList())
         }
 
         runRequestCatching {
-            val client = createHttpClient()
-            val response = client.newCall(
-                Request.Builder()
-                    .url(
-                        buildApiUrl(storedConnection.serverUrl, "search")
-                            .newBuilder()
-                            .addQueryParameter("query", searchQuery)
-                            .addQueryParameter("page", "1")
-                            .build()
-                    )
-                    .get()
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Cookie", storedConnection.sessionCookie)
-                    .build()
-            ).execute()
-
-            response.use { searchResponse ->
-                val responseBody = searchResponse.body?.string().orEmpty()
-                when {
-                    searchResponse.isSuccessful -> {
-                        val payload = runCatching {
-                            JellyCineJson.decodeFromString<SeerrSearchResponse>(responseBody)
-                        }.getOrNull()
-                            ?: return@use Result.failure(
-                                Exception("Could not parse Seerr search results.")
-                            )
-
-                        Result.success(
-                            payload.results
-                                .asSequence()
-                                .mapNotNull { result ->
-                                    val mediaType = result.mediaType.ifNotBlank()
-                                        ?: result.mediaTypeSnake.ifNotBlank()
-                                        ?: return@mapNotNull null
-                                    val normalizedMediaType = when {
-                                        mediaType.equals("tv", ignoreCase = true) -> "tv"
-                                        mediaType.equals("movie", ignoreCase = true) -> "movie"
-                                        else -> return@mapNotNull null
-                                    }
-                                    val tmdbId = result.id?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                                    val title = result.title.ifNotBlank()
-                                        ?: result.name.ifNotBlank()
-                                        ?: return@mapNotNull null
-
-                                    SeerrRecommendationTitle(
-                                        tmdbId = tmdbId,
-                                        title = title,
-                                        mediaType = normalizedMediaType,
-                                        productionYear = result.releaseDate.extractYear()
-                                            ?: result.releaseDateSnake.extractYear()
-                                            ?: result.firstAirDate.extractYear()
-                                            ?: result.firstAirDateSnake.extractYear(),
-                                        posterPath = result.posterPath.ifNotBlank()
-                                            ?: result.posterPathSnake.ifNotBlank(),
-                                        jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank(),
-                                        requestState = result.mediaInfo.toRequestState()
-                                    )
+            seerrApi(storedConnection)
+                .search(searchQuery)
+                .mapBody(
+                    parseError = "Could not parse Seerr search results.",
+                    httpError = "Failed to search Seerr titles."
+                ) { payload ->
+                    Result.success(
+                        payload.results
+                            .asSequence()
+                            .mapNotNull { result ->
+                                val normalizedMediaType = when {
+                                    result.mediaType.equals("tv", ignoreCase = true) -> "tv"
+                                    result.mediaType.equals("movie", ignoreCase = true) -> "movie"
+                                    else -> return@mapNotNull null
                                 }
-                                .distinctBy { result -> "${result.mediaType}:${result.tmdbId}" }
-                                .take(limit)
-                                .toList()
-                        )
-                    }
+                                val tmdbId = result.id?.toString()?.takeIf { it.isNotBlank() }
+                                    ?: return@mapNotNull null
+                                val title = result.title.ifNotBlank()
+                                    ?: result.name.ifNotBlank()
+                                    ?: return@mapNotNull null
 
-                    searchResponse.code == 401 || searchResponse.code == 403 -> {
-                        Result.failure(
-                            Exception("Your Seerr session expired. Please sign in again.")
-                        )
-                    }
-
-                    else -> {
-                        Result.failure(
-                            Exception("Failed to search Seerr titles. Server responded with HTTP ${searchResponse.code}.")
-                        )
-                    }
+                                SeerrRecommendationTitle(
+                                    tmdbId = tmdbId,
+                                    title = title,
+                                    mediaType = normalizedMediaType,
+                                    productionYear = result.releaseDate.extractYear()
+                                        ?: result.firstAirDate.extractYear(),
+                                    posterUrl = seerrImageUrl(
+                                        storedConnection.serverUrl,
+                                        result.posterPath.ifNotBlank(),
+                                        "w500"
+                                    ),
+                                    jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank(),
+                                    requestState = result.mediaInfo.toRequestState()
+                                )
+                            }
+                            .distinctBy { result -> "${result.mediaType}:${result.tmdbId}" }
+                            .take(limit)
+                            .toList()
+                    )
                 }
-            }
         }
     }
+    suspend fun getTitleDetails(
+        scopeId: String,
+        tmdbId: String,
+        mediaType: String
+    ): Result<BaseItemDto> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val seerTmdbId = tmdbId.trim()
+        if (seerTmdbId.isBlank()) {
+            return@withContext Result.failure(Exception("Seerr title id is missing."))
+        }
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            else -> return@withContext Result.failure(Exception("Unsupported Seerr media type."))
+        }
 
+        runRequestCatching {
+            seerrApi(storedConnection)
+                .titleDetails(normalizedMediaType, seerTmdbId)
+                .mapBody(
+                    parseError = "Could not parse Seerr title details.",
+                    httpError = "Failed to load Seerr title details.",
+                    notFoundError = "Seerr could not find this title."
+                ) { payload ->
+                    Result.success(
+                        SeerrMapper.toBaseItem(
+                            response = payload,
+                            itemId = SeerrItemIds.detailId(seerTmdbId, normalizedMediaType),
+                            mediaType = normalizedMediaType,
+                            serverUrl = storedConnection.serverUrl
+                        ) ?: return@mapBody Result.failure(
+                            Exception("Seerr title details are incomplete.")
+                        )
+                    )
+                }
+        }
+    }
     fun disconnect(scopeId: String?) {
         if (scopeId.isNullOrBlank()) return
         prefs.edit()
@@ -386,7 +364,7 @@ class SeerrRepository(context: Context) {
             .apply()
     }
 
-    private fun signIn(
+    private suspend fun signIn(
         serverUrl: String,
         username: String,
         password: String,
@@ -394,14 +372,17 @@ class SeerrRepository(context: Context) {
     ): Result<SignInResult> {
         return runRequestCatching {
             val client = createHttpClient()
-            val statusPayload = getStatusPayload(client, serverUrl).getOrElse { error ->
+            val api = SeerrApiClient(
+                serverUrl = serverUrl,
+                client = client
+            )
+            val statusPayload = getStatusPayload(api).getOrElse { error ->
                 return Result.failure(error)
             }
-            val authUrl = buildApiUrl(serverUrl, "auth/jellyfin")
             val initialAttempt = performSignInRequest(
+                api = api,
                 client = client,
                 serverUrl = serverUrl,
-                authUrl = authUrl,
                 username = username,
                 password = password,
                 mediaServerUrl = mediaServerUrl,
@@ -413,9 +394,9 @@ class SeerrRepository(context: Context) {
                 initialAttempt.exceptionOrNull()?.message == HOSTNAME_ALREADY_CONFIGURED_ERROR
             ) {
                 return performSignInRequest(
+                    api = api,
                     client = client,
                     serverUrl = serverUrl,
-                    authUrl = authUrl,
                     username = username,
                     password = password,
                     mediaServerUrl = mediaServerUrl,
@@ -427,229 +408,178 @@ class SeerrRepository(context: Context) {
         }
     }
 
-    private fun performSignInRequest(
-        client: OkHttpClient,
+    private suspend fun performSignInRequest(
+        api: SeerrApiClient,
+        client: HttpClient,
         serverUrl: String,
-        authUrl: okhttp3.HttpUrl,
         username: String,
         password: String,
         mediaServerUrl: String,
         statusPayload: SeerrStatusResponse,
         includeMediaServerConfig: Boolean
     ): Result<SignInResult> {
-        val requestBody = JellyCineJson.encodeToString(
+        val response = api.login(
             SeerrLoginRequest(
                 username = username,
                 password = password,
                 hostname = mediaServerUrl.takeIf { includeMediaServerConfig }
             )
-        ).toRequestBody("application/json".toMediaType())
+        )
 
-        val response = client.newCall(
-            Request.Builder()
-                .url(authUrl)
-                .post(requestBody)
-                .addHeader("Accept", "application/json")
-                .addHeader("Content-Type", "application/json")
-                .build()
-        ).execute()
-
-        return response.use { authResponse ->
-            val responseBody = authResponse.body?.string().orEmpty()
-            when {
-                authResponse.isSuccessful -> {
-                    val sessionCookie = extractSessionCookie(authResponse.headers.values("Set-Cookie"))
-                        ?: return Result.failure(
-                            Exception("Seerr sign-in succeeded, but no session cookie was returned.")
-                        )
-
-                    Result.success(
-                        SignInResult(
-                            connection = buildConnectionInfo(
-                                serverUrl = serverUrl,
-                                serverVersion = statusPayload.version,
-                                requestLimits = fetchCurrentUserRequestLimits(
-                                    client = client,
-                                    serverUrl = serverUrl,
-                                    sessionCookie = sessionCookie
-                                )
-                            ),
-                            sessionCookie = sessionCookie
-                        )
+        return when {
+            response.isSuccessful -> {
+                val sessionCookie = response.headers().sessionCookie()
+                    ?: return Result.failure(
+                        Exception("Seerr sign-in succeeded, but no session cookie was returned.")
                     )
-                }
-
-                authResponse.code == 401 || authResponse.code == 403 -> {
-                    Result.failure(
-                        Exception("Seerr rejected these credentials. Please check your username and password.")
+                val authenticatedApi = SeerrApiClient(
+                    serverUrl = serverUrl,
+                    client = client,
+                    sessionCookie = sessionCookie
+                )
+                Result.success(
+                    SignInResult(
+                        connection = buildConnectionInfo(
+                            serverUrl = serverUrl,
+                            serverVersion = statusPayload.version,
+                            requestLimits = authenticatedApi.currentUser().body()?.id?.let { userId ->
+                                fetchEffectiveRequestLimits(authenticatedApi, userId)
+                            }
+                        ),
+                        sessionCookie = sessionCookie
                     )
-                }
+                )
+            }
 
-                authResponse.code == 500 &&
-                    responseBody.contains("hostname already configured", ignoreCase = true) -> {
-                    Result.failure(Exception(HOSTNAME_ALREADY_CONFIGURED_ERROR))
-                }
+            response.isAuthFailure() -> {
+                Result.failure(
+                    Exception("Seerr rejected these credentials. Please check your username and password.")
+                )
+            }
 
-                else -> {
-                    Result.failure(
-                        Exception("Seerr sign-in failed with HTTP ${authResponse.code}.")
-                    )
-                }
+            response.code() == 500 &&
+                response.errorBody().orEmpty().contains("hostname already configured", ignoreCase = true) -> {
+                Result.failure(Exception(HOSTNAME_ALREADY_CONFIGURED_ERROR))
+            }
+
+            else -> {
+                Result.failure(Exception("Seerr sign-in failed with HTTP ${response.code()}."))
             }
         }
     }
 
-    private fun verifyConnection(
+    private suspend fun verifyConnection(
         serverUrl: String,
         sessionCookie: String
     ): Result<SeerrConnectionInfo> {
         return runRequestCatching {
             val client = createHttpClient()
-            val statusPayload = getStatusPayload(client, serverUrl).getOrElse { error ->
+            val statusPayload = getStatusPayload(
+                SeerrApiClient(
+                    serverUrl = serverUrl,
+                    client = client
+                )
+            ).getOrElse { error ->
                 return Result.failure(error)
             }
+            val api = SeerrApiClient(
+                serverUrl = serverUrl,
+                client = client,
+                sessionCookie = sessionCookie
+            )
+            val currentUserResponse = api.currentUser()
 
-            val authResponse = client.newCall(
-                Request.Builder()
-                    .url(buildApiUrl(serverUrl, "auth/me"))
-                    .get()
-                    .addHeader("Accept", "application/json")
-                    .addHeader("Cookie", sessionCookie)
-                    .build()
-            ).execute()
-
-            authResponse.use { response ->
-                val responseBody = response.body?.string().orEmpty()
-                when {
-                    response.isSuccessful -> {
-                        Result.success(
-                            buildConnectionInfo(
-                                serverUrl = serverUrl,
-                                serverVersion = statusPayload.version,
-                                requestLimits = decodeCurrentUserId(responseBody)?.let { userId ->
-                                    fetchEffectiveRequestLimits(
-                                        client = client,
-                                        serverUrl = serverUrl,
-                                        sessionCookie = sessionCookie,
-                                        userId = userId
-                                    )
-                                }
-                            )
-                        )
-                    }
-
-                    response.code == 401 || response.code == 403 -> {
-                        Result.failure(
-                            Exception("Your Seerr session expired. Please sign in again.")
-                        )
-                    }
-
-                    else -> {
-                        Result.failure(
-                            Exception("Could not verify the Seerr session. Server responded with HTTP ${response.code}.")
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun getStatusPayload(
-        client: OkHttpClient,
-        serverUrl: String
-    ): Result<SeerrStatusResponse> {
-        val statusResponse = client.newCall(
-            Request.Builder()
-                .url(buildApiUrl(serverUrl, "status"))
-                .get()
-                .build()
-        ).execute()
-
-        return statusResponse.use { response ->
-            val responseBody = response.body?.string().orEmpty()
             when {
-                response.isSuccessful -> {
-                    val payload = runCatching {
-                        JellyCineJson.decodeFromString<SeerrStatusResponse>(responseBody)
-                    }.getOrDefault(SeerrStatusResponse())
-                    Result.success(payload)
+                currentUserResponse.isSuccessful -> {
+                    Result.success(
+                        buildConnectionInfo(
+                            serverUrl = serverUrl,
+                            serverVersion = statusPayload.version,
+                            requestLimits = currentUserResponse.body()?.id?.let { userId ->
+                                fetchEffectiveRequestLimits(api, userId)
+                            }
+                        )
+                    )
                 }
 
-                response.code == 404 -> {
-                    Result.failure(
-                        Exception("Seerr was not found at this URL. Please check the address.")
-                    )
+                currentUserResponse.isAuthFailure() -> {
+                    Result.failure(Exception(SESSION_EXPIRED_ERROR))
                 }
 
                 else -> {
                     Result.failure(
-                        Exception("Seerr returned HTTP ${response.code}. Please verify the URL.")
+                        Exception("Could not verify the Seerr session. Server responded with HTTP ${currentUserResponse.code()}.")
                     )
                 }
             }
         }
     }
 
-    private fun createHttpClient(): OkHttpClient {
+    private suspend fun getStatusPayload(api: SeerrApiClient): Result<SeerrStatusResponse> {
+        val response = api.status()
+        return when {
+            response.isSuccessful -> Result.success(response.body() ?: SeerrStatusResponse())
+            response.code() == 404 -> {
+                Result.failure(Exception("Seerr was not found at this URL. Please check the address."))
+            }
+            else -> {
+                Result.failure(Exception("Seerr returned HTTP ${response.code()}. Please verify the URL."))
+            }
+        }
+    }
+    private fun createHttpClient(): HttpClient {
         val timeouts = networkPreferences.getTimeoutConfig()
-        return OkHttpClient.Builder()
+        val okHttpClient = OkHttpClient.Builder()
             .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(true)
             .build()
-    }
 
-    private fun normalizeServerUrl(serverUrl: String): Result<String> {
-        val trimmed = serverUrl.trim()
-        if (trimmed.isBlank()) {
+        return HttpClient(OkHttp) {
+            expectSuccess = false
+            engine {
+                preconfigured = okHttpClient
+            }
+            install(ContentNegotiation) {
+                json(JellyCineJson)
+            }
+        }
+    }
+    private fun seerrServerUrl(serverUrl: String): Result<String> {
+        if (serverUrl.isBlank()) {
             return Result.failure(Exception("Please enter your Seerr URL."))
         }
-        if (!trimmed.startsWith("http://", ignoreCase = true) &&
-            !trimmed.startsWith("https://", ignoreCase = true)
+        val normalized = canonicalServerUrl(serverUrl)
+        if (!normalized.startsWith("http://", ignoreCase = true) &&
+            !normalized.startsWith("https://", ignoreCase = true)
         ) {
             return Result.failure(Exception("Seerr URL must start with http:// or https://"))
         }
-
-        val withoutTrailingSlash = trimTrailingSlash(trimmed)
-            .removeKnownApiSuffix()
-        val validatedUrl = withoutTrailingSlash.toHttpUrlOrNull()
+        val validatedUrl = normalized.toHttpUrlOrNull()
             ?: return Result.failure(Exception("Please enter a valid Seerr URL."))
 
-        return Result.success(
-            trimTrailingSlash(validatedUrl.toString())
-        )
+        return Result.success(canonicalServerUrl(validatedUrl.toString()))
     }
 
     private fun buildMediaServerUrl(serverUrl: String): Result<String> {
-        val trimmed = serverUrl.trim()
-        if (trimmed.isBlank()) {
+        if (serverUrl.isBlank()) {
             return Result.failure(Exception("Your media server URL is missing. Sign in to JellyCine first."))
         }
-        val validatedUrl = trimTrailingSlash(trimmed).toHttpUrlOrNull()
+        val validatedUrl = canonicalServerUrl(serverUrl).toHttpUrlOrNull()
             ?: return Result.failure(Exception("Your media server URL is invalid."))
 
-        return Result.success(trimTrailingSlash(validatedUrl.toString()))
+        return Result.success(canonicalServerUrl(validatedUrl.toString()))
     }
 
-    private fun buildApiUrl(
-        serverUrl: String,
-        path: String
-    ) = "${trimTrailingSlash(serverUrl)}/api/v1/$path".toHttpUrlOrNull()
-        ?: throw IllegalArgumentException("Invalid Seerr URL.")
-
-    private fun extractSessionCookie(setCookieHeaders: List<String>): String? {
-        return setCookieHeaders
-            .mapNotNull { header ->
-                header.substringBefore(';')
-                    .trim()
-                    .takeIf { cookie -> cookie.contains('=') && cookie.isNotBlank() }
-            }
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString("; ")
+    private fun seerrApi(storedConnection: StoredConnection): SeerrApiClient {
+        return SeerrApiClient(
+            serverUrl = storedConnection.serverUrl,
+            client = createHttpClient(),
+            sessionCookie = storedConnection.sessionCookie
+        )
     }
-
     private fun scopedKey(baseKey: String, scopeId: String): String {
         return "${baseKey}_${sha256(scopeId)}"
     }
@@ -667,79 +597,44 @@ class SeerrRepository(context: Context) {
         )
     }
 
-    private fun fetchCurrentUserRequestLimits(
-        client: OkHttpClient,
-        serverUrl: String,
-        sessionCookie: String
+    private suspend fun fetchEffectiveRequestLimits(
+        api: SeerrApiClient,
+        userId: Int
     ): SeerrUserRequestLimits? {
-        val currentUserId = fetchCurrentUserId(client, serverUrl, sessionCookie) ?: return null
-
-        return fetchEffectiveRequestLimits(
-            client = client,
-            serverUrl = serverUrl,
-            sessionCookie = sessionCookie,
-            userId = currentUserId
+        val payload = api.quota(userId).body() ?: return null
+        return SeerrUserRequestLimits(
+            movieQuotaLimit = payload.movie.limit,
+            movieQuotaDays = payload.movie.days,
+            tvQuotaLimit = payload.tv.limit,
+            tvQuotaDays = payload.tv.days
         )
     }
 
-    private fun fetchCurrentUserId(
-        client: OkHttpClient,
-        serverUrl: String,
-        sessionCookie: String
-    ): Int? {
-        val response = client.newCall(
-            Request.Builder()
-                .url(buildApiUrl(serverUrl, "auth/me"))
-                .get()
-                .addHeader("Accept", "application/json")
-                .addHeader("Cookie", sessionCookie)
-                .build()
-        ).execute()
+    private fun <T> notConnectedFailure(): Result<T> =
+        Result.failure(Exception("Seerr is not connected."))
 
-        return response.use { authResponse ->
-            if (!authResponse.isSuccessful) return@use null
-            decodeCurrentUserId(authResponse.body?.string().orEmpty())
+    private inline fun <T, R> ApiResponse<T>.mapBody(
+        parseError: String,
+        httpError: String,
+        notFoundError: String? = null,
+        transform: (T) -> Result<R>
+    ): Result<R> = when {
+        isSuccessful -> body()?.let(transform) ?: Result.failure(Exception(parseError))
+        isAuthFailure() -> Result.failure(Exception(SESSION_EXPIRED_ERROR))
+        code() == 404 && notFoundError != null -> Result.failure(Exception(notFoundError))
+        else -> Result.failure(Exception("$httpError Server responded with HTTP ${code()}."))
+    }
+
+    private fun <T> ApiResponse<T>.isAuthFailure(): Boolean = code() == 401 || code() == 403
+
+    private fun ApiHeaders.sessionCookie(): String? = getAll("Set-Cookie")
+        .mapNotNull { header ->
+            header.substringBefore(';')
+                .trim()
+                .takeIf { cookie -> cookie.contains('=') && cookie.isNotBlank() }
         }
-    }
-
-    private fun decodeCurrentUserId(responseBody: String): Int? {
-        return runCatching {
-            JellyCineJson.decodeFromString<SeerrCurrentUserResponse>(responseBody).id
-        }.getOrNull()
-    }
-
-    private fun fetchEffectiveRequestLimits(
-        client: OkHttpClient,
-        serverUrl: String,
-        sessionCookie: String,
-        userId: Int
-    ): SeerrUserRequestLimits? {
-        val response = client.newCall(
-            Request.Builder()
-                .url(buildApiUrl(serverUrl, "user/$userId/quota"))
-                .get()
-                .addHeader("Accept", "application/json")
-                .addHeader("Cookie", sessionCookie)
-                .build()
-        ).execute()
-
-        return response.use { quotaResponse ->
-            if (!quotaResponse.isSuccessful) return@use null
-            val payload = runCatching {
-                JellyCineJson.decodeFromString<SeerrQuotaResponse>(
-                    quotaResponse.body?.string().orEmpty()
-                )
-            }.getOrNull() ?: return@use null
-
-            SeerrUserRequestLimits(
-                movieQuotaLimit = payload.movie.limit,
-                movieQuotaDays = payload.movie.days,
-                tvQuotaLimit = payload.tv.limit,
-                tvQuotaDays = payload.tv.days
-            )
-        }
-    }
-
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString("; ")
     private inline fun <T> runRequestCatching(block: () -> Result<T>): Result<T> = try {
         block()
     } catch (error: Exception) {
@@ -773,11 +668,11 @@ class SeerrRepository(context: Context) {
     private fun String?.crewRoleLabel(): String? {
         val seerJob = this?.trim()?.lowercase(Locale.US) ?: return null
         return when {
-            seerJob == DIRECTOR_ROLE.lowercase(Locale.US) -> DIRECTOR_ROLE
-            seerJob in WRITER_JOBS -> WRITER_ROLE
-            seerJob in PRODUCER_JOBS -> PRODUCER_ROLE
-            seerJob == CREATOR_ROLE.lowercase(Locale.US) -> CREATOR_ROLE
-            else -> OTHER_ROLE
+            seerJob == "director" -> "Director"
+            seerJob in setOf("writer", "screenplay", "story", "novel", "characters") -> "Writer"
+            seerJob in setOf("producer", "executive producer", "co-producer", "associate producer", "line producer") -> "Producer"
+            seerJob == "creator" -> "Creator"
+            else -> "Other"
         }
     }
 
@@ -798,8 +693,8 @@ class SeerrRepository(context: Context) {
     }
 
     private fun SeerrPersonCreditType.defaultRoleLabel(): String = when (this) {
-        SeerrPersonCreditType.DIRECTOR -> DIRECTOR_ROLE
-        SeerrPersonCreditType.ACTOR -> ACTOR_ROLE
+        SeerrPersonCreditType.DIRECTOR -> "Director"
+        SeerrPersonCreditType.ACTOR -> "Actor"
     }
 
     private fun SharedPreferences.Editor.putScopedIntOrRemove(
@@ -841,25 +736,6 @@ class SeerrRepository(context: Context) {
         return if (contains(key)) getInt(key, 0) else null
     }
 
-    private fun String.removeKnownApiSuffix(): String {
-        return when {
-            endsWith("/api/v1", ignoreCase = true) -> dropLast("/api/v1".length)
-            endsWith("/api", ignoreCase = true) -> dropLast("/api".length)
-            else -> this
-        }
-    }
-
-    private fun clearLegacyConnectionStorage() {
-        prefs.edit()
-            .remove(KEY_SERVER_URL)
-            .remove(KEY_SERVER_VERSION)
-            .remove(KEY_IS_VERIFIED)
-            .apply()
-        securePrefs.edit()
-            .remove(KEY_SESSION_COOKIE)
-            .apply()
-    }
-
     private data class StoredConnection(
         val serverUrl: String,
         val sessionCookie: String
@@ -872,6 +748,7 @@ class SeerrRepository(context: Context) {
 
     companion object {
         private const val HOSTNAME_ALREADY_CONFIGURED_ERROR = "Seerr hostname already configured"
+        private const val SESSION_EXPIRED_ERROR = "Your Seerr session expired. Please sign in again."
         private const val PREFS_NAME = "seerr_connection_prefs"
         private const val SECURE_PREFS_NAME = "seerr_connection_secure_prefs"
         private const val KEY_SERVER_URL = "server_url"
@@ -886,13 +763,5 @@ class SeerrRepository(context: Context) {
         private const val SEERR_MEDIA_PROCESSING = 3
         private const val SEERR_REQUEST_PENDING = 1
         private const val SEERR_REQUEST_APPROVED = 2
-        private const val DIRECTOR_ROLE = "Director"
-        private const val ACTOR_ROLE = "Actor"
-        private const val WRITER_ROLE = "Writer"
-        private const val PRODUCER_ROLE = "Producer"
-        private const val CREATOR_ROLE = "Creator"
-        private const val OTHER_ROLE = "Other"
-        private val WRITER_JOBS = setOf("writer", "screenplay", "story", "novel", "characters")
-        private val PRODUCER_JOBS = setOf("producer", "executive producer", "co-producer", "associate producer", "line producer")
     }
 }

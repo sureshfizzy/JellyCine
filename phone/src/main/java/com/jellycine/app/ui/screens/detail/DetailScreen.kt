@@ -38,9 +38,11 @@ import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -54,9 +56,10 @@ import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DownloadLabelContent
 import com.jellycine.app.ui.components.common.SeerPersonRole
-import com.jellycine.app.ui.components.common.SeerTitleCard
-import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
+import com.jellycine.app.ui.components.common.SeerTitlesRow
+import com.jellycine.app.ui.components.common.fetchSeerTmdbPersonId
 import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
+import com.jellycine.app.ui.components.common.seerTitleItems
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.ScreenWrapper
@@ -126,7 +129,12 @@ fun DetailScreenContainer(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(context) { SeerrRepository(context) }
     val playerPreferences = remember { PlayerPreferences(context) }
+    val activeServerId by authRepository.getActiveServerId()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+    val seerParams = remember(itemId) { SeerrItemIds.detailParams(itemId) }
 
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -353,12 +361,28 @@ fun DetailScreenContainer(
         }
     }
 
-    LaunchedEffect(itemId) {
+    LaunchedEffect(itemId, activeServerId) {
         try {
             isLoading = true
             error = null
 
-            val result = mediaRepository.getItemById(itemId)
+            val result = if (seerParams != null) {
+                val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+                    ?: run {
+                        error = "Seerr is not connected."
+                        item = null
+                        isLoading = false
+                        return@LaunchedEffect
+                    }
+                val (mediaType, tmdbId) = seerParams
+                seerrRepository.getTitleDetails(
+                    scopeId = scopeId,
+                    tmdbId = tmdbId,
+                    mediaType = mediaType
+                )
+            } else {
+                mediaRepository.getItemById(itemId)
+            }
             result.fold(
                 onSuccess = { fetchedItem ->
                     item = fetchedItem
@@ -703,6 +727,7 @@ fun DetailContent(
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
+    val isSeerDetail = item.isSeerDetailItem()
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -787,19 +812,31 @@ fun DetailContent(
     val descriptionTagline = remember(item.taglines) {
         item.taglines?.firstOrNull { !it.isNullOrBlank() }
     }
-    val directors = remember(item.people) {
-        item.people?.filter { person ->
-            listOf(person.role, person.type).any { field ->
-                field?.contains("Director", ignoreCase = true) == true
-            }
+    val directors = remember(item.people, isSeerDetail) {
+        val directorPeople = item.people?.filter { person ->
+            person.isCreditType("Director")
         }.orEmpty()
+        if (directorPeople.isNotEmpty() || !isSeerDetail) {
+            directorPeople
+        } else {
+            item.people?.filter { person ->
+                person.isCreditType("Creator")
+            }.orEmpty()
+        }
+    }
+    val directorCreditLabel = remember(directors) {
+        if (directors.any { person -> person.isCreditType("Director") }) {
+            "Director:"
+        } else {
+            "Creator:"
+        }
     }
     var directorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var seerrDirectorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
     val hasDescriptionContent = !item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()
-    val canDownloadItem = item.id != null && item.canDownload != false
+    val canDownloadItem = item.id != null && item.canDownload != false && !isSeerDetail
     val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
-    val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
+    val itemDownloadStateFlow = if (isSeerDetail) null else item.id?.let { downloadRepository.observeItemDownload(it) }
     val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
         ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
     val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
@@ -831,7 +868,7 @@ fun DetailContent(
     }
     val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
         val seriesId = item.id
-        if (item.type != "Series" || seriesId.isNullOrBlank()) {
+        if (isSeerDetail || item.type != "Series" || seriesId.isNullOrBlank()) {
             emptyList()
         } else {
             trackedDownloads.filter { it.item?.seriesId == seriesId }
@@ -848,6 +885,7 @@ fun DetailContent(
     ) { mutableStateOf(false) }
 
     fun toggleFavorite() {
+        if (isSeerDetail) return
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
         coroutineScope.launch {
@@ -919,6 +957,13 @@ fun DetailContent(
         )
         heroImageIndex = 0
 
+        if (isSeerDetail) {
+            logoImageUrl = null
+            logoLookup = false
+            logoLoadError = false
+            return@LaunchedEffect
+        }
+
         logoLookup = true
         logoLoadError = false
         try {
@@ -933,7 +978,7 @@ fun DetailContent(
 
     LaunchedEffect(item.id) {
         val currentItemId = item.id
-        if (currentItemId.isNullOrBlank()) {
+        if (currentItemId.isNullOrBlank() || isSeerDetail) {
             similarItems = emptyList()
             return@LaunchedEffect
         }
@@ -1077,7 +1122,9 @@ fun DetailContent(
                 contentFadeStartFraction = contentFadeStart,
                 onErrorStateChange = onBackdropLoadError
             ) {
-                DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                if (!isSeerDetail) {
+                    DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                }
             }
         }
 
@@ -1100,7 +1147,9 @@ fun DetailContent(
                         bottomFadeGradient = heroBottomFadeGradient,
                         onErrorStateChange = onBackdropLoadError
                     ) {
-                        DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                        if (!isSeerDetail) {
+                            DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                        }
                     }
                 }
             }
@@ -1265,7 +1314,7 @@ fun DetailContent(
                             )
                         }
 
-                        if (castPlaybackState.isConnected) {
+                        if (castPlaybackState.isConnected && !isSeerDetail) {
                             Surface(
                                 color = Color(0xFF173025),
                                 shape = RoundedCornerShape(8.dp)
@@ -1380,7 +1429,7 @@ fun DetailContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Director:",
+                                    text = directorCreditLabel,
                                     fontSize = 13.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold
@@ -1388,19 +1437,10 @@ fun DetailContent(
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                Row {
-                                    directors.forEachIndexed { idx, person ->
-                                        val name = person.name ?: "Unknown"
-                                        Text(
-                                            text = name + if (idx < directors.lastIndex) ", " else "",
-                                            fontSize = 13.sp,
-                                            color = Color(0xFF89ECFF),
-                                            modifier = Modifier.clickable(enabled = !person.id.isNullOrBlank()) {
-                                                person.id?.let { onPersonClick(it) }
-                                            }
-                                        )
-                                    }
-                                }
+                                DirectorNamesRow(
+                                    directors = directors,
+                                    onPersonClick = onPersonClick
+                                )
                             }
                         }
 
@@ -1513,7 +1553,7 @@ fun DetailContent(
                             }
                         }
 
-                        if (item.type != "Series") {
+                        if (item.type != "Series" && !isSeerDetail) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth(
@@ -1781,10 +1821,12 @@ fun DetailContent(
                                     )
                                 }
 
-                                FavoriteActionButton(
-                                    isFavorite = isFavorite,
-                                    onClick = ::toggleFavorite
-                                )
+                                if (!isSeerDetail) {
+                                    FavoriteActionButton(
+                                        isFavorite = isFavorite,
+                                        onClick = ::toggleFavorite
+                                    )
+                                }
                             }
                         }
 
@@ -1804,7 +1846,7 @@ fun DetailContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Director:",
+                                    text = directorCreditLabel,
                                     fontSize = 13.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.SemiBold
@@ -1812,19 +1854,10 @@ fun DetailContent(
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                Row {
-                                    directors.forEachIndexed { idx, person ->
-                                        val name = person.name ?: "Unknown"
-                                        Text(
-                                            text = name + if (idx < directors.lastIndex) ", " else "",
-                                            fontSize = 13.sp,
-                                            color = Color(0xFF89ECFF),
-                                            modifier = Modifier.clickable(enabled = !person.id.isNullOrBlank()) {
-                                                person.id?.let { onPersonClick(it) }
-                                            }
-                                        )
-                                    }
-                                }
+                                DirectorNamesRow(
+                                    directors = directors,
+                                    onPersonClick = onPersonClick
+                                )
                             }
                         }
 
@@ -1837,7 +1870,7 @@ fun DetailContent(
                             )
                         }
 
-                        if (item.type == "Series") {
+                        if (item.type == "Series" && !isSeerDetail) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth(
@@ -1942,10 +1975,12 @@ fun DetailContent(
                                     )
                                 }
 
-                                FavoriteActionButton(
-                                    isFavorite = isFavorite,
-                                    onClick = ::toggleFavorite
-                                )
+                                if (!isSeerDetail) {
+                                    FavoriteActionButton(
+                                        isFavorite = isFavorite,
+                                        onClick = ::toggleFavorite
+                                    )
+                                }
                             }
 
                             item.id?.let { seriesId ->
@@ -1965,7 +2000,7 @@ fun DetailContent(
 
                         val primaryDirector = directors.firstOrNull()
 
-                        LaunchedEffect(item.id, primaryDirector?.id, activeServerId) {
+                        LaunchedEffect(item.id, primaryDirector?.id, activeServerId, isSeerDetail) {
                             val directorId = primaryDirector?.id
                             if (directorId.isNullOrBlank()) {
                                 directorTitles = emptyList()
@@ -1974,12 +2009,16 @@ fun DetailContent(
                             }
 
                             val targetType = if (item.type.equals("Movie", ignoreCase = true)) "Movie" else "Series"
-                            val localTitlesDeferred = async {
-                                mediaRepository.getItemsForPerson(directorId).getOrNull()
-                                    ?.filter { it.type.equals(targetType, ignoreCase = true) }
+                            val localTitlesDeferred = if (isSeerDetail) {
+                                null
+                            } else {
+                                async {
+                                    mediaRepository.getItemsForPerson(directorId).getOrNull()
+                                        ?.filter { it.type.equals(targetType, ignoreCase = true) }
+                                }
                             }
                             val rawSeerrTitlesDeferred = async {
-                                fetchSeerCreditTitles(
+                                fetchSeerTmdbPersonId(
                                     item = item,
                                     personId = directorId,
                                     role = SeerPersonRole.DIRECTOR,
@@ -1989,18 +2028,19 @@ fun DetailContent(
                                 )
                             }
 
-                            val localDirectorTitles = localTitlesDeferred.await()
-                            if (localDirectorTitles == null) {
+                            val localDirectorTitles = localTitlesDeferred?.await()
+                            if (!isSeerDetail && localDirectorTitles == null) {
                                 rawSeerrTitlesDeferred.cancel()
                                 directorTitles = emptyList()
                                 seerrDirectorTitles = emptyList()
                                 return@LaunchedEffect
                             }
+                            val baseDirectorTitles = localDirectorTitles.orEmpty()
 
-                            directorTitles = localDirectorTitles
+                            directorTitles = baseDirectorTitles
                             val pendingSeerrTitles = filterSeerTitlesForRow(
                                 seerrTitles = rawSeerrTitlesDeferred.await(),
-                                baseTitles = localDirectorTitles,
+                                baseTitles = baseDirectorTitles,
                                 item = item
                             )
                             seerrDirectorTitles = pendingSeerrTitles
@@ -2167,6 +2207,16 @@ private fun SimilarItemsSection(
     if (similarItems.isEmpty() && seerrItems.isEmpty()) return
     val sectionTitle = title ?: stringResource(R.string.detail_similar_items_title)
 
+    if (similarItems.isEmpty()) {
+        SeerTitlesRow(
+            title = sectionTitle,
+            items = seerrItems,
+            onItemClick = onItemClick,
+            modifier = modifier
+        )
+        return
+    }
+
     Column(
         modifier = modifier.padding(top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2195,12 +2245,32 @@ private fun SimilarItemsSection(
                 )
             }
 
-            items(
+            seerTitleItems(
                 items = seerrItems,
-                key = { seerrItem -> "seerr-${seerrItem.tmdbId}" }
-            ) { seerrItem ->
-                SeerTitleCard(seerrItem)
-            }
+                onItemClick = onItemClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun DirectorNamesRow(
+    directors: List<BaseItemPerson>,
+    onPersonClick: (String) -> Unit
+) {
+    Row {
+        directors.forEachIndexed { index, person ->
+            val personId = person.id
+            val canOpenPerson = !personId.isNullOrBlank()
+            val name = person.name ?: "Unknown"
+            Text(
+                text = name + if (index < directors.lastIndex) ", " else "",
+                fontSize = 13.sp,
+                color = Color(0xFF89ECFF),
+                modifier = Modifier.clickable(enabled = canOpenPerson) {
+                    personId?.let(onPersonClick)
+                }
+            )
         }
     }
 }
@@ -2690,6 +2760,12 @@ private suspend fun heroImageCandidates(
         }
     }
 
+    if (item.isSeerDetailItem()) {
+        addCandidate(item.backdropImageUrl)
+        addCandidate(item.imageUrl)
+        return candidates
+    }
+
     if (item.type == "Episode") {
         addCandidate(
             mediaRepository.getBackdropImageUrl(
@@ -2791,6 +2867,7 @@ private suspend fun heroImageCandidates(
                 )
             ).first()
         )
+
     }
 
     return candidates
@@ -2800,6 +2877,8 @@ private suspend fun logoImage(
     item: BaseItemDto,
     mediaRepository: MediaRepository
 ): String? {
+    if (item.isSeerDetailItem()) return null
+
     val logoItemId = if (item.type == "Episode") {
         item.seriesId ?: item.id
     } else {
@@ -2816,6 +2895,15 @@ private suspend fun logoImage(
             targetItemId = logoItemId
         )
     ).first()
+}
+
+private fun BaseItemPerson.isCreditType(expectedType: String): Boolean {
+    return type.equals(expectedType, ignoreCase = true) ||
+        role.equals(expectedType, ignoreCase = true)
+}
+
+private fun BaseItemDto.isSeerDetailItem(): Boolean {
+    return SeerrItemIds.isDetailId(id)
 }
 
 private fun episodeHeaderText(item: BaseItemDto): String? {

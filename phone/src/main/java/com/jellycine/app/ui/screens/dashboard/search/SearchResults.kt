@@ -33,6 +33,7 @@ import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle
 import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
+import com.jellycine.app.ui.components.common.toSeerDetailItem
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.repository.getYearAndGenre
@@ -160,7 +161,10 @@ fun SearchResultsView(
                         items = uiState.seerrMovieResults,
                         key = { seerrItem -> "seerr-movie-${seerrItem.tmdbId}" }
                     ) { seerrItem ->
-                        SearchSeerrResultCard(item = seerrItem)
+                        SearchSeerrResultCard(
+                            item = seerrItem,
+                            onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }
+                        )
                     }
                 }
             }
@@ -194,7 +198,10 @@ fun SearchResultsView(
                         items = uiState.seerrShowResults,
                         key = { seerrItem -> "seerr-show-${seerrItem.tmdbId}" }
                     ) { seerrItem ->
-                        SearchSeerrResultCard(item = seerrItem)
+                        SearchSeerrResultCard(
+                            item = seerrItem,
+                            onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }
+                        )
                     }
                 }
             }
@@ -363,16 +370,15 @@ private fun EpisodeResultCard(
 
 @Composable
 private fun SearchSeerrResultCard(
-    item: SeerrRecommendationTitle
+    item: SeerrRecommendationTitle,
+    onItemClick: () -> Unit
 ) {
-    val posterUrl = remember(item.posterPath) {
-        item.posterPath
-            ?.takeIf { it.isNotBlank() }
-            ?.let { path -> "https://image.tmdb.org/t/p/w500$path" }
-    }
+    val posterUrl = remember(item.posterUrl) { item.posterUrl?.takeIf { it.isNotBlank() } }
 
     Column(
-        modifier = Modifier.width(120.dp)
+        modifier = Modifier
+            .width(120.dp)
+            .clickable { onItemClick() }
     ) {
         Card(
             modifier = Modifier

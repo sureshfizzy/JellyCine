@@ -9,8 +9,8 @@ import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.SeerrConnectionInfo
-import com.jellycine.data.repository.SeerrUserRequestLimits
+import com.jellycine.data.model.SeerrConnectionInfo
+import com.jellycine.data.model.SeerrUserRequestLimits
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
