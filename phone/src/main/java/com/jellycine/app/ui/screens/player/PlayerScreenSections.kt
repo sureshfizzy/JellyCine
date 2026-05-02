@@ -52,7 +52,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY

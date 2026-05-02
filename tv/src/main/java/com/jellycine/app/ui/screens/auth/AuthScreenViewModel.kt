@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider

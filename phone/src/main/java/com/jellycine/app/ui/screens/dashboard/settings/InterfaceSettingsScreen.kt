@@ -45,7 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.data.repository.AuthRepositoryProvider
 

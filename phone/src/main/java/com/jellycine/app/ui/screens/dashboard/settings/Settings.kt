@@ -37,7 +37,7 @@ import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository

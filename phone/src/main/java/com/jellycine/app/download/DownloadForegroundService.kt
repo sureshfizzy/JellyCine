@@ -107,7 +107,7 @@ class DownloadForegroundService : Service() {
 
     private fun fallbackNotification(): Notification {
         return Notification.Builder(this, DownloadNotificationContract.CHANNEL_ID)
-            .setSmallIcon(com.jellycine.app.R.mipmap.ic_launcher)
+            .setSmallIcon(com.jellycine.shared.R.mipmap.ic_launcher)
             .setContentTitle("Preparing downloads")
             .setContentText("Syncing download state")
             .setOngoing(true)

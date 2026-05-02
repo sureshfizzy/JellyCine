@@ -23,7 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle

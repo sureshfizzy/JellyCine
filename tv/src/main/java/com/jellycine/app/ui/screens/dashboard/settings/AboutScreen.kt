@@ -56,7 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jellycine.app.BuildConfig
-import com.jellycine.app.R
+import com.jellycine.shared.R
 
 private const val GithubUrl = "https://github.com/sureshfizzy/JellyCine"
 private const val PrivacyUrl = "https://github.com/sureshfizzy/JellyCine/blob/main/PRIVACY"

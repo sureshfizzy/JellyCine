@@ -62,7 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.TrackedDownload
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.isPausedTrackedDownload
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.shared.util.image.JellyfinPosterImage

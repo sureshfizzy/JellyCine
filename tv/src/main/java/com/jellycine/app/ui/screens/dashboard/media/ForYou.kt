@@ -31,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers

@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.ItemDownloadState
 import com.jellycine.app.download.TrackedDownload

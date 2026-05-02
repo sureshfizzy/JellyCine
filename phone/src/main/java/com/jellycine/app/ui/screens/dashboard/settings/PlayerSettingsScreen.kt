@@ -73,7 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 

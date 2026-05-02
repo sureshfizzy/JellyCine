@@ -10,7 +10,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.isPausedDownloadState
 import com.jellycine.app.ui.components.common.pausedDownloadMessage
 import kotlin.math.roundToInt

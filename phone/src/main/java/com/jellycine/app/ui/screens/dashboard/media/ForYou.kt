@@ -31,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.SeerPersonRole
 import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles

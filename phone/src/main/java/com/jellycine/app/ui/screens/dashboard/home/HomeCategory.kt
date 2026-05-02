@@ -1,7 +1,7 @@
 package com.jellycine.app.ui.screens.dashboard.home
 
 import androidx.annotation.StringRes
-import com.jellycine.app.R
+import com.jellycine.shared.R
 
 internal object HomeCategory {
     const val HOME = "home"

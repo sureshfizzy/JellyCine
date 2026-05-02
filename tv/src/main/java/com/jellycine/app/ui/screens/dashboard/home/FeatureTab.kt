@@ -73,7 +73,7 @@ import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto

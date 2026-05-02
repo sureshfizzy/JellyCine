@@ -52,7 +52,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.data.preferences.NetworkPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)

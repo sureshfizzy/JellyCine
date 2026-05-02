@@ -55,7 +55,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers

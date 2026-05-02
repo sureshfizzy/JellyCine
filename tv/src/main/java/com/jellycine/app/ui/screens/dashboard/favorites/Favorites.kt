@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.shared.util.image.ImageSkeleton
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.rememberImageUrl

@@ -92,7 +92,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository

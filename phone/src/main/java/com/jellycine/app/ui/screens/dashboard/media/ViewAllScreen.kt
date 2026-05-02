@@ -39,7 +39,7 @@ import androidx.annotation.StringRes
 import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip

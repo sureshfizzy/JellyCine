@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.res.stringResource
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto

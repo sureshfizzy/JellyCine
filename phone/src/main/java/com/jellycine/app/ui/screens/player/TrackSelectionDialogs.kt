@@ -51,7 +51,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.SubtitleTrackInfo

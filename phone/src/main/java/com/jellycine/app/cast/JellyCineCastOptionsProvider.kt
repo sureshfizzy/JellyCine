@@ -5,7 +5,7 @@ import com.google.android.gms.cast.CastMediaControlIntent
 import com.google.android.gms.cast.framework.CastOptions
 import com.google.android.gms.cast.framework.OptionsProvider
 import com.google.android.gms.cast.framework.SessionProvider
-import com.jellycine.app.R
+import com.jellycine.shared.R
 
 class JellyCineCastOptionsProvider : OptionsProvider {
     override fun getCastOptions(context: Context): CastOptions {

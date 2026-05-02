@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.cast.CastRouteEntry
 

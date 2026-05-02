@@ -52,7 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
 import com.jellycine.app.ui.components.common.amoledAuthFieldColors
 import com.jellycine.shared.ui.theme.JellyBlue

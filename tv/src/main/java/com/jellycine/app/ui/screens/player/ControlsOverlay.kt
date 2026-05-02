@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.ChapterMarker
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP

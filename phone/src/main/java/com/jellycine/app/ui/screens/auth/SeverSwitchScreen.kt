@@ -74,7 +74,7 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.jellycine.app.R
+import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
 import com.jellycine.data.network.canonicalServerUrlKey
 import com.jellycine.data.repository.AuthRepository
