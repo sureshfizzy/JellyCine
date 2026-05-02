@@ -88,6 +88,12 @@ fun Settings(
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
                 actions = {
+                    IconButton(onClick = { openAppLanguageSettings(context) }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Translate,
+                            contentDescription = stringResource(R.string.settings_language)
+                        )
+                    }
                     IconButton(onClick = onNavigateToAbout) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
@@ -129,7 +135,6 @@ fun Settings(
 
             item {
                 QuickActionsRow(
-                    onOpenLanguageSettings = { openAppLanguageSettings(context) },
                     onNavigateToPlayerSettings = onNavigateToPlayerSettings
                 )
             }
@@ -497,19 +502,9 @@ private fun UserProfileSection(
 
 @Composable
 private fun QuickActionsRow(
-    onOpenLanguageSettings: () -> Unit,
     onNavigateToPlayerSettings: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ActionTile(
-            modifier = Modifier.fillMaxWidth(),
-            icon = Icons.Rounded.Translate,
-            title = stringResource(R.string.settings_language),
-            subtitle = stringResource(R.string.settings_language_subtitle),
-            accentColor = Color(0xFF14B8A6),
-            onClick = onOpenLanguageSettings
-        )
-
         ActionTile(
             modifier = Modifier.fillMaxWidth(),
             icon = Icons.Rounded.PlayArrow,
