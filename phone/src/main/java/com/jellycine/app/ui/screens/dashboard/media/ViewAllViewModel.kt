@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.model.BaseItemDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,6 +23,8 @@ class ViewAllViewModel @Inject constructor(
 ) : ViewModel() {
 
     private lateinit var mediaRepository: MediaRepository
+    private val seerrRepository = SeerrRepository(context)
+    private val authRepository = com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context)
 
     private val _uiState = MutableStateFlow(ViewAllUiState())
     val uiState: StateFlow<ViewAllUiState> = _uiState.asStateFlow()
@@ -77,6 +80,12 @@ class ViewAllViewModel @Inject constructor(
                         .ifBlank { null }
                     val selectedGenreIds = genreId?.takeIf { it.isNotBlank() }
                     val result = when (contentType) {
+                        ContentType.SEERR_STUDIO -> seerrRepository.getStudios(
+                            scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
+                            studioId = parentId.orEmpty(),
+                            limit = pageSize,
+                            startIndex = currentPage * pageSize
+                        )
                         ContentType.MOVIES -> mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
@@ -235,5 +244,5 @@ data class ViewAllUiState(
 )
 
 enum class ContentType {
-    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE
+    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO
 }

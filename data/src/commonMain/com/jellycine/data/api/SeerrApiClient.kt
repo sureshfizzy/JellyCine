@@ -50,6 +50,11 @@ internal class SeerrApiClient(
         queryParameters = listOf("query" to query, "page" to "1")
     )
 
+    suspend fun studioMovies(studioId: String, page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/movies/studio/$studioId",
+        queryParameters = listOf("page" to page.toString())
+    )
+
     suspend fun titleDetails(mediaType: String, tmdbId: String): ApiResponse<SeerrTitleDetailsResponse> =
         get("$mediaType/$tmdbId")
 

@@ -12,7 +12,10 @@ import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.model.SeerrConnectionInfo
 import com.jellycine.data.model.SeerrUserRequestLimits
 import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.data.repository.SeerrHostnameAlreadyConfiguredException
+import com.jellycine.data.repository.SeerrSessionExpiredException
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.app.R
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -370,12 +373,12 @@ class SettingsViewModel(
                         scopeId = scopeId,
                         verifiedStatus = SeerrConnectionStatus.CONNECTED,
                         unverifiedStatus = SeerrConnectionStatus.ERROR,
-                        message = error.message
+                        message = error.seerrMessage()
                     ) ?: SeerrUiState(
                         serverUrl = displayUrl,
                         status = SeerrConnectionStatus.ERROR,
                         hasSavedConnection = false,
-                        message = error.message
+                        message = error.seerrMessage()
                     )
                 )
             }
@@ -422,7 +425,7 @@ class SettingsViewModel(
                     savedSeerrState(
                         scopeId = scopeId,
                         verifiedStatus = SeerrConnectionStatus.ERROR,
-                        message = error.message
+                        message = error.seerrMessage()
                     ) ?: SeerrUiState(
                         status = SeerrConnectionStatus.DISCONNECTED,
                         hasSavedConnection = false,
@@ -459,6 +462,12 @@ class SettingsViewModel(
 
     private fun setSeerrState(seerrState: SeerrUiState = SeerrUiState()) {
         _uiState.value = _uiState.value.copy(seerr = seerrState)
+    }
+
+    private fun Throwable.seerrMessage(): String? = when (this) {
+        is SeerrHostnameAlreadyConfiguredException -> context.getString(R.string.settings_seerr_hostname_already_configured)
+        is SeerrSessionExpiredException -> context.getString(R.string.settings_seerr_session_expired)
+        else -> message
     }
 
     private fun savedSeerrState(

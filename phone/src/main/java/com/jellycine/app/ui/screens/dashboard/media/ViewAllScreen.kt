@@ -49,6 +49,9 @@ import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.SeerrCatalog
+import com.jellycine.app.ui.components.common.SeerrTopBadges
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -82,6 +85,11 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val studioLogoUrl = remember(contentType, parentId) {
+        SeerrCatalog.popularStudios()
+            .firstOrNull { studio -> contentType == ContentType.SEERR_STUDIO && studio.id == parentId }
+            ?.logoUrl
+    }
     
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -105,7 +113,7 @@ fun ViewAllScreen(
             ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
             ContentType.SERIES, ContentType.TVSHOWS_GENRE -> "Series"
             ContentType.ALL -> "Movie,Series"
-            ContentType.EPISODES -> null
+            ContentType.EPISODES, ContentType.SEERR_STUDIO -> null
         }
     }
     var serverGenres by rememberSaveable(contentType, parentId, genreId) {
@@ -188,29 +196,50 @@ fun ViewAllScreen(
                     .statusBarsPadding(),
                 color = Color.Black
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = horizontalPadding, vertical = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(
+                            horizontal = horizontalPadding,
+                            vertical = if (contentType == ContentType.SEERR_STUDIO) 18.dp else 20.dp
+                        ),
+                    horizontalAlignment = if (contentType == ContentType.SEERR_STUDIO) {
+                        Alignment.CenterHorizontally
+                    } else {
+                        Alignment.Start
+                    }
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    if (contentType == ContentType.SEERR_STUDIO && studioLogoUrl != null) {
+                        WarmImageUrl(imageUrl = studioLogoUrl, allowRgb565 = true)
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(studioLogoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = resolvedTitle,
+                            modifier = Modifier
+                                .fillMaxWidth(0.46f)
+                                .height(if (isTablet) 150.dp else 112.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
                         Text(
                             text = resolvedTitle,
                             color = Color.White,
                             fontSize = if (isTablet) 28.sp else 24.sp,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1,
+                            textAlign = if (contentType == ContentType.SEERR_STUDIO) TextAlign.Center else TextAlign.Start,
+                            maxLines = if (contentType == ContentType.SEERR_STUDIO) 2 else 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (headerTotalCount > 0) {
-                            Text(
-                                text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
-                                color = Color.White.copy(alpha = 0.7f),
-                                fontSize = if (isTablet) 15.sp else 13.sp,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-                        }
+                    }
+                    if (headerTotalCount > 0) {
+                        Text(
+                            text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = if (isTablet) 15.sp else 13.sp,
+                            modifier = Modifier.padding(top = if (contentType == ContentType.SEERR_STUDIO) 8.dp else 4.dp)
+                        )
                     }
                 }
             }
@@ -387,12 +416,14 @@ fun ViewAllScreen(
             }
         }
 
-        SortFAB(
-            onClick = { showSortSheet = true },
-            modifier = Modifier.align(Alignment.BottomEnd)
-        )
+        if (contentType != ContentType.SEERR_STUDIO) {
+            SortFAB(
+                onClick = { showSortSheet = true },
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
+        }
 
-        if (showSortSheet) {
+        if (showSortSheet && contentType != ContentType.SEERR_STUDIO) {
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
@@ -512,10 +543,17 @@ private fun PosterCard(
 ) {
     val context = LocalContext.current
     val disablePosterEnhancers = DisableEmbyPosterEnhancers()
-    var imageUrl by remember(item.id) { mutableStateOf<String?>(null) }
-    var isLoading by remember(item.id) { mutableStateOf(true) }
+    val directImageUrl = item.imageUrl?.takeIf { it.isNotBlank() }
+    val isSeerrSource = item.id?.startsWith("seerr:") == true
+    var imageUrl by remember(item.id, directImageUrl) { mutableStateOf(directImageUrl) }
+    var isLoading by remember(item.id, directImageUrl) { mutableStateOf(directImageUrl == null) }
 
-    LaunchedEffect(item.id, disablePosterEnhancers) {
+    LaunchedEffect(item.id, directImageUrl, disablePosterEnhancers) {
+        if (directImageUrl != null) {
+            imageUrl = directImageUrl
+            isLoading = false
+            return@LaunchedEffect
+        }
         val itemId = item.id
         if (itemId != null) {
             try {
@@ -611,6 +649,13 @@ private fun PosterCard(
                             )
                         }
                     }
+                }
+
+                if (isSeerrSource) {
+                    SeerrTopBadges(
+                        requestState = SeerrRequestState.NONE,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
                 }
 
                 // Episode/item count badge

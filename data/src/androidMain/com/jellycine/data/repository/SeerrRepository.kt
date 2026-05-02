@@ -19,6 +19,7 @@ import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrStatusResponse
 import com.jellycine.data.model.SeerrUserRequestLimits
+import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.seerrImageUrl
 import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.canonicalServerUrl
@@ -40,6 +41,10 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
+
+class SeerrHostnameAlreadyConfiguredException : Exception()
+
+class SeerrSessionExpiredException : Exception()
 
 class SeerrRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -279,6 +284,70 @@ class SeerrRepository(context: Context) {
                 }
         }
     }
+    suspend fun getStudios(
+        scopeId: String,
+        studioId: String,
+        limit: Int,
+        startIndex: Int
+    ): Result<QueryResult<BaseItemDto>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+
+        runRequestCatching {
+            val items = mutableListOf<BaseItemDto>()
+            var page = (startIndex / SEERR_DISCOVER_PAGE_SIZE) + 1
+            var totalPages = page
+            var totalResults = 0
+            var dropFromFirstPage = startIndex % SEERR_DISCOVER_PAGE_SIZE
+            val api = seerrApi(storedConnection)
+
+            while (items.size < limit && page <= totalPages) {
+                val payload = api.studioMovies(studioId, page).mapBody(
+                    parseError = "Could not parse Seerr studio movies.",
+                    httpError = "Failed to load Seerr studio movies."
+                ) { payload -> Result.success(payload) }
+                    .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+
+                totalPages = payload.totalPages ?: page
+                totalResults = payload.totalResults ?: totalResults
+                payload.results
+                    .drop(dropFromFirstPage)
+                    .mapNotNull { result ->
+                        val tmdbId = result.id?.toString()?.takeIf { it.isNotBlank() }
+                            ?: return@mapNotNull null
+                        val title = result.title.ifNotBlank()
+                            ?: result.name.ifNotBlank()
+                            ?: return@mapNotNull null
+                        val jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank()
+                        BaseItemDto(
+                            id = jellyfinMediaId ?: SeerrItemIds.detailId(tmdbId, "movie"),
+                            name = title,
+                            type = "Movie",
+                            providerIds = mapOf("tmdb" to tmdbId),
+                            productionYear = result.releaseDate.extractYear(),
+                            imageUrl = seerrImageUrl(
+                                storedConnection.serverUrl,
+                                result.posterPath.ifNotBlank(),
+                                "w500"
+                            )
+                        )
+                    }
+                    .take(limit - items.size)
+                    .let(items::addAll)
+
+                dropFromFirstPage = 0
+                page++
+            }
+
+            Result.success(
+                QueryResult(
+                    items = items,
+                    totalRecordCount = totalResults,
+                    startIndex = startIndex
+                )
+            )
+        }
+    }
+
     suspend fun getTitleDetails(
         scopeId: String,
         tmdbId: String,
@@ -407,7 +476,7 @@ class SeerrRepository(context: Context) {
             )
             if (
                 initialAttempt.isFailure &&
-                initialAttempt.exceptionOrNull()?.message == HOSTNAME_ALREADY_CONFIGURED_ERROR
+                initialAttempt.exceptionOrNull() is SeerrHostnameAlreadyConfiguredException
             ) {
                 return performSignInRequest(
                     api = api,
@@ -475,7 +544,7 @@ class SeerrRepository(context: Context) {
 
             response.code() == 500 &&
                 response.errorBody().orEmpty().contains("hostname already configured", ignoreCase = true) -> {
-                Result.failure(Exception(HOSTNAME_ALREADY_CONFIGURED_ERROR))
+                Result.failure(SeerrHostnameAlreadyConfiguredException())
             }
 
             else -> {
@@ -519,7 +588,7 @@ class SeerrRepository(context: Context) {
                 }
 
                 currentUserResponse.isAuthFailure() -> {
-                    Result.failure(Exception(SESSION_EXPIRED_ERROR))
+                    Result.failure(SeerrSessionExpiredException())
                 }
 
                 else -> {
@@ -636,7 +705,7 @@ class SeerrRepository(context: Context) {
         transform: (T) -> Result<R>
     ): Result<R> = when {
         isSuccessful -> body()?.let(transform) ?: Result.failure(Exception(parseError))
-        isAuthFailure() -> Result.failure(Exception(SESSION_EXPIRED_ERROR))
+        isAuthFailure() -> Result.failure(SeerrSessionExpiredException())
         code() == 404 && notFoundError != null -> Result.failure(Exception(notFoundError))
         else -> Result.failure(Exception("$httpError Server responded with HTTP ${code()}."))
     }
@@ -761,23 +830,4 @@ class SeerrRepository(context: Context) {
         val connection: SeerrConnectionInfo,
         val sessionCookie: String
     )
-
-    companion object {
-        private const val HOSTNAME_ALREADY_CONFIGURED_ERROR = "Seerr hostname already configured"
-        private const val SESSION_EXPIRED_ERROR = "Your Seerr session expired. Please sign in again."
-        private const val PREFS_NAME = "seerr_connection_prefs"
-        private const val SECURE_PREFS_NAME = "seerr_connection_secure_prefs"
-        private const val KEY_SERVER_URL = "server_url"
-        private const val KEY_SERVER_VERSION = "server_version"
-        private const val KEY_MOVIE_QUOTA_LIMIT = "movie_quota_limit"
-        private const val KEY_MOVIE_QUOTA_DAYS = "movie_quota_days"
-        private const val KEY_TV_QUOTA_LIMIT = "tv_quota_limit"
-        private const val KEY_TV_QUOTA_DAYS = "tv_quota_days"
-        private const val KEY_IS_VERIFIED = "is_verified"
-        private const val KEY_SESSION_COOKIE = "session_cookie"
-        private const val SEERR_MEDIA_PENDING = 2
-        private const val SEERR_MEDIA_PROCESSING = 3
-        private const val SEERR_REQUEST_PENDING = 1
-        private const val SEERR_REQUEST_APPROVED = 2
-    }
 }

@@ -179,6 +179,12 @@ data class SeerrRecommendationTitle(
     val requestState: SeerrRequestState = SeerrRequestState.NONE
 )
 
+data class SeerrStudio(
+    val id: String,
+    val name: String,
+    val logoUrl: String? = null
+)
+
 enum class SeerrPersonCreditType {
     DIRECTOR,
     ACTOR

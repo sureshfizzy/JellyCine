@@ -400,6 +400,7 @@ fun AppNavigation() {
                     "EPISODES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.EPISODES
                     "MOVIES_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES_GENRE
                     "TVSHOWS_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.TVSHOWS_GENRE
+                    "SEERR_STUDIO" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SEERR_STUDIO
                     else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
                 }
 

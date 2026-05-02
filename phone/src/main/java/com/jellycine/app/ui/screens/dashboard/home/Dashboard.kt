@@ -46,6 +46,8 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
+import com.jellycine.data.model.SeerrCatalog
+import com.jellycine.data.model.SeerrStudio
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.sameServerUrl
@@ -53,6 +55,7 @@ import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
@@ -1148,6 +1151,7 @@ fun Dashboard(
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(appContext) { SeerrRepository(appContext) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
@@ -1563,6 +1567,15 @@ fun Dashboard(
         } else {
             emptyList()
         }
+        val seerrStudios = remember { SeerrCatalog.popularStudios(limit = 12) }
+        val SeerrStudios = if (
+            selectedCategory == HomeCategory.HOME &&
+            seerrRepository.getSavedConnectionInfo(sessionSnapshot.activeServerId)?.isVerified == true
+        ) {
+            seerrStudios
+        } else {
+            emptyList()
+        }
 
         LaunchedEffect(isTabActive, isNetworkAvailable) {
             if (isTabActive && isNetworkAvailable) {
@@ -1794,12 +1807,27 @@ fun Dashboard(
                     }
                 }
 
+                if (SeerrStudios.isNotEmpty()) {
+                    item(key = "seerr_studios_section") {
+                        SeerrStudiosSection(
+                            studios = SeerrStudios,
+                            onStudioClick = { studio ->
+                                onNavigateToViewAll(
+                                    "SEERR_STUDIO",
+                                    studio.id,
+                                    studio.name
+                                )
+                            }
+                        )
+                    }
+                }
+
                 if (ShowContinueWatchingSection) {
                     item(key = "continue_watching_section") {
                         Column(
                             modifier = Modifier
                                 .padding(top = 0.dp)
-                                .offset(y = (-12).dp)
+                                .offset(y = if (SeerrStudios.isNotEmpty()) 0.dp else (-12).dp)
                         ) {
                             ContinueWatchingSection(
                                 items = ContinueWatchingItems,
@@ -2418,6 +2446,72 @@ private fun HomeMyMediaSection(
                             useLandscapeLayout = true,
                             onClick = stableOnClick
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeerrStudiosSection(
+    studios: List<SeerrStudio>,
+    modifier: Modifier = Modifier,
+    onStudioClick: (SeerrStudio) -> Unit = {}
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.Black)
+    ) {
+        Text(
+            text = "Studios",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.82f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
+        ) {
+            items(studios, key = { studio -> studio.id }) { studio ->
+                Surface(
+                    modifier = Modifier
+                        .size(width = 124.dp, height = 62.dp)
+                        .clickable { onStudioClick(studio) }
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.08f)
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        if (!studio.logoUrl.isNullOrBlank()) {
+                            JellyfinPosterImage(
+                                imageUrl = studio.logoUrl,
+                                contentDescription = studio.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit,
+                                context = context
+                            )
+                        } else {
+                            Text(
+                                text = studio.name,
+                                color = Color.White.copy(alpha = 0.78f),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }

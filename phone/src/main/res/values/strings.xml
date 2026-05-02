@@ -373,6 +373,8 @@
     <string name="settings_seerr_tv_limit">Shows</string>
     <string name="settings_seerr_unlimited">Unlimited</string>
     <string name="settings_seerr_limit_every_days">%1$s / %2$dd</string>
+    <string name="settings_seerr_hostname_already_configured">Seerr hostname already configured</string>
+    <string name="settings_seerr_session_expired">Your Seerr session expired. Please sign in again.</string>
     <string name="settings_cache">Cache</string>
     <string name="settings_cache_subtitle">Cache image and cache size</string>
     <string name="settings_device_info">Device Info</string>
