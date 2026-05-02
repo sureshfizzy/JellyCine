@@ -17,6 +17,7 @@ import com.jellycine.data.model.SeerrMapper
 import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.SeerrSearchResponse
 import com.jellycine.data.model.SeerrStatusResponse
 import com.jellycine.data.model.SeerrUserRequestLimits
 import com.jellycine.data.model.QueryResult
@@ -289,6 +290,39 @@ class SeerrRepository(context: Context) {
         studioId: String,
         limit: Int,
         startIndex: Int
+    ): Result<QueryResult<BaseItemDto>> = getCatalogItems(
+        scopeId = scopeId,
+        limit = limit,
+        startIndex = startIndex,
+        mediaType = "movie",
+        loadPage = { api, page -> api.studioMovies(studioId, page) },
+        parseError = "Could not parse Seerr studio movies.",
+        httpError = "Failed to load Seerr studio movies."
+    )
+
+    suspend fun getNetworks(
+        scopeId: String,
+        networkId: String,
+        limit: Int,
+        startIndex: Int
+    ): Result<QueryResult<BaseItemDto>> = getCatalogItems(
+        scopeId = scopeId,
+        limit = limit,
+        startIndex = startIndex,
+        mediaType = "tv",
+        loadPage = { api, page -> api.networkSeries(networkId, page) },
+        parseError = "Could not parse Seerr network shows.",
+        httpError = "Failed to load Seerr network shows."
+    )
+
+    private suspend fun getCatalogItems(
+        scopeId: String,
+        limit: Int,
+        startIndex: Int,
+        mediaType: String,
+        loadPage: suspend (SeerrApiClient, Int) -> ApiResponse<SeerrSearchResponse>,
+        parseError: String,
+        httpError: String
     ): Result<QueryResult<BaseItemDto>> = withContext(Dispatchers.IO) {
         val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
 
@@ -301,9 +335,9 @@ class SeerrRepository(context: Context) {
             val api = seerrApi(storedConnection)
 
             while (items.size < limit && page <= totalPages) {
-                val payload = api.studioMovies(studioId, page).mapBody(
-                    parseError = "Could not parse Seerr studio movies.",
-                    httpError = "Failed to load Seerr studio movies."
+                val payload = loadPage(api, page).mapBody(
+                    parseError = parseError,
+                    httpError = httpError
                 ) { payload -> Result.success(payload) }
                     .getOrElse { error -> return@runRequestCatching Result.failure(error) }
 
@@ -319,11 +353,12 @@ class SeerrRepository(context: Context) {
                             ?: return@mapNotNull null
                         val jellyfinMediaId = result.mediaInfo?.jellyfinMediaId.ifNotBlank()
                         BaseItemDto(
-                            id = jellyfinMediaId ?: SeerrItemIds.detailId(tmdbId, "movie"),
+                            id = jellyfinMediaId ?: SeerrItemIds.detailId(tmdbId, mediaType),
                             name = title,
-                            type = "Movie",
+                            type = if (mediaType == "tv") "Series" else "Movie",
                             providerIds = mapOf("tmdb" to tmdbId),
-                            productionYear = result.releaseDate.extractYear(),
+                            productionYear = result.releaseDate.extractYear()
+                                ?: result.firstAirDate.extractYear(),
                             imageUrl = seerrImageUrl(
                                 storedConnection.serverUrl,
                                 result.posterPath.ifNotBlank(),

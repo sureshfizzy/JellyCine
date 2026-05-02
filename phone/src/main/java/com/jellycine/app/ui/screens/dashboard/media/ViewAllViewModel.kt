@@ -86,6 +86,12 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize
                         )
+                        ContentType.SEERR_NETWORK -> seerrRepository.getNetworks(
+                            scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
+                            networkId = parentId.orEmpty(),
+                            limit = pageSize,
+                            startIndex = currentPage * pageSize
+                        )
                         ContentType.MOVIES -> mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
@@ -244,5 +250,8 @@ data class ViewAllUiState(
 )
 
 enum class ContentType {
-    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO
+    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO, SEERR_NETWORK
 }
+
+fun ContentType.isSeerrCatalog(): Boolean =
+    this == ContentType.SEERR_STUDIO || this == ContentType.SEERR_NETWORK

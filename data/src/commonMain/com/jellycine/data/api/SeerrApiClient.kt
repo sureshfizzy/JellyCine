@@ -55,6 +55,11 @@ internal class SeerrApiClient(
         queryParameters = listOf("page" to page.toString())
     )
 
+    suspend fun networkSeries(networkId: String, page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/tv/network/$networkId",
+        queryParameters = listOf("page" to page.toString())
+    )
+
     suspend fun titleDetails(mediaType: String, tmdbId: String): ApiResponse<SeerrTitleDetailsResponse> =
         get("$mediaType/$tmdbId")
 

@@ -47,7 +47,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.SeerrCatalog
-import com.jellycine.data.model.SeerrStudio
+import com.jellycine.data.model.SeerrCatalogItem
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.sameServerUrl
@@ -1568,11 +1568,18 @@ fun Dashboard(
             emptyList()
         }
         val seerrStudios = remember { SeerrCatalog.popularStudios(limit = 12) }
+        val seerrNetworks = remember { SeerrCatalog.popularNetworks() }
+        val isSeerrConnected = seerrRepository.getSavedConnectionInfo(sessionSnapshot.activeServerId)?.isVerified == true
         val SeerrStudios = if (
             selectedCategory == HomeCategory.HOME &&
-            seerrRepository.getSavedConnectionInfo(sessionSnapshot.activeServerId)?.isVerified == true
+            isSeerrConnected
         ) {
             seerrStudios
+        } else {
+            emptyList()
+        }
+        val SeerrNetworks = if (selectedCategory == HomeCategory.HOME && isSeerrConnected) {
+            seerrNetworks
         } else {
             emptyList()
         }
@@ -1809,9 +1816,10 @@ fun Dashboard(
 
                 if (SeerrStudios.isNotEmpty()) {
                     item(key = "seerr_studios_section") {
-                        SeerrStudiosSection(
-                            studios = SeerrStudios,
-                            onStudioClick = { studio ->
+                        SeerrCatalogSection(
+                            title = "Studios",
+                            items = SeerrStudios,
+                            onItemClick = { studio ->
                                 onNavigateToViewAll(
                                     "SEERR_STUDIO",
                                     studio.id,
@@ -1836,6 +1844,22 @@ fun Dashboard(
                                 onItemClick = onNavigateToDetail
                             )
                         }
+                    }
+                }
+
+                if (SeerrNetworks.isNotEmpty()) {
+                    item(key = "seerr_networks_section") {
+                        SeerrCatalogSection(
+                            title = "Networks",
+                            items = SeerrNetworks,
+                            onItemClick = { network ->
+                                onNavigateToViewAll(
+                                    "SEERR_NETWORK",
+                                    network.id,
+                                    network.name
+                                )
+                            }
+                        )
                     }
                 }
 
@@ -2454,10 +2478,11 @@ private fun HomeMyMediaSection(
 }
 
 @Composable
-private fun SeerrStudiosSection(
-    studios: List<SeerrStudio>,
+private fun SeerrCatalogSection(
+    title: String,
+    items: List<SeerrCatalogItem>,
     modifier: Modifier = Modifier,
-    onStudioClick: (SeerrStudio) -> Unit = {}
+    onItemClick: (SeerrCatalogItem) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -2467,7 +2492,7 @@ private fun SeerrStudiosSection(
             .background(Color.Black)
     ) {
         Text(
-            text = "Studios",
+            text = title,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.White.copy(alpha = 0.82f),
@@ -2477,11 +2502,11 @@ private fun SeerrStudiosSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
         ) {
-            items(studios, key = { studio -> studio.id }) { studio ->
+            items(items, key = { item -> item.id }) { item ->
                 Surface(
                     modifier = Modifier
                         .size(width = 124.dp, height = 62.dp)
-                        .clickable { onStudioClick(studio) }
+                        .clickable { onItemClick(item) }
                         .border(
                             width = 1.dp,
                             color = Color.White.copy(alpha = 0.12f),
@@ -2494,17 +2519,17 @@ private fun SeerrStudiosSection(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.padding(12.dp)
                     ) {
-                        if (!studio.logoUrl.isNullOrBlank()) {
+                        if (!item.logoUrl.isNullOrBlank()) {
                             JellyfinPosterImage(
-                                imageUrl = studio.logoUrl,
-                                contentDescription = studio.name,
+                                imageUrl = item.logoUrl,
+                                contentDescription = item.name,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit,
                                 context = context
                             )
                         } else {
                             Text(
-                                text = studio.name,
+                                text = item.name,
                                 color = Color.White.copy(alpha = 0.78f),
                                 fontSize = 12.sp,
                                 maxLines = 1,

@@ -85,9 +85,12 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val studioLogoUrl = remember(contentType, parentId) {
-        SeerrCatalog.popularStudios()
-            .firstOrNull { studio -> contentType == ContentType.SEERR_STUDIO && studio.id == parentId }
+    val seerrLogoUrl = remember(contentType, parentId) {
+        when (contentType) {
+            ContentType.SEERR_STUDIO -> SeerrCatalog.popularStudios()
+            ContentType.SEERR_NETWORK -> SeerrCatalog.popularNetworks()
+            else -> emptyList()
+        }.firstOrNull { item -> item.id == parentId }
             ?.logoUrl
     }
     
@@ -113,7 +116,7 @@ fun ViewAllScreen(
             ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
             ContentType.SERIES, ContentType.TVSHOWS_GENRE -> "Series"
             ContentType.ALL -> "Movie,Series"
-            ContentType.EPISODES, ContentType.SEERR_STUDIO -> null
+            ContentType.EPISODES, ContentType.SEERR_STUDIO, ContentType.SEERR_NETWORK -> null
         }
     }
     var serverGenres by rememberSaveable(contentType, parentId, genreId) {
@@ -201,19 +204,19 @@ fun ViewAllScreen(
                         .fillMaxWidth()
                         .padding(
                             horizontal = horizontalPadding,
-                            vertical = if (contentType == ContentType.SEERR_STUDIO) 18.dp else 20.dp
+                            vertical = if (contentType.isSeerrCatalog()) 18.dp else 20.dp
                         ),
-                    horizontalAlignment = if (contentType == ContentType.SEERR_STUDIO) {
+                    horizontalAlignment = if (contentType.isSeerrCatalog()) {
                         Alignment.CenterHorizontally
                     } else {
                         Alignment.Start
                     }
                 ) {
-                    if (contentType == ContentType.SEERR_STUDIO && studioLogoUrl != null) {
-                        WarmImageUrl(imageUrl = studioLogoUrl, allowRgb565 = true)
+                    if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
+                        WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
                         AsyncImage(
                             model = ImageRequest.Builder(context)
-                                .data(studioLogoUrl)
+                                .data(seerrLogoUrl)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = resolvedTitle,
@@ -228,8 +231,8 @@ fun ViewAllScreen(
                             color = Color.White,
                             fontSize = if (isTablet) 28.sp else 24.sp,
                             fontWeight = FontWeight.Bold,
-                            textAlign = if (contentType == ContentType.SEERR_STUDIO) TextAlign.Center else TextAlign.Start,
-                            maxLines = if (contentType == ContentType.SEERR_STUDIO) 2 else 1,
+                            textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Start,
+                            maxLines = if (contentType.isSeerrCatalog()) 2 else 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -238,7 +241,7 @@ fun ViewAllScreen(
                             text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = if (isTablet) 15.sp else 13.sp,
-                            modifier = Modifier.padding(top = if (contentType == ContentType.SEERR_STUDIO) 8.dp else 4.dp)
+                            modifier = Modifier.padding(top = if (contentType.isSeerrCatalog()) 8.dp else 4.dp)
                         )
                     }
                 }
@@ -416,14 +419,14 @@ fun ViewAllScreen(
             }
         }
 
-        if (contentType != ContentType.SEERR_STUDIO) {
+        if (!contentType.isSeerrCatalog()) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
 
-        if (showSortSheet && contentType != ContentType.SEERR_STUDIO) {
+        if (showSortSheet && !contentType.isSeerrCatalog()) {
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
