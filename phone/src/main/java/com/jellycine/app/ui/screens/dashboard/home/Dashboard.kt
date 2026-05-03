@@ -1180,6 +1180,14 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isNextUpEnabled()
         )
+    val seerrStudiosEnabled by preferences.SeerrStudiosEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isSeerrStudiosEnabled()
+        )
+    val seerrNetworksEnabled by preferences.SeerrNetworksEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isSeerrNetworksEnabled()
+        )
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
@@ -1572,13 +1580,15 @@ fun Dashboard(
         val isSeerrConnected = seerrRepository.getSavedConnectionInfo(sessionSnapshot.activeServerId)?.isVerified == true
         val SeerrStudios = if (
             selectedCategory == HomeCategory.HOME &&
-            isSeerrConnected
+            isSeerrConnected && seerrStudiosEnabled
         ) {
             seerrStudios
         } else {
             emptyList()
         }
-        val SeerrNetworks = if (selectedCategory == HomeCategory.HOME && isSeerrConnected) {
+        val SeerrNetworks = if (
+            selectedCategory == HomeCategory.HOME && isSeerrConnected && seerrNetworksEnabled
+        ) {
             seerrNetworks
         } else {
             emptyList()

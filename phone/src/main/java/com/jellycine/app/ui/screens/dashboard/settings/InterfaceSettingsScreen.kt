@@ -17,8 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material3.Card
@@ -48,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.SeerrRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +60,11 @@ fun InterfaceSettingsScreen(
     val context = LocalContext.current
     val preferences = remember { Preferences(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember { SeerrRepository(context.applicationContext) }
+    val activeServerId by authRepository.getActiveServerId().collectAsStateWithLifecycle(initialValue = null)
     val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
+    val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isFeatureCarouselEnabled()
@@ -78,6 +84,14 @@ fun InterfaceSettingsScreen(
     val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isUseMyMediaTabEnabled()
+        )
+    val seerrStudiosEnabled by preferences.SeerrStudiosEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isSeerrStudiosEnabled()
+        )
+    val seerrNetworksEnabled by preferences.SeerrNetworksEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isSeerrNetworksEnabled()
         )
 
     Scaffold(
@@ -179,8 +193,47 @@ fun InterfaceSettingsScreen(
                     }
                 }
             }
+            if (isSeerrConnected) {
+                item {
+                    SettingsLabel(
+                        text = stringResource(R.string.interface_seerr_settings)
+                    )
+                    InterfaceSection {
+                        InterfaceSwitchItem(
+                            icon = Icons.Rounded.Business,
+                            title = stringResource(R.string.interface_seerr_studios),
+                            subtitle = stringResource(R.string.interface_seerr_studios_subtitle),
+                            checked = seerrStudiosEnabled,
+                            onCheckedChange = preferences::setSeerrStudiosEnabled,
+                            accentColor = Color(0xFFF97316)
+                        )
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                        InterfaceSwitchItem(
+                            icon = Icons.Rounded.Tv,
+                            title = stringResource(R.string.interface_seerr_networks),
+                            subtitle = stringResource(R.string.interface_seerr_networks_subtitle),
+                            checked = seerrNetworksEnabled,
+                            onCheckedChange = preferences::setSeerrNetworksEnabled,
+                            accentColor = Color(0xFF06B6D4)
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun SettingsLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = Color.White.copy(alpha = 0.72f),
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+    )
 }
 
 @Composable
@@ -243,4 +296,3 @@ private fun InterfaceSwitchItem(
         )
     }
 }
-
