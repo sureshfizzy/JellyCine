@@ -85,6 +85,10 @@
     <string name="seerr_error_media_server_url_missing">Your media server URL is missing. Sign in to JellyCine first.</string>
     <string name="seerr_error_media_server_url_invalid">Your media server URL is invalid.</string>
     <string name="seerr_error_not_connected">Seerr is not connected.</string>
+    <string name="seerr_error_current_user_parse">Could not parse the current Seerr user.</string>
+    <string name="seerr_error_current_user_load">Failed to load the current Seerr user.</string>
+    <string name="seerr_error_requests_parse">Could not parse Seerr requests.</string>
+    <string name="seerr_error_requests_load">Failed to load Seerr requests.</string>
     <string name="seerr_error_http_response">%1$s Server responded with HTTP %2$d.</string>
     <string name="seerr_error_unknown_host">Cannot find Seerr. Check the URL and your network connection.</string>
     <string name="seerr_error_connect">Cannot connect to Seerr. Please make sure it is online.</string>

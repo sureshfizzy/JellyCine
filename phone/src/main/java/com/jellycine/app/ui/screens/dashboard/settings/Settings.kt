@@ -37,6 +37,9 @@ import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SeerrRequestedItem
 import com.jellycine.shared.R
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
@@ -51,6 +54,7 @@ fun Settings(
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
+    onNavigateToRequestedItem: (BaseItemDto) -> Unit = {},
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
@@ -137,7 +141,8 @@ fun Settings(
                         serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
                     },
                     onServerClick = serverSwitchDialogsState::openServers,
-                    onNavigateToDownloads = onNavigateToDownloads
+                    onNavigateToDownloads = onNavigateToDownloads,
+                    onSeerrLimitClick = viewModel::loadSeerrRequestedItems
                 )
             }
 
@@ -342,6 +347,17 @@ fun Settings(
         )
     }
 
+    if (uiState.seerrRequestedItems.mediaType != null) {
+        SeerrRequestedItemsDialog(
+            state = uiState.seerrRequestedItems,
+            onDismiss = viewModel::clearSeerrRequestedItems,
+            onItemClick = { item ->
+                viewModel.clearSeerrRequestedItems()
+                onNavigateToRequestedItem(item.toBaseItem())
+            }
+        )
+    }
+
     ServerSwitchDialogsHost(
         state = serverSwitchDialogsState,
         savedServers = uiState.savedServers,
@@ -381,7 +397,8 @@ private fun UserProfileSection(
     isAdministrator: Boolean?,
     onUserClick: () -> Unit,
     onServerClick: () -> Unit,
-    onNavigateToDownloads: () -> Unit
+    onNavigateToDownloads: () -> Unit,
+    onSeerrLimitClick: (String) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -562,7 +579,10 @@ private fun UserProfileSection(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
                         )
 
-                        SeerrRequestLimitsRow(requestLimits = requestLimits)
+                        SeerrRequestLimitsRow(
+                            requestLimits = requestLimits,
+                            onLimitClick = onSeerrLimitClick
+                        )
                     }
                 }
             }
@@ -572,7 +592,8 @@ private fun UserProfileSection(
 
 @Composable
 private fun SeerrRequestLimitsRow(
-    requestLimits: com.jellycine.data.model.SeerrUserRequestLimits
+    requestLimits: com.jellycine.data.model.SeerrUserRequestLimits,
+    onLimitClick: (String) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -606,7 +627,8 @@ private fun SeerrRequestLimitsRow(
                 value = formatSeerrLimit(
                     limit = requestLimits.movieQuotaLimit,
                     days = requestLimits.movieQuotaDays
-                )
+                ),
+                onClick = { onLimitClick("movie") }
             )
             SeerrLimitStat(
                 modifier = Modifier.weight(1f),
@@ -616,7 +638,8 @@ private fun SeerrRequestLimitsRow(
                 value = formatSeerrLimit(
                     limit = requestLimits.tvQuotaLimit,
                     days = requestLimits.tvQuotaDays
-                )
+                ),
+                onClick = { onLimitClick("tv") }
             )
         }
     }
@@ -628,10 +651,11 @@ private fun SeerrLimitStat(
     icon: ImageVector,
     accentColor: Color,
     label: String,
-    value: String
+    value: String,
+    onClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         color = accentColor.copy(alpha = 0.1f),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.18f))
@@ -688,6 +712,17 @@ private fun formatSeerrLimit(limit: Int?, days: Int?): String {
     } else {
         requestCount
     }
+}
+
+private fun SeerrRequestedItem.toBaseItem(): BaseItemDto {
+    return BaseItemDto(
+        id = localItemId ?: SeerrItemIds.detailId(tmdbId, mediaType),
+        name = title,
+        type = if (mediaType.equals("tv", ignoreCase = true)) "Series" else "Movie",
+        providerIds = mapOf("tmdb" to tmdbId),
+        productionYear = productionYear,
+        imageUrl = posterUrl
+    )
 }
 
 @Composable
@@ -1102,4 +1137,3 @@ private fun readableCodecName(mimeType: String): String {
         }
     }
 }
-

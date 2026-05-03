@@ -33,6 +33,45 @@ internal data class SeerrQuotaDetails(
 )
 
 @Serializable
+internal data class SeerrRequestsResponse(
+    val results: List<SeerrRequestEntry> = emptyList()
+)
+
+@Serializable
+internal data class SeerrRequestEntry(
+    val id: Long? = null,
+    val status: Int? = null,
+    val type: String? = null,
+    val media: SeerrRequestMedia? = null,
+    val requestedBy: SeerrRequestUser? = null,
+    val createdAt: String? = null,
+    val seasons: List<SeerrRequestSeason> = emptyList(),
+    val seasonCount: Int? = null,
+    @SerialName("is4k")
+    val is4K: Boolean? = null
+)
+
+@Serializable
+internal data class SeerrRequestMedia(
+    val jellyfinMediaId: String? = null,
+    val tmdbId: Long? = null,
+    val mediaType: String? = null,
+    val status: Int? = null
+)
+
+@Serializable
+internal data class SeerrRequestUser(
+    val id: Int? = null,
+    val displayName: String? = null,
+    val username: String? = null
+)
+
+@Serializable
+internal data class SeerrRequestSeason(
+    val seasonNumber: Int? = null
+)
+
+@Serializable
 internal data class SeerrCombinedCreditsResponse(
     val cast: List<SeerrCreditEntry> = emptyList(),
     val crew: List<SeerrCreditEntry> = emptyList()
@@ -207,6 +246,21 @@ data class SeerrUserRequestLimits(
     val movieQuotaDays: Int? = null,
     val tvQuotaLimit: Int? = null,
     val tvQuotaDays: Int? = null
+)
+
+data class SeerrRequestedItem(
+    val requestId: Long,
+    val tmdbId: String,
+    val title: String,
+    val mediaType: String,
+    val localItemId: String? = null,
+    val productionYear: Int? = null,
+    val posterUrl: String? = null,
+    val requestStatus: Int? = null,
+    val mediaStatus: Int? = null,
+    val requestedAt: String? = null,
+    val seasonCount: Int? = null,
+    val is4K: Boolean = false
 )
 
 object SeerrItemIds {

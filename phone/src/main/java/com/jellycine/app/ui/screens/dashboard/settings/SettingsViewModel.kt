@@ -10,6 +10,7 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.model.SeerrConnectionInfo
+import com.jellycine.data.model.SeerrRequestedItem
 import com.jellycine.data.model.SeerrUserRequestLimits
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.repository.SeerrHostnameAlreadyConfiguredException
@@ -40,6 +41,13 @@ data class SeerrUiState(
     val message: String? = null
 )
 
+data class SeerrRequestedItemsUiState(
+    val mediaType: String? = null,
+    val items: List<SeerrRequestedItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
 data class SettingsUiState(
     val user: UserDto? = null,
     val serverName: String? = null,
@@ -56,6 +64,7 @@ data class SettingsUiState(
     val imageMemoryCacheMb: Int = NetworkPreferences.DEFAULT_IMAGE_MEMORY_CACHE_MB,
     val imageCachingEnabled: Boolean = NetworkPreferences.DEFAULT_IMAGE_CACHING_ENABLED,
     val seerr: SeerrUiState = SeerrUiState(),
+    val seerrRequestedItems: SeerrRequestedItemsUiState = SeerrRequestedItemsUiState(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -438,7 +447,55 @@ class SettingsViewModel(
 
     fun disconnectSeerr() {
         seerrRepository.disconnect(_uiState.value.activeServerId)
-        setSeerrState()
+        _uiState.value = _uiState.value.copy(
+            seerr = SeerrUiState(),
+            seerrRequestedItems = SeerrRequestedItemsUiState()
+        )
+    }
+
+    fun loadSeerrRequestedItems(mediaType: String) {
+        val scopeId = _uiState.value.activeServerId?.takeIf { it.isNotBlank() } ?: return
+        val normalizedMediaType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
+        _uiState.value = _uiState.value.copy(
+            seerrRequestedItems = SeerrRequestedItemsUiState(
+                mediaType = normalizedMediaType,
+                isLoading = true
+            )
+        )
+
+        viewModelScope.launch {
+            val result = seerrRepository.getRequestedItems(
+                scopeId = scopeId,
+                mediaType = normalizedMediaType
+            )
+            if (
+                _uiState.value.activeServerId != scopeId ||
+                _uiState.value.seerrRequestedItems.mediaType != normalizedMediaType
+            ) {
+                return@launch
+            }
+            result.onSuccess { items ->
+                _uiState.value = _uiState.value.copy(
+                    seerrRequestedItems = SeerrRequestedItemsUiState(
+                        mediaType = normalizedMediaType,
+                        items = items
+                    )
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    seerrRequestedItems = SeerrRequestedItemsUiState(
+                        mediaType = normalizedMediaType,
+                        error = error.seerrMessage()
+                    )
+                )
+            }
+        }
+    }
+
+    fun clearSeerrRequestedItems() {
+        _uiState.value = _uiState.value.copy(
+            seerrRequestedItems = SeerrRequestedItemsUiState()
+        )
     }
 
     fun reloadSeerrConnection(scopeId: String? = _uiState.value.activeServerId) {

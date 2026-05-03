@@ -5,6 +5,7 @@ import com.jellycine.data.model.SeerrCurrentUserResponse
 import com.jellycine.data.model.SeerrLoginRequest
 import com.jellycine.data.model.SeerrPersonDetailsResponse
 import com.jellycine.data.model.SeerrQuotaResponse
+import com.jellycine.data.model.SeerrRequestsResponse
 import com.jellycine.data.model.SeerrSearchResponse
 import com.jellycine.data.model.SeerrStatusResponse
 import com.jellycine.data.model.SeerrTitleDetailsResponse
@@ -38,6 +39,19 @@ internal class SeerrApiClient(
     suspend fun currentUser(): ApiResponse<SeerrCurrentUserResponse> = get("auth/me")
 
     suspend fun quota(userId: Int): ApiResponse<SeerrQuotaResponse> = get("user/$userId/quota")
+
+    suspend fun requests(
+        take: Int,
+        skip: Int,
+        filter: String = "all"
+    ): ApiResponse<SeerrRequestsResponse> = get(
+        path = "request",
+        queryParameters = listOf(
+            "take" to take.toString(),
+            "skip" to skip.toString(),
+            "filter" to filter
+        )
+    )
 
     suspend fun personCredits(personTmdbId: String): ApiResponse<SeerrCombinedCreditsResponse> =
         get("person/$personTmdbId/combined_credits")

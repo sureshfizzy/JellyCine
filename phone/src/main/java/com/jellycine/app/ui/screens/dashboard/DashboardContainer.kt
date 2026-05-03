@@ -465,6 +465,7 @@ fun DashboardContainer(
                             onNavigateToDownloads = onNavigateToDownloads,
                             onNavigateToCacheSettings = onNavigateToCacheSettings,
                             onNavigateToAbout = onNavigateToAbout,
+                            onNavigateToRequestedItem = onNavigateToDetail,
                             onAddServer = onAddServer,
                             onAddUser = onAddUser
                         )

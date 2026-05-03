@@ -17,6 +17,7 @@ import com.jellycine.data.model.SeerrMediaInfo
 import com.jellycine.data.model.SeerrMapper
 import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SeerrRequestedItem
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSearchResponse
 import com.jellycine.data.model.SeerrStatusResponse
@@ -286,6 +287,89 @@ class SeerrRepository(context: Context) {
                 }
         }
     }
+
+    suspend fun getRequestedItems(
+        scopeId: String,
+        mediaType: String,
+        limit: Int = 50
+    ): Result<List<SeerrRequestedItem>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            else -> return@withContext Result.failure(Exception(string(R.string.seerr_error_media_type_unsupported)))
+        }
+
+        runRequestCatching {
+            val api = seerrApi(storedConnection)
+            val currentUserId = api.currentUser()
+                .mapBody(
+                    parseError = string(R.string.seerr_error_current_user_parse),
+                    httpError = string(R.string.seerr_error_current_user_load)
+                ) { user ->
+                    user.id?.let { Result.success(it) }
+                        ?: Result.failure(Exception(string(R.string.seerr_error_current_user_parse)))
+                }
+                .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+            val payload = api.requests(take = limit * 2, skip = 0)
+                .mapBody(
+                    parseError = string(R.string.seerr_error_requests_parse),
+                    httpError = string(R.string.seerr_error_requests_load)
+                ) { payload -> Result.success(payload) }
+                .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+
+            val items = mutableListOf<SeerrRequestedItem>()
+            val seenRequestIds = mutableSetOf<Long>()
+            for (request in payload.results) {
+                if (items.size >= limit) break
+                if (request.requestedBy?.id != currentUserId) {
+                    continue
+                }
+                if (
+                    !request.media?.mediaType.equals(normalizedMediaType, ignoreCase = true) &&
+                    !request.type.equals(normalizedMediaType, ignoreCase = true)
+                ) {
+                    continue
+                }
+
+                val requestId = request.id ?: continue
+                if (!seenRequestIds.add(requestId)) continue
+                val media = request.media ?: continue
+                val tmdbId = media.tmdbId?.toString()?.takeIf { it.isNotBlank() } ?: continue
+                val details = api.titleDetails(normalizedMediaType, tmdbId).body()
+                val title = details?.title.ifNotBlank()
+                    ?: details?.name.ifNotBlank()
+                    ?: continue
+
+                items += SeerrRequestedItem(
+                                requestId = requestId,
+                                tmdbId = tmdbId,
+                                title = title,
+                                mediaType = normalizedMediaType,
+                                localItemId = media.jellyfinMediaId.ifNotBlank(),
+                                productionYear = details?.releaseDate.extractYear()
+                                    ?: details?.firstAirDate.extractYear(),
+                    posterUrl = seerrImageUrl(
+                        serverUrl = storedConnection.serverUrl,
+                        imagePath = details?.posterPath.ifNotBlank(),
+                        size = "w500"
+                    ),
+                    requestStatus = request.status,
+                    mediaStatus = media.status,
+                    requestedAt = request.createdAt.ifNotBlank(),
+                    seasonCount = request.seasonCount
+                        ?: request.seasons.mapNotNull { season -> season.seasonNumber }
+                            .distinct()
+                            .size
+                            .takeIf { count -> count > 0 },
+                    is4K = request.is4K == true
+                )
+            }
+
+            Result.success(items)
+        }
+    }
+
     suspend fun getStudios(
         scopeId: String,
         studioId: String,

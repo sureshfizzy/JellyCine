@@ -373,6 +373,19 @@
     <string name="settings_seerr_tv_limit">Shows</string>
     <string name="settings_seerr_unlimited">Unlimited</string>
     <string name="settings_seerr_limit_every_days">%1$s / %2$dd</string>
+    <string name="settings_seerr_requested_movies">Requested Movies</string>
+    <string name="settings_seerr_requested_shows">Requested Shows</string>
+    <string name="settings_seerr_loading_requests">Loading requests...</string>
+    <string name="settings_seerr_no_requested_items">No requested items found.</string>
+    <string name="settings_seerr_requested_on">Requested %1$s</string>
+    <string name="settings_seerr_request_pending">Pending</string>
+    <string name="settings_seerr_request_approved">Approved</string>
+    <string name="settings_seerr_request_declined">Declined</string>
+    <string name="settings_seerr_request_available">Available</string>
+    <string name="settings_seerr_request_processing">Processing</string>
+    <string name="settings_seerr_request_partially_available">Partially Available</string>
+    <string name="settings_seerr_request_unknown_status">Status %1$d</string>
+    <string name="settings_seerr_4k_badge">4K</string>
     <string name="settings_seerr_hostname_already_configured">Seerr hostname already configured</string>
     <string name="settings_seerr_session_expired">Your Seerr session expired. Please sign in again.</string>
     <string name="settings_cache">Cache</string>
@@ -423,6 +436,10 @@
     <plurals name="settings_seerr_requests_count">
         <item quantity="one">%d req</item>
         <item quantity="other">%d req</item>
+    </plurals>
+    <plurals name="settings_seerr_seasons_count">
+        <item quantity="one">%d season</item>
+        <item quantity="other">%d seasons</item>
     </plurals>
 
     <!-- About -->
