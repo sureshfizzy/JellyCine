@@ -1,0 +1,104 @@
+<resources>
+    <!-- Common Data Errors -->
+    <string name="data_error_session_not_available">Session not available</string>
+    <string name="data_error_api_not_available">API not available</string>
+    <string name="data_error_user_id_not_available">User ID not available</string>
+    <string name="data_error_access_token_not_available">Access token not available</string>
+    <string name="data_error_playback_info_not_available">Playback info not available</string>
+    <string name="data_error_playback_info_failed">Failed to get playback info</string>
+    <string name="data_error_no_media_source_available">No media source available</string>
+    <string name="data_error_transcoding_url_unavailable">Negotiated transcoding URL not available for item %1$s</string>
+    <string name="data_error_server_endpoint_http">Server connection failed with HTTP %1$d</string>
+    <string name="data_error_server_endpoint_unresolved">Unable to resolve server endpoint</string>
+
+    <!-- Authentication Errors -->
+    <string name="auth_error_invalid_server_id">Invalid server id</string>
+    <string name="auth_error_saved_server_not_found">Saved server not found</string>
+    <string name="auth_error_saved_session_expired">Saved session expired. Please sign in again.</string>
+    <string name="auth_error_remove_active_server">Switch to another server before removing the active one.</string>
+    <string name="auth_error_invalid_url_scheme">Invalid URL format. URL must start with http:// or https://</string>
+    <string name="auth_error_unable_to_connect">Unable to connect to server</string>
+    <string name="auth_error_cannot_reach_server">Cannot reach server. Please check your internet connection and server URL.</string>
+    <string name="auth_error_connection_refused">Connection refused. Please check if the server is running and the URL is correct.</string>
+    <string name="auth_error_connection_timeout">Connection timeout. Please check your network connection and try again.</string>
+    <string name="auth_error_connection_timeout_unavailable">Connection timeout. Server may be slow or unavailable.</string>
+    <string name="auth_error_connect_failed">Failed to connect to server. Please check the URL and your network connection.</string>
+    <string name="auth_error_connection_refused_short">Connection refused. Please check if the server is running.</string>
+    <string name="auth_error_unknown_connection">Unknown connection error</string>
+    <string name="auth_error_ssl_failed">SSL connection failed. Please check if the server supports HTTPS or try HTTP instead.</string>
+    <string name="auth_error_certificate_failed">Certificate verification failed. The server\'s SSL certificate may be invalid.</string>
+    <string name="auth_error_network">Network error: %1$s</string>
+    <string name="auth_error_authentication_failed">Authentication failed: %1$d</string>
+    <string name="auth_error_quick_connect_start_failed">Unable to start Quick Connect: %1$d</string>
+    <string name="auth_error_quick_connect_secret_missing">Quick Connect secret is missing.</string>
+
+    <!-- Media Errors -->
+    <string name="media_error_fetch_latest_items_failed">Failed to fetch latest items: %1$d</string>
+    <string name="media_error_fetch_suggestions_failed">Failed to fetch suggestions: %1$d</string>
+    <string name="media_error_fetch_movie_recommendations_failed">Failed to fetch movie recommendations: %1$d - %2$s</string>
+    <string name="media_error_fetch_item_failed">Failed to fetch item: %1$d</string>
+    <string name="media_error_fetch_similar_items_failed">Failed to fetch similar items: %1$d - %2$s</string>
+    <string name="media_error_fetch_user_items_failed">Failed to fetch user items: %1$d</string>
+    <string name="media_error_fetch_user_views_failed">Failed to fetch user views: %1$d</string>
+    <string name="media_error_fetch_items_by_genre_failed">Error fetching items by genreId \'%1$s\': %2$s</string>
+    <string name="media_error_fetch_resume_items_failed">Failed to fetch resume items: %1$d - %2$s</string>
+    <string name="media_error_fetch_next_up_items_failed">Failed to fetch next up items: %1$d - %2$s</string>
+    <string name="media_error_fetch_seasons_failed">Failed to fetch seasons: %1$d - %2$s</string>
+    <string name="media_error_fetch_episodes_failed">Failed to fetch episodes: %1$d - %2$s</string>
+    <string name="media_error_fetch_user_info_failed">Failed to fetch user info: %1$d</string>
+    <string name="media_error_search_items_failed">Failed to search items: %1$d - %2$s</string>
+    <string name="media_error_report_playback_start_failed">Failed to report playback start: %1$d - %2$s</string>
+    <string name="media_error_report_playback_progress_failed">Failed to report playback progress: %1$d - %2$s</string>
+    <string name="media_error_report_playback_stopped_failed">Failed to report playback stopped: %1$d - %2$s</string>
+
+    <!-- Seerr Errors -->
+    <string name="seerr_error_username_required">Please enter your Seerr username.</string>
+    <string name="seerr_error_password_required">Please enter your Seerr password.</string>
+    <string name="seerr_error_person_credits_parse">Could not parse Seerr person credits.</string>
+    <string name="seerr_error_person_credits_fetch">Failed to fetch Seerr person credits.</string>
+    <string name="seerr_error_person_id_missing">Seerr person id is missing.</string>
+    <string name="seerr_error_person_details_parse">Could not parse Seerr person details.</string>
+    <string name="seerr_error_person_details_load">Failed to load Seerr person details.</string>
+    <string name="seerr_error_person_not_found">Seerr could not find this person.</string>
+    <string name="seerr_error_person_details_incomplete">Seerr person details are incomplete.</string>
+    <string name="seerr_error_search_results_parse">Could not parse Seerr search results.</string>
+    <string name="seerr_error_search_titles">Failed to search Seerr titles.</string>
+    <string name="seerr_error_studio_movies_parse">Could not parse Seerr studio movies.</string>
+    <string name="seerr_error_studio_movies_load">Failed to load Seerr studio movies.</string>
+    <string name="seerr_error_network_shows_parse">Could not parse Seerr network shows.</string>
+    <string name="seerr_error_network_shows_load">Failed to load Seerr network shows.</string>
+    <string name="seerr_error_title_id_missing">Seerr title id is missing.</string>
+    <string name="seerr_error_media_type_unsupported">Unsupported Seerr media type.</string>
+    <string name="seerr_error_title_details_parse">Could not parse Seerr title details.</string>
+    <string name="seerr_error_title_details_load">Failed to load Seerr title details.</string>
+    <string name="seerr_error_title_not_found">Seerr could not find this title.</string>
+    <string name="seerr_error_title_details_incomplete">Seerr title details are incomplete.</string>
+    <string name="seerr_error_missing_session_cookie">Seerr sign-in succeeded, but no session cookie was returned.</string>
+    <string name="seerr_error_credentials_rejected">Seerr rejected these credentials. Please check your username and password.</string>
+    <string name="seerr_error_sign_in_http">Seerr sign-in failed with HTTP %1$d.</string>
+    <string name="seerr_error_verify_session_http">Could not verify the Seerr session. Server responded with HTTP %1$d.</string>
+    <string name="seerr_error_not_found_at_url">Seerr was not found at this URL. Please check the address.</string>
+    <string name="seerr_error_returned_http_verify_url">Seerr returned HTTP %1$d. Please verify the URL.</string>
+    <string name="seerr_error_url_required">Please enter your Seerr URL.</string>
+    <string name="seerr_error_url_scheme_required">Seerr URL must start with http:// or https://</string>
+    <string name="seerr_error_url_invalid">Please enter a valid Seerr URL.</string>
+    <string name="seerr_error_media_server_url_missing">Your media server URL is missing. Sign in to JellyCine first.</string>
+    <string name="seerr_error_media_server_url_invalid">Your media server URL is invalid.</string>
+    <string name="seerr_error_not_connected">Seerr is not connected.</string>
+    <string name="seerr_error_http_response">%1$s Server responded with HTTP %2$d.</string>
+    <string name="seerr_error_unknown_host">Cannot find Seerr. Check the URL and your network connection.</string>
+    <string name="seerr_error_connect">Cannot connect to Seerr. Please make sure it is online.</string>
+    <string name="seerr_error_timeout">Seerr took too long to respond. Please try again.</string>
+    <string name="seerr_error_ssl">SSL connection to Seerr failed. Check your HTTPS setup.</string>
+    <string name="seerr_error_certificate">Seerr\'s SSL certificate could not be verified.</string>
+    <string name="seerr_error_unreachable">Unable to reach Seerr right now.</string>
+    <string name="seerr_error_connect_generic">Unable to connect to Seerr.</string>
+
+    <!-- Seerr Credits -->
+    <string name="seerr_credit_role_director">Director</string>
+    <string name="seerr_credit_role_actor">Actor</string>
+    <string name="seerr_credit_role_writer">Writer</string>
+    <string name="seerr_credit_role_producer">Producer</string>
+    <string name="seerr_credit_role_creator">Creator</string>
+    <string name="seerr_credit_role_other">Other</string>
+</resources>

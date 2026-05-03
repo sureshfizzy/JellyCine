@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.jellycine.data.R
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
@@ -314,7 +315,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun switchServer(serverId: String): Result<SavedServer> {
         if (serverId.isBlank()) {
-            return Result.failure(Exception("Invalid server id"))
+            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
         }
 
         return try {
@@ -323,9 +324,9 @@ class AuthRepository(private val context: Context) {
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
             val targetServer = existingServers.firstOrNull { it.id == serverId }
                 ?: activeServer(preferences)?.takeIf { it.id == serverId }
-                ?: return Result.failure(Exception("Saved server not found"))
+                ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
             val accessToken = secureSessionStore.getToken(targetServer.id)
-                ?: return Result.failure(Exception("Saved session expired. Please sign in again."))
+                ?: return Result.failure(Exception(string(R.string.auth_error_saved_session_expired)))
 
             val switchedServer = targetServer.copy(lastUsedAt = System.currentTimeMillis())
 
@@ -352,7 +353,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun removeSavedServer(serverId: String): Result<Unit> {
         if (serverId.isBlank()) {
-            return Result.failure(Exception("Invalid server id"))
+            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
         }
 
         return try {
@@ -364,11 +365,11 @@ class AuthRepository(private val context: Context) {
                 ?: activeServer(preferences)?.id
 
             val removeServer = existingServers.firstOrNull { it.id == serverId }
-                ?: return Result.failure(Exception("Saved server not found"))
+                ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
 
             if (removeServer.id == activeServerId) {
                 return Result.failure(
-                    Exception("Switch to another server before removing the active one.")
+                    Exception(string(R.string.auth_error_remove_active_server))
                 )
             }
 
@@ -426,15 +427,16 @@ class AuthRepository(private val context: Context) {
         legacyStorageMigrated()
         return try {
             if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
-                return Result.failure(Exception("Invalid URL format. URL must start with http:// or https://"))
+                return Result.failure(Exception(string(R.string.auth_error_invalid_url_scheme)))
             }
 
             val resolved = NetworkModule.serverEndpoint(
-                serverUrl = serverUrl,
-                storageDir = context.filesDir,
-                timeoutConfig = networkPreferences.getTimeoutConfig()
-            ).getOrElse { error ->
-                return Result.failure(Exception(error.message ?: "Unable to connect to server"))
+                    context = context,
+                    serverUrl = serverUrl,
+                    storageDir = context.filesDir,
+                    timeoutConfig = networkPreferences.getTimeoutConfig()
+                ).getOrElse { error ->
+                return Result.failure(Exception(error.message ?: string(R.string.auth_error_unable_to_connect)))
             }
 
             val normalizedServerInfo = resolved.serverInfo.copy(
@@ -446,26 +448,26 @@ class AuthRepository(private val context: Context) {
 
             Result.success(normalizedServerInfo)
         } catch (e: java.net.UnknownHostException) {
-            Result.failure(Exception("Cannot reach server. Please check your internet connection and server URL."))
+            Result.failure(Exception(string(R.string.auth_error_cannot_reach_server)))
         } catch (e: java.net.ConnectException) {
-            Result.failure(Exception("Connection refused. Please check if the server is running and the URL is correct."))
+            Result.failure(Exception(string(R.string.auth_error_connection_refused)))
         } catch (e: java.net.SocketTimeoutException) {
-            Result.failure(Exception("Connection timeout. Please check your network connection and try again."))
+            Result.failure(Exception(string(R.string.auth_error_connection_timeout)))
         } catch (e: javax.net.ssl.SSLException) {
-            Result.failure(Exception("SSL connection failed. Please check if the server supports HTTPS or try HTTP instead."))
+            Result.failure(Exception(string(R.string.auth_error_ssl_failed)))
         } catch (e: java.security.cert.CertificateException) {
-            Result.failure(Exception("Certificate verification failed. The server's SSL certificate may be invalid."))
+            Result.failure(Exception(string(R.string.auth_error_certificate_failed)))
         } catch (e: java.io.IOException) {
-            Result.failure(Exception("Network error: ${e.message ?: "Unable to connect to server"}"))
+            Result.failure(Exception(string(R.string.auth_error_network, e.message ?: string(R.string.auth_error_unable_to_connect))))
         } catch (e: Exception) {
             val errorMessage = when {
                 e.message?.contains("Failed to connect", ignoreCase = true) == true ->
-                    "Failed to connect to server. Please check the URL and your network connection."
+                    string(R.string.auth_error_connect_failed)
                 e.message?.contains("timeout", ignoreCase = true) == true ->
-                    "Connection timeout. Server may be slow or unavailable."
+                    string(R.string.auth_error_connection_timeout_unavailable)
                 e.message?.contains("refused", ignoreCase = true) == true ->
-                    "Connection refused. Please check if the server is running."
-                else -> e.message ?: "Unknown connection error"
+                    string(R.string.auth_error_connection_refused_short)
+                else -> e.message ?: string(R.string.auth_error_unknown_connection)
             }
             Result.failure(Exception(errorMessage))
         }
@@ -493,13 +495,14 @@ class AuthRepository(private val context: Context) {
         }
 
         return NetworkModule.serverEndpoint(
+            context = context,
             serverUrl = serverUrl,
             storageDir = context.filesDir,
             timeoutConfig = networkPreferences.getTimeoutConfig()
         ).fold(
             onSuccess = { Result.success(it) },
             onFailure = { error ->
-                Result.failure(Exception(error.message ?: "Unable to resolve server endpoint"))
+                Result.failure(Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved)))
             }
         )
     }
@@ -532,11 +535,12 @@ class AuthRepository(private val context: Context) {
                 )
             } else {
                 NetworkModule.serverEndpoint(
+                    context = context,
                     serverUrl = serverUrl,
                     storageDir = context.filesDir,
                     timeoutConfig = networkPreferences.getTimeoutConfig()
                 ).getOrElse { error ->
-                    return Result.failure(Exception(error.message ?: "Unable to resolve server endpoint"))
+                    return Result.failure(Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved)))
                 }
             }
 
@@ -586,7 +590,7 @@ class AuthRepository(private val context: Context) {
                 }
                 Result.success(authResult)
             } else {
-                Result.failure(Exception("Authentication failed: ${response.code()}"))
+                Result.failure(Exception(string(R.string.auth_error_authentication_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -611,7 +615,7 @@ class AuthRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Unable to start Quick Connect: ${response.code()}"))
+                Result.failure(Exception(string(R.string.auth_error_quick_connect_start_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -633,7 +637,7 @@ class AuthRepository(private val context: Context) {
         secret: String
     ): Result<AuthenticationResult> {
         if (secret.isBlank()) {
-            return Result.failure(Exception("Quick Connect secret is missing."))
+            return Result.failure(Exception(string(R.string.auth_error_quick_connect_secret_missing)))
         }
 
         return try {
@@ -690,7 +694,7 @@ class AuthRepository(private val context: Context) {
                 }
                 Result.success(authResult)
             } else {
-                Result.failure(Exception("Authentication failed: ${response.code()}"))
+                Result.failure(Exception(string(R.string.auth_error_authentication_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -792,4 +796,7 @@ class AuthRepository(private val context: Context) {
         return normalizedInput.equals(normalizedSaved, ignoreCase = true) ||
             normalizedInput.equals(normalizedSavedWithoutEmby, ignoreCase = true)
     }
+
+    private fun string(resId: Int, vararg formatArgs: Any): String =
+        context.getString(resId, *formatArgs)
 }

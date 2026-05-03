@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.jellycine.data.R
 import com.jellycine.data.api.SeerrApiClient
 import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.network.ApiResponse
@@ -91,10 +92,10 @@ class SeerrRepository(context: Context) {
             return@withContext Result.failure(error)
         }
         if (sanitizedUsername.isBlank()) {
-            return@withContext Result.failure(Exception("Please enter your Seerr username."))
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_username_required)))
         }
         if (password.isBlank()) {
-            return@withContext Result.failure(Exception("Please enter your Seerr password."))
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_password_required)))
         }
 
         val signInResult = signIn(
@@ -151,8 +152,8 @@ class SeerrRepository(context: Context) {
             seerrApi(storedConnection)
                 .personCredits(tmdbPersonId)
                 .mapBody(
-                    parseError = "Could not parse Seerr person credits.",
-                    httpError = "Failed to fetch Seerr person credits."
+                    parseError = string(R.string.seerr_error_person_credits_parse),
+                    httpError = string(R.string.seerr_error_person_credits_fetch)
                 ) { payload ->
                     val seerMediaType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
                     val credits = buildList {
@@ -208,23 +209,23 @@ class SeerrRepository(context: Context) {
         val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
         val tmdbPersonId = personTmdbId.trim()
         if (tmdbPersonId.isBlank()) {
-            return@withContext Result.failure(Exception("Seerr person id is missing."))
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_person_id_missing)))
         }
 
         runRequestCatching {
             seerrApi(storedConnection)
                 .personDetails(tmdbPersonId)
                 .mapBody(
-                    parseError = "Could not parse Seerr person details.",
-                    httpError = "Failed to load Seerr person details.",
-                    notFoundError = "Seerr could not find this person."
+                    parseError = string(R.string.seerr_error_person_details_parse),
+                    httpError = string(R.string.seerr_error_person_details_load),
+                    notFoundError = string(R.string.seerr_error_person_not_found)
                 ) { payload ->
                     Result.success(
                         SeerrMapper.toBaseItem(
                             response = payload,
                             serverUrl = storedConnection.serverUrl
                         ) ?: return@mapBody Result.failure(
-                            Exception("Seerr person details are incomplete.")
+                            Exception(string(R.string.seerr_error_person_details_incomplete))
                         )
                     )
                 }
@@ -245,8 +246,8 @@ class SeerrRepository(context: Context) {
             seerrApi(storedConnection)
                 .search(searchQuery)
                 .mapBody(
-                    parseError = "Could not parse Seerr search results.",
-                    httpError = "Failed to search Seerr titles."
+                    parseError = string(R.string.seerr_error_search_results_parse),
+                    httpError = string(R.string.seerr_error_search_titles)
                 ) { payload ->
                     Result.success(
                         payload.results
@@ -296,8 +297,8 @@ class SeerrRepository(context: Context) {
         startIndex = startIndex,
         mediaType = "movie",
         loadPage = { api, page -> api.studioMovies(studioId, page) },
-        parseError = "Could not parse Seerr studio movies.",
-        httpError = "Failed to load Seerr studio movies."
+        parseError = string(R.string.seerr_error_studio_movies_parse),
+        httpError = string(R.string.seerr_error_studio_movies_load)
     )
 
     suspend fun getNetworks(
@@ -311,8 +312,8 @@ class SeerrRepository(context: Context) {
         startIndex = startIndex,
         mediaType = "tv",
         loadPage = { api, page -> api.networkSeries(networkId, page) },
-        parseError = "Could not parse Seerr network shows.",
-        httpError = "Failed to load Seerr network shows."
+        parseError = string(R.string.seerr_error_network_shows_parse),
+        httpError = string(R.string.seerr_error_network_shows_load)
     )
 
     private suspend fun getCatalogItems(
@@ -391,21 +392,21 @@ class SeerrRepository(context: Context) {
         val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
         val seerTmdbId = tmdbId.trim()
         if (seerTmdbId.isBlank()) {
-            return@withContext Result.failure(Exception("Seerr title id is missing."))
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_title_id_missing)))
         }
         val normalizedMediaType = when {
             mediaType.equals("tv", ignoreCase = true) -> "tv"
             mediaType.equals("movie", ignoreCase = true) -> "movie"
-            else -> return@withContext Result.failure(Exception("Unsupported Seerr media type."))
+            else -> return@withContext Result.failure(Exception(string(R.string.seerr_error_media_type_unsupported)))
         }
 
         runRequestCatching {
             seerrApi(storedConnection)
                 .titleDetails(normalizedMediaType, seerTmdbId)
                 .mapBody(
-                    parseError = "Could not parse Seerr title details.",
-                    httpError = "Failed to load Seerr title details.",
-                    notFoundError = "Seerr could not find this title."
+                    parseError = string(R.string.seerr_error_title_details_parse),
+                    httpError = string(R.string.seerr_error_title_details_load),
+                    notFoundError = string(R.string.seerr_error_title_not_found)
                 ) { payload ->
                     Result.success(
                         SeerrMapper.toBaseItem(
@@ -414,7 +415,7 @@ class SeerrRepository(context: Context) {
                             mediaType = normalizedMediaType,
                             serverUrl = storedConnection.serverUrl
                         ) ?: return@mapBody Result.failure(
-                            Exception("Seerr title details are incomplete.")
+                            Exception(string(R.string.seerr_error_title_details_incomplete))
                         )
                     )
                 }
@@ -550,7 +551,7 @@ class SeerrRepository(context: Context) {
             response.isSuccessful -> {
                 val sessionCookie = response.headers().sessionCookie()
                     ?: return Result.failure(
-                        Exception("Seerr sign-in succeeded, but no session cookie was returned.")
+                        Exception(string(R.string.seerr_error_missing_session_cookie))
                     )
                 val authenticatedApi = SeerrApiClient(
                     serverUrl = serverUrl,
@@ -573,7 +574,7 @@ class SeerrRepository(context: Context) {
 
             response.isAuthFailure() -> {
                 Result.failure(
-                    Exception("Seerr rejected these credentials. Please check your username and password.")
+                    Exception(string(R.string.seerr_error_credentials_rejected))
                 )
             }
 
@@ -583,7 +584,7 @@ class SeerrRepository(context: Context) {
             }
 
             else -> {
-                Result.failure(Exception("Seerr sign-in failed with HTTP ${response.code()}."))
+                Result.failure(Exception(string(R.string.seerr_error_sign_in_http, response.code())))
             }
         }
     }
@@ -628,7 +629,7 @@ class SeerrRepository(context: Context) {
 
                 else -> {
                     Result.failure(
-                        Exception("Could not verify the Seerr session. Server responded with HTTP ${currentUserResponse.code()}.")
+                        Exception(string(R.string.seerr_error_verify_session_http, currentUserResponse.code()))
                     )
                 }
             }
@@ -640,10 +641,10 @@ class SeerrRepository(context: Context) {
         return when {
             response.isSuccessful -> Result.success(response.body() ?: SeerrStatusResponse())
             response.code() == 404 -> {
-                Result.failure(Exception("Seerr was not found at this URL. Please check the address."))
+                Result.failure(Exception(string(R.string.seerr_error_not_found_at_url)))
             }
             else -> {
-                Result.failure(Exception("Seerr returned HTTP ${response.code()}. Please verify the URL."))
+                Result.failure(Exception(string(R.string.seerr_error_returned_http_verify_url, response.code())))
             }
         }
     }
@@ -669,26 +670,26 @@ class SeerrRepository(context: Context) {
     }
     private fun seerrServerUrl(serverUrl: String): Result<String> {
         if (serverUrl.isBlank()) {
-            return Result.failure(Exception("Please enter your Seerr URL."))
+            return Result.failure(Exception(string(R.string.seerr_error_url_required)))
         }
         val normalized = canonicalServerUrl(serverUrl)
         if (!normalized.startsWith("http://", ignoreCase = true) &&
             !normalized.startsWith("https://", ignoreCase = true)
         ) {
-            return Result.failure(Exception("Seerr URL must start with http:// or https://"))
+            return Result.failure(Exception(string(R.string.seerr_error_url_scheme_required)))
         }
         val validatedUrl = normalized.toHttpUrlOrNull()
-            ?: return Result.failure(Exception("Please enter a valid Seerr URL."))
+            ?: return Result.failure(Exception(string(R.string.seerr_error_url_invalid)))
 
         return Result.success(canonicalServerUrl(validatedUrl.toString()))
     }
 
     private fun buildMediaServerUrl(serverUrl: String): Result<String> {
         if (serverUrl.isBlank()) {
-            return Result.failure(Exception("Your media server URL is missing. Sign in to JellyCine first."))
+            return Result.failure(Exception(string(R.string.seerr_error_media_server_url_missing)))
         }
         val validatedUrl = canonicalServerUrl(serverUrl).toHttpUrlOrNull()
-            ?: return Result.failure(Exception("Your media server URL is invalid."))
+            ?: return Result.failure(Exception(string(R.string.seerr_error_media_server_url_invalid)))
 
         return Result.success(canonicalServerUrl(validatedUrl.toString()))
     }
@@ -731,7 +732,7 @@ class SeerrRepository(context: Context) {
     }
 
     private fun <T> notConnectedFailure(): Result<T> =
-        Result.failure(Exception("Seerr is not connected."))
+        Result.failure(Exception(string(R.string.seerr_error_not_connected)))
 
     private inline fun <T, R> ApiResponse<T>.mapBody(
         parseError: String,
@@ -742,7 +743,7 @@ class SeerrRepository(context: Context) {
         isSuccessful -> body()?.let(transform) ?: Result.failure(Exception(parseError))
         isAuthFailure() -> Result.failure(SeerrSessionExpiredException())
         code() == 404 && notFoundError != null -> Result.failure(Exception(notFoundError))
-        else -> Result.failure(Exception("$httpError Server responded with HTTP ${code()}."))
+        else -> Result.failure(Exception(string(R.string.seerr_error_http_response, httpError, code())))
     }
 
     private fun <T> ApiResponse<T>.isAuthFailure(): Boolean = code() == 401 || code() == 403
@@ -762,13 +763,13 @@ class SeerrRepository(context: Context) {
     }
 
     private fun connectionError(error: Exception): Exception = when (error) {
-        is UnknownHostException -> Exception("Cannot find Seerr. Check the URL and your network connection.")
-        is ConnectException -> Exception("Cannot connect to Seerr. Please make sure it is online.")
-        is SocketTimeoutException -> Exception("Seerr took too long to respond. Please try again.")
-        is SSLException -> Exception("SSL connection to Seerr failed. Check your HTTPS setup.")
-        is CertificateException -> Exception("Seerr's SSL certificate could not be verified.")
-        is IOException -> Exception(error.message ?: "Unable to reach Seerr right now.")
-        else -> Exception(error.message ?: "Unable to connect to Seerr.")
+        is UnknownHostException -> Exception(string(R.string.seerr_error_unknown_host))
+        is ConnectException -> Exception(string(R.string.seerr_error_connect))
+        is SocketTimeoutException -> Exception(string(R.string.seerr_error_timeout))
+        is SSLException -> Exception(string(R.string.seerr_error_ssl))
+        is CertificateException -> Exception(string(R.string.seerr_error_certificate))
+        is IOException -> Exception(error.message ?: string(R.string.seerr_error_unreachable))
+        else -> Exception(error.message ?: string(R.string.seerr_error_connect_generic))
     }
 
     private fun sha256(value: String): String {
@@ -788,11 +789,11 @@ class SeerrRepository(context: Context) {
     private fun String?.crewRoleLabel(): String? {
         val seerJob = this?.trim()?.lowercase(Locale.US) ?: return null
         return when {
-            seerJob == "director" -> "Director"
-            seerJob in setOf("writer", "screenplay", "story", "novel", "characters") -> "Writer"
-            seerJob in setOf("producer", "executive producer", "co-producer", "associate producer", "line producer") -> "Producer"
-            seerJob == "creator" -> "Creator"
-            else -> "Other"
+            seerJob == "director" -> string(R.string.seerr_credit_role_director)
+            seerJob in setOf("writer", "screenplay", "story", "novel", "characters") -> string(R.string.seerr_credit_role_writer)
+            seerJob in setOf("producer", "executive producer", "co-producer", "associate producer", "line producer") -> string(R.string.seerr_credit_role_producer)
+            seerJob == "creator" -> string(R.string.seerr_credit_role_creator)
+            else -> string(R.string.seerr_credit_role_other)
         }
     }
 
@@ -813,9 +814,12 @@ class SeerrRepository(context: Context) {
     }
 
     private fun SeerrPersonCreditType.defaultRoleLabel(): String = when (this) {
-        SeerrPersonCreditType.DIRECTOR -> "Director"
-        SeerrPersonCreditType.ACTOR -> "Actor"
+        SeerrPersonCreditType.DIRECTOR -> string(R.string.seerr_credit_role_director)
+        SeerrPersonCreditType.ACTOR -> string(R.string.seerr_credit_role_actor)
     }
+
+    private fun string(resId: Int, vararg formatArgs: Any): String =
+        appContext.getString(resId, *formatArgs)
 
     private fun SharedPreferences.Editor.putScopedIntOrRemove(
         baseKey: String,

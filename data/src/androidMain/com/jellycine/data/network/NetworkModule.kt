@@ -6,6 +6,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
+import com.jellycine.data.R
 import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.api.MediaServerApiClient
@@ -171,6 +172,7 @@ object NetworkModule {
     }
 
     suspend fun serverEndpoint(
+        context: Context,
         serverUrl: String,
         storageDir: File? = null,
         timeoutConfig: NetworkTimeoutConfig? = null
@@ -198,13 +200,17 @@ object NetworkModule {
                     )
                 }
 
-                lastError = Exception("Server connection failed with HTTP ${response.code()}")
+                lastError = Exception(
+                    context.getString(R.string.data_error_server_endpoint_http, response.code())
+                )
             } catch (e: Exception) {
                 lastError = e
             }
         }
 
-        return Result.failure(lastError ?: Exception("Unable to resolve server endpoint"))
+        return Result.failure(
+            lastError ?: Exception(context.getString(R.string.data_error_server_endpoint_unresolved))
+        )
     }
 
     private fun createOkHttpClient(

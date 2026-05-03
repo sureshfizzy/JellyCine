@@ -1,6 +1,8 @@
 package com.jellycine.data.model
 
+import android.content.Context
 import android.net.Uri
+import com.jellycine.data.R
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
@@ -81,12 +83,14 @@ internal object PlaybackUrlBuilder {
     }
 
     fun createLocalPlaybackRequest(
+        context: Context,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<PlaybackRequest> {
         return buildStreamingUrl(
+            context = context,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
@@ -104,12 +108,14 @@ internal object PlaybackUrlBuilder {
     }
 
     fun createCastStreamingUrl(
+        context: Context,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<String> {
         return buildStreamingUrl(
+            context = context,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
@@ -136,6 +142,7 @@ internal object PlaybackUrlBuilder {
     }
 
     private fun buildStreamingUrl(
+        context: Context,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
@@ -143,7 +150,7 @@ internal object PlaybackUrlBuilder {
     ): Result<String> {
         return try {
             val mediaSource = playbackInfo.mediaSources?.firstOrNull()
-                ?: return Result.failure(Exception("No media source available"))
+                ?: return Result.failure(Exception(context.getString(R.string.data_error_no_media_source_available)))
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(options.subtitleStreamIndex)
             val selectedAudioStream = getSelectedAudioStream(
                 mediaSource = mediaSource,
@@ -205,7 +212,7 @@ internal object PlaybackUrlBuilder {
 
             if (hasQualityCap) {
                 return Result.failure(
-                    Exception("Negotiated transcoding URL not available for item $itemId")
+                    Exception(context.getString(R.string.data_error_transcoding_url_unavailable, itemId))
                 )
             }
 

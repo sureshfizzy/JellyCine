@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.jellycine.data.DataModuleConfig
+import com.jellycine.data.R
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
@@ -118,7 +119,7 @@ class MediaRepository(private val context: Context) {
             )
         }
         .distinctUntilChanged()
-    
+
     private suspend fun getApi(): MediaServerApi? = getApiSession()?.api
 
     private suspend fun getUserId(): String? = getApiSession()?.userId
@@ -264,7 +265,7 @@ class MediaRepository(private val context: Context) {
     suspend fun clearPersistedHomeSnapshot() {
         homeSnapshotStore.clearPersistedHomeSnapshot()
     }
-    
+
     suspend fun getLatestItems(
         parentId: String? = null,
         includeItemTypes: String? = "Movie,Series",
@@ -272,7 +273,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
 
             val response = session.api.getLatestItems(
                 userId = session.userId,
@@ -285,7 +286,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch latest items: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_latest_items_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -298,7 +299,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val route = SuggestionsEndpoint(
                 serverType = session.serverType,
                 userId = session.userId
@@ -324,7 +325,7 @@ class MediaRepository(private val context: Context) {
                     .toList()
                 Result.success(items)
             } else {
-                Result.failure(Exception("Failed to fetch suggestions: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_suggestions_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -338,8 +339,8 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,People"
     ): Result<List<RecommendationDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getMovieRecommendations(
                 userId = userId,
@@ -362,7 +363,7 @@ class MediaRepository(private val context: Context) {
                     .filter { it.items.orEmpty().isNotEmpty() }
                 Result.success(recommendations)
             } else {
-                Result.failure(Exception("Failed to fetch movie recommendations: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_movie_recommendations_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -383,8 +384,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getItemById(itemId: String): Result<BaseItemDto> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
             val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber"
 
             val response = api.getItemById(
@@ -421,7 +422,7 @@ class MediaRepository(private val context: Context) {
 
                 Result.success(mappedItem)
             } else {
-                Result.failure(Exception("Failed to fetch item: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_item_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -460,8 +461,8 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getSimilarItems(
                 itemId = itemId,
@@ -474,7 +475,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items.orEmpty().filter { it.id != itemId })
             } else {
-                Result.failure(Exception("Failed to fetch similar items: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_similar_items_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -496,8 +497,8 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getUserItems(
                 userId = userId,
@@ -518,7 +519,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch user items: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_user_items_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -564,8 +565,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun setFavoriteStatus(itemId: String, isFavorite: Boolean): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = if (isFavorite) {
                 api.markAsFavorite(userId = userId, itemId = itemId)
@@ -586,16 +587,16 @@ class MediaRepository(private val context: Context) {
             Result.failure(e)
         }
     }
-    
+
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val response = session.api.getUserViews(session.userId)
-            
+
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch user views: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -636,7 +637,7 @@ class MediaRepository(private val context: Context) {
                 }
 
                 val session = getApiSession() ?: return@fold Result.failure(
-                    Exception("Session not available")
+                    Exception(string(R.string.data_error_session_not_available))
                 )
                 val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber"
                 val sectionFetchSemaphore = Semaphore(4)
@@ -735,7 +736,7 @@ class MediaRepository(private val context: Context) {
         }
         return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
     }
-    
+
     fun getImageUrl(
         itemId: String,
         imageType: String = "Primary",
@@ -763,7 +764,7 @@ class MediaRepository(private val context: Context) {
             }
         }
     }
-    
+
     fun getBackdropImageUrl(
         itemId: String,
         imageIndex: Int = 0,
@@ -791,7 +792,7 @@ class MediaRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun getRecentlyAddedMovies(limit: Int = 10): Result<List<BaseItemDto>> {
         return getLatestItems(
             includeItemTypes = "Movie",
@@ -799,7 +800,7 @@ class MediaRepository(private val context: Context) {
             fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
         )
     }
-    
+
     suspend fun getRecentlyAddedSeries(limit: Int = 10): Result<List<BaseItemDto>> {
         return getLatestItems(
             includeItemTypes = "Series",
@@ -807,7 +808,7 @@ class MediaRepository(private val context: Context) {
             fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
         )
     }
-    
+
     suspend fun getRecentlyAddedEpisodes(limit: Int = 10): Result<List<BaseItemDto>> {
         return getLatestItems(
             includeItemTypes = "Episode",
@@ -823,8 +824,8 @@ class MediaRepository(private val context: Context) {
         sortOrder: String? = "Ascending"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getGenres(
                 userId = userId,
@@ -980,7 +981,7 @@ class MediaRepository(private val context: Context) {
         limit: Int? = 20
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
 
             val response = session.api.getItemsByGenre(
                 userId = session.userId,
@@ -1004,8 +1005,7 @@ class MediaRepository(private val context: Context) {
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-
-            Result.failure(Exception("Error fetching items by genreId '$genreId': ${e.message}", e))
+            Result.failure(Exception(string(R.string.media_error_fetch_items_by_genre_failed, genreId, e.message.orEmpty()), e))
         }
     }
 
@@ -1017,7 +1017,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
 
             val response = session.api.getResumeItems(
                 userId = session.userId,
@@ -1035,7 +1035,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to fetch resume items: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_resume_items_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1050,7 +1050,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val legacyNextUp = if (session.serverType == ServerType.EMBY) true else null
 
             val response = session.api.getNextUp(
@@ -1069,7 +1069,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to fetch next up items: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_next_up_items_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1078,8 +1078,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getSeasons(seriesId: String): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getSeasons(
                 seriesId = seriesId,
@@ -1091,7 +1091,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to fetch seasons: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_seasons_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1105,8 +1105,8 @@ class MediaRepository(private val context: Context) {
         startIndex: Int? = null
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getEpisodes(
                 seriesId = seriesId,
@@ -1121,7 +1121,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception("Failed to fetch episodes: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_episodes_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1130,15 +1130,15 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getCurrentUser(): Result<UserDto> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             val response = api.getUserById(userId)
 
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Failed to fetch user info: ${response.code()}"))
+                Result.failure(Exception(string(R.string.media_error_fetch_user_info_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1174,7 +1174,7 @@ class MediaRepository(private val context: Context) {
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
     ): Result<com.jellycine.data.model.PlaybackInfoResponse> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception("Session not available"))
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val api = session.api
             val userId = session.userId
             val serverUrl = session.baseUrl
@@ -1272,11 +1272,11 @@ class MediaRepository(private val context: Context) {
      */
     suspend fun getItemDownloadRequest(itemId: String): Result<ItemDownloadRequest> {
         return try {
-            val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
+            val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val serverUrl = config.serverUrl
             val accessToken = config.accessToken
             if (accessToken.isNullOrBlank()) {
-                return Result.failure(Exception("Access token not available"))
+                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
             }
 
             val item = getItemById(itemId).getOrNull()
@@ -1335,7 +1335,7 @@ class MediaRepository(private val context: Context) {
         playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null,
         includeAccessToken: Boolean = false
     ): Result<PlaybackRequest> {
-        val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
+        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
         val authContext = createPlaybackAuthContext(config)
         val activePlaybackInfo = playbackInfo ?: run {
             val playbackInfoResult = getPlaybackInfo(
@@ -1347,13 +1347,14 @@ class MediaRepository(private val context: Context) {
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
-                    playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info")
+                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
                 )
             }
             playbackInfoResult.getOrNull()
-        } ?: return Result.failure(Exception("Playback info not available"))
+        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
 
         return PlaybackUrlBuilder.createLocalPlaybackRequest(
+            context = context,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = activePlaybackInfo,
@@ -1377,7 +1378,7 @@ class MediaRepository(private val context: Context) {
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
         playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null
     ): Result<String> {
-        val config = getSessionConfig() ?: return Result.failure(Exception("Session not available"))
+        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
         val authContext = createPlaybackAuthContext(config)
         val activePlaybackInfo = playbackInfo ?: run {
             val playbackInfoResult = getPlaybackInfo(
@@ -1389,13 +1390,14 @@ class MediaRepository(private val context: Context) {
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
-                    playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info")
+                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
                 )
             }
             playbackInfoResult.getOrNull()
-        } ?: return Result.failure(Exception("Playback info not available"))
+        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
 
         return PlaybackUrlBuilder.createCastStreamingUrl(
+            context = context,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = activePlaybackInfo,
@@ -1416,7 +1418,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val playbackInfoResult = getPlaybackInfo(itemId)
             if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
             }
 
             val playbackInfo = playbackInfoResult.getOrNull()
@@ -1436,7 +1438,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val playbackInfoResult = getPlaybackInfo(itemId)
             if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
             }
 
             val playbackInfo = playbackInfoResult.getOrNull()
@@ -1456,7 +1458,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val playbackInfoResult = getPlaybackInfo(itemId)
             if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception("Failed to get playback info"))
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
             }
 
             val playbackInfo = playbackInfoResult.getOrNull()
@@ -1478,8 +1480,8 @@ class MediaRepository(private val context: Context) {
         limit: Int? = 50
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
-            val userId = getUserId() ?: return Result.failure(Exception("User ID not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
 
             // Try searchTerm parameter first
             var response = api.searchItems(
@@ -1508,7 +1510,7 @@ class MediaRepository(private val context: Context) {
                 val items = queryResult.items ?: emptyList()
                 Result.success(items)
             } else {
-                Result.failure(Exception("Failed to search items: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_search_items_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1530,7 +1532,7 @@ class MediaRepository(private val context: Context) {
         playMethod: String? = null
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
 
             val request = com.jellycine.data.model.PlaybackStartRequest(
                 itemId = itemId,
@@ -1547,7 +1549,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to report playback start: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_report_playback_start_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1570,7 +1572,7 @@ class MediaRepository(private val context: Context) {
         playMethod: String? = null
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
 
             val request = com.jellycine.data.model.PlaybackProgressRequest(
                 itemId = itemId,
@@ -1590,7 +1592,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to report playback progress: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_report_playback_progress_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1608,7 +1610,7 @@ class MediaRepository(private val context: Context) {
         failed: Boolean = false
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception("API not available"))
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
 
             val request = com.jellycine.data.model.PlaybackStoppedRequest(
                 itemId = itemId,
@@ -1623,12 +1625,15 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Failed to report playback stopped: ${response.code()} - ${response.message()}"))
+                Result.failure(Exception(string(R.string.media_error_report_playback_stopped_failed, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
+    private fun string(resId: Int, vararg formatArgs: Any): String =
+        context.getString(resId, *formatArgs)
 }
 
 // Extension functions for BaseItemDto
@@ -1684,7 +1689,7 @@ fun BaseItemDto.getResumePositionTicks(): Long? {
 fun BaseItemDto.isResumable(): Boolean {
     val positionTicks = userData?.playbackPositionTicks ?: return false
     val totalTicks = runTimeTicks ?: return false
-    
+
     // Consider item resumable if position is > 0 and < 95% of total runtime
     return positionTicks > 0 && positionTicks < (totalTicks * 0.95)
 }
@@ -1695,7 +1700,7 @@ fun BaseItemDto.isResumable(): Boolean {
 fun BaseItemDto.getResumePercentage(): Double {
     val positionTicks = userData?.playbackPositionTicks ?: return 0.0
     val totalTicks = runTimeTicks ?: return 0.0
-    
+
     return if (totalTicks > 0) {
         (positionTicks.toDouble() / totalTicks.toDouble()).coerceIn(0.0, 1.0)
     } else {
@@ -1711,7 +1716,7 @@ fun BaseItemDto.getFormattedResumePosition(): String? {
     val seconds = (positionTicks / 10_000_000).toInt()
     val minutes = seconds / 60
     val hours = minutes / 60
-    
+
     return if (hours > 0) {
         String.format("%d:%02d:%02d", hours, minutes % 60, seconds % 60)
     } else {
