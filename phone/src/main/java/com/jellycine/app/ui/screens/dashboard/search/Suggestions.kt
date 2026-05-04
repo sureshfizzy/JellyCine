@@ -89,7 +89,12 @@ fun SuggestionsStoriesView(
         modifier = Modifier.fillMaxSize()
     ) {
         val currentItem = suggestions[currentItemIndex]
-        val backgroundImageUrl = rememberImageUrl(itemId = currentItem.id, imageType = "Primary")
+        val backgroundImageUrl = currentItem.imageUrl
+            ?: rememberImageUrl(
+                itemId = currentItem.id,
+                imageType = "Primary",
+                enableImageEnhancers = false
+            )
 
         LazyImageLoader(
             imageUrl = backgroundImageUrl,
@@ -338,7 +343,11 @@ private fun SuggestionsCard(
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                val imageUrl = rememberImageUrl(itemId = item.id, imageType = "Primary")
+                val imageUrl = item.imageUrl ?: rememberImageUrl(
+                    itemId = item.id,
+                    imageType = "Primary",
+                    enableImageEnhancers = false
+                )
                 LazyImageLoader(
                     imageUrl = imageUrl,
                     contentDescription = item.name,

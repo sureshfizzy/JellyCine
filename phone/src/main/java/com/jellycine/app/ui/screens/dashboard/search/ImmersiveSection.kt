@@ -1,6 +1,9 @@
 package com.jellycine.app.ui.screens.dashboard.search
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -8,10 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.imageLoader
@@ -35,21 +38,22 @@ private fun buildImmersiveImageRequest(
 
 @Composable
 fun ImmersiveSection(
-    title: String,
     movies: List<BaseItemDto>,
     isLoading: Boolean,
     onItemClick: (BaseItemDto) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    discoveryTabs: List<SearchDiscoveryTab> = emptyList(),
+    selectedDiscoveryTab: SearchDiscoveryTab? = null,
+    onDiscoveryTabClick: (SearchDiscoveryTab) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val firstMovie = movies.firstOrNull()
     var isFirstImageReady by remember(isLoading, firstMovie?.id) {
         mutableStateOf(isLoading || firstMovie?.id == null)
     }
 
-    LaunchedEffect(isLoading, firstMovie?.id, disablePosterEnhancers) {
+    LaunchedEffect(isLoading, firstMovie?.id) {
         if (isLoading) {
             isFirstImageReady = false
             return@LaunchedEffect
@@ -63,10 +67,10 @@ fun ImmersiveSection(
 
         isFirstImageReady = false
         val firstImageUrl = runCatching {
-            mediaRepository.getImageUrlString(
+            firstMovie?.imageUrl ?: mediaRepository.getImageUrlString(
                 itemId = itemId,
                 imageType = "Primary",
-                enableImageEnhancers = !disablePosterEnhancers
+                enableImageEnhancers = false
             )
         }.getOrNull()
 
@@ -91,11 +95,12 @@ fun ImmersiveSection(
                 .take(10)
 
             prioritizedIds.firstOrNull()?.let { immersiveImageId ->
+                val immersiveItem = movies.firstOrNull { item -> item.id == immersiveImageId }
                 val immersiveImageUrl = runCatching {
-                    mediaRepository.getImageUrlString(
+                    immersiveItem?.imageUrl ?: mediaRepository.getImageUrlString(
                         itemId = immersiveImageId,
                         imageType = "Primary",
-                        enableImageEnhancers = !disablePosterEnhancers
+                        enableImageEnhancers = false
                     )
                 }.getOrNull()
 
@@ -109,11 +114,12 @@ fun ImmersiveSection(
             }
 
             prioritizedIds.drop(1).forEach { backgroundItemId ->
+                val backgroundItem = movies.firstOrNull { item -> item.id == backgroundItemId }
                 val backgroundImageUrl = runCatching {
-                    mediaRepository.getImageUrlString(
+                    backgroundItem?.imageUrl ?: mediaRepository.getImageUrlString(
                         itemId = backgroundItemId,
                         imageType = "Primary",
-                        enableImageEnhancers = !disablePosterEnhancers
+                        enableImageEnhancers = false
                     )
                 }.getOrNull()
 
@@ -145,15 +151,47 @@ fun ImmersiveSection(
             )
         }
 
+        if (discoveryTabs.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(top = 60.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp)
+            ) {
+                items(discoveryTabs) { tab ->
+                    DiscoveryTabChip(
+                        tab = tab,
+                        selected = tab == selectedDiscoveryTab,
+                        onClick = { onDiscoveryTabClick(tab) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoveryTabChip(
+    tab: SearchDiscoveryTab,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.selectable(
+            selected = selected,
+            onClick = onClick
+        ),
+        color = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
+        contentColor = if (selected) Color.Black else Color.White,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
         Text(
-            text = title,
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(top = 60.dp, start = 24.dp)
+            text = tab.label(),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
         )
     }
 }

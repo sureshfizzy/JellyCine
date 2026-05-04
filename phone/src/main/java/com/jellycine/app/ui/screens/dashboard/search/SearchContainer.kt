@@ -27,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,10 +47,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.imageLoader
 import coil3.request.*
@@ -133,12 +138,18 @@ fun SearchContainer(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val selectedDiscoveryTab by viewModel.selectedDiscoveryTab.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val activeServerId by authRepository.getActiveServerId().collectAsStateWithLifecycle(
+        initialValue = authRepository.getActiveSessionSnapshot().activeServerId
+    )
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isSearchActive = searchQuery.isNotEmpty()
     val hasSearchResults = remember(
         uiState.movieResults,
@@ -173,6 +184,20 @@ fun SearchContainer(
 
     LaunchedEffect(disablePosterEnhancers) {
         SearchBurstImagePrefetcher.clear()
+    }
+
+    LaunchedEffect(activeServerId) {
+        viewModel.refreshSeerrConnectionState(activeServerId)
+    }
+
+    DisposableEffect(lifecycleOwner, activeServerId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSeerrConnectionState(activeServerId)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(burstPrefetchItems.hashCode(), disablePosterEnhancers) {
@@ -217,14 +242,20 @@ fun SearchContainer(
                 }
             }
         } else {
+            val showSeerrDiscovery = selectedDiscoveryTab.seerrCategory != null && uiState.isSeerrConnected &&
+                (uiState.seerrDiscoveryLoading || uiState.seerrDiscoveryItems.isNotEmpty())
             ImmersiveSection(
-                title = stringResource(R.string.suggestions),
-                movies = uiState.suggestions,
-                isLoading = uiState.SuggestionsLoading,
-                onItemClick = onNavigateToDetail,
+                movies = if (showSeerrDiscovery) uiState.seerrDiscoveryItems else uiState.suggestions,
+                isLoading = if (showSeerrDiscovery) uiState.seerrDiscoveryLoading else uiState.SuggestionsLoading,
+                onItemClick = { item ->
+                    onNavigateToDetail(item.withJellyfinNavigationId())
+                },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 20.dp)
+                    .padding(top = 20.dp),
+                discoveryTabs = if (uiState.isSeerrConnected) SearchDiscoveryTab.entries.toList() else listOf(SearchDiscoveryTab.SUGGESTIONS),
+                selectedDiscoveryTab = selectedDiscoveryTab,
+                onDiscoveryTabClick = viewModel::selectDiscoveryTab
             )
         }
 
@@ -241,6 +272,21 @@ fun SearchContainer(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         )
     }
+}
+
+private fun BaseItemDto.withJellyfinNavigationId(): BaseItemDto {
+    val jellyfinMediaId = providerIds?.get("jellyfin")?.takeIf { it.isNotBlank() } ?: return this
+    return copy(id = jellyfinMediaId)
+}
+
+@Composable
+fun SearchDiscoveryTab.label(): String = when (this) {
+    SearchDiscoveryTab.SUGGESTIONS -> stringResource(R.string.suggestions)
+    SearchDiscoveryTab.TRENDING -> stringResource(R.string.search_discover_trending)
+    SearchDiscoveryTab.POPULAR_MOVIES -> stringResource(R.string.search_discover_popular_movies)
+    SearchDiscoveryTab.POPULAR_SHOWS -> stringResource(R.string.search_discover_popular_shows)
+    SearchDiscoveryTab.UPCOMING_MOVIES -> stringResource(R.string.search_discover_upcoming_movies)
+    SearchDiscoveryTab.UPCOMING_SHOWS -> stringResource(R.string.search_discover_upcoming_shows)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -344,5 +390,3 @@ private fun SearchBar(
         }
     }
 }
-
-

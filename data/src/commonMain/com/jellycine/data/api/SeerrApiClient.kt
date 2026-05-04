@@ -64,6 +64,31 @@ internal class SeerrApiClient(
         queryParameters = listOf("query" to query, "page" to "1")
     )
 
+    suspend fun trending(page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/trending",
+        queryParameters = listOf("page" to page.toString())
+    )
+
+    suspend fun popularMovies(page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/movies",
+        queryParameters = listOf("page" to page.toString())
+    )
+
+    suspend fun popularSeries(page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/tv",
+        queryParameters = listOf("page" to page.toString())
+    )
+
+    suspend fun upcomingMovies(page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/movies/upcoming",
+        queryParameters = listOf("page" to page.toString())
+    )
+
+    suspend fun upcomingSeries(page: Int): ApiResponse<SeerrSearchResponse> = get(
+        path = "discover/tv/upcoming",
+        queryParameters = listOf("page" to page.toString())
+    )
+
     suspend fun studioMovies(studioId: String, page: Int): ApiResponse<SeerrSearchResponse> = get(
         path = "discover/movies/studio/$studioId",
         queryParameters = listOf("page" to page.toString())

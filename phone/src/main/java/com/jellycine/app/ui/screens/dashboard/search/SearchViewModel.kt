@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.app.ui.components.common.filterSeerTitles
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrDiscoveryCategory
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
@@ -34,10 +36,25 @@ class SearchViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _selectedDiscoveryTab = MutableStateFlow(SearchDiscoveryTab.SUGGESTIONS)
+    val selectedDiscoveryTab: StateFlow<SearchDiscoveryTab> = _selectedDiscoveryTab.asStateFlow()
+
     private var searchJob: Job? = null
+    private var seerrScopeId: String? = null
 
     init {
         loadsuggestions()
+        refreshSeerrConnectionState()
+    }
+
+    fun selectDiscoveryTab(tab: SearchDiscoveryTab) {
+        if (_selectedDiscoveryTab.value == tab &&
+            (tab.seerrCategory == null || _uiState.value.seerrDiscoveryItems.isNotEmpty())
+        ) {
+            return
+        }
+        _selectedDiscoveryTab.value = tab
+        tab.seerrCategory?.let(::loadSeerrDiscovery)
     }
 
     fun updateSearchQuery(query: String) {
@@ -161,6 +178,103 @@ class SearchViewModel @Inject constructor(
             }
         }
     }
+
+    fun refreshSeerrConnectionState(activeServerId: String? = authRepository.getActiveSessionSnapshot().activeServerId) {
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        val scopeChanged = seerrScopeId != scopeId
+        val wasSeerrConnected = _uiState.value.isSeerrConnected
+        seerrScopeId = scopeId
+        val isSeerrConnected = scopeId != null &&
+            seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
+
+        if (!isSeerrConnected) {
+            _selectedDiscoveryTab.value = SearchDiscoveryTab.SUGGESTIONS
+            _uiState.value = _uiState.value.copy(
+                isSeerrConnected = false,
+                seerrMovieResults = emptyList(),
+                seerrShowResults = emptyList(),
+                seerrDiscoveryItems = emptyList(),
+                seerrDiscoveryLoading = false
+            )
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isSeerrConnected = true,
+            seerrDiscoveryItems = if (scopeChanged) emptyList() else _uiState.value.seerrDiscoveryItems
+        )
+
+        if ((_searchQuery.value.isNotBlank()) && (!wasSeerrConnected || scopeChanged)) {
+            executeSearch()
+            return
+        }
+
+        val category = _selectedDiscoveryTab.value.seerrCategory ?: return
+        if ((scopeChanged || _uiState.value.seerrDiscoveryItems.isEmpty()) && !_uiState.value.seerrDiscoveryLoading) {
+            loadSeerrDiscovery(category)
+        }
+    }
+
+    private fun loadSeerrDiscovery(category: SeerrDiscoveryCategory) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                seerrDiscoveryLoading = true
+            )
+
+            val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
+            val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+            val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
+            if (scopeId == null || !isSeerrConnected) {
+                _uiState.value = _uiState.value.copy(
+                    isSeerrConnected = false,
+                    seerrDiscoveryItems = emptyList(),
+                    seerrDiscoveryLoading = false,
+                )
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isSeerrConnected = true)
+
+            seerrRepository.getDiscoveryTitles(
+                scopeId = scopeId,
+                category = category,
+                limit = 20
+            ).fold(
+                onSuccess = { titles ->
+                    if (_selectedDiscoveryTab.value.seerrCategory == category) {
+                        _uiState.value = _uiState.value.copy(
+                            seerrDiscoveryItems = titles.toDiscoveryItems(),
+                            seerrDiscoveryLoading = false
+                        )
+                    }
+                },
+                onFailure = {
+                    if (_selectedDiscoveryTab.value.seerrCategory == category) {
+                        _uiState.value = _uiState.value.copy(
+                            seerrDiscoveryItems = emptyList(),
+                            seerrDiscoveryLoading = false
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    private fun List<SeerrRecommendationTitle>.toDiscoveryItems(): List<BaseItemDto> =
+        distinctBy { title -> "${title.mediaType}:${title.tmdbId}" }
+            .map { title ->
+                BaseItemDto(
+                    id = SeerrItemIds.detailId(tmdbId = title.tmdbId, mediaType = title.mediaType),
+                    name = title.title,
+                    type = if (title.mediaType.equals("tv", ignoreCase = true)) "Series" else "Movie",
+                    providerIds = buildMap {
+                        put("tmdb", title.tmdbId)
+                        title.jellyfinMediaId?.takeIf { it.isNotBlank() }?.let { put("jellyfin", it) }
+                    },
+                    productionYear = title.productionYear,
+                    imageUrl = title.posterUrl
+                )
+            }
 
     private fun filterSearchItems(items: List<BaseItemDto>, query: String): List<BaseItemDto> {
         return items
@@ -294,6 +408,15 @@ class SearchViewModel @Inject constructor(
     }
 }
 
+enum class SearchDiscoveryTab(val seerrCategory: SeerrDiscoveryCategory?) {
+    SUGGESTIONS(null),
+    TRENDING(SeerrDiscoveryCategory.TRENDING),
+    POPULAR_MOVIES(SeerrDiscoveryCategory.POPULAR_MOVIES),
+    POPULAR_SHOWS(SeerrDiscoveryCategory.POPULAR_SHOWS),
+    UPCOMING_MOVIES(SeerrDiscoveryCategory.UPCOMING_MOVIES),
+    UPCOMING_SHOWS(SeerrDiscoveryCategory.UPCOMING_SHOWS)
+}
+
 data class SearchUiState(
     val suggestions: List<BaseItemDto> = emptyList(),
     val movieResults: List<BaseItemDto> = emptyList(),
@@ -301,7 +424,10 @@ data class SearchUiState(
     val episodeResults: List<BaseItemDto> = emptyList(),
     val seerrMovieResults: List<SeerrRecommendationTitle> = emptyList(),
     val seerrShowResults: List<SeerrRecommendationTitle> = emptyList(),
+    val seerrDiscoveryItems: List<BaseItemDto> = emptyList(),
+    val isSeerrConnected: Boolean = false,
     val isSearching: Boolean = false,
     val SuggestionsLoading: Boolean = false,
+    val seerrDiscoveryLoading: Boolean = false,
     val error: String? = null
 )

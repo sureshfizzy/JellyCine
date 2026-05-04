@@ -11,6 +11,7 @@ import com.jellycine.data.network.ApiResponse
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrConnectionInfo
+import com.jellycine.data.model.SeerrDiscoveryCategory
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrLoginRequest
 import com.jellycine.data.model.SeerrMediaInfo
@@ -20,6 +21,7 @@ import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestedItem
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSearchResponse
+import com.jellycine.data.model.SeerrSearchResult
 import com.jellycine.data.model.SeerrStatusResponse
 import com.jellycine.data.model.SeerrUserRequestLimits
 import com.jellycine.data.model.QueryResult
@@ -285,6 +287,31 @@ class SeerrRepository(context: Context) {
                             .toList()
                     )
                 }
+        }
+    }
+
+    suspend fun getDiscoveryTitles(
+        scopeId: String,
+        category: SeerrDiscoveryCategory,
+        limit: Int = 20
+    ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+
+        runRequestCatching {
+            val api = seerrApi(storedConnection)
+            loadDiscoveryPage(api, category, page = 1).mapBody(
+                parseError = string(R.string.seerr_error_discovery_parse),
+                httpError = string(R.string.seerr_error_discovery_load)
+            ) { payload ->
+                Result.success(
+                    payload.results
+                        .asSequence()
+                        .mapNotNull { result -> result.toRecommendationTitle(storedConnection.serverUrl, category) }
+                        .distinctBy { title -> "${title.mediaType}:${title.tmdbId}" }
+                        .take(limit)
+                        .toList()
+                )
+            }
         }
     }
 
@@ -831,6 +858,57 @@ class SeerrRepository(context: Context) {
     }
 
     private fun <T> ApiResponse<T>.isAuthFailure(): Boolean = code() == 401 || code() == 403
+
+    private suspend fun loadDiscoveryPage(
+        api: SeerrApiClient,
+        category: SeerrDiscoveryCategory,
+        page: Int
+    ): ApiResponse<SeerrSearchResponse> = when (category) {
+        SeerrDiscoveryCategory.TRENDING -> api.trending(page)
+        SeerrDiscoveryCategory.POPULAR_MOVIES -> api.popularMovies(page)
+        SeerrDiscoveryCategory.POPULAR_SHOWS -> api.popularSeries(page)
+        SeerrDiscoveryCategory.UPCOMING_MOVIES -> api.upcomingMovies(page)
+        SeerrDiscoveryCategory.UPCOMING_SHOWS -> api.upcomingSeries(page)
+    }
+
+    private fun SeerrDiscoveryCategory.mediaType(): String? = when (this) {
+        SeerrDiscoveryCategory.POPULAR_MOVIES,
+        SeerrDiscoveryCategory.UPCOMING_MOVIES -> "movie"
+        SeerrDiscoveryCategory.POPULAR_SHOWS,
+        SeerrDiscoveryCategory.UPCOMING_SHOWS -> "tv"
+        SeerrDiscoveryCategory.TRENDING -> null
+    }
+
+    private fun SeerrSearchResult.toRecommendationTitle(
+        serverUrl: String,
+        category: SeerrDiscoveryCategory
+    ): SeerrRecommendationTitle? {
+        val categoryMediaType = category.mediaType()
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            categoryMediaType != null -> categoryMediaType
+            else -> return null
+        }
+        if (categoryMediaType != null && normalizedMediaType != categoryMediaType) return null
+
+        val tmdbId = id?.toString()?.takeIf { it.isNotBlank() } ?: return null
+        val title = title.ifNotBlank() ?: name.ifNotBlank() ?: return null
+
+        return SeerrRecommendationTitle(
+            tmdbId = tmdbId,
+            title = title,
+            mediaType = normalizedMediaType,
+            productionYear = releaseDate.extractYear() ?: firstAirDate.extractYear(),
+            posterUrl = seerrImageUrl(
+                serverUrl = serverUrl,
+                imagePath = posterPath.ifNotBlank(),
+                size = "w500"
+            ),
+            jellyfinMediaId = mediaInfo?.jellyfinMediaId.ifNotBlank(),
+            requestState = mediaInfo.toRequestState()
+        )
+    }
 
     private fun ApiHeaders.sessionCookie(): String? = getAll("Set-Cookie")
         .mapNotNull { header ->

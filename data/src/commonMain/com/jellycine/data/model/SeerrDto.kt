@@ -224,6 +224,14 @@ data class SeerrCatalogItem(
     val logoUrl: String? = null
 )
 
+enum class SeerrDiscoveryCategory {
+    TRENDING,
+    POPULAR_MOVIES,
+    POPULAR_SHOWS,
+    UPCOMING_MOVIES,
+    UPCOMING_SHOWS
+}
+
 enum class SeerrPersonCreditType {
     DIRECTOR,
     ACTOR

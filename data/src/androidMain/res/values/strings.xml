@@ -63,6 +63,8 @@
     <string name="seerr_error_person_details_incomplete">Seerr person details are incomplete.</string>
     <string name="seerr_error_search_results_parse">Could not parse Seerr search results.</string>
     <string name="seerr_error_search_titles">Failed to search Seerr titles.</string>
+    <string name="seerr_error_discovery_parse">Could not parse Seerr discovery results.</string>
+    <string name="seerr_error_discovery_load">Failed to load Seerr discovery titles.</string>
     <string name="seerr_error_studio_movies_parse">Could not parse Seerr studio movies.</string>
     <string name="seerr_error_studio_movies_load">Failed to load Seerr studio movies.</string>
     <string name="seerr_error_network_shows_parse">Could not parse Seerr network shows.</string>

@@ -120,6 +120,11 @@
     <string name="suggestions_type_movie">Movie</string>
     <string name="suggestions_type_tv_series">TV Series</string>
     <string name="suggestions_type_media">Media</string>
+    <string name="search_discover_trending">Trending</string>
+    <string name="search_discover_popular_movies">Popular Movies</string>
+    <string name="search_discover_popular_shows">Popular Shows</string>
+    <string name="search_discover_upcoming_movies">Upcoming Movies</string>
+    <string name="search_discover_upcoming_shows">Upcoming Shows</string>
     <string name="my_media_load_error">Unable to load libraries</string>
     <string name="my_media_unknown_error">Something went wrong</string>
     <string name="try_again">Try Again</string>
