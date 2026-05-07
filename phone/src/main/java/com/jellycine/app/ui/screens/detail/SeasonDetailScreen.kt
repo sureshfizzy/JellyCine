@@ -86,8 +86,7 @@ fun SeasonDetailScreen(
         try {
             val result = mediaRepository.getEpisodes(
                 seriesId = seriesId,
-                seasonId = seasonId,
-                limit = 100
+                seasonId = seasonId
             )
             result.fold(
                 onSuccess = { episodeList ->
