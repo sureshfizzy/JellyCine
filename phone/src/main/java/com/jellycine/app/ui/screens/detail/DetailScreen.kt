@@ -43,6 +43,9 @@ import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SeerrRequestOptions
+import com.jellycine.data.model.SeerrRequestSelection
+import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -866,6 +869,13 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    var seerrRequestState by remember(item.id, item.seerrRequestState) {
+        mutableStateOf(item.seerrRequestState ?: SeerrRequestState.NONE)
+    }
+    var seerrRequestInProgress by remember(item.id) { mutableStateOf(false) }
+    var seerrOptionsLoading by remember(item.id) { mutableStateOf(false) }
+    var seerrRequestOptions by remember(item.id) { mutableStateOf<SeerrRequestOptions?>(null) }
+    var seerrRequestErrorMessage by remember(item.id) { mutableStateOf<String?>(null) }
     val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
         val seriesId = item.id
         if (isSeerDetail || item.type != "Series" || seriesId.isNullOrBlank()) {
@@ -899,6 +909,72 @@ fun DetailContent(
         }
     }
 
+    fun submitSeerrRequest(selection: SeerrRequestSelection?) {
+        if (!isSeerDetail || seerrRequestInProgress || seerrRequestState == SeerrRequestState.REQUESTED) {
+            return
+        }
+        val (mediaType, tmdbId) = SeerrItemIds.detailParams(item.id.orEmpty()) ?: return
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        if (scopeId == null) {
+            seerrRequestErrorMessage = "Seerr is not connected."
+            return
+        }
+
+        coroutineScope.launch {
+            seerrRequestInProgress = true
+            try {
+                seerrRepository.requestTitle(
+                    scopeId = scopeId,
+                    tmdbId = tmdbId,
+                    mediaType = mediaType,
+                    selection = selection
+                ).fold(
+                    onSuccess = {
+                        seerrRequestState = SeerrRequestState.REQUESTED
+                        seerrRequestOptions = null
+                    },
+                    onFailure = { throwable ->
+                        seerrRequestErrorMessage = throwable.message
+                            ?: context.getString(R.string.detail_seerr_request_failed)
+                    }
+                )
+            } finally {
+                seerrRequestInProgress = false
+            }
+        }
+    }
+
+    fun openSeerrRequestOptions() {
+        if (!isSeerDetail || seerrOptionsLoading || seerrRequestInProgress) return
+        val (mediaType, tmdbId) = SeerrItemIds.detailParams(item.id.orEmpty()) ?: return
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        if (scopeId == null) {
+            seerrRequestErrorMessage = "Seerr is not connected."
+            return
+        }
+
+        coroutineScope.launch {
+            seerrOptionsLoading = true
+            try {
+                seerrRepository.getRequestOptions(
+                    scopeId = scopeId,
+                    mediaType = mediaType,
+                    tmdbId = tmdbId
+                ).fold(
+                    onSuccess = { options ->
+                        seerrRequestOptions = options
+                    },
+                    onFailure = { throwable ->
+                        seerrRequestErrorMessage = throwable.message
+                            ?: context.getString(R.string.detail_seerr_request_failed)
+                    }
+                )
+            } finally {
+                seerrOptionsLoading = false
+            }
+        }
+    }
+
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
             DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
@@ -919,6 +995,7 @@ fun DetailContent(
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
+    val detailActionButtonHeight = if (useTabletBackdropLayout) 40.dp else 46.dp
     val contentFadeStart = if (useTabletBackdropLayout && layout.backdropHeight.value > 0f) {
         (
             ((layout.contentTopPadding + layout.logoContainerHeight) - 56.dp).value /
@@ -1423,6 +1500,28 @@ fun DetailContent(
                             )
                         }
 
+                        if (isWidescreenLayout && isSeerDetail) {
+                            SeerrRequestActionButton(
+                                requestState = seerrRequestState,
+                                isBusy = seerrRequestInProgress || seerrOptionsLoading,
+                                busyLabel = if (seerrOptionsLoading) {
+                                    stringResource(R.string.detail_seerr_loading_options)
+                                } else {
+                                    stringResource(R.string.detail_seerr_requesting)
+                                },
+                                onClick = ::openSeerrRequestOptions,
+                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
+                                    .padding(top = if (hasDescriptionContent) 12.dp else 14.dp)
+                                    .height(detailActionButtonHeight)
+                            )
+                        }
+
                         if (isWidescreenLayout && directors.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
@@ -1459,7 +1558,6 @@ fun DetailContent(
                             2 -> 300.dp
                             else -> 360.dp
                         }
-                        val detailActionButtonHeight = if (useTabletBackdropLayout) 40.dp else 46.dp
 
                         if (isWidescreenLayout) {
                             if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
@@ -1840,6 +1938,28 @@ fun DetailContent(
                             )
                         }
 
+                        if (!isWidescreenLayout && isSeerDetail) {
+                            SeerrRequestActionButton(
+                                requestState = seerrRequestState,
+                                isBusy = seerrRequestInProgress || seerrOptionsLoading,
+                                busyLabel = if (seerrOptionsLoading) {
+                                    stringResource(R.string.detail_seerr_loading_options)
+                                } else {
+                                    stringResource(R.string.detail_seerr_requesting)
+                                },
+                                onClick = ::openSeerrRequestOptions,
+                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
+                                    .padding(top = if (hasDescriptionContent) 14.dp else 18.dp)
+                                    .height(detailActionButtonHeight)
+                            )
+                        }
+
                         if (!isWidescreenLayout && directors.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
@@ -2147,6 +2267,49 @@ fun DetailContent(
                     )
                 ) {
                     Text("OK", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+
+    seerrRequestOptions?.let { options ->
+        SeerrRequestDialog(
+            itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
+            backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl,
+            options = options,
+            onDismissRequest = { seerrRequestOptions = null },
+            onConfirm = { selection ->
+                seerrRequestOptions = null
+                submitSeerrRequest(selection)
+            }
+        )
+    }
+
+    seerrRequestErrorMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { seerrRequestErrorMessage = null },
+            containerColor = Color(0xFF1A1C22),
+            titleContentColor = Color.White,
+            textContentColor = Color.White.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(
+                    text = stringResource(R.string.detail_seerr_request_failed),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(text = message)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { seerrRequestErrorMessage = null },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFF22D3EE)
+                    )
+                ) {
+                    Text(stringResource(R.string.ok), fontWeight = FontWeight.SemiBold)
                 }
             }
         )
@@ -2604,6 +2767,81 @@ private fun formatBitrate(bitsPerSecond: Long?): String? {
         "${String.format(Locale.US, "%.1f", value / 1_000_000.0)} Mbps"
     } else {
         "${value / 1000L} kbps"
+    }
+}
+
+@Composable
+private fun SeerrRequestActionButton(
+    requestState: SeerrRequestState,
+    isBusy: Boolean,
+    busyLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isRequested = requestState == SeerrRequestState.REQUESTED
+    Button(
+        onClick = onClick,
+        enabled = !isRequested && !isBusy,
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isRequested) Color(0xFF1F1F24) else Color.White,
+            contentColor = if (isRequested) Color.White else Color.Black,
+            disabledContainerColor = Color(0xFF1F1F24),
+            disabledContentColor = Color.White.copy(alpha = 0.86f)
+        ),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+    ) {
+        when {
+            isBusy -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = Color(0xFF03A9F4)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = busyLabel,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            isRequested -> {
+                Icon(
+                    imageVector = Icons.Rounded.Schedule,
+                    contentDescription = stringResource(R.string.detail_seerr_requested),
+                    modifier = Modifier.size(20.dp),
+                    tint = Color(0xFF9CDCFE)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.detail_seerr_requested),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            else -> {
+                Icon(
+                    imageVector = Icons.Rounded.AddCircle,
+                    contentDescription = stringResource(R.string.detail_seerr_request),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.detail_seerr_request),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 

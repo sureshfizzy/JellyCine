@@ -7,8 +7,11 @@ import com.jellycine.data.model.SeerrPersonDetailsResponse
 import com.jellycine.data.model.SeerrQuotaResponse
 import com.jellycine.data.model.SeerrRequestsResponse
 import com.jellycine.data.model.SeerrSearchResponse
+import com.jellycine.data.model.SeerrServiceServerResponse
+import com.jellycine.data.model.SeerrServiceSettingsResponse
 import com.jellycine.data.model.SeerrStatusResponse
 import com.jellycine.data.model.SeerrTitleDetailsResponse
+import com.jellycine.data.model.SeerrTitleRequest
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.network.ApiResponse
 import com.jellycine.data.network.trimTrailingSlash
@@ -101,6 +104,21 @@ internal class SeerrApiClient(
 
     suspend fun titleDetails(mediaType: String, tmdbId: String): ApiResponse<SeerrTitleDetailsResponse> =
         get("$mediaType/$tmdbId")
+
+    suspend fun requestTitle(request: SeerrTitleRequest): ApiResponse<Unit> =
+        post("request", request)
+
+    suspend fun radarrServers(): ApiResponse<List<SeerrServiceServerResponse>> =
+        get("service/radarr")
+
+    suspend fun sonarrServers(): ApiResponse<List<SeerrServiceServerResponse>> =
+        get("service/sonarr")
+
+    suspend fun radarrService(serverId: Int): ApiResponse<SeerrServiceSettingsResponse> =
+        get("service/radarr/$serverId")
+
+    suspend fun sonarrService(serverId: Int): ApiResponse<SeerrServiceSettingsResponse> =
+        get("service/sonarr/$serverId")
 
     private suspend inline fun <reified T> get(
         path: String,

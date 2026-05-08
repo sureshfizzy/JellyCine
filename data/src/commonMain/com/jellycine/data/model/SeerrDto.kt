@@ -16,8 +16,53 @@ internal data class SeerrLoginRequest(
 )
 
 @Serializable
+internal data class SeerrTitleRequest(
+    val mediaType: String,
+    val mediaId: Int,
+    @SerialName("is4k")
+    val is4K: Boolean = false,
+    val seasons: List<Int>? = null,
+    val serverId: Int? = null,
+    val profileId: Int? = null,
+    val rootFolder: String? = null,
+    val languageProfileId: Int? = null
+)
+
+@Serializable
+internal data class SeerrServiceSettingsResponse(
+    val server: SeerrServiceServerResponse? = null,
+    val profiles: List<SeerrServiceProfileResponse> = emptyList(),
+    val rootFolders: List<SeerrRootFolderResponse> = emptyList(),
+    val languageProfiles: List<SeerrServiceProfileResponse>? = null
+)
+
+@Serializable
+internal data class SeerrServiceServerResponse(
+    val id: Int? = null,
+    val name: String? = null,
+    val activeProfileId: Int? = null,
+    val activeDirectory: String? = null,
+    val activeLanguageProfileId: Int? = null,
+    @SerialName("is4k")
+    val is4K: Boolean? = null,
+    val isDefault: Boolean? = null
+)
+
+@Serializable
+internal data class SeerrServiceProfileResponse(
+    val id: Int? = null,
+    val name: String? = null
+)
+
+@Serializable
+internal data class SeerrRootFolderResponse(
+    val path: String? = null
+)
+
+@Serializable
 internal data class SeerrCurrentUserResponse(
-    val id: Int? = null
+    val id: Int? = null,
+    val permissions: Int? = null
 )
 
 @Serializable
@@ -29,7 +74,8 @@ internal data class SeerrQuotaResponse(
 @Serializable
 internal data class SeerrQuotaDetails(
     val days: Int? = null,
-    val limit: Int? = null
+    val limit: Int? = null,
+    val remaining: Int? = null
 )
 
 @Serializable
@@ -94,11 +140,18 @@ internal data class SeerrCreditEntry(
 internal data class SeerrMediaInfo(
     val jellyfinMediaId: String? = null,
     val status: Int? = null,
-    val requests: List<SeerrMediaRequest> = emptyList()
+    val requests: List<SeerrMediaRequest> = emptyList(),
+    val seasons: List<SeerrMediaSeason> = emptyList()
 )
 
 @Serializable
 internal data class SeerrMediaRequest(
+    val status: Int? = null
+)
+
+@Serializable
+internal data class SeerrMediaSeason(
+    val seasonNumber: Int? = null,
     val status: Int? = null
 )
 
@@ -142,6 +195,7 @@ internal data class SeerrTitleDetailsResponse(
     val genres: List<SeerrNamedEntity> = emptyList(),
     val productionCompanies: List<SeerrNamedEntity> = emptyList(),
     val createdBy: List<SeerrNamedEntity> = emptyList(),
+    val seasons: List<SeerrTitleSeason> = emptyList(),
     val credits: SeerrTitleCredits? = null,
     val contentRatings: SeerrContentRatings? = null,
     val releaseDates: SeerrReleaseDates? = null,
@@ -160,6 +214,12 @@ internal data class SeerrPersonDetailsResponse(
 internal data class SeerrNamedEntity(
     val id: Long? = null,
     val name: String? = null
+)
+
+@Serializable
+internal data class SeerrTitleSeason(
+    val seasonNumber: Int? = null,
+    val episodeCount: Int? = null
 )
 
 @Serializable
@@ -269,6 +329,56 @@ data class SeerrRequestedItem(
     val requestedAt: String? = null,
     val seasonCount: Int? = null,
     val is4K: Boolean = false
+)
+
+data class SeerrRequestOptions(
+    val mediaType: String,
+    val destinations: List<SeerrRequestDestination>,
+    val canUseAdvancedRequests: Boolean = false,
+    val canRequest4K: Boolean = false,
+    val quota: SeerrRequestQuota? = null,
+    val seasons: List<SeerrSeasonRequestOption> = emptyList()
+)
+
+data class SeerrRequestDestination(
+    val id: Int,
+    val name: String,
+    val isDefault: Boolean = false,
+    val defaultProfileId: Int? = null,
+    val defaultRootFolder: String? = null,
+    val defaultLanguageProfileId: Int? = null,
+    val qualityProfiles: List<SeerrRequestProfile> = emptyList(),
+    val rootFolders: List<SeerrRequestRootFolder> = emptyList()
+)
+
+data class SeerrRequestProfile(
+    val id: Int,
+    val name: String
+)
+
+data class SeerrRequestRootFolder(
+    val path: String
+)
+
+data class SeerrSeasonRequestOption(
+    val seasonNumber: Int,
+    val episodeCount: Int? = null,
+    val requestState: SeerrRequestState = SeerrRequestState.NONE
+)
+
+data class SeerrRequestQuota(
+    val remaining: Int? = null,
+    val limit: Int? = null,
+    val days: Int? = null
+)
+
+data class SeerrRequestSelection(
+    val serverId: Int? = null,
+    val profileId: Int? = null,
+    val rootFolder: String? = null,
+    val languageProfileId: Int? = null,
+    val is4K: Boolean = false,
+    val seasons: List<Int>? = null
 )
 
 object SeerrItemIds {

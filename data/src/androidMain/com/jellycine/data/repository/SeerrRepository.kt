@@ -9,23 +9,7 @@ import com.jellycine.data.api.SeerrApiClient
 import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.network.ApiResponse
 import com.jellycine.data.network.ApiHeaders
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.SeerrConnectionInfo
-import com.jellycine.data.model.SeerrDiscoveryCategory
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrLoginRequest
-import com.jellycine.data.model.SeerrMediaInfo
-import com.jellycine.data.model.SeerrMapper
-import com.jellycine.data.model.SeerrPersonCreditType
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.SeerrRequestedItem
-import com.jellycine.data.model.SeerrRequestState
-import com.jellycine.data.model.SeerrSearchResponse
-import com.jellycine.data.model.SeerrSearchResult
-import com.jellycine.data.model.SeerrStatusResponse
-import com.jellycine.data.model.SeerrUserRequestLimits
-import com.jellycine.data.model.QueryResult
-import com.jellycine.data.model.seerrImageUrl
+import com.jellycine.data.model.*
 import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.canonicalServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
@@ -533,6 +517,196 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    suspend fun requestTitle(
+        scopeId: String,
+        tmdbId: String,
+        mediaType: String,
+        selection: SeerrRequestSelection? = null
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val seerTmdbId = tmdbId.trim()
+        val mediaId = seerTmdbId.toIntOrNull()
+            ?: return@withContext Result.failure(Exception(string(R.string.seerr_error_title_id_missing)))
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            else -> return@withContext Result.failure(Exception(string(R.string.seerr_error_media_type_unsupported)))
+        }
+
+        runRequestCatching {
+            val api = seerrApi(storedConnection)
+            val seasons = selection?.seasons ?: if (normalizedMediaType == "tv") {
+                api.titleDetails(normalizedMediaType, seerTmdbId)
+                    .mapBody(
+                        parseError = string(R.string.seerr_error_title_details_parse),
+                        httpError = string(R.string.seerr_error_title_details_load),
+                        notFoundError = string(R.string.seerr_error_title_not_found)
+                    ) { payload ->
+                        Result.success(
+                            payload.seasons
+                                .mapNotNull { season -> season.seasonNumber }
+                                .filter { seasonNumber -> seasonNumber > 0 }
+                                .distinct()
+                                .sorted()
+                        )
+                    }
+                    .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+                    .takeIf { it.isNotEmpty() }
+            } else {
+                null
+            }
+
+            api.requestTitle(
+                SeerrTitleRequest(
+                    mediaType = normalizedMediaType,
+                    mediaId = mediaId,
+                    is4K = selection?.is4K == true,
+                    seasons = seasons,
+                    serverId = selection?.serverId,
+                    profileId = selection?.profileId,
+                    rootFolder = selection?.rootFolder,
+                    languageProfileId = selection?.languageProfileId
+                )
+            ).mapBody(
+                parseError = string(R.string.seerr_error_request_title_parse),
+                httpError = string(R.string.seerr_error_request_title)
+            ) {
+                Result.success(Unit)
+            }
+        }
+    }
+
+    suspend fun getRequestOptions(
+        scopeId: String,
+        mediaType: String,
+        tmdbId: String
+    ): Result<SeerrRequestOptions> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val seerTmdbId = tmdbId.trim()
+        if (seerTmdbId.isBlank()) {
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_title_id_missing)))
+        }
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            else -> return@withContext Result.failure(Exception(string(R.string.seerr_error_media_type_unsupported)))
+        }
+
+        runRequestCatching {
+            val api = seerrApi(storedConnection)
+            val currentUser = api.currentUser()
+                .mapBody(
+                    parseError = string(R.string.seerr_error_current_user_parse),
+                    httpError = string(R.string.seerr_error_current_user_load)
+                ) { payload -> Result.success(payload) }
+                .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+            val userId = currentUser.id
+            val quota = userId?.let { id ->
+                api.quota(id).body()?.let { quotaPayload ->
+                    val details = if (normalizedMediaType == "tv") quotaPayload.tv else quotaPayload.movie
+                    SeerrRequestQuota(
+                        remaining = details.remaining,
+                        limit = details.limit,
+                        days = details.days
+                    )
+                }
+            }
+            val hasAdminPermission = currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_ADMIN)
+            val media4KPermission = if (normalizedMediaType == "tv") {
+                SEERR_PERMISSION_REQUEST_4K_TV
+            } else {
+                SEERR_PERMISSION_REQUEST_4K_MOVIE
+            }
+            val canUseAdvancedRequests = hasAdminPermission ||
+                currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_REQUEST_ADVANCED)
+            val canRequest4K = hasAdminPermission ||
+                (
+                    currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_REQUEST_4K) &&
+                        currentUser.permissions.hasSeerrPermission(media4KPermission)
+                    )
+            val titleDetails = api.titleDetails(normalizedMediaType, seerTmdbId)
+                .mapBody(
+                    parseError = string(R.string.seerr_error_title_details_parse),
+                    httpError = string(R.string.seerr_error_title_details_load),
+                    notFoundError = string(R.string.seerr_error_title_not_found)
+                ) { payload -> Result.success(payload) }
+                .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+            val seasons = if (normalizedMediaType == "tv") {
+                titleDetails.seasons
+                    .mapNotNull { season ->
+                        val seasonNumber = season.seasonNumber
+                            ?.takeIf { number -> number > 0 }
+                            ?: return@mapNotNull null
+                        val seasonMedia = titleDetails.mediaInfo?.seasons
+                            ?.firstOrNull { mediaSeason -> mediaSeason.seasonNumber == seasonNumber }
+                        SeerrSeasonRequestOption(
+                            seasonNumber = seasonNumber,
+                            episodeCount = season.episodeCount,
+                            requestState = seasonMedia.toRequestState()
+                        )
+                    }
+                    .sortedBy { season -> season.seasonNumber }
+            } else {
+                emptyList()
+            }
+
+            val servers = if (canUseAdvancedRequests || canRequest4K) {
+                val serversResponse = if (normalizedMediaType == "tv") {
+                    api.sonarrServers()
+                } else {
+                    api.radarrServers()
+                }
+                serversResponse.mapBody(
+                    parseError = string(R.string.seerr_error_request_options_parse),
+                    httpError = string(R.string.seerr_error_request_options_load)
+                ) { payload ->
+                    Result.success(payload.mapNotNull { server -> server.id?.let { it to server } })
+                }.getOrElse { error -> return@runRequestCatching Result.failure(error) }
+            } else {
+                emptyList()
+            }
+
+            val destinations = if (canUseAdvancedRequests) {
+                val loadedDestinations = mutableListOf<SeerrRequestDestination>()
+                for ((serverId, _) in servers.filter { (_, server) -> server.is4K != true }) {
+                    val serviceResponse = if (normalizedMediaType == "tv") {
+                        api.sonarrService(serverId)
+                    } else {
+                        api.radarrService(serverId)
+                    }
+                    val service = serviceResponse.mapBody(
+                        parseError = string(R.string.seerr_error_request_options_parse),
+                        httpError = string(R.string.seerr_error_request_options_load)
+                    ) { payload -> Result.success(payload) }
+                        .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+
+                    loadedDestinations += service.toRequestDestination()
+                        ?: return@runRequestCatching Result.failure(
+                            Exception(string(R.string.seerr_error_request_options_parse))
+                        )
+                }
+                loadedDestinations.sortedWith(
+                    compareByDescending<SeerrRequestDestination> { it.isDefault }
+                        .thenBy { it.name.lowercase(Locale.US) }
+                )
+            } else {
+                emptyList()
+            }
+            val has4KDestination = servers.any { (_, server) -> server.is4K == true }
+
+            Result.success(
+                SeerrRequestOptions(
+                    mediaType = normalizedMediaType,
+                    destinations = destinations,
+                    canUseAdvancedRequests = canUseAdvancedRequests,
+                    canRequest4K = canRequest4K && has4KDestination,
+                    quota = quota,
+                    seasons = seasons
+                )
+            )
+        }
+    }
+
     suspend fun getTitleLogoUrl(
         scopeId: String?,
         itemId: String?
@@ -945,6 +1119,10 @@ class SeerrRepository(context: Context) {
 
     private fun String?.ifNotBlank(): String? = this?.takeIf { it.isNotBlank() }
 
+    private fun Int?.hasSeerrPermission(permission: Int): Boolean {
+        return this != null && (this and permission) == permission
+    }
+
     private fun String?.extractYear(): Int? =
         this?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
 
@@ -973,6 +1151,42 @@ class SeerrRepository(context: Context) {
         } else {
             SeerrRequestState.NONE
         }
+    }
+
+    private fun SeerrMediaSeason?.toRequestState(): SeerrRequestState {
+        if (this == null) return SeerrRequestState.NONE
+
+        return if (status in SEERR_MEDIA_PENDING..SEERR_MEDIA_AVAILABLE) {
+            SeerrRequestState.REQUESTED
+        } else {
+            SeerrRequestState.NONE
+        }
+    }
+
+    private fun SeerrServiceSettingsResponse.toRequestDestination(): SeerrRequestDestination? {
+        val resolvedServer = server ?: return null
+        val serverId = resolvedServer.id ?: return null
+        val qualityProfiles = profiles.mapNotNull { profile ->
+            val profileId = profile.id ?: return@mapNotNull null
+            val profileName = profile.name.ifNotBlank() ?: return@mapNotNull null
+            SeerrRequestProfile(id = profileId, name = profileName)
+        }
+        val folders = rootFolders.mapNotNull { folder ->
+            val path = folder.path.ifNotBlank() ?: return@mapNotNull null
+            SeerrRequestRootFolder(path = path)
+        }
+
+        return SeerrRequestDestination(
+            id = serverId,
+            name = resolvedServer.name.ifNotBlank() ?: return null,
+            isDefault = resolvedServer.isDefault == true,
+            defaultProfileId = resolvedServer.activeProfileId,
+            defaultRootFolder = resolvedServer.activeDirectory.ifNotBlank(),
+            defaultLanguageProfileId = resolvedServer.activeLanguageProfileId
+                ?: languageProfiles.orEmpty().firstOrNull()?.id,
+            qualityProfiles = qualityProfiles,
+            rootFolders = folders
+        )
     }
 
     private fun SeerrPersonCreditType.defaultRoleLabel(): String = when (this) {

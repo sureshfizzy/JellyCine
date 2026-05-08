@@ -58,7 +58,8 @@ internal object SeerrMapper {
                 ?: response.releaseDates.certificationFor("US"),
             status = response.status.ifNotBlank(),
             imageUrl = posterUrl,
-            backdropImageUrl = backdropUrl
+            backdropImageUrl = backdropUrl,
+            seerrRequestState = response.mediaInfo.toRequestState()
         )
     }
 
@@ -158,3 +159,18 @@ private fun String?.ifNotBlank(): String? = this?.takeIf { it.isNotBlank() }
 
 private fun String?.extractYear(): Int? =
     this?.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull()
+
+private fun SeerrMediaInfo?.toRequestState(): SeerrRequestState {
+    if (this == null) return SeerrRequestState.NONE
+
+    val hasActiveRequest = requests.any { request ->
+        request.status == 1 || request.status == 2
+    }
+    val hasRequestedMediaStatus = status == 2 || status == 3
+
+    return if (hasActiveRequest || hasRequestedMediaStatus) {
+        SeerrRequestState.REQUESTED
+    } else {
+        SeerrRequestState.NONE
+    }
+}

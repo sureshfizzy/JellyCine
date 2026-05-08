@@ -75,6 +75,10 @@
     <string name="seerr_error_title_details_load">Failed to load Seerr title details.</string>
     <string name="seerr_error_title_not_found">Seerr could not find this title.</string>
     <string name="seerr_error_title_details_incomplete">Seerr title details are incomplete.</string>
+    <string name="seerr_error_request_title_parse">Could not parse Seerr request response.</string>
+    <string name="seerr_error_request_title">Failed to request this title.</string>
+    <string name="seerr_error_request_options_parse">Could not parse Seerr request options.</string>
+    <string name="seerr_error_request_options_load">Failed to load Seerr request options.</string>
     <string name="seerr_error_missing_session_cookie">Seerr sign-in succeeded, but no session cookie was returned.</string>
     <string name="seerr_error_credentials_rejected">Seerr rejected these credentials. Please check your username and password.</string>
     <string name="seerr_error_sign_in_http">Seerr sign-in failed with HTTP %1$d.</string>

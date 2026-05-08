@@ -435,5 +435,8 @@ data class BaseItemDto(
     val timerId: String? = null,
     
     @SerialName("CurrentProgram")
-    val currentProgram: BaseItemDto? = null
+    val currentProgram: BaseItemDto? = null,
+
+    @SerialName("SeerrRequestState")
+    val seerrRequestState: SeerrRequestState? = null
 )
