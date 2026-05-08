@@ -55,7 +55,7 @@ dependencies {
     implementation 'io.coil-kt.coil3:coil-gif:3.4.0'
     implementation 'io.coil-kt.coil3:coil-network-okhttp:3.4.0'
     implementation 'io.coil-kt.coil3:coil-svg:3.4.0'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
     implementation 'com.google.dagger:hilt-android:2.59.2'
     ksp 'com.google.dagger:hilt-compiler:2.59.2'
 }
