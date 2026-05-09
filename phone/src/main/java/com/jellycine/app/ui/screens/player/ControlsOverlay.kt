@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.jellycine.shared.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.ChapterMarker
@@ -82,7 +84,26 @@ fun ControlsOverlay(
     onPlayNextEpisode: () -> Unit = {},
     onScrubStateChange: (Boolean) -> Unit = {}
 ) {
+    val context = LocalContext.current
     var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
+    val overlayGradient = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color.Black.copy(alpha = 0.7f),
+                Color.Transparent,
+                Color.Transparent,
+                Color.Black.copy(alpha = 0.8f)
+            )
+        )
+    }
+    val logoRequest = remember(context, mediaLogoUrl) {
+        mediaLogoUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            ImageRequest.Builder(context)
+                .data(url)
+                .size(coil3.size.Size(320, 96))
+                .build()
+        }
+    }
     val displayedPosition = scrubPreviewProgress
         ?.takeIf { duration > 0L }
         ?.let { (duration * it).toLong() }
@@ -91,16 +112,7 @@ fun ControlsOverlay(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color.Black.copy(alpha = 0.7f),
-                        Color.Transparent,
-                        Color.Transparent,
-                        Color.Black.copy(alpha = 0.8f)
-                    )
-                )
-            )
+            .background(overlayGradient)
     ) {
         // Top section - Title and action buttons
         Row(
@@ -123,9 +135,9 @@ fun ControlsOverlay(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    if (!mediaLogoUrl.isNullOrBlank()) {
+                    if (logoRequest != null) {
                         AsyncImage(
-                            model = mediaLogoUrl,
+                            model = logoRequest,
                             contentDescription = "$title logo",
                             contentScale = ContentScale.Fit,
                             modifier = Modifier

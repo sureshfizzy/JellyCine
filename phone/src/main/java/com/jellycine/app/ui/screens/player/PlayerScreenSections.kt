@@ -52,6 +52,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import coil3.SingletonImageLoader
 import com.jellycine.shared.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
@@ -63,6 +64,14 @@ import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.SkippableSegmentAction
 import com.jellycine.player.core.SkippableSegmentType
 import kotlinx.coroutines.delay
+
+private const val PLAYER_POSITION_UPDATE_MS = 250L
+
+private fun trimImageMemoryCacheForPlayback(context: Context) {
+    runCatching {
+        SingletonImageLoader.get(context).memoryCache?.clear()
+    }
+}
 
 @Composable
 internal fun PlayerScreenEffects(
@@ -140,6 +149,7 @@ internal fun PlayerScreenEffects(
         if (initializedMediaIdProvider() == mediaId) return@LaunchedEffect
 
         try {
+            trimImageMemoryCacheForPlayback(context)
             if (initializedMediaIdProvider() != null) {
                 viewModel.releasePlayer()
             }
@@ -164,13 +174,18 @@ internal fun PlayerScreenEffects(
 
     LaunchedEffect(viewModel.exoPlayer, viewModel.mpvPlayer) {
         while (true) {
-            onUiStateChange(
-                uiStateProvider().copy(
-                    currentPosition = viewModel.getCurrentPosition(),
-                    isPlaying = viewModel.isPlayingNow()
+            val currentPosition = viewModel.getCurrentPosition()
+            val isPlayingNow = viewModel.isPlayingNow()
+            val uiState = uiStateProvider()
+            if (uiState.currentPosition != currentPosition || uiState.isPlaying != isPlayingNow) {
+                onUiStateChange(
+                    uiState.copy(
+                        currentPosition = currentPosition,
+                        isPlaying = isPlayingNow
+                    )
                 )
-            )
-            delay(100)
+            }
+            delay(PLAYER_POSITION_UPDATE_MS)
         }
     }
 

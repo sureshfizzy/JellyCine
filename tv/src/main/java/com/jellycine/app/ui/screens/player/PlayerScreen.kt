@@ -44,6 +44,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
+import coil3.SingletonImageLoader
 import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
@@ -58,6 +59,13 @@ import kotlinx.coroutines.delay
 
 private const val NEXT_EPISODE_AUTOPLAY_DELAY_MS = 10_000L
 private const val NEXT_EPISODE_PROGRESS_UPDATE_MS = 16L
+private const val PLAYER_POSITION_UPDATE_MS = 250L
+
+private fun flushImgCache(context: Context) {
+    runCatching {
+        SingletonImageLoader.get(context).memoryCache?.clear()
+    }
+}
 
 /**
  * Player state data class to group related states
@@ -232,6 +240,7 @@ fun PlayerScreen(
         if (initializedMediaId == mediaId) return@LaunchedEffect
 
         try {
+            flushImgCache(context)
             if (initializedMediaId != null) {
                 viewModel.releasePlayer()
             }
@@ -258,11 +267,15 @@ fun PlayerScreen(
     // Update position and playing state
     LaunchedEffect(viewModel.exoPlayer) {
         while (true) {
-            uiState = uiState.copy(
-                currentPosition = viewModel.getCurrentPosition(),
-                isPlaying = viewModel.isPlayingNow()
-            )
-            delay(100)
+            val currentPosition = viewModel.getCurrentPosition()
+            val isPlayingNow = viewModel.isPlayingNow()
+            if (uiState.currentPosition != currentPosition || uiState.isPlaying != isPlayingNow) {
+                uiState = uiState.copy(
+                    currentPosition = currentPosition,
+                    isPlaying = isPlayingNow
+                )
+            }
+            delay(PLAYER_POSITION_UPDATE_MS)
         }
     }
 
