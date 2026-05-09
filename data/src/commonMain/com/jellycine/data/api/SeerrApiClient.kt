@@ -29,6 +29,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLQueryComponent
 
 internal class SeerrApiClient(
     private val serverUrl: String,
@@ -62,10 +63,11 @@ internal class SeerrApiClient(
     suspend fun personDetails(personTmdbId: String): ApiResponse<SeerrPersonDetailsResponse> =
         get("person/$personTmdbId")
 
-    suspend fun search(query: String): ApiResponse<SeerrSearchResponse> = get(
-        path = "search",
-        queryParameters = listOf("query" to query, "page" to "1")
-    )
+    suspend fun search(query: String): ApiResponse<SeerrSearchResponse> =
+        client.get(searchUrl(query)) {
+            accept(ContentType.Application.Json)
+            sessionCookie?.let { header(HttpHeaders.Cookie, it) }
+        }.toApiResponse()
 
     suspend fun trending(page: Int): ApiResponse<SeerrSearchResponse> = get(
         path = "discover/trending",
@@ -164,4 +166,7 @@ internal class SeerrApiClient(
 
     private fun apiUrl(path: String): String =
         URLBuilder("${trimTrailingSlash(serverUrl)}/api/v1/${path.trimStart('/')}").buildString()
+
+    private fun searchUrl(query: String): String =
+        "${trimTrailingSlash(serverUrl)}/api/v1/search?query=${query.encodeURLQueryComponent()}"
 }
