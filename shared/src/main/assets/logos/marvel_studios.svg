@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1008 224" role="img" aria-label="Marvel Studios">
+  <rect x="0" y="0" width="506" height="224" fill="#E50B14"/>
+  <text x="253" y="154" fill="#FFFFFF" font-family="Arial Black, Impact, sans-serif" font-size="116" font-weight="900" text-anchor="middle">MARVEL</text>
+  <line x1="526" y1="8" x2="1000" y2="8" stroke="#FFFFFF" stroke-width="8"/>
+  <line x1="526" y1="216" x2="1000" y2="216" stroke="#FFFFFF" stroke-width="8"/>
+  <text x="763" y="153" fill="#FFFFFF" font-family="Arial Narrow, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="5" text-anchor="middle">STUDIOS</text>
+</svg>

@@ -214,17 +214,31 @@ fun ViewAllScreen(
                 ) {
                     if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
                         WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(seerrLogoUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = resolvedTitle,
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth(0.46f)
+                                .fillMaxWidth(0.56f)
                                 .height(if (isTablet) 150.dp else 112.dp),
-                            contentScale = ContentScale.Fit
-                        )
+                            color = Color.White.copy(alpha = 0.08f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(10.dp)
+                                    .padding(horizontal = 22.dp, vertical = 18.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(seerrLogoUrl)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = resolvedTitle,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
                     } else {
                         Text(
                             text = resolvedTitle,

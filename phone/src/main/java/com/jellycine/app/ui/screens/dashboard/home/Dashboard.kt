@@ -2524,15 +2524,18 @@ private fun SeerrCatalogSection(
                         .clickable { onItemClick(item) }
                         .border(
                             width = 1.dp,
-                            color = Color.White.copy(alpha = 0.12f),
+                            color = Color.White.copy(alpha = 0.16f),
                             shape = RoundedCornerShape(12.dp)
                         ),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.08f)
+                    color = Color.White.copy(alpha = 0.10f)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(7.dp)
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
                     ) {
                         if (!item.logoUrl.isNullOrBlank()) {
                             JellyfinPosterImage(
