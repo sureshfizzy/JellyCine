@@ -43,6 +43,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
+data class EpisodeNavigationIds(
+    val previousEpisodeId: String? = null,
+    val nextEpisodeId: String? = null
+)
+
 class MediaRepository(private val context: Context) {
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
@@ -1126,6 +1131,47 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    suspend fun getEpisodeNavigationIds(currentItemId: String): EpisodeNavigationIds {
+        val currentItem = getItemById(currentItemId).getOrNull()
+            ?: return EpisodeNavigationIds()
+        if (!currentItem.type.equals("Episode", ignoreCase = true)) return EpisodeNavigationIds()
+
+        val seriesId = currentItem.seriesId ?: return EpisodeNavigationIds()
+        val orderedEpisodes = getEpisodes(seriesId = seriesId)
+            .getOrNull()
+            ?.sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.parentIndexNumber ?: Int.MAX_VALUE },
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+            .orEmpty()
+
+        if (orderedEpisodes.isEmpty()) return EpisodeNavigationIds()
+        val currentIndex = orderedEpisodes.indexOfFirst { it.id == currentItemId }
+        if (currentIndex < 0) return EpisodeNavigationIds()
+
+        val previousEpisodeId = orderedEpisodes
+            .getOrNull(currentIndex - 1)
+            ?.id
+            ?.takeIf { it.isNotBlank() && it != currentItemId }
+        val nextEpisodeId = orderedEpisodes
+            .getOrNull(currentIndex + 1)
+            ?.id
+            ?.takeIf { it.isNotBlank() && it != currentItemId }
+
+        return EpisodeNavigationIds(
+            previousEpisodeId = previousEpisodeId,
+            nextEpisodeId = nextEpisodeId
+        )
+    }
+
+    suspend fun getNextEpisodeId(currentItemId: String): String? {
+        return getEpisodeNavigationIds(currentItemId).nextEpisodeId
     }
 
     suspend fun getCurrentUser(): Result<UserDto> {

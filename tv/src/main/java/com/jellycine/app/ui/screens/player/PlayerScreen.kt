@@ -90,6 +90,8 @@ fun PlayerScreen(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onBackPressed: (() -> Unit)? = null,
     onPlaybackCompleted: ((String) -> Unit)? = null,
+    previousEpisodeId: String? = null,
+    onWatchPreviousEpisode: ((String) -> Unit)? = null,
     nextEpisodeId: String? = null,
     onWatchNextEpisode: ((String) -> Unit)? = null
 ) {
@@ -310,6 +312,7 @@ fun PlayerScreen(
     val activeCreditsSegment = activeSkippableSegment?.takeIf {
         it.type == SkippableSegmentType.CREDITS
     }
+    val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
     val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
     var nextEpisodeButtonProgress by remember(
         activeCreditsSegment?.startMs,
@@ -681,6 +684,20 @@ fun PlayerScreen(
                 onSeekForward = {
                     resetAutoHideTimer()
                     viewModel.seekForward()
+                },
+                canPlayPreviousEpisode = canWatchPreviousEpisode,
+                canPlayNextEpisode = canWatchNextEpisode,
+                onPlayPreviousEpisode = {
+                    resetAutoHideTimer()
+                    previousEpisodeId
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { onWatchPreviousEpisode?.invoke(it) }
+                },
+                onPlayNextEpisode = {
+                    resetAutoHideTimer()
+                    nextEpisodeId
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { onWatchNextEpisode?.invoke(it) }
                 },
                 seekBackwardSeconds = seekBackwardSeconds,
                 seekForwardSeconds = seekForwardSeconds,

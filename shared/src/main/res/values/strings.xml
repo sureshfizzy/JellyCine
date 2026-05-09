@@ -257,6 +257,8 @@
     <string name="player_skip_preview">Skip Preview</string>
     <string name="player_watch_credits">Watch Credits</string>
     <string name="player_watch_next_episode">Watch Next Episode</string>
+    <string name="player_previous_episode">Previous Episode</string>
+    <string name="player_next_episode">Next Episode</string>
 
     <!-- Home Dashboard -->
     <string name="dashboard_server_fallback">Server</string>

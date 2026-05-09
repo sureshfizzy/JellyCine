@@ -70,6 +70,8 @@ fun PlayerScreen(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onBackPressed: (() -> Unit)? = null,
     onPlaybackCompleted: ((String) -> Unit)? = null,
+    previousEpisodeId: String? = null,
+    onWatchPreviousEpisode: ((String) -> Unit)? = null,
     nextEpisodeId: String? = null,
     onWatchNextEpisode: ((String) -> Unit)? = null
 ) {
@@ -230,6 +232,7 @@ fun PlayerScreen(
     val activeCreditsSegment = activeSkippableSegment?.takeIf {
         it.type == SkippableSegmentType.CREDITS
     }
+    val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
     val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
 
     LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
@@ -430,6 +433,7 @@ fun PlayerScreen(
             activeSkippableSegment = activeSkippableSegment,
             activeCreditsSegment = activeCreditsSegment,
             dismissedCreditsPrompt = dismissedCreditsPrompt,
+            canWatchPreviousEpisode = canWatchPreviousEpisode,
             canWatchNextEpisode = canWatchNextEpisode,
             viewModel = viewModel,
             onBackPressed = onBackPressed,
@@ -438,6 +442,11 @@ fun PlayerScreen(
             onWatchCredits = {
                 dismissedCreditsPrompt = true
                 uiState = uiState.copy(controlsVisible = false)
+            },
+            onWatchPreviousEpisode = {
+                previousEpisodeId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { onWatchPreviousEpisode?.invoke(it) }
             },
             onWatchNextEpisode = {
                 nextEpisodeId

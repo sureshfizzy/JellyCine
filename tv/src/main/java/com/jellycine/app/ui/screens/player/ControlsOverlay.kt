@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,6 +76,10 @@ fun ControlsOverlay(
     onSeekForward: () -> Unit = {},
     seekBackwardSeconds: Int = 30,
     seekForwardSeconds: Int = 30,
+    canPlayPreviousEpisode: Boolean = false,
+    canPlayNextEpisode: Boolean = false,
+    onPlayPreviousEpisode: () -> Unit = {},
+    onPlayNextEpisode: () -> Unit = {},
     onScrubStateChange: (Boolean) -> Unit = {}
 ) {
     var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
@@ -216,9 +221,25 @@ fun ControlsOverlay(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                horizontalArrangement = Arrangement.spacedBy(
+                    if (canPlayPreviousEpisode || canPlayNextEpisode) 22.dp else 32.dp
+                ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+            if (canPlayPreviousEpisode) {
+                IconButton(
+                    onClick = onPlayPreviousEpisode,
+                    modifier = Modifier.size(58.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = stringResource(R.string.player_previous_episode),
+                        tint = Color.White,
+                        modifier = Modifier.size(42.dp)
+                    )
+                }
+            }
+
             // Fast rewind
             IconButton(
                 onClick = onSeekBackward,
@@ -285,6 +306,20 @@ fun ControlsOverlay(
                             }
                         }
                 )
+            }
+
+            if (canPlayNextEpisode) {
+                IconButton(
+                    onClick = onPlayNextEpisode,
+                    modifier = Modifier.size(58.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = stringResource(R.string.player_next_episode),
+                        tint = Color.White,
+                        modifier = Modifier.size(42.dp)
+                    )
+                }
             }
         }
         }
@@ -630,7 +665,9 @@ fun ControlsOverlayPreviewPlaying() {
         onShowSubtitleTrackSelection = { },
         onCycleAspectRatio = { },
         onSeekBackward = { },
-        onSeekForward = { }
+        onSeekForward = { },
+        canPlayPreviousEpisode = true,
+        canPlayNextEpisode = true
     )
 }
 

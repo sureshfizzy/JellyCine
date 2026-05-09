@@ -270,12 +270,14 @@ internal fun BoxScope.PlayerOverlayHost(
     activeSkippableSegment: SkippableSegmentAction?,
     activeCreditsSegment: SkippableSegmentAction?,
     dismissedCreditsPrompt: Boolean,
+    canWatchPreviousEpisode: Boolean,
     canWatchNextEpisode: Boolean,
     viewModel: PlayerViewModel,
     onBackPressed: (() -> Unit)?,
     resetAutoHideTimer: () -> Unit,
     onScrubbingChange: (Boolean) -> Unit,
     onWatchCredits: () -> Unit,
+    onWatchPreviousEpisode: () -> Unit,
     onWatchNextEpisode: () -> Unit,
     onShowMediaInfo: () -> Unit,
     onShowStreamingQualityDialog: () -> Unit,
@@ -386,6 +388,16 @@ internal fun BoxScope.PlayerOverlayHost(
             onSeekForward = {
                 resetAutoHideTimer()
                 viewModel.seekForward()
+            },
+            canPlayPreviousEpisode = canWatchPreviousEpisode,
+            canPlayNextEpisode = canWatchNextEpisode,
+            onPlayPreviousEpisode = {
+                resetAutoHideTimer()
+                onWatchPreviousEpisode()
+            },
+            onPlayNextEpisode = {
+                resetAutoHideTimer()
+                onWatchNextEpisode()
             },
             seekBackwardSeconds = seekBackwardSeconds,
             seekForwardSeconds = seekForwardSeconds,

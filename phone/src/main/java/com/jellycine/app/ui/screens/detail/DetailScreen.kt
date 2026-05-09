@@ -121,7 +121,6 @@ private val heroBottomFadeGradient = arrayOf(
     1.0f to Color.Black
 )
 
-
 @UnstableApi
 @Composable
 fun DetailScreenContainer(
@@ -144,6 +143,7 @@ fun DetailScreenContainer(
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
     var playbackItemId by remember { mutableStateOf<String?>(null) }
+    var availablePreviousEpisodeId by remember { mutableStateOf<String?>(null) }
     var availableNextEpisodeId by remember { mutableStateOf<String?>(null) }
     var preferredAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var preferredSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -326,41 +326,12 @@ fun DetailScreenContainer(
         }
     }
 
-    suspend fun nextEpisodeId(completedItemId: String): String? {
-        val completedItem = mediaRepository.getItemById(completedItemId).getOrNull() ?: return null
-        if (!completedItem.type.equals("Episode", ignoreCase = true)) return null
-
-        val seriesId = completedItem.seriesId ?: return null
-        val episodesResult = if (!completedItem.seasonId.isNullOrBlank()) {
-            mediaRepository.getEpisodes(seriesId = seriesId, seasonId = completedItem.seasonId)
-        } else {
-            mediaRepository.getEpisodes(seriesId = seriesId)
-        }
-        val orderedEpisodes = episodesResult
-            .getOrNull()
-            ?.sortedWith(
-                compareBy<BaseItemDto>(
-                    { it.parentIndexNumber ?: Int.MAX_VALUE },
-                    { it.indexNumber ?: Int.MAX_VALUE },
-                    { it.name.orEmpty() },
-                    { it.id.orEmpty() }
-                )
-            )
-            .orEmpty()
-
-        if (orderedEpisodes.isEmpty()) return null
-        val currentIndex = orderedEpisodes.indexOfFirst { it.id == completedItemId }
-        if (currentIndex < 0 || currentIndex >= orderedEpisodes.lastIndex) return null
-
-        val nextEpisodeId = orderedEpisodes[currentIndex + 1].id
-        return nextEpisodeId?.takeIf { it.isNotBlank() && it != completedItemId }
-    }
-
-    fun playNextEpisode(nextEpisodeId: String) {
-        playbackItemId = nextEpisodeId
+    fun playEpisode(episodeId: String) {
+        playbackItemId = episodeId
+        availablePreviousEpisodeId = null
         availableNextEpisodeId = null
         if (currentScreen == "episode") {
-            episodeDetailId = nextEpisodeId
+            episodeDetailId = episodeId
         }
     }
 
@@ -434,12 +405,15 @@ fun DetailScreenContainer(
 
     LaunchedEffect(showPlayer, playbackItemId, itemId) {
         if (!showPlayer) {
+            availablePreviousEpisodeId = null
             availableNextEpisodeId = null
             return@LaunchedEffect
         }
 
         val activePlaybackId = playbackItemId ?: itemId
-        availableNextEpisodeId = nextEpisodeId(activePlaybackId)
+        val episodeNavigationIds = mediaRepository.getEpisodeNavigationIds(activePlaybackId)
+        availablePreviousEpisodeId = episodeNavigationIds.previousEpisodeId
+        availableNextEpisodeId = episodeNavigationIds.nextEpisodeId
     }
 
     LaunchedEffect(latestPlaybackStopEvent?.timestampMs) {
@@ -508,12 +482,14 @@ fun DetailScreenContainer(
                     showPlayer = false
                     playbackItemId = null
                 },
+                previousEpisodeId = availablePreviousEpisodeId,
+                onWatchPreviousEpisode = ::playEpisode,
                 nextEpisodeId = availableNextEpisodeId,
-                onWatchNextEpisode = ::playNextEpisode,
+                onWatchNextEpisode = ::playEpisode,
                 onPlaybackCompleted = { completedItemId ->
                     scope.launch {
-                        val nextEpisodeId = nextEpisodeId(completedItemId) ?: return@launch
-                        playNextEpisode(nextEpisodeId)
+                        val nextEpisodeId = mediaRepository.getNextEpisodeId(completedItemId) ?: return@launch
+                        playEpisode(nextEpisodeId)
                     }
                 }
             )
