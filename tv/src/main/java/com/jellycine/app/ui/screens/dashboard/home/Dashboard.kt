@@ -2363,10 +2363,12 @@ private fun HomeMyMediaSection(
                     flingBehavior = flingBehavior,
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
-                    items(
+                    itemsIndexed(
                         items = libraries,
-                        key = { library -> library.id ?: library.name ?: "library_item" }
-                    ) { library ->
+                        key = { index, library ->
+                            "${library.id ?: library.name ?: "library_item"}_$index"
+                        }
+                    ) { _, library ->
                         val cardFocusRequester = remember(library.id, library.name) { FocusRequester() }
                         val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
                         LibraryItemCard(
@@ -2459,9 +2461,7 @@ private fun ContinueWatchingSection(
                 ) {
                     items(
                         count = renderedCount.coerceAtMost(items.size),
-                        key = { index ->
-                            items.getOrNull(index)?.id ?: "item_$index"
-                        }
+                        key = { index -> "${items.getOrNull(index)?.id ?: "item"}_$index" }
                     ) { index ->
                         val item = items.getOrNull(index)
                         if (item != null) {
@@ -2824,7 +2824,7 @@ private fun BurstLibrarySection(
         ) {
             itemsIndexed(
                 items = section.items,
-                key = { index, item -> item.id ?: "${section.libraryId}_$index" }
+                key = { index, item -> "${item.id ?: section.libraryId}_$index" }
             ) { index, item ->
                 val cardFocusRequester = remember(item.id, index) { FocusRequester() }
                 val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
@@ -3448,7 +3448,7 @@ private fun ProgressiveMovieGenreSection(
                 ) {
                     items(
                         count = genreMovies.size,
-                        key = { index -> genreMovies[index].id ?: index }
+                        key = { index -> "${genreMovies[index].id ?: "genre_movie"}_$index" }
                     ) { index ->
                         val cardFocusRequester = remember(genreMovies[index].id, index) { FocusRequester() }
                         LibraryItemCard(
@@ -3583,10 +3583,10 @@ private fun ProgressiveTVShowGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(
+                    itemsIndexed(
                         items = genreShows,
-                        key = { show -> show.id ?: "${show.name}_${show.type}" }
-                    ) { show ->
+                        key = { index, show -> "${show.id ?: "${show.name}_${show.type}"}_$index" }
+                    ) { _, show ->
                         val cardFocusRequester = remember(show.id, show.name) { FocusRequester() }
                         LibraryItemCard(
                             item = show,

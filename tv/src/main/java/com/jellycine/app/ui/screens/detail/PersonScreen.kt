@@ -6,7 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Movie
@@ -429,10 +429,12 @@ private fun RelatedTitlesSection(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 14.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = items,
-                key = { item -> item.id ?: "${item.name}-${item.type}-${item.productionYear}" }
-            ) { item ->
+                key = { index, item ->
+                    "${item.id ?: "${item.name}-${item.type}-${item.productionYear}"}_$index"
+                }
+            ) { _, item ->
                 PersonTitleCard(
                     item = item,
                     mediaRepository = mediaRepository,

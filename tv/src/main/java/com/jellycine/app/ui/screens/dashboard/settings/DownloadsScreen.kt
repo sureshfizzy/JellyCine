@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -280,7 +280,10 @@ private fun DownloadsRootContent(
     ) {
         if (seriesGroups.isNotEmpty()) {
             item { SectionLabel(stringResource(R.string.tv_shows)) }
-            items(seriesGroups, key = { "series_${it.id}" }) { group ->
+            itemsIndexed(
+                items = seriesGroups,
+                key = { index, group -> "series_${group.id}_$index" }
+            ) { _, group ->
                 SeriesSummaryRow(
                     group = group,
                     mediaRepository = mediaRepository,
@@ -291,7 +294,10 @@ private fun DownloadsRootContent(
 
         if (movieEntries.isNotEmpty()) {
             item { SectionLabel(stringResource(R.string.movies)) }
-            items(movieEntries, key = { "movie_${it.itemId}" }) { entry ->
+            itemsIndexed(
+                items = movieEntries,
+                key = { index, entry -> "movie_${entry.itemId}_$index" }
+            ) { _, entry ->
                 MovieRow(
                     entry = entry,
                     mediaRepository = mediaRepository,
@@ -577,7 +583,10 @@ private fun SeriesDetailContent(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
     ) {
-        items(group.seasons, key = { it.id }) { season ->
+        itemsIndexed(
+            items = group.seasons,
+            key = { index, season -> "${season.id}_$index" }
+        ) { _, season ->
                 Text(
                     text = season.label,
                     style = MaterialTheme.typography.titleSmall,
@@ -1019,4 +1028,3 @@ private fun groupProgressLabel(group: OfflineSeriesGroup, resources: Resources):
         else -> null
     }
 }
-

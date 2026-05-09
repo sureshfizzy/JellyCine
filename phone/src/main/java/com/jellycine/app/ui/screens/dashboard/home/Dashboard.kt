@@ -2468,10 +2468,12 @@ private fun HomeMyMediaSection(
                     flingBehavior = flingBehavior,
                     modifier = ScrollOptimization.getScrollContainerModifier()
                 ) {
-                    items(
+                    itemsIndexed(
                         items = libraries,
-                        key = { library -> library.id ?: library.name ?: "library_item" }
-                    ) { library ->
+                        key = { index, library ->
+                            "${library.id ?: library.name ?: "library_item"}_$index"
+                        }
+                    ) { _, library ->
                         val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
                         LibraryItemCard(
                             item = library,
@@ -2512,7 +2514,10 @@ private fun SeerrCatalogSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
         ) {
-            items(items, key = { item -> item.id }) { item ->
+            itemsIndexed(
+                items = items,
+                key = { index, item -> "${item.id ?: "genre_${item.name}"}_$index" }
+            ) { _, item ->
                 Surface(
                     modifier = Modifier
                         .size(width = 124.dp, height = 62.dp)
@@ -2621,9 +2626,7 @@ private fun ContinueWatchingSection(
                 ) {
                     items(
                         count = renderedCount.coerceAtMost(items.size),
-                        key = { index ->
-                            items.getOrNull(index)?.id ?: "item_$index"
-                        }
+                        key = { index -> "${items.getOrNull(index)?.id ?: "item"}_$index" }
                     ) { index ->
                         val item = items.getOrNull(index)
                         if (item != null) {
@@ -2953,7 +2956,7 @@ private fun BurstLibrarySection(
         ) {
             itemsIndexed(
                 items = section.items,
-                key = { index, item -> item.id ?: "${section.libraryId}_$index" }
+                key = { index, item -> "${item.id ?: section.libraryId}_$index" }
             ) { index, item ->
                 val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
                 val isVisible by remember(libraryRowState, index) {
@@ -3554,7 +3557,7 @@ private fun ProgressiveMovieGenreSection(
                 ) {
                     items(
                         count = genreMovies.size,
-                        key = { index -> genreMovies[index].id ?: index }
+                        key = { index -> "${genreMovies[index].id ?: "genre_movie"}_$index" }
                     ) { index ->
                         LibraryItemCard(
                             item = genreMovies[index],
@@ -3679,10 +3682,10 @@ private fun ProgressiveTVShowGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(
+                    itemsIndexed(
                         items = genreShows,
-                        key = { show -> show.id ?: "${show.name}_${show.type}" }
-                    ) { show ->
+                        key = { index, show -> "${show.id ?: "${show.name}_${show.type}"}_$index" }
+                    ) { _, show ->
                         LibraryItemCard(
                             item = show,
                             mediaRepository = mediaRepository,

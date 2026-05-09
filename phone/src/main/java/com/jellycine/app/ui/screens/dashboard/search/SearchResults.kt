@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -157,10 +158,10 @@ fun SearchResultsView(
                         )
                     }
 
-                    items(
+                    itemsIndexed(
                         items = uiState.seerrMovieResults,
-                        key = { seerrItem -> "seerr-movie-${seerrItem.tmdbId}" }
-                    ) { seerrItem ->
+                        key = { index, seerrItem -> "seerr-movie-${seerrItem.tmdbId}_$index" }
+                    ) { _, seerrItem ->
                         SearchSeerrResultCard(
                             item = seerrItem,
                             onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }
@@ -194,10 +195,10 @@ fun SearchResultsView(
                         )
                     }
 
-                    items(
+                    itemsIndexed(
                         items = uiState.seerrShowResults,
-                        key = { seerrItem -> "seerr-show-${seerrItem.tmdbId}" }
-                    ) { seerrItem ->
+                        key = { index, seerrItem -> "seerr-show-${seerrItem.tmdbId}_$index" }
+                    ) { _, seerrItem ->
                         SearchSeerrResultCard(
                             item = seerrItem,
                             onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }

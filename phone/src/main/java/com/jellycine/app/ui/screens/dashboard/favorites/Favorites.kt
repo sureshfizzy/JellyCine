@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -286,10 +287,12 @@ private fun FavoriteTierSection(
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = items,
-                key = { item -> item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: 0}" }
-            ) { item ->
+                key = { index, item ->
+                    "${item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: index}"}_$index"
+                }
+            ) { _, item ->
                 FavoriteItemCard(
                     item = item,
                     mediaRepository = mediaRepository,

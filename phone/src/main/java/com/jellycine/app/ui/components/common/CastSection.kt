@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
@@ -57,12 +57,12 @@ fun CastSection(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 0.dp)
             ) {
-                items(
+                itemsIndexed(
                     items = castAndCrew,
-                    key = { person ->
-                        person.id ?: "${person.name}-${person.role}-${person.type}"
+                    key = { index, person ->
+                        "${person.id ?: "${person.name}-${person.role}-${person.type}"}_$index"
                     }
-                ) { person ->
+                ) { _, person ->
                     CastCrewMemberCard(
                         person = person,
                         mediaRepository = mediaRepository,
@@ -188,4 +188,3 @@ private suspend fun getPersonImageUrl(personId: String, imageTag: String?, media
         imageTag = imageTag
     ).first()
 }
-

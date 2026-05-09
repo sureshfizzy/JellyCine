@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -288,12 +289,12 @@ fun MyMedia(
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(
+                            itemsIndexed(
                                 items = libraryViews,
-                                key = { library ->
-                                    library.id ?: "${library.name.orEmpty()}_${library.collectionType.orEmpty()}"
+                                key = { index, library ->
+                                    "${library.id ?: "${library.name.orEmpty()}_${library.collectionType.orEmpty()}"}_$index"
                                 }
-                            ) { library ->
+                            ) { _, library ->
                                 VisualLibraryCard(
                                     library = library,
                                     imageUrl = library.id?.let { id -> libraryImageUrls[id] },
@@ -536,5 +537,3 @@ private fun getLibraryTypeText(collectionType: String?): String {
         else -> stringResource(R.string.my_media_library_type_library)
     }
 }
-
-

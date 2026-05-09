@@ -3,7 +3,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Movie
@@ -181,10 +181,10 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
-                            items(
+                            itemsIndexed(
                                 items = sections,
-                                key = { section -> section.title }
-                            ) { section ->
+                                key = { index, section -> "${section.title}_$index" }
+                            ) { _, section ->
                                 RecommendationRail(
                                     section = section,
                                     mediaRepository = mediaRepository,
@@ -402,10 +402,12 @@ private fun RecommendationRail(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = section.items,
-                key = { item -> item.id ?: item.name ?: section.title }
-            ) { item ->
+                key = { index, item ->
+                    "${item.id ?: item.name ?: section.title}_$index"
+                }
+            ) { _, item ->
                 LibraryItemCard(
                     item = item,
                     mediaRepository = mediaRepository,
@@ -414,10 +416,12 @@ private fun RecommendationRail(
                 )
             }
 
-            items(
+            itemsIndexed(
                 items = section.seerItems,
-                key = { item -> "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}" }
-            ) { item ->
+                key = { index, item ->
+                    "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}_$index"
+                }
+            ) { _, item ->
                 SeerTitleCard(
                     item = item,
                     onClick = { onItemClick(item.toSeerDetailItem()) }

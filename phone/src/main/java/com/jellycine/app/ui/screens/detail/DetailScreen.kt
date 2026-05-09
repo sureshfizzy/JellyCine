@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -2318,10 +2319,12 @@ private fun MoreFromSeasonSection(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = episodes,
-                key = { episode -> episode.id ?: "${episode.name}-${episode.indexNumber}" }
-            ) { episode ->
+                key = { index, episode ->
+                    "${episode.id ?: "${episode.name}-${episode.indexNumber}"}_$index"
+                }
+            ) { _, episode ->
                 EpisodePreviewCard(
                     episode = episode,
                     mediaRepository = mediaRepository,
@@ -2373,10 +2376,12 @@ private fun SimilarItemsSection(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = similarItems,
-                key = { similarItem -> similarItem.id ?: "${similarItem.name}-${similarItem.type}" }
-            ) { similarItem ->
+                key = { index, similarItem ->
+                    "${similarItem.id ?: "${similarItem.name}-${similarItem.type}"}_$index"
+                }
+            ) { _, similarItem ->
                 SimilarItemCard(
                     item = similarItem,
                     mediaRepository = mediaRepository,
