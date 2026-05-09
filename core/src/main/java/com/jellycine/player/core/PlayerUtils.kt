@@ -1,5 +1,6 @@
 package com.jellycine.player.core
 
+import android.app.ActivityManager
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -23,6 +24,14 @@ import com.jellycine.player.preferences.PlayerPreferences
  */
 @UnstableApi
 object PlayerUtils {
+    private const val MEBIBYTE = 1024 * 1024
+    private const val ASYNC_MAX_PLAYBACK_BUFFER_MS = 45_000
+    private const val ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS = 30_000
+    private const val ASYNC_MIN_PLAYBACK_BUFFER_MS = 15_000
+    private const val BATTERY_MAX_PLAYBACK_BUFFER_MS = 30_000
+    private const val BATTERY_MIN_PLAYBACK_BUFFER_MS = 15_000
+    private const val ASYNC_LOW_RAM_TARGET_BUFFER_BYTES = 64 * MEBIBYTE
+
     private fun buildTrackId(
         prefix: String,
         groupIndex: Int,
@@ -66,7 +75,7 @@ object PlayerUtils {
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
                 .setTrackSelector(trackSelector)
-                .setLoadControl(createLoadControl(playerPreferences))
+                .setLoadControl(createLoadControl(context, playerPreferences))
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -133,19 +142,28 @@ object PlayerUtils {
     }
 
     @UnstableApi
-    private fun createLoadControl(playerPreferences: PlayerPreferences): DefaultLoadControl {
+    private fun createLoadControl(
+        context: Context,
+        playerPreferences: PlayerPreferences
+    ): DefaultLoadControl {
         val requestedCacheTimeMs = playerPreferences.getPlayerCacheTimeSeconds() * 1000
         val batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
-        val minBufferMs = if (batteryOptimizationEnabled) {
-            minOf(requestedCacheTimeMs, 15_000)
-        } else {
-            requestedCacheTimeMs
+        val asyncMediaCodecEnabled = playerPreferences.isHardwareAccelerationEnabled() &&
+            playerPreferences.isAsyncMediaCodecEnabled()
+        val lowRamDevice = context.isLowRamDevice()
+        val maxPlaybackBufferMs = when {
+            batteryOptimizationEnabled -> BATTERY_MAX_PLAYBACK_BUFFER_MS
+            asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS
+            asyncMediaCodecEnabled -> ASYNC_MAX_PLAYBACK_BUFFER_MS
+            else -> requestedCacheTimeMs
         }
-        val maxBufferMs = if (batteryOptimizationEnabled) {
-            minOf(requestedCacheTimeMs, 30_000)
-        } else {
-            requestedCacheTimeMs
+        val maxBufferMs = minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
+        val minPlaybackBufferMs = when {
+            batteryOptimizationEnabled -> BATTERY_MIN_PLAYBACK_BUFFER_MS
+            asyncMediaCodecEnabled -> ASYNC_MIN_PLAYBACK_BUFFER_MS
+            else -> requestedCacheTimeMs
         }
+        val minBufferMs = minOf(maxBufferMs, minPlaybackBufferMs)
         val playbackBufferMs = if (batteryOptimizationEnabled) {
             minOf(1_500, minBufferMs)
         } else {
@@ -157,6 +175,18 @@ object PlayerUtils {
             minOf(2_000, maxBufferMs)
         }
 
+        val targetBufferBytes = when {
+            asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_TARGET_BUFFER_BYTES
+            else -> C.LENGTH_UNSET
+        }
+
+        Log.d(
+            "PlayerUtils",
+            "Load control: requested=${requestedCacheTimeMs}ms async=$asyncMediaCodecEnabled " +
+                "lowRam=$lowRamDevice battery=$batteryOptimizationEnabled min=${minBufferMs}ms " +
+                "max=${maxBufferMs}ms targetBytes=$targetBufferBytes"
+        )
+
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 minBufferMs,
@@ -164,8 +194,14 @@ object PlayerUtils {
                 playbackBufferMs,
                 rebufferPlaybackMs
             )
-            .setPrioritizeTimeOverSizeThresholds(true)
+            .setTargetBufferBytes(targetBufferBytes)
+            .setPrioritizeTimeOverSizeThresholds(false)
             .build()
+    }
+
+    private fun Context.isLowRamDevice(): Boolean {
+        return (getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
+            ?.isLowRamDevice == true
     }
     
     /**

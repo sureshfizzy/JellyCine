@@ -39,10 +39,12 @@ class HardwareAcceleration(
         val asyncMediaCodecEnabled = hardwareAccelerationEnabled && playerPreferences.isAsyncMediaCodecEnabled()
         if (asyncMediaCodecEnabled) {
             forceEnableMediaCodecAsynchronousQueueing()
-            experimentalSetMediaCodecAsyncCryptoFlagEnabled(true)
+            experimentalSetMediaCodecAsyncCryptoFlagEnabled(false)
+            Log.d(TAG, "Async MediaCodec queueing enabled; async crypto flag disabled")
         } else {
             forceDisableMediaCodecAsynchronousQueueing()
             experimentalSetMediaCodecAsyncCryptoFlagEnabled(false)
+            Log.d(TAG, "Async MediaCodec queueing disabled")
         }
 
         val decoderPriority = playerPreferences.getDecoderPriority()
