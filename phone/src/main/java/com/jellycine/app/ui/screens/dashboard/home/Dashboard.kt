@@ -50,6 +50,7 @@ import com.jellycine.data.model.SeerrCatalog
 import com.jellycine.data.model.SeerrCatalogItem
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.isAuthenticationStatusFailure
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkPreferences
@@ -1328,10 +1329,7 @@ fun Dashboard(
             )
             user?.policy?.isDisabled == true
         } else {
-            val message = userResult.exceptionOrNull()?.message.orEmpty()
-            message.contains("401") ||
-                message.contains("403") ||
-                message.contains("404")
+            userResult.exceptionOrNull().isAuthenticationStatusFailure()
         }
 
         if (forceLogout) {

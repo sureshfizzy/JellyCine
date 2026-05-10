@@ -20,3 +20,14 @@ class ApiResponse<T>(
 
     fun errorBody(): String? = errorBodyValue
 }
+
+class HttpStatusException(
+    val statusCode: Int,
+    message: String,
+    val statusMessage: String? = null
+) : Exception(message)
+
+fun Throwable?.isAuthenticationStatusFailure(): Boolean {
+    val statusCode = (this as? HttpStatusException)?.statusCode ?: return false
+    return statusCode == 401 || statusCode == 403
+}

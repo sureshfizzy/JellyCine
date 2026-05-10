@@ -22,6 +22,7 @@ import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.UserDto
+import com.jellycine.data.network.HttpStatusException
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.network.trimTrailingSlash
@@ -1184,7 +1185,14 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_user_info_failed, response.code())))
+                val statusCode = response.code()
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = statusCode,
+                        statusMessage = response.message(),
+                        message = string(R.string.media_error_fetch_user_info_failed, statusCode)
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
