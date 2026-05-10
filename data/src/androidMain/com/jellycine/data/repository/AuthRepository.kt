@@ -38,6 +38,7 @@ class AuthRepository(private val context: Context) {
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
     private val secureSessionStore = SecureSessionStore(context)
+    private val seerrRepository = SeerrRepository(context)
     private val legacyMigrationMutex = Mutex()
 
     @Volatile
@@ -384,6 +385,7 @@ class AuthRepository(private val context: Context) {
                 }
             }
             secureSessionStore.removeToken(removeServer.id)
+            seerrRepository.disconnect(removeServer.id)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -703,9 +705,11 @@ class AuthRepository(private val context: Context) {
 
     suspend fun logout() {
         legacyStorageMigrated()
+        var loggedOutServerId: String? = null
         dataStore.edit { preferences ->
             val activeServerId = currentServerId(preferences)
             if (activeServerId != null) {
+                loggedOutServerId = activeServerId
                 val updatedServers = savedServers(preferences[SAVED_SERVERS_KEY])
                     .filterNot { it.id == activeServerId }
                 preferences[SAVED_SERVERS_KEY] = serializeSavedServers(updatedServers)
@@ -720,6 +724,7 @@ class AuthRepository(private val context: Context) {
             preferences[ACTIVE_SERVER_ID_KEY] = ""
             preferences[IS_AUTHENTICATED_KEY] = false
         }
+        seerrRepository.disconnect(loggedOutServerId)
     }
 
     private suspend fun legacyStorageMigrated() {
