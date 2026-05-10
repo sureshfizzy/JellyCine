@@ -528,6 +528,7 @@
     <!-- Detail -->
     <string name="detail_cast_and_crew">Cast &amp; Crew</string>
     <string name="detail_similar_items_title">More Like This</string>
+    <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>
     <string name="detail_similar_item_unknown">Unknown</string>
     <string name="detail_person_loading">Loading...</string>
     <string name="detail_person_unknown">Unknown Person</string>

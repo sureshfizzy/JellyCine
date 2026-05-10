@@ -155,13 +155,17 @@ internal fun LazyListScope.seerTitleItems(
     itemsIndexed(
         items = items,
         key = { index, item ->
-            "${SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType)}_$index"
+            val itemId = item.jellyfinMediaId?.takeIf { it.isNotBlank() }
+                ?: SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType)
+            "${itemId}_$index"
         }
     ) { _, item ->
         SeerTitleCard(
             item = item,
             onClick = {
-                onItemClick(SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType))
+                val itemId = item.jellyfinMediaId?.takeIf { it.isNotBlank() }
+                    ?: SeerrItemIds.detailId(tmdbId = item.tmdbId, mediaType = item.mediaType)
+                onItemClick(itemId)
             }
         )
     }
@@ -312,10 +316,18 @@ internal fun SeerTitleCard(
                     }
                 }
 
-                SeerrTopBadges(
-                    requestState = item.requestState,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
+                if (item.jellyfinMediaId.isNullOrBlank()) {
+                    SeerrTopBadges(
+                        requestState = item.requestState,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                } else if (item.requestState == SeerrRequestState.REQUESTED) {
+                    SeerrRequestBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 4.dp, end = 6.dp)
+                    )
+                }
 
                 item.roleLabel
                     ?.takeIf { it.isNotBlank() }

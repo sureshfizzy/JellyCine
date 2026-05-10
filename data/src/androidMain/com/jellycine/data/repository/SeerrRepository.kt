@@ -292,7 +292,86 @@ class SeerrRepository(context: Context) {
                 Result.success(
                     payload.results
                         .asSequence()
-                        .mapNotNull { result -> result.toRecommendationTitle(storedConnection.serverUrl, category) }
+                        .mapNotNull { result ->
+                            result.toRecommendationTitle(
+                                serverUrl = storedConnection.serverUrl,
+                                category = category
+                            )
+                        }
+                        .distinctBy { title -> "${title.mediaType}:${title.tmdbId}" }
+                        .take(limit)
+                        .toList()
+                )
+            }
+        }
+    }
+
+    suspend fun getSimilarTitles(
+        scopeId: String,
+        mediaType: String,
+        tmdbId: String,
+        limit: Int = 24
+    ): Result<List<SeerrRecommendationTitle>> = getRelatedTitles(
+        scopeId = scopeId,
+        mediaType = mediaType,
+        tmdbId = tmdbId,
+        limit = limit,
+        loadPage = { api, normalizedMediaType, normalizedTmdbId ->
+            api.titleSimilar(normalizedMediaType, normalizedTmdbId, page = 1)
+        }
+    )
+
+    suspend fun getRecommendedTitles(
+        scopeId: String,
+        mediaType: String,
+        tmdbId: String,
+        limit: Int = 24
+    ): Result<List<SeerrRecommendationTitle>> = getRelatedTitles(
+        scopeId = scopeId,
+        mediaType = mediaType,
+        tmdbId = tmdbId,
+        limit = limit,
+        loadPage = { api, normalizedMediaType, normalizedTmdbId ->
+            api.titleRecommendations(normalizedMediaType, normalizedTmdbId, page = 1)
+        }
+    )
+
+    private suspend fun getRelatedTitles(
+        scopeId: String,
+        mediaType: String,
+        tmdbId: String,
+        limit: Int,
+        loadPage: suspend (SeerrApiClient, String, String) -> ApiResponse<SeerrSearchResponse>
+    ): Result<List<SeerrRecommendationTitle>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val normalizedMediaType = when {
+            mediaType.equals("tv", ignoreCase = true) -> "tv"
+            mediaType.equals("movie", ignoreCase = true) -> "movie"
+            else -> return@withContext Result.failure(Exception(string(R.string.seerr_error_media_type_unsupported)))
+        }
+        val normalizedTmdbId = tmdbId.trim()
+        if (normalizedTmdbId.isBlank()) {
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_title_id_missing)))
+        }
+
+        runRequestCatching {
+            val api = seerrApi(storedConnection)
+            loadPage(api, normalizedMediaType, normalizedTmdbId).mapBody(
+                parseError = string(R.string.seerr_error_related_titles_parse),
+                httpError = string(R.string.seerr_error_related_titles_load)
+            ) { payload ->
+                Result.success(
+                    payload.results
+                        .asSequence()
+                        .mapNotNull { result ->
+                            result.toRecommendationTitle(
+                                serverUrl = storedConnection.serverUrl,
+                                fallbackMediaType = normalizedMediaType
+                            )
+                        }
+                        .filterNot { title ->
+                            title.mediaType == normalizedMediaType && title.tmdbId == normalizedTmdbId
+                        }
                         .distinctBy { title -> "${title.mediaType}:${title.tmdbId}" }
                         .take(limit)
                         .toList()
@@ -1057,23 +1136,25 @@ class SeerrRepository(context: Context) {
 
     private fun SeerrSearchResult.toRecommendationTitle(
         serverUrl: String,
-        category: SeerrDiscoveryCategory
+        category: SeerrDiscoveryCategory? = null,
+        fallbackMediaType: String? = null
     ): SeerrRecommendationTitle? {
-        val categoryMediaType = category.mediaType()
+        val categoryMediaType = category?.mediaType()
         val normalizedMediaType = when {
             mediaType.equals("tv", ignoreCase = true) -> "tv"
             mediaType.equals("movie", ignoreCase = true) -> "movie"
             categoryMediaType != null -> categoryMediaType
+            fallbackMediaType != null -> fallbackMediaType
             else -> return null
         }
         if (categoryMediaType != null && normalizedMediaType != categoryMediaType) return null
 
         val tmdbId = id?.toString()?.takeIf { it.isNotBlank() } ?: return null
-        val title = title.ifNotBlank() ?: name.ifNotBlank() ?: return null
+        val displayTitle = this.title.ifNotBlank() ?: name.ifNotBlank() ?: return null
 
         return SeerrRecommendationTitle(
             tmdbId = tmdbId,
-            title = title,
+            title = displayTitle,
             mediaType = normalizedMediaType,
             productionYear = releaseDate.extractYear() ?: firstAirDate.extractYear(),
             posterUrl = seerrImageUrl(

@@ -843,6 +843,12 @@ fun DetailContent(
         mutableStateOf(item.userData?.isFavorite == true)
     }
     var similarItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var seerrSimilarItems by remember(item.id) {
+        mutableStateOf<List<SeerrRecommendationTitle>>(emptyList())
+    }
+    var seerrRecommendedItems by remember(item.id) {
+        mutableStateOf<List<SeerrRecommendationTitle>>(emptyList())
+    }
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
@@ -1032,19 +1038,84 @@ fun DetailContent(
         }
     }
 
-    LaunchedEffect(item.id) {
+    LaunchedEffect(item.id, activeServerId, isSeerDetail) {
         val currentItemId = item.id
-        if (currentItemId.isNullOrBlank() || isSeerDetail) {
+        if (currentItemId.isNullOrBlank()) {
             similarItems = emptyList()
+            seerrSimilarItems = emptyList()
+            seerrRecommendedItems = emptyList()
             return@LaunchedEffect
         }
 
-        mediaRepository.getSimilarItems(itemId = currentItemId, limit = 16).fold(
-            onSuccess = { items ->
-                similarItems = items.filter { !it.id.isNullOrBlank() }
+        seerrSimilarItems = emptyList()
+        seerrRecommendedItems = emptyList()
+        val localSimilarItems = if (isSeerDetail) {
+            emptyList()
+        } else {
+            mediaRepository.getSimilarItems(itemId = currentItemId, limit = 16)
+                .getOrDefault(emptyList())
+                .filter { !it.id.isNullOrBlank() }
+        }
+        similarItems = localSimilarItems
+
+        val params = if (isSeerDetail) {
+            SeerrItemIds.detailParams(currentItemId)
+        } else {
+            val tmdbId = item.providerIds
+                ?.entries
+                ?.firstOrNull { (key, value) ->
+                    key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
+                }
+                ?.value
+            val mediaType = when {
+                item.type.equals("Series", ignoreCase = true) -> "tv"
+                item.type.equals("Movie", ignoreCase = true) -> "movie"
+                else -> null
+            }
+            if (tmdbId != null && mediaType != null) mediaType to tmdbId else null
+        }
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        if (params == null || scopeId == null) {
+            return@LaunchedEffect
+        }
+
+        val (seerrMediaType, seerrTmdbId) = params
+        val similarSeerrTitles = if (isSeerDetail) {
+            seerrRepository.getSimilarTitles(
+                scopeId = scopeId,
+                mediaType = seerrMediaType,
+                tmdbId = seerrTmdbId,
+                limit = 16
+            ).getOrDefault(emptyList())
+        } else {
+            emptyList()
+        }
+        seerrSimilarItems = filterSeerTitlesForRow(
+            seerrTitles = similarSeerrTitles,
+            baseTitles = emptyList(),
+            item = item
+        )
+
+        seerrRepository.getRecommendedTitles(
+            scopeId = scopeId,
+            mediaType = seerrMediaType,
+            tmdbId = seerrTmdbId,
+            limit = 16
+        ).fold(
+            onSuccess = { titles ->
+                val filteredTitles = titles.filterNot { title ->
+                    seerrSimilarItems.any { similar ->
+                        similar.mediaType == title.mediaType && similar.tmdbId == title.tmdbId
+                    }
+                }
+                seerrRecommendedItems = filterSeerTitlesForRow(
+                    seerrTitles = filteredTitles,
+                    baseTitles = localSimilarItems,
+                    item = item
+                )
             },
             onFailure = {
-                similarItems = emptyList()
+                seerrRecommendedItems = emptyList()
             }
         )
     }
@@ -2179,7 +2250,16 @@ fun DetailContent(
                         }
 
                         SimilarItemsSection(
+                            similarItems = emptyList(),
+                            seerrItems = seerrRecommendedItems,
+                            mediaRepository = mediaRepository,
+                            onItemClick = onSimilarItemClick,
+                            title = stringResource(R.string.detail_seerr_recommendations_title)
+                        )
+
+                        SimilarItemsSection(
                             similarItems = similarItems,
+                            seerrItems = seerrSimilarItems,
                             mediaRepository = mediaRepository,
                             onItemClick = onSimilarItemClick
                         )

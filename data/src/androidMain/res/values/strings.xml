@@ -75,6 +75,8 @@
     <string name="seerr_error_title_details_load">Failed to load Seerr title details.</string>
     <string name="seerr_error_title_not_found">Seerr could not find this title.</string>
     <string name="seerr_error_title_details_incomplete">Seerr title details are incomplete.</string>
+    <string name="seerr_error_related_titles_parse">Could not parse Seerr related titles.</string>
+    <string name="seerr_error_related_titles_load">Failed to load Seerr related titles.</string>
     <string name="seerr_error_request_title_parse">Could not parse Seerr request response.</string>
     <string name="seerr_error_request_title">Failed to request this title.</string>
     <string name="seerr_error_request_options_parse">Could not parse Seerr request options.</string>

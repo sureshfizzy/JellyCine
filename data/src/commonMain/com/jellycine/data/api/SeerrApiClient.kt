@@ -107,6 +107,24 @@ internal class SeerrApiClient(
     suspend fun titleDetails(mediaType: String, tmdbId: String): ApiResponse<SeerrTitleDetailsResponse> =
         get("$mediaType/$tmdbId")
 
+    suspend fun titleRecommendations(
+        mediaType: String,
+        tmdbId: String,
+        page: Int
+    ): ApiResponse<SeerrSearchResponse> = get(
+        path = "$mediaType/$tmdbId/recommendations",
+        queryParameters = listOf("page" to page.toString())
+    )
+
+    suspend fun titleSimilar(
+        mediaType: String,
+        tmdbId: String,
+        page: Int
+    ): ApiResponse<SeerrSearchResponse> = get(
+        path = "$mediaType/$tmdbId/similar",
+        queryParameters = listOf("page" to page.toString())
+    )
+
     suspend fun requestTitle(request: SeerrTitleRequest): ApiResponse<Unit> =
         post("request", request)
 
