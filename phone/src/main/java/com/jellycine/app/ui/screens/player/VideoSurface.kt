@@ -23,8 +23,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
-import com.jellycine.app.ui.screens.player.mpv.MpvVideoSurface
-import com.jellycine.app.ui.screens.player.mpv.MpvPlayerController
+import com.jellycine.app.player.mpv.MpvPlayerController
 import kotlin.math.roundToInt
 
 @UnstableApi
@@ -95,7 +94,7 @@ fun VideoSurface(
                 onTogglePlayPause = onTogglePlayPause,
                 modifier = surfaceModifier
             )
-        } else {
+        } else if (player != null) {
             ExoPlayerView(
                 player = player,
                 lifecycle = lifecycle,

@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.player.mpv
+package com.jellycine.app.ui.screens.player
 
 import android.annotation.SuppressLint
 import android.graphics.SurfaceTexture
@@ -11,7 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
-import com.jellycine.app.ui.screens.player.GestureHelper
+import com.jellycine.app.player.mpv.MpvPlayerController
 
 @SuppressLint("ClickableViewAccessibility")
 @UnstableApi

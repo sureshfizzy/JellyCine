@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.player.mpv
+package com.jellycine.app.player.mpv
 
 import android.content.Context
 import android.view.Surface
@@ -12,7 +12,7 @@ class MpvPlayerController(
     private val hardwareDecoding: String,
     private val videoOutput: String,
     private val audioOutput: String,
-    private val listener: Listener
+    listener: Listener
 ) : MPVLib.EventObserver {
 
     interface Listener {
@@ -24,16 +24,15 @@ class MpvPlayerController(
     private val mpv = MPVLib.create(context.applicationContext)
         ?: error("MPVLib.create() returned null")
     private var released = false
-    private var pendingSeekMs: Long? = null
     private var ready = false
     private var durationMs: Long = 0L
     private var positionMs: Long = 0L
     private var playWhenReady = true
     private var pendingSubtitleUrls: List<String> = emptyList()
-    private var pendingAudioTrackId: String? = null
-    private var pendingSubtitleTrackId: String? = null
     private var pendingSelectedSubtitleUrl: String? = null
     private val playerPreferences = PlayerPreferences(context.applicationContext)
+    @Volatile
+    private var listener: Listener = listener
 
     val isPlaying: Boolean
         get() = ready && playWhenReady
@@ -66,14 +65,30 @@ class MpvPlayerController(
         if (released) return
         ready = false
         playWhenReady = startPlayback
-        pendingSeekMs = startPositionMs?.takeIf { it > 0L }
+        val startPositionSeconds = startPositionMs
+            ?.takeIf { it > 0L }
+            ?.let { it / 1000.0 }
         pendingSubtitleUrls = subtitleUrls
-        pendingAudioTrackId = audioTrackId
-        pendingSubtitleTrackId = subtitleTrackId
         pendingSelectedSubtitleUrl = selectedSubtitleUrl
         mpv.setPropertyBoolean("pause", true)
         listener.onBuffering()
-        mpv.command(arrayOf("loadfile", url, "replace"))
+        val loadOptions = buildList {
+            startPositionSeconds?.let { add("start=$it") }
+            audioTrackId?.let { add("aid=$it") }
+            if (selectedSubtitleUrl == null) {
+                subtitleTrackId?.let { add("sid=$it") }
+            }
+        }
+        val loadCommand = if (loadOptions.isEmpty()) {
+            arrayOf("loadfile", url, "replace")
+        } else {
+            arrayOf("loadfile", url, "replace", "-1", loadOptions.joinToString(","))
+        }
+        mpv.command(loadCommand)
+    }
+
+    fun setListener(listener: Listener) {
+        this.listener = listener
     }
 
     fun attachSurface(surface: Surface, width: Int, height: Int) {
@@ -217,16 +232,11 @@ class MpvPlayerController(
                     .forEach { subtitleUrl ->
                         mpv.command(arrayOf("sub-add", subtitleUrl, "auto"))
                     }
-                pendingSubtitleUrls = emptyList()
-                pendingAudioTrackId?.let(::selectAudioTrack)
-                pendingAudioTrackId = null
-                pendingSubtitleTrackId?.let { trackId ->
-                    selectSubtitleTrack(trackId, pendingSelectedSubtitleUrl)
+                pendingSelectedSubtitleUrl?.let { subtitleUrl ->
+                    mpv.command(arrayOf("sub-add", subtitleUrl, "select"))
                 }
-                pendingSubtitleTrackId = null
+                pendingSubtitleUrls = emptyList()
                 pendingSelectedSubtitleUrl = null
-                pendingSeekMs?.let { seekTo(it) }
-                pendingSeekMs = null
             }
             MpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
                 ready = true

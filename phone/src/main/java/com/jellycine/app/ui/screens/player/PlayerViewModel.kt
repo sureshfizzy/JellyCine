@@ -17,8 +17,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import dagger.hilt.android.lifecycle.HiltViewModel
-import com.jellycine.app.ui.screens.player.mpv.MPVPlayer
-import com.jellycine.app.ui.screens.player.mpv.MpvPlayerController
+import com.jellycine.app.player.mpv.MPVPlayer
+import com.jellycine.app.player.mpv.MpvPlayerController
+import com.jellycine.app.player.mpv.MpvWarmPool
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
@@ -1033,44 +1034,51 @@ class PlayerViewModel @Inject constructor(
 
     private fun createMpvPlayer(context: Context): MpvPlayerController {
         val preferences = PlayerPreferences(context)
-        return MpvPlayerController(
+        val listener = createMpvListener()
+        return MpvWarmPool.acquire(
+            context = context,
+            listener = listener
+        ) ?: MpvPlayerController(
             context = context,
             hardwareDecoding = preferences.getMpvHardwareDecoding(),
             videoOutput = preferences.getMpvVideoOutput(),
             audioOutput = preferences.getMpvAudioOutput(),
-            listener = object : MpvPlayerController.Listener {
-                override fun onBuffering() {
-                    _playerState.value = _playerState.value.copy(isLoading = true)
-                }
-
-                override fun onReady() {
-                    val wasPlaying = _playerState.value.isPlaying
-                    _playerState.value = _playerState.value.copy(
-                        isLoading = false,
-                        isPlaying = isPlayingNow(),
-                        playWhenReady = isPlayingNow(),
-                        hasStartedPlayback = true,
-                        duration = getDuration()
-                    )
-                    if (!playbackReporter.hasReportedStart() && isPlayingNow()) {
-                        playbackReporter.reportPlaybackStatus()
-                    }
-                    if (wasPlaying != isPlayingNow()) {
-                        playbackReporter.onPlaybackPauseStateChanged()
-                    }
-                }
-
-                override fun onEnded() {
-                    _playerState.value = _playerState.value.copy(
-                        isPlaying = false,
-                        playWhenReady = false,
-                        isLoading = false
-                    )
-                    handlePlaybackCompleted()
-                }
-
-            }
+            listener = listener
         )
+    }
+
+    private fun createMpvListener(): MpvPlayerController.Listener {
+        return object : MpvPlayerController.Listener {
+            override fun onBuffering() {
+                _playerState.value = _playerState.value.copy(isLoading = true)
+            }
+
+            override fun onReady() {
+                val wasPlaying = _playerState.value.isPlaying
+                _playerState.value = _playerState.value.copy(
+                    isLoading = false,
+                    isPlaying = isPlayingNow(),
+                    playWhenReady = isPlayingNow(),
+                    hasStartedPlayback = true,
+                    duration = getDuration()
+                )
+                if (!playbackReporter.hasReportedStart() && isPlayingNow()) {
+                    playbackReporter.reportPlaybackStatus()
+                }
+                if (wasPlaying != isPlayingNow()) {
+                    playbackReporter.onPlaybackPauseStateChanged()
+                }
+            }
+
+            override fun onEnded() {
+                _playerState.value = _playerState.value.copy(
+                    isPlaying = false,
+                    playWhenReady = false,
+                    isLoading = false
+                )
+                handlePlaybackCompleted()
+            }
+        }
     }
 
     /**

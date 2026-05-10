@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.player.mpv
+package com.jellycine.app.player.mpv
 
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.PlaybackRequest

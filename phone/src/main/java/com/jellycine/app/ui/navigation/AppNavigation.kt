@@ -27,8 +27,10 @@ import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
 import com.jellycine.app.ui.screens.player.PlayerScreen
+import com.jellycine.app.player.mpv.MpvWarmPool
 import com.jellycine.auth.AuthStateManager
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.delay
 
 // Pure Animation helpers - no sliding, only fade with content transforms
 private fun textTransition(duration: Int = 400): EnterTransition {
@@ -195,6 +197,11 @@ fun AppNavigation() {
                     }
                 }
             ) {
+                LaunchedEffect(Unit) {
+                    delay(750L)
+                    MpvWarmPool.warmIfPreferred(context.applicationContext)
+                }
+
                 DashboardContainer(
                     onLogout = {
                         navController.navigate("auth") {
