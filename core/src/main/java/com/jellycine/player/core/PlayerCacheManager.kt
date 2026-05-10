@@ -19,6 +19,8 @@ import java.io.File
 internal object PlayerCacheManager {
     private const val CACHE_DIRECTORY_NAME = "player_media_cache"
     private const val PREFETCH_BUFFER_BYTES = 64 * 1024
+    private const val MEDIA_CONNECT_TIMEOUT_MS = 30_000
+    private const val MEDIA_READ_TIMEOUT_MS = 120_000
 
     @Volatile
     private var simpleCache: SimpleCache? = null
@@ -33,6 +35,9 @@ internal object PlayerCacheManager {
     ): DataSource.Factory {
         val appContext = context.applicationContext
         val httpDataSource = DefaultHttpDataSource.Factory()
+            .setConnectTimeoutMs(MEDIA_CONNECT_TIMEOUT_MS)
+            .setReadTimeoutMs(MEDIA_READ_TIMEOUT_MS)
+            .setAllowCrossProtocolRedirects(true)
         if (defaultRequestHeaders.isNotEmpty()) {
             httpDataSource.setDefaultRequestProperties(defaultRequestHeaders)
         }

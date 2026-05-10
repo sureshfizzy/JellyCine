@@ -15,6 +15,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import com.jellycine.player.video.HardwareAcceleration
 import com.jellycine.player.video.HdrCapabilityManager
 import com.jellycine.player.preferences.PlayerPreferences
@@ -25,12 +26,16 @@ import com.jellycine.player.preferences.PlayerPreferences
 @UnstableApi
 object PlayerUtils {
     private const val MEBIBYTE = 1024 * 1024
-    private const val ASYNC_MAX_PLAYBACK_BUFFER_MS = 45_000
+    private const val MAX_PLAYBACK_BUFFER_MS = 120_000
     private const val ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS = 30_000
     private const val ASYNC_MIN_PLAYBACK_BUFFER_MS = 15_000
     private const val BATTERY_MAX_PLAYBACK_BUFFER_MS = 30_000
     private const val BATTERY_MIN_PLAYBACK_BUFFER_MS = 15_000
     private const val ASYNC_LOW_RAM_TARGET_BUFFER_BYTES = 64 * MEBIBYTE
+    private const val DEFAULT_MIN_PLAYBACK_BUFFER_MS = 15_000
+    private const val BUFFER_FOR_PLAYBACK_MS = 500
+    private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 1_500
+    private const val MIN_LOADABLE_RETRY_COUNT = 6
 
     private fun buildTrackId(
         prefix: String,
@@ -121,7 +126,9 @@ object PlayerUtils {
             cacheSizeMb = cacheSizeMb,
             defaultRequestHeaders = requestHeaders
         )
-        return DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
+        return DefaultMediaSourceFactory(dataSourceFactory)
+            .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(MIN_LOADABLE_RETRY_COUNT))
+            .createMediaSource(mediaItem)
     }
 
     @UnstableApi
@@ -154,25 +161,24 @@ object PlayerUtils {
         val maxPlaybackBufferMs = when {
             batteryOptimizationEnabled -> BATTERY_MAX_PLAYBACK_BUFFER_MS
             asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS
-            asyncMediaCodecEnabled -> ASYNC_MAX_PLAYBACK_BUFFER_MS
-            else -> requestedCacheTimeMs
+            else -> MAX_PLAYBACK_BUFFER_MS
         }
         val maxBufferMs = minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
         val minPlaybackBufferMs = when {
             batteryOptimizationEnabled -> BATTERY_MIN_PLAYBACK_BUFFER_MS
             asyncMediaCodecEnabled -> ASYNC_MIN_PLAYBACK_BUFFER_MS
-            else -> requestedCacheTimeMs
+            else -> DEFAULT_MIN_PLAYBACK_BUFFER_MS
         }
         val minBufferMs = minOf(maxBufferMs, minPlaybackBufferMs)
         val playbackBufferMs = if (batteryOptimizationEnabled) {
             minOf(1_500, minBufferMs)
         } else {
-            minOf(1_000, minBufferMs)
+            minOf(BUFFER_FOR_PLAYBACK_MS, minBufferMs)
         }
         val rebufferPlaybackMs = if (batteryOptimizationEnabled) {
             minOf(5_000, maxBufferMs)
         } else {
-            minOf(2_000, maxBufferMs)
+            minOf(BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS, maxBufferMs)
         }
 
         val targetBufferBytes = when {
@@ -184,7 +190,8 @@ object PlayerUtils {
             "PlayerUtils",
             "Load control: requested=${requestedCacheTimeMs}ms async=$asyncMediaCodecEnabled " +
                 "lowRam=$lowRamDevice battery=$batteryOptimizationEnabled min=${minBufferMs}ms " +
-                "max=${maxBufferMs}ms targetBytes=$targetBufferBytes"
+                "max=${maxBufferMs}ms start=${playbackBufferMs}ms " +
+                "rebuffer=${rebufferPlaybackMs}ms targetBytes=$targetBufferBytes"
         )
 
         return DefaultLoadControl.Builder()
@@ -195,7 +202,7 @@ object PlayerUtils {
                 rebufferPlaybackMs
             )
             .setTargetBufferBytes(targetBufferBytes)
-            .setPrioritizeTimeOverSizeThresholds(false)
+            .setPrioritizeTimeOverSizeThresholds(true)
             .build()
     }
 
