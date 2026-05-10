@@ -219,7 +219,8 @@ internal fun SeerrConnectionDialog(
                                 } else {
                                     R.string.settings_seerr_connect_button
                                 }
-                            )
+                            ),
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }
@@ -248,7 +249,10 @@ private fun DisconnectSeerrDialogContent(
             modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.settings_seerr_refresh_status))
+        Text(
+            text = stringResource(R.string.settings_seerr_refresh_status),
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -273,7 +277,10 @@ private fun DisconnectSeerrDialogContent(
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.settings_seerr_disconnect))
+        Text(
+            text = stringResource(R.string.settings_seerr_disconnect),
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 
@@ -331,7 +338,12 @@ internal fun SeerrStatusChip(status: SeerrConnectionStatus) {
     AssistChip(
         onClick = {},
         enabled = false,
-        label = { Text(label) },
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium
+            )
+        },
         colors = AssistChipDefaults.assistChipColors(
             disabledContainerColor = containerColor,
             disabledLabelColor = contentColor
@@ -435,7 +447,12 @@ private fun AuthStyledField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
         leadingIcon = leadingIcon?.let { icon ->
             {
                 Icon(
@@ -448,6 +465,7 @@ private fun AuthStyledField(
             {
                 Text(
                     text = hint,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.6f)
                 )
             }

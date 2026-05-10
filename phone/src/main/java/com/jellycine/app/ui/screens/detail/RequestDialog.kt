@@ -31,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -178,8 +179,11 @@ internal fun SeerrRequestDialog(
                     ) {
                         Text(
                             text = "Advanced",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
                             color = Color.White.copy(alpha = 0.76f),
-                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
 
@@ -216,7 +220,10 @@ internal fun SeerrRequestDialog(
                     ) {
                         Text(
                             text = stringResource(R.string.cancel),
-                            fontSize = 15.sp,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -253,7 +260,10 @@ internal fun SeerrRequestDialog(
                             } else {
                                 stringResource(R.string.detail_seerr_request)
                             },
-                            fontSize = 16.sp,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -344,7 +354,10 @@ private fun Request4KButton(
         ) {
             Text(
                 text = "Request 4K",
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                ),
                 fontWeight = FontWeight.Bold
             )
         }
@@ -372,7 +385,7 @@ private fun RequestDialogHero(
         Column(
             modifier = Modifier.padding(horizontal = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = if (mediaType == "movie") {
@@ -380,19 +393,31 @@ private fun RequestDialogHero(
                 } else {
                     "Request Series"
                 },
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 28.sp
+                ),
                 color = Color(0xFF9B7CFF),
-                fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
             Text(
                 text = itemName,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 22.sp
+                ),
                 color = Color.White,
-                fontSize = 21.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -487,8 +512,11 @@ private fun SeasonRow(
 
         Text(
             text = title,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = if (isHeader) 11.sp else 13.sp,
+                fontWeight = if (isHeader) FontWeight.ExtraBold else FontWeight.Bold
+            ),
             color = Color.White.copy(alpha = if (isHeader) 0.70f else 0.94f),
-            fontSize = if (isHeader) 11.sp else 13.sp,
             fontWeight = if (isHeader) FontWeight.ExtraBold else FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -497,8 +525,11 @@ private fun SeasonRow(
 
         Text(
             text = episodeText,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = if (isHeader) 11.sp else 13.sp,
+                fontWeight = if (isHeader) FontWeight.ExtraBold else FontWeight.Bold
+            ),
             color = Color.White.copy(alpha = if (isHeader) 0.70f else 0.94f),
-            fontSize = if (isHeader) 11.sp else 13.sp,
             fontWeight = if (isHeader) FontWeight.ExtraBold else FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -509,8 +540,11 @@ private fun SeasonRow(
         if (isHeader) {
             Text(
                 text = status,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold
+                ),
                 color = Color.White.copy(alpha = 0.70f),
-                fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -545,8 +579,11 @@ private fun StatusChip(
     ) {
         Text(
             text = text,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            ),
             color = Color.White,
-            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -581,16 +618,22 @@ private fun RequestQuotaPanel(
         ) {
             Text(
                 text = stringResource(R.string.detail_seerr_requests_remaining, remainingText, contentType),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                ),
                 color = Color.White.copy(alpha = 0.84f),
-                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
 
             if (limit != null && days != null) {
                 Text(
                     text = stringResource(R.string.detail_seerr_allowed_requests, limit, contentType, days),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
                     color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 15.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -707,8 +750,11 @@ private fun <T> RequestOptionsDropdown(
     ) {
         Text(
             text = label,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            ),
             color = Color.White.copy(alpha = 0.62f),
-            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -738,8 +784,11 @@ private fun <T> RequestOptionsDropdown(
                 ) {
                     Text(
                         text = value,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
                         color = Color.White,
-                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -765,6 +814,7 @@ private fun <T> RequestOptionsDropdown(
                         text = {
                             Text(
                                 text = optionLabel(option),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
