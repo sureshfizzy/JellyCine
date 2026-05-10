@@ -115,10 +115,12 @@ class SeerrRepository(context: Context) {
                 connection = connection.copy(isVerified = true),
                 sessionCookie = storedConnection.sessionCookie
             )
-        }.onFailure {
-            prefs.edit()
-                .putBoolean(scopedKey(KEY_IS_VERIFIED, scopeId), false)
-                .apply()
+        }.onFailure { error ->
+            if (error is SeerrSessionExpiredException) {
+                prefs.edit()
+                    .putBoolean(scopedKey(KEY_IS_VERIFIED, scopeId), false)
+                    .apply()
+            }
         }
     }
 

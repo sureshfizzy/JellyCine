@@ -349,7 +349,9 @@ fun DashboardContainer(
         }
     }
 
-    LaunchedEffect(authRepository, seerrRepository) {
+    LaunchedEffect(authRepository, seerrRepository, isNetworkAvailable) {
+        if (!isNetworkAvailable) return@LaunchedEffect
+
         authRepository.observeActiveSession()
             .map { snapshot -> snapshot.activeServerId }
             .distinctUntilChanged()
