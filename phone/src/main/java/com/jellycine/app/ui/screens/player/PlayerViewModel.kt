@@ -58,6 +58,7 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
     companion object {
         private const val TAG = "PlayerViewModel"
+        private const val MPV_FALLBACK_FIRST_FRAME_TIMEOUT_MS = 2_500L
     }
 
     private val _playerState = MutableStateFlow(PlayerState())
@@ -96,6 +97,7 @@ class PlayerViewModel @Inject constructor(
     private var currentItemDetails: BaseItemDto? = null
     private var nextEpisodePrefetchJob: Job? = null
     private var nextEpisodePrefetchSignature: String? = null
+    private var mpvWatchdogJob: Job? = null
     private var hasRenderedFirstFrame = false
     private var mpvExternalSubtitleUrls: Map<Int, String> = emptyMap()
 
@@ -110,7 +112,8 @@ class PlayerViewModel @Inject constructor(
         preferredAudioStreamIndex: Int? = null,
         preferredSubtitleStreamIndex: Int? = null,
         initialSeekPositionMs: Long? = null,
-        startPlayback: Boolean = true
+        startPlayback: Boolean = true,
+        forcedPlayerEngine: String? = null
     ) {
         viewModelScope.launch {
             try {
@@ -136,7 +139,7 @@ class PlayerViewModel @Inject constructor(
                 playerContext = context
                 hasHandledPlaybackCompletion = false
                 val playerPreferences = PlayerPreferences(context)
-                activePlayerEngine = playerPreferences.getPlayerEngine()
+                activePlayerEngine = forcedPlayerEngine ?: playerPreferences.getPlayerEngine()
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val activePreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
@@ -175,6 +178,7 @@ class PlayerViewModel @Inject constructor(
                 communityPlaybackSegmentsJob = null
                 spatialAudioAnalysisJob?.cancel()
                 spatialAudioAnalysisJob = null
+                cancelMpvWatchdog()
                 hasRenderedFirstFrame = false
                 spatializerHelper = SpatializerHelper(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
@@ -503,6 +507,77 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun updateMpvWatchdog() {
+        val player = exoPlayer
+        val mediaId = playbackSession.mediaId
+        val shouldWatch = player != null &&
+            mediaId != null &&
+            !isMpvPlayback() &&
+            !hasRenderedFirstFrame &&
+            currentMediaHasVideo() &&
+            player.playWhenReady &&
+            player.playbackState == Player.STATE_READY
+
+        if (!shouldWatch) {
+            cancelMpvWatchdog()
+            return
+        }
+        if (mpvWatchdogJob?.isActive == true) return
+
+        cancelMpvWatchdog()
+        mpvWatchdogJob = viewModelScope.launch {
+            delay(MPV_FALLBACK_FIRST_FRAME_TIMEOUT_MS)
+            val currentPlayer = exoPlayer ?: return@launch
+            if (
+                playbackSession.mediaId == mediaId &&
+                !isMpvPlayback() &&
+                !hasRenderedFirstFrame &&
+                currentMediaHasVideo() &&
+                currentPlayer.playWhenReady &&
+                currentPlayer.playbackState == Player.STATE_READY
+            ) {
+                triggerMpvFallback()
+            }
+        }
+    }
+
+    private fun triggerMpvFallback(): Boolean {
+        if (isMpvPlayback()) return false
+        val context = playerContext ?: return false
+        val mediaId = playbackSession.mediaId ?: return false
+
+        cancelMpvWatchdog()
+
+        val itemDetails = currentItemDetails
+        val resumePositionMs = getCurrentPosition()
+        val shouldResumePlaying = _playerState.value.playWhenReady || isPlayingNow()
+        val preferredAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex
+        val preferredSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex
+
+        releasePlayer()
+        initializePlayer(
+            context = context,
+            mediaId = mediaId,
+            initialItemDetails = itemDetails,
+            preferredAudioStreamIndex = preferredAudioStreamIndex,
+            preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+            initialSeekPositionMs = resumePositionMs,
+            startPlayback = shouldResumePlaying,
+            forcedPlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
+        )
+        return true
+    }
+
+    private fun cancelMpvWatchdog() {
+        mpvWatchdogJob?.cancel()
+        mpvWatchdogJob = null
+    }
+
+    private fun currentMediaHasVideo(): Boolean =
+        apiMediaStreams.isNullOrEmpty() || apiMediaStreams.orEmpty().any { stream ->
+            stream.type.equals("Video", ignoreCase = true)
+        }
+
     private fun applyCommunityPlaybackSegments(mediaId: String, itemDetails: BaseItemDto) {
         if (!itemDetails.type.equals("Episode", ignoreCase = true)) return
 
@@ -799,6 +874,7 @@ class PlayerViewModel @Inject constructor(
         communityPlaybackSegmentsJob = null
         spatialAudioAnalysisJob?.cancel()
         spatialAudioAnalysisJob = null
+        cancelMpvWatchdog()
         exoPlayer?.apply {
             removeListener(playerListener)
             release()
@@ -1200,7 +1276,10 @@ class PlayerViewModel @Inject constructor(
                 hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame
             )
 
-            if (playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart) {
+            if (
+                playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart &&
+                (hasRenderedFirstFrame || !currentMediaHasVideo())
+            ) {
                 playbackReporter.reportPlaybackStatus()
             }
 
@@ -1213,6 +1292,7 @@ class PlayerViewModel @Inject constructor(
                 applyPendingTrackSelectionsIfNeeded()
                 updateTrackInformation()
             }
+            updateMpvWatchdog()
 
             if (playbackState == Player.STATE_ENDED) {
                 handlePlaybackCompleted()
@@ -1234,18 +1314,30 @@ class PlayerViewModel @Inject constructor(
                 isPlaying = playWhenReady && playbackState == Player.STATE_READY,
                 isLoading = shouldShowLoading
             )
+            updateMpvWatchdog()
         }
 
         override fun onRenderedFirstFrame() {
+            cancelMpvWatchdog()
             hasRenderedFirstFrame = true
             _playerState.value = _playerState.value.copy(
                 isLoading = false,
                 hasStartedPlayback = true
             )
+            if (
+                exoPlayer?.playWhenReady == true &&
+                exoPlayer?.playbackState == Player.STATE_READY &&
+                !playbackReporter.hasReportedStart()
+            ) {
+                playbackReporter.reportPlaybackStatus()
+            }
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             hasRenderedFirstFrame = false
+            if (triggerMpvFallback()) {
+                return
+            }
             _playerState.value = _playerState.value.copy(
                 error = error.message ?: "Playback error occurred",
                 isLoading = false,

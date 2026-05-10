@@ -3,6 +3,7 @@ package com.jellycine.app.ui.screens.player
 import android.util.Log
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.shared.playback.PlaybackRefreshSignals
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -125,6 +126,8 @@ internal class PlayerPlaybackReporter(
                 try {
                     delay(PROGRESS_REPORT_INTERVAL_MS)
                     reportPlaybackProgressNow()
+                } catch (_: CancellationException) {
+                    break
                 } catch (error: Exception) {
                     Log.e(TAG, "Error in progress reporting loop", error)
                     break
