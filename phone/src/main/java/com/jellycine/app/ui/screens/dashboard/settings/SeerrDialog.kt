@@ -142,7 +142,7 @@ internal fun SeerrConnectionDialog(
                     value = usernameInput,
                     onValueChange = { usernameInput = it },
                     enabled = !isBusy,
-                    label = stringResource(R.string.username),
+                    label = stringResource(R.string.settings_seerr_login_identifier),
                     leadingIcon = Icons.Rounded.Person
                 )
 

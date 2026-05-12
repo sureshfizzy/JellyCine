@@ -1,17 +1,6 @@
 package com.jellycine.data.api
 
-import com.jellycine.data.model.SeerrCombinedCreditsResponse
-import com.jellycine.data.model.SeerrCurrentUserResponse
-import com.jellycine.data.model.SeerrLoginRequest
-import com.jellycine.data.model.SeerrPersonDetailsResponse
-import com.jellycine.data.model.SeerrQuotaResponse
-import com.jellycine.data.model.SeerrRequestsResponse
-import com.jellycine.data.model.SeerrSearchResponse
-import com.jellycine.data.model.SeerrServiceServerResponse
-import com.jellycine.data.model.SeerrServiceSettingsResponse
-import com.jellycine.data.model.SeerrStatusResponse
-import com.jellycine.data.model.SeerrTitleDetailsResponse
-import com.jellycine.data.model.SeerrTitleRequest
+import com.jellycine.data.model.*
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.network.ApiResponse
 import com.jellycine.data.network.trimTrailingSlash
@@ -39,6 +28,8 @@ internal class SeerrApiClient(
     suspend fun status(): ApiResponse<SeerrStatusResponse> = get("status")
 
     suspend fun login(request: SeerrLoginRequest): ApiResponse<Unit> = post("auth/jellyfin", request)
+
+    suspend fun loginLocal(request: SeerrLocalLoginRequest): ApiResponse<Unit> = post("auth/local", request)
 
     suspend fun currentUser(): ApiResponse<SeerrCurrentUserResponse> = get("auth/me")
 

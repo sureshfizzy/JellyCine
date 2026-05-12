@@ -370,6 +370,7 @@
     <string name="settings_seerr_dialog_title">Connect Seerr</string>
     <string name="settings_seerr_connect_button">Connect to Seerr</string>
     <string name="settings_seerr_url_hint">https://your-seerr.example.com</string>
+    <string name="settings_seerr_login_identifier">Username or email</string>
     <string name="settings_seerr_saved_url">Saved URL: %1$s</string>
     <string name="settings_seerr_version">Server version: %1$s</string>
     <string name="settings_seerr_refresh_status">Refresh status</string>

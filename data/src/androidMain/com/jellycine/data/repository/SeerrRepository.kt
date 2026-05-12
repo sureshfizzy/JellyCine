@@ -866,6 +866,16 @@ class SeerrRepository(context: Context) {
             val statusPayload = getStatusPayload(api).getOrElse { error ->
                 return Result.failure(error)
             }
+            if (username.isEmailAddress()) {
+                return performLocalSignInRequest(
+                    api = api,
+                    client = client,
+                    serverUrl = serverUrl,
+                    email = username,
+                    password = password,
+                    statusPayload = statusPayload
+                )
+            }
             val initialAttempt = performSignInRequest(
                 api = api,
                 client = client,
@@ -895,6 +905,41 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    private suspend fun performLocalSignInRequest(
+        api: SeerrApiClient,
+        client: HttpClient,
+        serverUrl: String,
+        email: String,
+        password: String,
+        statusPayload: SeerrStatusResponse
+    ): Result<SignInResult> {
+        val response = api.loginLocal(
+            SeerrLocalLoginRequest(
+                email = email,
+                password = password
+            )
+        )
+
+        return when {
+            response.isSuccessful -> authenticatedSignInResult(
+                response = response,
+                client = client,
+                serverUrl = serverUrl,
+                statusPayload = statusPayload
+            )
+
+            response.isAuthFailure() -> {
+                Result.failure(
+                    Exception(string(R.string.seerr_error_credentials_rejected))
+                )
+            }
+
+            else -> {
+                Result.failure(Exception(string(R.string.seerr_error_sign_in_http, response.code())))
+            }
+        }
+    }
+
     private suspend fun performSignInRequest(
         api: SeerrApiClient,
         client: HttpClient,
@@ -914,29 +959,12 @@ class SeerrRepository(context: Context) {
         )
 
         return when {
-            response.isSuccessful -> {
-                val sessionCookie = response.headers().sessionCookie()
-                    ?: return Result.failure(
-                        Exception(string(R.string.seerr_error_missing_session_cookie))
-                    )
-                val authenticatedApi = SeerrApiClient(
-                    serverUrl = serverUrl,
-                    client = client,
-                    sessionCookie = sessionCookie
-                )
-                Result.success(
-                    SignInResult(
-                        connection = buildConnectionInfo(
-                            serverUrl = serverUrl,
-                            serverVersion = statusPayload.version,
-                            requestLimits = authenticatedApi.currentUser().body()?.id?.let { userId ->
-                                fetchEffectiveRequestLimits(authenticatedApi, userId)
-                            }
-                        ),
-                        sessionCookie = sessionCookie
-                    )
-                )
-            }
+            response.isSuccessful -> authenticatedSignInResult(
+                response = response,
+                client = client,
+                serverUrl = serverUrl,
+                statusPayload = statusPayload
+            )
 
             response.isAuthFailure() -> {
                 Result.failure(
@@ -953,6 +981,35 @@ class SeerrRepository(context: Context) {
                 Result.failure(Exception(string(R.string.seerr_error_sign_in_http, response.code())))
             }
         }
+    }
+
+    private suspend fun authenticatedSignInResult(
+        response: ApiResponse<Unit>,
+        client: HttpClient,
+        serverUrl: String,
+        statusPayload: SeerrStatusResponse
+    ): Result<SignInResult> {
+        val sessionCookie = response.headers().sessionCookie()
+            ?: return Result.failure(
+                Exception(string(R.string.seerr_error_missing_session_cookie))
+            )
+        val authenticatedApi = SeerrApiClient(
+            serverUrl = serverUrl,
+            client = client,
+            sessionCookie = sessionCookie
+        )
+        return Result.success(
+            SignInResult(
+                connection = buildConnectionInfo(
+                    serverUrl = serverUrl,
+                    serverVersion = statusPayload.version,
+                    requestLimits = authenticatedApi.currentUser().body()?.id?.let { userId ->
+                        fetchEffectiveRequestLimits(authenticatedApi, userId)
+                    }
+                ),
+                sessionCookie = sessionCookie
+            )
+        )
     }
 
     private suspend fun verifyConnection(
@@ -1201,6 +1258,14 @@ class SeerrRepository(context: Context) {
     }
 
     private fun String?.ifNotBlank(): String? = this?.takeIf { it.isNotBlank() }
+
+    private fun String.isEmailAddress(): Boolean {
+        val trimmed = trim()
+        return trimmed.count { it == '@' } == 1 &&
+            trimmed.substringBefore('@').isNotBlank() &&
+            trimmed.substringAfter('@').contains('.') &&
+            !trimmed.any { it.isWhitespace() }
+    }
 
     private fun Int?.hasSeerrPermission(permission: Int): Boolean {
         return this != null && (this and permission) == permission

@@ -16,6 +16,12 @@ internal data class SeerrLoginRequest(
 )
 
 @Serializable
+internal data class SeerrLocalLoginRequest(
+    val email: String,
+    val password: String
+)
+
+@Serializable
 internal data class SeerrTitleRequest(
     val mediaType: String,
     val mediaId: Int,
