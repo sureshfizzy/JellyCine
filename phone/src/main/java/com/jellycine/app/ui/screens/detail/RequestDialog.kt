@@ -95,8 +95,9 @@ internal fun SeerrRequestDialog(
                 .toSet()
         )
     }
+    var request4K by remember(options) { mutableStateOf(false) }
 
-    val showAdvanced = options.canUseAdvancedRequests
+    val showAdvanced = options.canUseAdvancedRequests && !request4K
     val showDestination = showAdvanced && options.destinations.isNotEmpty()
     val showQualityProfile = showAdvanced && selectedDestination?.qualityProfiles.orEmpty().size > 1
     val showRootFolder = showAdvanced && selectedDestination?.rootFolders.orEmpty().size > 1
@@ -134,16 +135,10 @@ internal fun SeerrRequestDialog(
                 )
 
                 if (options.canRequest4K) {
-                    Request4KButton(
-                        enabled = canRequest,
-                        onClick = {
-                            onConfirm(
-                                SeerrRequestSelection(
-                                    is4K = true,
-                                    seasons = selectedSeasonNumbers()
-                                )
-                            )
-                        }
+                    Request4KToggle(
+                        checked = request4K,
+                        enabled = true,
+                        onCheckedChange = { request4K = it }
                     )
                 }
 
@@ -236,11 +231,19 @@ internal fun SeerrRequestDialog(
                             val destination = selectedDestination
                             onConfirm(
                                 SeerrRequestSelection(
-                                    serverId = destination?.id,
-                                    profileId = selectedProfileId ?: destination?.defaultQualityProfile()?.id,
-                                    rootFolder = selectedRootFolder ?: destination?.defaultRootFolderOption()?.path,
-                                    languageProfileId = destination?.defaultLanguageProfileId,
-                                    is4K = false,
+                                    serverId = if (request4K) null else destination?.id,
+                                    profileId = if (request4K) {
+                                        null
+                                    } else {
+                                        selectedProfileId ?: destination?.defaultQualityProfile()?.id
+                                    },
+                                    rootFolder = if (request4K) {
+                                        null
+                                    } else {
+                                        selectedRootFolder ?: destination?.defaultRootFolderOption()?.path
+                                    },
+                                    languageProfileId = if (request4K) null else destination?.defaultLanguageProfileId,
+                                    is4K = request4K,
                                     seasons = selectedSeasonNumbers()
                                 )
                             )
@@ -257,6 +260,8 @@ internal fun SeerrRequestDialog(
                         Text(
                             text = if (isSeriesRequest && !canRequest) {
                                 stringResource(R.string.detail_seerr_select_seasons)
+                            } else if (request4K) {
+                                stringResource(R.string.detail_seerr_request_4k)
                             } else {
                                 stringResource(R.string.detail_seerr_request)
                             },
@@ -330,35 +335,50 @@ private fun AdvancedRequestFields(
 }
 
 @Composable
-private fun Request4KButton(
+private fun Request4KToggle(
+    checked: Boolean,
     enabled: Boolean,
-    onClick: () -> Unit
+    onCheckedChange: (Boolean) -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, bottom = 14.dp),
-        horizontalArrangement = Arrangement.End
+            .padding(start = 20.dp, end = 20.dp, bottom = 14.dp)
+            .clickable(enabled = enabled) { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF1D2634).copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, Color(0xFF8D7CFF).copy(alpha = if (checked) 0.58f else 0.20f))
     ) {
-        Button(
-            enabled = enabled,
-            onClick = onClick,
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF6D5DF7),
-                contentColor = Color.White,
-                disabledContainerColor = Color(0xFF6D5DF7).copy(alpha = 0.36f),
-                disabledContentColor = Color.White.copy(alpha = 0.42f)
-            ),
-            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Request 4K",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 14.sp,
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.detail_seerr_request_4k),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White.copy(alpha = if (enabled) 0.94f else 0.46f),
                     fontWeight = FontWeight.Bold
-                ),
-                fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.detail_seerr_request_4k_subtitle),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = Color.White.copy(alpha = if (enabled) 0.62f else 0.34f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Switch(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = null
             )
         }
     }

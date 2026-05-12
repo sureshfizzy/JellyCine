@@ -700,11 +700,10 @@ class SeerrRepository(context: Context) {
             }
             val canUseAdvancedRequests = hasAdminPermission ||
                 currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_REQUEST_ADVANCED)
+            val has4KPermission = currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_REQUEST_4K) ||
+                currentUser.permissions.hasSeerrPermission(media4KPermission)
             val canRequest4K = hasAdminPermission ||
-                (
-                    currentUser.permissions.hasSeerrPermission(SEERR_PERMISSION_REQUEST_4K) &&
-                        currentUser.permissions.hasSeerrPermission(media4KPermission)
-                    )
+                has4KPermission
             val titleDetails = api.titleDetails(normalizedMediaType, seerTmdbId)
                 .mapBody(
                     parseError = string(R.string.seerr_error_title_details_parse),
