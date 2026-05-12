@@ -996,13 +996,13 @@ fun DetailContent(
                     .padding(horizontal = 14.dp)
                     .offset(y = (-42).dp)
             ) {
-                if (reserveLogoSpace) {
+                if (reserveLogoSpace || showTitleFallback) {
                     Box(
                         modifier = Modifier
                             .height(78.dp)
                             .fillMaxWidth()
                     ) {
-                        if (!logoImageUrl.isNullOrBlank()) {
+                        if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
                             JellyfinPosterImage(
                                 imageUrl = if (isLoading) null else logoImageUrl,
                                 contentDescription = item.name,
@@ -1017,16 +1017,21 @@ fun DetailContent(
                                     logoLoadError = hasError
                                 }
                             )
+                        } else if (showTitleFallback) {
+                            Text(
+                                text = logoFallbackTitle,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                lineHeight = 30.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .offset(y = (-2).dp)
+                            )
                         }
                     }
-                } else if (showTitleFallback) {
-                    Text(
-                        text = logoFallbackTitle,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        lineHeight = 30.sp
-                    )
                 }
 
                 if (isEpisode) {
