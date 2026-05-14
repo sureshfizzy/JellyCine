@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.MergeType
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.VideoLibrary
@@ -78,6 +79,10 @@ fun InterfaceSettingsScreen(
     val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isUseMyMediaTabEnabled()
+        )
+    val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isMergeVersionsEnabled()
         )
 
     Scaffold(
@@ -163,6 +168,18 @@ fun InterfaceSettingsScreen(
                         onCheckedChange = preferences::setUseMyMediaTabEnabled,
                         accentColor = Color(0xFFEC4899)
                     )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    InterfaceSwitchItem(
+                        icon = Icons.Rounded.MergeType,
+                        title = stringResource(R.string.interface_merge_versions),
+                        subtitle = stringResource(R.string.interface_merge_versions_subtitle),
+                        checked = mergeVersionsEnabled,
+                        onCheckedChange = preferences::setMergeVersionsEnabled,
+                        accentColor = Color(0xFF14B8A6)
+                    )
                     if (isEmbyServer) {
                         HorizontalDivider(
                             thickness = 1.dp,
@@ -243,4 +260,3 @@ private fun InterfaceSwitchItem(
         )
     }
 }
-

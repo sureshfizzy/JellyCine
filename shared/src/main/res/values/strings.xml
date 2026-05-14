@@ -497,6 +497,8 @@
     <string name="interface_next_up_subtitle">Show the Next Up section on the Home screen.</string>
     <string name="interface_use_my_media_tab">Use My Media Tab</string>
     <string name="interface_use_my_media_tab_subtitle">Replace the For You tab with the classic library grid.</string>
+    <string name="interface_merge_versions">Merge Versions</string>
+    <string name="interface_merge_versions_subtitle">Show matching local movie files on one details screen.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Disable Emby poster overlays.</string>
     <string name="interface_seerr_settings">Seerr Settings</string>

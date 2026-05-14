@@ -82,6 +82,7 @@ internal class MediaServerApiClient(
         limit: Int?,
         startIndex: Int?,
         filters: String?,
+        anyProviderIdEquals: String?,
         fields: String?
     ): ApiResponse<QueryResult<BaseItemDto>> = get(
         endpoint = "Users/$userId/Items",
@@ -97,6 +98,7 @@ internal class MediaServerApiClient(
             "limit" to limit,
             "startIndex" to startIndex,
             "filters" to filters,
+            "AnyProviderIdEquals" to anyProviderIdEquals,
             "fields" to fields
         )
     )

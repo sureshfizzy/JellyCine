@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.rememberImageUrl
@@ -270,6 +271,43 @@ fun DetailScreenContainer(
         }
     }
 
+    fun selectLocalVersion(selectedItemId: String) {
+        val selectingEpisode = currentScreen == "episode" && episodeItem != null
+        val currentItemId = if (selectingEpisode) episodeItem?.id else item?.id
+        if (selectedItemId.isBlank() || selectedItemId == currentItemId) return
+
+        scope.launch {
+            if (selectingEpisode) {
+                isEpisodeLoading = true
+                episodeError = null
+            } else {
+                isLoading = true
+                error = null
+            }
+
+            mediaRepository.getItemById(selectedItemId).fold(
+                onSuccess = { selectedItem ->
+                    if (selectingEpisode) {
+                        episodeItem = selectedItem
+                        isEpisodeLoading = false
+                    } else {
+                        item = selectedItem
+                        isLoading = false
+                    }
+                },
+                onFailure = { exception ->
+                    if (selectingEpisode) {
+                        episodeError = exception.message
+                        isEpisodeLoading = false
+                    } else {
+                        error = exception.message
+                        isLoading = false
+                    }
+                }
+            )
+        }
+    }
+
     LaunchedEffect(itemId) {
         try {
             isLoading = true
@@ -447,6 +485,7 @@ fun DetailScreenContainer(
                                     onSimilarItemClick = { selectedItemId ->
                                         onNavigateToDetail(selectedItemId)
                                     },
+                                    onVersionItemSelected = ::selectLocalVersion,
                                     onPersonClick = { personId ->
                                         onNavigateToPerson(personId)
                                     },
@@ -514,6 +553,7 @@ fun DetailScreenContainer(
                                             onSimilarItemClick = { selectedItemId ->
                                                 onNavigateToDetail(selectedItemId)
                                             },
+                                            onVersionItemSelected = ::selectLocalVersion,
                                             onPersonClick = { personId ->
                                                 onNavigateToPerson(personId)
                                             },
@@ -573,6 +613,7 @@ fun DetailScreen(
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
@@ -584,6 +625,7 @@ fun DetailScreen(
         onPlayClick = onPlayClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
+        onVersionItemSelected = onVersionItemSelected,
         onPersonClick = onPersonClick,
         onSeasonClick = onSeasonClick
     )
@@ -598,6 +640,7 @@ fun DetailContent(
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
 ) {
@@ -605,11 +648,14 @@ fun DetailContent(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val playerPreferences = remember { PlayerPreferences(context) }
+    val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
     val configuration = LocalConfiguration.current
     val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
                              configuration.screenWidthDp >= 600
+    val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
+        .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -623,9 +669,10 @@ fun DetailContent(
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember(item.id) { mutableStateOf(0) }
     val backdropImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
-    var logoImageUrl by remember(item.id) { mutableStateOf<String?>(null) }
-    var logoLookup by remember(item.id) { mutableStateOf(true) }
-    var logoLoadError by remember(item.id) { mutableStateOf(false) }
+    var logoImageUrl by remember { mutableStateOf<String?>(null) }
+    var logoResolved by remember { mutableStateOf(false) }
+    var logoLookup by remember { mutableStateOf(true) }
+    var logoLoadError by remember { mutableStateOf(false) }
     val effectiveMediaStreams = remember(item.mediaStreams, item.mediaSources) {
         val fromSources = item.mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
         if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
@@ -677,8 +724,8 @@ fun DetailContent(
     } else {
         item.name?.takeIf { it.isNotBlank() } ?: "Unknown"
     }
-    val reserveLogoSpace = (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
-    val showTitleFallback = !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
+    val reserveLogoSpace = isLoading || (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
+    val showTitleFallback = !isLoading && !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
     val genresText = remember(item.genres) {
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     }
@@ -705,6 +752,7 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    var localVersions by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val directors = remember(item.people) {
         item.people?.filter { person ->
             listOf(person.role, person.type).any { field ->
@@ -780,13 +828,22 @@ fun DetailContent(
         )
         heroImageIndex = 0
 
+        if (logoResolved) {
+            logoLookup = false
+            return@LaunchedEffect
+        }
+
         logoLookup = true
         logoLoadError = false
         try {
-            logoImageUrl = logoImage(
+            val nextLogoImageUrl = logoImage(
                 item = item,
                 mediaRepository = mediaRepository
             )
+            if (nextLogoImageUrl != logoImageUrl) {
+                logoImageUrl = nextLogoImageUrl
+            }
+            logoResolved = true
         } finally {
             logoLookup = false
         }
@@ -851,6 +908,24 @@ fun DetailContent(
             )
     }
 
+    LaunchedEffect(item.id, item.type, mergeVersionsEnabled) {
+        val supportsLocalVersions = item.type.equals("Movie", ignoreCase = true) ||
+            item.type.equals("Episode", ignoreCase = true)
+        if (
+            !mergeVersionsEnabled ||
+            !supportsLocalVersions ||
+            item.id.isNullOrBlank()
+        ) {
+            localVersions = emptyList()
+            return@LaunchedEffect
+        }
+
+        mediaRepository.getLocalVersions(item)
+            .getOrNull()
+            ?.filter { version -> !version.id.isNullOrBlank() }
+            ?.let { versions -> localVersions = versions }
+    }
+
     val moreFromSeasonTitle = remember(item.seasonName, item.parentIndexNumber) {
         val seasonLabel = item.parentIndexNumber?.let { "Season $it" }
             ?: item.seasonName?.takeIf { it.isNotBlank() }
@@ -858,7 +933,18 @@ fun DetailContent(
         "More from $seasonLabel"
     }
 
-    val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
+    val baseVideoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
+    val localVersionEntries = remember(localVersions, item.id) {
+        if (localVersions.size > 1) {
+            val orderedVersions = localVersions.sortedByDescending { version -> version.id == item.id }
+            OptionLabels(orderedVersions.map { version -> version.localVersionVideoLabel() })
+                .zip(orderedVersions)
+        } else {
+            emptyList()
+        }
+    }
+    val localVersionOptions = localVersionEntries.map { (label, _) -> label }
+    val videoOptions = localVersionOptions.ifEmpty { baseVideoOptions }
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
     val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
     val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
@@ -869,12 +955,17 @@ fun DetailContent(
     )
     val videoInlineMetaText = remember(
         item.mediaSources,
-        effectiveMediaStreams
+        effectiveMediaStreams,
+        localVersionOptions
     ) {
-        buildVideoInlineText(
-            mediaSources = item.mediaSources.orEmpty(),
-            streams = effectiveMediaStreams
-        )
+        if (localVersionOptions.isNotEmpty()) {
+            null
+        } else {
+            buildVideoInlineText(
+                mediaSources = item.mediaSources.orEmpty(),
+                streams = effectiveMediaStreams
+            )
+        }
     }
 
     fun persistTrackSelection(audioOption: String, subtitleOption: String): Pair<Int?, Int?> {
@@ -895,7 +986,13 @@ fun DetailContent(
     }
 
     val onVideoOptionSelected: (String) -> Unit = { option ->
-        selectedVideo = option
+        val selectedVersion = localVersionEntries.firstOrNull { (label, _) -> label == option }?.second
+        val selectedVersionId = selectedVersion?.id
+        if (selectedVersionId != null && selectedVersionId != item.id) {
+            onVersionItemSelected(selectedVersionId)
+        } else {
+            selectedVideo = option
+        }
     }
     val onAudioOptionSelected: (String) -> Unit = { option ->
         selectedAudio = option
@@ -1004,7 +1101,7 @@ fun DetailContent(
                     ) {
                         if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
                             JellyfinPosterImage(
-                                imageUrl = if (isLoading) null else logoImageUrl,
+                                imageUrl = logoImageUrl,
                                 contentDescription = item.name,
                                 modifier = Modifier
                                     .fillMaxWidth(0.94f)
@@ -2234,6 +2331,18 @@ private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourc
     } ?: sources.firstOrNull()
 }
 
+private fun BaseItemDto.localVersionVideoLabel(): String {
+    val streams = mediaStreams.orEmpty() + mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
+    val videoTitle = buildVideoOptions(streams).firstOrNull() ?: "Video"
+    val inlineText = buildVideoInlineText(
+        mediaSources = mediaSources.orEmpty(),
+        streams = streams
+    )
+    return listOfNotNull(videoTitle, inlineText)
+        .filter { it.isNotBlank() }
+        .joinToString(" / ")
+}
+
 private fun formatBitrate(bitsPerSecond: Int?): String? = formatBitrate(bitsPerSecond?.toLong())
 
 private fun formatBitrate(bitsPerSecond: Long?): String? {
@@ -2496,11 +2605,7 @@ private suspend fun logoImage(
     item: BaseItemDto,
     mediaRepository: MediaRepository
 ): String? {
-    val logoItemId = if (item.type == "Episode") {
-        item.seriesId ?: item.id
-    } else {
-        item.id
-    } ?: return null
+    val logoItemId = item.logoItemId() ?: return null
 
     return mediaRepository.getImageUrl(
         itemId = logoItemId,
@@ -2512,6 +2617,14 @@ private suspend fun logoImage(
             targetItemId = logoItemId
         )
     ).first()
+}
+
+private fun BaseItemDto.logoItemId(): String? {
+    return if (type == "Episode") {
+        seriesId ?: id
+    } else {
+        id
+    }
 }
 
 private fun episodeHeaderText(item: BaseItemDto): String? {

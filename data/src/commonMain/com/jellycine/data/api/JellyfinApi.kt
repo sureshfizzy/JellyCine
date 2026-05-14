@@ -49,6 +49,7 @@ interface MediaServerApi {
         limit: Int? = null,
         startIndex: Int? = null,
         filters: String? = null,
+        anyProviderIdEquals: String? = null,
         fields: String? = null
     ): ApiResponse<QueryResult<BaseItemDto>>
 

@@ -19,6 +19,7 @@ class Preferences(context: Context) {
         private const val KEY_CONTINUE_WATCHING_ENABLED = "continue_watching_enabled"
         private const val KEY_NEXT_UP_ENABLED = "next_up_enabled"
         private const val KEY_USE_MY_MEDIA_TAB = "use_my_media_tab"
+        private const val KEY_MERGE_VERSIONS_ENABLED = "merge_versions_enabled"
         private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
     }
@@ -136,6 +137,27 @@ class Preferences(context: Context) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
+    fun isMergeVersionsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_MERGE_VERSIONS_ENABLED, false)
+    }
+
+    fun setMergeVersionsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MERGE_VERSIONS_ENABLED, enabled).apply()
+    }
+
+    fun MergeVersionsEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isMergeVersionsEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_MERGE_VERSIONS_ENABLED) {
+                trySend(isMergeVersionsEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     fun isSeerrStudiosEnabled(): Boolean {
         return prefs.getBoolean(KEY_SEERR_STUDIOS_ENABLED, true)
     }
@@ -178,4 +200,3 @@ class Preferences(context: Context) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 }
-

@@ -54,6 +54,7 @@ class MediaRepository(private val context: Context) {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
+        private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
     }
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
@@ -393,7 +394,6 @@ class MediaRepository(private val context: Context) {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
             val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
             val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber"
-
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,
@@ -461,6 +461,47 @@ class MediaRepository(private val context: Context) {
         return Result.success(mergedSegments)
     }
 
+    suspend fun getLocalVersions(item: BaseItemDto): Result<List<BaseItemDto>> {
+        return try {
+            val itemType = item.type?.takeIf { type ->
+                type.equals("Movie", ignoreCase = true) ||
+                    type.equals("Episode", ignoreCase = true)
+            } ?: return Result.success(emptyList())
+
+            if (item.id.isNullOrBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val providerLookup = item.localVersionLookup()
+                ?: return Result.success(listOf(item))
+
+            val result = getUserItems(
+                includeItemTypes = itemType,
+                recursive = true,
+                anyProviderIdEquals = providerLookup,
+                limit = 100,
+                fields = "MediaStreams,MediaSources,UserData"
+            )
+
+            if (result.isFailure) {
+                return Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch local versions"))
+            }
+
+            val versions = (listOf(item) + result.getOrThrow().items.orEmpty())
+                .asSequence()
+                .filter { candidate ->
+                    candidate.id != null &&
+                        candidate.type.equals(itemType, ignoreCase = true)
+                }
+                .distinctBy { candidate -> candidate.id }
+                .toList()
+
+            Result.success(versions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getSimilarItems(
         itemId: String,
         limit: Int = 12,
@@ -500,6 +541,7 @@ class MediaRepository(private val context: Context) {
         limit: Int? = null,
         startIndex: Int? = null,
         filters: String? = null,
+        anyProviderIdEquals: String? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
@@ -519,6 +561,7 @@ class MediaRepository(private val context: Context) {
                 limit = limit,
                 startIndex = startIndex,
                 filters = filters,
+                anyProviderIdEquals = anyProviderIdEquals,
                 fields = fields
             )
 
@@ -1683,6 +1726,18 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun BaseItemDto.localVersionLookup(): String? {
+        val ids = providerIds.orEmpty()
+        return PROVIDER_KEYS.firstNotNullOfOrNull { key ->
+            ids.entries
+                .firstOrNull { (providerKey, value) ->
+                    providerKey.equals(key, ignoreCase = true) && value.isNotBlank()
+                }
+                ?.value
+                ?.let { value -> "$key.$value" }
         }
     }
 
