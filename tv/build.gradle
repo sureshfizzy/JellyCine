@@ -150,7 +150,7 @@ dependencies {
     implementation 'org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1'
 
     // Audio and video processing
-    implementation 'androidx.media3:media3-effect:1.10.0'
+    implementation 'androidx.media3:media3-effect:1.10.1'
 
     // Permissions handling
     implementation 'com.google.accompanist:accompanist-permissions:0.37.3'
