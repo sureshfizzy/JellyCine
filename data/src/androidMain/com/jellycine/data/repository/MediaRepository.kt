@@ -21,7 +21,9 @@ import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.model.UserDto
+import com.jellycine.data.model.toSearchQueries
 import com.jellycine.data.network.HttpStatusException
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerType
@@ -43,6 +45,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class EpisodeNavigationIds(
     val previousEpisodeId: String? = null,
@@ -1611,6 +1614,42 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun searchItems(
+        searchTerm: String,
+        selectedTypes: Set<SearchMediaType>,
+        limit: Int? = 60
+    ): Result<List<BaseItemDto>> = coroutineScope {
+        val searchQueries = selectedTypes.toSearchQueries()
+        if (searchQueries.isEmpty()) {
+            return@coroutineScope Result.success(emptyList())
+        }
+
+        val results = searchQueries.map { (includeItemTypes, timeoutMs) ->
+            async {
+                runCatching {
+                    withTimeoutOrNull(timeoutMs) {
+                        searchItems(
+                            searchTerm = searchTerm,
+                            includeItemTypes = includeItemTypes,
+                            limit = limit
+                        ).getOrNull()
+                    }
+                }.getOrNull()
+            }
+        }.awaitAll()
+
+        val items = results
+            .filterNotNull()
+            .flatten()
+            .distinctBy { item -> item.id ?: "${item.type}:${item.name}" }
+
+        if (items.isEmpty() && results.all { it == null }) {
+            Result.failure(Exception(string(R.string.media_error_search_items_failed, 0, "Search timed out")))
+        } else {
+            Result.success(items)
         }
     }
 

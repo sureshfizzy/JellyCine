@@ -8,6 +8,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrDiscoveryCategory
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository
@@ -21,6 +22,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import java.util.Locale
 import javax.inject.Inject
+
+private val defaultSearchTypes = setOf(
+    SearchMediaType.MOVIE,
+    SearchMediaType.SERIES
+)
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -38,6 +44,9 @@ class SearchViewModel @Inject constructor(
 
     private val _selectedDiscoveryTab = MutableStateFlow(SearchDiscoveryTab.SUGGESTIONS)
     val selectedDiscoveryTab: StateFlow<SearchDiscoveryTab> = _selectedDiscoveryTab.asStateFlow()
+
+    private val _selectedSearchTypes = MutableStateFlow(defaultSearchTypes)
+    val selectedSearchTypes: StateFlow<Set<SearchMediaType>> = _selectedSearchTypes.asStateFlow()
 
     private var searchJob: Job? = null
     private var seerrScopeId: String? = null
@@ -84,6 +93,21 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    fun toggleSearchType(type: SearchMediaType) {
+        val currentTypes = _selectedSearchTypes.value
+        val nextTypes = if (type in currentTypes) {
+            currentTypes - type
+        } else {
+            currentTypes + type
+        }
+        if (nextTypes.isEmpty() || nextTypes == currentTypes) return
+
+        _selectedSearchTypes.value = nextTypes
+        if (_searchQuery.value.isNotBlank()) {
+            executeSearch()
+        }
+    }
+
     fun executeSearch() {
         val query = _searchQuery.value
         if (query.isNotEmpty()) {
@@ -102,19 +126,34 @@ class SearchViewModel @Inject constructor(
 
         val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
         val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
-        val seerrTitles = fetchSeerrTitles(
-            query = query,
-            activeServerId = activeServerId,
-            isSeerrConnected = isSeerrConnected
-        )
+        val selectedTypes = _selectedSearchTypes.value
+        val seerrTitles = if (
+            SearchMediaType.MOVIE in selectedTypes ||
+            SearchMediaType.SERIES in selectedTypes
+        ) {
+            fetchSeerrTitles(
+                query = query,
+                activeServerId = activeServerId,
+                isSeerrConnected = isSeerrConnected
+            )
+        } else {
+            emptyList()
+        }
 
-        val localItems = loadServerSearchItems(query)
+        val localItems = mediaRepository.searchItems(
+            searchTerm = query,
+            selectedTypes = selectedTypes,
+            limit = 60
+        ).getOrNull()?.let { items ->
+            filterSearchItems(items, query)
+        }
         if (localItems == null) {
             if (seerrTitles.isNotEmpty()) {
                 applySearchResults(
                     localItems = emptyList(),
                     seerrTitles = seerrTitles,
-                    query = query
+                    query = query,
+                    selectedTypes = selectedTypes
                 )
             } else {
                 _uiState.value = _uiState.value.copy(
@@ -128,22 +167,9 @@ class SearchViewModel @Inject constructor(
         applySearchResults(
             localItems = localItems,
             seerrTitles = seerrTitles,
-            query = query
+            query = query,
+            selectedTypes = selectedTypes
         )
-    }
-
-    private suspend fun loadServerSearchItems(query: String): List<BaseItemDto>? {
-        return try {
-            mediaRepository.searchItems(
-                searchTerm = query,
-                includeItemTypes = "Movie,Series,Episode",
-                limit = 60
-            ).getOrNull()?.let { items ->
-                filterSearchItems(items, query)
-            }
-        } catch (_: Exception) {
-            null
-        }
     }
 
     private fun loadsuggestions() {
@@ -288,28 +314,37 @@ class SearchViewModel @Inject constructor(
     private fun applySearchResults(
         localItems: List<BaseItemDto>,
         seerrTitles: List<SeerrRecommendationTitle>,
-        query: String
+        query: String,
+        selectedTypes: Set<SearchMediaType>
     ) {
-        val movieResults = localItems.filter { it.type == "Movie" }.take(20)
-        val showResults = localItems.filter { it.type == "Series" }.take(20)
-        val episodeResults = localItems.filter { it.type == "Episode" }.take(20)
+        val movieResults = localItems.resultsFor(SearchMediaType.MOVIE, selectedTypes)
+        val showResults = localItems.resultsFor(SearchMediaType.SERIES, selectedTypes)
+        val episodeResults = localItems.resultsFor(SearchMediaType.EPISODE, selectedTypes)
 
         _uiState.value = _uiState.value.copy(
             movieResults = movieResults,
             showResults = showResults,
             episodeResults = episodeResults,
-            seerrMovieResults = buildSeerrResults(
-                seerrTitles = seerrTitles,
-                mediaType = "movie",
-                query = query,
-                localItems = movieResults
-            ),
-            seerrShowResults = buildSeerrResults(
-                seerrTitles = seerrTitles,
-                mediaType = "tv",
-                query = query,
-                localItems = showResults
-            ),
+            seerrMovieResults = if (SearchMediaType.MOVIE in selectedTypes) {
+                buildSeerrResults(
+                    seerrTitles = seerrTitles,
+                    mediaType = "movie",
+                    query = query,
+                    localItems = movieResults
+                )
+            } else {
+                emptyList()
+            },
+            seerrShowResults = if (SearchMediaType.SERIES in selectedTypes) {
+                buildSeerrResults(
+                    seerrTitles = seerrTitles,
+                    mediaType = "tv",
+                    query = query,
+                    localItems = showResults
+                )
+            } else {
+                emptyList()
+            },
             isSearching = false,
             error = null
         )
@@ -406,7 +441,14 @@ class SearchViewModel @Inject constructor(
         ALL_WORDS(4),
         SINGLE_WORD(5)
     }
+
 }
+
+private fun List<BaseItemDto>.resultsFor(
+    type: SearchMediaType,
+    selectedTypes: Set<SearchMediaType>
+): List<BaseItemDto> =
+    if (type in selectedTypes) filter { it.type == type.serverValue }.take(20) else emptyList()
 
 enum class SearchDiscoveryTab(val seerrCategory: SeerrDiscoveryCategory?) {
     SUGGESTIONS(null),

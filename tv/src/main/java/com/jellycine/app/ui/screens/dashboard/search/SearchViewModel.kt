@@ -3,6 +3,7 @@ package com.jellycine.app.ui.screens.dashboard.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import javax.inject.Inject
+
+private val defaultSearchTypes = setOf(
+    SearchMediaType.MOVIE,
+    SearchMediaType.SERIES
+)
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
@@ -23,6 +29,9 @@ class SearchViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _selectedSearchTypes = MutableStateFlow(defaultSearchTypes)
+    val selectedSearchTypes: StateFlow<Set<SearchMediaType>> = _selectedSearchTypes.asStateFlow()
 
     private var searchJob: Job? = null
 
@@ -58,6 +67,21 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    fun toggleSearchType(type: SearchMediaType) {
+        val currentTypes = _selectedSearchTypes.value
+        val nextTypes = if (type in currentTypes) {
+            currentTypes - type
+        } else {
+            currentTypes + type
+        }
+        if (nextTypes.isEmpty() || nextTypes == currentTypes) return
+
+        _selectedSearchTypes.value = nextTypes
+        if (_searchQuery.value.isNotBlank()) {
+            executeSearch()
+        }
+    }
+
     fun executeSearch() {
         val query = _searchQuery.value
         if (query.isNotEmpty()) {
@@ -74,7 +98,8 @@ class SearchViewModel @Inject constructor(
             error = null
         )
 
-        val cacheKey = query.lowercase().trim()
+        val selectedTypes = _selectedSearchTypes.value
+        val cacheKey = "${query.lowercase().trim()}|${selectedTypes.cacheKey()}"
         val cachedEntry = searchCache[cacheKey]
         val currentTime = System.currentTimeMillis()
 
@@ -90,18 +115,17 @@ class SearchViewModel @Inject constructor(
         }
 
         try {
-            val searchResult = mediaRepository.searchItems(
+            val allItems = mediaRepository.searchItems(
                 searchTerm = query,
-                includeItemTypes = "Movie,Series,Episode",
+                selectedTypes = selectedTypes,
                 limit = 60
-            )
-
-            val allItems = searchResult.getOrElse {
-                performClientSideSearch(query)
+            ).getOrNull()
+            if (allItems == null) {
+                performClientSideSearch(query, selectedTypes)
                 return
             }
             val filteredItems = filterSearchItems(allItems, query)
-            val categorizedResults = categorizeResults(filteredItems)
+            val categorizedResults = categorizeResults(filteredItems, selectedTypes)
 
             searchCache[cacheKey] = SearchCacheEntry(
                 movieResults = categorizedResults.movieResults,
@@ -119,55 +143,40 @@ class SearchViewModel @Inject constructor(
             )
 
         } catch (e: Exception) {
-            performClientSideSearch(query)
+            performClientSideSearch(query, selectedTypes)
         }
     }
-    
-    private suspend fun performClientSideSearch(query: String) {
+
+    private suspend fun performClientSideSearch(
+        query: String,
+        selectedTypes: Set<SearchMediaType>
+    ) {
         try {
-            val movieResult = mediaRepository.getUserItems(
-                includeItemTypes = "Movie",
-                recursive = true,
-                limit = 100,
-                sortBy = "SortName",
-                sortOrder = "Ascending"
-            )
-
-            val seriesResult = mediaRepository.getUserItems(
-                includeItemTypes = "Series",
-                recursive = true,
-                limit = 100,
-                sortBy = "SortName",
-                sortOrder = "Ascending"
-            )
-
             val allItems = mutableListOf<BaseItemDto>()
 
-            movieResult.getOrNull()?.items?.let { movies ->
-                allItems.addAll(movies)
-            }
-
-            seriesResult.getOrNull()?.items?.let { series ->
-                allItems.addAll(series)
+            selectedTypes.forEach { type ->
+                mediaRepository.getUserItems(
+                    includeItemTypes = type.serverValue,
+                    recursive = true,
+                    limit = 100,
+                    sortBy = "SortName",
+                    sortOrder = "Ascending"
+                ).getOrNull()?.items?.let { items ->
+                    allItems.addAll(items)
+                }
             }
 
             if (allItems.isEmpty()) {
-                val latestResult = mediaRepository.getLatestItems(
-                    includeItemTypes = "Movie,Series",
+                mediaRepository.getLatestItems(
+                    includeItemTypes = selectedTypes.joinToString(",") { it.serverValue },
                     limit = 50
-                )
-                latestResult.getOrNull()?.let { latest ->
+                ).getOrNull()?.let { latest ->
                     allItems.addAll(latest)
                 }
             }
 
-            val filteredResults = allItems.filter { item ->
-                val name = item.name.orEmpty()
-                val originalTitle = item.originalTitle.orEmpty()
-                name.contains(query, ignoreCase = true) ||
-                    originalTitle.contains(query, ignoreCase = true)
-            }.take(20)
-            val categorizedResults = categorizeResults(filteredResults)
+            val filteredResults = filterSearchItems(allItems, query).take(20)
+            val categorizedResults = categorizeResults(filteredResults, selectedTypes)
 
             _uiState.value = _uiState.value.copy(
                 movieResults = categorizedResults.movieResults,
@@ -176,7 +185,6 @@ class SearchViewModel @Inject constructor(
                 isSearching = false,
                 error = null
             )
-            
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(
                 isSearching = false,
@@ -238,14 +246,26 @@ class SearchViewModel @Inject constructor(
         return filteredItems.ifEmpty { items }
     }
 
-    private fun categorizeResults(items: List<BaseItemDto>): CategorizedSearchResults {
+    private fun categorizeResults(
+        items: List<BaseItemDto>,
+        selectedTypes: Set<SearchMediaType>
+    ): CategorizedSearchResults {
         return CategorizedSearchResults(
-            movieResults = items.filter { it.type == "Movie" }.take(20),
-            showResults = items.filter { it.type == "Series" }.take(20),
-            episodeResults = items.filter { it.type == "Episode" }.take(20)
+            movieResults = items.resultsFor(SearchMediaType.MOVIE, selectedTypes),
+            showResults = items.resultsFor(SearchMediaType.SERIES, selectedTypes),
+            episodeResults = items.resultsFor(SearchMediaType.EPISODE, selectedTypes)
         )
     }
 }
+
+private fun List<BaseItemDto>.resultsFor(
+    type: SearchMediaType,
+    selectedTypes: Set<SearchMediaType>
+): List<BaseItemDto> =
+    if (type in selectedTypes) filter { it.type == type.serverValue }.take(20) else emptyList()
+
+private fun Set<SearchMediaType>.cacheKey(): String =
+    map { it.serverValue }.sorted().joinToString(",")
 
 data class SearchUiState(
     val suggestions: List<BaseItemDto> = emptyList(),

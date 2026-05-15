@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.search
 
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.imageLoader
@@ -139,6 +141,7 @@ fun SearchContainer(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedDiscoveryTab by viewModel.selectedDiscoveryTab.collectAsStateWithLifecycle()
+    val selectedSearchTypes by viewModel.selectedSearchTypes.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
@@ -220,7 +223,7 @@ fun SearchContainer(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(top = 72.dp)
+                    .padding(top = 120.dp)
             ) {
                 if (uiState.isSearching) {
                     SearchResultsViewSkeleton()
@@ -259,6 +262,17 @@ fun SearchContainer(
             )
         }
 
+        if (isSearchActive) {
+            SearchTypeChips(
+                selectedTypes = selectedSearchTypes,
+                onToggle = viewModel::toggleSearchType,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(start = 16.dp, top = 72.dp, end = 16.dp)
+            )
+        }
+
         SearchBar(
             query = searchQuery,
             onQueryChange = viewModel::updateSearchQuery,
@@ -272,6 +286,49 @@ fun SearchContainer(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         )
     }
+}
+
+@Composable
+private fun SearchTypeChips(
+    selectedTypes: Set<SearchMediaType>,
+    onToggle: (SearchMediaType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SearchMediaType.entries.forEach { type ->
+            val selected = type in selectedTypes
+            Card(
+                modifier = Modifier.clickable { onToggle(type) },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selected) {
+                        Color.White
+                    } else {
+                        Color.White.copy(alpha = 0.12f)
+                    }
+                ),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Text(
+                    text = type.label(),
+                    color = if (selected) Color.Black else Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchMediaType.label(): String = when (this) {
+    SearchMediaType.MOVIE -> stringResource(R.string.movies)
+    SearchMediaType.SERIES -> stringResource(R.string.search_results_shows)
+    SearchMediaType.EPISODE -> stringResource(R.string.search_results_episodes)
 }
 
 private fun BaseItemDto.withJellyfinNavigationId(): BaseItemDto {
