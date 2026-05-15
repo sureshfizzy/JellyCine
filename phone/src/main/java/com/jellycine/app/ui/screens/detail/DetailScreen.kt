@@ -771,8 +771,11 @@ fun DetailContent(
     var logoResolved by remember { mutableStateOf(false) }
     var logoLookup by remember { mutableStateOf(true) }
     var logoLoadError by remember { mutableStateOf(false) }
-    val effectiveMediaStreams = remember(item.mediaStreams, item.mediaSources) {
-        val fromSources = item.mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
+    val activeMediaSources = remember(item.id, item.mediaSources) {
+        item.activeMediaSources()
+    }
+    val effectiveMediaStreams = remember(item.mediaStreams, activeMediaSources) {
+        val fromSources = activeMediaSources.flatMap { it.mediaStreams.orEmpty() }
         if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
     }
     val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
@@ -1235,7 +1238,12 @@ fun DetailContent(
         mediaRepository.getLocalVersions(item)
             .getOrNull()
             ?.filter { version -> !version.id.isNullOrBlank() }
-            ?.let { versions -> localVersions = versions }
+            ?.let { versions ->
+                val hasCurrentVersionList = localVersions.any { version -> version.id == item.id }
+                if (versions.size > 1 || !hasCurrentVersionList) {
+                    localVersions = versions
+                }
+            }
     }
 
     val moreFromSeasonTitle = remember(item.seasonName, item.parentIndexNumber) {
@@ -1246,9 +1254,12 @@ fun DetailContent(
     }
 
     val baseVideoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
-    val localVersionEntries = remember(localVersions, item.id) {
-        if (localVersions.size > 1) {
-            val orderedVersions = localVersions.sortedByDescending { version -> version.id == item.id }
+    val currentItemVersions = remember(localVersions, item.id) {
+        localVersions.takeIf { versions -> versions.any { version -> version.id == item.id } }.orEmpty()
+    }
+    val localVersionEntries = remember(currentItemVersions, item.id) {
+        if (currentItemVersions.size > 1) {
+            val orderedVersions = currentItemVersions.sortedByDescending { version -> version.id == item.id }
             OptionLabels(orderedVersions.map { version -> version.localVersionVideoLabel() })
                 .zip(orderedVersions)
         } else {
@@ -1268,7 +1279,7 @@ fun DetailContent(
         selectedAudio = selectedAudio
     )
     val videoInlineMetaText = remember(
-        item.mediaSources,
+        activeMediaSources,
         effectiveMediaStreams,
         localVersionOptions
     ) {
@@ -1276,7 +1287,7 @@ fun DetailContent(
             null
         } else {
             buildVideoInlineText(
-                mediaSources = item.mediaSources.orEmpty(),
+                mediaSources = activeMediaSources,
                 streams = effectiveMediaStreams
             )
         }
@@ -2924,15 +2935,34 @@ private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourc
 }
 
 private fun BaseItemDto.localVersionVideoLabel(): String {
-    val streams = mediaStreams.orEmpty() + mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
+    val activeSources = activeMediaSources()
+    val streams = activeSources
+        .flatMap { source -> source.mediaStreams.orEmpty() }
+        .ifEmpty { mediaStreams.orEmpty() }
     val videoTitle = buildVideoOptions(streams).firstOrNull() ?: "Video"
     val inlineText = buildVideoInlineText(
-        mediaSources = mediaSources.orEmpty(),
+        mediaSources = activeSources,
         streams = streams
     )
     return listOfNotNull(videoTitle, inlineText)
         .filter { it.isNotBlank() }
         .joinToString(" / ")
+}
+
+private fun BaseItemDto.activeMediaSources(): List<MediaSourceInfo> {
+    val sources = mediaSources.orEmpty()
+    val currentItemId = id?.takeIf { it.isNotBlank() } ?: return sources
+    if (sources.size <= 1) return sources
+
+    return sources
+        .filter { source -> source.matchesItemId(currentItemId) }
+        .ifEmpty { sources }
+}
+
+private fun MediaSourceInfo.matchesItemId(itemId: String): Boolean {
+    val sourceId = id?.takeIf { it.isNotBlank() } ?: return false
+    return sourceId.equals(itemId, ignoreCase = true) ||
+        sourceId.equals("mediasource_$itemId", ignoreCase = true)
 }
 
 private fun formatBitrate(bitsPerSecond: Int?): String? = formatBitrate(bitsPerSecond?.toLong())
