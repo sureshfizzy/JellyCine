@@ -53,11 +53,29 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
             minifyEnabled = true
             shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+    }
+
+    splits {
+        abi {
+            def isBuildingBundle = gradle.startParameter.taskNames.any {
+                it.toLowerCase(Locale.ROOT).contains("bundle")
+            }
+            enable = !isBuildingBundle
+
+            reset()
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            universalApk false
         }
     }
 
@@ -83,6 +101,11 @@ android {
         }
     }
 
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
 }
 
 androidComponents {
@@ -90,7 +113,9 @@ androidComponents {
         variant.outputs.each { output ->
             def buildTypeName = variant.buildType
             def versionName = rootProject.ext.appVersionName as String
-            output.outputFileName.set("jellycine-phone-${buildTypeName}-${versionName}.apk")
+            def abiName = output.filters.find { it.filterType.toString() == "ABI" }?.identifier
+            def abiSuffix = abiName != null ? "-${abiName}" : ""
+            output.outputFileName.set("jellycine-phone-${buildTypeName}-${versionName}${abiSuffix}.apk")
         }
     }
 }
