@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.R
 import com.jellycine.data.api.MediaServerApi
+import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
@@ -25,6 +26,7 @@ import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.model.toSearchQueries
 import com.jellycine.data.network.HttpStatusException
+import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.network.trimTrailingSlash
@@ -35,6 +37,11 @@ import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
 import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -45,7 +52,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
 
 data class EpisodeNavigationIds(
     val previousEpisodeId: String? = null,
@@ -63,6 +72,7 @@ class MediaRepository(private val context: Context) {
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
     private val networkPreferences = NetworkPreferences(context)
     private val secureSessionStore = SecureSessionStore(context)
+    private val tmdbApi by lazy { TmdbApi(createTmdbHttpClient()) }
 
     private data class ImageAuthState(
         val serverUrl: String?
@@ -788,6 +798,27 @@ class MediaRepository(private val context: Context) {
             queryParams.add("EnableImageEnhancers" to "false")
         }
         return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
+    }
+
+    suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(Dispatchers.IO) {
+        val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val tmdbId = lookupItem.providerIds
+            ?.entries
+            ?.firstOrNull { (key, value) ->
+                key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
+            }
+            ?.value
+            ?: return@withContext null
+        val tmdbType = when {
+            lookupItem.type.equals("Series", ignoreCase = true) -> "tv"
+            lookupItem.type.equals("Movie", ignoreCase = true) -> "movie"
+            else -> return@withContext null
+        }
+        tmdbApi.titleLogoUrl(tmdbType, tmdbId)
     }
 
     fun getImageUrl(
@@ -1783,6 +1814,27 @@ class MediaRepository(private val context: Context) {
 
     private fun string(resId: Int, vararg formatArgs: Any): String =
         context.getString(resId, *formatArgs)
+
+    private fun createTmdbHttpClient(): HttpClient {
+        val timeouts = networkPreferences.getTimeoutConfig()
+        val okHttpClient = OkHttpClient.Builder()
+            .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+
+        return HttpClient(OkHttp) {
+            expectSuccess = false
+            engine {
+                preconfigured = okHttpClient
+            }
+            install(ContentNegotiation) {
+                json(JellyCineJson)
+            }
+        }
+    }
 }
 
 private fun BaseItemDto.localMediaVersions(): List<BaseItemDto> =

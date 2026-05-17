@@ -2640,16 +2640,17 @@ private suspend fun logoImage(
     mediaRepository: MediaRepository
 ): String? {
     val logoItemId = item.logoItemId() ?: return null
+    val logoImageTag = item.imageTagFor(
+        imageType = "Logo",
+        targetItemId = logoItemId
+    ) ?: return mediaRepository.getTmdbLogoUrl(item)
 
     return mediaRepository.getImageUrl(
         itemId = logoItemId,
         imageType = "Logo",
         width = 1200,
         quality = 95,
-        imageTag = item.imageTagFor(
-            imageType = "Logo",
-            targetItemId = logoItemId
-        )
+        imageTag = logoImageTag
     ).first()
 }
 
