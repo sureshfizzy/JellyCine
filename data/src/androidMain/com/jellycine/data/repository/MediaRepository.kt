@@ -490,14 +490,15 @@ class MediaRepository(private val context: Context) {
                 return Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch local versions"))
             }
 
-            val versions = (listOf(item) + result.getOrThrow().items.orEmpty())
-                .asSequence()
+            val versions = (item.localMediaVersions() + listOf(item) + result.getOrThrow().items.orEmpty())
                 .filter { candidate ->
                     candidate.id != null &&
                         candidate.type.equals(itemType, ignoreCase = true)
                 }
-                .distinctBy { candidate -> candidate.id }
-                .toList()
+                .distinctBy { version ->
+                    version.mediaSources.orEmpty().firstOrNull()?.path?.lowercase()
+                        ?: version.id.orEmpty()
+                }
 
             Result.success(versions)
         } catch (e: Exception) {
@@ -1783,6 +1784,26 @@ class MediaRepository(private val context: Context) {
     private fun string(resId: Int, vararg formatArgs: Any): String =
         context.getString(resId, *formatArgs)
 }
+
+private fun BaseItemDto.localMediaVersions(): List<BaseItemDto> =
+    mediaSources
+        .orEmpty()
+        .mapNotNull { source ->
+            val sourceItemId = source.id
+                ?.removePrefix("mediasource_")
+                ?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            if (source.mediaStreams.orEmpty().none { it.type.equals("Video", ignoreCase = true) }) {
+                return@mapNotNull null
+            }
+
+            copy(
+                id = sourceItemId,
+                mediaSources = listOf(source),
+                mediaStreams = source.mediaStreams
+            )
+        }
+        .sortedByDescending { it.id == id }
 
 // Extension functions for BaseItemDto
 /**

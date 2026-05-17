@@ -956,12 +956,18 @@ fun DetailContent(
     }
     val localVersionOptions = localVersionEntries.map { (label, _) -> label }
     val videoOptions = localVersionOptions.ifEmpty { baseVideoOptions }
+    val displayedSelectedVideo = localVersionEntries
+        .firstOrNull { (_, version) -> version.id == item.id }
+        ?.first
+        ?.takeIf { selectedVideo !in videoOptions || selectedVideo in baseVideoOptions }
+        ?: selectedVideo.takeIf { it in videoOptions }
+        ?: videoOptions.firstOrNull().orEmpty()
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
     val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
     val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
     val codecBadges = CodecBadges(
         streams = effectiveMediaStreams,
-        selectedVideo = selectedVideo,
+        selectedVideo = displayedSelectedVideo,
         selectedAudio = selectedAudio
     )
     val videoInlineMetaText = remember(
@@ -1020,10 +1026,8 @@ fun DetailContent(
         )
     }
 
-    LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
-        if (selectedVideo !in videoOptions) {
-            selectedVideo = videoOptions.firstOrNull().orEmpty()
-        }
+    LaunchedEffect(displayedSelectedVideo, audioOptions, subtitleOptions, defaultSubtitleOption) {
+        if (selectedVideo != displayedSelectedVideo) selectedVideo = displayedSelectedVideo
         if (selectedAudio !in audioOptions) {
             selectedAudio = audioOptions.firstOrNull().orEmpty()
         }
@@ -1361,7 +1365,7 @@ fun DetailContent(
                             TrackField(
                                 modifier = videoModifier,
                                 label = "Video",
-                                selectedOption = selectedVideo,
+                                selectedOption = displayedSelectedVideo,
                                 options = videoOptions,
                                 inlineMetaText = videoInlineMetaText,
                                 singleValueFillWidth = false,
@@ -1399,7 +1403,7 @@ fun DetailContent(
                                 TrackField(
                                     modifier = videoModifier,
                                     label = "Video",
-                                    selectedOption = selectedVideo,
+                                    selectedOption = displayedSelectedVideo,
                                     options = videoOptions,
                                     inlineMetaText = videoInlineMetaText,
                                     onOptionSelected = onVideoOptionSelected
@@ -1441,7 +1445,7 @@ fun DetailContent(
                     if (hasVideoSection) {
                         TrackField(
                             label = "Video",
-                            selectedOption = selectedVideo,
+                            selectedOption = displayedSelectedVideo,
                             options = videoOptions,
                             inlineMetaText = videoInlineMetaText,
                             onOptionSelected = onVideoOptionSelected
