@@ -225,7 +225,10 @@ internal data class SeerrNamedEntity(
 @Serializable
 internal data class SeerrTitleSeason(
     val seasonNumber: Int? = null,
-    val episodeCount: Int? = null
+    val episodeCount: Int? = null,
+    @SerialName("seer_poster_path")
+    val seerPosterPath: String? = null,
+    val posterPath: String? = null
 )
 
 @Serializable
@@ -369,6 +372,7 @@ data class SeerrRequestRootFolder(
 data class SeerrSeasonRequestOption(
     val seasonNumber: Int,
     val episodeCount: Int? = null,
+    val posterUrl: String? = null,
     val requestState: SeerrRequestState = SeerrRequestState.NONE
 )
 

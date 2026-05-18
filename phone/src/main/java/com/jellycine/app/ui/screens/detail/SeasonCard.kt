@@ -1,46 +1,36 @@
 package com.jellycine.app.ui.screens.detail
 
-import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.runtime.*
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.ui.components.common.AnimatedCard
 import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.app.ui.components.common.SeerrTopBadges
+import com.jellycine.app.ui.components.common.seerTitleParams
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.SeerrSeasonRequestOption
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +39,8 @@ fun SeasonCard(
     season: BaseItemDto,
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {},
-    onPreviewClick: () -> Unit = {},
+    onRequestClick: (() -> Unit)? = null,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -59,17 +50,25 @@ fun SeasonCard(
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsState(initial = preferences.isPosterEnhancersEnabled())
     val disableImageEnhancers = currentServerType.equals("EMBY", ignoreCase = true) && posterEnhancersEnabled
-    var seasonImageCandidates by remember(season.id, season.seriesId) { mutableStateOf<List<String>>(emptyList()) }
-    var seasonImageIndex by remember(season.id, season.seriesId) { mutableIntStateOf(0) }
-    var hasImageLoadError by remember(season.id, season.seriesId) { mutableStateOf(false) }
-    var showPreviewOverlay by remember { mutableStateOf(false) }
+    var seasonImageCandidates by remember(season.id, season.seriesId, season.imageUrl) { mutableStateOf<List<String>>(emptyList()) }
+    var seasonImageIndex by remember(season.id, season.seriesId, season.imageUrl) { mutableIntStateOf(0) }
+    var hasImageLoadError by remember(season.id, season.seriesId, season.imageUrl) { mutableStateOf(false) }
     val seasonImageUrl = seasonImageCandidates.getOrNull(seasonImageIndex)
+    val isAvailableLocally = !season.id.isNullOrBlank()
+    val seasonRequestState = season.seerrRequestState ?: SeerrRequestState.NONE
+    val canRequestSeason = !isAvailableLocally &&
+        seasonRequestState == SeerrRequestState.NONE &&
+        onRequestClick != null
 
-    LaunchedEffect(season.id, season.seriesId, disableImageEnhancers) {
+    LaunchedEffect(season.id, season.seriesId, season.imageUrl, disableImageEnhancers) {
         hasImageLoadError = false
         seasonImageIndex = 0
-        season.id?.let { seasonId ->
-            seasonImageCandidates = listOfNotNull(
+        season.imageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+            seasonImageCandidates = listOf(imageUrl)
+            return@LaunchedEffect
+        }
+        seasonImageCandidates = listOfNotNull(
+            season.id?.let { seasonId ->
                 mediaRepository.getImageUrl(
                     itemId = seasonId,
                     imageType = "Primary",
@@ -81,38 +80,37 @@ fun SeasonCard(
                         imageType = "Primary",
                         targetItemId = seasonId
                     )
-                ).first(),
-                season.seriesId?.let { seriesId ->
-                    mediaRepository.getImageUrl(
-                        itemId = seriesId,
+                ).first()
+            },
+            season.seriesId?.let { seriesId ->
+                mediaRepository.getImageUrl(
+                    itemId = seriesId,
+                    imageType = "Primary",
+                    width = 200,
+                    height = 300,
+                    quality = 90,
+                    enableImageEnhancers = !disableImageEnhancers,
+                    imageTag = season.imageTagFor(
                         imageType = "Primary",
-                        width = 200,
-                        height = 300,
-                        quality = 90,
-                        enableImageEnhancers = !disableImageEnhancers,
-                        imageTag = season.imageTagFor(
-                            imageType = "Primary",
-                            targetItemId = seriesId
-                        )
-                    ).first()
-                }
-            ).distinct()
-        }
-    }
-
-    // Auto-hide preview overlay after 3 seconds
-    LaunchedEffect(showPreviewOverlay) {
-        if (showPreviewOverlay) {
-            delay(3000)
-            showPreviewOverlay = false
-        }
+                        targetItemId = seriesId
+                    )
+                ).first()
+            }
+        ).distinct()
     }
 
     AnimatedCard(
         onClick = {
-            onClick()
+            if (!isLoading) {
+                if (isAvailableLocally) {
+                    onClick()
+                } else if (canRequestSeason) {
+                    onRequestClick?.invoke()
+                }
+            }
         },
         modifier = modifier.width(140.dp),
+        enabled = isAvailableLocally || canRequestSeason,
         colors = CardDefaults.cardColors(
             containerColor = Color.Transparent
         ),
@@ -147,7 +145,6 @@ fun SeasonCard(
                             }
                         )
                     } else {
-                        // Show fallback when URL is null or loading failed
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -196,6 +193,20 @@ fun SeasonCard(
                             )
                         }
                     }
+
+                    if (!isAvailableLocally) {
+                        SeerrTopBadges(
+                            requestState = seasonRequestState,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
+
+                    if (isLoading) {
+                        ShimmerEffect(
+                            modifier = Modifier.fillMaxSize(),
+                            cornerRadius = 12f
+                        )
+                    }
                 }
 
                 // Season info
@@ -221,85 +232,129 @@ fun SeasonCard(
                     }
                 }
             }
+        }
+    }
+}
 
-            // Preview overlay
-            androidx.compose.animation.AnimatedVisibility(
-                visible = showPreviewOverlay,
-                enter = fadeIn(animationSpec = tween(300)) + scaleIn(
-                    initialScale = 0.8f,
-                    animationSpec = tween(300)
-                ),
-                exit = fadeOut(animationSpec = tween(200)) + scaleOut(
-                    targetScale = 0.8f,
-                    animationSpec = tween(200)
-                )
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(210.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = Color.Black.copy(alpha = 0.9f)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // Preview button
-                        Button(
-                            onClick = onPreviewClick,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF00BCD4)
-                            ),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Visibility,
-                                contentDescription = "Preview",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Preview",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // View all button
-                        OutlinedButton(
-                            onClick = onClick,
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color.White
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                Color.White.copy(alpha = 0.5f)
-                            ),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = "View All",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "View All",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+@Composable
+internal fun SeasonsSection(
+    series: BaseItemDto,
+    seriesId: String,
+    mediaRepository: MediaRepository,
+    seerrRepository: SeerrRepository,
+    activeServerId: String?,
+    refreshKey: Int,
+    loadingSeasonNumber: Int? = null,
+    onSeasonRequest: (Int) -> Unit,
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+) {
+    var localSeasons by remember(seriesId) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var seerrSeasons by remember(seriesId) { mutableStateOf<List<SeerrSeasonRequestOption>>(emptyList()) }
+    var isLoadingLocal by remember(seriesId) { mutableStateOf(true) }
+    var isLoadingSeerr by remember(seriesId) { mutableStateOf(false) }
+    val seerrParams = remember(series.id, series.providerIds, series.type) {
+        series.seerTitleParams()?.takeIf { (mediaType, _) -> mediaType == "tv" }
+    }
+    val localSeasonNumbers = remember(localSeasons) {
+        localSeasons.mapNotNull { season -> season.indexNumber }.toSet()
+    }
+    val seasons = remember(localSeasons, seerrSeasons) {
+        (
+            localSeasons +
+                seerrSeasons
+                    .filter { season -> season.seasonNumber !in localSeasonNumbers }
+                    .map { season ->
+                        BaseItemDto(
+                            name = "Season ${season.seasonNumber}",
+                            type = "Season",
+                            indexNumber = season.seasonNumber,
+                            childCount = season.episodeCount,
+                            seriesId = seriesId,
+                            imageUrl = season.posterUrl,
+                            seerrRequestState = season.requestState
+                        )
                     }
+            ).sortedBy { season -> season.indexNumber ?: 0 }
+    }
+
+    LaunchedEffect(seriesId) {
+        isLoadingLocal = true
+        localSeasons = mediaRepository.getSeasons(seriesId)
+            .getOrDefault(emptyList())
+            .sortedBy { season -> season.indexNumber ?: 0 }
+        isLoadingLocal = false
+    }
+
+    LaunchedEffect(activeServerId, seerrParams, refreshKey) {
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        val (_, tmdbId) = seerrParams ?: run {
+            seerrSeasons = emptyList()
+            isLoadingSeerr = false
+            return@LaunchedEffect
+        }
+        if (scopeId == null) {
+            seerrSeasons = emptyList()
+            isLoadingSeerr = false
+            return@LaunchedEffect
+        }
+
+        isLoadingSeerr = true
+        seerrSeasons = seerrRepository.getTitleSeasons(
+            scopeId = scopeId,
+            tmdbId = tmdbId
+        ).getOrDefault(emptyList())
+        isLoadingSeerr = false
+    }
+
+    Column(
+        modifier = Modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Seasons",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        if (seasons.isEmpty() && (isLoadingLocal || isLoadingSeerr)) {
+            SeasonSkeletonRow()
+        } else if (seasons.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp)
+            ) {
+                items(seasons) { season ->
+                    val seasonNumber = season.indexNumber ?: return@items
+                    SeasonCard(
+                        season = season,
+                        mediaRepository = mediaRepository,
+                        onClick = {
+                            season.id?.let { seasonId ->
+                                onSeasonClick(seriesId, seasonId, season.name)
+                            }
+                        },
+                        onRequestClick = if (seerrParams != null) {
+                            { onSeasonRequest(seasonNumber) }
+                        } else {
+                            null
+                        },
+                        isLoading = seasonNumber == loadingSeasonNumber
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SeasonSkeletonRow() {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 0.dp)
+    ) {
+        items(3) {
+            SeasonCardSkeleton()
         }
     }
 }
@@ -345,4 +400,3 @@ fun SeasonCardSkeleton(
         }
     }
 }
-

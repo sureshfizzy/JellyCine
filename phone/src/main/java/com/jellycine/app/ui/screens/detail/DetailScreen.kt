@@ -64,6 +64,7 @@ import com.jellycine.app.ui.components.common.SeerPersonRole
 import com.jellycine.app.ui.components.common.SeerTitlesRow
 import com.jellycine.app.ui.components.common.fetchSeerTmdbPersonId
 import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
+import com.jellycine.app.ui.components.common.seerTitleParams
 import com.jellycine.app.ui.components.common.seerTitleItems
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.app.ui.components.common.ScreenCastButton
@@ -910,6 +911,8 @@ fun DetailContent(
     var seerrOptionsLoading by remember(item.id) { mutableStateOf(false) }
     var seerrRequestOptions by remember(item.id) { mutableStateOf<SeerrRequestOptions?>(null) }
     var seerrRequestErrorMessage by remember(item.id) { mutableStateOf<String?>(null) }
+    var pendingSeasonRequestNumber by remember(item.id) { mutableStateOf<Int?>(null) }
+    var seerrSeasonRefreshKey by remember(item.id) { mutableIntStateOf(0) }
     val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
         val seriesId = item.id
         if (isSeerDetail || item.type != "Series" || seriesId.isNullOrBlank()) {
@@ -944,10 +947,14 @@ fun DetailContent(
     }
 
     fun submitSeerrRequest(selection: SeerrRequestSelection?) {
-        if (!isSeerDetail || seerrRequestInProgress || seerrRequestState == SeerrRequestState.REQUESTED) {
+        val requestingSeasonCard = pendingSeasonRequestNumber != null
+        if (
+            seerrRequestInProgress ||
+            (!requestingSeasonCard && seerrRequestState == SeerrRequestState.REQUESTED)
+        ) {
             return
         }
-        val (mediaType, tmdbId) = SeerrItemIds.detailParams(item.id.orEmpty()) ?: return
+        val (mediaType, tmdbId) = item.seerTitleParams() ?: return
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
         if (scopeId == null) {
             seerrRequestErrorMessage = "Seerr is not connected."
@@ -964,10 +971,16 @@ fun DetailContent(
                     selection = selection
                 ).fold(
                     onSuccess = {
-                        seerrRequestState = SeerrRequestState.REQUESTED
+                        if (requestingSeasonCard) {
+                            seerrSeasonRefreshKey += 1
+                        } else {
+                            seerrRequestState = SeerrRequestState.REQUESTED
+                        }
                         seerrRequestOptions = null
+                        pendingSeasonRequestNumber = null
                     },
                     onFailure = { throwable ->
+                        pendingSeasonRequestNumber = null
                         seerrRequestErrorMessage = throwable.message
                             ?: context.getString(R.string.detail_seerr_request_failed)
                     }
@@ -978,9 +991,11 @@ fun DetailContent(
         }
     }
 
-    fun openSeerrRequestOptions() {
-        if (!isSeerDetail || seerrOptionsLoading || seerrRequestInProgress) return
-        val (mediaType, tmdbId) = SeerrItemIds.detailParams(item.id.orEmpty()) ?: return
+    fun loadSeerrRequestOptions(seasonNumber: Int? = null) {
+        val isSeasonRequest = seasonNumber != null
+        if ((!isSeasonRequest && !isSeerDetail) || seerrOptionsLoading || seerrRequestInProgress) return
+        val (mediaType, tmdbId) = item.seerTitleParams() ?: return
+        if (isSeasonRequest && !mediaType.equals("tv", ignoreCase = true)) return
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
         if (scopeId == null) {
             seerrRequestErrorMessage = "Seerr is not connected."
@@ -988,17 +1003,20 @@ fun DetailContent(
         }
 
         coroutineScope.launch {
+            pendingSeasonRequestNumber = seasonNumber
             seerrOptionsLoading = true
             try {
                 seerrRepository.getRequestOptions(
                     scopeId = scopeId,
                     mediaType = mediaType,
-                    tmdbId = tmdbId
+                    tmdbId = tmdbId,
+                    seasonNumber = seasonNumber
                 ).fold(
                     onSuccess = { options ->
                         seerrRequestOptions = options
                     },
                     onFailure = { throwable ->
+                        pendingSeasonRequestNumber = null
                         seerrRequestErrorMessage = throwable.message
                             ?: context.getString(R.string.detail_seerr_request_failed)
                     }
@@ -1121,18 +1139,7 @@ fun DetailContent(
         val params = if (isSeerDetail) {
             SeerrItemIds.detailParams(currentItemId)
         } else {
-            val tmdbId = item.providerIds
-                ?.entries
-                ?.firstOrNull { (key, value) ->
-                    key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
-                }
-                ?.value
-            val mediaType = when {
-                item.type.equals("Series", ignoreCase = true) -> "tv"
-                item.type.equals("Movie", ignoreCase = true) -> "movie"
-                else -> null
-            }
-            if (tmdbId != null && mediaType != null) mediaType to tmdbId else null
+            item.seerTitleParams()
         }
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
         if (params == null || scopeId == null) {
@@ -1675,7 +1682,7 @@ fun DetailContent(
                                 } else {
                                     stringResource(R.string.detail_seerr_requesting)
                                 },
-                                onClick = ::openSeerrRequestOptions,
+                                onClick = { loadSeerrRequestOptions() },
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -2113,7 +2120,7 @@ fun DetailContent(
                                 } else {
                                     stringResource(R.string.detail_seerr_requesting)
                                 },
-                                onClick = ::openSeerrRequestOptions,
+                                onClick = { loadSeerrRequestOptions() },
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -2273,8 +2280,17 @@ fun DetailContent(
 
                             item.id?.let { seriesId ->
                                 SeasonsSection(
+                                    series = item,
                                     seriesId = seriesId,
                                     mediaRepository = mediaRepository,
+                                    seerrRepository = seerrRepository,
+                                    activeServerId = activeServerId,
+                                    refreshKey = seerrSeasonRefreshKey,
+                                    loadingSeasonNumber = pendingSeasonRequestNumber
+                                        ?.takeIf { seerrOptionsLoading || seerrRequestInProgress },
+                                    onSeasonRequest = { seasonNumber ->
+                                        loadSeerrRequestOptions(seasonNumber)
+                                    },
                                     onSeasonClick = onSeasonClick
                                 )
                             }
@@ -2452,7 +2468,10 @@ fun DetailContent(
             itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
             backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl,
             options = options,
-            onDismissRequest = { seerrRequestOptions = null },
+            onDismissRequest = {
+                seerrRequestOptions = null
+                pendingSeasonRequestNumber = null
+            },
             onConfirm = { selection ->
                 seerrRequestOptions = null
                 submitSeerrRequest(selection)
@@ -3458,86 +3477,6 @@ private fun seasonGroupKey(item: BaseItemDto): String {
 
 private fun episodeCountLabel(count: Int): String {
     return "$count episode" + if (count == 1) "" else "s"
-}
-
-@Composable
-private fun SeasonsSection(
-    seriesId: String,
-    mediaRepository: MediaRepository,
-    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
-) {
-    var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-    var isLoadingSeasons by remember { mutableStateOf(true) }
-
-    // Load seasons
-    LaunchedEffect(seriesId) {
-        isLoadingSeasons = true
-        try {
-            val result = mediaRepository.getSeasons(seriesId)
-            result.fold(
-                onSuccess = { seasonList ->
-                    seasons = seasonList.sortedBy { it.indexNumber ?: 0 }
-                    isLoadingSeasons = false
-                },
-                onFailure = {
-                    isLoadingSeasons = false
-                }
-            )
-        } catch (e: Exception) {
-            isLoadingSeasons = false
-        }
-    }
-
-    Column(
-        modifier = Modifier.padding(top = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Seasons Section
-        Text(
-            text = "Seasons",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        when {
-            isLoadingSeasons -> {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
-                ) {
-                    items(3) {
-                        SeasonCardSkeleton()
-                    }
-                }
-            }
-
-            seasons.isNotEmpty() -> {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
-                ) {
-                    items(seasons) { season ->
-                        SeasonCard(
-                            season = season,
-                            mediaRepository = mediaRepository,
-                            onClick = {
-                                season.id?.let { seasonId ->
-                                    onSeasonClick(seriesId, seasonId, season.name)
-                                }
-                            },
-                            onPreviewClick = {
-                                // TODO: Implement season preview functionality
-                                season.id?.let { seasonId ->
-                                    onSeasonClick(seriesId, seasonId, season.name)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)

@@ -657,10 +657,34 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    suspend fun getTitleSeasons(
+        scopeId: String,
+        tmdbId: String
+    ): Result<List<SeerrSeasonRequestOption>> = withContext(Dispatchers.IO) {
+        val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
+        val seerTmdbId = tmdbId.trim()
+        if (seerTmdbId.isBlank()) {
+            return@withContext Result.failure(Exception(string(R.string.seerr_error_title_id_missing)))
+        }
+
+        runRequestCatching {
+            seerrApi(storedConnection)
+                .titleDetails("tv", seerTmdbId)
+                .mapBody(
+                    parseError = string(R.string.seerr_error_title_details_parse),
+                    httpError = string(R.string.seerr_error_title_details_load),
+                    notFoundError = string(R.string.seerr_error_title_not_found)
+                ) { payload ->
+                    Result.success(payload.toSeasonRequestOptions(storedConnection.serverUrl))
+                }
+        }
+    }
+
     suspend fun getRequestOptions(
         scopeId: String,
         mediaType: String,
-        tmdbId: String
+        tmdbId: String,
+        seasonNumber: Int? = null
     ): Result<SeerrRequestOptions> = withContext(Dispatchers.IO) {
         val storedConnection = storedConnection(scopeId) ?: return@withContext notConnectedFailure()
         val seerTmdbId = tmdbId.trim()
@@ -712,20 +736,7 @@ class SeerrRepository(context: Context) {
                 ) { payload -> Result.success(payload) }
                 .getOrElse { error -> return@runRequestCatching Result.failure(error) }
             val seasons = if (normalizedMediaType == "tv") {
-                titleDetails.seasons
-                    .mapNotNull { season ->
-                        val seasonNumber = season.seasonNumber
-                            ?.takeIf { number -> number > 0 }
-                            ?: return@mapNotNull null
-                        val seasonMedia = titleDetails.mediaInfo?.seasons
-                            ?.firstOrNull { mediaSeason -> mediaSeason.seasonNumber == seasonNumber }
-                        SeerrSeasonRequestOption(
-                            seasonNumber = seasonNumber,
-                            episodeCount = season.episodeCount,
-                            requestState = seasonMedia.toRequestState()
-                        )
-                    }
-                    .sortedBy { season -> season.seasonNumber }
+                titleDetails.toSeasonRequestOptions(storedConnection.serverUrl)
             } else {
                 emptyList()
             }
@@ -758,12 +769,10 @@ class SeerrRepository(context: Context) {
                         parseError = string(R.string.seerr_error_request_options_parse),
                         httpError = string(R.string.seerr_error_request_options_load)
                     ) { payload -> Result.success(payload) }
-                        .getOrElse { error -> return@runRequestCatching Result.failure(error) }
+                        .getOrNull()
+                        ?: continue
 
-                    loadedDestinations += service.toRequestDestination()
-                        ?: return@runRequestCatching Result.failure(
-                            Exception(string(R.string.seerr_error_request_options_parse))
-                        )
+                    service.toRequestDestination()?.let(loadedDestinations::add)
                 }
                 loadedDestinations.sortedWith(
                     compareByDescending<SeerrRequestDestination> { it.isDefault }
@@ -774,16 +783,30 @@ class SeerrRepository(context: Context) {
             }
             val has4KDestination = servers.any { (_, server) -> server.is4K == true }
 
-            Result.success(
-                SeerrRequestOptions(
-                    mediaType = normalizedMediaType,
-                    destinations = destinations,
-                    canUseAdvancedRequests = canUseAdvancedRequests,
-                    canRequest4K = canRequest4K && has4KDestination,
-                    quota = quota,
-                    seasons = seasons
-                )
+            val options = SeerrRequestOptions(
+                mediaType = normalizedMediaType,
+                destinations = destinations,
+                canUseAdvancedRequests = canUseAdvancedRequests && destinations.isNotEmpty(),
+                canRequest4K = canRequest4K && has4KDestination,
+                quota = quota,
+                seasons = seasons
             )
+
+            if (seasonNumber == null) {
+                Result.success(options)
+            } else {
+                val requestedSeason = seasons.firstOrNull { season ->
+                    season.seasonNumber == seasonNumber
+                } ?: return@runRequestCatching Result.failure(
+                    Exception("Season $seasonNumber is not available to request.")
+                )
+                if (requestedSeason.requestState == SeerrRequestState.REQUESTED) {
+                    return@runRequestCatching Result.failure(
+                        Exception("Season $seasonNumber is already requested.")
+                    )
+                }
+                Result.success(options.copy(seasons = listOf(requestedSeason)))
+            }
         }
     }
 
@@ -1300,7 +1323,7 @@ class SeerrRepository(context: Context) {
         }
     }
 
-    private fun SeerrMediaSeason?.toRequestState(): SeerrRequestState {
+    private fun SeerrMediaSeason?.toSeasonRequestState(): SeerrRequestState {
         if (this == null) return SeerrRequestState.NONE
 
         return if (status in SEERR_MEDIA_PENDING..SEERR_MEDIA_AVAILABLE) {
@@ -1308,6 +1331,34 @@ class SeerrRepository(context: Context) {
         } else {
             SeerrRequestState.NONE
         }
+    }
+
+    private fun SeerrTitleDetailsResponse.toSeasonRequestOptions(
+        serverUrl: String
+    ): List<SeerrSeasonRequestOption> {
+        return seasons
+            .mapNotNull { season ->
+                val seasonNumber = season.seasonNumber
+                    ?.takeIf { number -> number > 0 }
+                    ?: return@mapNotNull null
+                val seasonMedia = mediaInfo?.seasons
+                    ?.firstOrNull { mediaSeason -> mediaSeason.seasonNumber == seasonNumber }
+                SeerrSeasonRequestOption(
+                    seasonNumber = seasonNumber,
+                    episodeCount = season.episodeCount,
+                    posterUrl = seerrImageUrl(
+                        serverUrl = serverUrl,
+                        imagePath = season.finalPosterPath(),
+                        size = "w500"
+                    ),
+                    requestState = seasonMedia.toSeasonRequestState()
+                )
+            }
+            .sortedBy { season -> season.seasonNumber }
+    }
+
+    private fun SeerrTitleSeason.finalPosterPath(): String? {
+        return seerPosterPath.ifNotBlank() ?: posterPath.ifNotBlank()
     }
 
     private fun SeerrServiceSettingsResponse.toRequestDestination(): SeerrRequestDestination? {

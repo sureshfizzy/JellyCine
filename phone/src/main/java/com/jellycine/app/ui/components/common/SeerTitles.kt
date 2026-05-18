@@ -518,3 +518,14 @@ internal fun SeerrRecommendationTitle.toSeerDetailItem(): BaseItemDto {
         id = SeerrItemIds.detailId(tmdbId = tmdbId, mediaType = mediaType)
     )
 }
+
+internal fun BaseItemDto.seerTitleParams(): Pair<String, String>? {
+    SeerrItemIds.detailParams(id.orEmpty())?.let { return it }
+    val tmdbId = providerIds.providerId("tmdb") ?: return null
+    val mediaType = when {
+        type.equals("Series", ignoreCase = true) -> "tv"
+        type.equals("Movie", ignoreCase = true) -> "movie"
+        else -> return null
+    }
+    return mediaType to tmdbId
+}
