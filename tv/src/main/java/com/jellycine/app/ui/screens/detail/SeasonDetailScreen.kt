@@ -34,6 +34,7 @@ import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.util.image.getBackdrop
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -643,7 +644,7 @@ private fun EpisodeListItem(
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(episode.id) {
-        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+        episodeImageUrl = getBackdrop(
             episode = episode,
             mediaRepository = mediaRepository,
             width = 1280,

@@ -27,10 +27,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil3.imageLoader
 import com.jellycine.shared.preferences.Preferences
+import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 import com.jellycine.shared.ui.components.common.ShimmerEffect
@@ -172,6 +174,41 @@ class ImageUrlViewModel @Inject constructor(
             enableImageEnhancers = enableImageEnhancers,
             imageTag = imageTag
         )
+    }
+}
+
+suspend fun getBackdrop(
+    episode: BaseItemDto,
+    mediaRepository: MediaRepository,
+    width: Int,
+    height: Int,
+    quality: Int
+): String? {
+    val episodeId = episode.id ?: return null
+    return mediaRepository.getImageUrl(
+        itemId = episodeId,
+        imageType = "Primary",
+        width = width,
+        height = height,
+        quality = quality,
+        enableImageEnhancers = false,
+        imageTag = episode.imageTagFor(
+            imageType = "Primary",
+            targetItemId = episodeId
+        )
+    ).first() ?: episode.seriesId?.let { seriesId ->
+        mediaRepository.getBackdropImageUrl(
+            itemId = seriesId,
+            imageIndex = 0,
+            width = width,
+            height = height,
+            quality = quality,
+            enableImageEnhancers = false,
+            imageTag = episode.imageTagFor(
+                imageType = "Backdrop",
+                targetItemId = seriesId
+            )
+        ).first()
     }
 }
 

@@ -28,6 +28,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.getBackdrop
 import com.jellycine.shared.ui.components.common.AnimatedCard
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
@@ -48,7 +49,7 @@ fun EpisodeCard(
 
 
     LaunchedEffect(episode.id) {
-        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+        episodeImageUrl = getBackdrop(
             episode = episode,
             mediaRepository = mediaRepository,
             width = 960,

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.getBackdrop
 import com.jellycine.detail.CodecUtils
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
@@ -52,7 +53,7 @@ fun EpisodePreviewCard(
     var showPreviewOverlay by remember { mutableStateOf(false) }
 
     LaunchedEffect(episode.id) {
-        episodeImageUrl = resolveEpisodePrimaryOrSeriesBackdrop(
+        episodeImageUrl = getBackdrop(
             episode = episode,
             mediaRepository = mediaRepository,
             width = 400,
