@@ -535,6 +535,11 @@
     <string name="detail_similar_items_title">More Like This</string>
     <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>
     <string name="detail_similar_item_unknown">Unknown</string>
+    <string name="detail_continue_playback">Continue playback</string>
+    <string name="detail_unfavorite">Unfavorite</string>
+    <string name="detail_video_fallback">Video</string>
+    <string name="detail_file_size_under_1_mb">&lt; 1 MB</string>
+    <string name="detail_requested_on_seerr">Requested on Seerr</string>
     <string name="detail_person_loading">Loading...</string>
     <string name="detail_person_unknown">Unknown Person</string>
     <string name="detail_person_load_failed">Unable to load this person right now.</string>

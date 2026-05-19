@@ -22,14 +22,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
@@ -40,9 +37,7 @@ import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
-import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -50,11 +45,19 @@ import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
-import com.jellycine.app.ui.components.common.CastSection
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
-import com.jellycine.app.ui.components.common.DownloadLabelContent
+import com.jellycine.shared.ui.components.common.CastSection
+import com.jellycine.shared.ui.components.common.DetailDownloadActionButton
+import com.jellycine.shared.ui.components.common.DetailDownloadActionState
+import com.jellycine.shared.ui.components.common.activeDetailMediaSources
+import com.jellycine.shared.ui.components.common.buildInlineText
+import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
+import com.jellycine.shared.ui.components.common.DetailPlayActionButton
+import com.jellycine.shared.ui.components.common.FavoriteActionButton
 import com.jellycine.shared.ui.components.common.OverviewSection
+import com.jellycine.shared.ui.components.common.selectedVideoOption
+import com.jellycine.shared.ui.components.common.SimilarItemsSection
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.canResumeDownloads
@@ -674,7 +677,7 @@ fun DetailContent(
     var logoLookup by remember { mutableStateOf(true) }
     var logoLoadError by remember { mutableStateOf(false) }
     val activeMediaSources = remember(item.id, item.mediaSources) {
-        item.activeMediaSources()
+        item.activeDetailMediaSources()
     }
     val effectiveMediaStreams = remember(item.mediaStreams, activeMediaSources) {
         val fromSources = activeMediaSources.flatMap { it.mediaStreams.orEmpty() }
@@ -942,26 +945,25 @@ fun DetailContent(
     }
 
     val baseVideoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
-    val currentItemVersions = remember(localVersions, item.id) {
-        localVersions.takeIf { versions -> versions.any { version -> version.id == item.id } }.orEmpty()
-    }
-    val localVersionEntries = remember(currentItemVersions, item.id) {
-        if (currentItemVersions.size > 1) {
-            val orderedVersions = currentItemVersions.sortedByDescending { version -> version.id == item.id }
-            OptionLabels(orderedVersions.map { version -> version.localVersionVideoLabel() })
-                .zip(orderedVersions)
-        } else {
-            emptyList()
-        }
+    val videoFallbackLabel = stringResource(R.string.detail_video_fallback)
+    val smallFileSizeLabel = stringResource(R.string.detail_file_size_under_1_mb)
+    val localVersionEntries = remember(localVersions, item.id, videoFallbackLabel, smallFileSizeLabel) {
+        buildLocalVersionEntries(
+            localVersions = localVersions,
+            currentItemId = item.id,
+            videoFallbackLabel = videoFallbackLabel,
+            smallFileSizeLabel = smallFileSizeLabel
+        )
     }
     val localVersionOptions = localVersionEntries.map { (label, _) -> label }
     val videoOptions = localVersionOptions.ifEmpty { baseVideoOptions }
-    val displayedSelectedVideo = localVersionEntries
-        .firstOrNull { (_, version) -> version.id == item.id }
-        ?.first
-        ?.takeIf { selectedVideo !in videoOptions || selectedVideo in baseVideoOptions }
-        ?: selectedVideo.takeIf { it in videoOptions }
-        ?: videoOptions.firstOrNull().orEmpty()
+    val displayedSelectedVideo = selectedVideoOption(
+        localVersionEntries = localVersionEntries,
+        currentItemId = item.id,
+        selectedVideo = selectedVideo,
+        videoOptions = videoOptions,
+        baseVideoOptions = baseVideoOptions
+    )
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
     val subtitleOptions = remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
     val defaultSubtitleOption = remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
@@ -978,9 +980,10 @@ fun DetailContent(
         if (localVersionOptions.isNotEmpty()) {
             null
         } else {
-            buildVideoInlineText(
+            buildInlineText(
                 mediaSources = activeMediaSources,
-                streams = effectiveMediaStreams
+                streams = effectiveMediaStreams,
+                smallFileSizeLabel = smallFileSizeLabel
             )
         }
     }
@@ -1489,7 +1492,10 @@ fun DetailContent(
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(24.dp))
                         ) {
-                            Button(
+                            DetailPlayActionButton(
+                                text = playButtonText,
+                                isPartiallyWatched = isPartiallyWatched,
+                                resumeProgress = resumeProgress,
                                 onClick = {
                                     val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) = persistTrackSelection(
                                         audioOption = selectedAudio,
@@ -1497,91 +1503,8 @@ fun DetailContent(
                                     )
                                     onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
                                 },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isPartiallyWatched) Color(0xFF1F1F24) else Color.White,
-                                    contentColor = Color.Black
-                                ),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    val progressFraction = resumeProgress.coerceIn(0f, 1f)
-
-                                    if (isPartiallyWatched) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxHeight()
-                                                .fillMaxWidth(progressFraction)
-                                                .background(Color.White)
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 14.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        if (isPartiallyWatched) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_resume_playback),
-                                                contentDescription = "Continue playback",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.White
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Rounded.PlayArrow,
-                                                contentDescription = "Play",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.Black
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = playButtonText,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = if (isPartiallyWatched) Color.White else Color.Black
-                                        )
-                                    }
-
-                                    if (isPartiallyWatched) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(horizontal = 14.dp)
-                                                .drawWithContent {
-                                                    clipRect(right = size.width * progressFraction) {
-                                                        this@drawWithContent.drawContent()
-                                                    }
-                                                },
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_resume_playback),
-                                                contentDescription = "Continue playback",
-                                                modifier = Modifier.size(22.dp),
-                                                tint = Color.Black
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = playButtonText,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = Color.Black
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
 
                         Box(
@@ -1589,7 +1512,18 @@ fun DetailContent(
                                 .weight(1f)
                                 .height(46.dp)
                         ) {
-                            OutlinedButton(
+                            val downloadActionState = when {
+                                !canDownloadItem -> DetailDownloadActionState.Unavailable
+                                itemDownloadState.status == DownloadStatus.COMPLETED -> DetailDownloadActionState.Completed
+                                itemDownloadState.status == DownloadStatus.DOWNLOADING -> DetailDownloadActionState.Downloading
+                                isPausedDownload -> DetailDownloadActionState.Paused
+                                itemDownloadState.status == DownloadStatus.QUEUED -> DetailDownloadActionState.Queued
+                                else -> DetailDownloadActionState.Idle
+                            }
+
+                            DetailDownloadActionButton(
+                                state = downloadActionState,
+                                progress = animatedDownloadProgress,
                                 onClick = {
                                     when {
                                         !canDownloadItem -> Unit
@@ -1606,97 +1540,8 @@ fun DetailContent(
                                         }
                                     }
                                 },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = Color(0xFF1F1F24),
-                                    contentColor = Color.White
-                                ),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
-                            ) {
-                                val buttonState = when {
-                                    !canDownloadItem -> "unavailable"
-                                    itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
-                                    itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
-                                    isPausedDownload -> "paused"
-                                    itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
-                                    else -> "idle"
-                                }
-                                AnimatedContent(
-                                    targetState = buttonState,
-                                    transitionSpec = {
-                                        fadeIn(animationSpec = tween(220)) togetherWith
-                                            fadeOut(animationSpec = tween(180))
-                                    },
-                                    label = "download_button_state"
-                                ) { state ->
-                                    when (state) {
-                                        "downloading" -> {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    progress = { animatedDownloadProgress.coerceIn(0f, 0.99f) },
-                                                    modifier = Modifier.size(18.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = Color(0xFF03A9F4)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${(animatedDownloadProgress * 100).toInt()}%",
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                            }
-                                        }
-                                        "queued" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.downloads_status_queued),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                        "completed" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.CheckCircle,
-                                                label = stringResource(R.string.downloads_status_downloaded),
-                                                iconSize = 18.dp,
-                                                fontSize = 12.sp,
-                                                tint = Color(0xFF4CAF50),
-                                                textColor = Color(0xFF4CAF50)
-                                            )
-                                        }
-                                        "paused" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.PauseCircle,
-                                                label = stringResource(R.string.downloads_status_paused),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp,
-                                                tint = Color(0xFFFFC107)
-                                            )
-                                        }
-                                        "unavailable" -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.settings_unavailable),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                        else -> {
-                                            DownloadLabelContent(
-                                                icon = Icons.Rounded.Download,
-                                                label = stringResource(R.string.downloads_action_download),
-                                                iconSize = 18.dp,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                                modifier = Modifier.fillMaxSize()
+                            )
 
                             DownloadActionMenu(
                                 expanded = downloadActionMenu,
@@ -2032,144 +1877,6 @@ private fun MoreFromSeasonSection(
 }
 
 @Composable
-private fun SimilarItemsSection(
-    similarItems: List<BaseItemDto>,
-    mediaRepository: MediaRepository,
-    onItemClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    title: String? = null
-) {
-    if (similarItems.isEmpty()) return
-    val sectionTitle = title ?: stringResource(R.string.detail_similar_items_title)
-
-    Column(
-        modifier = modifier.padding(top = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            text = sectionTitle,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(horizontal = 0.dp)
-        ) {
-            itemsIndexed(
-                items = similarItems,
-                key = { index, similarItem ->
-                    "${similarItem.id ?: "${similarItem.name}-${similarItem.type}"}_$index"
-                }
-            ) { _, similarItem ->
-                SimilarItemCard(
-                    item = similarItem,
-                    mediaRepository = mediaRepository,
-                    onClick = {
-                        similarItem.id?.let(onItemClick)
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SimilarItemCard(
-    item: BaseItemDto,
-    mediaRepository: MediaRepository,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val imageItemId = remember(item.id, item.type, item.seriesId) {
-        when {
-            item.type == "Episode" && !item.seriesId.isNullOrBlank() -> item.seriesId
-            else -> item.id
-        }
-    }
-    val imageUrl = rememberImageUrl(
-        itemId = imageItemId,
-        imageType = "Primary",
-        width = 320,
-        height = 480,
-        quality = 90,
-        imageTag = item.imageTagFor(
-            imageType = "Primary",
-            targetItemId = imageItemId
-        ),
-        mediaRepository = mediaRepository
-    )
-
-    Column(
-        modifier = Modifier
-            .width(116.dp)
-            .clickable(
-                enabled = !item.id.isNullOrBlank(),
-                onClick = onClick
-            )
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(166.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF2A2A2A)
-            )
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                if (!imageUrl.isNullOrBlank()) {
-                    JellyfinPosterImage(
-                        imageUrl = imageUrl,
-                        contentDescription = item.name,
-                        modifier = Modifier.fillMaxSize(),
-                        context = context,
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.Movie,
-                        contentDescription = item.name,
-                        tint = Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
-            fontSize = 12.sp,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 14.sp
-        )
-
-        val subtitle = item.productionYear?.toString()
-            ?: item.type?.takeIf { it.isNotBlank() }
-
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                fontSize = 10.sp,
-                color = Color.White.copy(alpha = 0.62f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 1.dp)
-            )
-        }
-    }
-}
-
-@Composable
 private fun DetailInfoRow(
     label: String,
     value: String,
@@ -2316,101 +2023,6 @@ private fun OptionSelectorRow(
                 }
             }
         }
-    }
-}
-
-private fun buildVideoInlineText(
-    mediaSources: List<MediaSourceInfo>,
-    streams: List<MediaStream>
-): String? {
-    val source = inlinePrimaryMediaSource(mediaSources)
-    val parts = mutableListOf<String>()
-    CodecUtils.getFileSize(source?.size)?.let(parts::add)
-
-    val fileBitrate = source?.bitrate?.toLong()
-        ?: streams
-            .sumOf { (it.bitRate ?: 0).toLong() }
-            .takeIf { it > 0L }
-    formatBitrate(fileBitrate)?.let(parts::add)
-
-    return parts.takeIf { it.isNotEmpty() }?.joinToString(" / ")
-}
-
-private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourceInfo? {
-    return sources.firstOrNull { source ->
-        !source.name.isNullOrBlank() ||
-            !source.container.isNullOrBlank() ||
-            source.size != null ||
-            source.bitrate != null ||
-            source.mediaStreams.orEmpty().isNotEmpty()
-    } ?: sources.firstOrNull()
-}
-
-private fun BaseItemDto.localVersionVideoLabel(): String {
-    val activeSources = activeMediaSources()
-    val streams = activeSources
-        .flatMap { source -> source.mediaStreams.orEmpty() }
-        .ifEmpty { mediaStreams.orEmpty() }
-    val videoTitle = buildVideoOptions(streams).firstOrNull() ?: "Video"
-    val inlineText = buildVideoInlineText(
-        mediaSources = activeSources,
-        streams = streams
-    )
-    return listOfNotNull(videoTitle, inlineText)
-        .filter { it.isNotBlank() }
-        .joinToString(" / ")
-}
-
-private fun BaseItemDto.activeMediaSources(): List<MediaSourceInfo> {
-    val sources = mediaSources.orEmpty()
-    val currentItemId = id?.takeIf { it.isNotBlank() } ?: return sources
-    if (sources.size <= 1) return sources
-
-    return sources
-        .filter { source -> source.matchesItemId(currentItemId) }
-        .ifEmpty { sources }
-}
-
-private fun MediaSourceInfo.matchesItemId(itemId: String): Boolean {
-    val sourceId = id?.takeIf { it.isNotBlank() } ?: return false
-    return sourceId.equals(itemId, ignoreCase = true) ||
-        sourceId.equals("mediasource_$itemId", ignoreCase = true)
-}
-
-private fun formatBitrate(bitsPerSecond: Int?): String? = formatBitrate(bitsPerSecond?.toLong())
-
-private fun formatBitrate(bitsPerSecond: Long?): String? {
-    val value = bitsPerSecond?.takeIf { it > 0L } ?: return null
-    return if (value >= 1_000_000L) {
-        "${String.format(Locale.US, "%.1f", value / 1_000_000.0)} Mbps"
-    } else {
-        "${value / 1000L} kbps"
-    }
-}
-
-@Composable
-private fun FavoriteActionButton(
-    isFavorite: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier.size(46.dp),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color(0xFF1F1F24),
-            contentColor = Color.White
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Icon(
-            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-            contentDescription = if (isFavorite) "Unfavorite" else "Favorite",
-            modifier = Modifier.size(20.dp),
-            tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White
-        )
     }
 }
 

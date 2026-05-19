@@ -1,8 +1,18 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.shared.ui.components.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,7 +20,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,12 +37,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
-import com.jellycine.shared.util.image.primaryImageTagOrNull
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.shared.R
+import com.jellycine.shared.util.image.primaryImageTagOrNull
 import kotlinx.coroutines.flow.first
 
 @Composable
@@ -83,7 +98,7 @@ private fun CastCrewMemberCard(
     onClick: () -> Unit
 ) {
     var personImageUrl by remember(person.id) { mutableStateOf<String?>(null) }
-    val hasValidPersonId = !person.id.isNullOrBlank() && person.imageUrl.isNullOrBlank()
+    val hasValidPersonId = !person.id.isNullOrBlank()
 
     LaunchedEffect(person.id, person.primaryImageTag, person.imageUrl) {
         if (!person.imageUrl.isNullOrBlank()) {
@@ -178,7 +193,11 @@ private fun prioritizeCastAndCrew(
         .distinctBy { it.id ?: "${it.name}-${it.role}-${it.type}" }
 }
 
-private suspend fun getPersonImageUrl(personId: String, imageTag: String?, mediaRepository: MediaRepository): String? {
+private suspend fun getPersonImageUrl(
+    personId: String,
+    imageTag: String?,
+    mediaRepository: MediaRepository
+): String? {
     return mediaRepository.getImageUrl(
         itemId = personId,
         imageType = "Primary",
