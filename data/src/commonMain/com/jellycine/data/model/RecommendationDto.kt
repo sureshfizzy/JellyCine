@@ -17,3 +17,30 @@ data class RecommendationDto(
     @SerialName("RecommendationType")
     val recommendationType: String? = null
 )
+
+fun RecommendationDto.title(): String? {
+    val baseline = baselineItemName?.takeIf { it.isNotBlank() }
+    return when (recommendationType) {
+        "HasDirectorFromRecentlyPlayed",
+        "HasLikedDirector" -> baseline?.let { "Directed by $it" }
+
+        "HasActorFromRecentlyPlayed",
+        "HasLikedActor" -> baseline?.let { "Starring $it" }
+
+        "SimilarToLikedItem" -> baseline?.let { "Because you like $it" }
+        "SimilarToRecentlyPlayed" -> baseline?.let { "Because you watched $it" }
+        else -> baseline
+    }
+}
+
+fun RecommendationDto.seerRole(): SeerrPersonRole? {
+    return when (recommendationType) {
+        "HasDirectorFromRecentlyPlayed",
+        "HasLikedDirector" -> SeerrPersonRole.DIRECTOR
+
+        "HasActorFromRecentlyPlayed",
+        "HasLikedActor" -> SeerrPersonRole.ACTOR
+
+        else -> null
+    }
+}

@@ -306,6 +306,13 @@ enum class SeerrPersonCreditType {
     ACTOR
 }
 
+enum class SeerrPersonRole(
+    val creditType: SeerrPersonCreditType
+) {
+    DIRECTOR(SeerrPersonCreditType.DIRECTOR),
+    ACTOR(SeerrPersonCreditType.ACTOR)
+}
+
 enum class SeerrRequestState {
     NONE,
     REQUESTED

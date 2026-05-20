@@ -174,3 +174,139 @@ private fun SeerrMediaInfo?.toRequestState(): SeerrRequestState {
         SeerrRequestState.NONE
     }
 }
+
+fun filterSeerTitlesForRow(
+    seerrTitles: List<SeerrRecommendationTitle>,
+    baseTitles: List<BaseItemDto>,
+    item: BaseItemDto
+): List<SeerrRecommendationTitle> {
+    if (seerrTitles.isEmpty()) return emptyList()
+
+    val seerBaseTitles = baseTitles.map { baseTitle ->
+        baseTitle.name.lookupKey() to baseTitle.productionYear
+    }.toSet()
+    val existingLocalIds = buildSet {
+        item.id?.let(::add)
+        baseTitles.mapNotNullTo(this) { it.id }
+    }
+
+    return seerrTitles.filter { seerrTitle ->
+        val normalizedSeerrTitle = seerrTitle.title.lookupKey()
+        val matchesCurrentItem = normalizedSeerrTitle == item.name.lookupKey() &&
+            yearMatch(item.productionYear, seerrTitle.productionYear)
+        val matchesBaseTitle = seerBaseTitles.any { (titleKey, year) ->
+            titleKey == normalizedSeerrTitle && yearMatch(year, seerrTitle.productionYear)
+        }
+        val localId = seerrTitle.jellyfinMediaId?.let(existingLocalIds::contains) == true
+
+        !matchesCurrentItem && !matchesBaseTitle && !localId
+    }
+}
+
+fun filterSeerTitles(
+    seerrTitles: List<SeerrRecommendationTitle>,
+    localItems: List<BaseItemDto>
+): List<SeerrRecommendationTitle> {
+    if (seerrTitles.isEmpty()) return emptyList()
+
+    val localTitles = localItems.map { item ->
+        item.name.lookupKey() to item.productionYear
+    }.toSet()
+    val localIds = localItems.mapNotNull { item -> item.id }.toSet()
+
+    return seerrTitles.filterNot { seerrTitle ->
+        val normalizedTitle = seerrTitle.title.lookupKey()
+        val localIdMatch = seerrTitle.jellyfinMediaId?.let(localIds::contains) == true
+        val titleMatch = localTitles.any { (titleKey, year) ->
+            titleKey == normalizedTitle && yearMatch(year, seerrTitle.productionYear)
+        }
+
+        localIdMatch || titleMatch
+    }
+}
+
+fun seerPersonId(
+    items: List<BaseItemDto>,
+    personName: String,
+    role: SeerrPersonRole
+): String? {
+    val seerPersonName = personName.lookupKey()
+    return findPersonId(
+        people = items.asSequence().flatMap { item -> item.people.orEmpty().asSequence() },
+        seerPersonName = seerPersonName
+    ) { person -> role.matches(person) }
+}
+
+fun SeerrRecommendationTitle.toSeerDetailItem(): BaseItemDto {
+    return BaseItemDto(
+        id = SeerrItemIds.detailId(tmdbId = tmdbId, mediaType = mediaType)
+    )
+}
+
+fun BaseItemDto.seerTitleParams(): Pair<String, String>? {
+    SeerrItemIds.detailParams(id.orEmpty())?.let { return it }
+    val tmdbId = providerIds.providerId("tmdb") ?: return null
+    val mediaType = when {
+        type.equals("Series", ignoreCase = true) -> "tv"
+        type.equals("Movie", ignoreCase = true) -> "movie"
+        else -> return null
+    }
+    return mediaType to tmdbId
+}
+
+fun Map<String, String>?.providerId(providerName: String): String? {
+    return this?.entries
+        ?.firstOrNull { (key, value) -> key.equals(providerName, ignoreCase = true) && value.isNotBlank() }
+        ?.value
+}
+
+private fun SeerrPersonRole.matches(person: BaseItemPerson): Boolean {
+    return when (this) {
+        SeerrPersonRole.DIRECTOR -> listOf(person.role, person.type).any { field ->
+            field?.contains("Director", ignoreCase = true) == true
+        }
+
+        SeerrPersonRole.ACTOR -> {
+            val isDirector = listOf(person.role, person.type).any { field ->
+                field?.contains("Director", ignoreCase = true) == true
+            }
+            if (isDirector) {
+                false
+            } else {
+                listOf(person.role, person.type).any { field ->
+                    field?.contains("Actor", ignoreCase = true) == true ||
+                        field?.contains("Star", ignoreCase = true) == true ||
+                        field?.contains("Cast", ignoreCase = true) == true
+                } || person.type.isNullOrBlank()
+            }
+        }
+    }
+}
+
+private fun findPersonId(
+    people: Sequence<BaseItemPerson>,
+    seerPersonName: String,
+    matches: (BaseItemPerson) -> Boolean = { true }
+): String? {
+    return people
+        .filter { person ->
+            person.id != null &&
+                person.name.lookupKey() == seerPersonName &&
+                matches(person)
+        }
+        .groupBy { person -> person.id.orEmpty() }
+        .maxByOrNull { (_, matches) -> matches.size }
+        ?.key
+        ?.takeIf { it.isNotBlank() }
+}
+
+private fun String?.lookupKey(): String {
+    return this
+        .orEmpty()
+        .lowercase()
+        .replace(Regex("[^a-z0-9]+"), "")
+}
+
+private fun yearMatch(localYear: Int?, seerrYear: Int?): Boolean {
+    return localYear == null || seerrYear == null || localYear == seerrYear
+}

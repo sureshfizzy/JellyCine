@@ -38,25 +38,15 @@ import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrRequestOptions
-import com.jellycine.data.model.SeerrRequestSelection
-import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
-import com.jellycine.app.ui.components.common.SeerPersonRole
-import com.jellycine.app.ui.components.common.fetchSeerTmdbPersonId
-import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
-import com.jellycine.app.ui.components.common.seerTitleParams
 import com.jellycine.shared.ui.components.common.CastSection
 import com.jellycine.shared.ui.components.common.DetailDownloadActionButton
 import com.jellycine.shared.ui.components.common.DetailDownloadActionState
@@ -67,7 +57,6 @@ import com.jellycine.shared.ui.components.common.DetailPlayActionButton
 import com.jellycine.shared.ui.components.common.FavoriteActionButton
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.shared.ui.components.common.selectedVideoOption
-import com.jellycine.shared.ui.components.common.SeerrRequestActionButton
 import com.jellycine.shared.ui.components.common.SimilarItemsSection
 import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.ScreenWrapper
@@ -103,7 +92,6 @@ import com.jellycine.app.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 private val heroOverlayGradient = arrayOf(
@@ -137,11 +125,10 @@ fun DetailScreenContainer(
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember(context) { SeerrRepository(context) }
+    val seerrRepository = rememberSeerrRepository(context)
     val playerPreferences = remember { PlayerPreferences(context) }
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
-    val seerParams = remember(itemId) { SeerrItemIds.detailParams(itemId) }
 
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -382,23 +369,20 @@ fun DetailScreenContainer(
             isLoading = true
             error = null
 
-            val result = if (seerParams != null) {
-                val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-                    ?: run {
-                        error = "Seerr is not connected."
-                        item = null
-                        isLoading = false
-                        return@LaunchedEffect
-                    }
-                val (mediaType, tmdbId) = seerParams
-                seerrRepository.getTitleDetails(
-                    scopeId = scopeId,
-                    tmdbId = tmdbId,
-                    mediaType = mediaType
-                )
-            } else {
-                mediaRepository.getItemById(itemId)
+            if (isSeerDetailItemId(itemId) && activeServerId.isNullOrBlank()) {
+                error = context.getString(R.string.detail_seerr_not_connected)
+                item = null
+                isLoading = false
+                return@LaunchedEffect
             }
+
+            val result = loadDetailItem(
+                itemId = itemId,
+                activeServerId = activeServerId,
+                mediaRepository = mediaRepository,
+                seerrRepository = seerrRepository,
+                seerrNotConnectedMessage = context.getString(R.string.detail_seerr_not_connected)
+            )
             result.fold(
                 onSuccess = { fetchedItem ->
                     item = fetchedItem
@@ -739,7 +723,7 @@ fun DetailContent(
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember(context) { SeerrRepository(context) }
+    val seerrRepository = rememberSeerrRepository(context)
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val playerPreferences = remember { PlayerPreferences(context) }
     val preferences = remember { Preferences(context) }
@@ -864,8 +848,6 @@ fun DetailContent(
             "Creator:"
         }
     }
-    var directorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-    var seerrDirectorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
     val hasDescriptionContent = !item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()
     val canDownloadItem = item.id != null && item.canDownload != false && !isSeerDetail
     val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
@@ -895,26 +877,24 @@ fun DetailContent(
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
-    var similarItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-    var seerrSimilarItems by remember(item.id) {
-        mutableStateOf<List<SeerrRecommendationTitle>>(emptyList())
-    }
-    var seerrRecommendedItems by remember(item.id) {
-        mutableStateOf<List<SeerrRecommendationTitle>>(emptyList())
-    }
+    val seerrRelatedItems = seerrRelatedItemsState(
+        item = item,
+        isSeerDetail = isSeerDetail,
+        activeServerId = activeServerId,
+        mediaRepository = mediaRepository,
+        seerrRepository = seerrRepository
+    )
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
     var localVersions by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-    var seerrRequestState by remember(item.id, item.seerrRequestState) {
-        mutableStateOf(item.seerrRequestState ?: SeerrRequestState.NONE)
-    }
-    var seerrRequestInProgress by remember(item.id) { mutableStateOf(false) }
-    var seerrOptionsLoading by remember(item.id) { mutableStateOf(false) }
-    var seerrRequestOptions by remember(item.id) { mutableStateOf<SeerrRequestOptions?>(null) }
-    var seerrRequestErrorMessage by remember(item.id) { mutableStateOf<String?>(null) }
-    var pendingSeasonRequestNumber by remember(item.id) { mutableStateOf<Int?>(null) }
-    var seerrSeasonRefreshKey by remember(item.id) { mutableIntStateOf(0) }
+    val seerrRequestState = seerrRequestState(
+        item = item,
+        isSeerDetail = isSeerDetail,
+        activeServerId = activeServerId,
+        seerrRepository = seerrRepository,
+        coroutineScope = coroutineScope
+    )
     val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
         val seriesId = item.id
         if (isSeerDetail || item.type != "Series" || seriesId.isNullOrBlank()) {
@@ -944,87 +924,6 @@ fun DetailContent(
             )
             if (result.isSuccess) {
                 isFavorite = targetState
-            }
-        }
-    }
-
-    fun submitSeerrRequest(selection: SeerrRequestSelection?) {
-        val requestingSeasonCard = pendingSeasonRequestNumber != null
-        if (
-            seerrRequestInProgress ||
-            (!requestingSeasonCard && seerrRequestState == SeerrRequestState.REQUESTED)
-        ) {
-            return
-        }
-        val (mediaType, tmdbId) = item.seerTitleParams() ?: return
-        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-        if (scopeId == null) {
-            seerrRequestErrorMessage = "Seerr is not connected."
-            return
-        }
-
-        coroutineScope.launch {
-            seerrRequestInProgress = true
-            try {
-                seerrRepository.requestTitle(
-                    scopeId = scopeId,
-                    tmdbId = tmdbId,
-                    mediaType = mediaType,
-                    selection = selection
-                ).fold(
-                    onSuccess = {
-                        if (requestingSeasonCard) {
-                            seerrSeasonRefreshKey += 1
-                        } else {
-                            seerrRequestState = SeerrRequestState.REQUESTED
-                        }
-                        seerrRequestOptions = null
-                        pendingSeasonRequestNumber = null
-                    },
-                    onFailure = { throwable ->
-                        pendingSeasonRequestNumber = null
-                        seerrRequestErrorMessage = throwable.message
-                            ?: context.getString(R.string.detail_seerr_request_failed)
-                    }
-                )
-            } finally {
-                seerrRequestInProgress = false
-            }
-        }
-    }
-
-    fun loadSeerrRequestOptions(seasonNumber: Int? = null) {
-        val isSeasonRequest = seasonNumber != null
-        if ((!isSeasonRequest && !isSeerDetail) || seerrOptionsLoading || seerrRequestInProgress) return
-        val (mediaType, tmdbId) = item.seerTitleParams() ?: return
-        if (isSeasonRequest && !mediaType.equals("tv", ignoreCase = true)) return
-        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-        if (scopeId == null) {
-            seerrRequestErrorMessage = "Seerr is not connected."
-            return
-        }
-
-        coroutineScope.launch {
-            pendingSeasonRequestNumber = seasonNumber
-            seerrOptionsLoading = true
-            try {
-                seerrRepository.getRequestOptions(
-                    scopeId = scopeId,
-                    mediaType = mediaType,
-                    tmdbId = tmdbId,
-                    seasonNumber = seasonNumber
-                ).fold(
-                    onSuccess = { options ->
-                        seerrRequestOptions = options
-                    },
-                    onFailure = { throwable ->
-                        pendingSeasonRequestNumber = null
-                        seerrRequestErrorMessage = throwable.message
-                            ?: context.getString(R.string.detail_seerr_request_failed)
-                    }
-                )
-            } finally {
-                seerrOptionsLoading = false
             }
         }
     }
@@ -1101,14 +1000,13 @@ fun DetailContent(
         logoLookup = true
         logoLoadError = false
         try {
-            val nextLogoImageUrl = if (isSeerDetail) {
-                seerrRepository.getTitleLogoUrl(activeServerId, item.id)
-            } else {
-                logoImage(
-                    item = item,
-                    mediaRepository = mediaRepository
-                )
-            }
+            val nextLogoImageUrl = detailLogoImage(
+                item = item,
+                activeServerId = activeServerId,
+                isSeerDetail = isSeerDetail,
+                mediaRepository = mediaRepository,
+                seerrRepository = seerrRepository
+            )
             if (nextLogoImageUrl != logoImageUrl) {
                 logoImageUrl = nextLogoImageUrl
             }
@@ -1116,77 +1014,6 @@ fun DetailContent(
         } finally {
             logoLookup = false
         }
-    }
-
-    LaunchedEffect(item.id, activeServerId, isSeerDetail) {
-        val currentItemId = item.id
-        if (currentItemId.isNullOrBlank()) {
-            similarItems = emptyList()
-            seerrSimilarItems = emptyList()
-            seerrRecommendedItems = emptyList()
-            return@LaunchedEffect
-        }
-
-        seerrSimilarItems = emptyList()
-        seerrRecommendedItems = emptyList()
-        val localSimilarItems = if (isSeerDetail) {
-            emptyList()
-        } else {
-            mediaRepository.getSimilarItems(itemId = currentItemId, limit = 16)
-                .getOrDefault(emptyList())
-                .filter { !it.id.isNullOrBlank() }
-        }
-        similarItems = localSimilarItems
-
-        val params = if (isSeerDetail) {
-            SeerrItemIds.detailParams(currentItemId)
-        } else {
-            item.seerTitleParams()
-        }
-        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-        if (params == null || scopeId == null) {
-            return@LaunchedEffect
-        }
-
-        val (seerrMediaType, seerrTmdbId) = params
-        val similarSeerrTitles = if (isSeerDetail) {
-            seerrRepository.getSimilarTitles(
-                scopeId = scopeId,
-                mediaType = seerrMediaType,
-                tmdbId = seerrTmdbId,
-                limit = 16
-            ).getOrDefault(emptyList())
-        } else {
-            emptyList()
-        }
-        seerrSimilarItems = filterSeerTitlesForRow(
-            seerrTitles = similarSeerrTitles,
-            baseTitles = emptyList(),
-            item = item
-        )
-
-        seerrRepository.getRecommendedTitles(
-            scopeId = scopeId,
-            mediaType = seerrMediaType,
-            tmdbId = seerrTmdbId,
-            limit = 16
-        ).fold(
-            onSuccess = { titles ->
-                val filteredTitles = titles.filterNot { title ->
-                    seerrSimilarItems.any { similar ->
-                        similar.mediaType == title.mediaType && similar.tmdbId == title.tmdbId
-                    }
-                }
-                seerrRecommendedItems = filterSeerTitlesForRow(
-                    seerrTitles = filteredTitles,
-                    baseTitles = localSimilarItems,
-                    item = item
-                )
-            },
-            onFailure = {
-                seerrRecommendedItems = emptyList()
-            }
-        )
     }
 
     LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId, item.parentIndexNumber) {
@@ -1676,15 +1503,8 @@ fun DetailContent(
                         }
 
                         if (isWidescreenLayout && isSeerDetail) {
-                            SeerrRequestActionButton(
-                                requestState = seerrRequestState,
-                                isBusy = seerrRequestInProgress || seerrOptionsLoading,
-                                busyLabel = if (seerrOptionsLoading) {
-                                    stringResource(R.string.detail_seerr_loading_options)
-                                } else {
-                                    stringResource(R.string.detail_seerr_requesting)
-                                },
-                                onClick = { loadSeerrRequestOptions() },
+                            SeerrRequestButton(
+                                state = seerrRequestState,
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -1941,15 +1761,8 @@ fun DetailContent(
                         }
 
                         if (!isWidescreenLayout && isSeerDetail) {
-                            SeerrRequestActionButton(
-                                requestState = seerrRequestState,
-                                isBusy = seerrRequestInProgress || seerrOptionsLoading,
-                                busyLabel = if (seerrOptionsLoading) {
-                                    stringResource(R.string.detail_seerr_loading_options)
-                                } else {
-                                    stringResource(R.string.detail_seerr_requesting)
-                                },
-                                onClick = { loadSeerrRequestOptions() },
+                            SeerrRequestButton(
+                                state = seerrRequestState,
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -2114,11 +1927,11 @@ fun DetailContent(
                                     mediaRepository = mediaRepository,
                                     seerrRepository = seerrRepository,
                                     activeServerId = activeServerId,
-                                    refreshKey = seerrSeasonRefreshKey,
-                                    loadingSeasonNumber = pendingSeasonRequestNumber
-                                        ?.takeIf { seerrOptionsLoading || seerrRequestInProgress },
+                                    refreshKey = seerrRequestState.seasonRefreshKey,
+                                    loadingSeasonNumber = seerrRequestState.pendingSeasonRequestNumber
+                                        ?.takeIf { seerrRequestState.isBusy },
                                     onSeasonRequest = { seasonNumber ->
-                                        loadSeerrRequestOptions(seasonNumber)
+                                        seerrRequestState.onLoadRequestOptions(seasonNumber)
                                     },
                                     onSeasonClick = onSeasonClick
                                 )
@@ -2132,80 +1945,23 @@ fun DetailContent(
                         )
 
                         val primaryDirector = directors.firstOrNull()
+                        val seerrDirectorItems = seerrDirectorItemsState(
+                            item = item,
+                            directors = directors,
+                            isSeerDetail = isSeerDetail,
+                            activeServerId = activeServerId,
+                            mediaRepository = mediaRepository,
+                            seerrRepository = seerrRepository
+                        )
 
-                        LaunchedEffect(item.id, primaryDirector?.id, activeServerId, isSeerDetail) {
-                            val directorId = primaryDirector?.id
-                            if (directorId.isNullOrBlank()) {
-                                directorTitles = emptyList()
-                                seerrDirectorTitles = emptyList()
-                                return@LaunchedEffect
-                            }
-
-                            val targetType = if (item.type.equals("Movie", ignoreCase = true)) "Movie" else "Series"
-                            val localTitlesDeferred = if (isSeerDetail) {
-                                null
-                            } else {
-                                async {
-                                    mediaRepository.getItemsForPerson(directorId).getOrNull()
-                                        ?.filter { it.type.equals(targetType, ignoreCase = true) }
-                                }
-                            }
-                            val rawSeerrTitlesDeferred = async {
-                                fetchSeerTmdbPersonId(
-                                    item = item,
-                                    personId = directorId,
-                                    role = SeerPersonRole.DIRECTOR,
-                                    activeServerId = activeServerId,
-                                    mediaRepository = mediaRepository,
-                                    seerrRepository = seerrRepository
-                                )
-                            }
-
-                            val localDirectorTitles = localTitlesDeferred?.await()
-                            if (!isSeerDetail && localDirectorTitles == null) {
-                                rawSeerrTitlesDeferred.cancel()
-                                directorTitles = emptyList()
-                                seerrDirectorTitles = emptyList()
-                                return@LaunchedEffect
-                            }
-                            val baseDirectorTitles = localDirectorTitles.orEmpty()
-
-                            directorTitles = baseDirectorTitles
-                            val pendingSeerrTitles = filterSeerTitlesForRow(
-                                seerrTitles = rawSeerrTitlesDeferred.await(),
-                                baseTitles = baseDirectorTitles,
-                                item = item
-                            )
-                            seerrDirectorTitles = pendingSeerrTitles
-
-                            pendingSeerrTitles
-                                .mapNotNull { seerrTitle ->
-                                    val jellyfinMediaId = seerrTitle.jellyfinMediaId
-                                        ?.takeIf { it.isNotBlank() && it != item.id }
-                                        ?: return@mapNotNull null
-                                    jellyfinMediaId to seerrTitle
-                                }
-                                .distinctBy { (jellyfinMediaId, _) -> jellyfinMediaId }
-                                .forEach { (jellyfinMediaId, seerrTitle) ->
-                                    launch {
-                                        val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull()
-                                            ?: return@launch
-                                        val localItemId = localItem.id ?: return@launch
-                                        if (directorTitles.any { it.id == localItemId }) {
-                                            seerrDirectorTitles = seerrDirectorTitles.filterNot { it.tmdbId == seerrTitle.tmdbId }
-                                            return@launch
-                                        }
-
-                                        directorTitles = directorTitles + localItem
-                                        seerrDirectorTitles = seerrDirectorTitles.filterNot { it.tmdbId == seerrTitle.tmdbId }
-                                    }
-                                }
-                        }
-
-                        if (primaryDirector != null && (directorTitles.isNotEmpty() || seerrDirectorTitles.isNotEmpty())) {
+                        if (
+                            primaryDirector != null &&
+                            (seerrDirectorItems.localDirectorItems.isNotEmpty() ||
+                                seerrDirectorItems.seerrDirectorItems.isNotEmpty())
+                        ) {
                             SimilarItemsSection(
-                                similarItems = directorTitles,
-                                seerrItems = seerrDirectorTitles,
+                                similarItems = seerrDirectorItems.localDirectorItems,
+                                seerrItems = seerrDirectorItems.seerrDirectorItems,
                                 mediaRepository = mediaRepository,
                                 onItemClick = onSimilarItemClick,
                                 title = "Directed by ${primaryDirector.name}"
@@ -2214,15 +1970,15 @@ fun DetailContent(
 
                         SimilarItemsSection(
                             similarItems = emptyList(),
-                            seerrItems = seerrRecommendedItems,
+                            seerrItems = seerrRelatedItems.seerrRecommendedItems,
                             mediaRepository = mediaRepository,
                             onItemClick = onSimilarItemClick,
                             title = stringResource(R.string.detail_seerr_recommendations_title)
                         )
 
                         SimilarItemsSection(
-                            similarItems = similarItems,
-                            seerrItems = seerrSimilarItems,
+                            similarItems = seerrRelatedItems.localSimilarItems,
+                            seerrItems = seerrRelatedItems.seerrSimilarItems,
                             mediaRepository = mediaRepository,
                             onItemClick = onSimilarItemClick
                         )
@@ -2292,51 +2048,11 @@ fun DetailContent(
         )
     }
 
-    seerrRequestOptions?.let { options ->
-        SeerrRequestDialog(
-            itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
-            backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl,
-            options = options,
-            onDismissRequest = {
-                seerrRequestOptions = null
-                pendingSeasonRequestNumber = null
-            },
-            onConfirm = { selection ->
-                seerrRequestOptions = null
-                submitSeerrRequest(selection)
-            }
-        )
-    }
-
-    seerrRequestErrorMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { seerrRequestErrorMessage = null },
-            containerColor = Color(0xFF1A1C22),
-            titleContentColor = Color.White,
-            textContentColor = Color.White.copy(alpha = 0.92f),
-            shape = RoundedCornerShape(16.dp),
-            title = {
-                Text(
-                    text = stringResource(R.string.detail_seerr_request_failed),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp
-                )
-            },
-            text = {
-                Text(text = message)
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { seerrRequestErrorMessage = null },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFF22D3EE)
-                    )
-                ) {
-                    Text(stringResource(R.string.ok), fontWeight = FontWeight.SemiBold)
-                }
-            }
-        )
-    }
+    SeerrRequestDialogs(
+        state = seerrRequestState,
+        itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
+        backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl
+    )
 
 }
 
@@ -2847,7 +2563,7 @@ private suspend fun heroImageCandidates(
     return candidates
 }
 
-private suspend fun logoImage(
+internal suspend fun logoImage(
     item: BaseItemDto,
     mediaRepository: MediaRepository
 ): String? {
@@ -2879,10 +2595,6 @@ private fun BaseItemDto.logoItemId(): String? {
 private fun BaseItemPerson.isCreditType(expectedType: String): Boolean {
     return type.equals(expectedType, ignoreCase = true) ||
         role.equals(expectedType, ignoreCase = true)
-}
-
-private fun BaseItemDto.isSeerDetailItem(): Boolean {
-    return SeerrItemIds.isDetailId(id)
 }
 
 private fun episodeHeaderText(item: BaseItemDto): String? {

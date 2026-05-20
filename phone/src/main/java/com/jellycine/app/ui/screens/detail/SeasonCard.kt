@@ -24,10 +24,10 @@ import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.ui.components.common.AnimatedCard
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.SeerrTopBadges
-import com.jellycine.app.ui.components.common.seerTitleParams
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSeasonRequestOption
+import com.jellycine.data.model.seerTitleParams
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository

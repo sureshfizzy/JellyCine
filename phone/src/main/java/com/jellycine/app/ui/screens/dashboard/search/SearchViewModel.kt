@@ -3,12 +3,12 @@ package com.jellycine.app.ui.screens.dashboard.search
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.app.ui.components.common.filterSeerTitles
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrDiscoveryCategory
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SearchMediaType
+import com.jellycine.data.model.filterSeerTitles
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository

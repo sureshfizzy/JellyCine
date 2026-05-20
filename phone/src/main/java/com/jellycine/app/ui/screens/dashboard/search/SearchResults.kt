@@ -34,9 +34,9 @@ import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle
 import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
-import com.jellycine.app.ui.components.common.toSeerDetailItem
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
 import coil3.compose.AsyncImage

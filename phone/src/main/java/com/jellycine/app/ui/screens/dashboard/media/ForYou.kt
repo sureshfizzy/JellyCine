@@ -32,12 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.SeerPersonRole
 import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
-import com.jellycine.app.ui.components.common.filterSeerTitlesForRow
-import com.jellycine.app.ui.components.common.seerPersonId
-import com.jellycine.app.ui.components.common.toSeerDetailItem
+import com.jellycine.data.model.SeerrPersonRole
+import com.jellycine.data.model.filterSeerTitlesForRow
+import com.jellycine.data.model.seerPersonId
+import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -45,6 +45,8 @@ import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.seerRole
+import com.jellycine.data.model.title
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -58,7 +60,7 @@ private data class RecommendationSectionUi(
     val title: String,
     val items: List<BaseItemDto>,
     val seerItems: List<SeerrRecommendationTitle> = emptyList(),
-    val seerRole: SeerPersonRole? = null,
+    val seerRole: SeerrPersonRole? = null,
     val personName: String? = null
 )
 
@@ -308,33 +310,6 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
         }
     } catch (e: Exception) {
         RecommendationFeedState(emptyList(), e.message ?: "Unknown error")
-    }
-}
-
-private fun RecommendationDto.title(): String? {
-    val baseline = baselineItemName?.takeIf { it.isNotBlank() }
-    return when (recommendationType) {
-        "HasDirectorFromRecentlyPlayed",
-        "HasLikedDirector" -> baseline?.let { "Directed by $it" }
-
-        "HasActorFromRecentlyPlayed",
-        "HasLikedActor" -> baseline?.let { "Starring $it" }
-
-        "SimilarToLikedItem" -> baseline?.let { "Because you like $it" }
-        "SimilarToRecentlyPlayed" -> baseline?.let { "Because you watched $it" }
-        else -> baseline
-    }
-}
-
-private fun RecommendationDto.seerRole(): SeerPersonRole? {
-    return when (recommendationType) {
-        "HasDirectorFromRecentlyPlayed",
-        "HasLikedDirector" -> SeerPersonRole.DIRECTOR
-
-        "HasActorFromRecentlyPlayed",
-        "HasLikedActor" -> SeerPersonRole.ACTOR
-
-        else -> null
     }
 }
 

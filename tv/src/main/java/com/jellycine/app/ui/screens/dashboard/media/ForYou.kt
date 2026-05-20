@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.title
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.async
@@ -244,21 +245,6 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
         }
     } catch (e: Exception) {
         RecommendationFeedState(emptyList(), e.message ?: "Unknown error")
-    }
-}
-
-private fun RecommendationDto.title(): String? {
-    val baseline = baselineItemName?.takeIf { it.isNotBlank() }
-    return when (recommendationType) {
-        "HasDirectorFromRecentlyPlayed",
-        "HasLikedDirector" -> baseline?.let { "Directed by $it" }
-
-        "HasActorFromRecentlyPlayed",
-        "HasLikedActor" -> baseline?.let { "Starring $it" }
-
-        "SimilarToLikedItem" -> baseline?.let { "Because you like $it" }
-        "SimilarToRecentlyPlayed" -> baseline?.let { "Because you watched $it" }
-        else -> baseline
     }
 }
 

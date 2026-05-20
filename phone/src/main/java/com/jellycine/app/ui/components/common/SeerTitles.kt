@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,26 +45,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.model.SeerrPersonCreditType
 import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SeerrPersonRole
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.providerId
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.shared.R
 import java.util.Locale
-
-internal enum class SeerPersonRole(
-    val creditType: SeerrPersonCreditType
-) {
-    DIRECTOR(SeerrPersonCreditType.DIRECTOR),
-    ACTOR(SeerrPersonCreditType.ACTOR)
-}
 
 internal suspend fun fetchSeerCreditTitles(
     item: BaseItemDto,
     personId: String,
-    role: SeerPersonRole,
+    role: SeerrPersonRole,
     activeServerId: String?,
     mediaRepository: MediaRepository,
     seerrRepository: SeerrRepository
@@ -82,7 +77,7 @@ internal suspend fun fetchSeerCreditTitles(
 internal suspend fun fetchSeerTmdbPerson(
     item: BaseItemDto,
     personTmdbId: String,
-    role: SeerPersonRole,
+    role: SeerrPersonRole,
     activeServerId: String?,
     seerrRepository: SeerrRepository
 ): List<SeerrRecommendationTitle> {
@@ -100,7 +95,7 @@ internal suspend fun fetchSeerTmdbPerson(
 internal suspend fun fetchSeerTmdbPersonId(
     item: BaseItemDto,
     personId: String,
-    role: SeerPersonRole,
+    role: SeerrPersonRole,
     activeServerId: String?,
     mediaRepository: MediaRepository,
     seerrRepository: SeerrRepository
@@ -134,14 +129,14 @@ internal suspend fun fetchSeerDirectedTitlesForTmdbPerson(
     val movieTitles = fetchSeerTmdbPerson(
         item = BaseItemDto(type = "Movie"),
         personTmdbId = personTmdbId,
-        role = SeerPersonRole.DIRECTOR,
+        role = SeerrPersonRole.DIRECTOR,
         activeServerId = activeServerId,
         seerrRepository = seerrRepository
     )
     val showTitles = fetchSeerTmdbPerson(
         item = BaseItemDto(type = "Series"),
         personTmdbId = personTmdbId,
-        role = SeerPersonRole.DIRECTOR,
+        role = SeerrPersonRole.DIRECTOR,
         activeServerId = activeServerId,
         seerrRepository = seerrRepository
     )
@@ -206,68 +201,6 @@ internal fun SeerTitlesRow(
             )
         }
     }
-}
-
-internal fun filterSeerTitlesForRow(
-    seerrTitles: List<SeerrRecommendationTitle>,
-    baseTitles: List<BaseItemDto>,
-    item: BaseItemDto
-): List<SeerrRecommendationTitle> {
-    if (seerrTitles.isEmpty()) return emptyList()
-
-    val seerBaseTitles = baseTitles.map { baseTitle ->
-        baseTitle.name.normalizedMatchKey() to baseTitle.productionYear
-    }.toSet()
-    val existingLocalIds = buildSet {
-        item.id?.let(::add)
-        baseTitles.mapNotNullTo(this) { it.id }
-    }
-
-    return seerrTitles.filter { seerrTitle ->
-        val normalizedSeerrTitle = seerrTitle.title.normalizedMatchKey()
-        val matchesCurrentItem = normalizedSeerrTitle == item.name.normalizedMatchKey() &&
-            yearMatch(item.productionYear, seerrTitle.productionYear)
-        val matchesBaseTitle = seerBaseTitles.any { (titleKey, year) ->
-            titleKey == normalizedSeerrTitle && yearMatch(year, seerrTitle.productionYear)
-        }
-        val localId = seerrTitle.jellyfinMediaId?.let(existingLocalIds::contains) == true
-
-        !matchesCurrentItem && !matchesBaseTitle && !localId
-    }
-}
-
-internal fun filterSeerTitles(
-    seerrTitles: List<SeerrRecommendationTitle>,
-    localItems: List<BaseItemDto>
-): List<SeerrRecommendationTitle> {
-    if (seerrTitles.isEmpty()) return emptyList()
-
-    val localTitles = localItems.map { item ->
-        item.name.normalizedMatchKey() to item.productionYear
-    }.toSet()
-    val localIds = localItems.mapNotNull { item -> item.id }.toSet()
-
-    return seerrTitles.filterNot { seerrTitle ->
-        val normalizedTitle = seerrTitle.title.normalizedMatchKey()
-        val localIdMatch = seerrTitle.jellyfinMediaId?.let(localIds::contains) == true
-        val titleMatch = localTitles.any { (titleKey, year) ->
-            titleKey == normalizedTitle && yearMatch(year, seerrTitle.productionYear)
-        }
-
-        localIdMatch || titleMatch
-    }
-}
-
-internal fun seerPersonId(
-    items: List<BaseItemDto>,
-    personName: String,
-    role: SeerPersonRole
-): String? {
-    val seerPersonName = personName.normalizedMatchKey()
-    return findPersonId(
-        people = items.asSequence().flatMap { item -> item.people.orEmpty().asSequence() },
-        seerPersonName = seerPersonName
-    ) { person -> role.matches(person) }
 }
 
 @Composable
@@ -415,7 +348,7 @@ internal fun SeerrSourceBadge(modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Seerr",
+                text = stringResource(R.string.settings_seerr),
                 fontSize = 9.sp,
                 color = Color(0xFF9CDCFE),
                 fontWeight = FontWeight.SemiBold,
@@ -441,7 +374,7 @@ internal fun SeerrRequestBadge(modifier: Modifier = Modifier) {
         ) {
             Icon(
                 imageVector = Icons.Rounded.Schedule,
-                contentDescription = "Requested on Seerr",
+                contentDescription = stringResource(R.string.detail_requested_on_seerr),
                 tint = Color(0xFF5F65E8),
                 modifier = Modifier.size(13.dp)
             )
@@ -449,83 +382,7 @@ internal fun SeerrRequestBadge(modifier: Modifier = Modifier) {
     }
 }
 
-private fun SeerPersonRole.matches(person: BaseItemPerson): Boolean {
-    return when (this) {
-        SeerPersonRole.DIRECTOR -> listOf(person.role, person.type).any { field ->
-            field?.contains("Director", ignoreCase = true) == true
-        }
-
-        SeerPersonRole.ACTOR -> {
-            val isDirector = listOf(person.role, person.type).any { field ->
-                field?.contains("Director", ignoreCase = true) == true
-            }
-            if (isDirector) {
-                false
-            } else {
-                listOf(person.role, person.type).any { field ->
-                    field?.contains("Actor", ignoreCase = true) == true ||
-                        field?.contains("Star", ignoreCase = true) == true ||
-                        field?.contains("Cast", ignoreCase = true) == true
-                } || person.type.isNullOrBlank()
-            }
-        }
-    }
-}
-
-private fun findPersonId(
-    people: Sequence<BaseItemPerson>,
-    seerPersonName: String,
-    matches: (BaseItemPerson) -> Boolean = { true }
-): String? {
-    return people
-        .filter { person ->
-            person.id != null &&
-                person.name.normalizedMatchKey() == seerPersonName &&
-                matches(person)
-        }
-        .groupBy { person -> person.id.orEmpty() }
-        .maxByOrNull { (_, matches) -> matches.size }
-        ?.key
-        ?.takeIf { it.isNotBlank() }
-}
-
-private fun Map<String, String>?.providerId(providerName: String): String? {
-    return this?.entries
-        ?.firstOrNull { (key, value) ->
-            key.equals(providerName, ignoreCase = true) && value.isNotBlank()
-        }
-        ?.value
-}
-
-private fun String?.normalizedMatchKey(): String {
-    return this
-        .orEmpty()
-        .lowercase(Locale.US)
-        .replace(Regex("[^a-z0-9]+"), "")
-}
-
-private fun yearMatch(localYear: Int?, seerrYear: Int?): Boolean {
-    return localYear == null || seerrYear == null || localYear == seerrYear
-}
-
 private fun SeerrRepository.verifiedScopeId(activeServerId: String?): String? {
     val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return null
     return scopeId.takeIf { getSavedConnectionInfo(it)?.isVerified == true }
-}
-
-internal fun SeerrRecommendationTitle.toSeerDetailItem(): BaseItemDto {
-    return BaseItemDto(
-        id = SeerrItemIds.detailId(tmdbId = tmdbId, mediaType = mediaType)
-    )
-}
-
-internal fun BaseItemDto.seerTitleParams(): Pair<String, String>? {
-    SeerrItemIds.detailParams(id.orEmpty())?.let { return it }
-    val tmdbId = providerIds.providerId("tmdb") ?: return null
-    val mediaType = when {
-        type.equals("Series", ignoreCase = true) -> "tv"
-        type.equals("Movie", ignoreCase = true) -> "movie"
-        else -> return null
-    }
-    return mediaType to tmdbId
 }

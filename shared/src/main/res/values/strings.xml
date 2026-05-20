@@ -400,6 +400,7 @@
     <string name="detail_seerr_requesting">Requesting...</string>
     <string name="detail_seerr_requested">Requested</string>
     <string name="detail_seerr_request_failed">Request Failed</string>
+    <string name="detail_seerr_not_connected">Seerr is not connected.</string>
     <string name="detail_seerr_loading_options">Loading options...</string>
     <string name="detail_seerr_request_4k">Request 4K</string>
     <string name="detail_seerr_request_4k_subtitle">Use the 4K request path for this title.</string>
