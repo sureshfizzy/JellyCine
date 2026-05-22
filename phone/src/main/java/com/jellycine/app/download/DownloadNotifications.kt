@@ -13,10 +13,13 @@ import androidx.core.app.NotificationManagerCompat
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.isPausedDownloadState
 import com.jellycine.app.ui.components.common.pausedDownloadMessage
+import com.jellycine.data.model.DownloadStatus
+import com.jellycine.data.model.ItemDownloadState
+import com.jellycine.data.model.TrackedDownload
 import kotlin.math.roundToInt
 
 internal object DownloadNotificationContract {
-    const val EXTRA_ITEM_ID = "item_id"
+    const val ITEM_ID = "item_id"
     const val ACTION_PAUSE = "com.jellycine.app.download.PAUSE"
     const val ACTION_RESUME = "com.jellycine.app.download.RESUME"
     const val ACTION_CANCEL = "com.jellycine.app.download.CANCEL"
@@ -40,22 +43,40 @@ class DownloadNotificationManager(private val context: Context) {
         val paused = active.count { isPausedDownloadState(it.state, pausedMessage) }
 
         val title = when {
-            downloading > 0 && queued > 0 ->
-                "Downloading $downloading item" +
-                    if (downloading > 1) "s" else "" +
-                    " ($queued queued)"
+            downloading > 0 && queued > 0 -> context.getString(
+                R.string.downloads_notification_downloading_with_queue,
+                context.resources.getQuantityString(
+                    R.plurals.downloads_notification_downloading_items,
+                    downloading,
+                    downloading
+                ),
+                queued
+            )
             downloading > 0 ->
-                "Downloading $downloading item" + if (downloading > 1) "s" else ""
+                context.resources.getQuantityString(
+                    R.plurals.downloads_notification_downloading_items,
+                    downloading,
+                    downloading
+                )
             queued > 0 ->
-                "Queued $queued item" + if (queued > 1) "s" else ""
+                context.resources.getQuantityString(
+                    R.plurals.downloads_notification_queued_items,
+                    queued,
+                    queued
+                )
             else ->
-                "$pausedMessage $paused item" + if (paused > 1) "s" else ""
+                context.resources.getQuantityString(
+                    R.plurals.downloads_notification_paused_items,
+                    paused,
+                    paused
+                )
         }
 
         val sizeText = formatSizeProgress(lead.state.downloadedBytes, lead.state.totalBytes)
         val stateText = when {
             lead.state.status == DownloadStatus.DOWNLOADING && lead.state.totalBytes > 0L -> "$progress%$sizeText"
-            lead.state.status == DownloadStatus.DOWNLOADING -> "Downloading$sizeText"
+            lead.state.status == DownloadStatus.DOWNLOADING ->
+                context.getString(R.string.downloads_status_downloading, sizeText)
             isPausedDownloadState(lead.state, pausedMessage) -> "$pausedMessage$sizeText"
             else -> context.getString(R.string.downloads_status_queued)
         }
@@ -64,7 +85,7 @@ class DownloadNotificationManager(private val context: Context) {
         val summaryBuilder = NotificationCompat.Builder(context, DownloadNotificationContract.CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
-            .setContentText("${lead.title} - $stateText")
+            .setContentText(context.getString(R.string.downloads_notification_content_line, lead.title, stateText))
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -132,7 +153,7 @@ class DownloadNotificationManager(private val context: Context) {
     private fun actionIntent(action: String, itemId: String): PendingIntent {
         val intent = Intent(context, DownloadActionReceiver::class.java).apply {
             this.action = action
-            putExtra(DownloadNotificationContract.EXTRA_ITEM_ID, itemId)
+            putExtra(DownloadNotificationContract.ITEM_ID, itemId)
         }
         val requestCode = (action + itemId).hashCode()
         return PendingIntent.getBroadcast(
@@ -150,10 +171,10 @@ class DownloadNotificationManager(private val context: Context) {
         if (existing != null) return
         val channel = NotificationChannel(
             DownloadNotificationContract.CHANNEL_ID,
-            "Downloads",
+            context.getString(R.string.downloads_notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Offline media downloads"
+            description = context.getString(R.string.downloads_notification_channel_description)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -164,15 +185,15 @@ class DownloadNotificationManager(private val context: Context) {
         val downloadedMb = downloaded / (1024f * 1024f)
         if (total > 0L) {
             val totalMb = total / (1024f * 1024f)
-            return String.format(" (%.0f MB/%.0f MB)", downloadedMb, totalMb)
+            return context.getString(R.string.downloads_notification_size_total, downloadedMb, totalMb)
         }
-        return String.format(" (%.0f MB)", downloadedMb)
+        return context.getString(R.string.downloads_notification_size_downloaded, downloadedMb)
     }
 }
 
 class DownloadActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val itemId = intent.getStringExtra(DownloadNotificationContract.EXTRA_ITEM_ID) ?: return
+        val itemId = intent.getStringExtra(DownloadNotificationContract.ITEM_ID) ?: return
         val repository = DownloadRepositoryProvider.getInstance(context.applicationContext)
         when (intent.action) {
             DownloadNotificationContract.ACTION_PAUSE -> repository.pauseDownload(itemId)

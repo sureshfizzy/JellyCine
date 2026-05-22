@@ -11,6 +11,23 @@
     <string name="data_error_server_endpoint_http">Server connection failed with HTTP %1$d</string>
     <string name="data_error_server_endpoint_unresolved">Unable to resolve server endpoint</string>
 
+    <!-- Download Errors -->
+    <string name="download_status_resuming">Resuming</string>
+    <string name="download_item_fallback">Item %1$s</string>
+    <string name="download_error_delete_file_failed">Failed to delete file</string>
+    <string name="download_error_item_id_unavailable">Item ID unavailable</string>
+    <string name="download_error_prepare_failed">Failed to prepare download</string>
+    <string name="download_error_wifi_required">Wi-Fi required for downloads</string>
+    <string name="download_error_storage_shortage_device">Not enough storage space on device</string>
+    <string name="download_error_not_enough_storage">Not enough storage space on this device</string>
+    <string name="download_error_no_episodes_found_series">No episodes found for this series</string>
+    <string name="download_error_no_episodes_found_to_download">No episodes found to download</string>
+    <string name="download_error_no_episodes_selected">No episodes selected for download</string>
+    <string name="download_error_no_episodes_queued">No episodes could be queued</string>
+    <string name="download_error_download_failed">Download failed</string>
+    <string name="download_error_incomplete">Download incomplete</string>
+    <string name="download_error_server">Server error %1$d</string>
+
     <!-- Authentication Errors -->
     <string name="auth_error_invalid_server_id">Invalid server id</string>
     <string name="auth_error_saved_server_not_found">Saved server not found</string>

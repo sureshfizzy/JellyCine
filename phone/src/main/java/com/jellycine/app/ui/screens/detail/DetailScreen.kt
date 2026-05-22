@@ -35,8 +35,12 @@ import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.data.model.BatchDownloadCandidate
+import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
+import com.jellycine.data.model.DownloadStatus
+import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
@@ -62,18 +66,13 @@ import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.canResumeDownloads
-import com.jellycine.app.ui.components.common.downloadButtonVisualState
 import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.isPausedDownloadState
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.cast.CastController
-import com.jellycine.app.download.BatchDownloadCandidate
-import com.jellycine.app.download.BatchDownloadEstimate
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.download.DownloadStatus
-import com.jellycine.app.download.ItemDownloadState
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
@@ -1876,10 +1875,8 @@ fun DetailContent(
                                         )
                                     ) {
                                         DownloadContent(
-                                            visualState = downloadButtonVisualState(
-                                                panelState = seriesDownload,
-                                                isQueueing = seriesQueueInProgress
-                                            ),
+                                            panelState = seriesDownload,
+                                            isQueueing = seriesQueueInProgress,
                                             progress = animatedSeriesDownloadProgress,
                                             idleLabelRes = R.string.downloads_action_download_series,
                                             fontSize = 14.sp,

@@ -37,9 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.app.download.DownloadStatus
-import com.jellycine.app.download.ItemDownloadState
-import com.jellycine.app.download.TrackedDownload
+import com.jellycine.data.model.DownloadStatus
+import com.jellycine.data.model.ItemDownloadState
+import com.jellycine.data.model.TrackedDownload
 
 enum class DownloadGroupState {
     IDLE,
@@ -64,15 +64,6 @@ val DownloadPanelState.canResumeDownloads: Boolean
 
 val DownloadPanelState.pausableItemIds: List<String>
     get() = activeItemIds.filterNot(pausedItemIds::contains)
-
-enum class DownloadButtonVisualState {
-    IDLE,
-    QUEUING,
-    DOWNLOADING,
-    QUEUED,
-    PAUSED,
-    COMPLETED
-}
 
 fun pausedDownloadMessage(context: Context): String =
     context.getString(R.string.downloads_status_paused)
@@ -163,22 +154,6 @@ fun rememberDownloadPanelProgress(
     ).value
 }
 
-fun downloadButtonVisualState(
-    panelState: DownloadPanelState,
-    isQueueing: Boolean = false,
-    supportsCompleted: Boolean = false
-): DownloadButtonVisualState {
-    return when {
-        isQueueing && !panelState.hasActiveDownloads -> DownloadButtonVisualState.QUEUING
-        panelState.status == DownloadGroupState.DOWNLOADING -> DownloadButtonVisualState.DOWNLOADING
-        panelState.status == DownloadGroupState.QUEUED -> DownloadButtonVisualState.QUEUED
-        panelState.status == DownloadGroupState.PAUSED -> DownloadButtonVisualState.PAUSED
-        supportsCompleted && panelState.status == DownloadGroupState.COMPLETED ->
-            DownloadButtonVisualState.COMPLETED
-        else -> DownloadButtonVisualState.IDLE
-    }
-}
-
 @Composable
 fun DownloadLabelContent(
     icon: ImageVector,
@@ -252,7 +227,9 @@ fun DownloadActionMenu(
 
 @Composable
 fun DownloadContent(
-    visualState: DownloadButtonVisualState,
+    panelState: DownloadPanelState,
+    isQueueing: Boolean = false,
+    supportsCompleted: Boolean = false,
     progress: Float,
     @StringRes idleLabelRes: Int,
     modifier: Modifier = Modifier,
@@ -261,53 +238,34 @@ fun DownloadContent(
     progressSize: Dp,
     @StringRes completedLabelRes: Int = R.string.downloads_status_downloaded
 ) {
+    val showingQueueing = isQueueing && !panelState.hasActiveDownloads
     AnimatedContent(
-        targetState = visualState,
+        targetState = panelState.status to showingQueueing,
         transitionSpec = {
             fadeIn(animationSpec = tween(220)) togetherWith
                 fadeOut(animationSpec = tween(180))
         },
         label = "download_group_button_content"
-    ) { state ->
-        when (state) {
-            DownloadButtonVisualState.QUEUING -> {
-                Row(
+    ) { (status, queueing) ->
+        when {
+            queueing -> {
+                DownloadProgressContent(
                     modifier = modifier,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(progressSize),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFF03A9F4)
-                    )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text(
-                        text = stringResource(R.string.downloads_status_queuing),
-                        fontSize = fontSize,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                    label = stringResource(R.string.downloads_status_queuing),
+                    fontSize = fontSize,
+                    progressSize = progressSize
+                )
             }
-            DownloadButtonVisualState.DOWNLOADING -> {
-                Row(
+            status == DownloadGroupState.DOWNLOADING -> {
+                DownloadProgressContent(
                     modifier = modifier,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        progress = { progress.coerceIn(0f, 0.99f) },
-                        modifier = Modifier.size(progressSize),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFF03A9F4)
-                    )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text(
-                        text = stringResource(R.string.downloads_status_downloading_short),
-                        fontSize = fontSize,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                    label = stringResource(R.string.downloads_status_downloading_short),
+                    fontSize = fontSize,
+                    progressSize = progressSize,
+                    progress = progress.coerceIn(0f, 0.99f)
+                )
             }
-            DownloadButtonVisualState.QUEUED -> {
+            status == DownloadGroupState.QUEUED -> {
                 DownloadLabelContent(
                     icon = Icons.Rounded.Download,
                     label = stringResource(R.string.downloads_status_queued),
@@ -316,7 +274,7 @@ fun DownloadContent(
                     fontSize = fontSize
                 )
             }
-            DownloadButtonVisualState.PAUSED -> {
+            status == DownloadGroupState.PAUSED -> {
                 DownloadLabelContent(
                     icon = Icons.Rounded.PauseCircle,
                     label = stringResource(R.string.downloads_status_paused),
@@ -326,7 +284,7 @@ fun DownloadContent(
                     tint = Color(0xFFFFC107)
                 )
             }
-            DownloadButtonVisualState.COMPLETED -> {
+            supportsCompleted && status == DownloadGroupState.COMPLETED -> {
                 DownloadLabelContent(
                     icon = Icons.Rounded.CheckCircle,
                     label = stringResource(completedLabelRes),
@@ -337,7 +295,7 @@ fun DownloadContent(
                     textColor = Color(0xFF4CAF50)
                 )
             }
-            DownloadButtonVisualState.IDLE -> {
+            else -> {
                 DownloadLabelContent(
                     icon = Icons.Rounded.Download,
                     label = stringResource(idleLabelRes),
@@ -347,6 +305,41 @@ fun DownloadContent(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DownloadProgressContent(
+    label: String,
+    modifier: Modifier,
+    fontSize: TextUnit,
+    progressSize: Dp,
+    progress: Float? = null
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (progress == null) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(progressSize),
+                strokeWidth = 2.dp,
+                color = Color(0xFF03A9F4)
+            )
+        } else {
+            CircularProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.size(progressSize),
+                strokeWidth = 2.dp,
+                color = Color(0xFF03A9F4)
+            )
+        }
+        Spacer(modifier = Modifier.size(6.dp))
+        Text(
+            text = label,
+            fontSize = fontSize,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 

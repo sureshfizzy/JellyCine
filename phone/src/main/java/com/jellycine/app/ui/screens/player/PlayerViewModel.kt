@@ -106,6 +106,15 @@ class PlayerViewModel @Inject constructor(
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
     }
 
+    private fun downloadLocationUri(location: String): Uri {
+        val parsed = Uri.parse(location)
+        return if (parsed.scheme.isNullOrBlank()) {
+            Uri.fromFile(File(location))
+        } else {
+            parsed
+        }
+    }
+
     fun initializePlayer(
         context: Context,
         mediaId: String,
@@ -184,7 +193,7 @@ class PlayerViewModel @Inject constructor(
                 spatializerHelper = SpatializerHelper(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
                 val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
-                val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
+                val hasOfflineFile = !offlinePath.isNullOrBlank()
                 val offlineItemDetails = if (hasOfflineFile) {
                     downloadRepository?.offlineItemMetadata(mediaId)
                 } else {
@@ -263,7 +272,7 @@ class PlayerViewModel @Inject constructor(
                     val localFilePath = requireNotNull(offlinePath)
                     sessionIsOfflinePlayback = true
                     sessionPlayMethod = PlayMethod.OFFLINE
-                    MediaItem.fromUri(Uri.fromFile(File(localFilePath)))
+                    MediaItem.fromUri(downloadLocationUri(localFilePath))
                 } else {
                     sessionIsOfflinePlayback = false
 
@@ -704,7 +713,7 @@ class PlayerViewModel @Inject constructor(
     ) {
         val nextDownloadRepository = downloadRepository ?: DownloadRepositoryProvider.getInstance(context)
         val offlinePath = nextDownloadRepository.getOfflineFilePath(nextEpisodeId)
-        if (!offlinePath.isNullOrBlank() && File(offlinePath).exists()) {
+        if (!offlinePath.isNullOrBlank()) {
             return
         }
 

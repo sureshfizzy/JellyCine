@@ -29,7 +29,6 @@ import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.downloadButtonVisualState
 import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
@@ -38,6 +37,8 @@ import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.getBackdrop
+import com.jellycine.data.model.BatchDownloadCandidate
+import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -427,11 +428,9 @@ fun SeasonDetailScreen(
                                         )
                                     ) {
                                         DownloadContent(
-                                            visualState = downloadButtonVisualState(
-                                                panelState = seasonDownload,
-                                                isQueueing = seasonQueueInProgress,
-                                                supportsCompleted = true
-                                            ),
+                                            panelState = seasonDownload,
+                                            isQueueing = seasonQueueInProgress,
+                                            supportsCompleted = true,
                                             progress = animatedSeasonDownloadProgress,
                                             idleLabelRes = R.string.downloads_action_download,
                                             fontSize = 13.sp,
@@ -564,11 +563,11 @@ private data class SeasonEpisodeSelectionDialogState(
     val episodesById: Map<String, BaseItemDto>
 ) {
     companion object {
-        fun fromEstimate(estimate: com.jellycine.app.download.BatchDownloadEstimate): SeasonEpisodeSelectionDialogState {
+        fun fromEstimate(estimate: BatchDownloadEstimate): SeasonEpisodeSelectionDialogState {
             val candidates = estimate.candidates
                 .filter { !it.item.id.isNullOrBlank() }
                 .sortedWith(
-                    compareBy<com.jellycine.app.download.BatchDownloadCandidate>(
+                    compareBy<BatchDownloadCandidate>(
                         { it.item.parentIndexNumber ?: Int.MAX_VALUE },
                         { it.item.indexNumber ?: Int.MAX_VALUE },
                         { it.item.name.orEmpty() }

@@ -318,6 +318,25 @@
     <string name="downloads_action_options">Download options</string>
     <string name="downloads_action_download">Download</string>
     <string name="downloads_action_download_series">Download Series</string>
+    <string name="downloads_settings_title">Download settings</string>
+    <string name="downloads_settings_storage_location">Storage location</string>
+    <string name="downloads_settings_storage_summary">Changes apply to new downloads.</string>
+    <string name="downloads_settings_concurrent_downloads">Simultaneous downloads</string>
+    <string name="downloads_settings_concurrent_downloads_summary">Limit how many files download at the same time.</string>
+    <plurals name="downloads_settings_concurrent_downloads_value">
+        <item quantity="one">%d download</item>
+        <item quantity="other">%d downloads</item>
+    </plurals>
+    <string name="downloads_settings_in_app_storage">In-app storage</string>
+    <string name="downloads_settings_in_app_storage_summary">Keep downloads inside app-specific storage.</string>
+    <string name="downloads_settings_in_app_path">In-app path</string>
+    <string name="downloads_settings_device_downloads">Device Downloads</string>
+    <string name="downloads_settings_device_downloads_summary">Save downloads in the public Downloads folder.</string>
+    <string name="downloads_settings_default_path">Default path</string>
+    <string name="downloads_settings_selected_folder">Selected folder</string>
+    <string name="downloads_settings_change_folder">Change folder</string>
+    <string name="downloads_settings_use_default">Use default</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 asks for file access before JellyCine can write to the public Downloads folder.</string>
     <string name="downloads_queue_options">Queue options</string>
     <string name="downloads_series_fallback">Series</string>
     <string name="downloads_season_number">Season %1$d</string>
@@ -329,6 +348,26 @@
     <string name="downloads_status_downloading">Downloading%1$s</string>
     <string name="downloads_status_paused">Paused</string>
     <string name="downloads_status_queued">Queued</string>
+    <string name="downloads_notification_preparing">Preparing downloads</string>
+    <string name="downloads_notification_syncing_state">Syncing download state</string>
+    <string name="downloads_notification_content_line">%1$s - %2$s</string>
+    <string name="downloads_notification_channel_name">Downloads</string>
+    <string name="downloads_notification_channel_description">Offline media downloads</string>
+    <string name="downloads_notification_downloading_with_queue">%1$s (%2$d queued)</string>
+    <string name="downloads_notification_size_total"> (%1$.0f MB/%2$.0f MB)</string>
+    <string name="downloads_notification_size_downloaded"> (%1$.0f MB)</string>
+    <plurals name="downloads_notification_downloading_items">
+        <item quantity="one">Downloading %d item</item>
+        <item quantity="other">Downloading %d items</item>
+    </plurals>
+    <plurals name="downloads_notification_queued_items">
+        <item quantity="one">Queued %d item</item>
+        <item quantity="other">Queued %d items</item>
+    </plurals>
+    <plurals name="downloads_notification_paused_items">
+        <item quantity="one">Paused %d item</item>
+        <item quantity="other">Paused %d items</item>
+    </plurals>
     <string name="downloads_progress_with_total"> | %1$s / %2$s</string>
     <string name="downloads_progress_downloaded_only"> | %1$s</string>
     <string name="downloads_group_downloading">Downloading %1$d of %2$d</string>
