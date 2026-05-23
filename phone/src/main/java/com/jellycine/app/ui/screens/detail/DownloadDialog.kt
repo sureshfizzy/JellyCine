@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -50,6 +51,40 @@ internal data class StorageSelectionOption(
     val subtitle: String? = null,
     val requiredBytes: Long
 )
+
+@Composable
+internal fun FailureDialog(
+    message: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1C22),
+        titleContentColor = Color.White,
+        textContentColor = Color.White.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(16.dp),
+        title = {
+            Text(
+                text = "Download Failed",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 20.sp
+            )
+        },
+        text = {
+            Text(text = message)
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF22D3EE)
+                )
+            ) {
+                Text("OK", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    )
+}
 
 @Composable
 internal fun DownloadDialog(
