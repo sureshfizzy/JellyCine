@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.app.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
@@ -697,6 +698,13 @@ private fun PosterCard(
                     )
                 }
 
+                if (itemCount == null && item.userData?.played == true) {
+                    WatchedIndicatorBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                    )
+                }
 
             }
         }

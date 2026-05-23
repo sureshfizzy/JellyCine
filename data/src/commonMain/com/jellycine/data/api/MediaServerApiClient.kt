@@ -235,6 +235,19 @@ internal class MediaServerApiClient(
         endpoint = "Users/$userId/FavoriteItems/$itemId"
     )
 
+    override suspend fun markAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit> = post("Users/$userId/PlayedItems/$itemId")
+
+    override suspend fun unmarkAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit> = execute(
+        method = HttpMethod.Delete,
+        endpoint = "Users/$userId/PlayedItems/$itemId"
+    )
+
     override suspend fun getGenres(
         userId: String,
         parentId: String?,

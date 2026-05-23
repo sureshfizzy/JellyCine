@@ -3,9 +3,13 @@ package com.jellycine.app.ui.components.common
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -167,5 +171,30 @@ fun DetailBackdropHero(
         )
 
         overlayContent()
+    }
+}
+
+@Composable
+fun BoxScope.DetailHeroCastButtonOverlay(
+    showWatchedButton: Boolean,
+    isWatched: Boolean,
+    onWatchedClick: () -> Unit,
+    onCastButtonClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            .padding(top = 12.dp, end = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (showWatchedButton) {
+            WatchedActionButton(
+                isWatched = isWatched,
+                onClick = onWatchedClick
+            )
+        }
+        ScreenCastButton(onConnectedClick = onCastButtonClick)
     }
 }

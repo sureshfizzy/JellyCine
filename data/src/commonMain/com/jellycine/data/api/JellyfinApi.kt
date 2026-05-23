@@ -124,6 +124,16 @@ interface MediaServerApi {
         itemId: String
     ): ApiResponse<Unit>
 
+    suspend fun markAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun unmarkAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
     suspend fun getGenres(
         userId: String,
         parentId: String? = null,

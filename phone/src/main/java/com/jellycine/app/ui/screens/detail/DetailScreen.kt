@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.detail
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,7 +45,6 @@ import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
-import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.cast.CastController
@@ -753,20 +750,6 @@ internal fun detailScreenLayoutSpec(
         logoContainerHeight = if (isWidescreenLayout) 74.dp else 78.dp,
         logoBottomSpacing = if (isWidescreenLayout) 18.dp else 8.dp
     )
-}
-
-@Composable
-internal fun BoxScope.DetailHeroCastButtonOverlay(
-    onCastButtonClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .statusBarsPadding()
-            .padding(top = 12.dp, end = 14.dp)
-    ) {
-        ScreenCastButton(onConnectedClick = onCastButtonClick)
-    }
 }
 
 internal fun downloadFailure(

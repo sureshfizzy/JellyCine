@@ -651,6 +651,31 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    suspend fun setPlayedStatus(itemId: String, isPlayed: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = if (isPlayed) {
+                api.markAsPlayed(userId = userId, itemId = itemId)
+            } else {
+                api.unmarkAsPlayed(userId = userId, itemId = itemId)
+            }
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to ${if (isPlayed) "mark item watched" else "mark item unwatched"}: ${response.code()} - ${response.message()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
@@ -702,7 +727,7 @@ class MediaRepository(private val context: Context) {
                 val session = getApiSession() ?: return@fold Result.failure(
                     Exception(string(R.string.data_error_session_not_available))
                 )
-                val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber"
+                val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber,UserData"
                 val sectionFetchSemaphore = Semaphore(4)
 
                 val sections = libraries.map { library ->

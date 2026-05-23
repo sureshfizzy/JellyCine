@@ -53,8 +53,10 @@ import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.shared.playback.PlaybackRefreshSignals
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
+import com.jellycine.app.ui.components.common.DetailHeroCastButtonOverlay
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.detailActionWidth
@@ -235,6 +237,9 @@ fun DetailContent(
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
+    var isWatched by remember(item.id, item.userData?.played) {
+        mutableStateOf(item.userData?.played == true)
+    }
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
@@ -275,6 +280,22 @@ fun DetailContent(
             )
             if (result.isSuccess) {
                 isFavorite = targetState
+            }
+        }
+    }
+
+    fun toggleWatched() {
+        if (isSeerDetail || item.type == "Series") return
+        val currentItemId = item.id ?: return
+        val targetState = !isWatched
+        coroutineScope.launch {
+            val result = mediaRepository.setPlayedStatus(
+                itemId = currentItemId,
+                isPlayed = targetState
+            )
+            if (result.isSuccess) {
+                isWatched = targetState
+                PlaybackRefreshSignals.notifyPlaybackStopped(currentItemId)
             }
         }
     }
@@ -550,7 +571,12 @@ fun DetailContent(
                 onErrorStateChange = onBackdropLoadError
             ) {
                 if (!isSeerDetail) {
-                    DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                    DetailHeroCastButtonOverlay(
+                        showWatchedButton = item.type != "Series",
+                        isWatched = isWatched,
+                        onWatchedClick = ::toggleWatched,
+                        onCastButtonClick = onCastButtonClick
+                    )
                 }
             }
         }
@@ -575,7 +601,12 @@ fun DetailContent(
                         onErrorStateChange = onBackdropLoadError
                     ) {
                         if (!isSeerDetail) {
-                            DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                            DetailHeroCastButtonOverlay(
+                                showWatchedButton = item.type != "Series",
+                                isWatched = isWatched,
+                                onWatchedClick = ::toggleWatched,
+                                onCastButtonClick = onCastButtonClick
+                            )
                         }
                     }
                 }

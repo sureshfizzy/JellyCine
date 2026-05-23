@@ -41,6 +41,7 @@ import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.components.common.ScreenCastButton
+import com.jellycine.app.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
@@ -1116,6 +1117,10 @@ data class StableBaseItem(
 
     val progressPercentage: Float by lazy {
         (userData?.playedPercentage?.toFloat() ?: 0f) / 100f
+    }
+
+    val isWatched: Boolean by lazy {
+        userData?.played == true
     }
 
     companion object {
@@ -2688,7 +2693,7 @@ private fun ContinueWatchingCard(
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
-    val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
@@ -2783,6 +2788,14 @@ private fun ContinueWatchingCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = 8.dp, end = 4.dp)
+                    )
+                }
+
+                if (stableItem.isWatched) {
+                    WatchedIndicatorBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     )
                 }
 
@@ -3007,7 +3020,7 @@ internal fun LibraryItemCard(
     useLandscapeLayout: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-    val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
@@ -3077,6 +3090,14 @@ internal fun LibraryItemCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = 8.dp, end = 4.dp)
+                    )
+                }
+
+                if (episodeCount == null && stableItem.isWatched) {
+                    WatchedIndicatorBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     )
                 }
 
