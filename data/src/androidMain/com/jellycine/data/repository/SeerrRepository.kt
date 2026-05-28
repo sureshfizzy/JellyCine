@@ -789,6 +789,11 @@ class SeerrRepository(context: Context) {
                 canUseAdvancedRequests = canUseAdvancedRequests && destinations.isNotEmpty(),
                 canRequest4K = canRequest4K && has4KDestination,
                 quota = quota,
+                availability = if (normalizedMediaType == "movie") {
+                    titleDetails.mediaInfo.toTitleRequestAvailability()
+                } else {
+                    SeerrTitleRequestAvailability()
+                },
                 seasons = seasons
             )
 
@@ -1323,6 +1328,33 @@ class SeerrRepository(context: Context) {
         }
     }
 
+    private fun SeerrMediaInfo?.toTitleRequestAvailability(): SeerrTitleRequestAvailability {
+        if (this == null) return SeerrTitleRequestAvailability()
+
+        return SeerrTitleRequestAvailability(
+            normal = qualityRequestAvailability(
+                status = status,
+                hasActiveRequest = hasActiveRequest(is4K = false)
+            ),
+            request4K = qualityRequestAvailability(
+                status = status4K,
+                hasActiveRequest = hasActiveRequest(is4K = true)
+            )
+        )
+    }
+
+    private fun SeerrMediaInfo.hasActiveRequest(is4K: Boolean): Boolean {
+        return requests.any { request ->
+            val matchesQuality = if (is4K) {
+                request.is4K == true
+            } else {
+                request.is4K != true
+            }
+            matchesQuality &&
+                (request.status == SEERR_REQUEST_PENDING || request.status == SEERR_REQUEST_APPROVED)
+        }
+    }
+
     private fun SeerrMediaSeason?.toSeasonRequestState(): SeerrRequestState {
         if (this == null) return SeerrRequestState.NONE
 
@@ -1331,6 +1363,24 @@ class SeerrRepository(context: Context) {
         } else {
             SeerrRequestState.NONE
         }
+    }
+
+    private fun qualityRequestAvailability(
+        status: Int?,
+        hasActiveRequest: Boolean = false
+    ): SeerrRequestAvailability {
+        return SeerrRequestAvailability(
+            isAvailable = status == SEERR_MEDIA_AVAILABLE,
+            requestState = if (
+                hasActiveRequest ||
+                status == SEERR_MEDIA_PENDING ||
+                status == SEERR_MEDIA_PROCESSING
+            ) {
+                SeerrRequestState.REQUESTED
+            } else {
+                SeerrRequestState.NONE
+            }
+        )
     }
 
     private fun SeerrTitleDetailsResponse.toSeasonRequestOptions(

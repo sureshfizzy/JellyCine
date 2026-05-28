@@ -71,6 +71,8 @@ internal fun SeerrRequestDialog(
     itemName: String,
     backdropImageUrl: String?,
     options: SeerrRequestOptions,
+    initialRequest4K: Boolean = false,
+    prefer4KRequest: Boolean = false,
     onDismissRequest: () -> Unit,
     onConfirm: (SeerrRequestSelection) -> Unit
 ) {
@@ -95,7 +97,9 @@ internal fun SeerrRequestDialog(
                 .toSet()
         )
     }
-    var request4K by remember(options) { mutableStateOf(false) }
+    var request4K by remember(options, initialRequest4K) {
+        mutableStateOf(initialRequest4K && options.canRequest4K)
+    }
 
     val showAdvanced = options.canUseAdvancedRequests && !request4K
     val showDestination = showAdvanced && options.destinations.isNotEmpty()
@@ -134,10 +138,10 @@ internal fun SeerrRequestDialog(
                     mediaType = options.mediaType
                 )
 
-                if (options.canRequest4K) {
+                if (options.canRequest4K && (!prefer4KRequest || request4K)) {
                     Request4KToggle(
                         checked = request4K,
-                        enabled = true,
+                        enabled = !prefer4KRequest,
                         onCheckedChange = { request4K = it }
                     )
                 }

@@ -442,6 +442,8 @@
     <string name="detail_seerr_not_connected">Seerr is not connected.</string>
     <string name="detail_seerr_loading_options">Loading options...</string>
     <string name="detail_seerr_request_4k">Request 4K</string>
+    <string name="detail_seerr_request_1080p">Request 1080p</string>
+    <string name="detail_seerr_request_4k_unavailable">4K requests are not available for this title.</string>
     <string name="detail_seerr_request_4k_subtitle">Use the 4K request path for this title.</string>
     <string name="detail_seerr_destination_server">Destination Server</string>
     <string name="detail_seerr_quality_profile">Quality Profile</string>

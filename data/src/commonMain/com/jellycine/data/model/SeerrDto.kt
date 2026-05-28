@@ -146,13 +146,17 @@ internal data class SeerrCreditEntry(
 internal data class SeerrMediaInfo(
     val jellyfinMediaId: String? = null,
     val status: Int? = null,
+    @SerialName("status4k")
+    val status4K: Int? = null,
     val requests: List<SeerrMediaRequest> = emptyList(),
     val seasons: List<SeerrMediaSeason> = emptyList()
 )
 
 @Serializable
 internal data class SeerrMediaRequest(
-    val status: Int? = null
+    val status: Int? = null,
+    @SerialName("is4k")
+    val is4K: Boolean? = null
 )
 
 @Serializable
@@ -332,6 +336,16 @@ data class SeerrUserRequestLimits(
     val tvQuotaDays: Int? = null
 )
 
+data class SeerrRequestAvailability(
+    val isAvailable: Boolean = false,
+    val requestState: SeerrRequestState = SeerrRequestState.NONE
+)
+
+data class SeerrTitleRequestAvailability(
+    val normal: SeerrRequestAvailability = SeerrRequestAvailability(),
+    val request4K: SeerrRequestAvailability = SeerrRequestAvailability()
+)
+
 data class SeerrRequestedItem(
     val requestId: Long,
     val tmdbId: String,
@@ -353,6 +367,7 @@ data class SeerrRequestOptions(
     val canUseAdvancedRequests: Boolean = false,
     val canRequest4K: Boolean = false,
     val quota: SeerrRequestQuota? = null,
+    val availability: SeerrTitleRequestAvailability = SeerrTitleRequestAvailability(),
     val seasons: List<SeerrSeasonRequestOption> = emptyList()
 )
 

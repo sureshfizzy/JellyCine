@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +37,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.DownloadStatus
 import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
@@ -491,6 +493,13 @@ fun DetailContent(
         selectedVideo = displayedSelectedVideo,
         selectedAudio = selectedAudio
     )
+    val alternateVersionRequestState = versionRequestState(
+        item = item,
+        isSeerDetail = isSeerDetail,
+        activeServerId = activeServerId,
+        seerrRepository = seerrRepository,
+        requestOptions = seerrRequestState.requestOptions
+    )
     val videoInlineMetaText = remember(
         activeMediaSources,
         effectiveMediaStreams,
@@ -750,6 +759,21 @@ fun DetailContent(
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                     maxLines = 1
+                                )
+                            }
+
+                            if (alternateVersionRequestState.visible) {
+                                CompactSeerrRequestButton(
+                                    state = alternateVersionRequestState,
+                                    isBusy = seerrRequestState.isBusy &&
+                                        seerrRequestState.prefer4KRequest &&
+                                        seerrRequestState.preferredRequest ==
+                                        alternateVersionRequestState.targetIs4K,
+                                    onClick = {
+                                        seerrRequestState.onLoadQualityRequestOptions(
+                                            alternateVersionRequestState.targetIs4K
+                                        )
+                                    }
                                 )
                             }
 
@@ -1160,6 +1184,76 @@ fun DetailContent(
         }
     )
 
+}
+
+@Composable
+internal fun CompactSeerrRequestButton(
+    state: SeerrVersions,
+    isBusy: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isRequested = state.requestState == SeerrRequestState.REQUESTED
+    val contentDescription = if (state.targetIs4K) {
+        stringResource(R.string.detail_seerr_request_4k)
+    } else {
+        stringResource(R.string.detail_seerr_request_1080p)
+    }
+    val enabled = !isBusy && !isRequested
+    val accentColor = if (state.targetIs4K) Color(0xFF9B7CFF) else Color(0xFF22D3EE)
+
+    Surface(
+        modifier = modifier
+            .size(28.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(7.dp),
+        color = if (isRequested) {
+            Color(0xFF1F1F24)
+        } else {
+            accentColor.copy(alpha = 0.18f)
+        },
+        border = BorderStroke(
+            1.dp,
+            if (isRequested) {
+                Color.White.copy(alpha = 0.18f)
+            } else {
+                accentColor.copy(alpha = 0.55f)
+            }
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                isBusy -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(15.dp),
+                        strokeWidth = 2.dp,
+                        color = accentColor
+                    )
+                }
+
+                isRequested -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Schedule,
+                        contentDescription = stringResource(R.string.detail_seerr_requested),
+                        tint = Color(0xFF9CDCFE),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                else -> {
+                    Icon(
+                        imageVector = Icons.Rounded.AddCircle,
+                        contentDescription = contentDescription,
+                        tint = accentColor,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

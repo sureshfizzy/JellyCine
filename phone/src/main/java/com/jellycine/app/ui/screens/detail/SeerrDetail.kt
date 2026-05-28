@@ -57,7 +57,10 @@ internal data class SeerrRequestUiState(
     val requestErrorMessage: String?,
     val pendingSeasonRequestNumber: Int?,
     val seasonRefreshKey: Int,
+    val preferredRequest: Boolean,
+    val prefer4KRequest: Boolean,
     val onLoadRequestOptions: (Int?) -> Unit,
+    val onLoadQualityRequestOptions: (Boolean) -> Unit,
     val onSubmitRequest: (SeerrRequestSelection?) -> Unit,
     val onHideRequestOptions: () -> Unit,
     val onDismissRequestOptions: () -> Unit,
@@ -66,6 +69,12 @@ internal data class SeerrRequestUiState(
     val isBusy: Boolean
         get() = requestInProgress || optionsLoading
 }
+
+internal data class SeerrVersions(
+    val visible: Boolean = false,
+    val targetIs4K: Boolean = false,
+    val requestState: SeerrRequestState = SeerrRequestState.NONE
+)
 
 @Composable
 internal fun rememberSeerrRepository(context: Context): SeerrRepository {
@@ -109,6 +118,13 @@ internal fun seerrRequestState(
     var seerrRequestErrorMessage by remember(item.id) { mutableStateOf<String?>(null) }
     var pendingSeasonRequestNumber by remember(item.id) { mutableStateOf<Int?>(null) }
     var seerrSeasonRefreshKey by remember(item.id) { mutableIntStateOf(0) }
+    var preferredRequest by remember(item.id) { mutableStateOf(false) }
+    var prefer4KRequest by remember(item.id) { mutableStateOf(false) }
+
+    fun qualityRequestState() {
+        preferredRequest = false
+        prefer4KRequest = false
+    }
 
     fun submitSeerrRequest(selection: SeerrRequestSelection?) {
         val requestingSeasonCard = pendingSeasonRequestNumber != null
@@ -142,6 +158,7 @@ internal fun seerrRequestState(
                         }
                         seerrRequestOptions = null
                         pendingSeasonRequestNumber = null
+                        qualityRequestState()
                     },
                     onFailure = { throwable ->
                         pendingSeasonRequestNumber = null
@@ -155,9 +172,13 @@ internal fun seerrRequestState(
         }
     }
 
-    fun loadSeerrRequestOptions(seasonNumber: Int? = null) {
+    fun loadSeerrRequestOptions(
+        seasonNumber: Int? = null,
+        request4K: Boolean = false,
+        force4KChoice: Boolean = false
+    ) {
         val isSeasonRequest = seasonNumber != null
-        if ((!isSeasonRequest && !isSeerDetail) || seerrOptionsLoading || seerrRequestInProgress) return
+        if (seerrOptionsLoading || seerrRequestInProgress) return
         val (mediaType, tmdbId) = item.seerTitleParams() ?: return
         if (isSeasonRequest && !mediaType.equals("tv", ignoreCase = true)) return
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
@@ -168,6 +189,8 @@ internal fun seerrRequestState(
 
         coroutineScope.launch {
             pendingSeasonRequestNumber = seasonNumber
+            preferredRequest = request4K
+            prefer4KRequest = force4KChoice
             seerrOptionsLoading = true
             try {
                 seerrRepository.getRequestOptions(
@@ -177,10 +200,18 @@ internal fun seerrRequestState(
                     seasonNumber = seasonNumber
                 ).fold(
                     onSuccess = { options ->
-                        seerrRequestOptions = options
+                        if (force4KChoice && request4K && !options.canRequest4K) {
+                            pendingSeasonRequestNumber = null
+                            qualityRequestState()
+                            seerrRequestErrorMessage =
+                                context.getString(R.string.detail_seerr_request_4k_unavailable)
+                        } else {
+                            seerrRequestOptions = options
+                        }
                     },
                     onFailure = { throwable ->
                         pendingSeasonRequestNumber = null
+                        qualityRequestState()
                         seerrRequestErrorMessage = throwable.message
                             ?: context.getString(R.string.detail_seerr_request_failed)
                     }
@@ -199,7 +230,14 @@ internal fun seerrRequestState(
         requestErrorMessage = seerrRequestErrorMessage,
         pendingSeasonRequestNumber = pendingSeasonRequestNumber,
         seasonRefreshKey = seerrSeasonRefreshKey,
-        onLoadRequestOptions = ::loadSeerrRequestOptions,
+        preferredRequest = preferredRequest,
+        prefer4KRequest = prefer4KRequest,
+        onLoadRequestOptions = { seasonNumber ->
+            loadSeerrRequestOptions(seasonNumber, false, false)
+        },
+        onLoadQualityRequestOptions = { request4K ->
+            loadSeerrRequestOptions(null, request4K, true)
+        },
         onSubmitRequest = ::submitSeerrRequest,
         onHideRequestOptions = {
             seerrRequestOptions = null
@@ -207,11 +245,63 @@ internal fun seerrRequestState(
         onDismissRequestOptions = {
             seerrRequestOptions = null
             pendingSeasonRequestNumber = null
+            qualityRequestState()
         },
         onClearRequestError = {
             seerrRequestErrorMessage = null
         }
     )
+}
+
+@Composable
+internal fun versionRequestState(
+    item: BaseItemDto,
+    isSeerDetail: Boolean,
+    activeServerId: String?,
+    seerrRepository: SeerrRepository,
+    requestOptions: SeerrRequestOptions?
+): SeerrVersions {
+    var state by remember(item.id) { mutableStateOf(SeerrVersions()) }
+
+    LaunchedEffect(item.id, activeServerId, isSeerDetail) {
+        state = SeerrVersions()
+        if (
+            isSeerDetail ||
+            !item.type.equals("Movie", ignoreCase = true)
+        ) {
+            return@LaunchedEffect
+        }
+
+        val (mediaType, tmdbId) = item.seerTitleParams() ?: return@LaunchedEffect
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+
+        seerrRepository.getRequestOptions(
+            scopeId = scopeId,
+            mediaType = mediaType,
+            tmdbId = tmdbId
+        ).fold(
+            onSuccess = { options ->
+                val standardAvailable = options.availability.normal.isAvailable
+                val is4KAvailable = options.availability.request4K.isAvailable
+                val canRequest4K = options.canRequest4K
+                val needs4KRequest = standardAvailable && !is4KAvailable && canRequest4K
+                val wantStandard = is4KAvailable && !standardAvailable
+                val shouldShowButton = needs4KRequest || wantStandard
+                val targetIs4K = needs4KRequest
+                
+                state = SeerrVersions(
+                    visible = shouldShowButton,
+                    targetIs4K = targetIs4K,
+                    requestState = SeerrRequestState.NONE
+                )
+            },
+            onFailure = { error ->
+                state = SeerrVersions()
+            }
+        )
+    }
+
+    return state
 }
 
 @Composable
@@ -449,6 +539,8 @@ internal fun SeerrRequestDialogs(
             itemName = itemName,
             backdropImageUrl = backdropImageUrl,
             options = options,
+            initialRequest4K = state.preferredRequest,
+            prefer4KRequest = state.prefer4KRequest,
             onDismissRequest = state.onDismissRequestOptions,
             onConfirm = { selection ->
                 state.onHideRequestOptions()
