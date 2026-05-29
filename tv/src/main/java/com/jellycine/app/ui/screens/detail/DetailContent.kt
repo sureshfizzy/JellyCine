@@ -183,6 +183,21 @@ fun DetailContent(
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
+    var isWatched by remember(
+        item.id,
+        item.type,
+        item.userData?.played,
+        item.userData?.unplayedItemCount
+    ) {
+        mutableStateOf(
+            if (item.type == "Series") {
+                item.userData?.unplayedItemCount?.let { it == 0 }
+                    ?: (item.userData?.played == true)
+            } else {
+                item.userData?.played == true
+            }
+        )
+    }
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
@@ -221,6 +236,30 @@ fun DetailContent(
             )
             if (result.isSuccess) {
                 isFavorite = targetState
+            }
+        }
+    }
+    fun toggleWatched() {
+        val currentItemId = item.id ?: return
+        val targetState = !isWatched
+        coroutineScope.launch {
+            val result = if (item.type == "Series") {
+                mediaRepository.setSeriesPlayedStatus(
+                    seriesId = currentItemId,
+                    isPlayed = targetState
+                )
+            } else {
+                mediaRepository.setPlayedStatus(
+                    itemId = currentItemId,
+                    isPlayed = targetState
+                )
+            }
+            if (result.isSuccess) {
+                isWatched = targetState
+                UserDataRefreshSignals.notifyUserDataChanged(
+                    itemId = currentItemId,
+                    played = targetState
+                )
             }
         }
     }
@@ -869,6 +908,7 @@ fun DetailContent(
                         canResumeSeriesDownloads = canResumeSeriesDownloads,
                         hasActiveSeriesDownloads = hasActiveSeriesDownloads,
                         isFavorite = isFavorite,
+                        isWatched = isWatched,
                         onSeriesDownloadClick = {
                             coroutineScope.launch {
                                 val seriesId = item.id
@@ -918,6 +958,7 @@ fun DetailContent(
                                 downloadRepository::cancelDownload
                             )
                         },
+                        onWatchedClick = ::toggleWatched,
                         onFavoriteClick = ::toggleFavorite
                     )
 

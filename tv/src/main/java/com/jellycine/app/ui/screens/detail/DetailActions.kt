@@ -30,6 +30,7 @@ import com.jellycine.shared.ui.components.common.DetailDownloadActionButton
 import com.jellycine.shared.ui.components.common.DetailDownloadActionState
 import com.jellycine.shared.ui.components.common.DetailPlayActionButton
 import com.jellycine.shared.ui.components.common.FavoriteActionButton
+import com.jellycine.shared.ui.components.common.WatchedActionButton
 
 @Composable
 internal fun ActionSection(
@@ -130,10 +131,12 @@ internal fun SeriesActionSection(
     canResumeSeriesDownloads: Boolean,
     hasActiveSeriesDownloads: Boolean,
     isFavorite: Boolean,
+    isWatched: Boolean,
     onSeriesDownloadClick: () -> Unit,
     onSeriesDownloadMenuChange: (Boolean) -> Unit,
     onPauseResumeSeriesDownloads: () -> Unit,
     onCancelSeriesDownloads: () -> Unit,
+    onWatchedClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -187,6 +190,11 @@ internal fun SeriesActionSection(
                 onCancel = onCancelSeriesDownloads
             )
         }
+
+        WatchedActionButton(
+            isWatched = isWatched,
+            onClick = onWatchedClick
+        )
 
         FavoriteActionButton(
             isFavorite = isFavorite,

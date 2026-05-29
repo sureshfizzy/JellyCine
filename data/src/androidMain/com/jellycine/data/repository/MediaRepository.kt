@@ -676,6 +676,10 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    suspend fun setSeriesPlayedStatus(seriesId: String, isPlayed: Boolean): Result<Unit> {
+        return setPlayedStatus(itemId = seriesId, isPlayed = isPlayed)
+    }
+
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
