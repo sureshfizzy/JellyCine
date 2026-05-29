@@ -339,6 +339,93 @@ fun DetailScreenContainer(
         }
     }
 
+    fun clearScreens() {
+        seasonDetailData = null
+        episodeDetailId = null
+        episodeItem = null
+    }
+
+    fun navigateToSeriesOverview(seriesId: String) {
+        val targetSeriesId = seriesId.takeIf { it.isNotBlank() } ?: return
+        if (targetSeriesId == item?.id || targetSeriesId == itemId) {
+            clearScreens()
+            currentScreen = "detail"
+            return
+        }
+
+        scope.launch {
+            isLoading = true
+            error = null
+            mediaRepository.getItemById(targetSeriesId).fold(
+                onSuccess = { seriesItem ->
+                    item = seriesItem
+                    clearScreens()
+                    isLoading = false
+                    currentScreen = "detail"
+                },
+                onFailure = {
+                    isLoading = false
+                    onNavigateToDetail(targetSeriesId)
+                }
+            )
+        }
+    }
+
+    fun openSeasonDetail(
+        seriesId: String,
+        seasonId: String,
+        seasonName: String?,
+        heroImageUrl: String?,
+        logoImageUrl: String?
+    ) {
+        seasonDetailData = SeasonDetailData(
+            seriesId = seriesId,
+            seasonId = seasonId,
+            seasonName = seasonName,
+            initialHeroImageUrl = heroImageUrl,
+            initialLogoImageUrl = logoImageUrl
+        )
+        currentScreen = "season"
+    }
+
+    @Composable
+    fun DetailPane(
+        activeItem: BaseItemDto?,
+        loading: Boolean,
+        fallbackItemId: String
+    ) {
+        ScreenWrapper(isActive = true) {
+            if (activeItem != null) {
+                DetailScreen(
+                    item = activeItem,
+                    isLoading = loading,
+                    trackSelectionSyncVersion = trackSelectionSyncVersion,
+                    onBackPressed = handleBackNavigation,
+                    onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
+                        startPlaybackForItem(
+                            targetItem = activeItem,
+                            fallbackItemId = fallbackItemId,
+                            audioStreamIndex = audioStreamIndex,
+                            subtitleStreamIndex = subtitleStreamIndex
+                        )
+                    },
+                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                        preferredAudioStreamIndex = audioStreamIndex
+                        preferredSubtitleStreamIndex = subtitleStreamIndex
+                    },
+                    onSimilarItemClick = onNavigateToDetail,
+                    onVersionItemSelected = ::selectLocalVersion,
+                    onPersonClick = onNavigateToPerson,
+                    onCastButtonClick = ::openCastingDisplay,
+                    onSeriesOverviewClick = ::navigateToSeriesOverview,
+                    onSeasonClick = ::openSeasonDetail
+                )
+            } else {
+                DetailScreenSkeleton(onBackPressed = handleBackNavigation)
+            }
+        }
+    }
+
     LaunchedEffect(itemId, activeServerId) {
         try {
             isLoading = true
@@ -495,142 +582,67 @@ fun DetailScreenContainer(
                 }
             )
         } else {
-            AnimatedContent(
-                targetState = currentScreen,
-                transitionSpec = {
-                    fadeIn(
-                        animationSpec = tween(400, easing = FastOutSlowInEasing)
-                    ) togetherWith fadeOut(
-                        animationSpec = tween(300, easing = LinearOutSlowInEasing)
-                    )
-                },
-                label = "screen_navigation"
-            ) { screen ->
-                when (screen) {
-                    "detail" -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            ) {
+                DetailPane(
+                    activeItem = item,
+                    loading = isLoading,
+                    fallbackItemId = itemId
+                )
+
+                AnimatedVisibility(
+                    visible = currentScreen == "season" || currentScreen == "episode",
+                    enter = fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(animationSpec = tween(140, easing = FastOutSlowInEasing))
+                ) {
+                    seasonDetailData?.let { seasonData ->
                         ScreenWrapper(isActive = true) {
-                            val currentItem = item
-                            if (currentItem != null) {
-                                DetailScreen(
-                                    item = currentItem,
-                                    isLoading = isLoading,
-                                    trackSelectionSyncVersion = trackSelectionSyncVersion,
-                                    onBackPressed = handleBackNavigation,
-                                    onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
-                                        startPlaybackForItem(
-                                            targetItem = currentItem,
-                                            fallbackItemId = itemId,
-                                            audioStreamIndex = audioStreamIndex,
-                                            subtitleStreamIndex = subtitleStreamIndex
-                                        )
-                                    },
-                                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
-                                        preferredAudioStreamIndex = audioStreamIndex
-                                        preferredSubtitleStreamIndex = subtitleStreamIndex
-                                    },
-                                    onSimilarItemClick = { selectedItemId ->
-                                        onNavigateToDetail(selectedItemId)
-                                    },
-                                    onVersionItemSelected = ::selectLocalVersion,
-                                    onPersonClick = { personId ->
-                                        onNavigateToPerson(personId)
-                                    },
-                                    onCastButtonClick = { openCastingDisplay() },
-                                    onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
-                                        seasonDetailData = SeasonDetailData(
-                                            seriesId = seriesId,
-                                            seasonId = seasonId,
-                                            seasonName = seasonName,
-                                            initialHeroImageUrl = heroImageUrl,
-                                            initialLogoImageUrl = logoImageUrl
-                                        )
+                            SeasonDetailScreen(
+                                seriesId = seasonData.seriesId,
+                                seasonId = seasonData.seasonId,
+                                seasonName = seasonData.seasonName,
+                                initialHeroImageUrl = seasonData.initialHeroImageUrl,
+                                initialLogoImageUrl = seasonData.initialLogoImageUrl,
+                                onBackPressed = handleBackNavigation,
+                                onEpisodeClick = { episodeId ->
+                                    episodeDetailId = episodeId
+                                    currentScreen = "episode"
+                                },
+                                onSeriesOverviewClick = ::navigateToSeriesOverview
+                            )
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = currentScreen == "episode",
+                    enter = fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(animationSpec = tween(140, easing = FastOutSlowInEasing))
+                ) {
+                    episodeDetailId?.let { episodeId ->
+                        when {
+                            episodeError != null -> {
+                                LaunchedEffect(episodeError) {
+                                    if (seasonDetailData != null) {
                                         currentScreen = "season"
-                                    }
-                                )
-                            } else {
-                                DetailScreenSkeleton(onBackPressed = handleBackNavigation)
-                            }
-                        }
-                    }
-
-                    "season" -> {
-                        seasonDetailData?.let { seasonData ->
-                            ScreenWrapper(isActive = true) {
-                                SeasonDetailScreen(
-                                    seriesId = seasonData.seriesId,
-                                    seasonId = seasonData.seasonId,
-                                    seasonName = seasonData.seasonName,
-                                    initialHeroImageUrl = seasonData.initialHeroImageUrl,
-                                    initialLogoImageUrl = seasonData.initialLogoImageUrl,
-                                    onBackPressed = handleBackNavigation,
-                                    onEpisodeClick = { episodeId ->
-                                        episodeDetailId = episodeId
-                                        currentScreen = "episode"
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    "episode" -> {
-                        episodeDetailId?.let { episodeId ->
-                            ScreenWrapper(isActive = true) {
-                                when {
-                                    episodeError != null -> {
-                                        LaunchedEffect(episodeError) {
-                                            if (seasonDetailData != null) {
-                                                currentScreen = "season"
-                                                episodeError = null
-                                            } else {
-                                                onBackPressed()
-                                            }
-                                        }
-                                    }
-
-                                    episodeItem != null -> {
-                                        DetailScreen(
-                                            item = episodeItem!!,
-                                            isLoading = isEpisodeLoading,
-                                            trackSelectionSyncVersion = trackSelectionSyncVersion,
-                                            onBackPressed = handleBackNavigation,
-                                            onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
-                                                startPlaybackForItem(
-                                                    targetItem = episodeItem,
-                                                    fallbackItemId = episodeId,
-                                                    audioStreamIndex = audioStreamIndex,
-                                                    subtitleStreamIndex = subtitleStreamIndex
-                                                )
-                                            },
-                                            onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
-                                                preferredAudioStreamIndex = audioStreamIndex
-                                                preferredSubtitleStreamIndex = subtitleStreamIndex
-                                            },
-                                            onSimilarItemClick = { selectedItemId ->
-                                                onNavigateToDetail(selectedItemId)
-                                            },
-                                            onVersionItemSelected = ::selectLocalVersion,
-                                            onPersonClick = { personId ->
-                                                onNavigateToPerson(personId)
-                                            },
-                                            onCastButtonClick = { openCastingDisplay() },
-                                            onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
-                                                seasonDetailData =
-                                                    SeasonDetailData(
-                                                        seriesId = seriesId,
-                                                        seasonId = seasonId,
-                                                        seasonName = seasonName,
-                                                        initialHeroImageUrl = heroImageUrl,
-                                                        initialLogoImageUrl = logoImageUrl
-                                                    )
-                                                currentScreen = "season"
-                                            }
-                                        )
-                                    }
-
-                                    else -> {
-                                        DetailScreenSkeleton(onBackPressed = handleBackNavigation)
+                                        episodeError = null
+                                    } else {
+                                        onBackPressed()
                                     }
                                 }
+                            }
+
+                            episodeItem != null -> DetailPane(
+                                activeItem = episodeItem,
+                                loading = isEpisodeLoading,
+                                fallbackItemId = episodeId
+                            )
+
+                            else -> {
+                                DetailScreenSkeleton(onBackPressed = handleBackNavigation)
                             }
                         }
                     }
@@ -678,6 +690,7 @@ fun DetailScreen(
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
+    onSeriesOverviewClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
     DetailContent(
@@ -691,6 +704,7 @@ fun DetailScreen(
         onVersionItemSelected = onVersionItemSelected,
         onPersonClick = onPersonClick,
         onCastButtonClick = onCastButtonClick,
+        onSeriesOverviewClick = onSeriesOverviewClick,
         onSeasonClick = onSeasonClick
     )
 }

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -82,6 +83,7 @@ fun DetailContent(
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
+    onSeriesOverviewClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -108,6 +110,17 @@ fun DetailContent(
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
+    val overviewInteractionSource = remember { MutableInteractionSource() }
+    val overviewModifier = item.seriesId?.takeIf {
+        isEpisode && it.isNotBlank()
+    }?.let { seriesId ->
+        Modifier.clickable(
+            interactionSource = overviewInteractionSource,
+            indication = null
+        ) {
+            onSeriesOverviewClick(seriesId)
+        }
+    } ?: Modifier
     val episodeHeaderText = remember(
         item.type,
         item.parentIndexNumber,
@@ -678,6 +691,7 @@ fun DetailContent(
                                 modifier = Modifier
                                     .height(layout.logoContainerHeight)
                                     .fillMaxWidth()
+                                    .then(overviewModifier)
                             ) {
                                 if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
                                     JellyfinPosterImage(
@@ -719,7 +733,8 @@ fun DetailContent(
                                     color = Color.White.copy(alpha = 0.88f),
                                     fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = overviewModifier
                                 )
                             }
                         }

@@ -2,6 +2,8 @@ package com.jellycine.app.ui.screens.detail
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -56,7 +58,8 @@ fun SeasonDetailScreen(
     initialHeroImageUrl: String? = null,
     initialLogoImageUrl: String? = null,
     onBackPressed: () -> Unit = {},
-    onEpisodeClick: (String) -> Unit = {}
+    onEpisodeClick: (String) -> Unit = {},
+    onSeriesOverviewClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val screenWidthDp = containerWidthDp()
@@ -221,6 +224,12 @@ fun SeasonDetailScreen(
         ?: episodes.firstOrNull()?.seriesName?.takeIf { it.isNotBlank() }
         ?: seasonName
         ?: "Season"
+    val seriesOverviewModifier = Modifier.clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null
+    ) {
+        onSeriesOverviewClick(seriesId)
+    }
     val seasonEpisodeIds = remember(episodes) { episodes.mapNotNull { it.id }.toSet() }
     val seasonDownloadEntries = remember(trackedDownloads, seasonEpisodeIds) {
         trackedDownloads.filter { seasonEpisodeIds.contains(it.itemId) }
@@ -281,7 +290,8 @@ fun SeasonDetailScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(0.86f)
-                                    .height(58.dp),
+                                    .height(58.dp)
+                                    .then(seriesOverviewModifier),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 if (showLogoImage) {
