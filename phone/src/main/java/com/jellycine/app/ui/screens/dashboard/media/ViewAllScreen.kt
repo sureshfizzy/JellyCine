@@ -1,12 +1,14 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -27,12 +29,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
@@ -54,6 +60,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrCatalog
 import com.jellycine.app.ui.components.common.SeerrTopBadges
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -70,6 +77,7 @@ fun ViewAllScreen(
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     val context = LocalContext.current
+    val density = LocalDensity.current
     val screenWidthDp = containerWidthDp()
     val isTablet = isTabletLayout(screenWidthDp)
 
@@ -99,6 +107,7 @@ fun ViewAllScreen(
     
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
+    val coroutineScope = rememberCoroutineScope()
     val resolvedTitle = title.takeIf { it.isNotBlank() } ?: stringResource(R.string.view_all_title)
     val filterSignature = remember(
         uiState.sortBy,
@@ -160,6 +169,21 @@ fun ViewAllScreen(
         filteredItems.distinctBy(::viewAllItemKey)
     }
     val headerTotalCount = uiState.totalItems
+    val catalogHeaderDistancePx = with(density) {
+        (if (isTablet) 132.dp else 92.dp).toPx()
+    }
+    val catalogHeader by remember(contentType, gridState, catalogHeaderDistancePx) {
+        derivedStateOf {
+            if (!contentType.isSeerrCatalog()) {
+                0f
+            } else if (gridState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (gridState.firstVisibleItemScrollOffset / catalogHeaderDistancePx)
+                    .coerceIn(0f, 1f)
+            }
+        }
+    }
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
@@ -195,6 +219,73 @@ fun ViewAllScreen(
         }
     }
 
+    @Composable
+    fun HeaderContent(
+        modifier: Modifier = Modifier,
+        collapseProgress: Float = 0f
+    ) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = if (contentType.isSeerrCatalog()) 0.dp else horizontalPadding,
+                    vertical = if (contentType.isSeerrCatalog()) 18.dp else 20.dp
+                ),
+            horizontalAlignment = if (contentType.isSeerrCatalog()) {
+                Alignment.CenterHorizontally
+            } else {
+                Alignment.Start
+            }
+        ) {
+            if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
+                WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (isTablet) 132.dp else 92.dp)
+                        .padding(horizontal = if (isTablet) 128.dp else 52.dp)
+                        .graphicsLayer {
+                            alpha = 1f - (collapseProgress * 0.72f)
+                            translationY = with(density) { 24.dp.toPx() } * collapseProgress
+                            val scale = 1f - (collapseProgress * 0.08f)
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(seerrLogoUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = resolvedTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            } else {
+                Text(
+                    text = resolvedTitle,
+                    color = Color.White,
+                    fontSize = if (isTablet) 28.sp else 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Start,
+                    maxLines = if (contentType.isSeerrCatalog()) 2 else 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (headerTotalCount > 0) {
+                Text(
+                    text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = if (isTablet) 15.sp else 13.sp,
+                    textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Unspecified,
+                    modifier = Modifier.padding(top = if (contentType.isSeerrCatalog()) 8.dp else 4.dp)
+                )
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -203,71 +294,14 @@ fun ViewAllScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding(),
-                color = Color.Black
-            ) {
-                Column(
+            if (!contentType.isSeerrCatalog()) {
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            horizontal = horizontalPadding,
-                            vertical = if (contentType.isSeerrCatalog()) 18.dp else 20.dp
-                        ),
-                    horizontalAlignment = if (contentType.isSeerrCatalog()) {
-                        Alignment.CenterHorizontally
-                    } else {
-                        Alignment.Start
-                    }
+                        .statusBarsPadding(),
+                    color = Color.Black
                 ) {
-                    if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
-                        WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth(0.56f)
-                                .height(if (isTablet) 150.dp else 112.dp),
-                            color = Color.White.copy(alpha = 0.08f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(10.dp)
-                                    .padding(horizontal = 22.dp, vertical = 18.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(seerrLogoUrl)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = resolvedTitle,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-                        }
-                    } else {
-                        Text(
-                            text = resolvedTitle,
-                            color = Color.White,
-                            fontSize = if (isTablet) 28.sp else 24.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Start,
-                            maxLines = if (contentType.isSeerrCatalog()) 2 else 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    if (headerTotalCount > 0) {
-                        Text(
-                            text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = if (isTablet) 15.sp else 13.sp,
-                            modifier = Modifier.padding(top = if (contentType.isSeerrCatalog()) 8.dp else 4.dp)
-                        )
-                    }
+                    HeaderContent()
                 }
             }
 
@@ -280,7 +314,7 @@ fun ViewAllScreen(
                             columns = gridCells,
                             contentPadding = PaddingValues(
                                 start = horizontalPadding,
-                                top = 16.dp,
+                                top = if (contentType.isSeerrCatalog()) 0.dp else 16.dp,
                                 end = horizontalPadding,
                                 bottom = 120.dp
                             ),
@@ -288,6 +322,15 @@ fun ViewAllScreen(
                             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            catalogHeaderItem(contentType.isSeerrCatalog()) {
+                                HeaderContent(
+                                    modifier = Modifier
+                                        .statusBarsPadding()
+                                        .padding(bottom = 2.dp),
+                                    collapseProgress = catalogHeader
+                                )
+                            }
+
                             items(24) {
                                 SkeletonPosterCard()
                             }
@@ -365,7 +408,7 @@ fun ViewAllScreen(
                                 state = gridState,
                                 contentPadding = PaddingValues(
                                     start = horizontalPadding,
-                                    top = 16.dp,
+                                    top = if (contentType.isSeerrCatalog()) 0.dp else 16.dp,
                                     end = horizontalPadding,
                                     bottom = 120.dp
                                 ),
@@ -373,6 +416,15 @@ fun ViewAllScreen(
                                 verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                                 modifier = Modifier.fillMaxSize()
                             ) {
+                                catalogHeaderItem(contentType.isSeerrCatalog()) {
+                                    HeaderContent(
+                                        modifier = Modifier
+                                            .statusBarsPadding()
+                                            .padding(bottom = 2.dp),
+                                        collapseProgress = catalogHeader
+                                    )
+                                }
+
                                 items(
                                     items = displayItems,
                                     key = ::viewAllItemKey
@@ -409,7 +461,7 @@ fun ViewAllScreen(
                                 visible = uiState.isLoading && displayItems.isNotEmpty(),
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(top = 8.dp),
+                                    .padding(top = if (contentType.isSeerrCatalog()) 62.dp else 8.dp),
                                 enter = fadeIn(),
                                 exit = fadeOut()
                             ) {
@@ -443,6 +495,30 @@ fun ViewAllScreen(
             }
         }
 
+        if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
+            CtalogLogo(
+                imageUrl = seerrLogoUrl,
+                contentDescription = resolvedTitle,
+                progress = catalogHeader,
+                isTablet = isTablet,
+                onClick = {
+                    coroutineScope.launch {
+                        gridState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+        }
+
+        if (contentType.isSeerrCatalog() && headerTotalCount > 0) {
+            CatalogCount(
+                text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
+                progress = catalogHeader,
+                isTablet = isTablet,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+        }
+
         if (!contentType.isSeerrCatalog()) {
             SortFAB(
                 onClick = { showSortSheet = true },
@@ -469,96 +545,129 @@ fun ViewAllScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun RecentlyAddedCard(
-    item: BaseItemDto,
-    mediaRepository: MediaRepository,
-    onClick: () -> Unit = {}
+private fun LazyGridScope.catalogHeaderItem(
+    visible: Boolean,
+    content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-    val disablePosterEnhancers = DisableEmbyPosterEnhancers()
-    var imageUrl by remember(item.id) { mutableStateOf<String?>(null) }
+    if (!visible) return
 
-    LaunchedEffect(item.id, disablePosterEnhancers) {
-        val itemId = item.id
-        if (itemId != null) {
-            try {
-                val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                    item.seriesId ?: itemId
-                } else {
-                    itemId
-                }
-
-                val url = mediaRepository.getImageUrl(
-                    itemId = actualItemId,
-                    width = 200,
-                    height = 300,
-                    quality = 90,
-                    enableImageEnhancers = !disablePosterEnhancers
-                ).first()
-                imageUrl = url
-            } catch (e: Exception) {
-            }
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .width(120.dp)
-            .height(180.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        onClick = onClick
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Color.Gray.copy(alpha = 0.3f),
-                        RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = item.name?.take(2)?.uppercase() ?: stringResource(R.string.view_all_unknown_initial),
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    )
-                    .padding(8.dp)
-            ) {
-                Text(
-                    text = item.name ?: stringResource(R.string.search_result_unknown_title),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
+    item(span = { GridItemSpan(maxLineSpan) }) {
+        content()
     }
 }
+
+@Composable
+private fun CatalogCount(
+    text: String,
+    progress: Float,
+    isTablet: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val visibleProgress = catalogVisibleProgress(progress)
+    if (visibleProgress <= 0f) return
+
+    CatalogChip(
+        modifier = modifier
+            .statusBarsPadding()
+            .padding(end = 16.dp, top = 10.dp),
+        visibleProgress = visibleProgress,
+        width = null,
+        height = if (isTablet) 48.dp else 36.dp,
+        shape = RoundedCornerShape(999.dp),
+    ) {
+        Text(
+            text = text,
+            color = Color.White.copy(alpha = 0.86f),
+            fontSize = if (isTablet) 13.sp else 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = if (isTablet) 16.dp else 12.dp)
+        )
+    }
+}
+
+@Composable
+private fun CtalogLogo(
+    imageUrl: String,
+    contentDescription: String,
+    progress: Float,
+    isTablet: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val visibleProgress = catalogVisibleProgress(progress)
+    if (visibleProgress <= 0f) return
+
+    val context = LocalContext.current
+
+    CatalogChip(
+        modifier = modifier
+            .statusBarsPadding()
+            .padding(start = 16.dp, top = 10.dp),
+        visibleProgress = visibleProgress,
+        width = if (isTablet) 108.dp else 82.dp,
+        height = if (isTablet) 48.dp else 36.dp,
+        shape = RoundedCornerShape(10.dp),
+        onClick = onClick
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = contentDescription,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
+
+@Composable
+private fun CatalogChip(
+    visibleProgress: Float,
+    height: Dp,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    width: Dp? = null,
+    onClick: (() -> Unit)? = null,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .then(if (width != null) Modifier.width(width) else Modifier)
+            .height(height)
+            .compactCatalogMotion(visibleProgress)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        shape = shape,
+        color = Color.Black.copy(alpha = 0.62f),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Box(
+            modifier = if (width != null) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier.fillMaxHeight()
+            },
+            contentAlignment = Alignment.Center,
+            content = content
+        )
+    }
+}
+
+private fun catalogVisibleProgress(progress: Float): Float =
+    ((progress - 0.08f) / 0.72f).coerceIn(0f, 1f)
+
+private fun Modifier.compactCatalogMotion(visibleProgress: Float): Modifier =
+    graphicsLayer {
+        alpha = visibleProgress
+        translationY = -10.dp.toPx() * (1f - visibleProgress)
+        val scale = 0.88f + (visibleProgress * 0.12f)
+        scaleX = scale
+        scaleY = scale
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
