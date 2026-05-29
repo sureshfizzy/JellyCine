@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -26,8 +27,10 @@ import com.jellycine.shared.R
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
+import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.hasActiveDownloads
@@ -35,6 +38,7 @@ import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
+import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.util.image.JellyfinPosterImage
@@ -71,6 +75,7 @@ fun SeasonDetailScreen(
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     
     var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -251,6 +256,10 @@ fun SeasonDetailScreen(
         label = "season_download_progress"
     )
     val heroHeight = if (useTabletBackdropLayout) 430.dp else 380.dp
+    val logoCompactProgress = rememberCompactProgress(
+        state = listState,
+        compactDistance = if (useTabletBackdropLayout) 260.dp else 220.dp
+    )
 
     when {
         error != null -> {
@@ -259,7 +268,9 @@ fun SeasonDetailScreen(
             }
         }
         else -> {
+            Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black),
@@ -299,7 +310,9 @@ fun SeasonDetailScreen(
                                         context = context,
                                         imageUrl = currentLogoImageUrl,
                                         contentDescription = seasonName,
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .compactHeaderLogo(logoCompactProgress),
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart,
                                         onErrorStateChange = { hasError ->
@@ -483,6 +496,22 @@ fun SeasonDetailScreen(
                         )
                     }
                 }
+            }
+
+            currentLogoImageUrl?.takeIf { showLogoImage }?.let { logoUrl ->
+                CompactTopLogo(
+                    imageUrl = logoUrl,
+                    contentDescription = seasonName,
+                    progress = logoCompactProgress,
+                    isTablet = useTabletBackdropLayout,
+                    onClick = {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(0)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.TopStart)
+                )
+            }
             }
         }
     }

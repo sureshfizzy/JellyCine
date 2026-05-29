@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,16 +28,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
@@ -46,8 +41,12 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.CompactTopChip
+import com.jellycine.app.ui.components.common.CompactTopLogo
+import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
@@ -77,9 +76,9 @@ fun ViewAllScreen(
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     val context = LocalContext.current
-    val density = LocalDensity.current
     val screenWidthDp = containerWidthDp()
     val isTablet = isTabletLayout(screenWidthDp)
+    val isSeerrCatalog = contentType.isSeerrCatalog()
 
     val gridCells = remember(screenWidthDp) {
         if (screenWidthDp >= 1200.dp) {
@@ -169,21 +168,11 @@ fun ViewAllScreen(
         filteredItems.distinctBy(::viewAllItemKey)
     }
     val headerTotalCount = uiState.totalItems
-    val catalogHeaderDistancePx = with(density) {
-        (if (isTablet) 132.dp else 92.dp).toPx()
-    }
-    val catalogHeader by remember(contentType, gridState, catalogHeaderDistancePx) {
-        derivedStateOf {
-            if (!contentType.isSeerrCatalog()) {
-                0f
-            } else if (gridState.firstVisibleItemIndex > 0) {
-                1f
-            } else {
-                (gridState.firstVisibleItemScrollOffset / catalogHeaderDistancePx)
-                    .coerceIn(0f, 1f)
-            }
-        }
-    }
+    val catalogHeaderProgress = rememberCompactProgress(
+        state = gridState,
+        compactDistance = if (isTablet) 132.dp else 92.dp
+    )
+    val catalogHeader = if (isSeerrCatalog) catalogHeaderProgress else 0f
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
@@ -222,35 +211,29 @@ fun ViewAllScreen(
     @Composable
     fun HeaderContent(
         modifier: Modifier = Modifier,
-        collapseProgress: Float = 0f
+        compactProgress: Float = 0f
     ) {
         Column(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = if (contentType.isSeerrCatalog()) 0.dp else horizontalPadding,
-                    vertical = if (contentType.isSeerrCatalog()) 18.dp else 20.dp
+                    horizontal = if (isSeerrCatalog) 0.dp else horizontalPadding,
+                    vertical = if (isSeerrCatalog) 18.dp else 20.dp
                 ),
-            horizontalAlignment = if (contentType.isSeerrCatalog()) {
+            horizontalAlignment = if (isSeerrCatalog) {
                 Alignment.CenterHorizontally
             } else {
                 Alignment.Start
             }
         ) {
-            if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
+            if (isSeerrCatalog && seerrLogoUrl != null) {
                 WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(if (isTablet) 132.dp else 92.dp)
                         .padding(horizontal = if (isTablet) 128.dp else 52.dp)
-                        .graphicsLayer {
-                            alpha = 1f - (collapseProgress * 0.72f)
-                            translationY = with(density) { 24.dp.toPx() } * collapseProgress
-                            val scale = 1f - (collapseProgress * 0.08f)
-                            scaleX = scale
-                            scaleY = scale
-                        },
+                        .compactHeaderLogo(compactProgress),
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
@@ -269,8 +252,8 @@ fun ViewAllScreen(
                     color = Color.White,
                     fontSize = if (isTablet) 28.sp else 24.sp,
                     fontWeight = FontWeight.Bold,
-                    textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Start,
-                    maxLines = if (contentType.isSeerrCatalog()) 2 else 1,
+                    textAlign = if (isSeerrCatalog) TextAlign.Center else TextAlign.Start,
+                    maxLines = if (isSeerrCatalog) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -279,8 +262,8 @@ fun ViewAllScreen(
                     text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = if (isTablet) 15.sp else 13.sp,
-                    textAlign = if (contentType.isSeerrCatalog()) TextAlign.Center else TextAlign.Unspecified,
-                    modifier = Modifier.padding(top = if (contentType.isSeerrCatalog()) 8.dp else 4.dp)
+                    textAlign = if (isSeerrCatalog) TextAlign.Center else TextAlign.Unspecified,
+                    modifier = Modifier.padding(top = if (isSeerrCatalog) 8.dp else 4.dp)
                 )
             }
         }
@@ -294,7 +277,7 @@ fun ViewAllScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            if (!contentType.isSeerrCatalog()) {
+            if (!isSeerrCatalog) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -314,7 +297,7 @@ fun ViewAllScreen(
                             columns = gridCells,
                             contentPadding = PaddingValues(
                                 start = horizontalPadding,
-                                top = if (contentType.isSeerrCatalog()) 0.dp else 16.dp,
+                                top = if (isSeerrCatalog) 0.dp else 16.dp,
                                 end = horizontalPadding,
                                 bottom = 120.dp
                             ),
@@ -322,12 +305,12 @@ fun ViewAllScreen(
                             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            catalogHeaderItem(contentType.isSeerrCatalog()) {
+                            catalogHeaderItem(isSeerrCatalog) {
                                 HeaderContent(
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .padding(bottom = 2.dp),
-                                    collapseProgress = catalogHeader
+                                    compactProgress = catalogHeader
                                 )
                             }
 
@@ -408,7 +391,7 @@ fun ViewAllScreen(
                                 state = gridState,
                                 contentPadding = PaddingValues(
                                     start = horizontalPadding,
-                                    top = if (contentType.isSeerrCatalog()) 0.dp else 16.dp,
+                                    top = if (isSeerrCatalog) 0.dp else 16.dp,
                                     end = horizontalPadding,
                                     bottom = 120.dp
                                 ),
@@ -416,12 +399,12 @@ fun ViewAllScreen(
                                 verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                catalogHeaderItem(contentType.isSeerrCatalog()) {
+                                catalogHeaderItem(isSeerrCatalog) {
                                     HeaderContent(
                                         modifier = Modifier
                                             .statusBarsPadding()
                                             .padding(bottom = 2.dp),
-                                        collapseProgress = catalogHeader
+                                        compactProgress = catalogHeader
                                     )
                                 }
 
@@ -461,7 +444,7 @@ fun ViewAllScreen(
                                 visible = uiState.isLoading && displayItems.isNotEmpty(),
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(top = if (contentType.isSeerrCatalog()) 62.dp else 8.dp),
+                                    .padding(top = if (isSeerrCatalog) 62.dp else 8.dp),
                                 enter = fadeIn(),
                                 exit = fadeOut()
                             ) {
@@ -495,8 +478,8 @@ fun ViewAllScreen(
             }
         }
 
-        if (contentType.isSeerrCatalog() && seerrLogoUrl != null) {
-            CtalogLogo(
+        if (isSeerrCatalog && seerrLogoUrl != null) {
+            CompactTopLogo(
                 imageUrl = seerrLogoUrl,
                 contentDescription = resolvedTitle,
                 progress = catalogHeader,
@@ -510,7 +493,7 @@ fun ViewAllScreen(
             )
         }
 
-        if (contentType.isSeerrCatalog() && headerTotalCount > 0) {
+        if (isSeerrCatalog && headerTotalCount > 0) {
             CatalogCount(
                 text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
                 progress = catalogHeader,
@@ -519,14 +502,14 @@ fun ViewAllScreen(
             )
         }
 
-        if (!contentType.isSeerrCatalog()) {
+        if (!isSeerrCatalog) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
 
-        if (showSortSheet && !contentType.isSeerrCatalog()) {
+        if (showSortSheet && !isSeerrCatalog) {
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
@@ -563,14 +546,11 @@ private fun CatalogCount(
     isTablet: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val visibleProgress = catalogVisibleProgress(progress)
-    if (visibleProgress <= 0f) return
-
-    CatalogChip(
+    CompactTopChip(
         modifier = modifier
             .statusBarsPadding()
             .padding(end = 16.dp, top = 10.dp),
-        visibleProgress = visibleProgress,
+        progress = progress,
         width = null,
         height = if (isTablet) 48.dp else 36.dp,
         shape = RoundedCornerShape(999.dp),
@@ -585,89 +565,6 @@ private fun CatalogCount(
         )
     }
 }
-
-@Composable
-private fun CtalogLogo(
-    imageUrl: String,
-    contentDescription: String,
-    progress: Float,
-    isTablet: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val visibleProgress = catalogVisibleProgress(progress)
-    if (visibleProgress <= 0f) return
-
-    val context = LocalContext.current
-
-    CatalogChip(
-        modifier = modifier
-            .statusBarsPadding()
-            .padding(start = 16.dp, top = 10.dp),
-        visibleProgress = visibleProgress,
-        width = if (isTablet) 108.dp else 82.dp,
-        height = if (isTablet) 48.dp else 36.dp,
-        shape = RoundedCornerShape(10.dp),
-        onClick = onClick
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(imageUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = contentDescription,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            contentScale = ContentScale.Fit
-        )
-    }
-}
-
-@Composable
-private fun CatalogChip(
-    visibleProgress: Float,
-    height: Dp,
-    shape: Shape,
-    modifier: Modifier = Modifier,
-    width: Dp? = null,
-    onClick: (() -> Unit)? = null,
-    content: @Composable BoxScope.() -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .then(if (width != null) Modifier.width(width) else Modifier)
-            .height(height)
-            .compactCatalogMotion(visibleProgress)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = shape,
-        color = Color.Black.copy(alpha = 0.62f),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
-    ) {
-        Box(
-            modifier = if (width != null) {
-                Modifier.fillMaxSize()
-            } else {
-                Modifier.fillMaxHeight()
-            },
-            contentAlignment = Alignment.Center,
-            content = content
-        )
-    }
-}
-
-private fun catalogVisibleProgress(progress: Float): Float =
-    ((progress - 0.08f) / 0.72f).coerceIn(0f, 1f)
-
-private fun Modifier.compactCatalogMotion(visibleProgress: Float): Modifier =
-    graphicsLayer {
-        alpha = visibleProgress
-        translationY = -10.dp.toPx() * (1f - visibleProgress)
-        val scale = 0.88f + (visibleProgress * 0.12f)
-        scaleX = scale
-        scaleY = scale
-    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

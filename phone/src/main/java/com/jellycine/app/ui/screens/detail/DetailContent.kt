@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -47,8 +48,12 @@ import com.jellycine.shared.ui.components.common.activeDetailMediaSources
 import com.jellycine.shared.ui.components.common.buildInlineText
 import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
 import com.jellycine.shared.ui.components.common.OverviewSection
+import com.jellycine.shared.ui.components.common.WatchedActionButton
 import com.jellycine.shared.ui.components.common.selectedVideoOption
+import com.jellycine.app.ui.components.common.CompactTopChip
+import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.isPausedDownloadState
@@ -62,11 +67,13 @@ import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
 import com.jellycine.app.ui.components.common.DetailHeroCastButtonOverlay
+import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.detailActionWidth
 import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.app.ui.components.common.rememberCompactProgress
 import java.util.Locale
 import kotlinx.coroutines.launch
 
@@ -109,6 +116,7 @@ fun DetailContent(
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val metadataScrollState = rememberScrollState()
+    val detailListState = rememberLazyListState()
     val isEpisode = item.type == "Episode"
     val overviewInteractionSource = remember { MutableInteractionSource() }
     val overviewModifier = item.seriesId?.takeIf {
@@ -369,6 +377,10 @@ fun DetailContent(
     } else {
         null
     }
+    val detailLogoCompactProgress = rememberCompactProgress(
+        state = detailListState,
+        compactDistance = if (useTabletBackdropLayout) 260.dp else 190.dp
+    )
     val onBackdropLoadError: (Boolean) -> Unit = { hasError ->
         if (
             hasError &&
@@ -639,6 +651,7 @@ fun DetailContent(
         }
 
         LazyColumn(
+            state = detailListState,
             modifier = Modifier
                 .fillMaxSize()
                 .background(if (useTabletBackdropLayout) Color.Transparent else Color.Black),
@@ -700,7 +713,8 @@ fun DetailContent(
                                         modifier = Modifier
                                             .fillMaxWidth(0.94f)
                                             .height(layout.logoContainerHeight)
-                                            .align(Alignment.CenterStart),
+                                            .align(Alignment.CenterStart)
+                                            .compactHeaderLogo(detailLogoCompactProgress),
                                         context = context,
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart,
@@ -1206,6 +1220,31 @@ fun DetailContent(
                 }
             }
         }
+
+        if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
+            CompactTopLogo(
+                imageUrl = logoImageUrl.orEmpty(),
+                contentDescription = item.name,
+                progress = detailLogoCompactProgress,
+                isTablet = isWidescreenLayout,
+                onClick = {
+                    coroutineScope.launch {
+                        detailListState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+        }
+
+        if (!isSeerDetail) {
+            DetailActionsOverlay(
+                progress = detailLogoCompactProgress,
+                isWatched = isWatched,
+                onWatchedClick = ::toggleWatched,
+                onCastButtonClick = onCastButtonClick,
+                modifier = Modifier.align(Alignment.TopEnd)
+            )
+        }
     }
 
     Dialogs(
@@ -1242,6 +1281,41 @@ fun DetailContent(
         }
     )
 
+}
+
+@Composable
+private fun DetailActionsOverlay(
+    progress: Float,
+    isWatched: Boolean,
+    onWatchedClick: () -> Unit,
+    onCastButtonClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    CompactTopChip(
+        modifier = modifier
+            .statusBarsPadding()
+            .padding(top = 10.dp, end = 14.dp),
+        progress = progress,
+        height = 40.dp,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.Black.copy(alpha = 0.42f)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 6.dp)
+        ) {
+            WatchedActionButton(
+                isWatched = isWatched,
+                onClick = onWatchedClick,
+                size = 30.dp
+            )
+            ScreenCastButton(
+                onConnectedClick = onCastButtonClick,
+                size = 30.dp
+            )
+        }
+    }
 }
 
 private fun List<BaseItemDto>.withUserDataRefresh(
