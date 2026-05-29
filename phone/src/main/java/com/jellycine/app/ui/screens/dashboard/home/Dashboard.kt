@@ -41,7 +41,6 @@ import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.app.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
@@ -1622,21 +1621,12 @@ fun Dashboard(
         }
         LaunchedEffect(
             latestPlaybackStopEvent?.timestampMs,
-            isTabActive,
-            selectedCategory,
-            isNetworkAvailable,
             continueWatchingEnabled,
             nextUpEnabled
         ) {
-            if (
-                latestPlaybackStopEvent == null ||
-                !isTabActive ||
-                selectedCategory != HomeCategory.HOME ||
-                !isNetworkAvailable
-            ) {
-                return@LaunchedEffect
-            }
+            if (latestPlaybackStopEvent == null) return@LaunchedEffect
 
+            queryManager.invalidateQuery("home_library_burst")
             if (continueWatchingEnabled) {
                 queryManager.invalidateQuery("continue_watching_resume_api_v2")
             }
@@ -3079,12 +3069,16 @@ internal fun LibraryItemCard(
                 )
 
                 val episodeCount = when {
+                    item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
                     item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
                     item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
                     else -> null
                 }
 
-                episodeCount?.let { count ->
+                val isFullyWatched = item.type == "Series" &&
+                    item.userData?.unplayedItemCount == 0
+
+                episodeCount?.takeIf { it > 0 }?.let { count ->
                     PosterCountBadge(
                         count = count,
                         modifier = Modifier
@@ -3093,7 +3087,7 @@ internal fun LibraryItemCard(
                     )
                 }
 
-                if (episodeCount == null && stableItem.isWatched) {
+                if (isFullyWatched || (episodeCount == null && stableItem.isWatched)) {
                     WatchedIndicatorBadge(
                         modifier = Modifier
                             .align(Alignment.TopEnd)

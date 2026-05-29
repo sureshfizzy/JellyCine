@@ -86,7 +86,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
                         ContentType.SERIES -> mediaRepository.getUserItems(
                             parentId = parentId,
@@ -97,7 +97,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
                         ContentType.EPISODES -> mediaRepository.getUserItems(
                             parentId = parentId,
@@ -108,7 +108,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "SeriesName,SeriesId,SeasonName,SeasonId,Overview"
+                            fields = "SeriesName,SeriesId,SeasonName,SeasonId,Overview,UserData"
                         )
                         ContentType.MOVIES_GENRE -> mediaRepository.getUserItems(
                             parentId = parentId,
@@ -120,7 +120,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
                         ContentType.TVSHOWS_GENRE -> mediaRepository.getUserItems(
                             parentId = parentId,
@@ -132,7 +132,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
                         ContentType.ALL -> mediaRepository.getUserItems(
                             parentId = parentId,
@@ -143,7 +143,7 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize,
                             recursive = true,
-                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview"
+                            fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
                     }
 

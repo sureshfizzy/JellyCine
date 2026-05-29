@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.shared.ui.components.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable

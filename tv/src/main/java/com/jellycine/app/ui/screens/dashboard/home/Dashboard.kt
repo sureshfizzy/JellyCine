@@ -1613,21 +1613,12 @@ fun Dashboard(
         }
         LaunchedEffect(
             latestPlaybackStopEvent?.timestampMs,
-            isTabActive,
-            selectedCategory,
-            isNetworkAvailable,
             continueWatchingEnabled,
             nextUpEnabled
         ) {
-            if (
-                latestPlaybackStopEvent == null ||
-                !isTabActive ||
-                selectedCategory != HomeCategory.HOME ||
-                !isNetworkAvailable
-            ) {
-                return@LaunchedEffect
-            }
+            if (latestPlaybackStopEvent == null) return@LaunchedEffect
 
+            queryManager.invalidateQuery("home_library_burst")
             if (continueWatchingEnabled) {
                 queryManager.invalidateQuery("continue_watching_resume_api_v2")
             }
@@ -2528,7 +2519,7 @@ private fun ContinueWatchingCard(
     mediaRepository: MediaRepository,
     onClick: () -> Unit = {}
 ) {
-    val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
@@ -2880,7 +2871,7 @@ internal fun LibraryItemCard(
     useLandscapeLayout: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-    val stableItem = remember(item.id) { StableBaseItem.from(item) }
+    val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
@@ -2939,17 +2930,29 @@ internal fun LibraryItemCard(
                 )
 
                 val episodeCount = when {
+                    item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
                     item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
                     item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
                     else -> null
                 }
 
-                episodeCount?.let { count ->
+                val isFullyWatched = item.type == "Series" &&
+                    item.userData?.unplayedItemCount == 0
+
+                episodeCount?.takeIf { it > 0 }?.let { count ->
                     PosterCountBadge(
                         count = count,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = 8.dp, end = 4.dp)
+                    )
+                }
+
+                if (isFullyWatched || (episodeCount == null && stableItem.isWatched)) {
+                    WatchedIndicatorBadge(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
                     )
                 }
 

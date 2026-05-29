@@ -42,9 +42,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
-import com.jellycine.app.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
+import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
+import com.jellycine.shared.playback.PlaybackRefreshSignals
 import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
@@ -66,6 +67,7 @@ fun ViewAllScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
+    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
 
     val context = LocalContext.current
     val screenWidthDp = containerWidthDp()
@@ -162,6 +164,13 @@ fun ViewAllScreen(
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
         viewModel.ensureItemsLoaded(contentType, parentId, genreId)
+    }
+
+    LaunchedEffect(latestPlaybackStopEvent?.timestampMs, contentType, parentId, genreId) {
+        if (latestPlaybackStopEvent == null || !contentType.includesSeriesItems()) {
+            return@LaunchedEffect
+        }
+        viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
     LaunchedEffect(filterSignature) {
@@ -680,6 +689,7 @@ private fun PosterCard(
                 val itemCount = when {
                     item.type == "Series" -> {
                         when {
+                            item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
                             item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount
                             item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount
                             item.childCount != null && item.childCount!! > 0 -> item.childCount
@@ -689,7 +699,10 @@ private fun PosterCard(
                     else -> null
                 }
 
-                itemCount?.let { count ->
+                val isFullyWatched = item.type == "Series" &&
+                    item.userData?.unplayedItemCount == 0
+
+                itemCount?.takeIf { it > 0 }?.let { count ->
                     PosterCountBadge(
                         count = count,
                         modifier = Modifier
@@ -698,7 +711,7 @@ private fun PosterCard(
                     )
                 }
 
-                if (itemCount == null && item.userData?.played == true) {
+                if (isFullyWatched || (itemCount == null && item.userData?.played == true)) {
                     WatchedIndicatorBadge(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -983,6 +996,12 @@ private data class SortOption(
 
 private fun viewAllItemKey(item: BaseItemDto): String {
     return item.id ?: "${item.name}_${item.type}_${item.seriesId}_${item.indexNumber ?: 0}"
+}
+
+private fun ContentType.includesSeriesItems(): Boolean {
+    return this == ContentType.SERIES ||
+        this == ContentType.TVSHOWS_GENRE ||
+        this == ContentType.ALL
 }
 
 @StringRes
