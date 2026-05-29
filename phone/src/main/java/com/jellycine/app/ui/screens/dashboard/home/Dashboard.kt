@@ -113,7 +113,7 @@ import coil3.request.*
 import coil3.size.Precision
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.WarmImageUrl
-import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import java.util.concurrent.ConcurrentHashMap
 
 @Stable
@@ -1199,7 +1199,7 @@ fun Dashboard(
         )
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
-    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     LaunchedEffect(featureCarouselEnabled) {
         if (!featureCarouselEnabled && selectedCategory != HomeCategory.HOME) {
@@ -1620,11 +1620,11 @@ fun Dashboard(
             }
         }
         LaunchedEffect(
-            latestPlaybackStopEvent?.timestampMs,
+            userDataRefreshEvent,
             continueWatchingEnabled,
             nextUpEnabled
         ) {
-            if (latestPlaybackStopEvent == null) return@LaunchedEffect
+            if (userDataRefreshEvent == null) return@LaunchedEffect
 
             queryManager.invalidateQuery("home_library_burst")
             if (continueWatchingEnabled) {

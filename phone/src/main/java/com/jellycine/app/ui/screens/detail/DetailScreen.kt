@@ -52,7 +52,7 @@ import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.app.ui.components.common.detailContentMaxWidth
 import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.isTabletLayout
@@ -132,7 +132,7 @@ fun DetailScreenContainer(
     var castTracks by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
-    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     LaunchedEffect(context) {
         CastController.ensureInitialized(context)
@@ -417,9 +417,9 @@ fun DetailScreenContainer(
         availableNextEpisodeId = episodeNavigationIds.nextEpisodeId
     }
 
-    LaunchedEffect(latestPlaybackStopEvent?.timestampMs) {
-        val playbackStopEvent = latestPlaybackStopEvent ?: return@LaunchedEffect
-        val refreshedItemId = playbackStopEvent.itemId ?: return@LaunchedEffect
+    LaunchedEffect(userDataRefreshEvent) {
+        val refreshEvent = userDataRefreshEvent ?: return@LaunchedEffect
+        val refreshedItemId = refreshEvent.itemId ?: return@LaunchedEffect
 
         if (item?.id == refreshedItemId || itemId == refreshedItemId) {
             mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedItem ->

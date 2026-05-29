@@ -2,7 +2,7 @@ package com.jellycine.app.ui.screens.player
 
 import android.util.Log
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -93,7 +93,7 @@ internal class PlayerPlaybackReporter(
                     failed = failed
                 )
                 if (result.isSuccess) {
-                    PlaybackRefreshSignals.notifyPlaybackStopped(mediaId)
+                    UserDataRefreshSignals.notifyUserDataChanged(mediaId)
                 } else {
                     Log.e(
                         TAG,

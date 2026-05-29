@@ -36,6 +36,7 @@ import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import android.content.res.Configuration
 import com.jellycine.detail.CodecUtils
@@ -55,6 +56,8 @@ import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.app.download.DownloadStatus
 import com.jellycine.app.download.ItemDownloadState
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.shared.playback.UserDataRefreshEvent
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import java.util.Locale
 import kotlinx.coroutines.launch
 
@@ -79,6 +82,7 @@ fun DetailContent(
     val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
     val configuration = LocalConfiguration.current
     val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
                              configuration.screenWidthDp >= 600
@@ -277,7 +281,14 @@ fun DetailContent(
         }
     }
 
-    LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId, item.parentIndexNumber) {
+    LaunchedEffect(
+        item.id,
+        item.type,
+        item.seriesId,
+        item.seasonId,
+        item.parentIndexNumber,
+        userDataRefreshEvent
+    ) {
         if (!isEpisode) {
             moreFromSeasonEpisodes = emptyList()
             return@LaunchedEffect
@@ -288,6 +299,8 @@ fun DetailContent(
             moreFromSeasonEpisodes = emptyList()
             return@LaunchedEffect
         }
+
+        moreFromSeasonEpisodes = moreFromSeasonEpisodes.withUserDataRefresh(userDataRefreshEvent)
 
         val seasonId = item.seasonId?.takeIf { it.isNotBlank() }
         val result = if (seasonId != null) {
@@ -317,6 +330,7 @@ fun DetailContent(
                     { it.id.orEmpty() }
                 )
             )
+            .withUserDataRefresh(userDataRefreshEvent)
     }
 
     LaunchedEffect(item.id, item.type, mergeVersionsEnabled) {
@@ -971,6 +985,26 @@ fun DetailContent(
         }
     )
 
+}
+
+private fun List<BaseItemDto>.withUserDataRefresh(
+    event: UserDataRefreshEvent?
+): List<BaseItemDto> {
+    val itemId = event?.itemId?.takeIf { it.isNotBlank() } ?: return this
+    val played = event.played ?: return this
+
+    return map { episode ->
+        if (episode.id != itemId) {
+            episode
+        } else {
+            episode.copy(
+                userData = (episode.userData ?: UserItemDataDto(itemId = itemId)).copy(
+                    played = played,
+                    playbackPositionTicks = 0L
+                )
+            )
+        }
+    }
 }
 
 @Composable

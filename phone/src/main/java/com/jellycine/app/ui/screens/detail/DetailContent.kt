@@ -38,6 +38,7 @@ import com.jellycine.data.model.DownloadStatus
 import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
@@ -55,7 +56,8 @@ import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.shared.playback.UserDataRefreshEvent
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
 import com.jellycine.app.ui.components.common.DetailHeroCastButtonOverlay
@@ -91,6 +93,7 @@ fun DetailContent(
     val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
     val screenWidthDp = containerWidthDp()
@@ -297,7 +300,10 @@ fun DetailContent(
             )
             if (result.isSuccess) {
                 isWatched = targetState
-                PlaybackRefreshSignals.notifyPlaybackStopped(currentItemId)
+                UserDataRefreshSignals.notifyUserDataChanged(
+                    itemId = currentItemId,
+                    played = targetState
+                )
             }
         }
     }
@@ -390,7 +396,14 @@ fun DetailContent(
         }
     }
 
-    LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId, item.parentIndexNumber) {
+    LaunchedEffect(
+        item.id,
+        item.type,
+        item.seriesId,
+        item.seasonId,
+        item.parentIndexNumber,
+        userDataRefreshEvent
+    ) {
         if (!isEpisode) {
             moreFromSeasonEpisodes = emptyList()
             return@LaunchedEffect
@@ -401,6 +414,8 @@ fun DetailContent(
             moreFromSeasonEpisodes = emptyList()
             return@LaunchedEffect
         }
+
+        moreFromSeasonEpisodes = moreFromSeasonEpisodes.withUserDataRefresh(userDataRefreshEvent)
 
         val seasonId = item.seasonId?.takeIf { it.isNotBlank() }
         val result = if (seasonId != null) {
@@ -430,6 +445,7 @@ fun DetailContent(
                     { it.id.orEmpty() }
                 )
             )
+            .withUserDataRefresh(userDataRefreshEvent)
     }
 
     LaunchedEffect(item.id, item.type, isSeerDetail, mergeVersionsEnabled) {
@@ -1192,6 +1208,26 @@ fun DetailContent(
         }
     )
 
+}
+
+private fun List<BaseItemDto>.withUserDataRefresh(
+    event: UserDataRefreshEvent?
+): List<BaseItemDto> {
+    val itemId = event?.itemId?.takeIf { it.isNotBlank() } ?: return this
+    val played = event.played ?: return this
+
+    return map { episode ->
+        if (episode.id != itemId) {
+            episode
+        } else {
+            episode.copy(
+                userData = (episode.userData ?: UserItemDataDto(itemId = itemId)).copy(
+                    played = played,
+                    playbackPositionTicks = 0L
+                )
+            )
+        }
+    }
 }
 
 @Composable

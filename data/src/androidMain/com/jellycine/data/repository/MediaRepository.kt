@@ -1221,7 +1221,7 @@ class MediaRepository(private val context: Context) {
                 seriesId = seriesId,
                 userId = userId,
                 seasonId = seasonId,
-                fields = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
+                fields = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId,UserData",
                 limit = limit,
                 startIndex = startIndex
             )

@@ -59,7 +59,7 @@ import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
-import com.jellycine.shared.playback.PlaybackRefreshSignals
+import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
 import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
@@ -79,7 +79,7 @@ fun ViewAllScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
-    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -153,8 +153,8 @@ fun ViewAllScreen(
         viewModel.ensureItemsLoaded(contentType, parentId, genreId)
     }
 
-    LaunchedEffect(latestPlaybackStopEvent?.timestampMs, contentType, parentId, genreId) {
-        if (latestPlaybackStopEvent == null || !contentType.includesSeriesItems()) {
+    LaunchedEffect(userDataRefreshEvent, contentType, parentId, genreId) {
+        if (userDataRefreshEvent == null || !contentType.includesSeriesItems()) {
             return@LaunchedEffect
         }
         viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)

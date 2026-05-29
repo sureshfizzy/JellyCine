@@ -33,14 +33,18 @@ import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
+import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.getBackdrop
 import com.jellycine.data.model.BatchDownloadCandidate
 import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
+import com.jellycine.shared.playback.UserDataRefreshEvent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -89,10 +93,14 @@ fun SeasonDetailScreen(
     var logoCandidateLookup by remember(seasonId, seriesId) { mutableStateOf(true) }
     var logoLoadError by remember(seasonId, seriesId) { mutableStateOf(false) }
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
+    val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     // Load episodes for this season
-    LaunchedEffect(seasonId) {
-        isLoading = true
+    LaunchedEffect(seasonId, userDataRefreshEvent) {
+        if (episodes.isEmpty()) {
+            isLoading = true
+        }
+        episodes = episodes.withUserDataRefresh(userDataRefreshEvent)
         try {
             val result = mediaRepository.getEpisodes(
                 seriesId = seriesId,
@@ -100,7 +108,9 @@ fun SeasonDetailScreen(
             )
             result.fold(
                 onSuccess = { episodeList ->
-                    episodes = episodeList.sortedBy { it.indexNumber ?: 0 }
+                    episodes = episodeList
+                        .sortedBy { it.indexNumber ?: 0 }
+                        .withUserDataRefresh(userDataRefreshEvent)
                     isLoading = false
                 },
                 onFailure = { exception ->
@@ -527,6 +537,26 @@ fun SeasonDetailScreen(
     }
 }
 
+private fun List<BaseItemDto>.withUserDataRefresh(
+    event: UserDataRefreshEvent?
+): List<BaseItemDto> {
+    val itemId = event?.itemId?.takeIf { it.isNotBlank() } ?: return this
+    val played = event.played ?: return this
+
+    return map { episode ->
+        if (episode.id != itemId) {
+            episode
+        } else {
+            episode.copy(
+                userData = (episode.userData ?: UserItemDataDto(itemId = itemId)).copy(
+                    played = played,
+                    playbackPositionTicks = 0L
+                )
+            )
+        }
+    }
+}
+
 private data class SeasonEpisodeSelectionDialogState(
     val availableBytes: Long,
     val options: List<StorageSelectionOption>,
@@ -625,6 +655,14 @@ private fun EpisodeListItem(
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
+
+                    if (episode.userData?.played == true) {
+                        WatchedIndicatorBadge(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(5.dp)
+                        )
+                    }
                 }
 
                 Column(
