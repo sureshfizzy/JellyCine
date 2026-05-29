@@ -60,6 +60,14 @@ import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
 
+private data class SeasonDetailData(
+    val seriesId: String,
+    val seasonId: String,
+    val seasonName: String?,
+    val initialHeroImageUrl: String?,
+    val initialLogoImageUrl: String?
+)
+
 @UnstableApi
 @Composable
 fun DetailScreenContainer(
@@ -85,7 +93,7 @@ fun DetailScreenContainer(
 
     // Navigation state
     var currentScreen by remember { mutableStateOf("detail") }
-    var seasonDetailData by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
+    var seasonDetailData by remember { mutableStateOf<SeasonDetailData?>(null) }
     var episodeDetailId by remember { mutableStateOf<String?>(null) }
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
@@ -467,8 +475,14 @@ fun DetailScreenContainer(
                                     onPersonClick = { personId ->
                                         onNavigateToPerson(personId)
                                     },
-                                    onSeasonClick = { seriesId, seasonId, seasonName ->
-                                        seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                    onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
+                                        seasonDetailData = SeasonDetailData(
+                                            seriesId = seriesId,
+                                            seasonId = seasonId,
+                                            seasonName = seasonName,
+                                            initialHeroImageUrl = heroImageUrl,
+                                            initialLogoImageUrl = logoImageUrl
+                                        )
                                         currentScreen = "season"
                                     }
                                 )
@@ -479,12 +493,14 @@ fun DetailScreenContainer(
                     }
 
                     "season" -> {
-                        seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
+                        seasonDetailData?.let { seasonData ->
                             ScreenWrapper(isActive = true) {
                                 SeasonDetailScreen(
-                                    seriesId = seriesId,
-                                    seasonId = seasonId,
-                                    seasonName = seasonName,
+                                    seriesId = seasonData.seriesId,
+                                    seasonId = seasonData.seasonId,
+                                    seasonName = seasonData.seasonName,
+                                    initialHeroImageUrl = seasonData.initialHeroImageUrl,
+                                    initialLogoImageUrl = seasonData.initialLogoImageUrl,
                                     onBackPressed = handleBackNavigation,
                                     onEpisodeClick = { episodeId ->
                                         episodeDetailId = episodeId
@@ -535,8 +551,14 @@ fun DetailScreenContainer(
                                             onPersonClick = { personId ->
                                                 onNavigateToPerson(personId)
                                             },
-                                            onSeasonClick = { seriesId, seasonId, seasonName ->
-                                                seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                            onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
+                                                seasonDetailData = SeasonDetailData(
+                                                    seriesId = seriesId,
+                                                    seasonId = seasonId,
+                                                    seasonName = seasonName,
+                                                    initialHeroImageUrl = heroImageUrl,
+                                                    initialLogoImageUrl = logoImageUrl
+                                                )
                                                 currentScreen = "season"
                                             }
                                         )
@@ -593,7 +615,7 @@ fun DetailScreen(
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
-    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+    onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
     DetailContent(
         item = item,

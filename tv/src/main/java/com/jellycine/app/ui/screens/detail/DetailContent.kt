@@ -70,7 +70,7 @@ fun DetailContent(
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
-    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+    onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -911,7 +911,15 @@ fun DetailContent(
                         SeasonsSection(
                             seriesId = seriesId,
                             mediaRepository = mediaRepository,
-                            onSeasonClick = onSeasonClick
+                            onSeasonClick = { selectedSeriesId, seasonId, seasonName ->
+                                onSeasonClick(
+                                    selectedSeriesId,
+                                    seasonId,
+                                    seasonName,
+                                    backdropImageUrl,
+                                    logoImageUrl?.takeIf { !logoLoadError }
+                                )
+                            }
                         )
                     }
                 }

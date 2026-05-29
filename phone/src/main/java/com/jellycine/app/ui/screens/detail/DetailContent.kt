@@ -80,7 +80,7 @@ fun DetailContent(
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
-    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+    onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -1124,7 +1124,15 @@ fun DetailContent(
                                     onSeasonRequest = { seasonNumber ->
                                         seerrRequestState.onLoadRequestOptions(seasonNumber)
                                     },
-                                    onSeasonClick = onSeasonClick
+                                    onSeasonClick = { seriesId, seasonId, seasonName ->
+                                        onSeasonClick(
+                                            seriesId,
+                                            seasonId,
+                                            seasonName,
+                                            backdropImageUrl,
+                                            logoImageUrl?.takeIf { !logoLoadError }
+                                        )
+                                    }
                                 )
                             }
                         }

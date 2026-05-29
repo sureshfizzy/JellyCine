@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +32,6 @@ import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.getBackdrop
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
@@ -47,6 +45,8 @@ fun SeasonDetailScreen(
     seriesId: String,
     seasonId: String,
     seasonName: String? = null,
+    initialHeroImageUrl: String? = null,
+    initialLogoImageUrl: String? = null,
     onBackPressed: () -> Unit = {},
     onEpisodeClick: (String) -> Unit = {}
 ) {
@@ -62,12 +62,20 @@ fun SeasonDetailScreen(
     var downloadErrorDialogMessage by remember(seasonId) { mutableStateOf<String?>(null) }
     var storageSelectionDialogState by remember(seasonId) { mutableStateOf<SeasonEpisodeSelectionDialogState?>(null) }
     var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
-    var seasonMetadata by remember(seasonId) { mutableStateOf<BaseItemDto?>(null) }
-    var seriesMetadata by remember(seriesId) { mutableStateOf<BaseItemDto?>(null) }
-    var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
-    var heroImageIndex by remember { mutableIntStateOf(0) }
-    var logoImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
-    var logoImageIndex by remember { mutableIntStateOf(0) }
+    val initialHeroImageCandidates = remember(seasonId, seriesId, initialHeroImageUrl) {
+        listOfNotNull(initialHeroImageUrl?.takeIf { it.isNotBlank() }).distinct()
+    }
+    var heroImageCandidates by remember(seasonId, seriesId, initialHeroImageUrl) {
+        mutableStateOf(initialHeroImageCandidates)
+    }
+    var heroImageIndex by remember(seasonId, seriesId) { mutableIntStateOf(0) }
+    val initialLogoImageCandidates = remember(seasonId, seriesId, initialLogoImageUrl) {
+        listOfNotNull(initialLogoImageUrl?.takeIf { it.isNotBlank() }).distinct()
+    }
+    var logoImageCandidates by remember(seasonId, seriesId, initialLogoImageUrl) {
+        mutableStateOf(initialLogoImageCandidates)
+    }
+    var logoImageIndex by remember(seasonId, seriesId) { mutableIntStateOf(0) }
     var logoCandidateLookup by remember(seasonId, seriesId) { mutableStateOf(true) }
     var logoLoadError by remember(seasonId, seriesId) { mutableStateOf(false) }
     val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
@@ -101,122 +109,82 @@ fun SeasonDetailScreen(
         try {
             mediaRepository.getItemById(seriesId).fold(
                 onSuccess = { seriesItem ->
-                    seriesMetadata = seriesItem
                     seriesTitle = seriesItem.name?.takeIf { it.isNotBlank() }
                 },
-                onFailure = {
-                    seriesMetadata = null
-                }
+                onFailure = {}
             )
         } catch (_: Exception) {
-            seriesMetadata = null
             seriesTitle = null
         }
     }
 
-    LaunchedEffect(seasonId) {
-        seasonMetadata = try {
-            mediaRepository.getItemById(seasonId).getOrNull()
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     // Prepare hero image candidates in fallback order
-    LaunchedEffect(seasonId, seriesId, seasonMetadata, seriesMetadata) {
+    LaunchedEffect(seasonId, seriesId, initialHeroImageUrl) {
         try {
-            heroImageCandidates = listOfNotNull(
-                mediaRepository.getBackdropImageUrl(
-                    itemId = seasonId,
-                    imageIndex = 0,
-                    width = 1200,
-                    height = 675,
-                    quality = 92,
-                    imageTag = seasonMetadata?.imageTagFor(
-                        imageType = "Backdrop",
-                        targetItemId = seasonId
-                    )
-                ).first(),
-                mediaRepository.getBackdropImageUrl(
-                    itemId = seriesId,
-                    imageIndex = 0,
-                    width = 1200,
-                    height = 675,
-                    quality = 92,
-                    imageTag = seasonMetadata?.imageTagFor(
-                        imageType = "Backdrop",
-                        targetItemId = seriesId
-                    ) ?: seriesMetadata?.imageTagFor(
-                        imageType = "Backdrop",
-                        targetItemId = seriesId
-                    )
-                ).first(),
-                mediaRepository.getImageUrl(
-                    itemId = seasonId,
-                    imageType = "Primary",
-                    width = 900,
-                    height = 1200,
-                    quality = 92,
-                    imageTag = seasonMetadata?.imageTagFor(
+            val nextHeroImageCandidates = (
+                listOfNotNull(
+                    mediaRepository.getBackdropImageUrl(
+                        itemId = seasonId,
+                        imageIndex = 0,
+                        width = 1200,
+                        height = 675,
+                        quality = 92
+                    ).first(),
+                    mediaRepository.getBackdropImageUrl(
+                        itemId = seriesId,
+                        imageIndex = 0,
+                        width = 1200,
+                        height = 675,
+                        quality = 92
+                    ).first(),
+                    mediaRepository.getImageUrl(
+                        itemId = seasonId,
                         imageType = "Primary",
-                        targetItemId = seasonId
-                    )
-                ).first(),
-                mediaRepository.getImageUrl(
-                    itemId = seriesId,
-                    imageType = "Primary",
-                    width = 900,
-                    height = 1200,
-                    quality = 92,
-                    imageTag = seasonMetadata?.imageTagFor(
+                        width = 900,
+                        height = 1200,
+                        quality = 92
+                    ).first(),
+                    mediaRepository.getImageUrl(
+                        itemId = seriesId,
                         imageType = "Primary",
-                        targetItemId = seriesId
-                    ) ?: seriesMetadata?.imageTagFor(
-                        imageType = "Primary",
-                        targetItemId = seriesId
-                    )
-                ).first()
+                        width = 900,
+                        height = 1200,
+                        quality = 92
+                    ).first()
+                ) + initialHeroImageCandidates
             ).distinct()
+            heroImageCandidates = nextHeroImageCandidates
             heroImageIndex = 0
         } catch (e: Exception) {
-            heroImageCandidates = emptyList()
+            heroImageCandidates = initialHeroImageCandidates
             heroImageIndex = 0
         }
     }
 
     // Prepare logo candidates (season first, then series)
-    LaunchedEffect(seasonId, seriesId, seasonMetadata, seriesMetadata) {
+    LaunchedEffect(seasonId, seriesId, initialLogoImageUrl) {
         logoCandidateLookup = true
         logoLoadError = false
         try {
-            logoImageCandidates = listOfNotNull(
-                mediaRepository.getImageUrl(
-                    itemId = seasonId,
-                    imageType = "Logo",
-                    width = 1200,
-                    quality = 95,
-                    imageTag = seasonMetadata?.imageTagFor(
+            logoImageCandidates = (
+                listOfNotNull(
+                    mediaRepository.getImageUrl(
+                        itemId = seasonId,
                         imageType = "Logo",
-                        targetItemId = seasonId
-                    )
-                ).first(),
-                mediaRepository.getImageUrl(
-                    itemId = seriesId,
-                    imageType = "Logo",
-                    width = 1200,
-                    quality = 95,
-                    imageTag = seasonMetadata?.imageTagFor(
+                        width = 1200,
+                        quality = 95
+                    ).first(),
+                    mediaRepository.getImageUrl(
+                        itemId = seriesId,
                         imageType = "Logo",
-                        targetItemId = seriesId
-                    ) ?: seriesMetadata?.imageTagFor(
-                        imageType = "Logo",
-                        targetItemId = seriesId
-                    )
-                ).first()
+                        width = 1200,
+                        quality = 95
+                    ).first()
+                ) + initialLogoImageCandidates
             ).distinct()
             logoImageIndex = 0
         } catch (e: Exception) {
-            logoImageCandidates = emptyList()
+            logoImageCandidates = initialLogoImageCandidates
             logoImageIndex = 0
         } finally {
             logoCandidateLookup = false
@@ -224,7 +192,9 @@ fun SeasonDetailScreen(
     }
 
     val currentHeroImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
+        ?: initialHeroImageCandidates.firstOrNull()
     val currentLogoImageUrl = logoImageCandidates.getOrNull(logoImageIndex)
+        ?: initialLogoImageCandidates.firstOrNull()
     val showLogoImage = currentLogoImageUrl != null && !logoLoadError
     val reserveLogoSpace = showLogoImage || logoCandidateLookup
     val fallbackHeaderTitle = seriesTitle
