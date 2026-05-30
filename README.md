@@ -22,6 +22,9 @@
 
 ## Features
 
+- Seerr integration for discovery, search, recommendations, detail pages, request badges, request limits, and title requests
+- MPV playback engine with fallback when ExoPlayer cannot render video
+- Merge-version support with local version selection for multi-source items (No server side support required)
 - Jellyfin and Emby support with automatic endpoint resolution
 - Spatial audio passthrough when supported by the device/output route
 - Compose-first UI with Home, My Media, Search, Favorites, and Settings sections
