@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.detail
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.res.stringResource
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
@@ -26,28 +27,33 @@ internal fun Recommendations(
         mediaRepository = mediaRepository,
         seerrRepository = seerrRepository
     )
-    val primaryDirector = directors.firstOrNull()
-    val seerrDirectorItems = seerrDirectorItemsState(
-        item = item,
-        directors = directors,
-        isSeerDetail = isSeerDetail,
-        activeServerId = activeServerId,
-        mediaRepository = mediaRepository,
-        seerrRepository = seerrRepository
-    )
+    directors.forEachIndexed { index, director ->
+        key(director.id ?: director.name ?: index) {
+            val seerrDirectorItems = seerrDirectorItemsState(
+                item = item,
+                directors = listOf(director),
+                isSeerDetail = isSeerDetail,
+                activeServerId = activeServerId,
+                mediaRepository = mediaRepository,
+                seerrRepository = seerrRepository
+            )
 
-    if (
-        primaryDirector != null &&
-        (seerrDirectorItems.localDirectorItems.isNotEmpty() ||
-            seerrDirectorItems.seerrDirectorItems.isNotEmpty())
-    ) {
-        SimilarItemsSection(
-            similarItems = seerrDirectorItems.localDirectorItems,
-            seerrItems = seerrDirectorItems.seerrDirectorItems,
-            mediaRepository = mediaRepository,
-            onItemClick = onItemClick,
-            title = "Directed by ${primaryDirector.name}"
-        )
+            if (
+                seerrDirectorItems.localDirectorItems.isNotEmpty() ||
+                    seerrDirectorItems.seerrDirectorItems.isNotEmpty()
+            ) {
+                SimilarItemsSection(
+                    similarItems = seerrDirectorItems.localDirectorItems,
+                    seerrItems = seerrDirectorItems.seerrDirectorItems,
+                    mediaRepository = mediaRepository,
+                    onItemClick = onItemClick,
+                    title = stringResource(
+                        R.string.detail_directed_by,
+                        director.name ?: stringResource(R.string.detail_similar_item_unknown)
+                    )
+                )
+            }
+        }
     }
 
     SimilarItemsSection(

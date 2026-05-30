@@ -1,6 +1,8 @@
 package com.jellycine.app.ui.screens.detail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.shared.ui.components.common.CastSection
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun DirectorCreditRow(
     label: String,
     directors: List<BaseItemPerson>,
@@ -43,7 +46,9 @@ internal fun DirectorCreditRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        Row {
+        FlowRow(
+            modifier = Modifier.weight(1f)
+        ) {
             directors.forEachIndexed { index, person ->
                 val personId = person.id
                 val canOpenPerson = !personId.isNullOrBlank()
