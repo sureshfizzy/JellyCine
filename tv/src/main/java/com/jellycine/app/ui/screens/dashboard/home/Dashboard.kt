@@ -1540,7 +1540,6 @@ fun Dashboard(
                                 (type == "CollectionFolder" || type == "Folder")
                         }
                         .distinctBy { it.id }
-                        .sortedBy { it.sortName ?: it.name ?: "" }
                         .toList()
                 },
                 onFailure = { throw it }

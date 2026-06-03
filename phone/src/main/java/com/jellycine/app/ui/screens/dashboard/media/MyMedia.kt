@@ -75,7 +75,7 @@ fun MyMedia(
                                 it.collectionType != "playlists" &&
                                 it.collectionType != "folders" &&
                                 (it.type == "CollectionFolder" || it.type == "Folder")
-                            }?.sortedBy { it.sortName ?: it.name } ?: emptyList()
+                            } ?: emptyList()
 
                             libraryViews = validViews
                             isLoading = false

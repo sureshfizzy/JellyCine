@@ -686,13 +686,44 @@ class MediaRepository(private val context: Context) {
             val response = session.api.getUserViews(session.userId)
 
             if (response.isSuccessful && response.body() != null) {
-                Result.success(response.body()!!)
+                val queryResult = response.body()!!
+                val orderedViewIds = getCurrentUser()
+                    .getOrNull()
+                    ?.configuration
+                    ?.orderedViews
+
+                Result.success(
+                    queryResult.copy(
+                        items = queryResult.items?.orderedViews(orderedViewIds)
+                    )
+                )
             } else {
                 Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun List<BaseItemDto>.orderedViews(orderedViewIds: List<String>?): List<BaseItemDto> {
+        val orderedLookup = orderedViewIds
+            .orEmpty()
+            .mapIndexedNotNull { index, viewId ->
+                viewId.takeIf { it.isNotBlank() }?.let { it to index }
+            }
+            .toMap()
+
+        if (orderedLookup.isEmpty()) return this
+
+        return mapIndexed { originalIndex, item -> originalIndex to item }
+            .sortedWith(
+                compareBy<Pair<Int, BaseItemDto>> { (_, item) ->
+                    orderedLookup[item.id] ?: Int.MAX_VALUE
+                }.thenBy { (originalIndex, _) ->
+                    originalIndex
+                }
+            )
+            .map { (_, item) -> item }
     }
 
     suspend fun getHomeLibrarySections(
