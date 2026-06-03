@@ -242,7 +242,7 @@ fun FeatureTab(
     val featuredKeys = remember(resolvedFeaturedItems.value) {
         resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: item.name ?: index.toString() }
     }
-    val isResolvingFeatureAssets = remember(
+    val isFeatureAssets = remember(
         isLoading,
         featuredItems,
         metadataQualifiedFeaturedItems.value,
@@ -453,7 +453,7 @@ fun FeatureTab(
                     }
                 }
 
-                isLoading || isResolvingFeatureAssets -> FeatureHeroSkeleton(heroHeight = heroHeight)
+                isLoading || isFeatureAssets -> FeatureHeroSkeleton(heroHeight = heroHeight)
 
                 !error.isNullOrBlank() -> FeatureHeroError(error = error, heroHeight = heroHeight)
 

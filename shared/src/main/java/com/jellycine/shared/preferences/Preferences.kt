@@ -15,6 +15,7 @@ class Preferences(context: Context) {
         private const val PREFS_NAME = "jellycine_download_prefs"
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
         private const val KEY_FEATURE_CAROUSEL_ENABLED = "feature_carousel_enabled"
+        private const val KEY_FEATURE_CAROUSEL_HEIGHT = "feature_carousel_height"
         private const val KEY_POSTER_ENHANCERS_ENABLED = "poster_enhancers_enabled"
         private const val KEY_CONTINUE_WATCHING_ENABLED = "continue_watching_enabled"
         private const val KEY_NEXT_UP_ENABLED = "next_up_enabled"
@@ -22,6 +23,10 @@ class Preferences(context: Context) {
         private const val KEY_MERGE_VERSIONS_ENABLED = "merge_versions_enabled"
         private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
+
+        const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
+        const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
+        const val FEATURE_CAROUSEL_HEIGHT_SMALL = "small"
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
@@ -46,6 +51,31 @@ class Preferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_FEATURE_CAROUSEL_ENABLED) {
                 trySend(isFeatureCarouselEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun getFeatureCarouselHeight(): String {
+        return normalizeFeatureCarouselHeight(
+            prefs.getString(KEY_FEATURE_CAROUSEL_HEIGHT, FEATURE_CAROUSEL_HEIGHT_LARGE)
+        )
+    }
+
+    fun setFeatureCarouselHeight(height: String) {
+        prefs.edit()
+            .putString(KEY_FEATURE_CAROUSEL_HEIGHT, normalizeFeatureCarouselHeight(height))
+            .apply()
+    }
+
+    fun FeatureCarouselHeight(): Flow<String> = callbackFlow {
+        trySend(getFeatureCarouselHeight())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FEATURE_CAROUSEL_HEIGHT) {
+                trySend(getFeatureCarouselHeight())
             }
         }
 
@@ -199,4 +229,12 @@ class Preferences(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
+
+    private fun normalizeFeatureCarouselHeight(height: String?): String {
+        return when (height) {
+            FEATURE_CAROUSEL_HEIGHT_SMALL -> FEATURE_CAROUSEL_HEIGHT_SMALL
+            FEATURE_CAROUSEL_HEIGHT_MEDIUM -> FEATURE_CAROUSEL_HEIGHT_MEDIUM
+            else -> FEATURE_CAROUSEL_HEIGHT_LARGE
+        }
+    }
 }

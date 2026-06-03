@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
@@ -26,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -54,7 +55,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.compose.rememberAsyncImagePainter
@@ -76,6 +77,7 @@ import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.shared.preferences.Preferences
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -137,6 +139,7 @@ fun FeatureTab(
     isLoading: Boolean = true,
     error: String? = null,
     selectedCategory: String = HomeCategory.HOME,
+    carouselHeight: String = Preferences.FEATURE_CAROUSEL_HEIGHT_LARGE,
     verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
     onLogout: () -> Unit = {},
@@ -171,7 +174,13 @@ fun FeatureTab(
         mutableStateOf<String?>(persistedHomeSnapshot?.profileImageUrl)
     }
 
-    val featuredRowState = remember(selectedCategory) { LazyListState() }
+    val configuration = LocalConfiguration.current
+    val featuredRowState = remember(
+        selectedCategory,
+        carouselHeight,
+        configuration.screenWidthDp,
+        configuration.screenHeightDp
+    ) { LazyListState() }
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
@@ -180,36 +189,25 @@ fun FeatureTab(
             featuredItems.filter(::hasFeatureHeroAssets)
         }
     }
-    val displayFeaturedItems = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
+    val currentAssetsReady by remember(metadataQualifiedFeaturedItems.value) {
         derivedStateOf {
-            metadataQualifiedFeaturedItems.value.filter { item ->
-                val itemId = item.id ?: return@filter false
-                val cachedImages = imageCacheByItemId[itemId] ?: return@filter false
-                val hasBackdrop = !cachedImages.backdropUrl.isNullOrBlank() ||
-                    !cachedImages.lowBackdropUrl.isNullOrBlank()
-                val hasLogo = !cachedImages.logoUrl.isNullOrBlank()
-                hasBackdrop && hasLogo
-            }
+            metadataQualifiedFeaturedItems.value.isNotEmpty() &&
+                metadataQualifiedFeaturedItems.value.all { candidate ->
+                    imageCacheByItemId[candidate.id.orEmpty()].isHeroReady()
+                }
         }
-    }
-    val CurrentAssetsReady = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
-        metadataQualifiedFeaturedItems.value.isNotEmpty() &&
-            metadataQualifiedFeaturedItems.value.all { candidate ->
-                imageCacheByItemId[candidate.id.orEmpty()].isHeroReady()
-            }
     }
     val resolvedFeaturedItems = remember(
         metadataQualifiedFeaturedItems.value,
-        displayFeaturedItems.value,
         stableFeaturedItems,
-        CurrentAssetsReady
+        currentAssetsReady
     ) {
         derivedStateOf {
             val targetItems = metadataQualifiedFeaturedItems.value
             if (targetItems.isEmpty()) return@derivedStateOf stableFeaturedItems
 
             val fallbackItems = if (stableFeaturedItems.isNotEmpty()) stableFeaturedItems else targetItems
-            if (CurrentAssetsReady || fallbackItems.isEmpty()) return@derivedStateOf targetItems
+            if (currentAssetsReady || fallbackItems.isEmpty()) return@derivedStateOf targetItems
 
             buildList {
                 targetItems.forEachIndexed { index, targetItem ->
@@ -227,8 +225,8 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(CurrentAssetsReady, metadataQualifiedFeaturedItems.value) {
-        if (CurrentAssetsReady && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
+    LaunchedEffect(currentAssetsReady, metadataQualifiedFeaturedItems.value) {
+        if (currentAssetsReady && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
             stableFeaturedItems = metadataQualifiedFeaturedItems.value
         } else if (stableFeaturedItems.isEmpty() && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
             stableFeaturedItems = metadataQualifiedFeaturedItems.value
@@ -238,7 +236,7 @@ fun FeatureTab(
     val featuredKeys = remember(resolvedFeaturedItems.value) {
         resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: item.name ?: index.toString() }
     }
-    val isResolvingFeatureAssets = remember(
+    val isFeatureAssets = remember(
         isLoading,
         featuredItems,
         metadataQualifiedFeaturedItems.value,
@@ -252,10 +250,41 @@ fun FeatureTab(
     val infiniteStartIndex = remember(featuredKeys) {
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
     }
-    var autoScroll by rememberSaveable(selectedCategory) { mutableStateOf(false) }
-    var hasSeededCarousel by rememberSaveable(selectedCategory) { mutableStateOf(false) }
-    val configuration = LocalConfiguration.current
-    val heroHeight = (configuration.screenHeightDp.dp * 0.76f).coerceIn(520.dp, 820.dp)
+    var autoScroll by rememberSaveable(selectedCategory, carouselHeight) { mutableStateOf(false) }
+    var hasSeededCarousel by remember(
+        selectedCategory,
+        carouselHeight,
+        configuration.screenWidthDp,
+        configuration.screenHeightDp
+    ) { mutableStateOf(false) }
+    val heroSizing = remember(configuration.screenHeightDp, carouselHeight) {
+        featureHeroSizing(
+            heightMode = carouselHeight,
+            screenHeight = configuration.screenHeightDp.dp
+        )
+    }
+    val screenWidth = configuration.screenWidthDp.dp
+    val heroHeight = heroSizing.height
+    val heroViewportHeight = heroHeight + heroSizing.carouselTopPadding
+    val heroCardWidth = remember(screenWidth, heroSizing) {
+        heroSizing.compactCardWidth(screenWidth)
+    }
+    val density = LocalDensity.current
+    val initialCarouselIndex = remember(heroSizing, infiniteStartIndex) {
+        heroSizing.initialCarouselIndex(infiniteStartIndex)
+    }
+    val initialCarouselScrollOffsetPx = remember(
+        screenWidth,
+        heroCardWidth,
+        density,
+        heroSizing
+    ) {
+        heroSizing.initialCarouselScrollOffsetPx(
+            screenWidth = screenWidth,
+            cardWidth = heroCardWidth,
+            density = density
+        )
+    }
 
     LaunchedEffect(currentServerUrl, currentUsername) {
         persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
@@ -303,9 +332,14 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading, selectedCategory) {
+    LaunchedEffect(featuredKeys, isLoading, selectedCategory, initialCarouselIndex, initialCarouselScrollOffsetPx) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
-        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
+        runCatching {
+            featuredRowState.scrollToItem(
+                index = initialCarouselIndex,
+                scrollOffset = initialCarouselScrollOffsetPx
+            )
+        }
         hasSeededCarousel = true
     }
 
@@ -412,13 +446,16 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredKeys, isLoading, autoScroll) {
+    LaunchedEffect(featuredKeys, isLoading, autoScroll, initialCarouselScrollOffsetPx) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
         while (true) {
             delay(10_000L)
             val nextIndex = featuredRowState.firstVisibleItemIndex + 1
             runCatching {
-                featuredRowState.animateScrollToItem(index = nextIndex)
+                featuredRowState.animateScrollToItem(
+                    index = nextIndex,
+                    scrollOffset = initialCarouselScrollOffsetPx
+                )
             }
         }
     }
@@ -431,7 +468,7 @@ fun FeatureTab(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heroHeight)
+                .height(heroViewportHeight)
         ) {
             when {
                 resolvedFeaturedItems.value.isNotEmpty() -> {
@@ -439,7 +476,12 @@ fun FeatureTab(
                         state = featuredRowState,
                         modifier = Modifier
                             .fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                        contentPadding = PaddingValues(
+                            start = heroSizing.carouselHorizontalPadding,
+                            top = heroSizing.carouselTopPadding,
+                            end = heroSizing.carouselHorizontalPadding
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(heroSizing.carouselItemSpacing),
                         flingBehavior = featuredFlingBehavior
                     ) {
                         items(
@@ -458,18 +500,30 @@ fun FeatureTab(
                                 verticalParallaxOffsetPx = verticalParallaxOffsetPx,
                                 images = cachedImages,
                                 onClick = { onItemClick(item) },
-                                heroHeight = heroHeight,
-                                modifier = Modifier.fillParentMaxWidth()
+                                heroSizing = heroSizing,
+                                modifier = heroCardWidth?.let { Modifier.width(it) }
+                                    ?: Modifier.fillParentMaxWidth(heroSizing.cardWidthFraction)
                             )
                         }
                     }
                 }
 
-                isLoading || isResolvingFeatureAssets -> FeatureHeroSkeleton(heroHeight = heroHeight)
+                isLoading || isFeatureAssets -> FeatureHeroSkeleton(
+                    heroHeight = heroHeight,
+                    modifier = Modifier.padding(top = heroSizing.carouselTopPadding)
+                )
 
-                !error.isNullOrBlank() -> FeatureHeroError(error = error, heroHeight = heroHeight)
+                !error.isNullOrBlank() -> FeatureHeroError(
+                    error = error,
+                    heroHeight = heroHeight,
+                    modifier = Modifier.padding(top = heroSizing.carouselTopPadding)
+                )
 
-                else -> FeatureHeroError(error = "No featured content available", heroHeight = heroHeight)
+                else -> FeatureHeroError(
+                    error = "No featured content available",
+                    heroHeight = heroHeight,
+                    modifier = Modifier.padding(top = heroSizing.carouselTopPadding)
+                )
             }
 
             Row(
@@ -634,7 +688,7 @@ private fun FeatureHeroCard(
     verticalParallaxOffsetPx: Float,
     images: FeatureCardImages?,
     onClick: () -> Unit,
-    heroHeight: Dp,
+    heroSizing: FeatureHeroSizing,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -658,7 +712,10 @@ private fun FeatureHeroCard(
     val backdropUrl = images?.backdropUrl
     val logoUrl = images?.logoUrl
     var lowResImage by remember(item.id, lowBackdropUrl) { mutableStateOf(false) }
-    val backdropParallaxShift = remember(verticalParallaxOffsetPx) { verticalParallaxOffsetPx * 0.4f }
+    val backdropParallaxShift = remember(verticalParallaxOffsetPx, heroSizing.backdropParallaxMultiplier) {
+        verticalParallaxOffsetPx * heroSizing.backdropParallaxMultiplier
+    }
+    val isCompactHero = heroSizing.isCompact
     val pageOffset by remember(listState, itemIndex) {
         derivedStateOf {
             val visibleItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }
@@ -669,7 +726,7 @@ private fun FeatureHeroCard(
             }
         }
     }
-    val scrollInfluence = abs(pageOffset).coerceIn(0f, 1f)
+    val scrollInfluence = if (isCompactHero) 0f else abs(pageOffset).coerceIn(0f, 1f)
     val contentAlpha = 1f - (0.35f * scrollInfluence)
     val contentScale = 1f - (0.05f * scrollInfluence)
     val contentShift = 12f * scrollInfluence
@@ -678,8 +735,8 @@ private fun FeatureHeroCard(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(heroHeight),
-        shape = RoundedCornerShape(0.dp),
+            .height(heroSizing.height),
+        shape = RoundedCornerShape(heroSizing.cardCornerRadius),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -712,8 +769,8 @@ private fun FeatureHeroCard(
                         .fillMaxSize()
                         .graphicsLayer(
                             translationY = backdropParallaxShift,
-                            scaleX = 1.14f,
-                            scaleY = 1.14f
+                            scaleX = heroSizing.backdropScale,
+                            scaleY = heroSizing.backdropScale
                         )
                 )
             } else {
@@ -752,8 +809,8 @@ private fun FeatureHeroCard(
                         .graphicsLayer(
                             translationY = backdropParallaxShift,
                             alpha = highAlpha,
-                            scaleX = 1.14f,
-                            scaleY = 1.14f
+                            scaleX = heroSizing.backdropScale,
+                            scaleY = heroSizing.backdropScale
                         )
                 )
             }
@@ -764,10 +821,10 @@ private fun FeatureHeroCard(
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
-                                0.0f to Color.Black.copy(alpha = 0.22f),
+                                0.0f to Color.Black.copy(alpha = 0.18f),
                                 0.50f to Color.Transparent,
-                                0.78f to Color.Black.copy(alpha = 0.55f),
-                                1.0f to Color.Black.copy(alpha = 0.78f)
+                                0.78f to Color.Black.copy(alpha = heroSizing.lowerGradientAlpha),
+                                1.0f to Color.Black.copy(alpha = heroSizing.bottomGradientAlpha)
                             )
                         )
                     )
@@ -776,12 +833,28 @@ private fun FeatureHeroCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(64.dp)
+                    .height(heroSizing.bottomFadeHeight)
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.92f)
+                                Color.Black.copy(alpha = heroSizing.bottomGradientAlpha)
+                            )
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(heroSizing.bottomEdgeHeight)
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.45f to Color.Black.copy(alpha = heroSizing.bottomEdgeAlpha * 0.22f),
+                                0.78f to Color.Black.copy(alpha = heroSizing.bottomEdgeAlpha * 0.62f),
+                                1.0f to Color.Black.copy(alpha = heroSizing.bottomEdgeAlpha)
                             )
                         )
                     )
@@ -794,7 +867,7 @@ private fun FeatureHeroCard(
                         val brush = Brush.radialGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.45f)
+                                Color.Black.copy(alpha = heroSizing.vignetteAlpha)
                             ),
                             center = Offset(size.width / 2f, size.height / 2f),
                             radius = radius
@@ -807,14 +880,17 @@ private fun FeatureHeroCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 18.dp)
+                    .padding(
+                        horizontal = heroSizing.contentHorizontalPadding,
+                        vertical = heroSizing.contentVerticalPadding
+                    )
                     .graphicsLayer(
                         alpha = contentAlpha,
                         scaleX = contentScale,
                         scaleY = contentScale,
                         translationY = contentShift
                     ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(heroSizing.contentSpacing),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (!logoUrl.isNullOrBlank()) {
@@ -834,8 +910,8 @@ private fun FeatureHeroCard(
                         ),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .height(96.dp)
-                            .fillMaxWidth(0.82f)
+                            .height(heroSizing.logoHeight)
+                            .fillMaxWidth(heroSizing.logoWidthFraction)
                             .graphicsLayer(
                                 alpha = logoAlpha
                             )
@@ -844,82 +920,17 @@ private fun FeatureHeroCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.72f)
-                            .height(30.dp)
+                            .height(heroSizing.logoFallbackHeight)
                             .background(Color.Black, RoundedCornerShape(4.dp))
                     )
                 }
 
-                val ratingText = item.communityRating?.let { String.format("%.1f", it) }
-                val resolvedYear = item.productionYear ?: item.premiereDate
-                    ?.take(4)
-                    ?.toIntOrNull()
-                val genres = item.genres.orEmpty().take(3)
-
-                val certificateText = item.officialRating?.takeIf { it.isNotBlank() }
-                val hasMetaRow = !ratingText.isNullOrBlank() || resolvedYear != null || genres.isNotEmpty() || !certificateText.isNullOrBlank()
-                if (hasMetaRow) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.graphicsLayer(
-                            alpha = metaAlpha,
-                            translationY = metaOffset
-                        )
-                    ) {
-                        if (!ratingText.isNullOrBlank()) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Star,
-                                    contentDescription = null,
-                                    tint = Color(0xFFE84B3C),
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = ratingText,
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                        if (resolvedYear != null) {
-                            Text(
-                                text = resolvedYear.toString(),
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        if (genres.isNotEmpty()) {
-                            Text(
-                                text = genres.joinToString(separator = "/"),
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        if (!certificateText.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(5.dp))
-                                    .padding(horizontal = 6.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = certificateText,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
+                FeatureHeroMetadataRow(
+                    item = item,
+                    isCompactHero = isCompactHero,
+                    metaAlpha = metaAlpha,
+                    metaOffset = metaOffset
+                )
             }
         }
     }
@@ -948,9 +959,12 @@ internal fun UserProfileAvatar(
 }
 
 @Composable
-private fun FeatureHeroSkeleton(heroHeight: Dp) {
+private fun FeatureHeroSkeleton(
+    heroHeight: Dp,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(heroHeight),
         shape = RoundedCornerShape(0.dp),
@@ -965,9 +979,13 @@ private fun FeatureHeroSkeleton(heroHeight: Dp) {
 }
 
 @Composable
-private fun FeatureHeroError(error: String, heroHeight: Dp) {
+private fun FeatureHeroError(
+    error: String,
+    heroHeight: Dp,
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(heroHeight),
         shape = RoundedCornerShape(0.dp),

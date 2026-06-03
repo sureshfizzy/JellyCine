@@ -2,18 +2,24 @@ package com.jellycine.app.ui.screens.dashboard.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoFixHigh
@@ -70,6 +76,10 @@ fun InterfaceSettingsScreen(
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isFeatureCarouselEnabled()
+        )
+    val featureCarouselHeight by preferences.FeatureCarouselHeight()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.getFeatureCarouselHeight()
         )
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
@@ -139,12 +149,14 @@ fun InterfaceSettingsScreen(
         ) {
             item {
                 InterfaceSection {
-                    InterfaceSwitchItem(
+                    FeatureCarouselSettingsItem(
                         icon = Icons.Rounded.ViewCarousel,
                         title = stringResource(R.string.interface_feature_carousel),
                         subtitle = stringResource(R.string.interface_feature_carousel_subtitle),
                         checked = featureCarouselEnabled,
                         onCheckedChange = preferences::setFeatureCarouselEnabled,
+                        selectedHeight = featureCarouselHeight,
+                        onHeightSelected = preferences::setFeatureCarouselHeight,
                         accentColor = Color(0xFF8B5CF6)
                     )
                     HorizontalDivider(
@@ -270,6 +282,129 @@ private fun InterfaceSection(
     ) {
         Column {
             content()
+        }
+    }
+}
+
+@Composable
+private fun FeatureCarouselSettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    selectedHeight: String,
+    onHeightSelected: (String) -> Unit,
+    accentColor: Color
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            }
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = accentColor,
+                    checkedBorderColor = accentColor,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                )
+            )
+        }
+
+        if (checked) {
+            Text(
+                text = stringResource(R.string.interface_feature_carousel_height),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.72f),
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            CarouselHeightSelector(
+                selectedHeight = selectedHeight,
+                onHeightSelected = onHeightSelected,
+                accentColor = accentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun CarouselHeightSelector(
+    selectedHeight: String,
+    onHeightSelected: (String) -> Unit,
+    accentColor: Color
+) {
+    val options = listOf(
+        Preferences.FEATURE_CAROUSEL_HEIGHT_LARGE to stringResource(R.string.interface_feature_carousel_height_large),
+        Preferences.FEATURE_CAROUSEL_HEIGHT_MEDIUM to stringResource(R.string.interface_feature_carousel_height_medium),
+        Preferences.FEATURE_CAROUSEL_HEIGHT_SMALL to stringResource(R.string.interface_feature_carousel_height_small)
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(12.dp)
+            )
+    ) {
+        options.forEachIndexed { index, option ->
+            val isSelected = selectedHeight == option.first
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .background(
+                        color = if (isSelected) accentColor else Color.Transparent
+                    )
+                    .clickable { onHeightSelected(option.first) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = option.second,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.78f)
+                )
+            }
+            if (index < options.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                )
+            }
         }
     }
 }

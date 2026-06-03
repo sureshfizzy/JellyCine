@@ -1177,6 +1177,10 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isFeatureCarouselEnabled()
         )
+    val featureCarouselHeight by preferences.FeatureCarouselHeight()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.getFeatureCarouselHeight()
+        )
     val continueWatchingEnabled by preferences.ContinueWatchingEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isContinueWatchingEnabled()
@@ -1751,6 +1755,7 @@ fun Dashboard(
                             isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
                             error = featuredQuery.error,
                             selectedCategory = selectedCategory,
+                            carouselHeight = featureCarouselHeight,
                             verticalParallaxOffsetPx = featureParallaxOffsetPx,
                             onItemClick = onNavigateToDetail,
                             onLogout = onLogout,

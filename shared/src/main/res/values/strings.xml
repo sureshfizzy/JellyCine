@@ -533,6 +533,10 @@
     <!-- Interface Settings -->
     <string name="interface_feature_carousel">Feature Carousel</string>
     <string name="interface_feature_carousel_subtitle">Show featured content carousel on the Home screen.</string>
+    <string name="interface_feature_carousel_height">Carousel Height</string>
+    <string name="interface_feature_carousel_height_large">Large</string>
+    <string name="interface_feature_carousel_height_medium">Medium</string>
+    <string name="interface_feature_carousel_height_small">Small</string>
     <string name="interface_continue_watching">Continue Watching</string>
     <string name="interface_continue_watching_subtitle">Show the Continue Watching section on the Home screen.</string>
     <string name="interface_next_up">Next Up</string>
