@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,15 +32,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.CompactPageHeader
+import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
+import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.data.model.SeerrPersonRole
 import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
-import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
@@ -81,6 +83,12 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
     val seerrRepository = remember(context) { SeerrRepository(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val compactHeaderProgress = rememberCompactProgress(
+        state = listState,
+        compactDistance = 92.dp
+    )
+    val headerTitle = stringResource(R.string.dashboard_for_you)
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
 
@@ -145,26 +153,11 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        val showStaticHeader = sections.isEmpty()
+
         Column(modifier = Modifier.fillMaxSize()) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding(),
-                color = Color.Black
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_for_you),
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+            if (showStaticHeader) {
+                CompactPageHeader(title = headerTitle)
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -180,9 +173,14 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
 
                     sections.isNotEmpty() -> {
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
+                            item(key = "for_you_header") {
+                                CompactPageHeader(title = headerTitle)
+                            }
+
                             itemsIndexed(
                                 items = sections,
                                 key = { index, section -> "${section.title}_$index" }
@@ -209,6 +207,20 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                     }
                 }
             }
+        }
+
+        if (sections.isNotEmpty()) {
+            CompactTopText(
+                text = headerTitle,
+                progress = compactHeaderProgress,
+                isTablet = false,
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopStart)
+            )
         }
     }
 }

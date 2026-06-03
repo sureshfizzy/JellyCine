@@ -3,16 +3,20 @@ package com.jellycine.app.ui.components.common
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
@@ -24,8 +28,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jellycine.shared.util.image.JellyfinPosterImage
 
 private fun compactProgress(
@@ -86,6 +95,57 @@ fun Modifier.compactHeaderLogo(progress: Float): Modifier =
         scaleY = scale
     }
 
+@Composable
+fun CompactPageHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    includeStatusBarsPadding: Boolean = true,
+    horizontalPadding: Dp = 16.dp,
+    verticalPadding: Dp = 16.dp,
+    titleFontSize: TextUnit = 24.sp,
+    titleFontWeight: FontWeight = FontWeight.SemiBold,
+    subtitleFontSize: TextUnit = 14.sp,
+    centered: Boolean = false
+) {
+    val horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
+    val textAlign = if (centered) TextAlign.Center else TextAlign.Start
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (includeStatusBarsPadding) Modifier.statusBarsPadding() else Modifier),
+        color = Color.Black
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding),
+            horizontalAlignment = horizontalAlignment
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = titleFontSize,
+                fontWeight = titleFontWeight,
+                textAlign = textAlign,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            subtitle?.takeIf { it.isNotBlank() }?.let { subtitleText ->
+                Text(
+                    text = subtitleText,
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = subtitleFontSize,
+                    textAlign = textAlign,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+    }
+}
+
 private fun Modifier.compactChromeMotion(visibleProgress: Float): Modifier =
     graphicsLayer {
         alpha = visibleProgress
@@ -139,7 +199,14 @@ fun CompactTopLogo(
     progress: Float,
     isTablet: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    width: Dp = if (isTablet) 122.dp else 92.dp,
+    height: Dp = if (isTablet) 48.dp else 36.dp,
+    shape: Shape = RoundedCornerShape(10.dp),
+    contentScale: ContentScale = ContentScale.Fit,
+    horizontalImagePadding: Dp = 10.dp,
+    verticalImagePadding: Dp = 7.dp,
+    overlayTitle: String? = null
 ) {
     val context = LocalContext.current
 
@@ -148,8 +215,9 @@ fun CompactTopLogo(
             .statusBarsPadding()
             .padding(start = 16.dp, top = 10.dp),
         progress = progress,
-        width = if (isTablet) 122.dp else 92.dp,
-        height = if (isTablet) 48.dp else 36.dp,
+        width = width,
+        height = height,
+        shape = shape,
         onClick = onClick
     ) {
         JellyfinPosterImage(
@@ -157,10 +225,68 @@ fun CompactTopLogo(
             contentDescription = contentDescription,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp, vertical = 7.dp),
+                .padding(horizontal = horizontalImagePadding, vertical = verticalImagePadding),
             context = context,
-            contentScale = ContentScale.Fit,
+            contentScale = contentScale,
             alignment = Alignment.Center
+        )
+        overlayTitle?.let { title ->
+            Text(
+                text = title,
+                color = Color.White.copy(alpha = 0.78f),
+                fontSize = if (isTablet) 10.sp else 8.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 5.dp, vertical = 3.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun CompactTopText(
+    text: String,
+    progress: Float,
+    isTablet: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    alignEnd: Boolean = false,
+    maxWidth: Dp? = if (alignEnd) null else if (isTablet) 220.dp else 148.dp,
+    fontSize: TextUnit = if (isTablet) 14.sp else 12.sp,
+    color: Color = Color.White.copy(alpha = if (alignEnd) 0.86f else 0.82f),
+    fontWeight: FontWeight = FontWeight.SemiBold
+) {
+    val chipModifier = modifier
+        .then(
+            if (alignEnd) {
+                Modifier.statusBarsPadding().padding(end = 16.dp, top = 10.dp)
+            } else {
+                Modifier.statusBarsPadding().padding(start = 16.dp, top = 10.dp)
+            }
+        )
+        .then(if (maxWidth != null) Modifier.widthIn(max = maxWidth) else Modifier)
+
+    CompactTopChip(
+        modifier = chipModifier,
+        progress = progress,
+        width = null,
+        height = if (isTablet) 48.dp else 36.dp,
+        shape = RoundedCornerShape(999.dp),
+        onClick = onClick
+    ) {
+        Text(
+            text = text,
+            color = color,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = if (isTablet) 16.dp else 12.dp)
         )
     }
 }

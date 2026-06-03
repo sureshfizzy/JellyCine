@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -41,8 +42,9 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.CompactTopChip
+import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopLogo
+import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
@@ -79,6 +81,9 @@ fun ViewAllScreen(
     val screenWidthDp = containerWidthDp()
     val isTablet = isTabletLayout(screenWidthDp)
     val isSeerrCatalog = contentType.isSeerrCatalog()
+    val isLibraryCatalog = contentType.isLibraryCatalog() && !parentId.isNullOrBlank()
+    val isGenreCatalog = contentType.isGenreCatalog()
+    val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog
 
     val gridCells = remember(screenWidthDp) {
         if (screenWidthDp >= 1200.dp) {
@@ -95,6 +100,7 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val disableHeaderImageEnhancers = DisableEmbyPosterEnhancers()
     val seerrLogoUrl = remember(contentType, parentId) {
         when (contentType) {
             ContentType.SEERR_STUDIO -> SeerrCatalog.popularStudios()
@@ -103,6 +109,7 @@ fun ViewAllScreen(
         }.firstOrNull { item -> item.id == parentId }
             ?.logoUrl
     }
+    var libraryImageUrl by remember(contentType, parentId) { mutableStateOf<String?>(null) }
     
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -168,11 +175,33 @@ fun ViewAllScreen(
         filteredItems.distinctBy(::viewAllItemKey)
     }
     val headerTotalCount = uiState.totalItems
-    val catalogHeaderProgress = rememberCompactProgress(
+    val headerCountText = if (headerTotalCount > 0) {
+        stringResource(R.string.view_all_count, displayItems.size, headerTotalCount)
+    } else {
+        null
+    }
+    val compactHeaderProgress = rememberCompactProgress(
         state = gridState,
         compactDistance = if (isTablet) 132.dp else 92.dp
     )
-    val catalogHeader = if (isSeerrCatalog) catalogHeaderProgress else 0f
+    val compactHeader = if (usesCompactHeader) compactHeaderProgress else 0f
+
+    LaunchedEffect(isLibraryCatalog, parentId, disableHeaderImageEnhancers) {
+        if (!isLibraryCatalog) {
+            libraryImageUrl = null
+            return@LaunchedEffect
+        }
+
+        libraryImageUrl = runCatching {
+            mediaRepository.getImageUrl(
+                itemId = parentId.orEmpty(),
+                width = 640,
+                height = 360,
+                quality = 92,
+                enableImageEnhancers = !disableHeaderImageEnhancers
+            ).first()
+        }.getOrNull()
+    }
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
@@ -213,14 +242,30 @@ fun ViewAllScreen(
         modifier: Modifier = Modifier,
         compactProgress: Float = 0f
     ) {
+        if ((!isSeerrCatalog || seerrLogoUrl == null) && (!isLibraryCatalog || libraryImageUrl == null)) {
+            CompactPageHeader(
+                title = resolvedTitle,
+                subtitle = headerCountText,
+                modifier = modifier,
+                includeStatusBarsPadding = false,
+                horizontalPadding = if (usesCompactHeader) 0.dp else horizontalPadding,
+                verticalPadding = if (usesCompactHeader) 18.dp else 20.dp,
+                titleFontSize = if (isTablet) 28.sp else 24.sp,
+                titleFontWeight = FontWeight.Bold,
+                subtitleFontSize = if (isTablet) 15.sp else 13.sp,
+                centered = usesCompactHeader
+            )
+            return
+        }
+
         Column(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = if (isSeerrCatalog) 0.dp else horizontalPadding,
-                    vertical = if (isSeerrCatalog) 18.dp else 20.dp
+                    horizontal = if (usesCompactHeader) 0.dp else horizontalPadding,
+                    vertical = if (usesCompactHeader) 18.dp else 20.dp
                 ),
-            horizontalAlignment = if (isSeerrCatalog) {
+            horizontalAlignment = if (usesCompactHeader) {
                 Alignment.CenterHorizontally
             } else {
                 Alignment.Start
@@ -233,6 +278,7 @@ fun ViewAllScreen(
                         .fillMaxWidth()
                         .height(if (isTablet) 132.dp else 92.dp)
                         .padding(horizontal = if (isTablet) 128.dp else 52.dp)
+                        .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
                         .compactHeaderLogo(compactProgress),
                     contentAlignment = Alignment.Center
                 ) {
@@ -246,24 +292,47 @@ fun ViewAllScreen(
                         contentScale = ContentScale.Fit
                     )
                 }
-            } else {
-                Text(
-                    text = resolvedTitle,
-                    color = Color.White,
-                    fontSize = if (isTablet) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = if (isSeerrCatalog) TextAlign.Center else TextAlign.Start,
-                    maxLines = if (isSeerrCatalog) 2 else 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            } else if (isLibraryCatalog && libraryImageUrl != null) {
+                WarmImageUrl(imageUrl = libraryImageUrl, allowRgb565 = true)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(if (isTablet) 132.dp else 92.dp)
+                        .padding(horizontal = if (isTablet) 128.dp else 52.dp)
+                        .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
+                        .compactHeaderLogo(compactProgress),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(libraryImageUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = resolvedTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Text(
+                        text = resolvedTitle,
+                        color = Color.White.copy(alpha = 0.78f),
+                        fontSize = if (isTablet) 18.sp else 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
-            if (headerTotalCount > 0) {
+            if (headerCountText != null) {
                 Text(
-                    text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
+                    text = headerCountText,
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = if (isTablet) 15.sp else 13.sp,
-                    textAlign = if (isSeerrCatalog) TextAlign.Center else TextAlign.Unspecified,
-                    modifier = Modifier.padding(top = if (isSeerrCatalog) 8.dp else 4.dp)
+                    textAlign = if (usesCompactHeader) TextAlign.Center else TextAlign.Unspecified,
+                    modifier = Modifier.padding(top = if (usesCompactHeader) 8.dp else 4.dp)
                 )
             }
         }
@@ -277,7 +346,7 @@ fun ViewAllScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            if (!isSeerrCatalog) {
+            if (!usesCompactHeader) {
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -297,7 +366,7 @@ fun ViewAllScreen(
                             columns = gridCells,
                             contentPadding = PaddingValues(
                                 start = horizontalPadding,
-                                top = if (isSeerrCatalog) 0.dp else 16.dp,
+                                top = if (usesCompactHeader) 0.dp else 16.dp,
                                 end = horizontalPadding,
                                 bottom = 120.dp
                             ),
@@ -305,12 +374,12 @@ fun ViewAllScreen(
                             verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            catalogHeaderItem(isSeerrCatalog) {
+                            compactHeaderItem(usesCompactHeader) {
                                 HeaderContent(
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .padding(bottom = 2.dp),
-                                    compactProgress = catalogHeader
+                                    compactProgress = compactHeader
                                 )
                             }
 
@@ -391,7 +460,7 @@ fun ViewAllScreen(
                                 state = gridState,
                                 contentPadding = PaddingValues(
                                     start = horizontalPadding,
-                                    top = if (isSeerrCatalog) 0.dp else 16.dp,
+                                    top = if (usesCompactHeader) 0.dp else 16.dp,
                                     end = horizontalPadding,
                                     bottom = 120.dp
                                 ),
@@ -399,12 +468,12 @@ fun ViewAllScreen(
                                 verticalArrangement = Arrangement.spacedBy(verticalSpacing),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                catalogHeaderItem(isSeerrCatalog) {
+                                compactHeaderItem(usesCompactHeader) {
                                     HeaderContent(
                                         modifier = Modifier
                                             .statusBarsPadding()
                                             .padding(bottom = 2.dp),
-                                        compactProgress = catalogHeader
+                                        compactProgress = compactHeader
                                     )
                                 }
 
@@ -444,7 +513,7 @@ fun ViewAllScreen(
                                 visible = uiState.isLoading && displayItems.isNotEmpty(),
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(top = if (isSeerrCatalog) 62.dp else 8.dp),
+                                    .padding(top = if (usesCompactHeader) 62.dp else 8.dp),
                                 enter = fadeIn(),
                                 exit = fadeOut()
                             ) {
@@ -482,7 +551,7 @@ fun ViewAllScreen(
             CompactTopLogo(
                 imageUrl = seerrLogoUrl,
                 contentDescription = resolvedTitle,
-                progress = catalogHeader,
+                progress = compactHeader,
                 isTablet = isTablet,
                 onClick = {
                     coroutineScope.launch {
@@ -493,11 +562,52 @@ fun ViewAllScreen(
             )
         }
 
-        if (isSeerrCatalog && headerTotalCount > 0) {
-            CatalogCount(
-                text = stringResource(R.string.view_all_count, displayItems.size, headerTotalCount),
-                progress = catalogHeader,
+        if (isLibraryCatalog) {
+            libraryImageUrl?.let { headerImageUrl ->
+                CompactTopLogo(
+                    imageUrl = headerImageUrl,
+                    contentDescription = resolvedTitle,
+                    progress = compactHeader,
+                    isTablet = isTablet,
+                    onClick = {
+                        coroutineScope.launch {
+                            gridState.animateScrollToItem(0)
+                        }
+                    },
+                    width = if (isTablet) 108.dp else 84.dp,
+                    height = if (isTablet) 54.dp else 42.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    contentScale = ContentScale.Crop,
+                    horizontalImagePadding = 0.dp,
+                    verticalImagePadding = 0.dp,
+                    overlayTitle = resolvedTitle,
+                    modifier = Modifier.align(Alignment.TopStart)
+                )
+            }
+        }
+
+        if (isGenreCatalog) {
+            CompactTopText(
+                text = resolvedTitle,
+                progress = compactHeader,
                 isTablet = isTablet,
+                onClick = {
+                    coroutineScope.launch {
+                        gridState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+        }
+
+        if (usesCompactHeader && headerCountText != null) {
+            CompactTopText(
+                text = headerCountText,
+                progress = compactHeader,
+                isTablet = isTablet,
+                alignEnd = true,
+                fontSize = if (isTablet) 13.sp else 11.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
         }
@@ -528,7 +638,7 @@ fun ViewAllScreen(
     }
 }
 
-private fun LazyGridScope.catalogHeaderItem(
+private fun LazyGridScope.compactHeaderItem(
     visible: Boolean,
     content: @Composable () -> Unit
 ) {
@@ -536,33 +646,6 @@ private fun LazyGridScope.catalogHeaderItem(
 
     item(span = { GridItemSpan(maxLineSpan) }) {
         content()
-    }
-}
-
-@Composable
-private fun CatalogCount(
-    text: String,
-    progress: Float,
-    isTablet: Boolean,
-    modifier: Modifier = Modifier
-) {
-    CompactTopChip(
-        modifier = modifier
-            .statusBarsPadding()
-            .padding(end = 16.dp, top = 10.dp),
-        progress = progress,
-        width = null,
-        height = if (isTablet) 48.dp else 36.dp,
-        shape = RoundedCornerShape(999.dp),
-    ) {
-        Text(
-            text = text,
-            color = Color.White.copy(alpha = 0.86f),
-            fontSize = if (isTablet) 13.sp else 11.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = if (isTablet) 16.dp else 12.dp)
-        )
     }
 }
 
@@ -944,7 +1027,7 @@ private fun SortBottomSheet(
                                 contentDescription = null,
                                 tint = Color(0xFFFF9F43),
                                 modifier = Modifier.size(20.dp)
-                            )
+                           )
                         }
                     }
 

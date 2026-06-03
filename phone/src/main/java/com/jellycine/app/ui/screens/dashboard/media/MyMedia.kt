@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -15,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,9 +30,13 @@ import kotlinx.coroutines.flow.first
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.CompactPageHeader
+import com.jellycine.app.ui.components.common.CompactTopText
+import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,6 +58,42 @@ fun MyMedia(
     val coroutineScope = rememberCoroutineScope()
     val libraryImageUrls = remember { mutableStateMapOf<String, String?>() }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val compactHeaderProgress = rememberCompactProgress(
+        state = gridState,
+        compactDistance = 92.dp
+    )
+    val headerTitle = stringResource(R.string.my_media)
+    val libraryCountText = if (libraryViews.isNotEmpty()) {
+        pluralStringResource(
+            R.plurals.my_media_libraries_available,
+            libraryViews.size,
+            libraryViews.size
+        )
+    } else {
+        null
+    }
+    val compactHeaderTitle = if (libraryViews.isNotEmpty()) {
+        "$headerTitle (${libraryViews.size})"
+    } else {
+        headerTitle
+    }
+
+    @Composable
+    fun HeaderContent(
+        modifier: Modifier = Modifier,
+        horizontalPadding: Dp = 20.dp
+    ) {
+        CompactPageHeader(
+            title = headerTitle,
+            subtitle = libraryCountText,
+            includeStatusBarsPadding = false,
+            horizontalPadding = horizontalPadding,
+            verticalPadding = 24.dp,
+            titleFontSize = 32.sp,
+            titleFontWeight = FontWeight.Bold,
+            modifier = modifier
+        )
+    }
 
     LaunchedEffect(disablePosterEnhancers) {
         libraryImageUrls.clear()
@@ -135,33 +177,8 @@ fun MyMedia(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.Black
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.my_media),
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    
-                    if (libraryViews.isNotEmpty()) {
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.my_media_libraries_available,
-                                libraryViews.size,
-                                libraryViews.size
-                            ),
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
+            if (libraryViews.isEmpty()) {
+                HeaderContent()
             }
 
             Box(
@@ -284,11 +301,18 @@ fun MyMedia(
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             state = gridState,
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 120.dp),
+                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 120.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                HeaderContent(
+                                    horizontalPadding = 0.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
                             itemsIndexed(
                                 items = libraryViews,
                                 key = { index, library ->
@@ -317,6 +341,20 @@ fun MyMedia(
                 }
             }
         }
+
+        if (libraryViews.isNotEmpty()) {
+            CompactTopText(
+                text = compactHeaderTitle,
+                progress = compactHeaderProgress,
+                isTablet = false,
+                onClick = {
+                    coroutineScope.launch {
+                        gridState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+        }
     }
 }
 
@@ -334,6 +372,7 @@ private fun VisualLibraryCard(
         library.recursiveItemCount != null && library.recursiveItemCount!! > 0 -> library.recursiveItemCount!!
         else -> 0
     }
+    val cardShape = RoundedCornerShape(16.dp)
     
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -342,7 +381,7 @@ private fun VisualLibraryCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1.2f),
-            shape = RoundedCornerShape(16.dp),
+            shape = cardShape,
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -353,7 +392,9 @@ private fun VisualLibraryCard(
             onClick = onClick
         ) {
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(cardShape)
             ) {
                 if (imageUrl != null) {
                     AsyncImage(

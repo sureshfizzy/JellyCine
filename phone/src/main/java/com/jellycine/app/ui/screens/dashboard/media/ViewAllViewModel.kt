@@ -255,3 +255,12 @@ enum class ContentType {
 
 fun ContentType.isSeerrCatalog(): Boolean =
     this == ContentType.SEERR_STUDIO || this == ContentType.SEERR_NETWORK
+
+fun ContentType.isLibraryCatalog(): Boolean =
+    this == ContentType.ALL ||
+        this == ContentType.MOVIES ||
+        this == ContentType.SERIES
+
+fun ContentType.isGenreCatalog(): Boolean =
+    this == ContentType.MOVIES_GENRE ||
+        this == ContentType.TVSHOWS_GENRE

@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -212,6 +213,7 @@ internal fun SeerTitleCard(
     val posterUrl = remember(item.posterUrl) { item.posterUrl?.takeIf { it.isNotBlank() } }
 
     val clickableModifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
+    val cardShape = RoundedCornerShape(10.dp)
 
     Column(
         modifier = clickableModifier.width(116.dp)
@@ -220,12 +222,16 @@ internal fun SeerTitleCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(166.dp),
-            shape = RoundedCornerShape(10.dp),
+            shape = cardShape,
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFF23232A)
             )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(cardShape)
+            ) {
                 if (!posterUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = posterUrl,
