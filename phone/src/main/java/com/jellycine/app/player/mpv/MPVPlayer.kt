@@ -102,24 +102,60 @@ object MPVPlayer {
 
     fun externalSubtitleUrls(
         playbackRequest: PlaybackRequest?,
-        mediaStreams: List<MediaStream>
+        mediaStreams: List<MediaStream>,
+        itemId: String? = null
     ): Map<Int, String> {
         val request = playbackRequest ?: return emptyMap()
         val streamingUrl = request.url
         if (streamingUrl.isBlank()) return emptyMap()
+        
+        val baseUri = try { java.net.URI.create(streamingUrl) } catch (e: Exception) { return emptyMap() }
+        val baseUrl = "${baseUri.scheme}://${baseUri.authority}/"
+
         return mediaStreams
             .asSequence()
             .filter { it.type.equals("Subtitle", ignoreCase = true) && it.index != null }
-            .filter { it.deliveryMethod.equals("External", ignoreCase = true) }
+            .filter { it.deliveryMethod.equals("External", ignoreCase = true) || it.isExternal == true }
             .mapNotNull { stream ->
                 val streamIndex = stream.index ?: return@mapNotNull null
-                val deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                val parsedUrl = runCatching {
-                    URI.create(streamingUrl).resolve(deliveryUrl).toString()
-                }.getOrNull() ?: return@mapNotNull null
-                streamIndex to request.authorizeRelatedUrl(parsedUrl)
+                var deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() }
+                
+                if (deliveryUrl == null && itemId != null) {
+                    val codec = when (stream.codec?.lowercase()) {
+                        "subrip", "srt" -> "subrip"
+                        "webvtt", "vtt" -> "vtt"
+                        else -> "subrip"
+                    }
+                    val guidItemId = itemId.toGuid()
+                    val sourceId = itemId.replace("-", "")
+                    deliveryUrl = "Videos/$guidItemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+                }
+                
+                if (deliveryUrl == null) return@mapNotNull null
+                
+                val fullUrl = if (deliveryUrl.startsWith("http", ignoreCase = true)) {
+                    deliveryUrl
+                } else {
+                    baseUrl + deliveryUrl.trimStart('/')
+                }
+                
+                streamIndex to request.authorizeRelatedUrl(fullUrl)
             }
             .toMap()
+    }
+
+    private fun String.toGuid(): String {
+        if (this.contains("-") || this.length != 32) return this
+        return try {
+            StringBuilder(this)
+                .insert(8, "-")
+                .insert(13, "-")
+                .insert(18, "-")
+                .insert(23, "-")
+                .toString()
+        } catch (e: Exception) {
+            this
+        }
     }
 
     fun isHdr(mediaStreams: List<MediaStream>?): Boolean {

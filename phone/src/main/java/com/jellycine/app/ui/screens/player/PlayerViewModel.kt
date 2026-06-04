@@ -405,7 +405,8 @@ class PlayerViewModel @Inject constructor(
                 
                 mpvExternalSubtitleUrls = MPVPlayer.externalSubtitleUrls(
                     playbackRequest = playbackRequest,
-                    mediaStreams = apiMediaStreams.orEmpty()
+                    mediaStreams = apiMediaStreams.orEmpty(),
+                    itemId = mediaId
                 )
 
                 if (isMpvPlayback()) {
@@ -643,11 +644,17 @@ class PlayerViewModel @Inject constructor(
     fun play() {
         exoPlayer?.play()
         mpvPlayer?.play()
+        if (isMpvPlayback()) {
+            _playerState.value = _playerState.value.copy(isPlaying = true, playWhenReady = true)
+        }
     }
 
     fun pause() {
         exoPlayer?.pause()
         mpvPlayer?.pause()
+        if (isMpvPlayback()) {
+            _playerState.value = _playerState.value.copy(isPlaying = false, playWhenReady = false)
+        }
         persistPosition()
     }
 
