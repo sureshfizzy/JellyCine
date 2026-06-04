@@ -100,11 +100,11 @@ internal class PlayerTrackSelection {
                     it.streamIndex == preferredSubtitleIndex
                 }
                 val playerTrackId = subtitleTrack?.playerTrackId
-                if (playerTrackId != null) {
+                if (playerTrackId != null && !subtitleTrack.requiresPlaybackRestart) {
                     PlayerUtils.selectSubtitleTrack(player, playerTrackId)
                     subtitleHandled = true
                     appliedAnySelection = true
-                } else if (subtitleTrack != null) {
+                } else if (subtitleTrack?.requiresPlaybackRestart == true) {
                     subtitleHandled = true
                 }
             }

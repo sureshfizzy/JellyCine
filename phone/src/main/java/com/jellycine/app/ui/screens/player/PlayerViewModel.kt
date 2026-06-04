@@ -314,6 +314,12 @@ class PlayerViewModel @Inject constructor(
                     }
 
                     primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
+                    
+                    apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
+                        itemDetails = itemDetails,
+                        playbackMediaSource = primaryMediaSource
+                    )
+                    
                     defaultAudioStreamIndex = primaryMediaSource?.defaultAudioStreamIndex
                     defaultSubtitleStreamIndex = primaryMediaSource?.defaultSubtitleStreamIndex
                     sessionPlaySessionId = playbackInfo.playSessionId
@@ -362,16 +368,19 @@ class PlayerViewModel @Inject constructor(
                         activePreferredSubtitleStreamIndex
                             ?: primaryMediaSource?.defaultSubtitleStreamIndex
                         )?.takeIf { it >= 0 }
-                    val activeSubtitleStream = primaryMediaSource
-                        ?.mediaStreams
+                    
+                    val activeSubtitleStream = apiMediaStreams
                         ?.firstOrNull { stream ->
-                            stream.type == "Subtitle" &&
+                            stream.type.equals("Subtitle", ignoreCase = true) &&
                                 stream.index == activeSubtitleStreamIndex
                         }
 
                     val streamingMediaItem = streamingMediaItem(
                         streamingUrl = streamingUrl,
-                        selectedSubtitleStream = activeSubtitleStream
+                        itemId = mediaId,
+                        mediaSourceId = sessionMediaSourceId,
+                        selectedSubtitleStream = activeSubtitleStream,
+                        requestHeaders = playbackRequest?.requestHeaders.orEmpty()
                     )
                     if (!isMpvPlayback()) {
                         streamingMediaSource = PlayerUtils.createStreamingMediaSource(
@@ -394,11 +403,6 @@ class PlayerViewModel @Inject constructor(
                 )
                 playbackReporter.updateSession(playbackSession)
                 
-                // Get media info for spatial audio analysis
-                apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
-                    itemDetails = itemDetails,
-                    playbackMediaSource = primaryMediaSource
-                )
                 mpvExternalSubtitleUrls = MPVPlayer.externalSubtitleUrls(
                     playbackRequest = playbackRequest,
                     mediaStreams = apiMediaStreams.orEmpty()
@@ -1149,8 +1153,18 @@ class PlayerViewModel @Inject constructor(
      * Select subtitle track by ID
      */
     fun selectSubtitleTrack(trackId: String) {
-        if (trackId == _playerState.value.currentSubtitleTrack?.id) return
-        val selectedTrack = _playerState.value.availableSubtitleTracks.firstOrNull { it.id == trackId } ?: return
+        Log.d(TAG, "Selecting subtitle track: $trackId")
+        if (trackId == _playerState.value.currentSubtitleTrack?.id) {
+            Log.d(TAG, "Subtitle track $trackId already selected")
+            return
+        }
+        val selectedTrack = _playerState.value.availableSubtitleTracks.firstOrNull { it.id == trackId } ?: run {
+            Log.w(TAG, "Could not find subtitle track with id $trackId in available tracks")
+            return
+        }
+        
+        Log.d(TAG, "Selected track info: label=${selectedTrack.label} streamIndex=${selectedTrack.streamIndex} requiresRestart=${selectedTrack.requiresPlaybackRestart}")
+
         if (isMpvPlayback()) {
             val streamIndex = MPVPlayer.selectSubtitleTrack(
                 controller = mpvPlayer,
@@ -1169,6 +1183,7 @@ class PlayerViewModel @Inject constructor(
             return
         }
         if (selectedTrack.requiresPlaybackRestart) {
+            Log.d(TAG, "Subtitle selection requires playback restart for stream index: ${selectedTrack.streamIndex}")
             playbackTrackSelection(
                 audioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex,
                 subtitleStreamIndex = selectedTrack.streamIndex
@@ -1177,6 +1192,7 @@ class PlayerViewModel @Inject constructor(
         }
         exoPlayer?.let { player ->
             val playerTrackId = selectedTrack.playerTrackId ?: return
+            Log.d(TAG, "Applying subtitle selection to ExoPlayer: $playerTrackId")
             trackSelectionCoordinator.markManualTrackSelection()
             PlayerUtils.selectSubtitleTrack(player, playerTrackId)
             viewModelScope.launch {
