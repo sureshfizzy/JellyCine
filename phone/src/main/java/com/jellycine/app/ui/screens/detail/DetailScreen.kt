@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -47,6 +48,7 @@ import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
@@ -1120,136 +1122,145 @@ fun DetailScreenPreview() {
 fun DetailScreenSkeleton(
     onBackPressed: () -> Unit = {}
 ) {
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
+            .background(Color.Black)
     ) {
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(330.dp)
-            ) {
-                ShimmerEffect(
-                    modifier = Modifier.fillMaxSize(),
-                    cornerRadius = 0f
-                )
-
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            item {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.3f),
-                                    Color.Black.copy(alpha = 0.5f),
-                                    Color.Black.copy(alpha = 0.8f),
-                                    Color.Black
+                        .fillMaxWidth()
+                        .height(330.dp)
+                ) {
+                    ShimmerEffect(
+                        modifier = Modifier.fillMaxSize(),
+                        cornerRadius = 0f
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.3f),
+                                        Color.Black.copy(alpha = 0.5f),
+                                        Color.Black.copy(alpha = 0.8f),
+                                        Color.Black
+                                    )
                                 )
                             )
-                        )
-                )
-
-            }
-        }
-
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
-                    .offset(y = (-58).dp)
-            ) {
-                ShimmerEffect(
-                    modifier = Modifier
-                        .fillMaxWidth(0.62f)
-                        .height(62.dp),
-                    cornerRadius = 10f
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ShimmerEffect(modifier = Modifier
-                        .width(56.dp)
-                        .height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier
-                        .width(42.dp)
-                        .height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier
-                        .width(64.dp)
-                        .height(16.dp), cornerRadius = 8f)
-                    ShimmerEffect(modifier = Modifier
-                        .width(50.dp)
-                        .height(18.dp), cornerRadius = 8f)
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                ShimmerEffect(
-                    modifier = Modifier
-                        .fillMaxWidth(0.78f)
-                        .height(14.dp),
-                    cornerRadius = 8f
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                repeat(2) {
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(0.82f)
-                            .height(18.dp),
-                        cornerRadius = 8f
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
 
-                ShimmerEffect(
+                }
+            }
+
+            item {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp),
-                    cornerRadius = 18f
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        .padding(horizontal = 14.dp)
+                        .offset(y = (-58).dp)
+                ) {
                     ShimmerEffect(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp),
-                        cornerRadius = 24f
+                            .fillMaxWidth(0.62f)
+                            .height(62.dp),
+                        cornerRadius = 10f
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ShimmerEffect(modifier = Modifier
+                            .width(56.dp)
+                            .height(16.dp), cornerRadius = 8f)
+                        ShimmerEffect(modifier = Modifier
+                            .width(42.dp)
+                            .height(16.dp), cornerRadius = 8f)
+                        ShimmerEffect(modifier = Modifier
+                            .width(64.dp)
+                            .height(16.dp), cornerRadius = 8f)
+                        ShimmerEffect(modifier = Modifier
+                            .width(50.dp)
+                            .height(18.dp), cornerRadius = 8f)
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     ShimmerEffect(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(46.dp),
-                        cornerRadius = 24f
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(22.dp))
-
-                ShimmerEffect(
-                    modifier = Modifier
-                        .width(110.dp)
-                        .height(22.dp),
-                    cornerRadius = 10f
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                repeat(3) {
-                    ShimmerEffect(
-                        modifier = Modifier
-                            .fillMaxWidth(if (it == 2) 0.72f else 1f)
+                            .fillMaxWidth(0.78f)
                             .height(14.dp),
                         cornerRadius = 8f
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    repeat(2) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .fillMaxWidth(0.82f)
+                                .height(18.dp),
+                            cornerRadius = 8f
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        cornerRadius = 18f
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            cornerRadius = 24f
+                        )
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp),
+                            cornerRadius = 24f
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .width(110.dp)
+                            .height(22.dp),
+                        cornerRadius = 10f
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    repeat(3) {
+                        ShimmerEffect(
+                            modifier = Modifier
+                                .fillMaxWidth(if (it == 2) 0.72f else 1f)
+                                .height(14.dp),
+                            cornerRadius = 8f
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
                 }
             }
         }
+
+        BackButton(
+            onClick = onBackPressed,
+            modifier = Modifier.align(Alignment.TopStart)
+        )
     }
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -50,6 +51,7 @@ import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.shared.ui.components.common.WatchedActionButton
 import com.jellycine.shared.ui.components.common.selectedVideoOption
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.CompactTopChip
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.canResumeDownloads
@@ -1221,6 +1223,11 @@ fun DetailContent(
             }
         }
 
+        BackButton(
+            onClick = onBackPressed,
+            modifier = Modifier.align(Alignment.TopStart)
+        )
+
         if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
             CompactTopLogo(
                 imageUrl = logoImageUrl.orEmpty(),
@@ -1232,7 +1239,9 @@ fun DetailContent(
                         detailListState.animateScrollToItem(0)
                     }
                 },
-                modifier = Modifier.align(Alignment.TopStart)
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 48.dp)
             )
         }
 
