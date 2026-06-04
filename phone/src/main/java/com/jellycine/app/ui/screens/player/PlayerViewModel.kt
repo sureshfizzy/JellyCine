@@ -379,7 +379,8 @@ class PlayerViewModel @Inject constructor(
                         streamingUrl = streamingUrl,
                         itemId = mediaId,
                         mediaSourceId = sessionMediaSourceId,
-                        selectedSubtitleStream = activeSubtitleStream
+                        selectedSubtitleStream = activeSubtitleStream,
+                        requestHeaders = playbackRequest?.requestHeaders.orEmpty()
                     )
                     if (!isMpvPlayback()) {
                         streamingMediaSource = PlayerUtils.createStreamingMediaSource(

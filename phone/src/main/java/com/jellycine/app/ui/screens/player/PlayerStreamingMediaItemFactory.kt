@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.net.Uri
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -8,12 +9,15 @@ import androidx.media3.common.util.UnstableApi
 import com.jellycine.data.model.MediaStream
 import java.net.URI
 
+private const val TAG = "PlayerMediaItemFactory"
+
 @UnstableApi
 internal fun streamingMediaItem(
     streamingUrl: String,
     itemId: String? = null,
     mediaSourceId: String? = null,
-    selectedSubtitleStream: MediaStream? = null
+    selectedSubtitleStream: MediaStream? = null,
+    requestHeaders: Map<String, String> = emptyMap()
 ): MediaItem {
     val streamUri = Uri.parse(streamingUrl)
 
@@ -32,9 +36,11 @@ internal fun streamingMediaItem(
                 streamingUrl = streamingUrl,
                 itemId = itemId,
                 mediaSourceId = mediaSourceId,
-                subtitleStream = selectedSubtitleStream
+                subtitleStream = selectedSubtitleStream,
+                requestHeaders = requestHeaders
             )
             if (subtitleConfiguration != null) {
+                Log.d(TAG, "Adding external subtitle configuration: ${subtitleConfiguration.uri}")
                 builder.setSubtitleConfigurations(listOf(subtitleConfiguration))
             }
         }
@@ -91,31 +97,40 @@ private fun subtitleConfiguration(
     streamingUrl: String,
     itemId: String?,
     mediaSourceId: String?,
-    subtitleStream: MediaStream
+    subtitleStream: MediaStream,
+    requestHeaders: Map<String, String>
 ): MediaItem.SubtitleConfiguration? {
     var deliveryUrl = subtitleStream.deliveryUrl?.takeIf { it.isNotBlank() }
 
     // if deliveryUrl is missing but it's an external subtitle, construct it using standard Jellyfin patterns
     if (deliveryUrl == null && (subtitleStream.isExternal == true || subtitleStream.deliveryMethod.equals("External", ignoreCase = true)) && itemId != null) {
         val codec = when (subtitleStream.codec?.lowercase()) {
-            "subrip", "srt" -> "srt"
+            "subrip", "srt" -> "subrip" 
             "webvtt", "vtt" -> "vtt"
-            else -> subtitleStream.codec ?: "srt"
+            else -> "subrip"
         }
         val index = subtitleStream.index ?: 0
         
-        val sourceId = mediaSourceId ?: itemId
-        deliveryUrl = "Videos/$itemId/$sourceId/Subtitles/$index/0/Stream.$codec"
+        val guidItemId = itemId.toGuid()
+        val sourceId = mediaSourceId?.replace("-", "") ?: itemId.replace("-", "")
+        
+        deliveryUrl = "Videos/$guidItemId/$sourceId/Subtitles/$index/0/Stream.$codec"
+        Log.d(TAG, "Constructed delivery URL: $deliveryUrl")
     }
 
     if (deliveryUrl == null) return null
 
-    val resolvedUri = runCatching {
-        val baseUri = URI.create(streamingUrl)
-        "${baseUri.scheme}://${baseUri.authority}/${deliveryUrl.trimStart('/')}"
-    }.getOrNull() ?: return null
+    val resolvedUri = if (deliveryUrl.startsWith("http", ignoreCase = true)) {
+        deliveryUrl
+    } else {
+        runCatching {
+            val baseUri = URI.create(streamingUrl)
+            "${baseUri.scheme}://${baseUri.authority}/${deliveryUrl.trimStart('/')}"
+        }.getOrNull() ?: return null
+    }
 
-    val authorizedUri = authorizeUrl(resolvedUri, streamingUrl)
+    val authorizedUri = authorizeUrl(resolvedUri, streamingUrl, requestHeaders)
+    Log.d(TAG, "Resolved authorized subtitle URI: $authorizedUri")
 
     val mimeType = subtitleMimeType(subtitleStream, deliveryUrl)
     val selectionFlags = subtitleSelectionFlags(subtitleStream)
@@ -133,7 +148,21 @@ private fun subtitleConfiguration(
         .build()
 }
 
-private fun authorizeUrl(targetUrl: String, sourceUrl: String): String {
+private fun String.toGuid(): String {
+    if (this.contains("-") || this.length != 32) return this
+    return try {
+        StringBuilder(this)
+            .insert(8, "-")
+            .insert(13, "-")
+            .insert(18, "-")
+            .insert(23, "-")
+            .toString()
+    } catch (e: Exception) {
+        this
+    }
+}
+
+private fun authorizeUrl(targetUrl: String, sourceUrl: String, requestHeaders: Map<String, String>): String {
     val targetUri = Uri.parse(targetUrl)
     
     val hasAuth = targetUri.queryParameterNames.any { 
@@ -145,13 +174,24 @@ private fun authorizeUrl(targetUrl: String, sourceUrl: String): String {
 
     val sourceUri = Uri.parse(sourceUrl)
     
-    val authParam = sourceUri.queryParameterNames.firstOrNull { 
+    var authValue = sourceUri.queryParameterNames.firstOrNull { 
         it.equals("api_key", ignoreCase = true) || 
         it.equals("ApiKey", ignoreCase = true) || 
         it.equals("Token", ignoreCase = true) 
+    }?.let { sourceUri.getQueryParameter(it) }
+
+    if (authValue == null) {
+        val authHeader = requestHeaders["Authorization"] ?: requestHeaders["X-Emby-Authorization"]
+        if (authHeader != null) {
+            authValue = when {
+                authHeader.contains("Token=\"", ignoreCase = true) -> 
+                    authHeader.substringAfter("Token=\"").substringBefore("\"")
+                authHeader.contains("Token ", ignoreCase = true) -> 
+                    authHeader.substringAfter("Token ").trim()
+                else -> null
+            }
+        }
     }
-    
-    val authValue = authParam?.let { sourceUri.getQueryParameter(it) }
 
     return if (authValue != null) {
         targetUri.buildUpon().appendQueryParameter("ApiKey", authValue).build().toString()
