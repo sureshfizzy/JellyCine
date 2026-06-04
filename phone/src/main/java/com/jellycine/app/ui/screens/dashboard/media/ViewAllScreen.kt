@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.CompactTopText
@@ -70,6 +71,7 @@ fun ViewAllScreen(
     parentId: String? = null,
     title: String = "",
     genreId: String? = null,
+    onBackPressed: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit,
     viewModel: ViewAllViewModel = hiltViewModel()
 ) {
@@ -494,6 +496,11 @@ fun ViewAllScreen(
             }
         }
 
+        BackButton(
+            onClick = onBackPressed,
+            modifier = Modifier.align(Alignment.TopStart)
+        )
+
         if (isSeerrCatalog && seerrLogoUrl != null) {
             CompactTopLogo(
                 imageUrl = seerrLogoUrl,
@@ -505,7 +512,9 @@ fun ViewAllScreen(
                         gridState.animateScrollToItem(0)
                     }
                 },
-                modifier = Modifier.align(Alignment.TopStart)
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 48.dp)
             )
         }
 
@@ -520,7 +529,9 @@ fun ViewAllScreen(
                     }
                 },
                 color = Color.White,
-                modifier = Modifier.align(Alignment.TopStart)
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 48.dp)
             )
         }
 

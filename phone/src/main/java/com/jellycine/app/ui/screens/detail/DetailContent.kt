@@ -51,6 +51,7 @@ import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.shared.ui.components.common.WatchedActionButton
 import com.jellycine.shared.ui.components.common.selectedVideoOption
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.CompactTopChip
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.canResumeDownloads
@@ -1222,26 +1223,10 @@ fun DetailContent(
             }
         }
 
-        // Back Button
-        Surface(
+        BackButton(
             onClick = onBackPressed,
-            color = Color.Black.copy(alpha = 0.42f),
-            shape = CircleShape,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(top = 10.dp, start = 14.dp)
-                .size(40.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
+            modifier = Modifier.align(Alignment.TopStart)
+        )
 
         if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
             CompactTopLogo(

@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
 import com.jellycine.app.download.DownloadRepositoryProvider
+import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.CompactTopLogo
@@ -498,6 +500,11 @@ fun SeasonDetailScreen(
                 }
             }
 
+            BackButton(
+                onClick = onBackPressed,
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+
             currentLogoImageUrl?.takeIf { showLogoImage }?.let { logoUrl ->
                 CompactTopLogo(
                     imageUrl = logoUrl,
@@ -509,7 +516,9 @@ fun SeasonDetailScreen(
                             listState.animateScrollToItem(0)
                         }
                     },
-                    modifier = Modifier.align(Alignment.TopStart)
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 48.dp)
                 )
             }
             }

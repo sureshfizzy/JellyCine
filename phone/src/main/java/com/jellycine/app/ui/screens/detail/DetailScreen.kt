@@ -48,6 +48,7 @@ import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
@@ -1257,25 +1258,9 @@ fun DetailScreenSkeleton(
             }
         }
 
-        // Back Button
-        Surface(
+        BackButton(
             onClick = onBackPressed,
-            color = Color.Black.copy(alpha = 0.42f),
-            shape = CircleShape,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(top = 10.dp, start = 14.dp)
-                .size(40.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
+            modifier = Modifier.align(Alignment.TopStart)
+        )
     }
 }
