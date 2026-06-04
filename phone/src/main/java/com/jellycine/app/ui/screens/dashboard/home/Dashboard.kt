@@ -2781,7 +2781,10 @@ private fun ContinueWatchingCard(
                         text = text,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 4.dp)
+                            .padding(
+                                top = if (stableItem.isWatched) 4.5.dp else 8.dp,
+                                end = if (stableItem.isWatched) 28.dp else 4.dp
+                            )
                     )
                 }
 
