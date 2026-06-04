@@ -46,7 +46,10 @@ class DownloadForegroundService : Service() {
                 }
                 val notification = notificationManager.buildSummaryNotification(tracked)
                     ?: fallbackNotification()
-                showForeground(notification)
+                if (!showForeground(notification)) {
+                    stopSelfResult(startId)
+                    return START_NOT_STICKY
+                }
                 ensureObservation()
                 return START_STICKY
             }
@@ -73,26 +76,36 @@ class DownloadForegroundService : Service() {
                 }
                 val notification = notificationManager.buildSummaryNotification(tracked)
                     ?: fallbackNotification()
-                showForeground(notification)
+                if (!showForeground(notification)) {
+                    stopSelf()
+                    return@collect
+                }
             }
         }
     }
 
-    private fun showForeground(notification: Notification) {
+    private fun showForeground(notification: Notification): Boolean {
         if (!isForegroundRunning) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    DownloadNotificationContract.SUMMARY_NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                )
-            } else {
-                startForeground(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID, notification)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        DownloadNotificationContract.SUMMARY_NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    )
+                } else {
+                    startForeground(DownloadNotificationContract.SUMMARY_NOTIFICATION_ID, notification)
+                }
+            } catch (e: RuntimeException) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) throw e
+                runCatching { notificationManager.notifySummary(notification) }
+                return false
             }
             isForegroundRunning = true
-            return
+            return true
         }
         notificationManager.notifySummary(notification)
+        return true
     }
 
     private fun stopIfRunning() {
@@ -123,7 +136,11 @@ class DownloadForegroundService : Service() {
                 val startIntent = Intent(context, DownloadForegroundService::class.java).apply {
                     action = ACTION_START
                 }
-                ContextCompat.startForegroundService(context, startIntent)
+                try {
+                    ContextCompat.startForegroundService(context, startIntent)
+                } catch (e: RuntimeException) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) throw e
+                }
                 return
             }
 
