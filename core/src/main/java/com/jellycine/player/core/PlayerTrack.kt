@@ -48,12 +48,27 @@ object PlayerTrack {
                 ?: selected.copy(streamIndex = null)
         }
 
-        var subtitleOrdinal = 0
+        val usedStreamIndexes = mutableSetOf<Int>()
         val apiNamedSubtitleTracks = liveSubtitleTracks.map { track ->
             if (track.streamIndex == -1 || track.id == "off") {
                 track.copy(streamIndex = -1)
             } else {
-                val stream = subtitleStreams.getOrNull(subtitleOrdinal++)
+                // try to find a matching stream by label and language first
+                val matchingStream = subtitleStreams.firstOrNull { stream ->
+                    val streamLabel = stream.displayTitleOrNull()
+                    val streamLang = stream.language?.take(2)?.lowercase()
+                    val trackLang = track.language?.take(2)?.lowercase()
+
+                    (streamLabel != null && streamLabel.equals(track.label, ignoreCase = true)) ||
+                        (streamLang != null && streamLang == trackLang)
+                }?.takeIf { it.index !in usedStreamIndexes }
+
+                val stream = matchingStream ?: subtitleStreams.firstOrNull { it.index !in usedStreamIndexes }
+                
+                if (stream != null) {
+                    usedStreamIndexes.add(stream.index!!)
+                }
+
                 track.copy(
                     label = stream?.displayTitleOrNull() ?: track.label,
                     streamIndex = stream?.index
@@ -95,6 +110,7 @@ object PlayerTrack {
                 language = null,
                 isForced = false,
                 isDefault = false,
+                playerTrackId = "subtitle:$streamIndex", // set ID so it can be identified, even if not yet in player
                 streamIndex = streamIndex,
                 requiresPlaybackRestart = true
             )
@@ -168,8 +184,15 @@ object PlayerTrack {
             }
         }
 
-        return (itemStreams + playbackStreams)
-            .distinctBy { "${it.type.orEmpty().lowercase(Locale.US)}:${it.index ?: "na"}" }
+        // Merge streams, prioritizing those with delivery information
+        val allStreams = playbackStreams + itemStreams
+        return allStreams
+            .groupBy { "${it.type.orEmpty().lowercase(Locale.US)}:${it.index ?: "na"}" }
+            .map { (_, group) ->
+                group.firstOrNull { !it.deliveryUrl.isNullOrBlank() }
+                    ?: group.firstOrNull { it.deliveryMethod != null }
+                    ?: group.first()
+            }
     }
 
     private fun indexedStreams(
