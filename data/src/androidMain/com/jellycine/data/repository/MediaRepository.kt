@@ -849,8 +849,8 @@ class MediaRepository(private val context: Context) {
         }
 
         val queryParams = mutableListOf<Pair<String, String?>>()
-        width?.let { queryParams.add("width" to it.toString()) }
-        height?.let { queryParams.add("height" to it.toString()) }
+        width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+        height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
         quality?.let { queryParams.add("quality" to it.toString()) }
         imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
         if (!enableImageEnhancers) {
@@ -894,8 +894,8 @@ class MediaRepository(private val context: Context) {
             val serverUrl = authState.serverUrl
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val queryParams = mutableListOf<Pair<String, String?>>()
-                width?.let { queryParams.add("width" to it.toString()) }
-                height?.let { queryParams.add("height" to it.toString()) }
+                width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+                height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
                 quality?.let { queryParams.add("quality" to it.toString()) }
                 imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
                 if (!enableImageEnhancers) {
@@ -922,8 +922,8 @@ class MediaRepository(private val context: Context) {
             val serverUrl = authState.serverUrl
             if (serverUrl != null && itemId.isNotEmpty()) {
                 val queryParams = mutableListOf<Pair<String, String?>>()
-                width?.let { queryParams.add("width" to it.toString()) }
-                height?.let { queryParams.add("height" to it.toString()) }
+                width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+                height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
                 quality?.let { queryParams.add("quality" to it.toString()) }
                 imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
                 if (!enableImageEnhancers) {
