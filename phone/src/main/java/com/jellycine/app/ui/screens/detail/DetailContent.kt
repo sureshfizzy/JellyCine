@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -1221,6 +1222,27 @@ fun DetailContent(
             }
         }
 
+        // Back Button
+        Surface(
+            onClick = onBackPressed,
+            color = Color.Black.copy(alpha = 0.42f),
+            shape = CircleShape,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(top = 10.dp, start = 14.dp)
+                .size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
         if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
             CompactTopLogo(
                 imageUrl = logoImageUrl.orEmpty(),
@@ -1232,7 +1254,9 @@ fun DetailContent(
                         detailListState.animateScrollToItem(0)
                     }
                 },
-                modifier = Modifier.align(Alignment.TopStart)
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 48.dp)
             )
         }
 
