@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,8 +29,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +67,7 @@ fun ControlsOverlay(
     spatializationResult: SpatializationResult? = null,
     isSpatialAudioEnabled: Boolean = false,
     isHdrEnabled: Boolean = false,
+    hdrFormat: String = "",
     onShowMediaInfo: () -> Unit = {},
     isLocked: Boolean = false,
     onToggleLock: () -> Unit = {},
@@ -108,6 +111,17 @@ fun ControlsOverlay(
         ?.takeIf { duration > 0L }
         ?.let { (duration * it).toLong() }
         ?: currentPosition
+    val hdrBadgeLabel = remember(isHdrEnabled, hdrFormat) {
+        if (isHdrEnabled) osdHdrLabel(hdrFormat) else ""
+    }
+    val useHdr10PlusBadge = hdrBadgeLabel == "HDR10+"
+    val useHdr10Badge = hdrBadgeLabel == "HDR10"
+    val useHdrBadge = hdrBadgeLabel == "HDR"
+    val useDolbyVisionBadge = hdrBadgeLabel == "DV"
+    val hdrChipShape = RoundedCornerShape(999.dp)
+    val hdrChipColor = if (useDolbyVisionBadge) Color.White else Color(0xFFE8E8E8)
+    val hdrChipHorizontalPadding = if (useDolbyVisionBadge) 5.dp else 8.dp
+    val hdrChipVerticalPadding = if (useDolbyVisionBadge) 2.dp else 4.dp
 
     Box(
         modifier = modifier
@@ -370,26 +384,46 @@ fun ControlsOverlay(
                         fontWeight = FontWeight.Medium
                     )
 
-                    if (isSpatialAudioEnabled || isHdrEnabled) {
+                    if (isSpatialAudioEnabled || hdrBadgeLabel.isNotBlank()) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (isHdrEnabled) {
+                            if (hdrBadgeLabel.isNotBlank()) {
                                 Row(
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .background(
-                                            color = Color(0xFFFFB300).copy(alpha = 0.2f),
-                                            shape = RoundedCornerShape(999.dp)
+                                            color = hdrChipColor,
+                                            shape = hdrChipShape
                                         )
-                                        .padding(4.dp)
+                                        .padding(
+                                            horizontal = hdrChipHorizontalPadding,
+                                            vertical = hdrChipVerticalPadding
+                                        )
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.HdrOn,
-                                        contentDescription = "HDR",
-                                        tint = Color(0xFFFFB300),
-                                        modifier = Modifier.size(14.dp)
+                                    Image(
+                                        painter = painterResource(
+                                            when {
+                                                useDolbyVisionBadge -> R.drawable.dolby_vision_badge
+                                                useHdr10PlusBadge -> R.drawable.hdr10plus_badge
+                                                useHdr10Badge -> R.drawable.hdr10_badge
+                                                else -> R.drawable.hdr_badge
+                                            }
+                                        ),
+                                        contentDescription = osdDescription(hdrBadgeLabel),
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .width(
+                                                when {
+                                                    useDolbyVisionBadge -> 48.dp
+                                                    useHdr10PlusBadge -> 78.dp
+                                                    useHdrBadge -> 58.dp
+                                                    else -> 68.dp
+                                                }
+                                            )
+                                            .height(if (useDolbyVisionBadge) 18.dp else 16.dp)
                                     )
                                 }
                             }
@@ -744,4 +778,19 @@ fun SeekBarPreview() {
         onScrubProgressChange = { },
         modifier = Modifier.padding(16.dp)
     )
+}
+
+private fun osdHdrLabel(format: String): String {
+    val trimmedFormat = format.trim()
+    return when {
+        trimmedFormat.contains("dolby vision", ignoreCase = true) -> "DV"
+        trimmedFormat.contains("hdr10+", ignoreCase = true) -> "HDR10+"
+        trimmedFormat.contains("hdr10", ignoreCase = true) -> "HDR10"
+        trimmedFormat.equals("hdr", ignoreCase = true) -> "HDR"
+        else -> ""
+    }
+}
+
+private fun osdDescription(label: String): String {
+    return if (label == "DV") "Dolby Vision" else label
 }

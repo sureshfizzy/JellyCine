@@ -10,46 +10,30 @@ import com.jellycine.player.video.HdrCapabilityManager
 
 internal object PlayerMetadata {
 
-    fun isCurrentPlaybackHdr(exoPlayer: ExoPlayer?): Boolean {
-        exoPlayer?.currentTracks?.let { tracks ->
-            tracks.groups.forEach { group ->
-                if (group.type == C.TRACK_TYPE_VIDEO) {
-                    for (i in 0 until group.mediaTrackGroup.length) {
-                        if (group.isTrackSelected(i)) {
-                            val format = group.mediaTrackGroup.getFormat(i)
-                            val colorInfo = format.colorInfo?.toString()
-                            val mimeType = format.sampleMimeType
-                            val codecs = format.codecs
+    fun hasSelectedVideoTrack(exoPlayer: ExoPlayer?): Boolean {
+        return selectedVideoTrackFormat(exoPlayer) != null
+    }
 
-                            val isHdrByColorInfo =
-                                colorInfo?.contains("HDR", ignoreCase = true) == true ||
-                                    colorInfo?.contains("Dolby Vision", ignoreCase = true) == true ||
-                                    colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
-                                    colorInfo?.contains("BT.2020", ignoreCase = true) == true ||
-                                    colorInfo?.contains("PQ", ignoreCase = true) == true
+    fun currentPlaybackHdrFormat(exoPlayer: ExoPlayer?): String {
+        val format = selectedVideoTrackFormat(exoPlayer) ?: return ""
+        val colorInfo = format.colorInfo?.toString()
+        val mimeType = format.sampleMimeType
+        val codecs = format.codecs
 
-                            val isHdrByMimeType =
-                                mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
-                                    mimeType?.contains("hdr", ignoreCase = true) == true
-
-                            val isHdrByCodec =
-                                codecs?.contains("dvhe", ignoreCase = true) == true ||
-                                    codecs?.contains("dvh1", ignoreCase = true) == true ||
-                                    codecs?.contains("hev1", ignoreCase = true) == true ||
-                                    codecs?.contains("hvc1", ignoreCase = true) == true
-
-                            val videoFormatAnalysis =
-                                HdrCapabilityManager.analyzeVideoFormat(mimeType, codecs, colorInfo)
-                            return isHdrByColorInfo ||
-                                isHdrByMimeType ||
-                                isHdrByCodec ||
-                                videoFormatAnalysis.hdrSupport != HdrCapabilityManager.HdrSupport.SDR
-                        }
-                    }
-                }
-            }
+        return when {
+            mimeType?.contains("dolby-vision", ignoreCase = true) == true ||
+                codecs?.contains("dvhe", ignoreCase = true) == true ||
+                codecs?.contains("dvh1", ignoreCase = true) == true -> "Dolby Vision"
+            colorInfo?.contains("HDR10+", ignoreCase = true) == true -> "HDR10+"
+            colorInfo?.contains("SMPTE2084", ignoreCase = true) == true ||
+                colorInfo?.contains("2084", ignoreCase = true) == true ||
+                colorInfo?.contains("PQ", ignoreCase = true) == true -> "HDR10"
+            colorInfo?.contains("HLG", ignoreCase = true) == true ||
+                colorInfo?.contains("ARIB", ignoreCase = true) == true -> "HLG"
+            colorInfo?.contains("HDR", ignoreCase = true) == true ||
+                mimeType?.contains("hdr", ignoreCase = true) == true -> "HDR"
+            else -> ""
         }
-        return false
     }
 
     fun buildHdrFormatInfo(
@@ -348,5 +332,18 @@ internal object PlayerMetadata {
             "ALAC" -> "ALAC"
             else -> codec.uppercase()
         }
+    }
+
+    private fun selectedVideoTrackFormat(exoPlayer: ExoPlayer?): androidx.media3.common.Format? {
+        exoPlayer?.currentTracks?.groups?.forEach { group ->
+            if (group.type == C.TRACK_TYPE_VIDEO) {
+                for (i in 0 until group.mediaTrackGroup.length) {
+                    if (group.isTrackSelected(i)) {
+                        return group.mediaTrackGroup.getFormat(i)
+                    }
+                }
+            }
+        }
+        return null
     }
 }

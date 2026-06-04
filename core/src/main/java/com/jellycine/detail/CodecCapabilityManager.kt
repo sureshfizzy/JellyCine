@@ -128,22 +128,39 @@ object CodecCapabilityManager {
      * Detect HDR format from video stream
      */
     fun detectHDRFormat(videoStream: MediaStream): String {
-        val videoRange = videoStream.videoRange?.lowercase() ?: ""
-        val videoRangeType = videoStream.videoRangeType?.lowercase() ?: ""
-        val codec = videoStream.codec?.lowercase() ?: ""
-        val title = videoStream.title?.lowercase() ?: ""
-        val profile = videoStream.profile?.lowercase() ?: ""
+        val codec = videoStream.codec?.lowercase().orEmpty()
+        val codecTag = videoStream.codecTag?.lowercase().orEmpty()
+        val videoRange = videoStream.videoRange?.lowercase().orEmpty()
+        val videoRangeType = videoStream.videoRangeType?.lowercase().orEmpty()
+        val colorTransfer = videoStream.colorTransfer?.lowercase().orEmpty()
+        val colorSpace = videoStream.colorSpace?.lowercase().orEmpty()
+        val title = videoStream.title?.lowercase().orEmpty()
+        val profile = videoStream.profile?.lowercase().orEmpty()
+        val doviTitle = videoStream.videoDoViTitle?.lowercase().orEmpty()
+        val displayTitle = videoStream.displayTitle?.lowercase().orEmpty()
+        val comment = videoStream.comment?.lowercase().orEmpty()
         
         // Check for Dolby Vision
         when {
             videoRangeType.contains("dovi") ||
             videoRange.contains("dovi") ||
             title.contains("dolby vision") ||
-            title.contains("dv") ||
+            title.containsDoviToken() ||
             profile.contains("dolby vision") ||
             profile.contains("dovi") ||
+            codec.contains("dvhe") ||
+            codec.contains("dvh1") ||
+            codecTag.contains("dvhe") ||
+            codecTag.contains("dvh1") ||
+            doviTitle.contains("dolby vision") ||
+            doviTitle.contains("dovi") ||
+            displayTitle.contains("dolby vision") ||
+            displayTitle.contains("dovi") ||
+            comment.contains("dolby vision") ||
+            comment.contains("dovi") ||
             // Check for DV profile indicators
-            videoStream.dvProfile != null -> return "Dolby Vision"
+            videoStream.dvProfile != null ||
+            videoStream.rpuPresentFlag == 1 -> return "Dolby Vision"
             
             // Check for HDR10+
             videoRangeType.contains("hdr10+") ||
@@ -155,15 +172,31 @@ object CodecCapabilityManager {
             videoRangeType.contains("hdr10") ||
             videoRange.contains("hdr10") ||
             title.contains("hdr10") ||
-            profile.contains("hdr10") -> return "HDR10"
+            profile.contains("hdr10") ||
+            colorTransfer.contains("smpte2084") ||
+            colorTransfer.contains("2084") ||
+            colorTransfer.contains("pq") -> return "HDR10"
             
             // Generic HDR detection
             videoRange.contains("hdr") ||
             videoRangeType.contains("hdr") ||
-            title.contains("hdr") -> return "HDR"
+            title.contains("hdr") ||
+            colorTransfer.contains("hlg") ||
+            colorSpace.contains("bt2020") -> return "HDR"
         }
         
         return ""
+    }
+
+    fun detectBestSourceHDRFormat(mediaStreams: List<MediaStream>?): String {
+        return mediaStreams
+            .orEmpty()
+            .asSequence()
+            .filter { it.type.equals("Video", ignoreCase = true) }
+            .map { detectHDRFormat(it) }
+            .filter { it.isNotBlank() }
+            .maxByOrNull { sourceHdrFormatRank(it) }
+            .orEmpty()
     }
 
     /**
@@ -263,6 +296,20 @@ object CodecCapabilityManager {
                 reason = "Spatializable content detected, but device spatializer is unavailable for current route/format",
                 spatialFormat = spatialFormat
             )
+        }
+    }
+
+    private fun String.containsDoviToken(): Boolean {
+        return Regex("""\bdv(?:\d+)?\b""").containsMatchIn(this)
+    }
+
+    private fun sourceHdrFormatRank(format: String): Int {
+        return when (format.lowercase()) {
+            "dolby vision" -> 4
+            "hdr10+" -> 3
+            "hdr10" -> 2
+            "hdr" -> 1
+            else -> 0
         }
     }
 }

@@ -106,6 +106,23 @@ class PlayerViewModel @Inject constructor(
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
     }
 
+    private fun resolveMpvHdrFormatLabel(): String {
+        return CodecCapabilityManager.detectBestSourceHDRFormat(apiMediaStreams)
+            .ifBlank { if (MPVPlayer.isHdr(apiMediaStreams)) "HDR" else "" }
+    }
+
+    private fun resolveExoHdrFormatLabel(): String {
+        val runtimeFormat = PlayerMetadata.currentPlaybackHdrFormat(exoPlayer)
+        val sourceFormat = CodecCapabilityManager.detectBestSourceHDRFormat(apiMediaStreams)
+
+        return when {
+            runtimeFormat.isNotBlank() -> runtimeFormat
+            sourceFormat.equals("Dolby Vision", ignoreCase = true) -> ""
+            sourceFormat.isNotBlank() && PlayerMetadata.hasSelectedVideoTrack(exoPlayer) -> sourceFormat
+            else -> ""
+        }
+    }
+
     private fun downloadLocationUri(location: String): Uri {
         val parsed = Uri.parse(location)
         return if (parsed.scheme.isNullOrBlank()) {
@@ -437,11 +454,12 @@ class PlayerViewModel @Inject constructor(
                 if (!usesMpv) {
                     updateTrackInformation()
                 }
-                val isHdrPlayback = if (usesMpv) {
-                    MPVPlayer.isHdr(apiMediaStreams)
+                val hdrFormat = if (usesMpv) {
+                    resolveMpvHdrFormatLabel()
                 } else {
-                    PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                    resolveExoHdrFormatLabel()
                 }
+                val isHdrPlayback = hdrFormat.isNotBlank()
                 
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
@@ -463,7 +481,8 @@ class PlayerViewModel @Inject constructor(
                     spatializationResult = null,
                     isSpatialAudioEnabled = false,
                     spatialAudioFormat = "",
-                    isHdrEnabled = isHdrPlayback
+                    isHdrEnabled = isHdrPlayback,
+                    hdrFormat = hdrFormat
                 )
                 if (usesMpv) {
                     updateApiTrackInformation()
@@ -952,7 +971,8 @@ class PlayerViewModel @Inject constructor(
     private fun updateTrackInformation() {
         exoPlayer?.let { player ->
             try {
-                val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
+                val hdrFormat = resolveExoHdrFormatLabel()
+                val isHdrPlayback = hdrFormat.isNotBlank()
                 val selectedAudioSignature = buildSelectedAudioSignature(player)
                 if (selectedAudioSignature != null && selectedAudioSignature != audioDiagnosticsSignature) {
                     PlayerUtils.logAudioPlaybackDiagnostics(player, reason = "track_changed")
@@ -986,7 +1006,8 @@ class PlayerViewModel @Inject constructor(
                     availableSubtitleTracks = resolvedTracks.availableSubtitleTracks,
                     currentSubtitleTrack = resolvedTracks.currentSubtitleTrack,
                     availableVideoTracks = resolvedTracks.availableVideoTracks,
-                    isHdrEnabled = isHdrPlayback
+                    isHdrEnabled = isHdrPlayback,
+                    hdrFormat = hdrFormat
                 )
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Failed to update track information", e)
@@ -1030,6 +1051,7 @@ class PlayerViewModel @Inject constructor(
             defaultAudioStreamIndex = defaultAudioStreamIndex,
             defaultSubtitleStreamIndex = defaultSubtitleStreamIndex
         )
+        val hdrFormat = resolveMpvHdrFormatLabel()
 
         _playerState.value = _playerState.value.copy(
             availableAudioTracks = trackState.availableAudioTracks,
@@ -1037,7 +1059,8 @@ class PlayerViewModel @Inject constructor(
             availableSubtitleTracks = trackState.availableSubtitleTracks,
             currentSubtitleTrack = trackState.currentSubtitleTrack,
             availableVideoTracks = trackState.availableVideoTracks,
-            isHdrEnabled = MPVPlayer.isHdr(apiMediaStreams)
+            isHdrEnabled = hdrFormat.isNotBlank(),
+            hdrFormat = hdrFormat
         )
     }
 

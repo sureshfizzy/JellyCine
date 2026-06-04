@@ -365,6 +365,7 @@ internal fun BoxScope.PlayerOverlayHost(
             spatializationResult = playerState.spatializationResult,
             isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
             isHdrEnabled = playerState.isHdrEnabled,
+            hdrFormat = playerState.hdrFormat,
             onShowMediaInfo = {
                 resetAutoHideTimer()
                 onShowMediaInfo()
