@@ -100,7 +100,6 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val disableHeaderImageEnhancers = DisableEmbyPosterEnhancers()
     val seerrLogoUrl = remember(contentType, parentId) {
         when (contentType) {
             ContentType.SEERR_STUDIO -> SeerrCatalog.popularStudios()
@@ -109,8 +108,6 @@ fun ViewAllScreen(
         }.firstOrNull { item -> item.id == parentId }
             ?.logoUrl
     }
-    var libraryImageUrl by remember(contentType, parentId) { mutableStateOf<String?>(null) }
-    
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
@@ -186,23 +183,6 @@ fun ViewAllScreen(
     )
     val compactHeader = if (usesCompactHeader) compactHeaderProgress else 0f
 
-    LaunchedEffect(isLibraryCatalog, parentId, disableHeaderImageEnhancers) {
-        if (!isLibraryCatalog) {
-            libraryImageUrl = null
-            return@LaunchedEffect
-        }
-
-        libraryImageUrl = runCatching {
-            mediaRepository.getImageUrl(
-                itemId = parentId.orEmpty(),
-                width = 640,
-                height = 360,
-                quality = 92,
-                enableImageEnhancers = !disableHeaderImageEnhancers
-            ).first()
-        }.getOrNull()
-    }
-
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
         viewModel.ensureItemsLoaded(contentType, parentId, genreId)
@@ -242,7 +222,7 @@ fun ViewAllScreen(
         modifier: Modifier = Modifier,
         compactProgress: Float = 0f
     ) {
-        if ((!isSeerrCatalog || seerrLogoUrl == null) && (!isLibraryCatalog || libraryImageUrl == null)) {
+        if (!isSeerrCatalog || seerrLogoUrl == null) {
             CompactPageHeader(
                 title = resolvedTitle,
                 subtitle = headerCountText,
@@ -290,39 +270,6 @@ fun ViewAllScreen(
                         contentDescription = resolvedTitle,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit
-                    )
-                }
-            } else if (isLibraryCatalog && libraryImageUrl != null) {
-                WarmImageUrl(imageUrl = libraryImageUrl, allowRgb565 = true)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(if (isTablet) 132.dp else 92.dp)
-                        .padding(horizontal = if (isTablet) 128.dp else 52.dp)
-                        .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
-                        .compactHeaderLogo(compactProgress),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(libraryImageUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = resolvedTitle,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                    Text(
-                        text = resolvedTitle,
-                        color = Color.White.copy(alpha = 0.78f),
-                        fontSize = if (isTablet) 18.sp else 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }
             }
@@ -562,31 +509,7 @@ fun ViewAllScreen(
             )
         }
 
-        if (isLibraryCatalog) {
-            libraryImageUrl?.let { headerImageUrl ->
-                CompactTopLogo(
-                    imageUrl = headerImageUrl,
-                    contentDescription = resolvedTitle,
-                    progress = compactHeader,
-                    isTablet = isTablet,
-                    onClick = {
-                        coroutineScope.launch {
-                            gridState.animateScrollToItem(0)
-                        }
-                    },
-                    width = if (isTablet) 108.dp else 84.dp,
-                    height = if (isTablet) 54.dp else 42.dp,
-                    shape = RoundedCornerShape(12.dp),
-                    contentScale = ContentScale.Crop,
-                    horizontalImagePadding = 0.dp,
-                    verticalImagePadding = 0.dp,
-                    overlayTitle = resolvedTitle,
-                    modifier = Modifier.align(Alignment.TopStart)
-                )
-            }
-        }
-
-        if (isGenreCatalog) {
+        if (isLibraryCatalog || isGenreCatalog) {
             CompactTopText(
                 text = resolvedTitle,
                 progress = compactHeader,
@@ -596,6 +519,7 @@ fun ViewAllScreen(
                         gridState.animateScrollToItem(0)
                     }
                 },
+                color = Color.White,
                 modifier = Modifier.align(Alignment.TopStart)
             )
         }
