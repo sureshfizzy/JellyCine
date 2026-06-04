@@ -103,7 +103,8 @@ object MPVPlayer {
     fun externalSubtitleUrls(
         playbackRequest: PlaybackRequest?,
         mediaStreams: List<MediaStream>,
-        itemId: String? = null
+        itemId: String? = null,
+        mediaSourceId: String? = null
     ): Map<Int, String> {
         val request = playbackRequest ?: return emptyMap()
         val streamingUrl = request.url
@@ -111,6 +112,7 @@ object MPVPlayer {
         
         val baseUri = try { java.net.URI.create(streamingUrl) } catch (e: Exception) { return emptyMap() }
         val baseUrl = "${baseUri.scheme}://${baseUri.authority}/"
+        val requestHeaders = request.requestHeaders
 
         return mediaStreams
             .asSequence()
@@ -121,14 +123,23 @@ object MPVPlayer {
                 var deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() }
                 
                 if (deliveryUrl == null && itemId != null) {
+                    val isEmby = requestHeaders["Authorization"]?.startsWith("Emby", ignoreCase = true) == true ||
+                        requestHeaders["X-Emby-Authorization"]?.startsWith("Emby", ignoreCase = true) == true
+            
                     val codec = when (stream.codec?.lowercase()) {
-                        "subrip", "srt" -> "subrip"
+                        "subrip", "srt" -> if (isEmby) "vtt" else "subrip" 
                         "webvtt", "vtt" -> "vtt"
-                        else -> "subrip"
+                        else -> if (isEmby) "vtt" else "subrip"
                     }
-                    val guidItemId = itemId.toGuid()
-                    val sourceId = itemId.replace("-", "")
-                    deliveryUrl = "Videos/$guidItemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+
+                    deliveryUrl = if (isEmby) {
+                        val sourceId = mediaSourceId?.let { if (it.startsWith("mediasource")) it else "mediasource_$it" } ?: "mediasource_$itemId"
+                        "emby/Videos/$itemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+                    } else {
+                        val guidItemId = itemId.toGuid()
+                        val sourceId = mediaSourceId?.replace("-", "") ?: itemId.replace("-", "")
+                        "Videos/$guidItemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+                    }
                 }
                 
                 if (deliveryUrl == null) return@mapNotNull null

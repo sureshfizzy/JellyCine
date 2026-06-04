@@ -406,7 +406,8 @@ class PlayerViewModel @Inject constructor(
                 mpvExternalSubtitleUrls = MPVPlayer.externalSubtitleUrls(
                     playbackRequest = playbackRequest,
                     mediaStreams = apiMediaStreams.orEmpty(),
-                    itemId = mediaId
+                    itemId = mediaId,
+                    mediaSourceId = sessionMediaSourceId
                 )
 
                 if (isMpvPlayback()) {

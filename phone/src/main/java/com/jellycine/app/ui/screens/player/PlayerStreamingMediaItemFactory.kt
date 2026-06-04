@@ -104,18 +104,25 @@ private fun subtitleConfiguration(
 
     // if deliveryUrl is missing but it's an external subtitle, construct it using standard Jellyfin patterns
     if (deliveryUrl == null && (subtitleStream.isExternal == true || subtitleStream.deliveryMethod.equals("External", ignoreCase = true)) && itemId != null) {
+        val isEmby = requestHeaders["Authorization"]?.startsWith("Emby", ignoreCase = true) == true ||
+            requestHeaders["X-Emby-Authorization"]?.startsWith("Emby", ignoreCase = true) == true
+            
         val codec = when (subtitleStream.codec?.lowercase()) {
-            "subrip", "srt" -> "subrip" 
+            "subrip", "srt" -> "srt"
             "webvtt", "vtt" -> "vtt"
-            else -> "subrip"
+            else -> if (isEmby) "vtt" else "srt"
         }
         val index = subtitleStream.index ?: 0
         
-        val guidItemId = itemId.toGuid()
-        val sourceId = mediaSourceId?.replace("-", "") ?: itemId.replace("-", "")
-        
-        deliveryUrl = "Videos/$guidItemId/$sourceId/Subtitles/$index/0/Stream.$codec"
-        Log.d(TAG, "Constructed delivery URL: $deliveryUrl")
+        deliveryUrl = if (isEmby) {
+            val sourceId = mediaSourceId?.let { if (it.startsWith("mediasource")) it else "mediasource_$it" } ?: "mediasource_$itemId"
+            "emby/Videos/$itemId/$sourceId/Subtitles/$index/0/Stream.$codec"
+        } else {
+            val guidItemId = itemId.toGuid()
+            val sourceId = mediaSourceId?.replace("-", "") ?: itemId.replace("-", "")
+            "Videos/$guidItemId/$sourceId/Subtitles/$index/0/Stream.$codec"
+        }
+        Log.d(TAG, "Constructed delivery URL (isEmby=$isEmby): $deliveryUrl")
     }
 
     if (deliveryUrl == null) return null
@@ -174,11 +181,13 @@ private fun authorizeUrl(targetUrl: String, sourceUrl: String, requestHeaders: M
 
     val sourceUri = Uri.parse(sourceUrl)
     
-    var authValue = sourceUri.queryParameterNames.firstOrNull { 
+    val authParamName = sourceUri.queryParameterNames.firstOrNull { 
         it.equals("api_key", ignoreCase = true) || 
         it.equals("ApiKey", ignoreCase = true) || 
         it.equals("Token", ignoreCase = true) 
-    }?.let { sourceUri.getQueryParameter(it) }
+    }
+    
+    var authValue = authParamName?.let { sourceUri.getQueryParameter(it) }
 
     if (authValue == null) {
         val authHeader = requestHeaders["Authorization"] ?: requestHeaders["X-Emby-Authorization"]
@@ -194,7 +203,8 @@ private fun authorizeUrl(targetUrl: String, sourceUrl: String, requestHeaders: M
     }
 
     return if (authValue != null) {
-        targetUri.buildUpon().appendQueryParameter("ApiKey", authValue).build().toString()
+        val paramToUse = authParamName ?: "api_key"
+        targetUri.buildUpon().appendQueryParameter(paramToUse, authValue).build().toString()
     } else {
         targetUrl
     }
@@ -205,6 +215,15 @@ private fun subtitleMimeType(
     subtitleStream: MediaStream,
     deliveryUrl: String
 ): String? {
+    val extension = deliveryUrl
+        .substringBefore('?')
+        .substringAfterLast('.', missingDelimiterValue = "")
+        .lowercase()
+
+    if (extension == "vtt" || extension == "webvtt") {
+        return MimeTypes.TEXT_VTT
+    }
+
     val codec = subtitleStream.codec?.lowercase()
     if (!codec.isNullOrBlank()) {
         return when (codec) {
@@ -216,14 +235,8 @@ private fun subtitleMimeType(
         }
     }
 
-    val extension = deliveryUrl
-        .substringBefore('?')
-        .substringAfterLast('.', missingDelimiterValue = "")
-        .lowercase()
-
     return when (extension) {
         "srt", "subrip" -> MimeTypes.APPLICATION_SUBRIP
-        "vtt", "webvtt" -> MimeTypes.TEXT_VTT
         "ttml" -> MimeTypes.APPLICATION_TTML
         "ass", "ssa" -> MimeTypes.TEXT_SSA
         else -> null
