@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
+import android.os.Build
 import android.view.View
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
@@ -142,6 +143,34 @@ internal fun PlayerScreenEffects(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled) {
+        val activity = context as? Activity
+        val shouldUseHdrColorMode = viewModel.mpvPlayer != null && playerState.isHdrEnabled
+        val originalColorMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity?.window?.colorMode
+        } else {
+            null
+        }
+
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            activity != null &&
+            shouldUseHdrColorMode
+        ) {
+            activity.window.colorMode = ActivityInfo.COLOR_MODE_HDR
+        }
+
+        onDispose {
+            if (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                activity != null &&
+                originalColorMode != null
+            ) {
+                activity.window.colorMode = originalColorMode
+            }
         }
     }
 

@@ -1,10 +1,10 @@
 package com.jellycine.app.ui.screens.player
 
 import android.annotation.SuppressLint
-import android.graphics.SurfaceTexture
 import android.media.AudioManager
-import android.view.Surface
-import android.view.TextureView
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -33,8 +33,12 @@ fun MpvVideoSurface(
 ) {
     AndroidView(
         factory = { context ->
-            TextureView(context).apply {
-                var outputSurface: Surface? = null
+            SurfaceView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+
                 val gestureHelper = GestureHelper(
                     context = context,
                     touchView = this,
@@ -49,34 +53,29 @@ fun MpvVideoSurface(
                     onTogglePlayPause = onTogglePlayPause
                 )
                 setOnTouchListener { _, event -> gestureHelper.handleTouchEvent(event) }
-                surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                    override fun onSurfaceTextureAvailable(
-                        surfaceTexture: SurfaceTexture,
-                        width: Int,
-                        height: Int
-                    ) {
-                        outputSurface?.release()
-                        outputSurface = Surface(surfaceTexture)
-                        player.attachSurface(outputSurface ?: return, width, height)
+                holder.addCallback(object : SurfaceHolder.Callback {
+                    override fun surfaceCreated(holder: SurfaceHolder) {
+                        val frame = holder.surfaceFrame
+                        player.attachSurface(
+                            surface = holder.surface,
+                            width = frame.width(),
+                            height = frame.height()
+                        )
                     }
 
-                    override fun onSurfaceTextureSizeChanged(
-                        surfaceTexture: SurfaceTexture,
+                    override fun surfaceChanged(
+                        holder: SurfaceHolder,
+                        format: Int,
                         width: Int,
                         height: Int
                     ) {
                         player.resizeSurface(width, height)
                     }
 
-                    override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+                    override fun surfaceDestroyed(holder: SurfaceHolder) {
                         player.detachSurface()
-                        outputSurface?.release()
-                        outputSurface = null
-                        return true
                     }
-
-                    override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) = Unit
-                }
+                })
             }
         },
         update = {

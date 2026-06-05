@@ -52,7 +52,7 @@
             android:exported="true"
             android:theme="@style/Theme.JellyCine.Splash"
             android:launchMode="singleTop"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:configChanges="orientation|screenSize|keyboardHidden|colorMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
