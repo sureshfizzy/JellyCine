@@ -209,6 +209,7 @@ internal data class SeerrTitleDetailsResponse(
     val credits: SeerrTitleCredits? = null,
     val contentRatings: SeerrContentRatings? = null,
     val releaseDates: SeerrReleaseDates? = null,
+    val relatedVideos: List<SeerrVideo>? = null,
     val mediaInfo: SeerrMediaInfo? = null
 )
 
@@ -278,6 +279,15 @@ internal data class SeerrReleaseDateResult(
 @Serializable
 internal data class SeerrReleaseDateEntry(
     val certification: String? = null
+)
+
+@Serializable
+internal data class SeerrVideo(
+    val key: String? = null,
+    val name: String? = null,
+    val site: String? = null,
+    val type: String? = null,
+    val official: Boolean? = null
 )
 
 data class SeerrRecommendationTitle(

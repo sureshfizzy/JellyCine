@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -362,6 +363,39 @@ fun SeerrRequestActionButton(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun SeerrRequestButtonRow(
+    requestState: SeerrRequestState,
+    isBusy: Boolean,
+    busyLabel: String,
+    onRequestClick: () -> Unit,
+    hasTrailer: Boolean,
+    onTrailerClick: () -> Unit,
+    buttonHeight: Dp,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        SeerrRequestActionButton(
+            requestState = requestState,
+            isBusy = isBusy,
+            busyLabel = busyLabel,
+            onClick = onRequestClick,
+            modifier = Modifier
+                .weight(1f)
+                .height(buttonHeight)
+        )
+        if (hasTrailer) {
+            DetailTrailerButton(
+                onClick = onTrailerClick,
+                size = buttonHeight
+            )
         }
     }
 }

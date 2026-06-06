@@ -33,7 +33,6 @@ import com.jellycine.data.model.seerTitleParams
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.SeerrRequestActionButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -508,24 +507,6 @@ internal suspend fun detailLogoImage(
             mediaRepository = mediaRepository
         )
     }
-}
-
-@Composable
-internal fun SeerrRequestButton(
-    state: SeerrRequestUiState,
-    modifier: Modifier = Modifier
-) {
-    SeerrRequestActionButton(
-        requestState = state.requestState,
-        isBusy = state.isBusy,
-        busyLabel = if (state.optionsLoading) {
-            stringResource(R.string.detail_seerr_loading_options)
-        } else {
-            stringResource(R.string.detail_seerr_requesting)
-        },
-        onClick = { state.onLoadRequestOptions(null) },
-        modifier = modifier
-    )
 }
 
 @Composable

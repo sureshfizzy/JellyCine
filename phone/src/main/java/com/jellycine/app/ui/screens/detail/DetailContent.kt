@@ -50,6 +50,7 @@ import com.jellycine.shared.ui.components.common.activeDetailMediaSources
 import com.jellycine.shared.ui.components.common.buildInlineText
 import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
 import com.jellycine.shared.ui.components.common.OverviewSection
+import com.jellycine.shared.ui.components.common.SeerrRequestButtonRow
 import com.jellycine.shared.ui.components.common.WatchedActionButton
 import com.jellycine.shared.ui.components.common.selectedVideoOption
 import com.jellycine.app.ui.components.common.BackButton
@@ -471,6 +472,13 @@ fun DetailContent(
     }
 
     val hasTrailer = selectedRemoteTrailer != null
+    val seerrRequestBusyLabel = stringResource(
+        if (seerrRequestState.optionsLoading) {
+            R.string.detail_seerr_loading_options
+        } else {
+            R.string.detail_seerr_requesting
+        }
+    )
 
     LaunchedEffect(
         item.id,
@@ -1004,8 +1012,14 @@ fun DetailContent(
                         }
 
                         if (isWidescreenLayout && isSeerDetail) {
-                            SeerrRequestButton(
-                                state = seerrRequestState,
+                            SeerrRequestButtonRow(
+                                requestState = seerrRequestState.requestState,
+                                isBusy = seerrRequestState.isBusy,
+                                busyLabel = seerrRequestBusyLabel,
+                                onRequestClick = { seerrRequestState.onLoadRequestOptions(null) },
+                                buttonHeight = detailActionButtonHeight,
+                                hasTrailer = hasTrailer,
+                                onTrailerClick = ::playTrailer,
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -1014,7 +1028,6 @@ fun DetailContent(
                                         )
                                     )
                                     .padding(top = if (hasDescriptionContent) 12.dp else 14.dp)
-                                    .height(detailActionButtonHeight)
                             )
                         }
 
@@ -1111,8 +1124,14 @@ fun DetailContent(
                         }
 
                         if (!isWidescreenLayout && isSeerDetail) {
-                            SeerrRequestButton(
-                                state = seerrRequestState,
+                            SeerrRequestButtonRow(
+                                requestState = seerrRequestState.requestState,
+                                isBusy = seerrRequestState.isBusy,
+                                busyLabel = seerrRequestBusyLabel,
+                                onRequestClick = { seerrRequestState.onLoadRequestOptions(null) },
+                                buttonHeight = detailActionButtonHeight,
+                                hasTrailer = hasTrailer,
+                                onTrailerClick = ::playTrailer,
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -1121,7 +1140,6 @@ fun DetailContent(
                                         )
                                     )
                                     .padding(top = if (hasDescriptionContent) 14.dp else 18.dp)
-                                    .height(detailActionButtonHeight)
                             )
                         }
 

@@ -59,6 +59,7 @@ internal object SeerrMapper {
             status = response.status.ifNotBlank(),
             imageUrl = posterUrl,
             backdropImageUrl = backdropUrl,
+            remoteTrailers = response.relatedVideos.toRemoteTrailers(),
             seerrRequestState = response.mediaInfo.toRequestState()
         )
     }
@@ -173,6 +174,32 @@ private fun SeerrMediaInfo?.toRequestState(): SeerrRequestState {
     } else {
         SeerrRequestState.NONE
     }
+}
+
+private fun List<SeerrVideo>?.toRemoteTrailers(): List<MediaUrl> {
+    return this.orEmpty()
+        .filter { video ->
+            video.site.equals("YouTube", ignoreCase = true) &&
+                !video.key.isNullOrBlank() &&
+                listOf(video.type, video.name).any { field ->
+                    field?.contains("trailer", ignoreCase = true) == true ||
+                        field?.contains("teaser", ignoreCase = true) == true
+                }
+        }
+        .sortedWith(
+            compareByDescending<SeerrVideo> { video ->
+                video.type.equals("Trailer", ignoreCase = true)
+            }.thenByDescending { video ->
+                video.official == true
+            }
+        )
+        .mapNotNull { video ->
+            val key = video.key.ifNotBlank() ?: return@mapNotNull null
+            MediaUrl(
+                url = "https://www.youtube.com/watch?v=$key",
+                name = video.name.ifNotBlank() ?: video.type.ifNotBlank() ?: "Trailer"
+            )
+        }
 }
 
 fun filterSeerTitlesForRow(
