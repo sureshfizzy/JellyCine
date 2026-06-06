@@ -583,6 +583,7 @@
     <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>
     <string name="detail_similar_item_unknown">Unknown</string>
     <string name="detail_continue_playback">Continue playback</string>
+    <string name="detail_play_trailer">Play trailer</string>
     <string name="detail_unfavorite">Unfavorite</string>
     <string name="detail_video_fallback">Video</string>
     <string name="detail_file_size_under_1_mb">&lt; 1 MB</string>

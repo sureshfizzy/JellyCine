@@ -111,6 +111,8 @@ fun DetailScreenContainer(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
+    var remoteTrailerUrl by remember { mutableStateOf<String?>(null) }
+    var remoteTrailerTitle by remember { mutableStateOf<String?>(null) }
     var playbackItemId by remember { mutableStateOf<String?>(null) }
     var availablePreviousEpisodeId by remember { mutableStateOf<String?>(null) }
     var availableNextEpisodeId by remember { mutableStateOf<String?>(null) }
@@ -164,7 +166,18 @@ fun DetailScreenContainer(
     fun localPlayer(targetItemId: String) {
         playbackItemId = targetItemId
         castingDisplay = false
+        remoteTrailerUrl = null
+        remoteTrailerTitle = null
         showPlayer = true
+    }
+
+    fun playRemoteTrailer(trailerUrl: String, trailerTitle: String?) {
+        val targetTrailerUrl = trailerUrl.takeIf { it.isNotBlank() } ?: return
+        remoteTrailerUrl = targetTrailerUrl
+        remoteTrailerTitle = trailerTitle
+        playbackItemId = null
+        castingDisplay = false
+        showPlayer = false
     }
 
     fun openCastingDisplay() {
@@ -268,6 +281,11 @@ fun DetailScreenContainer(
 
     val handleBackNavigation: () -> Unit = {
         when {
+            !remoteTrailerUrl.isNullOrBlank() -> {
+                remoteTrailerUrl = null
+                remoteTrailerTitle = null
+            }
+
             castingDisplay -> {
                 castingDisplay = false
             }
@@ -411,6 +429,7 @@ fun DetailScreenContainer(
                             subtitleStreamIndex = subtitleStreamIndex
                         )
                     },
+                    onRemoteTrailerClick = ::playRemoteTrailer,
                     onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
                         preferredAudioStreamIndex = audioStreamIndex
                         preferredSubtitleStreamIndex = subtitleStreamIndex
@@ -546,7 +565,18 @@ fun DetailScreenContainer(
             onBackPressed()
         }
     } else {
-        if (showPlayer) {
+        val activeRemoteTrailerUrl = remoteTrailerUrl
+        if (!activeRemoteTrailerUrl.isNullOrBlank()) {
+            PlayerScreen(
+                mediaId = "remote_trailer_${activeRemoteTrailerUrl.hashCode()}",
+                remoteMediaUrl = activeRemoteTrailerUrl,
+                remoteMediaTitle = remoteTrailerTitle ?: item?.name ?: episodeItem?.name ?: "Trailer",
+                onBackPressed = {
+                    remoteTrailerUrl = null
+                    remoteTrailerTitle = null
+                }
+            )
+        } else if (showPlayer) {
             val activePlaybackId = playbackItemId ?: itemId
             val initialPlaybackItemDetails = when (activePlaybackId) {
                 item?.id -> item
@@ -687,6 +717,7 @@ fun DetailScreen(
     trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
@@ -701,6 +732,7 @@ fun DetailScreen(
         trackSelectionSyncVersion = trackSelectionSyncVersion,
         onBackPressed = onBackPressed,
         onPlayClick = onPlayClick,
+        onRemoteTrailerClick = onRemoteTrailerClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
         onVersionItemSelected = onVersionItemSelected,

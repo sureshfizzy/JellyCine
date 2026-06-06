@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.LocalMovies
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Schedule
@@ -44,6 +45,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.SeerrRequestState
@@ -160,7 +162,8 @@ fun DetailDownloadActionButton(
     state: DetailDownloadActionState,
     progress: Float,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconOnly: Boolean = false
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -193,19 +196,22 @@ fun DetailDownloadActionButton(
                             strokeWidth = 2.dp,
                             color = Color(0xFF03A9F4)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "${(progress * 100).toInt()}%",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        if (!iconOnly) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${(progress * 100).toInt()}%",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
                 DetailDownloadActionState.Queued -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.downloads_status_queued)
+                        label = stringResource(R.string.downloads_status_queued),
+                        iconOnly = iconOnly
                     )
                 }
 
@@ -215,7 +221,8 @@ fun DetailDownloadActionButton(
                         label = stringResource(R.string.downloads_status_downloaded),
                         fontSize = 12.sp,
                         tint = Color(0xFF4CAF50),
-                        textColor = Color(0xFF4CAF50)
+                        textColor = Color(0xFF4CAF50),
+                        iconOnly = iconOnly
                     )
                 }
 
@@ -223,21 +230,24 @@ fun DetailDownloadActionButton(
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.PauseCircle,
                         label = stringResource(R.string.downloads_status_paused),
-                        tint = Color(0xFFFFC107)
+                        tint = Color(0xFFFFC107),
+                        iconOnly = iconOnly
                     )
                 }
 
                 DetailDownloadActionState.Unavailable -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.settings_unavailable)
+                        label = stringResource(R.string.settings_unavailable),
+                        iconOnly = iconOnly
                     )
                 }
 
                 DetailDownloadActionState.Idle -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.downloads_action_download)
+                        label = stringResource(R.string.downloads_action_download),
+                        iconOnly = iconOnly
                     )
                 }
             }
@@ -253,7 +263,8 @@ private fun DetailDownloadLabelContent(
     iconSize: androidx.compose.ui.unit.Dp = 18.dp,
     fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
     tint: Color = Color.White,
-    textColor: Color = Color.White
+    textColor: Color = Color.White,
+    iconOnly: Boolean = false
 ) {
     Row(
         modifier = modifier,
@@ -266,15 +277,17 @@ private fun DetailDownloadLabelContent(
             modifier = Modifier.size(iconSize),
             tint = tint
         )
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(
-            text = label,
-            fontSize = fontSize,
-            fontWeight = FontWeight.Medium,
-            color = textColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        if (!iconOnly) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Medium,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -357,11 +370,12 @@ fun SeerrRequestActionButton(
 fun FavoriteActionButton(
     isFavorite: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = 46.dp
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.size(46.dp),
+        modifier = modifier.size(size),
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
         colors = ButtonDefaults.outlinedButtonColors(
@@ -379,6 +393,32 @@ fun FavoriteActionButton(
             },
             modifier = Modifier.size(20.dp),
             tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White
+        )
+    }
+}
+
+@Composable
+fun DetailTrailerButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 46.dp
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.size(size),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color(0xFF1F1F24),
+            contentColor = Color.White
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.LocalMovies,
+            contentDescription = stringResource(R.string.detail_play_trailer),
+            modifier = Modifier.size(22.dp),
+            tint = Color.White
         )
     }
 }

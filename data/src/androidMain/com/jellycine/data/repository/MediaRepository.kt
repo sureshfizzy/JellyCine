@@ -406,7 +406,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
             val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
-            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber"
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,RemoteTrailers"
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,

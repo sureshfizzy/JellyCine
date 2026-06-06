@@ -15,6 +15,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.jellycine.app.player.mpv.MPVPlayer
@@ -32,6 +33,7 @@ import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
+import com.jellycine.player.core.RemoteTrailerUrl
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,6 +103,7 @@ class PlayerViewModel @Inject constructor(
     private var mpvWatchdogJob: Job? = null
     private var hasRenderedFirstFrame = false
     private var mpvExternalSubtitleUrls: Map<Int, String> = emptyMap()
+    private var remotePlaybackRequestKey: String? = null
 
     private fun isMpvPlayback(): Boolean {
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
@@ -165,6 +168,7 @@ class PlayerViewModel @Inject constructor(
 
                 playerContext = context
                 hasHandledPlaybackCompletion = false
+                remotePlaybackRequestKey = null
                 val playerPreferences = PlayerPreferences(context)
                 activePlayerEngine = forcedPlayerEngine ?: playerPreferences.getPlayerEngine()
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
@@ -508,6 +512,90 @@ class PlayerViewModel @Inject constructor(
                 _playerState.value = _playerState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Unknown error occurred"
+                )
+            }
+        }
+    }
+
+    fun initializeRemotePlayer(
+        context: Context,
+        mediaId: String,
+        remoteUrl: String,
+        title: String? = null,
+        startPlayback: Boolean = true
+    ) {
+        viewModelScope.launch {
+            try {
+                val mediaTitle = title?.takeIf { it.isNotBlank() } ?: "Trailer"
+                releasePlayer()
+                remotePlaybackRequestKey = mediaId
+                _playerState.value = PlayerState(
+                    isLoading = true,
+                    playWhenReady = startPlayback,
+                    mediaTitle = mediaTitle
+                )
+
+                playerContext = context
+                activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_EXO
+                hasHandledPlaybackCompletion = false
+                hasRenderedFirstFrame = false
+                currentItemDetails = null
+                apiMediaStreams = null
+                defaultAudioStreamIndex = null
+                defaultSubtitleStreamIndex = null
+                playbackSession = PlaybackSessionContext()
+                playbackReporter.updateSession(playbackSession)
+
+                val playbackStream = RemoteTrailerUrl.resolve(remoteUrl)
+                if (remotePlaybackRequestKey != mediaId) return@launch
+                fun mediaSource(url: String, mimeType: String?) =
+                    PlayerUtils.createStreamingMediaSource(
+                        context = context,
+                        mediaItem = MediaItem.Builder()
+                            .setUri(Uri.parse(url))
+                            .setMimeType(mimeType)
+                            .build()
+                    )
+
+                val videoSource = mediaSource(playbackStream.url, playbackStream.mimeType)
+                val playbackMediaSource = playbackStream.audioUrl
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { audioUrl ->
+                        MergingMediaSource(
+                            videoSource,
+                            mediaSource(audioUrl, playbackStream.audioMimeType)
+                        )
+                    }
+                    ?: videoSource
+
+                exoPlayer = PlayerUtils.createPlayer(
+                    context = context,
+                    bufferOverride = PlayerUtils.PlaybackBufferOverride(
+                        minBufferMs = 30_000,
+                        maxBufferMs = 180_000,
+                        bufferForPlaybackMs = 2_500,
+                        bufferForPlaybackAfterRebufferMs = 5_000
+                    )
+                )
+                exoPlayer?.apply {
+                    addListener(playerListener)
+                    trackSelectionParameters = trackSelectionParameters
+                        .buildUpon()
+                        .setForceHighestSupportedBitrate(true)
+                        .build()
+                    setMediaSource(playbackMediaSource)
+                    prepare()
+                    playWhenReady = startPlayback
+                }
+
+                applyStartMaximizedSetting(context)
+            } catch (e: Exception) {
+                Log.e(TAG, "Remote trailer initialization failed", e)
+                _playerState.value = _playerState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Unable to play remote trailer",
+                    playWhenReady = false,
+                    isPlaying = false
                 )
             }
         }
@@ -937,6 +1025,7 @@ class PlayerViewModel @Inject constructor(
         hasHandledPlaybackCompletion = false
         hasRenderedFirstFrame = false
         audioDiagnosticsSignature = null
+        remotePlaybackRequestKey = null
         _preferredStreamIndexes.value = PreferredStreamIndexes()
         _playerState.value = PlayerState()
     }
@@ -1459,4 +1548,5 @@ class PlayerViewModel @Inject constructor(
     fun getSourceVideoHeight(): Int? {
         return PlayerMetadata.getSourceVideoHeight(apiMediaStreams)
     }
+
 }

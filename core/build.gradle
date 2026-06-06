@@ -51,6 +51,10 @@ dependencies {
     implementation 'androidx.media3:media3-datasource:1.10.1'
     implementation 'androidx.media3:media3-database:1.10.0'
 
+    // Remote trailer URL extraction
+    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
+    implementation 'com.github.MonseyNY:NewPipeExtractor:7ccf36f4'
+
     // Hilt for dependency injection
     implementation 'com.google.dagger:hilt-android:2.59.2'
 

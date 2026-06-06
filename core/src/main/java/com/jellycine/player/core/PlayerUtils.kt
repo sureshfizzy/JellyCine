@@ -59,7 +59,10 @@ object PlayerUtils {
      * HDR/Dolby Vision automatically falls back to compatible formats (no more black screens!)
      */
     @UnstableApi
-    fun createPlayer(context: Context): ExoPlayer {
+    fun createPlayer(
+        context: Context,
+        bufferOverride: PlaybackBufferOverride? = null
+    ): ExoPlayer {
         val playerPreferences = PlayerPreferences(context)
 
         try {
@@ -80,7 +83,7 @@ object PlayerUtils {
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
                 .setTrackSelector(trackSelector)
-                .setLoadControl(createLoadControl(context, playerPreferences))
+                .setLoadControl(createLoadControl(context, playerPreferences, bufferOverride))
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -98,6 +101,13 @@ object PlayerUtils {
             throw e // Re-throw to let caller handle it
         }
     }
+
+    data class PlaybackBufferOverride(
+        val minBufferMs: Int,
+        val maxBufferMs: Int,
+        val bufferForPlaybackMs: Int,
+        val bufferForPlaybackAfterRebufferMs: Int
+    )
     
     /**
      * Apply battery optimization settings to the player
@@ -151,7 +161,8 @@ object PlayerUtils {
     @UnstableApi
     private fun createLoadControl(
         context: Context,
-        playerPreferences: PlayerPreferences
+        playerPreferences: PlayerPreferences,
+        bufferOverride: PlaybackBufferOverride? = null
     ): DefaultLoadControl {
         val requestedCacheTimeMs = playerPreferences.getPlayerCacheTimeSeconds() * 1000
         val batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
@@ -163,23 +174,28 @@ object PlayerUtils {
             asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS
             else -> MAX_PLAYBACK_BUFFER_MS
         }
-        val maxBufferMs = minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
+        val maxBufferMs = bufferOverride?.maxBufferMs
+            ?: minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
         val minPlaybackBufferMs = when {
             batteryOptimizationEnabled -> BATTERY_MIN_PLAYBACK_BUFFER_MS
             asyncMediaCodecEnabled -> ASYNC_MIN_PLAYBACK_BUFFER_MS
             else -> DEFAULT_MIN_PLAYBACK_BUFFER_MS
         }
-        val minBufferMs = minOf(maxBufferMs, minPlaybackBufferMs)
-        val playbackBufferMs = if (batteryOptimizationEnabled) {
-            minOf(1_500, minBufferMs)
-        } else {
-            minOf(BUFFER_FOR_PLAYBACK_MS, minBufferMs)
-        }
-        val rebufferPlaybackMs = if (batteryOptimizationEnabled) {
-            minOf(5_000, maxBufferMs)
-        } else {
-            minOf(BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS, maxBufferMs)
-        }
+        val minBufferMs = bufferOverride?.minBufferMs?.coerceAtMost(maxBufferMs)
+            ?: minOf(maxBufferMs, minPlaybackBufferMs)
+        val playbackBufferMs = bufferOverride?.bufferForPlaybackMs?.coerceAtMost(minBufferMs)
+            ?: if (batteryOptimizationEnabled) {
+                minOf(1_500, minBufferMs)
+            } else {
+                minOf(BUFFER_FOR_PLAYBACK_MS, minBufferMs)
+            }
+        val rebufferPlaybackMs = bufferOverride?.bufferForPlaybackAfterRebufferMs
+            ?.coerceAtMost(maxBufferMs)
+            ?: if (batteryOptimizationEnabled) {
+                minOf(5_000, maxBufferMs)
+            } else {
+                minOf(BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS, maxBufferMs)
+            }
 
         val targetBufferBytes = when {
             asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_TARGET_BUFFER_BYTES

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
@@ -28,6 +29,7 @@ import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.DetailDownloadActionButton
 import com.jellycine.shared.ui.components.common.DetailDownloadActionState
 import com.jellycine.shared.ui.components.common.DetailPlayActionButton
+import com.jellycine.shared.ui.components.common.DetailTrailerButton
 import com.jellycine.shared.ui.components.common.FavoriteActionButton
 
 @Composable
@@ -45,7 +47,9 @@ internal fun ActionSection(
     downloadActionMenu: Boolean,
     downloadProgress: Float,
     isFavorite: Boolean,
+    hasTrailer: Boolean,
     onPlayClick: () -> Unit,
+    onTrailerClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onDownloadMenuChange: (Boolean) -> Unit,
     onPauseResumeDownload: () -> Unit,
@@ -53,6 +57,8 @@ internal fun ActionSection(
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val iconOnlyDownload = !useTabletLayout
+
     Row(
         modifier = modifier
             .fillMaxWidth(
@@ -81,8 +87,15 @@ internal fun ActionSection(
 
         Box(
             modifier = Modifier
-                .weight(1f)
-                .height(buttonHeight)
+                .then(
+                    if (iconOnlyDownload) {
+                        Modifier.size(buttonHeight)
+                    } else {
+                        Modifier
+                            .weight(1f)
+                            .height(buttonHeight)
+                    }
+                )
         ) {
             val downloadActionState = when {
                 !canDownloadItem -> DetailDownloadActionState.Unavailable
@@ -106,7 +119,8 @@ internal fun ActionSection(
                         else -> onDownloadClick()
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                iconOnly = iconOnlyDownload
             )
 
             DownloadActionMenu(
@@ -119,9 +133,17 @@ internal fun ActionSection(
             )
         }
 
+        if (hasTrailer) {
+            DetailTrailerButton(
+                onClick = onTrailerClick,
+                size = buttonHeight
+            )
+        }
+
         FavoriteActionButton(
             isFavorite = isFavorite,
-            onClick = onFavoriteClick
+            onClick = onFavoriteClick,
+            size = buttonHeight
         )
     }
 }
@@ -138,6 +160,8 @@ internal fun SeriesActionSection(
     canResumeSeriesDownloads: Boolean,
     hasActiveSeriesDownloads: Boolean,
     isFavorite: Boolean,
+    hasTrailer: Boolean,
+    onTrailerClick: () -> Unit,
     onSeriesDownloadClick: () -> Unit,
     onSeriesDownloadMenuChange: (Boolean) -> Unit,
     onPauseResumeSeriesDownloads: () -> Unit,
@@ -202,9 +226,17 @@ internal fun SeriesActionSection(
             )
         }
 
+        if (hasTrailer) {
+            DetailTrailerButton(
+                onClick = onTrailerClick,
+                size = buttonHeight
+            )
+        }
+
         FavoriteActionButton(
             isFavorite = isFavorite,
-            onClick = onFavoriteClick
+            onClick = onFavoriteClick,
+            size = buttonHeight
         )
     }
 }

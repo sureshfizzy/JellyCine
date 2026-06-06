@@ -81,6 +81,8 @@ internal fun PlayerScreenEffects(
     lifecycleOwner: LifecycleOwner,
     mediaId: String,
     initialItemDetails: BaseItemDto?,
+    remoteMediaUrl: String?,
+    remoteMediaTitle: String?,
     preferredAudioStreamIndex: Int?,
     preferredSubtitleStreamIndex: Int?,
     viewModel: PlayerViewModel,
@@ -174,8 +176,13 @@ internal fun PlayerScreenEffects(
         }
     }
 
-    LaunchedEffect(mediaId) {
-        if (initializedMediaIdProvider() == mediaId) return@LaunchedEffect
+    val initializationKey = remoteMediaUrl
+        ?.takeIf { it.isNotBlank() }
+        ?.let { "remote:$it" }
+        ?: mediaId
+
+    LaunchedEffect(initializationKey) {
+        if (initializedMediaIdProvider() == initializationKey) return@LaunchedEffect
 
         try {
             trimImageMemoryCacheForPlayback(context)
@@ -183,14 +190,23 @@ internal fun PlayerScreenEffects(
                 viewModel.releasePlayer()
             }
             onUiStateChange(uiStateProvider().copy(currentPosition = 0L, isPlaying = false))
-            viewModel.initializePlayer(
-                context = context,
-                mediaId = mediaId,
-                initialItemDetails = initialItemDetails,
-                preferredAudioStreamIndex = preferredAudioStreamIndex,
-                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
-            )
-            onInitializedMediaIdChange(mediaId)
+            if (!remoteMediaUrl.isNullOrBlank()) {
+                viewModel.initializeRemotePlayer(
+                    context = context,
+                    mediaId = initializationKey,
+                    remoteUrl = remoteMediaUrl,
+                    title = remoteMediaTitle
+                )
+            } else {
+                viewModel.initializePlayer(
+                    context = context,
+                    mediaId = mediaId,
+                    initialItemDetails = initialItemDetails,
+                    preferredAudioStreamIndex = preferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+                )
+            }
+            onInitializedMediaIdChange(initializationKey)
         } catch (_: Exception) {
         }
     }
@@ -223,7 +239,7 @@ internal fun PlayerScreenEffects(
         preferredStreamIndexes.audioStreamIndex,
         preferredStreamIndexes.subtitleStreamIndex
     ) {
-        if (initializedMediaIdProvider() == mediaId) {
+        if (initializedMediaIdProvider() == initializationKey && remoteMediaUrl.isNullOrBlank()) {
             onPreferredStreamIndexesChanged(
                 preferredStreamIndexes.audioStreamIndex,
                 preferredStreamIndexes.subtitleStreamIndex

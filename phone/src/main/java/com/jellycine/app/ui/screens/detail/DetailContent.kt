@@ -40,6 +40,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.DownloadStatus
 import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.data.model.MediaStream
+import com.jellycine.data.model.MediaUrl
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -87,6 +88,7 @@ fun DetailContent(
     trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
@@ -350,6 +352,32 @@ fun DetailContent(
         }
     }
 
+    val selectedRemoteTrailer = remember(item.remoteTrailers) {
+        item.remoteTrailers
+            .orEmpty()
+            .filter { trailer -> !trailer.url.isNullOrBlank() }
+            .maxByOrNull { trailer ->
+                val label = listOfNotNull(trailer.name, trailer.url)
+                    .joinToString(separator = " ")
+                    .lowercase(Locale.US)
+                when {
+                    "official trailer" in label -> 3
+                    "trailer" in label -> 2
+                    "official" in label -> 1
+                    else -> 0
+                }
+            }
+    }
+
+    fun playTrailer() {
+        selectedRemoteTrailer?.let { remoteTrailer ->
+            onRemoteTrailerClick(
+                remoteTrailer.url.orEmpty(),
+                remoteTrailer.name?.takeIf { it.isNotBlank() } ?: item.name
+            )
+        }
+    }
+
     val animatedDownloadProgress by animateFloatAsState(
         targetValue = when (itemDownloadState.status) {
             DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
@@ -441,6 +469,8 @@ fun DetailContent(
             logoLookup = false
         }
     }
+
+    val hasTrailer = selectedRemoteTrailer != null
 
     LaunchedEffect(
         item.id,
@@ -577,7 +607,6 @@ fun DetailContent(
             )
         }
     }
-
     fun persistTrackSelection(audioOption: String, subtitleOption: String): Pair<Int?, Int?> {
         val audioStreamIndex = AudioStreamIndex(
             streams = effectiveMediaStreams,
@@ -1028,6 +1057,7 @@ fun DetailContent(
                                 downloadActionMenu = downloadActionMenu,
                                 downloadProgress = animatedDownloadProgress,
                                 isFavorite = isFavorite,
+                                hasTrailer = hasTrailer,
                                 onPlayClick = {
                                     val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
                                         persistTrackSelection(
@@ -1039,6 +1069,7 @@ fun DetailContent(
                                         selectedSubtitleStreamIndex
                                     )
                                 },
+                                onTrailerClick = ::playTrailer,
                                 onDownloadClick = {
                                     coroutineScope.launch {
                                         downloadRepository.enqueueItemDownload(item)
@@ -1123,6 +1154,8 @@ fun DetailContent(
                                 canResumeSeriesDownloads = canResumeSeriesDownloads,
                                 hasActiveSeriesDownloads = hasActiveSeriesDownloads,
                                 isFavorite = isFavorite,
+                                hasTrailer = hasTrailer,
+                                onTrailerClick = ::playTrailer,
                                 onSeriesDownloadClick = {
                                     coroutineScope.launch {
                                         val seriesId = item.id

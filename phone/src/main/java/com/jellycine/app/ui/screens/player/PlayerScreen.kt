@@ -63,6 +63,8 @@ data class PlayerUiState(
 fun PlayerScreen(
     mediaId: String,
     initialItemDetails: BaseItemDto? = null,
+    remoteMediaUrl: String? = null,
+    remoteMediaTitle: String? = null,
     preferredAudioStreamIndex: Int? = null,
     preferredSubtitleStreamIndex: Int? = null,
     modifier: Modifier = Modifier,
@@ -175,6 +177,8 @@ fun PlayerScreen(
         lifecycleOwner = lifecycleOwner,
         mediaId = mediaId,
         initialItemDetails = initialItemDetails,
+        remoteMediaUrl = remoteMediaUrl,
+        remoteMediaTitle = remoteMediaTitle,
         preferredAudioStreamIndex = preferredAudioStreamIndex,
         preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
         viewModel = viewModel,
