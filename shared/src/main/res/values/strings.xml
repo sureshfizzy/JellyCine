@@ -142,6 +142,8 @@
     <string name="dashboard_no_items_found">No items found</string>
     <string name="dashboard_failed_load_my_media">Failed to load My Media</string>
     <string name="dashboard_for_you">For You</string>
+    <string name="dashboard_for_you_greeting">Hello %1$s,</string>
+    <string name="dashboard_for_you_recommendations">Recommendations</string>
     <string name="dashboard_for_you_empty_title">Nothing here yet</string>
     <string name="dashboard_for_you_empty_message">Start a movie or episode and this screen will turn into your recommendation hub.</string>
     <string name="dashboard_for_you_load_error">Unable to build your feed</string>

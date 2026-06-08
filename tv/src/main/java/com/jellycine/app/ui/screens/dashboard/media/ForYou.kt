@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,12 +33,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.title
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.async
@@ -62,9 +65,27 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
+    val activeSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
+    val sessionSnapshot by authRepository.observeActiveSession()
+        .collectAsState(initial = activeSessionSnapshot)
+    val username = sessionSnapshot.username
+    val fallbackHeaderTitle = stringResource(R.string.dashboard_for_you)
+    val greetingName = username?.trim()?.takeIf { it.isNotEmpty() }
+    val headerTitle = if (greetingName != null) {
+        stringResource(R.string.dashboard_for_you_greeting, greetingName)
+    } else {
+        fallbackHeaderTitle
+    }
+    val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
+        sessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == sessionSnapshot.activeServerId
+        }
+    }
+    val profileImageUrl = activeSavedServer?.profileImageUrl
 
     fun refresh() {
         scope.launch {
@@ -96,13 +117,20 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.dashboard_for_you),
+                        text = headerTitle,
                         color = Color.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.SemiBold
+                    )
+                    UserProfileAvatar(
+                        imageUrl = profileImageUrl,
+                        serverTypeRaw = sessionSnapshot.serverType,
+                        onClick = {},
+                        modifier = Modifier.size(34.dp)
                     )
                 }
             }
@@ -123,6 +151,10 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
+                            item(key = "recommendations_pill") {
+                                RecommendationsPill()
+                            }
+
                             itemsIndexed(
                                 items = sections,
                                 key = { index, section -> "${section.title}_$index" }
@@ -245,6 +277,23 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
         }
     } catch (e: Exception) {
         RecommendationFeedState(emptyList(), e.message ?: "Unknown error")
+    }
+}
+
+@Composable
+private fun RecommendationsPill() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.dashboard_for_you_recommendations),
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
     }
 }
 

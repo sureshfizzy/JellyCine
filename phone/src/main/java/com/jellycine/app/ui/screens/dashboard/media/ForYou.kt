@@ -14,6 +14,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +38,7 @@ import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
 import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
 import com.jellycine.data.model.SeerrPersonRole
 import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
@@ -88,9 +90,24 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
         state = listState,
         compactDistance = 92.dp
     )
-    val headerTitle = stringResource(R.string.dashboard_for_you)
-    val activeServerId by authRepository.getActiveServerId()
-        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+    val activeSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
+    val sessionSnapshot by authRepository.observeActiveSession()
+        .collectAsState(initial = activeSessionSnapshot)
+    val username = sessionSnapshot.username
+    val fallbackHeaderTitle = stringResource(R.string.dashboard_for_you)
+    val greetingName = username?.trim()?.takeIf { it.isNotEmpty() }
+    val headerTitle = if (greetingName != null) {
+        stringResource(R.string.dashboard_for_you_greeting, greetingName)
+    } else {
+        fallbackHeaderTitle
+    }
+    val activeServerId = sessionSnapshot.activeServerId
+    val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
+        sessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == sessionSnapshot.activeServerId
+        }
+    }
+    val profileImageUrl = activeSavedServer?.profileImageUrl
 
     fun refresh() {
         scope.launch {
@@ -157,7 +174,11 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
 
         Column(modifier = Modifier.fillMaxSize()) {
             if (showStaticHeader) {
-                CompactPageHeader(title = headerTitle)
+                ForYouHeader(
+                    title = headerTitle,
+                    profileImageUrl = profileImageUrl,
+                    serverTypeRaw = sessionSnapshot.serverType
+                )
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -178,7 +199,15 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
                             item(key = "for_you_header") {
-                                CompactPageHeader(title = headerTitle)
+                                ForYouHeader(
+                                    title = headerTitle,
+                                    profileImageUrl = profileImageUrl,
+                                    serverTypeRaw = sessionSnapshot.serverType
+                                )
+                            }
+
+                            item(key = "recommendations_pill") {
+                                RecommendationsPill()
                             }
 
                             itemsIndexed(
@@ -360,6 +389,44 @@ private fun List<RecommendationSectionUi>.replaceSection(
 ): List<RecommendationSectionUi> {
     return map { section ->
         if (section.title == updatedSection.title) updatedSection else section
+    }
+}
+
+@Composable
+private fun ForYouHeader(
+    title: String,
+    profileImageUrl: String?,
+    serverTypeRaw: String?
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        CompactPageHeader(title = title)
+        UserProfileAvatar(
+            imageUrl = profileImageUrl,
+            serverTypeRaw = serverTypeRaw,
+            onClick = {},
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 16.dp, top = 12.dp)
+                .size(36.dp)
+        )
+    }
+}
+
+@Composable
+private fun RecommendationsPill() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White.copy(alpha = 0.12f),
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.dashboard_for_you_recommendations),
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+        )
     }
 }
 
