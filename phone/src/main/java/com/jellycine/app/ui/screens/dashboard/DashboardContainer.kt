@@ -150,6 +150,7 @@ sealed class DashboardDestination(
 fun DashboardContainer(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = {},
+    onNavigateToMergedDetail: (com.jellycine.data.model.BaseItemDto) -> Unit = onNavigateToDetail,
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayer: (String) -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
@@ -425,7 +426,13 @@ fun DashboardContainer(
                                 }
                             )
                         } else {
-                            ForYou(onItemClick = onNavigateToDetail)
+                            ForYou(
+                                onItemClick = onNavigateToDetail,
+                                onWatchedItemClick = onNavigateToMergedDetail,
+                                onNavigateToViewAll = { contentType, parentId, title ->
+                                    onNavigateToViewAll(contentType.name, parentId, title)
+                                }
+                            )
                         }
                     }
                 }

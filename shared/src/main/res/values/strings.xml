@@ -87,6 +87,7 @@
     <string name="previous">Previous</string>
     <string name="resume">Resume</string>
     <string name="watched">Watched</string>
+    <string name="count_left">%1$d left</string>
     <string name="unwatched">Unwatched</string>
     <string name="favorite">Favorite</string>
     <string name="unfavorite">Unfavorite</string>

@@ -86,6 +86,7 @@ import kotlinx.coroutines.launch
 fun DetailContent(
     item: BaseItemDto,
     isLoading: Boolean = false,
+    forceMergeVersions: Boolean = false,
     trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
@@ -120,6 +121,7 @@ fun DetailContent(
     val isSeerDetail = item.isSeerDetailItem()
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
+    val shouldMergeVersions = forceMergeVersions || mergeVersionsEnabled
     val metadataScrollState = rememberScrollState()
     val detailListState = rememberLazyListState()
     val isEpisode = item.type == "Episode"
@@ -532,11 +534,11 @@ fun DetailContent(
             .withUserDataRefresh(userDataRefreshEvent)
     }
 
-    LaunchedEffect(item.id, item.type, isSeerDetail, mergeVersionsEnabled) {
+    LaunchedEffect(item.id, item.type, isSeerDetail, shouldMergeVersions) {
         val supportsLocalVersions = item.type.equals("Movie", ignoreCase = true) ||
             item.type.equals("Episode", ignoreCase = true)
         if (
-            !mergeVersionsEnabled ||
+            !shouldMergeVersions ||
             isSeerDetail ||
             !supportsLocalVersions ||
             item.id.isNullOrBlank()

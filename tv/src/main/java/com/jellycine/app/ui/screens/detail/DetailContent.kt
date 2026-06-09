@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 fun DetailContent(
     item: BaseItemDto,
     isLoading: Boolean = false,
+    forceMergeVersions: Boolean = false,
     trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
@@ -88,6 +89,7 @@ fun DetailContent(
                              configuration.screenWidthDp >= 600
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
+    val shouldMergeVersions = forceMergeVersions || mergeVersionsEnabled
     val metadataScrollState = rememberScrollState()
     val isEpisode = item.type == "Episode"
     val episodeHeaderText = remember(
@@ -372,11 +374,11 @@ fun DetailContent(
             .withUserDataRefresh(userDataRefreshEvent)
     }
 
-    LaunchedEffect(item.id, item.type, mergeVersionsEnabled) {
+    LaunchedEffect(item.id, item.type, shouldMergeVersions) {
         val supportsLocalVersions = item.type.equals("Movie", ignoreCase = true) ||
             item.type.equals("Episode", ignoreCase = true)
         if (
-            !mergeVersionsEnabled ||
+            !shouldMergeVersions ||
             !supportsLocalVersions ||
             item.id.isNullOrBlank()
         ) {

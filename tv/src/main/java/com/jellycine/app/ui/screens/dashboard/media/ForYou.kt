@@ -1,12 +1,14 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
@@ -15,6 +17,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
@@ -43,6 +47,7 @@ import com.jellycine.data.model.title
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.shared.recommendations.loadWatchedFeed
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -53,14 +58,22 @@ private data class RecommendationSectionUi(
     val items: List<BaseItemDto>
 )
 
+internal const val WATCHED_VIEW_ALL_PARENT_ID = "__watched__"
+
 private data class RecommendationFeedState(
     val sections: List<RecommendationSectionUi>,
     val error: String?
 )
 
 @Composable
-fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
+fun ForYou(
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onWatchedItemClick: (BaseItemDto) -> Unit = onItemClick,
+    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
+) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
+    var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
+    var showWatchedTab by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -86,13 +99,29 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
         }
     }
     val profileImageUrl = activeSavedServer?.profileImageUrl
+    val watchedMoviesTitle = stringResource(R.string.movies)
+    val watchedShowsTitle = stringResource(R.string.search_results_shows)
+    val watchedEpisodesTitle = stringResource(R.string.search_results_episodes)
 
     fun refresh() {
         scope.launch {
             isLoading = true
-            val result = loadRecommendationFeed(mediaRepository)
+            val recommendationResult = async { loadRecommendationFeed(mediaRepository) }
+            val watchedResult = async {
+                loadWatchedFeed(
+                    mediaRepository = mediaRepository,
+                    moviesTitle = watchedMoviesTitle,
+                    showsTitle = watchedShowsTitle,
+                    episodesTitle = watchedEpisodesTitle
+                )
+            }
+            val result = recommendationResult.await()
+            val watched = watchedResult.await()
             sections = result.sections
-            error = result.error
+            watchedSections = watched.sections.map { section ->
+                RecommendationSectionUi(section.title, section.items)
+            }
+            error = result.error ?: watched.error
             isLoading = false
         }
     }
@@ -106,6 +135,9 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        val activeSections = if (showWatchedTab) watchedSections else sections
+        val hasAnySections = sections.isNotEmpty() || watchedSections.isNotEmpty()
+
         Column(modifier = Modifier.fillMaxSize()) {
             Surface(
                 modifier = Modifier
@@ -146,26 +178,39 @@ fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
                         }
                     }
 
-                    sections.isNotEmpty() -> {
+                    hasAnySections -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
-                            item(key = "recommendations_pill") {
-                                RecommendationsPill()
+                            item(key = "for_you_feed_pills") {
+                                ForYouFeedPills(
+                                    showWatchedTab = showWatchedTab,
+                                    onWatchedTabChanged = { showWatchedTab = it }
+                                )
                             }
 
                             itemsIndexed(
-                                items = sections,
+                                items = activeSections,
                                 key = { index, section -> "${section.title}_$index" }
                             ) { _, section ->
+                                val viewAllContentType = when (section.title) {
+                                    watchedMoviesTitle -> ContentType.MOVIES
+                                    watchedShowsTitle -> ContentType.SERIES
+                                    else -> ContentType.EPISODES
+                                }
                                 RecommendationRail(
                                     section = section,
                                     mediaRepository = mediaRepository,
                                     disablePosterEnhancers = disablePosterEnhancers,
-                                    onItemClick = onItemClick
+                                    isWatchedFeed = showWatchedTab,
+                                    onViewAllClick = {
+                                        onNavigateToViewAll(viewAllContentType, WATCHED_VIEW_ALL_PARENT_ID, section.title)
+                                    },
+                                    onItemClick = if (showWatchedTab) onWatchedItemClick else onItemClick
                                 )
                             }
+
                         }
                     }
 
@@ -281,19 +326,34 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
 }
 
 @Composable
-private fun RecommendationsPill() {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Color.White.copy(alpha = 0.12f),
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp)
+private fun ForYouFeedPills(
+    showWatchedTab: Boolean,
+    onWatchedTabChanged: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = stringResource(R.string.dashboard_for_you_recommendations),
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-        )
+        listOf(
+            false to stringResource(R.string.dashboard_for_you_recommendations),
+            true to stringResource(R.string.watched)
+        ).forEach { (watchedTab, label) ->
+            val selected = showWatchedTab == watchedTab
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
+                modifier = Modifier.clickable { onWatchedTabChanged(watchedTab) }
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) Color.Black else Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
     }
 }
 
@@ -302,6 +362,8 @@ private fun RecommendationRail(
     section: RecommendationSectionUi,
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
+    isWatchedFeed: Boolean,
+    onViewAllClick: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit
 ) {
     Column(
@@ -309,13 +371,35 @@ private fun RecommendationRail(
             .fillMaxWidth()
             .padding(top = 8.dp, bottom = 8.dp)
     ) {
-        Text(
-            text = section.title,
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = section.title,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (isWatchedFeed) {
+                IconButton(
+                    onClick = onViewAllClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = stringResource(R.string.dashboard_view_all),
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
 
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -330,7 +414,8 @@ private fun RecommendationRail(
                 LibraryItemCard(
                     item = item,
                     mediaRepository = mediaRepository,
-                    disableImageEnhancers = disablePosterEnhancers,
+                    disableImageEnhancers = disablePosterEnhancers || isWatchedFeed,
+                    watchedFeedStyle = isWatchedFeed,
                     onClick = { onItemClick(item) }
                 )
             }

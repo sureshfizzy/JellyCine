@@ -57,6 +57,7 @@ private fun dashboardExitTransition(): ExitTransition {
 fun DashboardContainer(
     onLogout: () -> Unit = {},
     onNavigateToDetail: (BaseItemDto) -> Unit = {},
+    onNavigateToMergedDetail: (BaseItemDto) -> Unit = onNavigateToDetail,
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayer: (String) -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
@@ -171,7 +172,13 @@ fun DashboardContainer(
                             }
                         )
                     } else {
-                        ForYou(onItemClick = onNavigateToDetail)
+                        ForYou(
+                            onItemClick = onNavigateToDetail,
+                            onWatchedItemClick = onNavigateToMergedDetail,
+                            onNavigateToViewAll = { contentType, parentId, title ->
+                                onNavigateToViewAll(contentType.name, parentId, title)
+                            }
+                        )
                     }
                 }
 

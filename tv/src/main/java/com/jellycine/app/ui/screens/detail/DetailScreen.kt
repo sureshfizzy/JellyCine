@@ -72,6 +72,7 @@ private data class SeasonDetailData(
 @Composable
 fun DetailScreenContainer(
     itemId: String,
+    forceMergeVersions: Boolean = false,
     onBackPressed: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
     onNavigateToPerson: (String) -> Unit = {}
@@ -454,6 +455,7 @@ fun DetailScreenContainer(
                                 DetailScreen(
                                     item = currentItem,
                                     isLoading = isLoading,
+                                    forceMergeVersions = forceMergeVersions,
                                     trackSelectionSyncVersion = trackSelectionSyncVersion,
                                     onBackPressed = handleBackNavigation,
                                     onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
@@ -608,6 +610,7 @@ fun DetailScreenContainer(
 fun DetailScreen(
     item: BaseItemDto,
     isLoading: Boolean = false,
+    forceMergeVersions: Boolean = false,
     trackSelectionSyncVersion: Int = 0,
     onBackPressed: () -> Unit = {},
     onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
@@ -620,6 +623,7 @@ fun DetailScreen(
     DetailContent(
         item = item,
         isLoading = isLoading,
+        forceMergeVersions = forceMergeVersions,
         trackSelectionSyncVersion = trackSelectionSyncVersion,
         onBackPressed = onBackPressed,
         onPlayClick = onPlayClick,

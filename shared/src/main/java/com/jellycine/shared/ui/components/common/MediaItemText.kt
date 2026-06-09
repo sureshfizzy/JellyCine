@@ -18,6 +18,14 @@ fun BaseItemDto.preferredDisplayTitle(
     }
 }
 
+fun BaseItemDto.episodeSeriesTitle(
+    unknownTitle: String,
+    unknownEpisode: String = unknownTitle
+): String {
+    return seriesName?.takeIf { it.isNotBlank() }
+        ?: preferredDisplayTitle(unknownTitle, unknownEpisode)
+}
+
 fun BaseItemDto.episodeDisplaySubtitle(fallback: String = ""): String {
     val cleanName = name?.takeIf { it.isNotBlank() }
     val cleanEpisodeTitle = episodeTitle?.takeIf { it.isNotBlank() }
@@ -28,9 +36,9 @@ fun BaseItemDto.episodeDisplaySubtitle(fallback: String = ""): String {
     }
     val seasonEpisodeCode = when {
         parentIndexNumber != null && indexNumber != null ->
-            "S${parentIndexNumber}:E${indexNumber}"
-        parentIndexNumber != null -> "S${parentIndexNumber}"
-        indexNumber != null -> "E${indexNumber}"
+            "S${parentIndexNumber.toString().padStart(2, '0')} E${indexNumber.toString().padStart(2, '0')}"
+        parentIndexNumber != null -> "S${parentIndexNumber.toString().padStart(2, '0')}"
+        indexNumber != null -> "E${indexNumber.toString().padStart(2, '0')}"
         !seasonName.isNullOrBlank() -> seasonName.orEmpty()
         else -> ""
     }

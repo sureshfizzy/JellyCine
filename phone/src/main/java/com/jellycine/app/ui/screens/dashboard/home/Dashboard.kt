@@ -776,6 +776,7 @@ fun ImageLoader(
     fallbackImageType: String? = null,
     extraFallbackImageTypes: List<String> = emptyList(),
     preferSeriesIdForThumbBackdrop: Boolean = true,
+    preferSeriesIdForEpisodePrimary: Boolean = true,
     allowRgb565: Boolean = true,
     contentDescription: String?,
     modifier: Modifier = Modifier,
@@ -819,9 +820,12 @@ fun ImageLoader(
     val currentImageType = imageTypes.getOrElse(imageTypeIndex) { imageType }
     val hasMoreFallbacks = imageTypeIndex < imageTypes.lastIndex
 
-    val actualItemId = remember(itemId, seriesId, itemType, currentImageType, preferSeriesIdForThumbBackdrop) {
+    val actualItemId = remember(itemId, seriesId, itemType, currentImageType, preferSeriesIdForThumbBackdrop, preferSeriesIdForEpisodePrimary) {
         when {
-            itemType == "Episode" && currentImageType == "Primary" && !seriesId.isNullOrBlank() -> seriesId
+            itemType == "Episode" &&
+                currentImageType == "Primary" &&
+                preferSeriesIdForEpisodePrimary &&
+                !seriesId.isNullOrBlank() -> seriesId
             (currentImageType == "Thumb" || currentImageType == "Backdrop") &&
                 preferSeriesIdForThumbBackdrop &&
                 !seriesId.isNullOrBlank() -> seriesId
@@ -3015,27 +3019,35 @@ internal fun LibraryItemCard(
     mediaRepository: MediaRepository,
     disableImageEnhancers: Boolean = false,
     useLandscapeLayout: Boolean = false,
+    watchedFeedStyle: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
+    val useWatchedEpisodeImage = watchedFeedStyle && item.type == "Episode"
+    val useWatchedSeriesBadge = watchedFeedStyle && item.type == "Series"
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
 
-    val displayName = item.preferredDisplayTitle(
-        unknownTitle = unknownTitle,
-        unknownEpisode = unknownEpisode
-    )
+    val displayName = if (useWatchedEpisodeImage) {
+        item.episodeSeriesTitle(unknownTitle, unknownEpisode)
+    } else {
+        item.preferredDisplayTitle(
+            unknownTitle = unknownTitle,
+            unknownEpisode = unknownEpisode
+        )
+    }
 
-    val cardWidth = if (useLandscapeLayout) 200.dp else 112.dp
-    val cardHeight = if (useLandscapeLayout) 182.dp else 214.dp
-    val imageHeight = if (useLandscapeLayout) 120.dp else 166.dp
-    val titleAreaHeight = if (useLandscapeLayout) 64.dp else 46.dp
-    val titleTopPadding = if (useLandscapeLayout) 10.dp else 4.dp
-    val titleFontSize = if (useLandscapeLayout) 16.sp else 13.sp
-    val titleLineHeight = if (useLandscapeLayout) 18.sp else 15.sp
-    val titleMaxLines = if (useLandscapeLayout) 2 else 1
-    val metadataFontSize = if (useLandscapeLayout) 14.sp else 12.sp
-    val metadataLineHeight = if (useLandscapeLayout) 16.sp else 13.sp
+    val landscapeLayout = useLandscapeLayout || useWatchedEpisodeImage
+    val cardWidth = if (landscapeLayout) 200.dp else 112.dp
+    val cardHeight = if (landscapeLayout) 182.dp else 214.dp
+    val imageHeight = if (landscapeLayout) 120.dp else 166.dp
+    val titleAreaHeight = if (landscapeLayout) 64.dp else 46.dp
+    val titleTopPadding = if (landscapeLayout) 10.dp else 4.dp
+    val titleFontSize = if (landscapeLayout) 16.sp else 13.sp
+    val titleLineHeight = if (landscapeLayout) 18.sp else 15.sp
+    val titleMaxLines = if (useWatchedEpisodeImage) 1 else if (landscapeLayout) 2 else 1
+    val metadataFontSize = if (landscapeLayout) 14.sp else 12.sp
+    val metadataLineHeight = if (landscapeLayout) 16.sp else 13.sp
 
     Column(
         modifier = modifier
@@ -3056,13 +3068,17 @@ internal fun LibraryItemCard(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
+                val imageType = if (landscapeLayout && !useWatchedEpisodeImage) "Thumb" else "Primary"
+                val fallbackImageType = if (landscapeLayout) "Backdrop" else null
+
                 ImageLoader(
                     itemId = stableItem.id,
                     seriesId = stableItem.seriesId,
-                    imageType = if (useLandscapeLayout) "Thumb" else "Primary",
-                    fallbackImageType = if (useLandscapeLayout) "Backdrop" else null,
-                    extraFallbackImageTypes = if (useLandscapeLayout) listOf("Primary") else emptyList(),
-                    preferSeriesIdForThumbBackdrop = useLandscapeLayout,
+                    imageType = imageType,
+                    fallbackImageType = fallbackImageType,
+                    extraFallbackImageTypes = if (useWatchedEpisodeImage) listOf("Thumb") else if (landscapeLayout) listOf("Primary") else emptyList(),
+                    preferSeriesIdForThumbBackdrop = landscapeLayout && !useWatchedEpisodeImage,
+                    preferSeriesIdForEpisodePrimary = !useWatchedEpisodeImage,
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -3077,6 +3093,7 @@ internal fun LibraryItemCard(
 
                 val episodeCount = when {
                     item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
+                    useWatchedSeriesBadge -> null
                     item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
                     item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
                     else -> null
@@ -3086,15 +3103,24 @@ internal fun LibraryItemCard(
                     item.userData?.unplayedItemCount == 0
 
                 episodeCount?.takeIf { it > 0 }?.let { count ->
-                    PosterCountBadge(
-                        count = count,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 4.dp)
-                    )
+                    if (useWatchedSeriesBadge) {
+                        PosterTextBadge(
+                            text = stringResource(R.string.count_left, count),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 8.dp, bottom = 8.dp)
+                        )
+                    } else {
+                        PosterCountBadge(
+                            count = count,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 4.dp)
+                        )
+                    }
                 }
 
-                if (isFullyWatched || (episodeCount == null && stableItem.isWatched)) {
+                if (!watchedFeedStyle && (isFullyWatched || (episodeCount == null && stableItem.isWatched))) {
                     WatchedIndicatorBadge(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -3128,7 +3154,7 @@ internal fun LibraryItemCard(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                val metadataText = buildMetadataText(item)
+                val metadataText = if (useWatchedEpisodeImage) item.episodeDisplaySubtitle() else buildMetadataText(item)
                 if (metadataText.isNotEmpty()) {
                     Text(
                         text = metadataText,

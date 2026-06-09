@@ -589,6 +589,76 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    suspend fun loadWatchedItems(includeItemTypes: String): Result<List<BaseItemDto>> {
+        val expectedTypes = includeItemTypes.split(',').map { it.trim() }.toSet()
+        val result = getUserItems(
+            includeItemTypes = includeItemTypes,
+            recursive = true,
+            sortBy = "DatePlayed",
+            sortOrder = "Descending",
+            filters = "IsPlayed",
+            fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,IndexNumber,ParentIndexNumber,ProductionYear,RunTimeTicks,Overview,ProviderIds,UserData"
+        ).getOrElse { return Result.failure(it) }
+
+        return runCatching {
+            val items = result.items.orEmpty()
+                .filter { item ->
+                    item.id != null &&
+                        !item.name.isNullOrBlank() &&
+                        item.type in expectedTypes &&
+                        item.userData?.played == true
+                }
+
+            if (expectedTypes == setOf("Episode")) {
+                val seriesById = getWatchedSeriesById(items.mapNotNull { it.seriesId })
+                items
+                    .filter { item -> item.watchedEpisodeTmdbKey(seriesById) != null }
+                    .distinctBy { item -> item.watchedEpisodeTmdbKey(seriesById) }
+            } else {
+                items
+                    .filter { item -> item.watchedTmdbKey() != null }
+                    .distinctBy { item -> item.watchedTmdbKey() }
+            }
+        }
+    }
+
+    suspend fun loadSeriesForWatchedEpisodes(watchedEpisodes: List<BaseItemDto>): Result<List<BaseItemDto>> {
+        val orderedSeriesIds = watchedEpisodes.mapNotNull { it.seriesId }.distinct()
+        if (orderedSeriesIds.isEmpty()) return Result.success(emptyList())
+
+        return runCatching {
+            val seriesById = getWatchedSeriesById(orderedSeriesIds)
+            orderedSeriesIds.mapNotNull(seriesById::get)
+                .filter { item -> item.watchedTmdbKey() != null }
+                .distinctBy { item -> item.watchedTmdbKey() }
+        }
+    }
+
+    private suspend fun getWatchedSeriesById(seriesIds: List<String>): Map<String, BaseItemDto> {
+        return seriesIds.distinct()
+            .mapNotNull { seriesId -> getItemById(seriesId).getOrNull() }
+            .filter { item -> item.id != null && !item.name.isNullOrBlank() && item.type == "Series" }
+            .associateBy { item -> item.id.orEmpty() }
+    }
+
+    private fun BaseItemDto.watchedEpisodeTmdbKey(seriesById: Map<String, BaseItemDto>): String? {
+        val seriesTmdb = seriesId?.let(seriesById::get)?.tmdbProviderId() ?: return null
+        val season = parentIndexNumber ?: return null
+        val episode = indexNumber ?: return null
+        return "Episode:tmdb:$seriesTmdb:s$season:e$episode"
+    }
+
+    private fun BaseItemDto.watchedTmdbKey(): String? {
+        return tmdbProviderId()?.let { "${type.orEmpty()}:tmdb:$it" }
+    }
+
+    private fun BaseItemDto.tmdbProviderId(): String? {
+        return providerIds.orEmpty()
+            .entries
+            .firstOrNull { (key, value) -> key.equals("Tmdb", ignoreCase = true) && value.isNotBlank() }
+            ?.value
+    }
+
     suspend fun getItemsForPerson(
         personId: String,
         limit: Int = 120

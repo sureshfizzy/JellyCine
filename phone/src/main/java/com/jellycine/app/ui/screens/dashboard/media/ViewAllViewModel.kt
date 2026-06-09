@@ -13,6 +13,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.QueryResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -79,6 +80,7 @@ class ViewAllViewModel @Inject constructor(
                         .joinToString("|")
                         .ifBlank { null }
                     val selectedGenreIds = genreId?.takeIf { it.isNotBlank() }
+                    val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
                     val result = when (contentType) {
                         ContentType.SEERR_STUDIO -> seerrRepository.getStudios(
                             scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
@@ -92,7 +94,10 @@ class ViewAllViewModel @Inject constructor(
                             limit = pageSize,
                             startIndex = currentPage * pageSize
                         )
-                        ContentType.MOVIES -> mediaRepository.getUserItems(
+                        ContentType.MOVIES -> if (isWatchedRequest) {
+                            mediaRepository.loadWatchedItems("Movie")
+                                .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
                             includeItemTypes = "Movie",
@@ -103,7 +108,11 @@ class ViewAllViewModel @Inject constructor(
                             recursive = true,
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
-                        ContentType.SERIES -> mediaRepository.getUserItems(
+                        ContentType.SERIES -> if (isWatchedRequest) {
+                            mediaRepository.loadWatchedItems("Episode")
+                                .mapCatching { mediaRepository.loadSeriesForWatchedEpisodes(it).getOrThrow() }
+                                .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
                             includeItemTypes = "Series",
@@ -114,7 +123,10 @@ class ViewAllViewModel @Inject constructor(
                             recursive = true,
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
-                        ContentType.EPISODES -> mediaRepository.getUserItems(
+                        ContentType.EPISODES -> if (isWatchedRequest) {
+                            mediaRepository.loadWatchedItems("Episode")
+                                .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
                             includeItemTypes = "Episode",
@@ -176,7 +188,7 @@ class ViewAllViewModel @Inject constructor(
                                 }
                             }
                             totalItems = queryResult.totalRecordCount ?: 0
-                            hasMorePages = (currentPage + 1) * pageSize < totalItems
+                            hasMorePages = !isWatchedRequest && (currentPage + 1) * pageSize < totalItems
 
                             withContext(Dispatchers.Main) {
                                 if (refresh) {
@@ -259,7 +271,8 @@ fun ContentType.isSeerrCatalog(): Boolean =
 fun ContentType.isLibraryCatalog(): Boolean =
     this == ContentType.ALL ||
         this == ContentType.MOVIES ||
-        this == ContentType.SERIES
+        this == ContentType.SERIES ||
+        this == ContentType.EPISODES
 
 fun ContentType.isGenreCatalog(): Boolean =
     this == ContentType.MOVIES_GENRE ||

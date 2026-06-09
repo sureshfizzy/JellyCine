@@ -50,6 +50,7 @@ import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
@@ -85,6 +86,8 @@ fun ViewAllScreen(
     val isSeerrCatalog = contentType.isSeerrCatalog()
     val isLibraryCatalog = contentType.isLibraryCatalog() && !parentId.isNullOrBlank()
     val isGenreCatalog = contentType.isGenreCatalog()
+    val isWatchedViewAll = parentId == WATCHED_VIEW_ALL_PARENT_ID
+    val isWatchedEpisodeViewAll = isWatchedViewAll && contentType == ContentType.EPISODES
     val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog
 
     val gridCells = remember(screenWidthDp) {
@@ -95,6 +98,11 @@ fun ViewAllScreen(
         } else {
             GridCells.Fixed(3)
         }
+    }
+    val viewAllGridCells = if (isWatchedEpisodeViewAll) {
+        if (isTablet) GridCells.Adaptive(minSize = 200.dp) else GridCells.Fixed(2)
+    } else {
+        gridCells
     }
 
     val horizontalPadding = if (isTablet) 24.dp else 16.dp
@@ -128,12 +136,16 @@ fun ViewAllScreen(
     var lastAppliedFilterSignature by rememberSaveable(contentType, parentId, genreId) {
         mutableStateOf(filterSignature)
     }
-    val genreIncludeItemTypes = remember(contentType) {
-        when (contentType) {
+    val genreIncludeItemTypes = remember(contentType, isWatchedViewAll) {
+        if (isWatchedViewAll) {
+            null
+        } else when (contentType) {
             ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
             ContentType.SERIES, ContentType.TVSHOWS_GENRE -> "Series"
             ContentType.ALL -> "Movie,Series"
-            ContentType.EPISODES, ContentType.SEERR_STUDIO, ContentType.SEERR_NETWORK -> null
+            ContentType.EPISODES,
+            ContentType.SEERR_STUDIO,
+            ContentType.SEERR_NETWORK -> null
         }
     }
     var serverGenres by rememberSaveable(contentType, parentId, genreId) {
@@ -312,7 +324,7 @@ fun ViewAllScreen(
                 when {
                     uiState.isLoading && items.isEmpty() -> {
                         LazyVerticalGrid(
-                            columns = gridCells,
+                            columns = viewAllGridCells,
                             contentPadding = PaddingValues(
                                 start = horizontalPadding,
                                 top = if (usesCompactHeader) 0.dp else 16.dp,
@@ -405,7 +417,7 @@ fun ViewAllScreen(
                     else -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             LazyVerticalGrid(
-                                columns = gridCells,
+                                columns = viewAllGridCells,
                                 state = gridState,
                                 contentPadding = PaddingValues(
                                     start = horizontalPadding,
@@ -430,12 +442,25 @@ fun ViewAllScreen(
                                     items = displayItems,
                                     key = ::viewAllItemKey
                                 ) { item ->
-                                    PosterCard(
-                                        item = item,
-                                        isTablet = isTablet,
-                                        mediaRepository = mediaRepository,
-                                        onClick = { onItemClick(item) }
-                                    )
+                                    if (isWatchedEpisodeViewAll) {
+                                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                            LibraryItemCard(
+                                                item = item,
+                                                mediaRepository = mediaRepository,
+                                                disableImageEnhancers = true,
+                                                watchedFeedStyle = true,
+                                                onClick = { onItemClick(item) }
+                                            )
+                                        }
+                                    } else {
+                                        PosterCard(
+                                            item = item,
+                                            isTablet = isTablet,
+                                            mediaRepository = mediaRepository,
+                                            watchedViewAll = isWatchedViewAll,
+                                            onClick = { onItemClick(item) }
+                                        )
+                                    }
                                 }
 
                                 if (uiState.hasMorePages) {
@@ -547,14 +572,14 @@ fun ViewAllScreen(
             )
         }
 
-        if (!isSeerrCatalog) {
+        if (!isSeerrCatalog && !isWatchedEpisodeViewAll) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
 
-        if (showSortSheet && !isSeerrCatalog) {
+        if (showSortSheet && !isSeerrCatalog && !isWatchedEpisodeViewAll) {
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
@@ -590,16 +615,17 @@ private fun PosterCard(
     item: BaseItemDto,
     isTablet: Boolean,
     mediaRepository: MediaRepository,
+    watchedViewAll: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val disablePosterEnhancers = DisableEmbyPosterEnhancers()
     val directImageUrl = item.imageUrl?.takeIf { it.isNotBlank() }
     val isSeerrSource = item.id?.startsWith("seerr:") == true
-    var imageUrl by remember(item.id, directImageUrl) { mutableStateOf(directImageUrl) }
-    var isLoading by remember(item.id, directImageUrl) { mutableStateOf(directImageUrl == null) }
+    var imageUrl by remember(item.id, directImageUrl, watchedViewAll) { mutableStateOf(directImageUrl) }
+    var isLoading by remember(item.id, directImageUrl, watchedViewAll) { mutableStateOf(directImageUrl == null) }
 
-    LaunchedEffect(item.id, directImageUrl, disablePosterEnhancers) {
+    LaunchedEffect(item.id, directImageUrl, disablePosterEnhancers, watchedViewAll) {
         if (directImageUrl != null) {
             imageUrl = directImageUrl
             isLoading = false
@@ -619,7 +645,7 @@ private fun PosterCard(
                     width = 300,
                     height = 450,
                     quality = 90,
-                    enableImageEnhancers = !disablePosterEnhancers
+                    enableImageEnhancers = !disablePosterEnhancers && !watchedViewAll
                 ).first()
                 imageUrl = url
                 isLoading = false
@@ -630,7 +656,6 @@ private fun PosterCard(
         }
     }
 
-    // Show series name for episodes, otherwise show item name
     val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
         item.seriesName!!
     } else {
@@ -726,7 +751,7 @@ private fun PosterCard(
                 val isFullyWatched = item.type == "Series" &&
                     item.userData?.unplayedItemCount == 0
 
-                itemCount?.takeIf { it > 0 }?.let { count ->
+                itemCount?.takeIf { it > 0 && !watchedViewAll }?.let { count ->
                     PosterCountBadge(
                         count = count,
                         modifier = Modifier
@@ -735,7 +760,7 @@ private fun PosterCard(
                     )
                 }
 
-                if (isFullyWatched || (itemCount == null && item.userData?.played == true)) {
+                if (!watchedViewAll && (isFullyWatched || (itemCount == null && item.userData?.played == true))) {
                     WatchedIndicatorBadge(
                         modifier = Modifier
                             .align(Alignment.TopEnd)

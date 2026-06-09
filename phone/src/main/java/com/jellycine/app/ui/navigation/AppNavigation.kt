@@ -242,6 +242,11 @@ fun AppNavigation() {
                             navController.navigate("detail/$itemId")
                         }
                     },
+                    onNavigateToMergedDetail = { item ->
+                        item.id?.let { itemId ->
+                            navController.navigate("detail/$itemId?mergeVersions=true")
+                        }
+                    },
                     onNavigateToViewAll = { contentType, parentId, title ->
                         val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
                         val route = when {
@@ -284,16 +289,24 @@ fun AppNavigation() {
             }
 
             composable(
-                "detail/{itemId}",
-                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                "detail/{itemId}?mergeVersions={mergeVersions}",
+                arguments = listOf(
+                    navArgument("itemId") { type = NavType.StringType },
+                    navArgument("mergeVersions") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                ),
                 enterTransition = { textTransition(500) },
                 exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
+                val forceMergeVersions = backStackEntry.arguments?.getBoolean("mergeVersions") ?: false
 
                 if (itemId != null) {
                     DetailScreenContainer(
                         itemId = itemId,
+                        forceMergeVersions = forceMergeVersions,
                         onNavigateToDetail = { selectedItemId ->
                             if (selectedItemId != itemId) {
                                 navController.navigate("detail/$selectedItemId")
@@ -420,7 +433,8 @@ fun AppNavigation() {
                     onBackPressed = { navController.popBackStack() },
                     onItemClick = { item ->
                         item.id?.let { itemId ->
-                            navController.navigate("detail/$itemId")
+                            val mergeVersions = parentId == com.jellycine.app.ui.screens.dashboard.media.WATCHED_VIEW_ALL_PARENT_ID
+                            navController.navigate("detail/$itemId${if (mergeVersions) "?mergeVersions=true" else ""}")
                         }
                     }
                 )
