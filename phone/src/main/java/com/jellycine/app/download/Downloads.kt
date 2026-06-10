@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.BufferedOutputStream
 import java.io.EOFException
 import java.io.InterruptedIOException
 import java.net.ConnectException
@@ -154,26 +155,35 @@ internal class DownloadTransfer(
             }
 
             body.byteStream().use { input ->
-                storage.outputStream(destination.location, append).use { output ->
+                BufferedOutputStream(
+                    storage.outputStream(destination.location, append),
+                    OUTPUT_BUFFER_SIZE_BYTES
+                ).use { output ->
                     val buffer = ByteArray(BUFFER_SIZE_BYTES)
                     var downloadedBytes = downloadedStart
                     var bytesRead: Int
                     var lastEmitAt = 0L
+                    var lastCapacityCheckedAt = downloadedStart
 
                     while (true) {
                         bytesRead = input.read(buffer)
                         if (bytesRead == -1) break
 
-                        val bytesToWrite = bytesRead.toLong()
-                        val neededBytes = if (totalBytes > 0L) {
-                            (totalBytes - downloadedBytes).coerceAtLeast(bytesToWrite)
-                        } else {
-                            bytesToWrite
-                        }
-                        ensureStorageCapacity(totalBytes.takeIf { it > 0L }, neededBytes)
-
                         output.write(buffer, 0, bytesRead)
                         downloadedBytes += bytesRead
+
+                        if (downloadedBytes - lastCapacityCheckedAt >= CAPACITY_CHECK_INTERVAL_BYTES) {
+                            lastCapacityCheckedAt = downloadedBytes
+                            val neededBytes = if (totalBytes > 0L) {
+                                (totalBytes - downloadedBytes).coerceAtLeast(0L)
+                            } else {
+                                CAPACITY_CHECK_INTERVAL_BYTES
+                            }
+                            if (neededBytes > 0L) {
+                                ensureStorageCapacity(totalBytes.takeIf { it > 0L }, neededBytes)
+                            }
+                        }
+
                         val now = System.currentTimeMillis()
                         if (now - lastEmitAt >= PROGRESS_EMIT_INTERVAL_MS) {
                             lastEmitAt = now
@@ -232,7 +242,9 @@ internal class DownloadTransfer(
             return false
         }
 
-        private const val BUFFER_SIZE_BYTES = 64 * 1024
+        private const val BUFFER_SIZE_BYTES = 256 * 1024
+        private const val OUTPUT_BUFFER_SIZE_BYTES = 1024 * 1024
+        private const val CAPACITY_CHECK_INTERVAL_BYTES = 64L * 1024 * 1024
         private const val PROGRESS_EMIT_INTERVAL_MS = 300L
     }
 }
