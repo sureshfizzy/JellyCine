@@ -9,11 +9,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
+import com.jellycine.data.model.SeerrItemIds
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -25,6 +28,7 @@ class ViewAllViewModel @Inject constructor(
 
     private lateinit var mediaRepository: MediaRepository
     private val seerrRepository = SeerrRepository(context)
+    private val awardsRepository = AwardsRepositoryProvider.getInstance(context)
     private val authRepository = com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context)
 
     private val _uiState = MutableStateFlow(ViewAllUiState())
@@ -172,6 +176,7 @@ class ViewAllViewModel @Inject constructor(
                             recursive = true,
                             fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData"
                         )
+                        ContentType.AWARD -> loadAwardItems(parentId)
                     }
 
                     result.fold(
@@ -188,7 +193,9 @@ class ViewAllViewModel @Inject constructor(
                                 }
                             }
                             totalItems = queryResult.totalRecordCount ?: 0
-                            hasMorePages = !isWatchedRequest && (currentPage + 1) * pageSize < totalItems
+                            hasMorePages = !isWatchedRequest &&
+                                contentType != ContentType.AWARD &&
+                                (currentPage + 1) * pageSize < totalItems
 
                             withContext(Dispatchers.Main) {
                                 if (refresh) {
@@ -221,6 +228,26 @@ class ViewAllViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun loadAwardItems(parentId: String?): Result<QueryResult<BaseItemDto>> {
+        val parts = parentId?.split("_").orEmpty()
+        val qid = parts.getOrNull(0)?.takeIf { it.isNotBlank() }
+            ?: return Result.success(QueryResult(items = emptyList(), totalRecordCount = 0, startIndex = 0))
+        val mode = if (parts.getOrNull(1) == AwardMode.NOMINEES.name) AwardMode.NOMINEES else AwardMode.WINNERS
+        val refs = awardsRepository.getCategoryRefs(listOf(qid), mode)[qid].orEmpty()
+        val items = awardsRepository.hydrate(refs, limit = refs.size).map { title ->
+            BaseItemDto(
+                id = title.jellyfinMediaId?.takeIf { it.isNotBlank() }
+                    ?: SeerrItemIds.detailId(title.tmdbId, title.mediaType),
+                name = title.title,
+                type = if (title.mediaType == "tv") "Series" else "Movie",
+                productionYear = title.productionYear,
+                providerIds = mapOf("tmdb" to title.tmdbId),
+                imageUrl = title.posterUrl
+            )
+        }
+        return Result.success(QueryResult(items = items, totalRecordCount = items.size, startIndex = 0))
     }
 
     fun loadMoreItems(contentType: ContentType, parentId: String? = null, genreId: String? = null) {
@@ -262,7 +289,7 @@ data class ViewAllUiState(
 )
 
 enum class ContentType {
-    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO, SEERR_NETWORK
+    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO, SEERR_NETWORK, AWARD
 }
 
 fun ContentType.isSeerrCatalog(): Boolean =

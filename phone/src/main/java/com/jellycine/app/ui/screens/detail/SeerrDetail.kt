@@ -84,19 +84,15 @@ internal suspend fun loadDetailItem(
     itemId: String,
     activeServerId: String?,
     mediaRepository: MediaRepository,
-    seerrRepository: SeerrRepository,
-    seerrNotConnectedMessage: String
+    seerrRepository: SeerrRepository
 ): Result<BaseItemDto> {
     val seerParams = SeerrItemIds.detailParams(itemId)
         ?: return mediaRepository.getItemById(itemId)
-    val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-        ?: return Result.failure(IllegalStateException(seerrNotConnectedMessage))
     val (mediaType, tmdbId) = seerParams
-    return seerrRepository.getTitleDetails(
-        scopeId = scopeId,
-        tmdbId = tmdbId,
-        mediaType = mediaType
-    )
+    val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        ?: return mediaRepository.getTmdbTitleDetail(tmdbId, mediaType)
+    val seerResult = seerrRepository.getTitleDetails(scopeId, tmdbId, mediaType)
+    return if (seerResult.isSuccess) seerResult else mediaRepository.getTmdbTitleDetail(tmdbId, mediaType)
 }
 
 @Composable
@@ -501,6 +497,7 @@ internal suspend fun detailLogoImage(
 ): String? {
     return if (isSeerDetail) {
         seerrRepository.getTitleLogoUrl(activeServerId, item.id)
+            ?: mediaRepository.getTmdbLogoUrl(item)
     } else {
         logoImage(
             item = item,
@@ -563,8 +560,4 @@ internal fun SeerrRequestDialogs(
 
 internal fun BaseItemDto.isSeerDetailItem(): Boolean {
     return SeerrItemIds.isDetailId(id)
-}
-
-internal fun isSeerDetailItemId(itemId: String): Boolean {
-    return SeerrItemIds.isDetailId(itemId)
 }

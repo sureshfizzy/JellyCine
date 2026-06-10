@@ -1,7 +1,9 @@
 package com.jellycine.app.ui.screens.dashboard.media
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -21,11 +23,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.AwardsCompactHeader
 import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.SeerTitleCard
@@ -50,12 +55,14 @@ import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
+import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.seerRole
 import com.jellycine.data.model.title
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
@@ -88,7 +95,10 @@ fun ForYou(
 ) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
-    var showWatchedTab by remember { mutableStateOf(false) }
+    var feed by rememberSaveable { mutableStateOf(ForYouFeed.RECOMMENDATIONS) }
+    var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
+    var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val showWatchedTab = feed == ForYouFeed.WATCHED
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -96,6 +106,7 @@ fun ForYou(
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val seerrRepository = remember(context) { SeerrRepository(context) }
+    val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -115,6 +126,9 @@ fun ForYou(
         fallbackHeaderTitle
     }
     val activeServerId = sessionSnapshot.activeServerId
+    val seerrConnected = remember(activeServerId) {
+        activeServerId?.let { seerrRepository.getSavedConnectionInfo(it)?.isVerified == true } ?: false
+    }
     val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
         sessionSnapshot.savedServers.firstOrNull { savedServer ->
             savedServer.id == sessionSnapshot.activeServerId
@@ -204,6 +218,40 @@ fun ForYou(
         val showStaticHeader = sections.isEmpty() && watchedSections.isEmpty()
 
         Column(modifier = Modifier.fillMaxSize()) {
+            if (feed == ForYouFeed.AWARDS) {
+                AwardsCompactHeader(
+                    title = awardsHeaderTitle
+                        ?: stringResource(R.string.dashboard_for_you_awards),
+                    onBack = awardsBack
+                ) {
+                    UserProfileAvatar(
+                        imageUrl = profileImageUrl,
+                        serverTypeRaw = sessionSnapshot.serverType,
+                        onClick = {},
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+                if (awardsBack == null) {
+                    ForYouFeedPills(
+                        feed = feed,
+                        onFeedChange = { feed = it }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    CompositionLocalProvider(LocalAwardSeerrConnected provides seerrConnected) {
+                        AwardsContent(
+                            awardsRepository = awardsRepository,
+                            onItemClick = onItemClick,
+                            onViewAllCategory = { qid, mode, title ->
+                                onNavigateToViewAll(ContentType.AWARD, "${qid}_${mode.name}", title)
+                            },
+                            onHeaderTitleChange = { awardsHeaderTitle = it },
+                            onBackChange = { awardsBack = it },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            } else {
             if (showStaticHeader) {
                 ForYouHeader(
                     title = headerTitle,
@@ -239,8 +287,8 @@ fun ForYou(
 
                             item(key = "for_you_feed_pills") {
                                 ForYouFeedPills(
-                                    showWatchedTab = showWatchedTab,
-                                    onWatchedTabChanged = { showWatchedTab = it }
+                                    feed = feed,
+                                    onFeedChange = { feed = it }
                                 )
                             }
 
@@ -280,9 +328,10 @@ fun ForYou(
                     }
                 }
             }
+            }
         }
 
-        if (sections.isNotEmpty() || watchedSections.isNotEmpty()) {
+        if (feed != ForYouFeed.AWARDS && (sections.isNotEmpty() || watchedSections.isNotEmpty())) {
             CompactTopText(
                 text = headerTitle,
                 progress = compactHeaderProgress,
@@ -459,29 +508,35 @@ private fun ForYouHeader(
 
 @Composable
 private fun ForYouFeedPills(
-    showWatchedTab: Boolean,
-    onWatchedTabChanged: (Boolean) -> Unit
+    feed: ForYouFeed,
+    onFeedChange: (ForYouFeed) -> Unit
 ) {
     Row(
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         listOf(
-            false to stringResource(R.string.dashboard_for_you_recommendations),
-            true to stringResource(R.string.watched)
-        ).forEach { (watchedTab, label) ->
-            val selected = showWatchedTab == watchedTab
+            ForYouFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_for_you_recommendations),
+            ForYouFeed.WATCHED to stringResource(R.string.watched),
+            ForYouFeed.AWARDS to stringResource(R.string.dashboard_for_you_awards)
+        ).forEach { (tab, label) ->
+            val selected = feed == tab
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
-                modifier = Modifier.clickable { onWatchedTabChanged(watchedTab) }
+                modifier = Modifier.clickable { onFeedChange(tab) }
             ) {
                 Text(
                     text = label,
                     color = if (selected) Color.Black else Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 )
             }

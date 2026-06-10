@@ -454,19 +454,11 @@ fun DetailScreenContainer(
             isLoading = true
             error = null
 
-            if (isSeerDetailItemId(itemId) && activeServerId.isNullOrBlank()) {
-                error = context.getString(R.string.detail_seerr_not_connected)
-                item = null
-                isLoading = false
-                return@LaunchedEffect
-            }
-
             val result = loadDetailItem(
                 itemId = itemId,
                 activeServerId = activeServerId,
                 mediaRepository = mediaRepository,
-                seerrRepository = seerrRepository,
-                seerrNotConnectedMessage = context.getString(R.string.detail_seerr_not_connected)
+                seerrRepository = seerrRepository
             )
             result.fold(
                 onSuccess = { fetchedItem ->

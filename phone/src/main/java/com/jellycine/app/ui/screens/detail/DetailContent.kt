@@ -119,6 +119,10 @@ fun DetailContent(
         screenHeightDp = screenHeightDp
     )
     val isSeerDetail = item.isSeerDetailItem()
+    val seerrConnected = remember(activeServerId) {
+        !activeServerId.isNullOrBlank() &&
+            seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
+    }
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val shouldMergeVersions = forceMergeVersions || mergeVersionsEnabled
@@ -1013,7 +1017,7 @@ fun DetailContent(
                             )
                         }
 
-                        if (isWidescreenLayout && isSeerDetail) {
+                        if (isWidescreenLayout && isSeerDetail && seerrConnected) {
                             SeerrRequestButtonRow(
                                 requestState = seerrRequestState.requestState,
                                 isBusy = seerrRequestState.isBusy,
@@ -1125,7 +1129,7 @@ fun DetailContent(
                             )
                         }
 
-                        if (!isWidescreenLayout && isSeerDetail) {
+                        if (!isWidescreenLayout && isSeerDetail && seerrConnected) {
                             SeerrRequestButtonRow(
                                 requestState = seerrRequestState.requestState,
                                 isBusy = seerrRequestState.isBusy,

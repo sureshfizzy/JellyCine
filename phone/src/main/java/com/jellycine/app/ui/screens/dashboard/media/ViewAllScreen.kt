@@ -86,9 +86,10 @@ fun ViewAllScreen(
     val isSeerrCatalog = contentType.isSeerrCatalog()
     val isLibraryCatalog = contentType.isLibraryCatalog() && !parentId.isNullOrBlank()
     val isGenreCatalog = contentType.isGenreCatalog()
+    val isAward = contentType == ContentType.AWARD
     val isWatchedViewAll = parentId == WATCHED_VIEW_ALL_PARENT_ID
     val isWatchedEpisodeViewAll = isWatchedViewAll && contentType == ContentType.EPISODES
-    val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog
+    val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward
 
     val gridCells = remember(screenWidthDp) {
         if (screenWidthDp >= 1200.dp) {
@@ -145,7 +146,8 @@ fun ViewAllScreen(
             ContentType.ALL -> "Movie,Series"
             ContentType.EPISODES,
             ContentType.SEERR_STUDIO,
-            ContentType.SEERR_NETWORK -> null
+            ContentType.SEERR_NETWORK,
+            ContentType.AWARD -> null
         }
     }
     var serverGenres by rememberSaveable(contentType, parentId, genreId) {
@@ -572,14 +574,14 @@ fun ViewAllScreen(
             )
         }
 
-        if (!isSeerrCatalog && !isWatchedEpisodeViewAll) {
+        if (!isSeerrCatalog && !isWatchedEpisodeViewAll && !isAward) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
 
-        if (showSortSheet && !isSeerrCatalog && !isWatchedEpisodeViewAll) {
+        if (showSortSheet && !isSeerrCatalog && !isWatchedEpisodeViewAll && !isAward) {
             SortBottomSheet(
                 currentSortBy = uiState.sortBy,
                 currentSortOrder = uiState.sortOrder,
@@ -611,11 +613,12 @@ private fun LazyGridScope.compactHeaderItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PosterCard(
+internal fun PosterCard(
     item: BaseItemDto,
     isTablet: Boolean,
     mediaRepository: MediaRepository,
     watchedViewAll: Boolean = false,
+    showSeerrBadge: Boolean = true,
     onClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -727,7 +730,7 @@ private fun PosterCard(
                     }
                 }
 
-                if (isSeerrSource) {
+                if (isSeerrSource && showSeerrBadge) {
                     SeerrTopBadges(
                         requestState = SeerrRequestState.NONE,
                         modifier = Modifier.align(Alignment.TopCenter)
@@ -800,7 +803,7 @@ private fun PosterCard(
 }
 
 @Composable
-private fun SkeletonPosterCard() {
+internal fun SkeletonPosterCard() {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally

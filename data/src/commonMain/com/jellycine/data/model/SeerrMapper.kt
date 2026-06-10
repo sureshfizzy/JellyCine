@@ -98,6 +98,7 @@ internal object SeerrMapper {
             )
         }
         val crewPeople = response.credits?.crew.orEmpty()
+            .sortedByDescending { credit -> credit.job.equals("Director", ignoreCase = true) }
             .mapNotNull { credit -> credit.toBaseItemPerson(serverUrl = serverUrl, useCharacter = false) }
             .take(20)
         val castPeople = response.credits?.cast.orEmpty()

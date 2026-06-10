@@ -208,6 +208,7 @@ internal fun SeerTitlesRow(
 internal fun SeerTitleCard(
     item: SeerrRecommendationTitle,
     modifier: Modifier = Modifier,
+    showSourceBadge: Boolean = true,
     onClick: (() -> Unit)? = null
 ) {
     val posterUrl = remember(item.posterUrl) { item.posterUrl?.takeIf { it.isNotBlank() } }
@@ -255,17 +256,20 @@ internal fun SeerTitleCard(
                     }
                 }
 
-                if (item.jellyfinMediaId.isNullOrBlank()) {
-                    SeerrTopBadges(
-                        requestState = item.requestState,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
-                } else if (item.requestState == SeerrRequestState.REQUESTED) {
-                    SeerrRequestBadge(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 4.dp, end = 6.dp)
-                    )
+                when {
+                    showSourceBadge && item.jellyfinMediaId.isNullOrBlank() -> {
+                        SeerrTopBadges(
+                            requestState = item.requestState,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
+                    item.requestState == SeerrRequestState.REQUESTED -> {
+                        SeerrRequestBadge(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 4.dp, end = 6.dp)
+                        )
+                    }
                 }
 
                 item.roleLabel

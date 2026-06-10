@@ -2,12 +2,15 @@ package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.Surface
@@ -26,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +49,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.title
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.shared.recommendations.loadWatchedFeed
@@ -73,13 +78,17 @@ fun ForYou(
 ) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
-    var showWatchedTab by remember { mutableStateOf(false) }
+    var feed by rememberSaveable { mutableStateOf(ForYouFeed.RECOMMENDATIONS) }
+    var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
+    var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val showWatchedTab = feed == ForYouFeed.WATCHED
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
     val activeSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
@@ -152,12 +161,29 @@ fun ForYou(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = headerTitle,
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val awardsOnBack = awardsBack
+                        if (feed == ForYouFeed.AWARDS && awardsOnBack != null) {
+                            IconButton(onClick = awardsOnBack, modifier = Modifier.size(34.dp)) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.size(8.dp))
+                        }
+                        Text(
+                            text = if (feed == ForYouFeed.AWARDS) {
+                                awardsHeaderTitle ?: stringResource(R.string.dashboard_for_you_awards)
+                            } else {
+                                headerTitle
+                            },
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     UserProfileAvatar(
                         imageUrl = profileImageUrl,
                         serverTypeRaw = sessionSnapshot.serverType,
@@ -169,6 +195,24 @@ fun ForYou(
 
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
+                    feed == ForYouFeed.AWARDS -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (awardsBack == null) {
+                                ForYouFeedPills(
+                                    feed = feed,
+                                    onFeedChange = { feed = it }
+                                )
+                            }
+                            AwardsContent(
+                                awardsRepository = awardsRepository,
+                                onItemClick = onItemClick,
+                                onHeaderTitleChange = { awardsHeaderTitle = it },
+                                onBackChange = { awardsBack = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
                     isLoading -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -185,8 +229,8 @@ fun ForYou(
                         ) {
                             item(key = "for_you_feed_pills") {
                                 ForYouFeedPills(
-                                    showWatchedTab = showWatchedTab,
-                                    onWatchedTabChanged = { showWatchedTab = it }
+                                    feed = feed,
+                                    onFeedChange = { feed = it }
                                 )
                             }
 
@@ -327,29 +371,35 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
 
 @Composable
 private fun ForYouFeedPills(
-    showWatchedTab: Boolean,
-    onWatchedTabChanged: (Boolean) -> Unit
+    feed: ForYouFeed,
+    onFeedChange: (ForYouFeed) -> Unit
 ) {
     Row(
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         listOf(
-            false to stringResource(R.string.dashboard_for_you_recommendations),
-            true to stringResource(R.string.watched)
-        ).forEach { (watchedTab, label) ->
-            val selected = showWatchedTab == watchedTab
+            ForYouFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_for_you_recommendations),
+            ForYouFeed.WATCHED to stringResource(R.string.watched),
+            ForYouFeed.AWARDS to stringResource(R.string.dashboard_for_you_awards)
+        ).forEach { (tab, label) ->
+            val selected = feed == tab
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = if (selected) Color.White else Color.White.copy(alpha = 0.12f),
-                modifier = Modifier.clickable { onWatchedTabChanged(watchedTab) }
+                modifier = Modifier.clickable { onFeedChange(tab) }
             ) {
                 Text(
                     text = label,
                     color = if (selected) Color.Black else Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 )
             }

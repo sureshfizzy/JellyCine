@@ -24,6 +24,7 @@ import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.SearchMediaType
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.model.toSearchQueries
 import com.jellycine.data.network.HttpStatusException
@@ -1752,6 +1753,67 @@ class MediaRepository(private val context: Context) {
             Result.success(subtitleStreams)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getTmdbTitleDetail(tmdbId: String, mediaType: String): Result<BaseItemDto> {
+        val normalizedType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
+        val detail = tmdbApi.titleDetail(normalizedType, tmdbId)
+            ?: return Result.failure(Exception("Title details unavailable"))
+        val title = detail.title?.takeIf { it.isNotBlank() }
+            ?: detail.name?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(Exception("Title details unavailable"))
+        val releaseDate = detail.releaseDate?.takeIf { it.isNotBlank() }
+            ?: detail.firstAirDate?.takeIf { it.isNotBlank() }
+        val runtimeMinutes = (detail.runtime ?: detail.episodeRunTime.firstOrNull())?.takeIf { it > 0 }
+
+        return Result.success(
+            BaseItemDto(
+                id = SeerrItemIds.detailId(tmdbId, normalizedType),
+                name = title,
+                overview = detail.overview?.takeIf { it.isNotBlank() },
+                type = if (normalizedType == "tv") "Series" else "Movie",
+                productionYear = releaseDate?.take(4)?.toIntOrNull(),
+                premiereDate = releaseDate,
+                communityRating = detail.voteAverage?.toFloat(),
+                runTimeTicks = runtimeMinutes?.toLong()?.times(600_000_000L),
+                genres = detail.genres.mapNotNull { genre -> genre.name?.takeIf { it.isNotBlank() } },
+                taglines = listOfNotNull(detail.tagline?.takeIf { it.isNotBlank() }),
+                providerIds = mapOf("tmdb" to tmdbId),
+                imageUrl = tmdbImageUrl(detail.posterPath, "w780"),
+                backdropImageUrl = tmdbImageUrl(detail.backdropPath, "w1280")
+            )
+        )
+    }
+
+    private fun tmdbImageUrl(path: String?, size: String): String? {
+        val cleaned = path?.takeIf { it.isNotBlank() } ?: return null
+        return "https://image.tmdb.org/t/p/$size/${cleaned.removePrefix("/")}"
+    }
+
+    suspend fun findLocalItemIdsByTmdb(tmdbIds: List<String>): Map<String, String> {
+        val ids = tmdbIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return try {
+            val api = getApi() ?: return emptyMap()
+            val userId = getUserId() ?: return emptyMap()
+            val response = api.getUserItems(
+                userId = userId,
+                includeItemTypes = "Movie,Series",
+                recursive = true,
+                limit = ids.size,
+                anyProviderIdEquals = ids.joinToString(",") { "Tmdb.$it" },
+                fields = "ProviderIds"
+            )
+            response.body()?.items.orEmpty().mapNotNull { item ->
+                val tmdb = item.providerIds?.entries
+                    ?.firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }
+                    ?.value
+                val localId = item.id?.takeIf { it.isNotBlank() }
+                if (tmdb != null && localId != null) tmdb to localId else null
+            }.toMap()
+        } catch (e: Exception) {
+            emptyMap()
         }
     }
 
