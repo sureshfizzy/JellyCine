@@ -581,6 +581,7 @@
 
     <!-- Detail -->
     <string name="detail_cast_and_crew">Cast &amp; Crew</string>
+    <string name="detail_trailers_and_extras">Trailers &amp; Extras</string>
     <string name="detail_similar_items_title">More Like This</string>
     <string name="detail_directed_by">Directed by %1$s</string>
     <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>

@@ -1262,6 +1262,13 @@ fun DetailContent(
                             onPersonClick = onPersonClick
                         )
 
+                        TrailersExtrasSection(
+                            item = item,
+                            isSeerDetail = isSeerDetail,
+                            mediaRepository = mediaRepository,
+                            onExtraClick = onRemoteTrailerClick
+                        )
+
                         Recommendations(
                             item = item,
                             directors = directors,

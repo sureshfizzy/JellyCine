@@ -60,6 +60,7 @@ internal object SeerrMapper {
             imageUrl = posterUrl,
             backdropImageUrl = backdropUrl,
             remoteTrailers = response.relatedVideos.toRemoteTrailers(),
+            extras = response.relatedVideos.orEmpty().toRawVideos().toMediaExtras(),
             seerrRequestState = response.mediaInfo.toRequestState()
         )
     }

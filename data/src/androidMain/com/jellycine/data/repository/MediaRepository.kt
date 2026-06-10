@@ -13,6 +13,7 @@ import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
+import com.jellycine.data.model.MediaExtra
 import com.jellycine.data.model.PlaybackSegments
 import com.jellycine.data.model.PlaybackAuthContext
 import com.jellycine.data.model.PlaybackUrlBuilder
@@ -949,6 +950,27 @@ class MediaRepository(private val context: Context) {
             else -> return@withContext null
         }
         tmdbApi.titleLogoUrl(tmdbType, tmdbId)
+    }
+
+    suspend fun getTmdbExtras(item: BaseItemDto): List<MediaExtra> = withContext(Dispatchers.IO) {
+        val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val tmdbId = lookupItem.providerIds
+            ?.entries
+            ?.firstOrNull { (key, value) ->
+                key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
+            }
+            ?.value
+            ?: return@withContext emptyList()
+        val tmdbType = when {
+            lookupItem.type.equals("Series", ignoreCase = true) -> "tv"
+            lookupItem.type.equals("Movie", ignoreCase = true) -> "movie"
+            else -> return@withContext emptyList()
+        }
+        tmdbApi.fetchExtras(tmdbType, tmdbId)
     }
 
     fun getImageUrl(

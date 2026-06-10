@@ -127,7 +127,10 @@ data class BaseItemDto(
     
     @SerialName("RemoteTrailers")
     val remoteTrailers: List<MediaUrl>? = null,
-    
+
+    // Populated by SeerrMapper from relatedVideos; not part of the Jellyfin payload.
+    val extras: List<MediaExtra>? = null,
+
     @SerialName("ProviderIds")
     val providerIds: Map<String, String>? = null,
     

@@ -290,6 +290,17 @@ internal data class SeerrVideo(
     val official: Boolean? = null
 )
 
+internal fun List<SeerrVideo>.toRawVideos(): List<RawVideo> =
+    map { video ->
+        RawVideo(
+            key = video.key,
+            name = video.name,
+            site = video.site,
+            type = video.type,
+            official = video.official
+        )
+    }
+
 data class SeerrRecommendationTitle(
     val tmdbId: String,
     val title: String,

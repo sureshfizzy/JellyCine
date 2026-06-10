@@ -1,7 +1,11 @@
 package com.jellycine.data.api
 
+import com.jellycine.data.model.MediaExtra
 import com.jellycine.data.model.TmdbImage
 import com.jellycine.data.model.TmdbImagesResponse
+import com.jellycine.data.model.TmdbVideosResponse
+import com.jellycine.data.model.toMediaExtras
+import com.jellycine.data.model.toRawVideos
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -35,6 +39,15 @@ internal class TmdbApi(
     ): String? {
         return imageUrl(titleLogoPath(mediaType, tmdbId), size)
     }
+
+    suspend fun fetchExtras(mediaType: String, tmdbId: String): List<MediaExtra> = runCatching {
+        client.get("https://api.themoviedb.org/3/$mediaType/$tmdbId/videos") {
+            parameter("api_key", apiKey)
+        }.body<TmdbVideosResponse>()
+            .results
+            .toRawVideos()
+            .toMediaExtras()
+    }.getOrDefault(emptyList())
 
     private companion object {
         private const val TMDB_API_KEY = "4219e299c89411838049ab0dab19ebd5"
