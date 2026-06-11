@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -67,6 +66,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.shared.recommendations.loadWatchedFeed
+import com.jellycine.shared.ui.components.common.ShimmerPosterRail
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -263,12 +263,10 @@ fun ForYou(
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
                     isLoading -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = Color(0xFFE86E2F))
-                        }
+                        ForYouLoadingSkeleton(
+                            feed = feed,
+                            onFeedChange = { feed = it }
+                        )
                     }
 
                     hasAnySections -> {
@@ -541,6 +539,20 @@ private fun ForYouFeedPills(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ForYouLoadingSkeleton(
+    feed: ForYouFeed,
+    onFeedChange: (ForYouFeed) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        ForYouFeedPills(
+            feed = feed,
+            onFeedChange = onFeedChange
+        )
+        repeat(3) { ShimmerPosterRail() }
     }
 }
 
