@@ -1,4 +1,5 @@
 package com.jellycine.app.ui.screens.dashboard.media
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -7,22 +8,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,31 +40,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.AwardsCompactHeader
-import com.jellycine.app.ui.components.common.CompactPageHeader
-import com.jellycine.app.ui.components.common.CompactTopText
-import com.jellycine.app.ui.components.common.SeerTitleCard
-import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
-import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
-import com.jellycine.data.model.SeerrPersonRole
-import com.jellycine.data.model.filterSeerTitlesForRow
-import com.jellycine.data.model.seerPersonId
-import com.jellycine.data.model.toSeerDetailItem
-import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import androidx.compose.foundation.layout.statusBarsPadding
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
-import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.seerRole
 import com.jellycine.data.model.title
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.shared.recommendations.loadWatchedFeed
 import com.jellycine.shared.ui.components.common.ShimmerPosterRail
 import kotlinx.coroutines.async
@@ -74,10 +60,7 @@ import kotlinx.coroutines.launch
 
 private data class RecommendationSectionUi(
     val title: String,
-    val items: List<BaseItemDto>,
-    val seerItems: List<SeerrRecommendationTitle> = emptyList(),
-    val seerRole: SeerrPersonRole? = null,
-    val personName: String? = null
+    val items: List<BaseItemDto>
 )
 
 internal const val WATCHED_VIEW_ALL_PARENT_ID = "__watched__"
@@ -88,46 +71,36 @@ private data class RecommendationFeedState(
 )
 
 @Composable
-fun ForYou(
+fun Discover(
     onItemClick: (BaseItemDto) -> Unit = {},
     onWatchedItemClick: (BaseItemDto) -> Unit = onItemClick,
     onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
 ) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
-    var feed by rememberSaveable { mutableStateOf(ForYouFeed.RECOMMENDATIONS) }
+    var feed by rememberSaveable { mutableStateOf(DiscoverFeed.RECOMMENDATIONS) }
     var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
     var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val showWatchedTab = feed == ForYouFeed.WATCHED
+    val showWatchedTab = feed == DiscoverFeed.WATCHED
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember(context) { SeerrRepository(context) }
     val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
-    val listState = rememberLazyListState()
-    val compactHeaderProgress = rememberCompactProgress(
-        state = listState,
-        compactDistance = 92.dp
-    )
     val activeSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
     val sessionSnapshot by authRepository.observeActiveSession()
         .collectAsState(initial = activeSessionSnapshot)
     val username = sessionSnapshot.username
-    val fallbackHeaderTitle = stringResource(R.string.dashboard_for_you)
+    val fallbackHeaderTitle = stringResource(R.string.dashboard_discover)
     val greetingName = username?.trim()?.takeIf { it.isNotEmpty() }
     val headerTitle = if (greetingName != null) {
-        stringResource(R.string.dashboard_for_you_greeting, greetingName)
+        stringResource(R.string.dashboard_discover_greeting, greetingName)
     } else {
         fallbackHeaderTitle
-    }
-    val activeServerId = sessionSnapshot.activeServerId
-    val seerrConnected = remember(activeServerId) {
-        activeServerId?.let { seerrRepository.getSavedConnectionInfo(it)?.isVerified == true } ?: false
     }
     val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
         sessionSnapshot.savedServers.firstOrNull { savedServer ->
@@ -159,52 +132,10 @@ fun ForYou(
             }
             error = result.error ?: watched.error
             isLoading = false
-
-            result.sections
-                .filter { it.seerRole != null }
-                .forEach { section ->
-                    launch {
-                        val seerItems = loadSectionSeerRecommendations(
-                            section = section,
-                            activeServerId = activeServerId,
-                            mediaRepository = mediaRepository,
-                            seerrRepository = seerrRepository
-                        )
-                        var updatedSection = section.copy(seerItems = seerItems)
-                        if (updatedSection != section) {
-                            sections = sections.replaceSection(updatedSection)
-                        }
-
-                        seerItems
-                            .mapNotNull { seerItem ->
-                                val seedItemId = updatedSection.items.firstOrNull()?.id
-                                val jellyfinMediaId = seerItem.jellyfinMediaId
-                                    ?.takeIf { it.isNotBlank() && it != seedItemId }
-                                    ?: return@mapNotNull null
-                                jellyfinMediaId to seerItem
-                            }
-                            .distinctBy { (jellyfinMediaId, _) -> jellyfinMediaId }
-                            .forEach { (jellyfinMediaId, seerItem) ->
-                                val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull() ?: return@forEach
-                                val localItemId = localItem.id ?: return@forEach
-                                updatedSection = if (updatedSection.items.any { it.id == localItemId }) {
-                                    updatedSection.copy(
-                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
-                                    )
-                                } else {
-                                    updatedSection.copy(
-                                        items = updatedSection.items + localItem,
-                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
-                                    )
-                                }
-                                sections = sections.replaceSection(updatedSection)
-                            }
-                    }
-                }
         }
     }
 
-    LaunchedEffect(activeServerId) {
+    LaunchedEffect(Unit) {
         refresh()
     }
 
@@ -215,15 +146,44 @@ fun ForYou(
     ) {
         val activeSections = if (showWatchedTab) watchedSections else sections
         val hasAnySections = sections.isNotEmpty() || watchedSections.isNotEmpty()
-        val showStaticHeader = sections.isEmpty() && watchedSections.isEmpty()
 
         Column(modifier = Modifier.fillMaxSize()) {
-            if (feed == ForYouFeed.AWARDS) {
-                AwardsCompactHeader(
-                    title = awardsHeaderTitle
-                        ?: stringResource(R.string.dashboard_for_you_awards),
-                    onBack = awardsBack
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding(),
+                color = Color.Black
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val awardsOnBack = awardsBack
+                        if (feed == DiscoverFeed.AWARDS && awardsOnBack != null) {
+                            IconButton(onClick = awardsOnBack, modifier = Modifier.size(34.dp)) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.size(8.dp))
+                        }
+                        Text(
+                            text = if (feed == DiscoverFeed.AWARDS) {
+                                awardsHeaderTitle ?: stringResource(R.string.dashboard_discover_awards)
+                            } else {
+                                headerTitle
+                            },
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     UserProfileAvatar(
                         imageUrl = profileImageUrl,
                         serverTypeRaw = sessionSnapshot.serverType,
@@ -231,39 +191,30 @@ fun ForYou(
                         modifier = Modifier.size(34.dp)
                     )
                 }
-                if (awardsBack == null) {
-                    ForYouFeedPills(
-                        feed = feed,
-                        onFeedChange = { feed = it }
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    CompositionLocalProvider(LocalAwardSeerrConnected provides seerrConnected) {
-                        AwardsContent(
-                            awardsRepository = awardsRepository,
-                            onItemClick = onItemClick,
-                            onViewAllCategory = { qid, mode, title ->
-                                onNavigateToViewAll(ContentType.AWARD, "${qid}_${mode.name}", title)
-                            },
-                            onHeaderTitleChange = { awardsHeaderTitle = it },
-                            onBackChange = { awardsBack = it },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-            } else {
-            if (showStaticHeader) {
-                ForYouHeader(
-                    title = headerTitle,
-                    profileImageUrl = profileImageUrl,
-                    serverTypeRaw = sessionSnapshot.serverType
-                )
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
+                    feed == DiscoverFeed.AWARDS -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (awardsBack == null) {
+                                DiscoverFeedPills(
+                                    feed = feed,
+                                    onFeedChange = { feed = it }
+                                )
+                            }
+                            AwardsContent(
+                                awardsRepository = awardsRepository,
+                                onItemClick = onItemClick,
+                                onHeaderTitleChange = { awardsHeaderTitle = it },
+                                onBackChange = { awardsBack = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
                     isLoading -> {
-                        ForYouLoadingSkeleton(
+                        DiscoverLoadingSkeleton(
                             feed = feed,
                             onFeedChange = { feed = it }
                         )
@@ -271,20 +222,11 @@ fun ForYou(
 
                     hasAnySections -> {
                         LazyColumn(
-                            state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(bottom = 110.dp)
                         ) {
-                            item(key = "for_you_header") {
-                                ForYouHeader(
-                                    title = headerTitle,
-                                    profileImageUrl = profileImageUrl,
-                                    serverTypeRaw = sessionSnapshot.serverType
-                                )
-                            }
-
-                            item(key = "for_you_feed_pills") {
-                                ForYouFeedPills(
+                            item(key = "discover_feed_pills") {
+                                DiscoverFeedPills(
                                     feed = feed,
                                     onFeedChange = { feed = it }
                                 )
@@ -326,21 +268,6 @@ fun ForYou(
                     }
                 }
             }
-            }
-        }
-
-        if (feed != ForYouFeed.AWARDS && (sections.isNotEmpty() || watchedSections.isNotEmpty())) {
-            CompactTopText(
-                text = headerTitle,
-                progress = compactHeaderProgress,
-                isTablet = false,
-                onClick = {
-                    scope.launch {
-                        listState.animateScrollToItem(0)
-                    }
-                },
-                modifier = Modifier.align(Alignment.TopStart)
-            )
         }
     }
 }
@@ -384,9 +311,7 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
                     } else {
                         RecommendationSectionUi(
                             title = title,
-                            items = items,
-                            seerRole = recommendation.seerRole(),
-                            personName = recommendation.baselineItemName?.takeIf { it.isNotBlank() }
+                            items = items
                         )
                     }
                 }
@@ -394,15 +319,12 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
 
         val sections = rawSections
             .groupBy { it.title }
-            .map { (_, groupedSections) ->
-                val seed = groupedSections.first()
+            .map { (title, groupedSections) ->
                 RecommendationSectionUi(
-                    title = seed.title,
+                    title = title,
                     items = groupedSections
                         .flatMap { it.items }
-                        .distinctBy { item -> item.id ?: item.name.orEmpty() },
-                    seerRole = seed.seerRole,
-                    personName = seed.personName
+                        .distinctBy { item -> item.id ?: item.name.orEmpty() }
                 )
             }
             .filter { it.items.isNotEmpty() }
@@ -445,69 +367,10 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
     }
 }
 
-private suspend fun loadSectionSeerRecommendations(
-    section: RecommendationSectionUi,
-    activeServerId: String?,
-    mediaRepository: MediaRepository,
-    seerrRepository: SeerrRepository
-): List<SeerrRecommendationTitle> {
-    val role = section.seerRole ?: return emptyList()
-    val personName = section.personName ?: return emptyList()
-    val seedItem = section.items.firstOrNull() ?: return emptyList()
-    if (activeServerId.isNullOrBlank()) return emptyList()
-    val personId = seerPersonId(
-        items = section.items,
-        personName = personName,
-        role = role
-    ) ?: return emptyList()
-
-    return filterSeerTitlesForRow(
-        seerrTitles = fetchSeerCreditTitles(
-            item = seedItem,
-            personId = personId,
-            role = role,
-            activeServerId = activeServerId,
-            mediaRepository = mediaRepository,
-            seerrRepository = seerrRepository
-        ),
-        baseTitles = section.items,
-        item = seedItem,
-    )
-}
-
-private fun List<RecommendationSectionUi>.replaceSection(
-    updatedSection: RecommendationSectionUi
-): List<RecommendationSectionUi> {
-    return map { section ->
-        if (section.title == updatedSection.title) updatedSection else section
-    }
-}
-
 @Composable
-private fun ForYouHeader(
-    title: String,
-    profileImageUrl: String?,
-    serverTypeRaw: String?
-) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        CompactPageHeader(title = title)
-        UserProfileAvatar(
-            imageUrl = profileImageUrl,
-            serverTypeRaw = serverTypeRaw,
-            onClick = {},
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(end = 16.dp, top = 12.dp)
-                .size(36.dp)
-        )
-    }
-}
-
-@Composable
-private fun ForYouFeedPills(
-    feed: ForYouFeed,
-    onFeedChange: (ForYouFeed) -> Unit
+private fun DiscoverFeedPills(
+    feed: DiscoverFeed,
+    onFeedChange: (DiscoverFeed) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -518,9 +381,9 @@ private fun ForYouFeedPills(
         verticalAlignment = Alignment.CenterVertically
     ) {
         listOf(
-            ForYouFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_for_you_recommendations),
-            ForYouFeed.WATCHED to stringResource(R.string.watched),
-            ForYouFeed.AWARDS to stringResource(R.string.dashboard_for_you_awards)
+            DiscoverFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_discover_recommendations),
+            DiscoverFeed.WATCHED to stringResource(R.string.watched),
+            DiscoverFeed.AWARDS to stringResource(R.string.dashboard_discover_awards)
         ).forEach { (tab, label) ->
             val selected = feed == tab
             Surface(
@@ -543,12 +406,12 @@ private fun ForYouFeedPills(
 }
 
 @Composable
-private fun ForYouLoadingSkeleton(
-    feed: ForYouFeed,
-    onFeedChange: (ForYouFeed) -> Unit
+private fun DiscoverLoadingSkeleton(
+    feed: DiscoverFeed,
+    onFeedChange: (DiscoverFeed) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        ForYouFeedPills(
+        DiscoverFeedPills(
             feed = feed,
             onFeedChange = onFeedChange
         )
@@ -565,8 +428,6 @@ private fun RecommendationRail(
     onViewAllClick: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit
 ) {
-    if (!isWatchedFeed && section.items.size + section.seerItems.size <= 1) return
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -620,18 +481,6 @@ private fun RecommendationRail(
                     onClick = { onItemClick(item) }
                 )
             }
-
-            itemsIndexed(
-                items = section.seerItems,
-                key = { index, item ->
-                    "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}_$index"
-                }
-            ) { _, item ->
-                SeerTitleCard(
-                    item = item,
-                    onClick = { onItemClick(item.toSeerDetailItem()) }
-                )
-            }
         }
     }
 }
@@ -650,7 +499,7 @@ private fun ErrorCard(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = stringResource(R.string.dashboard_for_you_load_error),
+                text = stringResource(R.string.dashboard_discover_load_error),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
@@ -694,14 +543,14 @@ private fun EmptyCard() {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = stringResource(R.string.dashboard_for_you_empty_title),
+                text = stringResource(R.string.dashboard_discover_empty_title),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.dashboard_for_you_empty_message),
+                text = stringResource(R.string.dashboard_discover_empty_message),
                 color = Color.White.copy(alpha = 0.64f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp

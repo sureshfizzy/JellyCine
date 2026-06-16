@@ -37,7 +37,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
-import com.jellycine.app.ui.screens.dashboard.media.ForYou
+import com.jellycine.app.ui.screens.dashboard.media.Discover
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
@@ -172,7 +172,7 @@ fun DashboardContainer(
                             }
                         )
                     } else {
-                        ForYou(
+                        Discover(
                             onItemClick = onNavigateToDetail,
                             onWatchedItemClick = onNavigateToMergedDetail,
                             onNavigateToViewAll = { contentType, parentId, title ->

@@ -56,7 +56,7 @@ import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.AwardsRepository
 import com.jellycine.shared.R
 
-internal enum class ForYouFeed { RECOMMENDATIONS, WATCHED, AWARDS }
+internal enum class DiscoverFeed { RECOMMENDATIONS, WATCHED, AWARDS }
 
 private const val ACCENT = 0xFFE86E2F
 

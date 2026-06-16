@@ -60,7 +60,7 @@ import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.AwardsRepository
 
-internal enum class ForYouFeed { RECOMMENDATIONS, WATCHED, AWARDS }
+internal enum class DiscoverFeed { RECOMMENDATIONS, WATCHED, AWARDS }
 
 private const val ACCENT = 0xFFE86E2F
 private const val GRID_HYDRATE_LIMIT = 80

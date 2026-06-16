@@ -52,7 +52,7 @@ import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
-import com.jellycine.app.ui.screens.dashboard.media.ForYou
+import com.jellycine.app.ui.screens.dashboard.media.Discover
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import androidx.compose.animation.animateColorAsState
@@ -121,7 +121,7 @@ sealed class DashboardDestination(
     )
     object MyMedia : DashboardDestination(
         "my_media",
-        R.string.dashboard_for_you,
+        R.string.dashboard_discover,
         Icons.Filled.PlayArrow,
         Icons.Outlined.PlayArrow
     )
@@ -426,7 +426,7 @@ fun DashboardContainer(
                                 }
                             )
                         } else {
-                            ForYou(
+                            Discover(
                                 onItemClick = onNavigateToDetail,
                                 onWatchedItemClick = onNavigateToMergedDetail,
                                 onNavigateToViewAll = { contentType, parentId, title ->
@@ -561,12 +561,12 @@ fun DashboardContainer(
                                     },
                                     destination = destination,
                                     title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
                                     } else {
                                         stringResource(destination.titleRes)
                                     },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
+                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -587,12 +587,12 @@ fun DashboardContainer(
                                     },
                                     destination = destination,
                                     title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
                                     } else {
                                         stringResource(destination.titleRes)
                                     },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
+                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -628,12 +628,12 @@ fun DashboardContainer(
                                 modifier = Modifier.width(offlineItemSlotWidth),
                                 destination = destination,
                                 title = if (destination == DashboardDestination.MyMedia) {
-                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_for_you)
+                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
                                 } else {
                                     stringResource(destination.titleRes)
                                 },
-                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.AutoAwesome else destination.selectedIcon,
-                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.AutoAwesome else destination.unselectedIcon,
+                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
+                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
                                 isSelected = isSelected,
                                 itemWidth = 56.dp,
                                 onClick = { navigateToDestination(destination) }
