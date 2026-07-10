@@ -81,6 +81,10 @@ fun InterfaceSettingsScreen(
         .collectAsStateWithLifecycle(
             initialValue = preferences.getFeatureCarouselHeight()
         )
+    val autoplayTrailersEnabled by preferences.autoplayTrailersEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isAutoplayTrailersEnabled()
+        )
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
@@ -157,6 +161,8 @@ fun InterfaceSettingsScreen(
                         onCheckedChange = preferences::setFeatureCarouselEnabled,
                         selectedHeight = featureCarouselHeight,
                         onHeightSelected = preferences::setFeatureCarouselHeight,
+                        autoplayTrailersChecked = autoplayTrailersEnabled,
+                        onAutoplayTrailersCheckedChange = preferences::setFeatureCarouselAutoplayTrailersEnabled,
                         accentColor = Color(0xFF8B5CF6)
                     )
                     HorizontalDivider(
@@ -295,6 +301,8 @@ private fun FeatureCarouselSettingsItem(
     onCheckedChange: (Boolean) -> Unit,
     selectedHeight: String,
     onHeightSelected: (String) -> Unit,
+    autoplayTrailersChecked: Boolean,
+    onAutoplayTrailersCheckedChange: (Boolean) -> Unit,
     accentColor: Color
 ) {
     Column(
@@ -351,6 +359,38 @@ private fun FeatureCarouselSettingsItem(
                 onHeightSelected = onHeightSelected,
                 accentColor = accentColor
             )
+            
+            Text(
+                text = stringResource(R.string.interface_feature_carousel_autoplay_trailers),
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.72f),
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(R.string.interface_feature_carousel_autoplay_trailers_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = autoplayTrailersChecked,
+                    onCheckedChange = onAutoplayTrailersCheckedChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = accentColor,
+                        checkedBorderColor = accentColor,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                        uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+            }
         }
     }
 }

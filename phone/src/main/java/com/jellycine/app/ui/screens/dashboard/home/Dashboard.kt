@@ -1185,6 +1185,10 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = preferences.getFeatureCarouselHeight()
         )
+    val autoplayTrailersEnabled by preferences.autoplayTrailersEnabled()
+        .collectAsStateWithLifecycle(
+            initialValue = preferences.isAutoplayTrailersEnabled()
+        )
     val continueWatchingEnabled by preferences.ContinueWatchingEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isContinueWatchingEnabled()
@@ -1373,7 +1377,7 @@ fun Dashboard(
                     limit = 10,
                     startIndex = 0,
                     recursive = true,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview,RemoteTrailers"
                 )
                 HomeCategory.TV_SHOWS -> mediaRepository.getUserItems(
                     parentId = null,
@@ -1383,7 +1387,7 @@ fun Dashboard(
                     limit = 10,
                     startIndex = 0,
                     recursive = true,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview,RemoteTrailers"
                 )
                 else -> mediaRepository.getUserItems(
                     parentId = null,
@@ -1393,7 +1397,7 @@ fun Dashboard(
                     limit = 10,
                     startIndex = 0,
                     recursive = true,
-                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview"
+                    fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview,RemoteTrailers"
                 )
             }
 

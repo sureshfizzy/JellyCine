@@ -23,6 +23,7 @@ class Preferences(context: Context) {
         private const val KEY_MERGE_VERSIONS_ENABLED = "merge_versions_enabled"
         private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
+        private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
 
         const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
         const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
@@ -76,6 +77,27 @@ class Preferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_FEATURE_CAROUSEL_HEIGHT) {
                 trySend(getFeatureCarouselHeight())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isAutoplayTrailersEnabled(): Boolean {
+        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS, false)
+    }
+
+    fun setFeatureCarouselAutoplayTrailersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS, enabled).apply()
+    }
+
+    fun autoplayTrailersEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isAutoplayTrailersEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS) {
+                trySend(isAutoplayTrailersEnabled())
             }
         }
 
