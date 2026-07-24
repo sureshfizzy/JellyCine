@@ -46,7 +46,14 @@ class DownloadForegroundService : Service() {
                 }
                 val notification = notificationManager.buildSummaryNotification(tracked)
                     ?: fallbackNotification()
-                if (!showForeground(notification)) {
+                try {
+                    if (!showForeground(notification)) {
+                        stopSelfResult(startId)
+                        return START_NOT_STICKY
+                    }
+                } catch (e: RuntimeException) {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) throw e
+                    runCatching { notificationManager.notifySummary(notification) }
                     stopSelfResult(startId)
                     return START_NOT_STICKY
                 }
@@ -64,6 +71,11 @@ class DownloadForegroundService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onTimeout(timeoutMillis: Int, fgsType: Int) {
+        stopIfRunning()
+        stopSelf()
+    }
 
     private fun ensureObservation() {
         if (observeJob?.isActive == true) return
