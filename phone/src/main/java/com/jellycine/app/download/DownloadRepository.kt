@@ -822,7 +822,7 @@ class DownloadRepository(context: Context) {
         val hasActiveDownloads = tracked.any {
             it.state.status == DownloadStatus.DOWNLOADING || it.state.status == DownloadStatus.QUEUED
         }
-        if (hasActiveDownloads != lastForegroundSyncActive) {
+        if (hasActiveDownloads || lastForegroundSyncActive) {
             lastForegroundSyncActive = hasActiveDownloads
             DownloadForegroundService.sync(
                 context = appContext,

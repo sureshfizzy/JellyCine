@@ -73,7 +73,13 @@ class DownloadForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onTimeout(timeoutMillis: Int, fgsType: Int) {
-        stopIfRunning()
+        if (isForegroundRunning) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            isForegroundRunning = false
+        }
+        observeJob?.cancel()
+        observeJob = null
+        notificationManager.cancelSummary()
         stopSelf()
     }
 
