@@ -74,7 +74,7 @@ object ImageLoaderConfig {
         val memoryInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memoryInfo)
 
-        val totalRamMB = memoryInfo.totalMem
+        val totalRamMB = memoryInfo.totalMem / (1024L * 1024L)
         val isLargeHeap = activityManager.memoryClass != activityManager.largeMemoryClass
 
         val basePercent = when {

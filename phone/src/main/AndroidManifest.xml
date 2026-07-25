@@ -22,6 +22,7 @@
     <application
         android:name=".JellyCineApplication"
         android:allowBackup="true"
+        android:largeHeap="true"
         android:enableOnBackInvokedCallback="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
