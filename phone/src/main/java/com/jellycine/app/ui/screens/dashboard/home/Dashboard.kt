@@ -1168,7 +1168,6 @@ fun Dashboard(
     val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
-    val initialSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
     val networkAvailabilityFlow = remember(appContext) {
@@ -1223,7 +1222,7 @@ fun Dashboard(
         mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
     }
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = initialSessionSnapshot
+        initial = authRepository.getActiveSessionSnapshot()
     )
     val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
         sessionSnapshot.savedServers.firstOrNull { savedServer ->

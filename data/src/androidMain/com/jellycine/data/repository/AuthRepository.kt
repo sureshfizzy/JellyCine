@@ -22,10 +22,14 @@ import com.jellycine.data.security.AuthSessionIds
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
 import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.data.network.JellyCineJson
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
@@ -41,8 +45,19 @@ class AuthRepository(private val context: Context) {
     private val seerrRepository = SeerrRepository(context)
     private val legacyMigrationMutex = Mutex()
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var cachedSnapshot: ActiveSessionSnapshot? = null
+
     @Volatile
     private var migrationExecuted = false
+
+    init {
+        observeActiveSession()
+            .onEach { cachedSnapshot = it }
+            .launchIn(scope)
+    }
 
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
@@ -261,18 +276,14 @@ class AuthRepository(private val context: Context) {
     }
 
     fun getActiveSessionSnapshot(): ActiveSessionSnapshot {
-        return runCatching {
-            runBlocking { observeActiveSession().first() }
-        }.getOrElse {
-            ActiveSessionSnapshot(
-                serverName = null,
-                serverUrl = null,
-                serverType = null,
-                username = null,
-                savedServers = emptyList(),
-                activeServerId = null
-            )
-        }
+        return cachedSnapshot ?: ActiveSessionSnapshot(
+            serverName = null,
+            serverUrl = null,
+            serverType = null,
+            username = null,
+            savedServers = emptyList(),
+            activeServerId = null
+        )
     }
 
     fun getAccessToken(): Flow<String?> = dataStore.data.map { preferences ->

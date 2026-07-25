@@ -1165,19 +1165,21 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    private fun createMpvPlayer(context: Context): MpvPlayerController {
+    private suspend fun createMpvPlayer(context: Context): MpvPlayerController {
         val preferences = PlayerPreferences(context)
         val listener = createMpvListener()
         return MpvWarmPool.acquire(
             context = context,
             listener = listener
-        ) ?: MpvPlayerController(
-            context = context,
-            hardwareDecoding = preferences.getMpvHardwareDecoding(),
-            videoOutput = preferences.getMpvVideoOutput(),
-            audioOutput = preferences.getMpvAudioOutput(),
-            listener = listener
-        )
+        ) ?: withContext(Dispatchers.Default) {
+            MpvPlayerController(
+                context = context,
+                hardwareDecoding = preferences.getMpvHardwareDecoding(),
+                videoOutput = preferences.getMpvVideoOutput(),
+                audioOutput = preferences.getMpvAudioOutput(),
+                listener = listener
+            )
+        }
     }
 
     private fun createMpvListener(): MpvPlayerController.Listener {

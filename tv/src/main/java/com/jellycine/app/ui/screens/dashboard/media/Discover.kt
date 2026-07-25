@@ -91,9 +91,8 @@ fun Discover(
     val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
-    val activeSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
     val sessionSnapshot by authRepository.observeActiveSession()
-        .collectAsState(initial = activeSessionSnapshot)
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot())
     val username = sessionSnapshot.username
     val fallbackHeaderTitle = stringResource(R.string.dashboard_discover)
     val greetingName = username?.trim()?.takeIf { it.isNotEmpty() }

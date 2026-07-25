@@ -99,11 +99,10 @@ fun AuthScreen(
     val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
-    val initialSessionSnapshot = remember { authRepository.getActiveSessionSnapshot() }
     val uiState by authViewModel.uiState.collectAsState()
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = initialSessionSnapshot
+        initial = authRepository.getActiveSessionSnapshot()
     )
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 

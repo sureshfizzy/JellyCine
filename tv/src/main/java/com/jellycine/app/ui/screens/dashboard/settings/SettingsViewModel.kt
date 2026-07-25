@@ -50,7 +50,7 @@ class SettingsViewModel(
 
     private val _uiState = MutableStateFlow(initialUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
-    
+
     init {
         viewModelScope.launch {
             authRepository.savedServer()
@@ -60,6 +60,20 @@ class SettingsViewModel(
             loadNetworkPreferences()
         }
         loadUserData()
+    }
+
+    private fun initialUiState(): SettingsUiState {
+        val activeSavedServer = initialSessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == initialSessionSnapshot.activeServerId
+        }
+        return SettingsUiState(
+            serverName = initialSessionSnapshot.serverName,
+            serverUrl = initialSessionSnapshot.serverUrl,
+            username = initialSessionSnapshot.username,
+            profileImageUrl = activeSavedServer?.profileImageUrl,
+            savedServers = initialSessionSnapshot.savedServers,
+            activeServerId = initialSessionSnapshot.activeServerId
+        )
     }
 
     private fun loadPreferences() {
@@ -79,20 +93,6 @@ class SettingsViewModel(
         )
     }
 
-    private fun initialUiState(): SettingsUiState {
-        val activeSavedServer = initialSessionSnapshot.savedServers.firstOrNull { savedServer ->
-            savedServer.id == initialSessionSnapshot.activeServerId
-        }
-        return SettingsUiState(
-            serverName = initialSessionSnapshot.serverName,
-            serverUrl = initialSessionSnapshot.serverUrl,
-            username = initialSessionSnapshot.username,
-            profileImageUrl = activeSavedServer?.profileImageUrl,
-            savedServers = initialSessionSnapshot.savedServers,
-            activeServerId = initialSessionSnapshot.activeServerId
-        )
-    }
-    
     private fun loadUserData() {
         viewModelScope.launch {
             authRepository.observeActiveSession()
