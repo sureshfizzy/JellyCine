@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -34,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,9 +56,11 @@ import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.shared.R
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.Dispatchers
@@ -68,16 +72,27 @@ internal const val FAVORITES_VIEW_ALL_PARENT_ID = "__favorites__"
 @Composable
 fun Favorites(
     onItemClick: (BaseItemDto) -> Unit = {},
-    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
+    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> },
+    onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val compactHeaderProgress = rememberCompactProgress(
         state = listState,
         compactDistance = 92.dp
     )
+
+    val sessionSnapshot by authRepository.observeActiveSession()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot())
+    val serverTypeRaw = sessionSnapshot.serverType
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val url = withContext(Dispatchers.IO) { mediaRepository.getUserProfileImageUrl() }
+        if (!url.isNullOrBlank()) profileImageUrl = url
+    }
 
     val headerTitle = stringResource(R.string.favorites)
 
@@ -119,14 +134,14 @@ fun Favorites(
         when {
             isLoading -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    CompactPageHeader(title = headerTitle)
+                    FavoritesHeader(title = headerTitle, profileImageUrl = profileImageUrl, serverTypeRaw = serverTypeRaw, onProfileClick = onProfileClick)
                     FavoritesLoadingSkeleton()
                 }
             }
 
             error != null -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    CompactPageHeader(title = headerTitle)
+                    FavoritesHeader(title = headerTitle, profileImageUrl = profileImageUrl, serverTypeRaw = serverTypeRaw, onProfileClick = onProfileClick)
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -163,7 +178,7 @@ fun Favorites(
 
             favorites.isEmpty() -> {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    CompactPageHeader(title = headerTitle)
+                    FavoritesHeader(title = headerTitle, profileImageUrl = profileImageUrl, serverTypeRaw = serverTypeRaw, onProfileClick = onProfileClick)
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -204,7 +219,7 @@ fun Favorites(
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     item(key = "favorites_header") {
-                        CompactPageHeader(title = headerTitle)
+                        FavoritesHeader(title = headerTitle, profileImageUrl = profileImageUrl, serverTypeRaw = serverTypeRaw, onProfileClick = onProfileClick)
                     }
 
                     if (movies.isNotEmpty()) {
@@ -266,6 +281,28 @@ fun Favorites(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FavoritesHeader(
+    title: String,
+    profileImageUrl: String?,
+    serverTypeRaw: String?,
+    onProfileClick: () -> Unit = {}
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        CompactPageHeader(title = title)
+        UserProfileAvatar(
+            imageUrl = profileImageUrl,
+            serverTypeRaw = serverTypeRaw,
+            onClick = onProfileClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 16.dp, top = 12.dp)
+                .size(36.dp)
+        )
     }
 }
 

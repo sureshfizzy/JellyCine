@@ -21,6 +21,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
 import coil3.request.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.WindowInsets
@@ -49,6 +52,10 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.ui.components.common.ShimmerEffect
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
+import com.jellycine.app.ui.screens.auth.UserSwitchDialog
+import com.jellycine.app.ui.screens.dashboard.home.AccountOverview
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
@@ -96,6 +103,7 @@ import kotlin.math.round
 import com.jellycine.shared.R
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -364,6 +372,81 @@ fun DashboardContainer(
             }
     }
 
+    var showAccountSheet by remember { mutableStateOf(false) }
+    var showUserSwitchDialog by remember { mutableStateOf(false) }
+    val accountSessionSnapshot by authRepository.observeActiveSession()
+        .collectAsStateWithLifecycle(initialValue = authRepository.getActiveSessionSnapshot())
+    val accountActiveServer = remember(accountSessionSnapshot.savedServers, accountSessionSnapshot.activeServerId) {
+        accountSessionSnapshot.savedServers.firstOrNull { it.id == accountSessionSnapshot.activeServerId }
+    }
+    val accountUsersForServer = remember(accountSessionSnapshot.savedServers, accountActiveServer) {
+        val serverUrl = accountActiveServer?.serverUrl
+        if (serverUrl != null) {
+            accountSessionSnapshot.savedServers.filter { it.serverUrl == serverUrl }
+        } else emptyList()
+    }
+    val mediaRepository = remember(appContext) { MediaRepositoryProvider.getInstance(appContext) }
+    var accountProfileImageUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val url = withContext(Dispatchers.IO) {
+            mediaRepository.getUserProfileImageUrl()
+        }
+        if (!url.isNullOrBlank()) accountProfileImageUrl = url
+    }
+    val scope = rememberCoroutineScope()
+    val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
+        ServerSwitchViewModel(appContext as android.app.Application)
+    }
+    val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
+
+    if (showAccountSheet) {
+        AccountOverview(
+            userName = accountSessionSnapshot.username,
+            serverName = accountActiveServer?.serverName,
+            profileImageUrl = accountProfileImageUrl,
+            serverTypeRaw = accountSessionSnapshot.serverType,
+            canChangeUser = accountUsersForServer.isNotEmpty(),
+            onDismiss = { showAccountSheet = false },
+            onChangeUser = {
+                showAccountSheet = false
+                showUserSwitchDialog = true
+            },
+            onLogout = {
+                showAccountSheet = false
+                scope.launch {
+                    authRepository.logout()
+                    onLogout()
+                }
+            }
+        )
+    }
+
+    if (showUserSwitchDialog) {
+        UserSwitchDialog(
+            users = accountUsersForServer,
+            activeServerId = accountSessionSnapshot.activeServerId,
+            serverName = accountActiveServer?.serverName,
+            isSwitching = serverSwitchUiState.isBusy,
+            showRemoveAction = false,
+            onDismiss = { showUserSwitchDialog = false },
+            onAddUser = {
+                showUserSwitchDialog = false
+                val serverUrl = accountActiveServer?.serverUrl
+                if (serverUrl != null) {
+                    onAddUser(serverUrl, accountActiveServer?.serverName)
+                }
+            },
+            onRequestRemoveUser = {},
+            onUserSelected = { server ->
+                serverSwitchViewModel.switchServer(
+                    serverId = server.id,
+                    activeServerId = accountSessionSnapshot.activeServerId,
+                    onSwitchComplete = { showUserSwitchDialog = false }
+                )
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -432,7 +515,8 @@ fun DashboardContainer(
                                 onWatchedItemClick = onNavigateToMergedDetail,
                                 onNavigateToViewAll = { contentType, parentId, title ->
                                     onNavigateToViewAll(contentType.name, parentId, title)
-                                }
+                                },
+                                onProfileClick = { showAccountSheet = true }
                             )
                         }
                     }
@@ -461,7 +545,8 @@ fun DashboardContainer(
                             onItemClick = onNavigateToDetail,
                             onNavigateToViewAll = { contentType, parentId, title ->
                                 onNavigateToViewAll(contentType.name, parentId, title)
-                            }
+                            },
+                            onProfileClick = { showAccountSheet = true }
                         )
                     }
                 }

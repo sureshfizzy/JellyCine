@@ -2236,7 +2236,7 @@ private fun BrandHeader(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AccountOverview(
+internal fun AccountOverview(
     userName: String?,
     serverName: String?,
     profileImageUrl: String?,
@@ -2330,7 +2330,7 @@ private fun AccountOverview(
 }
 
 @Composable
-private fun AccountActionRow(
+internal fun AccountActionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     tint: Color,

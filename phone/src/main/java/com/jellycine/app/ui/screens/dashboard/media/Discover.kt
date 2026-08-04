@@ -67,10 +67,12 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.shared.recommendations.loadWatchedFeed
 import com.jellycine.shared.ui.components.common.ShimmerPosterRail
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class RecommendationSectionUi(
     val title: String,
@@ -91,7 +93,8 @@ private data class RecommendationFeedState(
 fun Discover(
     onItemClick: (BaseItemDto) -> Unit = {},
     onWatchedItemClick: (BaseItemDto) -> Unit = onItemClick,
-    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
+    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> },
+    onProfileClick: () -> Unit = {}
 ) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
@@ -128,12 +131,11 @@ fun Discover(
     val seerrConnected = remember(activeServerId) {
         activeServerId?.let { seerrRepository.getSavedConnectionInfo(it)?.isVerified == true } ?: false
     }
-    val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
-        sessionSnapshot.savedServers.firstOrNull { savedServer ->
-            savedServer.id == sessionSnapshot.activeServerId
-        }
+    var profileImageUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val url = withContext(Dispatchers.IO) { mediaRepository.getUserProfileImageUrl() }
+        if (!url.isNullOrBlank()) profileImageUrl = url
     }
-    val profileImageUrl = activeSavedServer?.profileImageUrl
     val compactTitle = when (feed) {
         DiscoverFeed.RECOMMENDATIONS -> stringResource(R.string.dashboard_discover_recommendations)
         DiscoverFeed.WATCHED -> stringResource(R.string.watched)
@@ -231,7 +233,7 @@ fun Discover(
                     UserProfileAvatar(
                         imageUrl = profileImageUrl,
                         serverTypeRaw = sessionSnapshot.serverType,
-                        onClick = {},
+                        onClick = onProfileClick,
                         modifier = Modifier.size(34.dp)
                     )
                 }
@@ -260,7 +262,8 @@ fun Discover(
                 DiscoverHeader(
                     title = headerTitle,
                     profileImageUrl = profileImageUrl,
-                    serverTypeRaw = sessionSnapshot.serverType
+                    serverTypeRaw = sessionSnapshot.serverType,
+                    onProfileClick = onProfileClick
                 )
             }
 
@@ -283,7 +286,8 @@ fun Discover(
                                 DiscoverHeader(
                                     title = headerTitle,
                                     profileImageUrl = profileImageUrl,
-                                    serverTypeRaw = sessionSnapshot.serverType
+                                    serverTypeRaw = sessionSnapshot.serverType,
+                                    onProfileClick = onProfileClick
                                 )
                             }
 
@@ -491,14 +495,15 @@ private fun List<RecommendationSectionUi>.replaceSection(
 private fun DiscoverHeader(
     title: String,
     profileImageUrl: String?,
-    serverTypeRaw: String?
+    serverTypeRaw: String?,
+    onProfileClick: () -> Unit = {}
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
         CompactPageHeader(title = title)
         UserProfileAvatar(
             imageUrl = profileImageUrl,
             serverTypeRaw = serverTypeRaw,
-            onClick = {},
+            onClick = onProfileClick,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
