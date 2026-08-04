@@ -134,6 +134,11 @@ fun Discover(
         }
     }
     val profileImageUrl = activeSavedServer?.profileImageUrl
+    val compactTitle = when (feed) {
+        DiscoverFeed.RECOMMENDATIONS -> stringResource(R.string.dashboard_discover_recommendations)
+        DiscoverFeed.WATCHED -> stringResource(R.string.watched)
+        DiscoverFeed.AWARDS -> stringResource(R.string.dashboard_discover_awards)
+    }
     val watchedMoviesTitle = stringResource(R.string.movies)
     val watchedShowsTitle = stringResource(R.string.search_results_shows)
     val watchedEpisodesTitle = stringResource(R.string.search_results_episodes)
@@ -330,7 +335,7 @@ fun Discover(
 
         if (feed != DiscoverFeed.AWARDS && (sections.isNotEmpty() || watchedSections.isNotEmpty())) {
             CompactTopText(
-                text = headerTitle,
+                text = compactTitle,
                 progress = compactHeaderProgress,
                 isTablet = false,
                 onClick = {
