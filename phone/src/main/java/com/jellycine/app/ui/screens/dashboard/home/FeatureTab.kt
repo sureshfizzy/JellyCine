@@ -254,6 +254,7 @@ fun FeatureTab(
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
     }
     var autoScroll by rememberSaveable(selectedCategory, carouselHeight) { mutableStateOf(false) }
+    var isAutoScrolling by remember { mutableStateOf(false) }
     val autoplayTrailersEnabled by preferences.autoplayTrailersEnabled()
         .collectAsState(initial = preferences.isAutoplayTrailersEnabled())
     val isAutoplayAllowed = autoplayTrailersEnabled &&
@@ -468,11 +469,18 @@ fun FeatureTab(
         }
     }
 
-    LaunchedEffect(featuredRowState.firstVisibleItemIndex) {
-        autoScroll = false
-        currentPlayingTrailerUrl = null
-        isTrailerPlaying = false
-        trailerPlaybackCompleted = false
+    LaunchedEffect(featuredRowState.isScrollInProgress) {
+        if (featuredRowState.isScrollInProgress && !isAutoScrolling) {
+            autoScroll = false
+            currentPlayingTrailerUrl = null
+            isTrailerPlaying = false
+            trailerPlaybackCompleted = false
+        } else if (!featuredRowState.isScrollInProgress && !isAutoScrolling && !autoScroll) {
+            delay(3000L)
+            if (!featuredRowState.isScrollInProgress) {
+                autoScroll = true
+            }
+        }
     }
 
     LaunchedEffect(
@@ -481,47 +489,52 @@ fun FeatureTab(
         autoScroll,
         initialCarouselScrollOffsetPx,
         autoplayTrailersEnabled,
-        resolvedFeaturedItems.value,
-        centeredCardIndex
+        resolvedFeaturedItems.value
     ) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
-        
-        while (autoScroll) {
-            val currentIndex = centeredCardIndex
-            val itemIndex = currentIndex % resolvedFeaturedItems.value.size
-            val currentItem = resolvedFeaturedItems.value.getOrNull(itemIndex)
-            
-            val shouldPlayTrailer = isAutoplayAllowed && currentItem != null
-            val trailerUrl = currentItem?.remoteTrailers?.firstOrNull()?.url
-            
-            if (shouldPlayTrailer && !trailerUrl.isNullOrBlank()) {
-                currentPlayingTrailerUrl = trailerUrl
-                isTrailerPlaying = true
-                trailerPlaybackCompleted = false
-                
-                val startTime = System.currentTimeMillis()
-                while (!trailerPlaybackCompleted &&
-                       System.currentTimeMillis() - startTime < 60_000L &&
-                       autoScroll) {
-                    delay(1000L)
+
+        try {
+            while (autoScroll) {
+                val currentIndex = centeredCardIndex
+                val itemIndex = currentIndex % resolvedFeaturedItems.value.size
+                val currentItem = resolvedFeaturedItems.value.getOrNull(itemIndex)
+
+                val shouldPlayTrailer = isAutoplayAllowed && currentItem != null
+                val trailerUrl = currentItem?.remoteTrailers?.firstOrNull()?.url
+
+                if (shouldPlayTrailer && !trailerUrl.isNullOrBlank()) {
+                    currentPlayingTrailerUrl = trailerUrl
+                    isTrailerPlaying = true
+                    trailerPlaybackCompleted = false
+
+                    val startTime = System.currentTimeMillis()
+                    while (!trailerPlaybackCompleted &&
+                           System.currentTimeMillis() - startTime < 60_000L &&
+                           autoScroll) {
+                        delay(1000L)
+                    }
+
+                    currentPlayingTrailerUrl = null
+                    isTrailerPlaying = false
+                    trailerPlaybackCompleted = false
+                } else {
+                    delay(10_000L)
                 }
-                
-                currentPlayingTrailerUrl = null
-                isTrailerPlaying = false
-                trailerPlaybackCompleted = false
-            } else {
-                delay(10_000L)
+
+                if (!autoScroll) break
+
+                val nextIndex = currentIndex + 1
+                isAutoScrolling = true
+                runCatching {
+                    featuredRowState.animateScrollToItem(
+                        index = nextIndex,
+                        scrollOffset = initialCarouselScrollOffsetPx
+                    )
+                }
+                isAutoScrolling = false
             }
-            
-            if (!autoScroll) break
-            
-            val nextIndex = currentIndex + 1
-            runCatching {
-                featuredRowState.animateScrollToItem(
-                    index = nextIndex,
-                    scrollOffset = initialCarouselScrollOffsetPx
-                )
-            }
+        } finally {
+            isAutoScrolling = false
         }
     }
 
@@ -573,7 +586,7 @@ fun FeatureTab(
                                 onTrailerCompleted = {
                                     trailerPlaybackCompleted = true
                                 },
-                                currentPlayingTrailerUrl = if (index == featuredRowState.firstVisibleItemIndex) currentPlayingTrailerUrl else null
+                                currentPlayingTrailerUrl = if (index == centeredCardIndex) currentPlayingTrailerUrl else null
                             )
                         }
                     }
