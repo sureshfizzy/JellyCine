@@ -10,30 +10,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,38 +38,48 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.app.ui.components.common.CompactPageHeader
+import com.jellycine.app.ui.components.common.CompactTopText
+import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.ImageSkeleton
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
+
+internal const val FAVORITES_VIEW_ALL_PARENT_ID = "__favorites__"
 
 @Composable
 fun Favorites(
-    onItemClick: (BaseItemDto) -> Unit = {}
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val compactHeaderProgress = rememberCompactProgress(
+        state = listState,
+        compactDistance = 92.dp
+    )
+
+    val headerTitle = stringResource(R.string.favorites)
 
     var favorites by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -96,45 +103,30 @@ fun Favorites(
         )
     }
 
-    val movies = remember(favorites) { favorites.filter(::isMovieFavorite) }
-    val shows = remember(favorites) { favorites.filter(::isShowFavorite) }
-    val episodes = remember(favorites) { favorites.filter(::isEpisodeFavorite) }
+    val movies = remember(favorites) { favorites.filter { it.type == "Movie" } }
+    val shows = remember(favorites) { favorites.filter { it.type == "Series" } }
+    val episodes = remember(favorites) { favorites.filter { it.type == "Episode" } }
+
+    val moviesTitle = stringResource(R.string.movies)
+    val showsTitle = stringResource(R.string.search_results_shows)
+    val episodesTitle = stringResource(R.string.search_results_episodes)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.statusBars)
             .background(Color.Black)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.Black
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)) {
-                    Text(
-                        text = stringResource(R.string.favorites),
-                        color = Color.White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+        when {
+            isLoading -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CompactPageHeader(title = headerTitle)
+                    FavoritesLoadingSkeleton()
                 }
             }
 
-            when {
-                isLoading -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        items(3) { sectionIndex ->
-                            TierSkeleton(sectionIndex = sectionIndex)
-                        }
-                    }
-                }
-
-                error != null -> {
+            error != null -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CompactPageHeader(title = headerTitle)
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -167,8 +159,11 @@ fun Favorites(
                         }
                     }
                 }
+            }
 
-                favorites.isEmpty() -> {
+            favorites.isEmpty() -> {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    CompactPageHeader(title = headerTitle)
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -200,92 +195,125 @@ fun Favorites(
                         }
                     }
                 }
+            }
 
-                movies.isEmpty() && shows.isEmpty() && episodes.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 28.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = stringResource(R.string.favorites_no_supported_types_title),
-                                color = Color.White,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center
+            else -> {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp)
+                ) {
+                    item(key = "favorites_header") {
+                        CompactPageHeader(title = headerTitle)
+                    }
+
+                    if (movies.isNotEmpty()) {
+                        item(key = "section_movies") {
+                            FavoriteSection(
+                                title = moviesTitle,
+                                items = movies,
+                                mediaRepository = mediaRepository,
+                                isEpisodes = false,
+                                onViewAllClick = {
+                                    onNavigateToViewAll(ContentType.MOVIES, FAVORITES_VIEW_ALL_PARENT_ID, moviesTitle)
+                                },
+                                onItemClick = onItemClick
                             )
-                            Text(
-                                text = stringResource(R.string.favorites_no_supported_types_message),
-                                color = Color.White.copy(alpha = 0.65f),
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 6.dp)
+                        }
+                    }
+
+                    if (shows.isNotEmpty()) {
+                        item(key = "section_shows") {
+                            FavoriteSection(
+                                title = showsTitle,
+                                items = shows,
+                                mediaRepository = mediaRepository,
+                                isEpisodes = false,
+                                onViewAllClick = {
+                                    onNavigateToViewAll(ContentType.SERIES, FAVORITES_VIEW_ALL_PARENT_ID, showsTitle)
+                                },
+                                onItemClick = onItemClick
+                            )
+                        }
+                    }
+
+                    if (episodes.isNotEmpty()) {
+                        item(key = "section_episodes") {
+                            FavoriteSection(
+                                title = episodesTitle,
+                                items = episodes,
+                                mediaRepository = mediaRepository,
+                                isEpisodes = true,
+                                onViewAllClick = {
+                                    onNavigateToViewAll(ContentType.EPISODES, FAVORITES_VIEW_ALL_PARENT_ID, episodesTitle)
+                                },
+                                onItemClick = onItemClick
                             )
                         }
                     }
                 }
 
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(22.dp)
-                    ) {
-                        if (movies.isNotEmpty()) {
-                            item {
-                                FavoriteTierSection(
-                                    title = stringResource(R.string.movies),
-                                    items = movies,
-                                    mediaRepository = mediaRepository,
-                                    onItemClick = onItemClick
-                                )
-                            }
+                CompactTopText(
+                    text = headerTitle,
+                    progress = compactHeaderProgress,
+                    isTablet = false,
+                    onClick = {
+                        scope.launch {
+                            listState.animateScrollToItem(0)
                         }
-
-                        if (shows.isNotEmpty()) {
-                            item {
-                                FavoriteTierSection(
-                                    title = stringResource(R.string.search_results_shows),
-                                    items = shows,
-                                    mediaRepository = mediaRepository,
-                                    onItemClick = onItemClick
-                                )
-                            }
-                        }
-
-                        if (episodes.isNotEmpty()) {
-                            item {
-                                FavoriteTierSection(
-                                    title = stringResource(R.string.search_results_episodes),
-                                    items = episodes,
-                                    mediaRepository = mediaRepository,
-                                    onItemClick = onItemClick
-                                )
-                            }
-                        }
-                    }
-                }
+                    },
+                    modifier = Modifier.align(Alignment.TopStart)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun FavoriteTierSection(
+private fun FavoriteSection(
     title: String,
     items: List<BaseItemDto>,
     mediaRepository: MediaRepository,
+    isEpisodes: Boolean,
+    onViewAllClick: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit
 ) {
-    Column {
-        RowTitle(title = title)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            IconButton(
+                onClick = onViewAllClick,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = stringResource(R.string.dashboard_view_all),
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
         ) {
             itemsIndexed(
                 items = items,
@@ -293,13 +321,12 @@ private fun FavoriteTierSection(
                     "${item.id ?: "${item.name}_${item.type}_${item.indexNumber ?: index}"}_$index"
                 }
             ) { _, item ->
-                FavoriteItemCard(
+                LibraryItemCard(
                     item = item,
                     mediaRepository = mediaRepository,
-                    modifier = Modifier.width(148.dp),
-                    onClick = {
-                        if (item.id != null) onItemClick(item)
-                    }
+                    disableImageEnhancers = isEpisodes,
+                    watchedFeedStyle = isEpisodes,
+                    onClick = { if (item.id != null) onItemClick(item) }
                 )
             }
         }
@@ -307,270 +334,65 @@ private fun FavoriteTierSection(
 }
 
 @Composable
-private fun RowTitle(
-    title: String
-) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)) {
-        Text(
-            text = title,
-            color = Color.White,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun FavoriteItemCard(
-    item: BaseItemDto,
-    mediaRepository: MediaRepository,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-
-    val targetImageId = remember(item) {
-        when (item.type) {
-            "Episode" -> item.seriesId ?: item.parentPrimaryImageItemId ?: item.id
-            else -> item.id
-        }
-    }
-    var isPosterLoading by remember(targetImageId) { mutableStateOf(targetImageId != null) }
-    var hasPosterError by remember(targetImageId) { mutableStateOf(false) }
-    val imageUrl = rememberImageUrl(
-        itemId = targetImageId,
-        width = 320,
-        height = 480,
-        quality = 90,
-        mediaRepository = mediaRepository
-    )
-
-    val title = when (item.type) {
-        "Series" -> item.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.favorites_show_fallback)
-        "Episode" -> {
-            val episodeCode = episodeCode(item, stringResource(R.string.favorites_episode_code_fallback))
-            val episodeName = item.name?.takeIf { it.isNotBlank() }
-            episodeName ?: episodeCode
-        }
-        else -> item.name ?: stringResource(R.string.search_result_unknown_title)
-    }
-
-    val subtitle = when (item.type) {
-        "Movie" -> buildString {
-            item.productionYear?.let { append(it) }
-            formatRuntime(item.runTimeTicks)?.let { runtime ->
-                if (isNotEmpty()) append(" - ")
-                append(runtime)
-            }
-        }.ifBlank { stringResource(R.string.suggestions_type_movie) }
-        "Series" -> buildString {
-            item.productionYear?.let { append(it) }
-            val episodeCount = item.episodeCount ?: item.recursiveItemCount ?: item.childCount
-            if (episodeCount != null && episodeCount > 0) {
-                if (isNotEmpty()) append(" - ")
-                append(pluralStringResource(R.plurals.favorites_episode_count_short, episodeCount, episodeCount))
-            }
-        }.ifBlank { stringResource(R.string.favorites_show_fallback) }
-        "Episode" -> {
-            val show = item.seriesName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.favorites_series_fallback)
-            stringResource(
-                R.string.favorites_episode_subtitle,
-                show,
-                episodeCode(item, stringResource(R.string.favorites_episode_code_fallback))
-            )
-        }
-        else -> item.name ?: ""
-    }
-
-    Column(modifier = modifier) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.68f),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-            onClick = onClick
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (imageUrl != null && !hasPosterError) {
-                    JellyfinPosterImage(
-                        imageUrl = imageUrl,
-                        contentDescription = title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        context = context,
-                        onLoadingStateChange = { isLoading ->
-                            isPosterLoading = isLoading
-                        },
-                        onErrorStateChange = { hasError ->
-                            hasPosterError = hasError
-                            if (hasError) {
-                                isPosterLoading = false
-                            }
-                        }
-                    )
-                }
-
-                if (imageUrl == null && targetImageId != null) {
-                    ImageSkeleton(
-                        modifier = Modifier.fillMaxSize(),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                } else if (imageUrl != null && isPosterLoading && !hasPosterError) {
-                    ImageSkeleton(
-                        modifier = Modifier.fillMaxSize(),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                } else if (targetImageId == null || hasPosterError) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(Color(0xFF1D2735), Color(0xFF131313))
-                                )
-                            )
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.84f))
-                            )
-                        )
-                        .height(52.dp)
-                )
-
-            }
-        }
-
-        Text(
-            text = title,
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 16.sp,
-            modifier = Modifier.padding(top = 8.dp, start = 2.dp, end = 2.dp)
-        )
-        Text(
-            text = subtitle,
-            color = Color.White.copy(alpha = 0.68f),
-            fontSize = 11.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 14.sp,
-            modifier = Modifier.padding(top = 2.dp, start = 2.dp, end = 2.dp)
-        )
-    }
-}
-
-@Composable
-private fun TierSkeleton(sectionIndex: Int) {
-    val transition = rememberInfiniteTransition(label = "favorite_tier_skeleton")
+private fun FavoritesLoadingSkeleton() {
+    val transition = rememberInfiniteTransition(label = "favorites_skeleton")
     val shimmer by transition.animateFloat(
         initialValue = 0.2f,
         targetValue = 0.55f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, delayMillis = sectionIndex * 80),
+            animation = tween(900),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "favorite_tier_skeleton_alpha"
+        label = "favorites_skeleton_alpha"
     )
 
-    Column {
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .fillMaxWidth(0.55f)
-                .height(22.dp)
-                .background(
-                    color = Color.White.copy(alpha = shimmer * 0.26f),
-                    shape = RoundedCornerShape(7.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        items(3) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 20.dp)
+                        .fillMaxWidth(0.55f)
+                        .height(22.dp)
+                        .background(
+                            color = Color.White.copy(alpha = shimmer * 0.26f),
+                            shape = RoundedCornerShape(7.dp)
+                        )
                 )
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(4) {
-                Column(modifier = Modifier.width(148.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(0.68f)
-                            .background(
-                                color = Color.White.copy(alpha = shimmer * 0.22f),
-                                shape = RoundedCornerShape(16.dp)
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(4) {
+                        Column(modifier = Modifier.width(112.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.68f)
+                                    .background(
+                                        color = Color.White.copy(alpha = shimmer * 0.22f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                             )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .height(12.dp)
-                            .background(
-                                color = Color.White.copy(alpha = shimmer * 0.2f),
-                                shape = RoundedCornerShape(6.dp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .height(12.dp)
+                                    .background(
+                                        color = Color.White.copy(alpha = shimmer * 0.2f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
                             )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.65f)
-                            .height(10.dp)
-                            .background(
-                                color = Color.White.copy(alpha = shimmer * 0.14f),
-                                shape = RoundedCornerShape(5.dp)
-                            )
-                    )
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-private fun episodeCode(item: BaseItemDto, fallbackLabel: String): String {
-    val season = item.parentIndexNumber
-    val episode = item.indexNumber
-    return if (season != null && episode != null) {
-        "S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}"
-    } else {
-        fallbackLabel
-    }
-}
-
-private fun isMovieFavorite(item: BaseItemDto): Boolean {
-    return item.type == "Movie"
-}
-
-private fun isEpisodeFavorite(item: BaseItemDto): Boolean {
-    return item.type == "Episode"
-}
-
-private fun isShowFavorite(item: BaseItemDto): Boolean {
-    return item.type == "Series"
-}
-
-private fun formatRuntime(ticks: Long?): String? {
-    val totalMinutes = ticks?.let { (it / 600000000.0).roundToInt() } ?: return null
-    if (totalMinutes <= 0) return null
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-}
-
-@Preview(showBackground = true)
-@Composable
-fun FavoritesPreview() {
-    Favorites()
 }

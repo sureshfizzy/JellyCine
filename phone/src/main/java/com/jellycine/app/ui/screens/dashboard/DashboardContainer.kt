@@ -51,6 +51,7 @@ import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
+import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.media.Discover
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
@@ -457,7 +458,10 @@ fun DashboardContainer(
                 ) {
                     ContentWrapper {
                         Favorites(
-                            onItemClick = onNavigateToDetail
+                            onItemClick = onNavigateToDetail,
+                            onNavigateToViewAll = { contentType, parentId, title ->
+                                onNavigateToViewAll(contentType.name, parentId, title)
+                            }
                         )
                     }
                 }

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
 import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -85,6 +86,7 @@ class ViewAllViewModel @Inject constructor(
                         .ifBlank { null }
                     val selectedGenreIds = genreId?.takeIf { it.isNotBlank() }
                     val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
+                    val isFavoritesRequest = parentId == FAVORITES_VIEW_ALL_PARENT_ID
                     val result = when (contentType) {
                         ContentType.SEERR_STUDIO -> seerrRepository.getStudios(
                             scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
@@ -101,6 +103,8 @@ class ViewAllViewModel @Inject constructor(
                         ContentType.MOVIES -> if (isWatchedRequest) {
                             mediaRepository.loadWatchedItems("Movie")
                                 .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else if (isFavoritesRequest) {
+                            mediaRepository.getFavoriteItems(includeItemTypes = "Movie")
                         } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
@@ -116,6 +120,8 @@ class ViewAllViewModel @Inject constructor(
                             mediaRepository.loadWatchedItems("Episode")
                                 .mapCatching { mediaRepository.loadSeriesForWatchedEpisodes(it).getOrThrow() }
                                 .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else if (isFavoritesRequest) {
+                            mediaRepository.getFavoriteItems(includeItemTypes = "Series")
                         } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
@@ -130,6 +136,8 @@ class ViewAllViewModel @Inject constructor(
                         ContentType.EPISODES -> if (isWatchedRequest) {
                             mediaRepository.loadWatchedItems("Episode")
                                 .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
+                        } else if (isFavoritesRequest) {
+                            mediaRepository.getFavoriteItems(includeItemTypes = "Episode")
                         } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,

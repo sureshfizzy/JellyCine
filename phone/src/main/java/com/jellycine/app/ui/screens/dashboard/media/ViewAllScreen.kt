@@ -63,6 +63,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrCatalog
 import com.jellycine.app.ui.components.common.SeerrTopBadges
+import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -88,7 +89,8 @@ fun ViewAllScreen(
     val isGenreCatalog = contentType.isGenreCatalog()
     val isAward = contentType == ContentType.AWARD
     val isWatchedViewAll = parentId == WATCHED_VIEW_ALL_PARENT_ID
-    val isWatchedEpisodeViewAll = isWatchedViewAll && contentType == ContentType.EPISODES
+    val isFavoritesViewAll = parentId == FAVORITES_VIEW_ALL_PARENT_ID
+    val isWatchedEpisodeViewAll = (isWatchedViewAll || isFavoritesViewAll) && contentType == ContentType.EPISODES
     val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward
 
     val gridCells = remember(screenWidthDp) {
@@ -137,8 +139,8 @@ fun ViewAllScreen(
     var lastAppliedFilterSignature by rememberSaveable(contentType, parentId, genreId) {
         mutableStateOf(filterSignature)
     }
-    val genreIncludeItemTypes = remember(contentType, isWatchedViewAll) {
-        if (isWatchedViewAll) {
+    val genreIncludeItemTypes = remember(contentType, isWatchedViewAll, isFavoritesViewAll) {
+        if (isWatchedViewAll || isFavoritesViewAll) {
             null
         } else when (contentType) {
             ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
