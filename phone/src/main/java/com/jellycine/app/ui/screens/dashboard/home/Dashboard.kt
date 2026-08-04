@@ -2034,8 +2034,7 @@ private fun TopHeader(
     BrandHeader(
         serverName = serverName,
         modifier = Modifier
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-            .padding(top = 4.dp),
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         showUserIcon = true,
         userName = userName,
         userImageUrl = userImageUrl,

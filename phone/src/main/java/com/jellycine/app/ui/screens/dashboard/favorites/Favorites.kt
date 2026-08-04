@@ -300,8 +300,8 @@ private fun FavoritesHeader(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(end = 16.dp, top = 12.dp)
-                .size(36.dp)
+                .padding(end = 16.dp, top = 15.dp)
+                .size(34.dp)
         )
     }
 }
