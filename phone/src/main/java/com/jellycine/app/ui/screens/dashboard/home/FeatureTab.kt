@@ -488,8 +488,7 @@ fun FeatureTab(
         isLoading,
         autoScroll,
         initialCarouselScrollOffsetPx,
-        autoplayTrailersEnabled,
-        resolvedFeaturedItems.value
+        autoplayTrailersEnabled
     ) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
 

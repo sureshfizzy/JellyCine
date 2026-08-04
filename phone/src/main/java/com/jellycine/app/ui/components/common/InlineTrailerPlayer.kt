@@ -3,14 +3,31 @@ package com.jellycine.app.ui.components.common
 import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.jellycine.player.core.PlayerUtils
@@ -32,20 +49,26 @@ fun InlineTrailerPlayer(
     val errorState = remember { mutableStateOf<Throwable?>(null) }
     val isPlayerReady = remember { mutableStateOf(false) }
     val hasRenderedFirstFrame = remember { mutableStateOf(false) }
+    var isMuted by rememberSaveable { mutableStateOf(false) }
     val shouldBeVisible = isVisible && hasRenderedFirstFrame.value
     val playerAlpha by animateFloatAsState(
         targetValue = if (shouldBeVisible) 1f else 0f,
         animationSpec = tween(durationMillis = 300),
         label = "player_alpha"
     )
-    
-    // Resolve trailer URL and prepare player
+
+    LaunchedEffect(isMuted) {
+        withContext(Dispatchers.Main) {
+            player.volume = if (isMuted) 0f else 1f
+        }
+    }
+
     LaunchedEffect(trailerUrl) {
         playbackCompleted.value = false
         isPlayerReady.value = false
         errorState.value = null
         hasRenderedFirstFrame.value = false
-        
+
         if (trailerUrl.isBlank()) {
             withContext(Dispatchers.Main) {
                 player.stop()
@@ -56,24 +79,38 @@ fun InlineTrailerPlayer(
             isLoading.value = false
             return@LaunchedEffect
         }
-        
+
         try {
             isLoading.value = true
-            
+
             val resolvedStream = RemoteTrailerUrl.resolve(trailerUrl)
 
-            val mediaItem = MediaItem.Builder()
-                .setUri(resolvedStream.url)
-                .setMimeType(resolvedStream.mimeType)
-                .build()
-            
             withContext(Dispatchers.Main) {
-                player.setMediaItem(mediaItem)
+                if (!resolvedStream.audioUrl.isNullOrBlank()) {
+                    val mediaSourceFactory = DefaultMediaSourceFactory(context)
+                    val videoItem = MediaItem.Builder()
+                        .setUri(resolvedStream.url)
+                        .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
+                        .build()
+                    val audioItem = MediaItem.Builder()
+                        .setUri(resolvedStream.audioUrl)
+                        .apply { resolvedStream.audioMimeType?.let { setMimeType(it) } }
+                        .build()
+                    val videoSource = mediaSourceFactory.createMediaSource(videoItem)
+                    val audioSource = mediaSourceFactory.createMediaSource(audioItem)
+                    player.setMediaSource(MergingMediaSource(videoSource, audioSource))
+                } else {
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(resolvedStream.url)
+                        .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
+                        .build()
+                    player.setMediaItem(mediaItem)
+                }
                 player.prepare()
                 player.playWhenReady = false
-                player.volume = 0f
+                player.volume = if (isMuted) 0f else 1f
             }
-            
+
             isLoading.value = false
         } catch (e: Exception) {
             errorState.value = e
@@ -81,8 +118,7 @@ fun InlineTrailerPlayer(
             onError(e)
         }
     }
-    
-    // Listen for player readiness, first frame, and playback completion
+
     LaunchedEffect(Unit) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -107,19 +143,18 @@ fun InlineTrailerPlayer(
             override fun onRenderedFirstFrame() {
                 hasRenderedFirstFrame.value = true
             }
-            
+
             override fun onPlayerError(error: PlaybackException) {
                 errorState.value = error
                 onError(error)
             }
         }
-        
+
         player.addListener(listener)
-        
+
         awaitCancellation()
     }
-    
-    // Handle visibility changes
+
     LaunchedEffect(isVisible) {
         if (isVisible && !playbackCompleted.value && errorState.value == null) {
             if (isPlayerReady.value) {
@@ -141,32 +176,53 @@ fun InlineTrailerPlayer(
         }
     }
 
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                useController = false
-                setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                setPadding(0, 0, 0, 0)
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+    Box(modifier = modifier) {
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    useController = false
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    setPadding(0, 0, 0, 0)
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    this.player = player
+                    alpha = 0f
+                    keepScreenOn = true
+                }
+            },
+            update = { view ->
+                view.alpha = playerAlpha
+                view.keepScreenOn = isVisible && !playbackCompleted.value
+            },
+            modifier = Modifier.matchParentSize()
+        )
+
+        if (shouldBeVisible) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable { isMuted = !isMuted },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isMuted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                    contentDescription = if (isMuted) "Unmute" else "Mute",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
                 )
-                this.player = player
-                alpha = 0f
             }
-        },
-        update = { view ->
-            view.alpha = playerAlpha
-        },
-        modifier = modifier
-    )
+        }
+    }
 }
 
-/**
- * Creates and configures an ExoPlayer instance for inline trailer playback.
- */
 private fun createInlineExoPlayer(context: Context): ExoPlayer {
     return PlayerUtils.createPlayer(
         context = context,
