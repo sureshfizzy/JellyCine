@@ -32,6 +32,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.core.RemoteTrailerUrl
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.*
 
 @Composable
@@ -43,6 +44,9 @@ fun InlineTrailerPlayer(
     onError: (Throwable) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+    val maxVideoHeight = if (isTablet) Int.MAX_VALUE else 720
     val player = remember { createInlineExoPlayer(context) }
     val playbackCompleted = remember { mutableStateOf(false) }
     val isLoading = remember { mutableStateOf(true) }
@@ -83,7 +87,7 @@ fun InlineTrailerPlayer(
         try {
             isLoading.value = true
 
-            val resolvedStream = RemoteTrailerUrl.resolve(trailerUrl)
+            val resolvedStream = RemoteTrailerUrl.resolve(trailerUrl, maxVideoHeight)
 
             withContext(Dispatchers.Main) {
                 if (!resolvedStream.audioUrl.isNullOrBlank()) {

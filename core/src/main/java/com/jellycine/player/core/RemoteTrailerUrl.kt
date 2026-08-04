@@ -19,7 +19,7 @@ object RemoteTrailerUrl {
     @Volatile
     private var extractorInitialized = false
 
-    suspend fun resolve(url: String): RemoteTrailerStream = withContext(Dispatchers.IO) {
+    suspend fun resolve(url: String, maxVideoHeight: Int = Int.MAX_VALUE): RemoteTrailerStream = withContext(Dispatchers.IO) {
         val trimmedUrl = url.trim()
         if (trimmedUrl.isBlank()) {
             throw IllegalArgumentException("Remote trailer URL is empty")
@@ -38,7 +38,7 @@ object RemoteTrailerUrl {
             )
         }
 
-        selectPlayableStream(streamInfo)
+        selectPlayableStream(streamInfo, maxVideoHeight)
             ?: throw IllegalStateException("Remote trailer does not expose a playable stream")
     }
 
@@ -49,28 +49,33 @@ object RemoteTrailerUrl {
         extractorInitialized = true
     }
 
-    private fun selectPlayableStream(streamInfo: StreamInfo): RemoteTrailerStream? {
-        streamInfo.getDashMpdUrl()
-            ?.takeIf(String::isNotBlank)
-            ?.let {
-                return RemoteTrailerStream(
-                    url = it,
-                    mimeType = MimeTypes.APPLICATION_MPD
-                )
-            }
+    private fun selectPlayableStream(streamInfo: StreamInfo, maxVideoHeight: Int): RemoteTrailerStream? {
+        if (maxVideoHeight == Int.MAX_VALUE) {
+            streamInfo.getDashMpdUrl()
+                ?.takeIf(String::isNotBlank)
+                ?.let {
+                    return RemoteTrailerStream(
+                        url = it,
+                        mimeType = MimeTypes.APPLICATION_MPD
+                    )
+                }
 
-        streamInfo.getHlsUrl()
-            ?.takeIf(String::isNotBlank)
-            ?.let {
-                return RemoteTrailerStream(
-                    url = it,
-                    mimeType = MimeTypes.APPLICATION_M3U8
-                )
-            }
+            streamInfo.getHlsUrl()
+                ?.takeIf(String::isNotBlank)
+                ?.let {
+                    return RemoteTrailerStream(
+                        url = it,
+                        mimeType = MimeTypes.APPLICATION_M3U8
+                    )
+                }
+        }
 
         val videoOnly = streamInfo.getVideoOnlyStreams()
             .orEmpty()
-            .filter { stream -> stream.isUrl() && !stream.getUrl().isNullOrBlank() }
+            .filter { stream ->
+                stream.isUrl() && !stream.getUrl().isNullOrBlank() &&
+                    stream.getHeight().coerceAtLeast(0) <= maxVideoHeight
+            }
             .maxWithOrNull(compareBy<VideoStream> { it.getHeight().coerceAtLeast(0) }
                 .thenBy { it.getFps().coerceAtLeast(0) }
                 .thenBy { it.getBitrate().coerceAtLeast(0) })
@@ -94,7 +99,10 @@ object RemoteTrailerUrl {
 
         val progressiveVideo = streamInfo.getVideoStreams()
             .orEmpty()
-            .filter { stream -> !stream.isVideoOnly() && stream.isUrl() && !stream.getUrl().isNullOrBlank() }
+            .filter { stream ->
+                !stream.isVideoOnly() && stream.isUrl() && !stream.getUrl().isNullOrBlank() &&
+                    stream.getHeight().coerceAtLeast(0) <= maxVideoHeight
+            }
             .maxByOrNull { stream -> stream.getHeight().takeIf { it > 0 } ?: 0 }
         if (progressiveVideo != null) {
             val progressiveUrl = progressiveVideo.getUrl()?.takeIf(String::isNotBlank) ?: return null
