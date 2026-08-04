@@ -3044,12 +3044,12 @@ internal fun LibraryItemCard(
     val cardHeight = if (landscapeLayout) 182.dp else 214.dp
     val imageHeight = if (landscapeLayout) 120.dp else 166.dp
     val titleAreaHeight = if (landscapeLayout) 64.dp else 46.dp
-    val titleTopPadding = if (landscapeLayout) 10.dp else 4.dp
-    val titleFontSize = if (landscapeLayout) 16.sp else 13.sp
-    val titleLineHeight = if (landscapeLayout) 18.sp else 15.sp
+    val titleTopPadding = if (landscapeLayout) 6.dp else 4.dp
+    val titleFontSize = 13.sp
+    val titleLineHeight = 15.sp
     val titleMaxLines = if (useWatchedEpisodeImage) 1 else if (landscapeLayout) 2 else 1
-    val metadataFontSize = if (landscapeLayout) 14.sp else 12.sp
-    val metadataLineHeight = if (landscapeLayout) 16.sp else 13.sp
+    val metadataFontSize = 12.sp
+    val metadataLineHeight = 13.sp
 
     Column(
         modifier = modifier
