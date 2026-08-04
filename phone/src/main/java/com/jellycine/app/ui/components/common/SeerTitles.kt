@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -217,7 +218,8 @@ internal fun SeerTitleCard(
     val cardShape = RoundedCornerShape(10.dp)
 
     Column(
-        modifier = clickableModifier.width(116.dp)
+        modifier = clickableModifier.width(116.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Card(
             modifier = Modifier
@@ -303,7 +305,9 @@ internal fun SeerTitleCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Medium,
-            lineHeight = 14.sp
+            lineHeight = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
 
         val subtitle = item.productionYear?.toString()
@@ -318,7 +322,8 @@ internal fun SeerTitleCard(
                 color = Color.White.copy(alpha = 0.62f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 1.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp)
             )
         }
     }

@@ -104,11 +104,14 @@ class AwardsRepository(
     ): List<SeerrRecommendationTitle> {
         if (refs.isEmpty()) return emptyList()
         val target = refs.take(limit)
-        val uncached = target.filter { titleCache["${it.mediaType}:${it.tmdbId}"] == null }
-        val localIds = if (uncached.isEmpty()) {
+        val needsLocalLookup = target.filter { ref ->
+            val cached = titleCache["${ref.mediaType}:${ref.tmdbId}"]
+            cached == null || cached.jellyfinMediaId.isNullOrBlank()
+        }
+        val localIds = if (needsLocalLookup.isEmpty()) {
             emptyMap()
         } else {
-            mediaRepository.findLocalItemIdsByTmdb(uncached.map { it.tmdbId })
+            mediaRepository.findLocalItemIdsByTmdb(needsLocalLookup.map { it.tmdbId })
         }
         return coroutineScope {
             val gate = Semaphore(MAX_CONCURRENCY)
@@ -124,7 +127,12 @@ class AwardsRepository(
     private suspend fun hydrateOne(ref: AwardTitleRef, localId: String?): SeerrRecommendationTitle? {
         val cacheKey = "${ref.mediaType}:${ref.tmdbId}"
         titleCache[cacheKey]?.let { cached ->
-            return cached.copy(productionYear = cached.productionYear ?: ref.year)
+            val updated = cached.copy(
+                productionYear = cached.productionYear ?: ref.year,
+                jellyfinMediaId = localId ?: cached.jellyfinMediaId
+            )
+            if (updated !== cached) titleCache[cacheKey] = updated
+            return updated
         }
 
         val resolved = tmdb.titleSummary(ref.mediaType, ref.tmdbId) ?: return null

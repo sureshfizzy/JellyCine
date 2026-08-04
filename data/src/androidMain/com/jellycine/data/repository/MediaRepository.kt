@@ -1797,21 +1797,27 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return emptyMap()
             val userId = getUserId() ?: return emptyMap()
-            val response = api.getUserItems(
-                userId = userId,
-                includeItemTypes = "Movie,Series",
-                recursive = true,
-                limit = ids.size,
-                anyProviderIdEquals = ids.joinToString(",") { "Tmdb.$it" },
-                fields = "ProviderIds"
-            )
-            response.body()?.items.orEmpty().mapNotNull { item ->
-                val tmdb = item.providerIds?.entries
-                    ?.firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }
-                    ?.value
-                val localId = item.id?.takeIf { it.isNotBlank() }
-                if (tmdb != null && localId != null) tmdb to localId else null
-            }.toMap()
+            val result = mutableMapOf<String, String>()
+            ids.chunked(20).forEach { batch ->
+                val response = api.getUserItems(
+                    userId = userId,
+                    includeItemTypes = "Movie,Series",
+                    recursive = true,
+                    limit = batch.size * 2,
+                    anyProviderIdEquals = batch.joinToString(",") { "Tmdb.$it" },
+                    fields = "ProviderIds"
+                )
+                response.body()?.items.orEmpty().forEach { item ->
+                    val tmdb = item.providerIds?.entries
+                        ?.firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }
+                        ?.value
+                    val localId = item.id?.takeIf { it.isNotBlank() }
+                    if (tmdb != null && localId != null && !result.containsKey(tmdb)) {
+                        result[tmdb] = localId
+                    }
+                }
+            }
+            result
         } catch (e: Exception) {
             emptyMap()
         }
