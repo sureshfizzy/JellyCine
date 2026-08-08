@@ -1117,6 +1117,10 @@ data class StableBaseItem(
         (userData?.playedPercentage?.toFloat() ?: 0f) / 100f
     }
 
+    val isWatched: Boolean by lazy {
+        userData?.played == true
+    }
+
     companion object {
         fun from(item: BaseItemDto): StableBaseItem {
             return StableBaseItem(

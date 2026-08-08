@@ -607,6 +607,13 @@ class PlayerPreferences(context: Context) {
         ).coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)
     }
 
+    fun getSubtitleBottomEdgePositionPercent(): Int {
+        return prefs.getInt(
+            KEY_SUBTITLE_BOTTOM_EDGE_PERCENT,
+            DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT
+        ).coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)
+    }
+
     fun setSubtitleBottomEdgePositionPercent(percent: Int) {
         prefs.edit()
             .putInt(KEY_SUBTITLE_BOTTOM_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
