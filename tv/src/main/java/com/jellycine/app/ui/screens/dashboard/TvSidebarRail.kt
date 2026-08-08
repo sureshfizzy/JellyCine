@@ -191,7 +191,7 @@ private fun TvSidebarItem(
                 }
             )
             .fillMaxWidth()
-            .padding(horizontal = if (showLabel) 8.dp else 4.dp)
+            .padding(horizontal = if (showLabel) 8.dp else 2.dp)
             .onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
                     onMoveRight()
@@ -205,32 +205,38 @@ private fun TvSidebarItem(
             .clickable(onClick = onClick)
             .focusable()
             .padding(
-                horizontal = if (showLabel) 8.dp else 4.dp,
+                horizontal = if (showLabel) 8.dp else 2.dp,
                 vertical = 6.dp
             ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (showLabel) Arrangement.Start else Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .width(if (isSelected || isFocused) 2.dp else 0.dp)
-                .height(22.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(
-                    if (isSelected || isFocused) {
-                        selectedColor.copy(alpha = if (isFocused) 0.95f else 0.72f)
-                    } else {
-                        Color.Transparent
-                    }
-                )
-        )
+        if (showLabel) {
+            Box(
+                modifier = Modifier
+                    .width(if (isSelected || isFocused) 2.dp else 0.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        if (isSelected || isFocused) {
+                            selectedColor.copy(alpha = if (isFocused) 0.95f else 0.72f)
+                        } else {
+                            Color.Transparent
+                        }
+                    )
+            )
+        }
         Icon(
             imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
             contentDescription = stringResource(destination.labelRes),
-            tint = if (isSelected || isFocused) Color.White else Color.White.copy(alpha = 0.62f),
+            tint = when {
+                isSelected -> selectedColor
+                isFocused -> Color.White
+                else -> Color.White.copy(alpha = 0.62f)
+            },
             modifier = Modifier
-                .padding(start = if (showLabel || isSelected || isFocused) 10.dp else 0.dp)
-                .size(19.dp)
+                .padding(start = if (showLabel) 10.dp else 0.dp)
+                .size(20.dp)
         )
         if (showLabel) {
             Text(

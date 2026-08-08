@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
@@ -67,8 +68,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.jellycine.shared.R
@@ -1883,7 +1882,8 @@ fun Dashboard(
                     } else if (libraries.isNotEmpty()) {
                         itemsIndexed(
                             items = libraries,
-                            key = { index, section -> section.libraryId.ifBlank { "library_$index" } }
+                            key = { index, section -> section.libraryId.ifBlank { "library_$index" } },
+                            contentType = { _, _ -> "library_section" }
                         ) { index, section ->
                             BurstLibrarySection(
                                 section = section,
@@ -2350,7 +2350,8 @@ private fun HomeMyMediaSection(
                         items = libraries,
                         key = { index, library ->
                             "${library.id ?: library.name ?: "library_item"}_$index"
-                        }
+                        },
+                        contentType = { _, _ -> "my_media_card" }
                     ) { _, library ->
                         val cardFocusRequester = remember(library.id, library.name) { FocusRequester() }
                         val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
@@ -2444,7 +2445,8 @@ private fun ContinueWatchingSection(
                 ) {
                     items(
                         count = renderedCount.coerceAtMost(items.size),
-                        key = { index -> "${items.getOrNull(index)?.id ?: "item"}_$index" }
+                        key = { index -> "${items.getOrNull(index)?.id ?: "item"}_$index" },
+                        contentType = { "continue_watching_card" }
                     ) { index ->
                         val item = items.getOrNull(index)
                         if (item != null) {
@@ -2807,38 +2809,14 @@ private fun BurstLibrarySection(
         ) {
             itemsIndexed(
                 items = section.items,
-                key = { index, item -> "${item.id ?: section.libraryId}_$index" }
+                key = { index, item -> "${item.id ?: section.libraryId}_$index" },
+                contentType = { _, _ -> "library_card" }
             ) { index, item ->
                 val cardFocusRequester = remember(item.id, index) { FocusRequester() }
                 val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
-                val isVisible by remember(libraryRowState, index) {
-                    derivedStateOf {
-                        libraryRowState.layoutInfo.visibleItemsInfo.any { it.index == index }
-                    }
-                }
-                var hasEntered by remember(item.id ?: "${section.libraryId}_$index") {
-                    mutableStateOf(false)
-                }
-                LaunchedEffect(isVisible) {
-                    if (isVisible && !hasEntered) {
-                        hasEntered = true
-                    }
-                }
-                val entranceProgress by animateFloatAsState(
-                    targetValue = if (hasEntered) 1f else 0.88f,
-                    animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
-                    label = "burst_library_item_entrance"
-                )
 
                 LibraryItemCard(
                     item = item,
-                    modifier = Modifier.graphicsLayer {
-                        alpha = entranceProgress
-                        translationX = (1f - entranceProgress) * 26f
-                        val scale = 0.96f + (0.04f * entranceProgress)
-                        scaleX = scale
-                        scaleY = scale
-                    },
                     cardModifier = entryCardModifier(
                         cardFocusRequester = cardFocusRequester,
                         initialFocusRequester = if (index == 0) initialFocusRequester else null,
@@ -2882,9 +2860,12 @@ internal fun LibraryItemCard(
     }
 
     val landscapeLayout = useLandscapeLayout || useWatchedEpisodeImage
-    val cardWidth = if (landscapeLayout) 200.dp else 112.dp
-    val cardHeight = if (landscapeLayout) 182.dp else 214.dp
-    val imageHeight = if (landscapeLayout) 120.dp else 166.dp
+    var isFocused by remember(item.id) { mutableStateOf(false) }
+
+    val baseCardWidth = if (landscapeLayout) 200.dp else 112.dp
+    val expandedCardWidth = 240.dp
+    val baseImageHeight = if (landscapeLayout) 120.dp else 166.dp
+    val expandedImageHeight = 166.dp
     val titleAreaHeight = if (landscapeLayout) 64.dp else 46.dp
     val titleTopPadding = if (landscapeLayout) 10.dp else 4.dp
     val titleFontSize = if (landscapeLayout) 16.sp else 13.sp
@@ -2893,15 +2874,27 @@ internal fun LibraryItemCard(
     val metadataFontSize = if (landscapeLayout) 14.sp else 12.sp
     val metadataLineHeight = if (landscapeLayout) 16.sp else 13.sp
 
+    val animatedWidth by animateDpAsState(
+        targetValue = if (isFocused && !landscapeLayout) expandedCardWidth else baseCardWidth,
+        animationSpec = tween(200),
+        label = "card_width"
+    )
+    val animatedImageHeight by animateDpAsState(
+        targetValue = if (isFocused && !landscapeLayout) expandedImageHeight else baseImageHeight,
+        animationSpec = tween(200),
+        label = "card_image_height"
+    )
+    val showBackdrop = isFocused && !landscapeLayout
+
     Column(
         modifier = modifier
-            .width(cardWidth)
-            .height(cardHeight)
+            .width(animatedWidth)
     ) {
         Card(
             modifier = cardModifier
-                .width(cardWidth)
-                .height(imageHeight),
+                .width(animatedWidth)
+                .height(animatedImageHeight)
+                .onFocusChanged { state -> isFocused = state.isFocused },
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
@@ -2912,28 +2905,106 @@ internal fun LibraryItemCard(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                val imageType = if (landscapeLayout && !useWatchedEpisodeImage) "Thumb" else "Primary"
-                val fallbackImageType = if (landscapeLayout) "Backdrop" else null
+                if (showBackdrop) {
+                    ImageLoader(
+                        itemId = stableItem.seriesId ?: stableItem.id,
+                        seriesId = stableItem.seriesId,
+                        imageType = "Backdrop",
+                        fallbackImageType = "Thumb",
+                        extraFallbackImageTypes = listOf("Primary"),
+                        preferSeriesIdForThumbBackdrop = true,
+                        preferSeriesIdForEpisodePrimary = false,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        cornerRadius = 12,
+                        crossfadeMillis = 0,
+                        mediaRepository = mediaRepository,
+                        imageMetadata = item,
+                        itemType = stableItem.type,
+                        hasImageEnhancers = !disableImageEnhancers,
+                        imageTag = null
+                    )
 
-                ImageLoader(
-                    itemId = stableItem.id,
-                    seriesId = stableItem.seriesId,
-                    imageType = imageType,
-                    fallbackImageType = fallbackImageType,
-                    extraFallbackImageTypes = if (useWatchedEpisodeImage) listOf("Thumb") else if (landscapeLayout) listOf("Primary") else emptyList(),
-                    preferSeriesIdForThumbBackdrop = landscapeLayout && !useWatchedEpisodeImage,
-                    preferSeriesIdForEpisodePrimary = !useWatchedEpisodeImage,
-                    contentDescription = item.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    cornerRadius = 12,
-                    crossfadeMillis = 0,
-                    mediaRepository = mediaRepository,
-                    imageMetadata = item,
-                    itemType = stableItem.type, // Pass item type for proper episode handling
-                    hasImageEnhancers = !disableImageEnhancers,
-                    imageTag = null
-                )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color.Transparent,
+                                        0.4f to Color.Transparent,
+                                        0.8f to Color.Black.copy(alpha = 0.6f),
+                                        1.0f to Color.Black.copy(alpha = 0.88f)
+                                    )
+                                )
+                            )
+                    )
+
+                    val logoItemId = stableItem.seriesId?.takeIf { it.isNotBlank() } ?: stableItem.id
+                    val logoUrl = rememberImageUrl(
+                        itemId = logoItemId,
+                        imageType = "Logo",
+                        width = 400,
+                        quality = 90,
+                        enableImageEnhancers = false,
+                        mediaRepository = mediaRepository
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(horizontal = 10.dp, vertical = 10.dp)
+                            .fillMaxWidth()
+                            .height(40.dp),
+                        contentAlignment = Alignment.BottomStart
+                    ) {
+                        if (!logoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = logoUrl,
+                                contentDescription = item.name,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxWidth(0.82f)
+                                    .height(38.dp),
+                                alignment = Alignment.BottomStart
+                            )
+                        } else {
+                            Text(
+                                text = displayName,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                lineHeight = 16.sp,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                } else {
+                    val imageType = if (landscapeLayout && !useWatchedEpisodeImage) "Thumb" else "Primary"
+                    val fallbackImageType = if (landscapeLayout) "Backdrop" else null
+
+                    ImageLoader(
+                        itemId = stableItem.id,
+                        seriesId = stableItem.seriesId,
+                        imageType = imageType,
+                        fallbackImageType = fallbackImageType,
+                        extraFallbackImageTypes = if (useWatchedEpisodeImage) listOf("Thumb") else if (landscapeLayout) listOf("Primary") else emptyList(),
+                        preferSeriesIdForThumbBackdrop = landscapeLayout && !useWatchedEpisodeImage,
+                        preferSeriesIdForEpisodePrimary = !useWatchedEpisodeImage,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        cornerRadius = 12,
+                        crossfadeMillis = 0,
+                        mediaRepository = mediaRepository,
+                        imageMetadata = item,
+                        itemType = stableItem.type,
+                        hasImageEnhancers = !disableImageEnhancers,
+                        imageTag = null
+                    )
+                }
 
                 val episodeCount = when {
                     item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
@@ -2946,32 +3017,33 @@ internal fun LibraryItemCard(
                 val isFullyWatched = item.type == "Series" &&
                     item.userData?.unplayedItemCount == 0
 
-                episodeCount?.takeIf { it > 0 }?.let { count ->
-                    if (useWatchedSeriesBadge) {
-                        PosterTextBadge(
-                            text = stringResource(R.string.count_left, count),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(end = 8.dp, bottom = 8.dp)
-                        )
-                    } else {
-                        PosterCountBadge(
-                            count = count,
+                if (!showBackdrop) {
+                    episodeCount?.takeIf { it > 0 }?.let { count ->
+                        if (useWatchedSeriesBadge) {
+                            PosterTextBadge(
+                                text = stringResource(R.string.count_left, count),
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 8.dp, bottom = 8.dp)
+                            )
+                        } else {
+                            PosterCountBadge(
+                                count = count,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 8.dp, end = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (!watchedFeedStyle && (isFullyWatched || (episodeCount == null && stableItem.isWatched))) {
+                        WatchedIndicatorBadge(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(top = 8.dp, end = 4.dp)
+                                .padding(4.dp)
                         )
                     }
                 }
-
-                if (!watchedFeedStyle && (isFullyWatched || (episodeCount == null && stableItem.isWatched))) {
-                    WatchedIndicatorBadge(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                    )
-                }
-
             }
         }
 
@@ -3465,7 +3537,8 @@ private fun ProgressiveMovieGenreSection(
                 ) {
                     items(
                         count = genreMovies.size,
-                        key = { index -> "${genreMovies[index].id ?: "genre_movie"}_$index" }
+                        key = { index -> "${genreMovies[index].id ?: "genre_movie"}_$index" },
+                        contentType = { "genre_movie_card" }
                     ) { index ->
                         val cardFocusRequester = remember(genreMovies[index].id, index) { FocusRequester() }
                         LibraryItemCard(
@@ -3602,7 +3675,8 @@ private fun ProgressiveTVShowGenreSection(
                 ) {
                     itemsIndexed(
                         items = genreShows,
-                        key = { index, show -> "${show.id ?: "${show.name}_${show.type}"}_$index" }
+                        key = { index, show -> "${show.id ?: "${show.name}_${show.type}"}_$index" },
+                        contentType = { _, _ -> "genre_show_card" }
                     ) { _, show ->
                         val cardFocusRequester = remember(show.id, show.name) { FocusRequester() }
                         LibraryItemCard(

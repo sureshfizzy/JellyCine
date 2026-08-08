@@ -255,7 +255,7 @@ fun FeatureTab(
     }
     var autoScroll by rememberSaveable(selectedCategory) { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
-    val heroHeight = (configuration.screenHeightDp.dp * 0.68f).coerceIn(440.dp, 720.dp)
+    val heroHeight = (configuration.screenHeightDp.dp * 0.58f).coerceIn(380.dp, 580.dp)
 
     var currentHeroIndex by rememberSaveable(selectedCategory) { mutableStateOf(0) }
 
@@ -407,6 +407,9 @@ fun FeatureTab(
         if (autoScroll || isLoading) return@LaunchedEffect
         if (resolvedFeaturedItems.value.isNotEmpty()) {
             autoScroll = true
+            try {
+                resolvedHeroActionFocusRequester.requestFocus()
+            } catch (_: Exception) {}
         }
     }
 
@@ -515,21 +518,6 @@ fun FeatureTab(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0f),
-                            Color.Black.copy(alpha = 0.40f),
-                            Color.Black.copy(alpha = 0.72f),
-                            Color.Black
-                        )
-                    )
-                )
-        )
     }
 }
 
@@ -719,8 +707,6 @@ private fun FeatureHeroCard(
     val context = LocalContext.current
     val itemName = item.name ?: stringResource(R.string.search_result_unknown_title)
     var contentVisible by remember(item.id) { mutableStateOf(false) }
-    var playButtonFocused by remember(item.id) { mutableStateOf(false) }
-    var moreInfoButtonFocused by remember(item.id) { mutableStateOf(false) }
     LaunchedEffect(item.id) { contentVisible = true }
     val logoAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
@@ -743,23 +729,6 @@ private fun FeatureHeroCard(
     val localPlayFocusRequester = remember(item.id) { FocusRequester() }
     val playFocusRequester = entryActionFocusRequester ?: localPlayFocusRequester
     val moreInfoFocusRequester = remember(item.id) { FocusRequester() }
-    val heroActionsActive = playButtonFocused || moreInfoButtonFocused
-    val heroDetailsAlpha by animateFloatAsState(
-        targetValue = if (heroActionsActive) 1f else 0f,
-        label = "hero_details_alpha"
-    )
-    val heroDetailsShift by animateFloatAsState(
-        targetValue = if (heroActionsActive) 0f else 12f,
-        label = "hero_details_shift"
-    )
-    val heroActionsAlpha by animateFloatAsState(
-        targetValue = if (heroActionsActive) 1f else 0f,
-        label = "hero_actions_alpha"
-    )
-    val heroActionsScale by animateFloatAsState(
-        targetValue = if (heroActionsActive) 1f else 0.96f,
-        label = "hero_actions_scale"
-    )
 
     Card(
         modifier = modifier
@@ -794,10 +763,11 @@ private fun FeatureHeroCard(
                     painter = lowPainter,
                     contentDescription = itemName,
                     contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
-                            translationY = backdropParallaxShift,
+                            translationY = backdropParallaxShift + 30f,
                             scaleX = 1.14f,
                             scaleY = 1.14f
                         )
@@ -833,10 +803,11 @@ private fun FeatureHeroCard(
                     painter = highPainter,
                     contentDescription = itemName,
                     contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
-                            translationY = backdropParallaxShift,
+                            translationY = backdropParallaxShift + 30f,
                             alpha = highAlpha,
                             scaleX = 1.14f,
                             scaleY = 1.14f
@@ -864,24 +835,11 @@ private fun FeatureHeroCard(
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
-                                0.0f to Color.Black.copy(alpha = 0.12f),
-                                0.50f to Color.Transparent,
-                                0.82f to Color.Black.copy(alpha = 0.34f),
-                                1.0f to Color.Black.copy(alpha = 0.58f)
-                            )
-                        )
-                    )
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(36.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.46f)
+                                0.0f to Color.Black.copy(alpha = 0.10f),
+                                0.45f to Color.Transparent,
+                                0.72f to Color.Black.copy(alpha = 0.40f),
+                                0.88f to Color.Black.copy(alpha = 0.75f),
+                                1.0f to Color.Black
                             )
                         )
                     )
@@ -906,10 +864,10 @@ private fun FeatureHeroCard(
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .fillMaxWidth(0.34f)
-                    .widthIn(max = 380.dp)
-                    .padding(start = 42.dp, end = 20.dp, top = 20.dp, bottom = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .fillMaxWidth(0.40f)
+                    .widthIn(max = 460.dp)
+                    .padding(start = 42.dp, end = 20.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.Start
             ) {
                 if (!logoUrl.isNullOrBlank()) {
@@ -929,18 +887,22 @@ private fun FeatureHeroCard(
                         ),
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .height(88.dp)
+                            .height(64.dp)
                             .fillMaxWidth(0.88f)
                             .graphicsLayer(
                                 alpha = logoAlpha
                             )
                     )
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.88f)
-                            .height(42.dp)
-                            .background(Color.Black, RoundedCornerShape(4.dp))
+                    Text(
+                        text = itemName,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        lineHeight = 26.sp,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(0.88f)
                     )
                 }
 
@@ -962,12 +924,12 @@ private fun FeatureHeroCard(
                                 color = Color.White.copy(alpha = 0.10f),
                                 shape = RoundedCornerShape(999.dp)
                             )
-                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = heroBadgeText,
                             color = Color.White.copy(alpha = 0.92f),
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -987,7 +949,7 @@ private fun FeatureHeroCard(
                                 Text(
                                     text = runtimeText,
                                     color = Color.White.copy(alpha = 0.78f),
-                                    fontSize = 11.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -1022,12 +984,12 @@ private fun FeatureHeroCard(
                                     imageVector = Icons.Rounded.Star,
                                     contentDescription = null,
                                     tint = Color(0xFFE84B3C),
-                                    modifier = Modifier.size(13.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 Text(
                                     text = ratingText,
                                     color = Color.White,
-                                    fontSize = 11.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -1045,7 +1007,7 @@ private fun FeatureHeroCard(
                             Text(
                                 text = trailingMetaText,
                                 color = Color.White.copy(alpha = 0.88f),
-                                fontSize = 11.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1060,27 +1022,16 @@ private fun FeatureHeroCard(
                     ?.let { overview ->
                         Text(
                             text = overview,
-                            color = Color.White.copy(alpha = 0.92f),
+                            color = Color.White.copy(alpha = 0.88f),
                             fontSize = 12.sp,
-                            lineHeight = 18.sp,
+                            lineHeight = 17.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .graphicsLayer(
-                                    alpha = heroDetailsAlpha,
-                                    translationY = heroDetailsShift
-                                )
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
                 Row(
-                    modifier = Modifier.graphicsLayer(
-                        alpha = heroActionsAlpha,
-                        scaleX = heroActionsScale,
-                        scaleY = heroActionsScale,
-                        translationY = heroDetailsShift
-                    ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1089,7 +1040,6 @@ private fun FeatureHeroCard(
                         icon = Icons.Rounded.PlayArrow,
                         isPrimary = true,
                         onFocusChanged = { isFocused ->
-                            playButtonFocused = isFocused
                             if (isFocused) {
                                 onHeroZoneFocused?.invoke()
                             }
@@ -1108,7 +1058,6 @@ private fun FeatureHeroCard(
                         text = stringResource(R.string.dashboard_more_info),
                         isPrimary = false,
                         onFocusChanged = { isFocused ->
-                            moreInfoButtonFocused = isFocused
                             if (isFocused) {
                                 onHeroZoneFocused?.invoke()
                             }
@@ -1144,21 +1093,22 @@ private fun FeatureHeroActionButton(
 
     Row(
         modifier = modifier
-            .widthIn(min = 104.dp)
+            .widthIn(min = 140.dp)
             .clip(shape)
             .background(
                 when {
-                    isPrimary -> Color.White
-                    isFocused -> Color.White.copy(alpha = 0.22f)
-                    else -> Color.White.copy(alpha = 0.14f)
+                    isPrimary && isFocused -> Color.White
+                    isPrimary -> Color.White.copy(alpha = 0.92f)
+                    isFocused -> Color.White.copy(alpha = 0.24f)
+                    else -> Color.White.copy(alpha = 0.12f)
                 }
             )
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
+                width = if (isFocused) 2.5.dp else 1.dp,
                 color = when {
                     isFocused -> Color.White
                     isPrimary -> Color.Transparent
-                    else -> Color.White.copy(alpha = 0.14f)
+                    else -> Color.White.copy(alpha = 0.16f)
                 },
                 shape = shape
             )
@@ -1179,22 +1129,22 @@ private fun FeatureHeroActionButton(
             }
             .clickable(onClick = onClick)
             .focusable()
-            .padding(horizontal = 9.dp, vertical = 5.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         icon?.let { imageVector ->
             Icon(
                 imageVector = imageVector,
                 contentDescription = null,
                 tint = if (isPrimary) Color.Black else Color.White,
-                modifier = Modifier.size(11.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
         Text(
             text = text,
             color = if (isPrimary) Color.Black else Color.White,
-            fontSize = 9.sp,
+            fontSize = 13.sp,
             fontWeight = if (isPrimary) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
