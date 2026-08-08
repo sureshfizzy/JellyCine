@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.ui.components.common.*
@@ -53,7 +52,6 @@ import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
-import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -1161,7 +1159,6 @@ fun Dashboard(
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.jellycine.data.repository.MediaRepositoryProvider.getInstance(context) }
-    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val preferences = remember { Preferences(context) }
     val authRepository = remember { com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context) }
     val scope = rememberCoroutineScope()
@@ -1192,7 +1189,6 @@ fun Dashboard(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
         )
-    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
@@ -1715,18 +1711,10 @@ fun Dashboard(
         }
 
         if (!isNetworkAvailable) {
-            if (trackedDownloads.any { it.isOfflineAvailable }) {
-                DownloadsScreen(
-                    onBackPressed = {},
-                    embedded = true,
-                    onPlayItem = onNavigateToPlayer
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    OfflineState(serverName = currentServerName)
-                }
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                OfflineState(serverName = currentServerName)
             }
         }
 

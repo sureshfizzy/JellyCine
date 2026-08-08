@@ -1,7 +1,5 @@
 package com.jellycine.app.ui.screens.detail
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -45,16 +43,6 @@ import com.jellycine.shared.ui.components.common.buildInlineText
 import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
 import com.jellycine.shared.ui.components.common.OverviewSection
 import com.jellycine.shared.ui.components.common.selectedVideoOption
-import com.jellycine.app.ui.components.common.canResumeDownloads
-import com.jellycine.app.ui.components.common.hasActiveDownloads
-import com.jellycine.app.ui.components.common.pausableItemIds
-import com.jellycine.app.ui.components.common.isPausedDownloadState
-import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
-import com.jellycine.app.ui.components.common.rememberDownloadPanelState
-import com.jellycine.app.cast.CastController
-import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.download.DownloadStatus
-import com.jellycine.app.download.ItemDownloadState
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.shared.playback.UserDataRefreshEvent
 import com.jellycine.shared.playback.UserDataRefreshSignals
@@ -78,11 +66,9 @@ fun DetailContent(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val playerPreferences = remember { PlayerPreferences(context) }
     val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
-    val castPlaybackState by CastController.playbackState.collectAsState()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
     val configuration = LocalConfiguration.current
     val isWidescreenLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
@@ -166,22 +152,6 @@ fun DetailContent(
     val genresText = remember(item.genres) {
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
     }
-    val canDownloadItem = item.id != null && item.canDownload != false
-    val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
-    val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
-    val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
-        ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
-    val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
-    val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
-        itemDownloadState.status == DownloadStatus.QUEUED
-    var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
-    var downloadActionMenu by remember(item.id, itemDownloadState.status, itemDownloadState.message) {
-        mutableStateOf(false)
-    }
-    var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
-    var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
-    var seriesStorageSelectionDialogState by remember(item.id) { mutableStateOf<SeriesSeasonSelectionDialogState?>(null) }
-    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
@@ -211,23 +181,6 @@ fun DetailContent(
             }
         }.orEmpty()
     }
-    val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
-        val seriesId = item.id
-        if (item.type != "Series" || seriesId.isNullOrBlank()) {
-            emptyList()
-        } else {
-            trackedDownloads.filter { it.item?.seriesId == seriesId }
-        }
-    }
-    val seriesDownload = rememberDownloadPanelState(entries = seriesDownloadEntries)
-    val hasActiveSeriesDownloads = seriesDownload.hasActiveDownloads
-    val canResumeSeriesDownloads = seriesDownload.canResumeDownloads
-    var seriesDownloadActionMenu by remember(
-        item.id,
-        seriesDownload.status,
-        seriesDownload.activeItemIds.size,
-        seriesDownload.pausedItemIds.size
-    ) { mutableStateOf(false) }
     fun toggleFavorite() {
         val currentItemId = item.id ?: return
         val targetState = !isFavorite
@@ -264,30 +217,6 @@ fun DetailContent(
                 )
             }
         }
-    }
-    val animatedDownloadProgress by animateFloatAsState(
-        targetValue = when (itemDownloadState.status) {
-            DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
-            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
-            DownloadStatus.COMPLETED -> 1f
-        else -> 0f
-        },
-        animationSpec = tween(durationMillis = 350),
-        label = "detail_download_progress"
-    )
-    val animatedSeriesDownloadProgress = rememberDownloadPanelProgress(
-        panelState = seriesDownload,
-        label = "series_download_progress"
-    )
-
-    LaunchedEffect(itemDownloadState.status) {
-        if (
-            previousDownloadStatus != DownloadStatus.FAILED &&
-            itemDownloadState.status == DownloadStatus.FAILED
-        ) {
-            downloadErrorDialogMessage = downloadFailure(state = itemDownloadState)
-        }
-        previousDownloadStatus = itemDownloadState.status
     }
 
     LaunchedEffect(item.id) {
@@ -718,38 +647,6 @@ fun DetailContent(
                     )
                 }
 
-                if (item.type != "Series" && castPlaybackState.isConnected) {
-                    Surface(
-                        color = Color(0xFF173025),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Cast,
-                                contentDescription = null,
-                                tint = Color(0xFFA7FFD7),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = if (castPlaybackState.isCastingMedia) {
-                                    "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                } else {
-                                    "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                },
-                                fontSize = 12.sp,
-                                color = Color(0xFFE6FFF3),
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
                 if (codecBadges.hasAnyBadges) {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -828,12 +725,6 @@ fun DetailContent(
                         playButtonText = playButtonText,
                         isPartiallyWatched = isPartiallyWatched,
                         resumeProgress = resumeProgress,
-                        canDownloadItem = canDownloadItem,
-                        itemDownloadState = itemDownloadState,
-                        isPausedDownload = isPausedDownload,
-                        hasActiveDownload = hasActiveDownload,
-                        downloadActionMenu = downloadActionMenu,
-                        downloadProgress = animatedDownloadProgress,
                         isFavorite = isFavorite,
                         onPlayClick = {
                             val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
@@ -842,33 +733,6 @@ fun DetailContent(
                                     subtitleOption = selectedSubtitle
                                 )
                             onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
-                        },
-                        onDownloadClick = {
-                            coroutineScope.launch {
-                                downloadRepository.enqueueItemDownload(item)
-                                    .onFailure { throwable ->
-                                        downloadErrorDialogMessage = downloadFailure(
-                                            rawMessage = throwable.message
-                                        )
-                                    }
-                            }
-                        },
-                        onDownloadMenuChange = { expanded ->
-                            downloadActionMenu = expanded
-                        },
-                        onPauseResumeDownload = {
-                            downloadActionMenu = false
-                            item.id?.let { itemId ->
-                                if (isPausedDownload) {
-                                    downloadRepository.resumeDownload(itemId)
-                                } else {
-                                    downloadRepository.pauseDownload(itemId)
-                                }
-                            }
-                        },
-                        onCancelDownload = {
-                            downloadActionMenu = false
-                            item.id?.let(downloadRepository::cancelDownload)
                         },
                         onFavoriteClick = ::toggleFavorite
                     )
@@ -902,64 +766,8 @@ fun DetailContent(
 
                 if (item.type == "Series") {
                     SeriesActionSection(
-                        buttonHeight = 46.dp,
-                        seriesDownload = seriesDownload,
-                        seriesQueueInProgress = seriesQueueInProgress,
-                        seriesDownloadProgress = animatedSeriesDownloadProgress,
-                        seriesDownloadActionMenu = seriesDownloadActionMenu,
-                        canResumeSeriesDownloads = canResumeSeriesDownloads,
-                        hasActiveSeriesDownloads = hasActiveSeriesDownloads,
                         isFavorite = isFavorite,
                         isWatched = isWatched,
-                        onSeriesDownloadClick = {
-                            coroutineScope.launch {
-                                val seriesId = item.id
-                                if (seriesId.isNullOrBlank()) {
-                                    return@launch
-                                }
-                                seriesQueueInProgress = true
-                                try {
-                                    val estimateResult =
-                                        downloadRepository.buildSeriesDownloadEstimate(seriesId)
-                                    estimateResult.fold(
-                                        onSuccess = { estimate ->
-                                            seriesStorageSelectionDialogState =
-                                                SeriesSeasonSelectionDialogState
-                                                    .fromEstimate(estimate)
-                                        },
-                                        onFailure = { throwable ->
-                                            downloadErrorDialogMessage =
-                                                downloadFailure(
-                                                    rawMessage = throwable.message
-                                                )
-                                        }
-                                    )
-                                } finally {
-                                    seriesQueueInProgress = false
-                                }
-                            }
-                        },
-                        onSeriesDownloadMenuChange = { expanded ->
-                            seriesDownloadActionMenu = expanded
-                        },
-                        onPauseResumeSeriesDownloads = {
-                            seriesDownloadActionMenu = false
-                            if (canResumeSeriesDownloads) {
-                                seriesDownload.pausedItemIds.forEach(
-                                    downloadRepository::resumeDownload
-                                )
-                            } else {
-                                seriesDownload.pausableItemIds.forEach(
-                                    downloadRepository::pauseDownload
-                                )
-                            }
-                        },
-                        onCancelSeriesDownloads = {
-                            seriesDownloadActionMenu = false
-                            seriesDownload.activeItemIds.forEach(
-                                downloadRepository::cancelDownload
-                            )
-                        },
                         onWatchedClick = ::toggleWatched,
                         onFavoriteClick = ::toggleFavorite
                     )
@@ -996,38 +804,6 @@ fun DetailContent(
             }
         }
     }
-
-    Dialogs(
-        seriesStorageSelectionDialogState = seriesStorageSelectionDialogState,
-        downloadErrorDialogMessage = downloadErrorDialogMessage,
-        onDismissSeriesSelection = {
-            seriesStorageSelectionDialogState = null
-        },
-        onConfirmSeriesSelection = { selectedIds ->
-            seriesStorageSelectionDialogState?.let { dialogState ->
-                val selectedEpisodes = selectedIds
-                    .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
-                    .distinctBy { it.id }
-                seriesStorageSelectionDialogState = null
-                coroutineScope.launch {
-                    seriesQueueInProgress = true
-                    try {
-                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes)
-                            .onFailure { throwable ->
-                                downloadErrorDialogMessage =
-                                    downloadFailure(rawMessage = throwable.message)
-                            }
-                    } finally {
-                        seriesQueueInProgress = false
-                    }
-                }
-            }
-        },
-        onDismissDownloadError = {
-            downloadErrorDialogMessage = null
-        }
-    )
-
 }
 
 private fun List<BaseItemDto>.withUserDataRefresh(
@@ -1050,31 +826,3 @@ private fun List<BaseItemDto>.withUserDataRefresh(
     }
 }
 
-@Composable
-private fun Dialogs(
-    seriesStorageSelectionDialogState: SeriesSeasonSelectionDialogState?,
-    downloadErrorDialogMessage: String?,
-    onDismissSeriesSelection: () -> Unit,
-    onConfirmSeriesSelection: (Set<String>) -> Unit,
-    onDismissDownloadError: () -> Unit
-) {
-    seriesStorageSelectionDialogState?.let { dialogState ->
-        DownloadDialog(
-            title = "Choose Seasons",
-            subtitle = "Pick seasons to download. Selected total must fit available storage.",
-            availableBytes = dialogState.availableBytes,
-            options = dialogState.options,
-            initialSelection = dialogState.options.map { it.id }.toSet(),
-            confirmLabel = "Download Seasons",
-            onDismiss = onDismissSeriesSelection,
-            onConfirm = onConfirmSeriesSelection
-        )
-    }
-
-    downloadErrorDialogMessage?.let { message ->
-        FailureDialog(
-            message = message,
-            onDismiss = onDismissDownloadError
-        )
-    }
-}

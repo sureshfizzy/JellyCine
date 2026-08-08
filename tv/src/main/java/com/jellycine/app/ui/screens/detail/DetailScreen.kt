@@ -45,17 +45,8 @@ import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.shared.ui.components.common.ScreenWrapper
 import com.jellycine.shared.ui.components.common.ShimmerEffect
-import com.jellycine.app.cast.CastController
-import com.jellycine.app.download.BatchDownloadCandidate
-import com.jellycine.app.download.BatchDownloadEstimate
-import com.jellycine.app.download.DownloadStatus
-import com.jellycine.app.download.ItemDownloadState
-import com.jellycine.app.ui.screens.cast.CastPlayback
-import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
-import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.shared.playback.UserDataRefreshSignals
-import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
@@ -99,83 +90,8 @@ fun DetailScreenContainer(
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
     var episodeError by remember { mutableStateOf<String?>(null) }
-    var castingDisplay by remember { mutableStateOf(false) }
-    var castDisplayItem by remember { mutableStateOf<BaseItemDto?>(null) }
-    var castDisplayArtworkUrl by remember { mutableStateOf<String?>(null) }
-    var castDisplayStreams by remember { mutableStateOf<List<MediaStream>>(emptyList()) }
-    var castDisplayAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
-    var castDisplaySubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
-    var castTracks by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val castPlaybackState by CastController.playbackState.collectAsState()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
-
-    LaunchedEffect(context) {
-        CastController.ensureInitialized(context)
-    }
-
-    suspend fun castDisplayState(castItemId: String) {
-        val activeItem = when {
-            castDisplayItem?.id == castItemId -> castDisplayItem
-            episodeItem?.id == castItemId -> episodeItem
-            item?.id == castItemId -> item
-            else -> mediaRepository.getItemById(castItemId).getOrNull()
-        }
-
-        val playbackData = loadCastPlaybackData(
-            mediaRepository = mediaRepository,
-            playerPreferences = playerPreferences,
-            itemId = castItemId,
-            activeItem = activeItem
-        )
-        castDisplayItem = playbackData.item
-        castDisplayArtworkUrl = playbackData.artworkUrl
-        castDisplayStreams = playbackData.streams
-        castDisplayAudioStreamIndex = playbackData.selectedAudioStreamIndex
-        castDisplaySubtitleStreamIndex = playbackData.selectedSubtitleStreamIndex
-    }
-
-    fun localPlayer(targetItemId: String) {
-        playbackItemId = targetItemId
-        castingDisplay = false
-        showPlayer = true
-    }
-
-    fun updateCastStreams(
-        audioStreamIndex: Int?,
-        subtitleStreamIndex: Int?
-    ) {
-        if (castTracks) return
-        val castItemId = castPlaybackState.currentItemId ?: castDisplayItem?.id ?: return
-        val metadataItem = castDisplayItem
-
-        scope.launch {
-            castTracks = true
-            try {
-                val castResult = CastController.castItem(
-                    context = context,
-                    mediaRepository = mediaRepository,
-                    itemId = castItemId,
-                    title = metadataItem?.name ?: castPlaybackState.mediaTitle,
-                    subtitle = metadataItem?.seriesName ?: castPlaybackState.mediaSubtitle,
-                    itemType = metadataItem?.type,
-                    artworkUrl = castPlaybackState.artworkUrl ?: castDisplayArtworkUrl,
-                    startPositionMs = castPlaybackState.positionMs,
-                    audioStreamIndex = audioStreamIndex,
-                    subtitleStreamIndex = subtitleStreamIndex
-                )
-
-                if (castResult.isSuccess) {
-                    castDisplayAudioStreamIndex = audioStreamIndex
-                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
-                    playerPreferences.setPreferredAudioStreamIndex(castItemId, audioStreamIndex)
-                    playerPreferences.setPreferredSubtitleStreamIndex(castItemId, subtitleStreamIndex)
-                }
-            } finally {
-                castTracks = false
-            }
-        }
-    }
 
     fun startPlaybackForItem(
         targetItem: BaseItemDto?,
@@ -186,51 +102,12 @@ fun DetailScreenContainer(
         val activeItemId = targetItem?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId
         preferredAudioStreamIndex = audioStreamIndex
         preferredSubtitleStreamIndex = subtitleStreamIndex
-
-        scope.launch {
-            if (castPlaybackState.isConnected) {
-                val startPositionMs = (targetItem?.userData?.playbackPositionTicks ?: 0L) / 10_000L
-                val artworkUrl = activeCastArtworkUrl(
-                    mediaRepository = mediaRepository,
-                    item = targetItem,
-                    fallbackItemId = activeItemId
-                )
-                val castResult = CastController.castItem(
-                    context = context,
-                    mediaRepository = mediaRepository,
-                    itemId = activeItemId,
-                    title = targetItem?.name,
-                    subtitle = targetItem?.seriesName,
-                    itemType = targetItem?.type,
-                    artworkUrl = artworkUrl,
-                    startPositionMs = startPositionMs,
-                    audioStreamIndex = audioStreamIndex,
-                    subtitleStreamIndex = subtitleStreamIndex
-                )
-
-                if (castResult.isSuccess) {
-                    playbackItemId = activeItemId
-                    castDisplayItem = targetItem
-                    castDisplayArtworkUrl = artworkUrl
-                    castDisplayAudioStreamIndex = audioStreamIndex
-                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
-                    showPlayer = false
-                    castingDisplay = true
-                    castDisplayState(castItemId = activeItemId)
-                } else {
-                    localPlayer(activeItemId)
-                }
-            } else {
-                localPlayer(activeItemId)
-            }
-        }
+        playbackItemId = activeItemId
+        showPlayer = true
     }
 
     val handleBackNavigation: () -> Unit = {
         when {
-            castingDisplay -> {
-                castingDisplay = false
-            }
             showPlayer -> {
                 val playedItemId = playbackItemId ?: itemId
                 preferredAudioStreamIndex = playerPreferences.getPreferredAudioStreamIndex(playedItemId)
@@ -374,20 +251,6 @@ fun DetailScreenContainer(
             mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedEpisode ->
                 episodeItem = refreshedEpisode
             }
-        }
-    }
-
-    LaunchedEffect(castPlaybackState.isConnected, castPlaybackState.isCastingMedia) {
-        if (castingDisplay && !castPlaybackState.isConnected) {
-            castingDisplay = false
-        }
-        if (!castPlaybackState.isConnected) {
-            castDisplayStreams = emptyList()
-            castDisplayItem = null
-            castDisplayArtworkUrl = null
-            castDisplayAudioStreamIndex = null
-            castDisplaySubtitleStreamIndex = null
-            castTracks = false
         }
     }
 
@@ -577,30 +440,6 @@ fun DetailScreenContainer(
             }
         }
 
-        if (castingDisplay) {
-            CastPlayback(
-                castState = castPlaybackState,
-                streams = castDisplayStreams,
-                fallbackArtworkUrl = castDisplayArtworkUrl,
-                selectedAudioStreamIndex = castDisplayAudioStreamIndex,
-                selectedSubtitleStreamIndex = castDisplaySubtitleStreamIndex,
-                isTrackSelectionUpdating = castTracks,
-                onDismissRequest = { castingDisplay = false },
-                onTogglePlayPause = { CastController.togglePlayPause(context) },
-                onStopCasting = { CastController.stopPlayback(context) },
-                onDisconnect = {
-                    CastController.disconnect(context)
-                    castingDisplay = false
-                },
-                onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
-                onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
-                    updateCastStreams(
-                        audioStreamIndex = audioStreamIndex,
-                        subtitleStreamIndex = subtitleStreamIndex
-                    )
-                }
-            )
-        }
     }
 }
 
@@ -677,41 +516,6 @@ internal fun MoreFromSeasonSection(
                 )
             }
         }
-    }
-}
-
-internal fun downloadFailure(
-    state: ItemDownloadState? = null,
-    rawMessage: String? = null
-): String {
-    state?.storageShortageInfo?.let { storage ->
-        val fileSize = storage.fileSizeBytes?.let(::formatStorageBytesForDialog) ?: "Unknown"
-        val available = formatStorageBytesForDialog(storage.availableBytes)
-        val needed = formatStorageBytesForDialog(storage.neededBytes)
-        return buildString {
-            appendLine("Not enough storage space on this device.")
-            appendLine()
-            appendLine("File size: $fileSize")
-            appendLine("Available: $available")
-            append("Needed: $needed")
-        }
-    }
-
-    val resolvedMessage = rawMessage?.trim().takeUnless { it.isNullOrBlank() }
-        ?: state?.message?.trim().takeUnless { it.isNullOrBlank() }
-    return resolvedMessage ?: "Download failed. Please try again."
-}
-
-internal fun formatStorageBytesForDialog(bytes: Long): String {
-    val value = bytes.coerceAtLeast(0L).toDouble()
-    val kb = 1024.0
-    val mb = kb * 1024.0
-    val gb = mb * 1024.0
-    return when {
-        value >= gb -> String.format(Locale.US, "%.2f GB", value / gb)
-        value >= mb -> String.format(Locale.US, "%.1f MB", value / mb)
-        value >= kb -> String.format(Locale.US, "%.1f KB", value / kb)
-        else -> "${bytes.coerceAtLeast(0L)} B"
     }
 }
 
@@ -860,84 +664,6 @@ internal fun episodeHeaderText(item: BaseItemDto): String? {
     }
 }
 
-
-internal data class SeriesSeasonSelectionDialogState(
-    val availableBytes: Long,
-    val options: List<StorageSelectionOption>,
-    val episodesBySeasonId: Map<String, List<BaseItemDto>>
-) {
-    companion object {
-        fun fromEstimate(estimate: BatchDownloadEstimate): SeriesSeasonSelectionDialogState {
-            data class SeasonGroupSummary(
-                val id: String,
-                val title: String,
-                val subtitle: String,
-                val requiredBytes: Long,
-                val seasonNumber: Int?,
-                val episodes: List<BaseItemDto>
-            )
-
-            val grouped = estimate.candidates
-                .filter { !it.item.id.isNullOrBlank() }
-                .groupBy { candidate -> seasonGroupKey(candidate.item) }
-
-            val groupedSummaries = grouped.map { (seasonId, candidates) ->
-                val orderedCandidates = candidates.sortedWith(
-                    compareBy<BatchDownloadCandidate>(
-                        { it.item.parentIndexNumber ?: Int.MAX_VALUE },
-                        { it.item.indexNumber ?: Int.MAX_VALUE },
-                        { it.item.name.orEmpty() }
-                    )
-                )
-                val firstItem = orderedCandidates.first().item
-                val seasonNumber = firstItem.parentIndexNumber
-                val title = when {
-                    !firstItem.seasonName.isNullOrBlank() -> firstItem.seasonName.orEmpty()
-                    seasonNumber != null -> "Season $seasonNumber"
-                    else -> "Season"
-                }
-
-                val episodeCount = orderedCandidates.size
-                val requiredBytes = orderedCandidates.sumOf { it.remainingBytes ?: 0L }
-
-                SeasonGroupSummary(
-                    id = seasonId,
-                    title = title,
-                    subtitle = episodeCountLabel(episodeCount),
-                    requiredBytes = requiredBytes,
-                    seasonNumber = seasonNumber,
-                    episodes = orderedCandidates.map { it.item }
-                )
-            }.sortedWith(
-                compareBy<SeasonGroupSummary>({ it.seasonNumber ?: Int.MAX_VALUE }, { it.title })
-            )
-
-            return SeriesSeasonSelectionDialogState(
-                availableBytes = estimate.availableBytes,
-                options = groupedSummaries.map { summary ->
-                    StorageSelectionOption(
-                        id = summary.id,
-                        title = summary.title,
-                        subtitle = summary.subtitle,
-                        requiredBytes = summary.requiredBytes
-                    )
-                },
-                episodesBySeasonId = groupedSummaries.associate { it.id to it.episodes }
-            )
-        }
-    }
-}
-
-internal fun seasonGroupKey(item: BaseItemDto): String {
-    return item.seasonId?.takeIf { it.isNotBlank() }
-        ?: item.parentId?.takeIf { it.isNotBlank() }
-        ?: item.parentIndexNumber?.let { "season_$it" }
-        ?: "season_unknown_${item.id.orEmpty()}"
-}
-
-internal fun episodeCountLabel(count: Int): String {
-    return "$count episode" + if (count == 1) "" else "s"
-}
 
 @Composable
 internal fun SeasonsSection(

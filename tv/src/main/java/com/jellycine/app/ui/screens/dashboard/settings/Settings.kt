@@ -154,24 +154,6 @@ fun Settings(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
-                        icon = Icons.Rounded.Wifi,
-                        title = stringResource(R.string.settings_wifi_only_downloads),
-                        subtitle = stringResource(
-                            if (uiState.wifiOnlyDownloads) R.string.settings_enabled else R.string.settings_disabled
-                        ),
-                        accentColor = Color(0xFF0EA5E9),
-                        trailing = {
-                            Switch(
-                                checked = uiState.wifiOnlyDownloads,
-                                onCheckedChange = { viewModel.setWifiOnlyDownloads(it) }
-                            )
-                        }
-                    )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                    SettingsItem(
                         icon = Icons.Rounded.SettingsEthernet,
                         title = stringResource(R.string.settings_network),
                         subtitle = stringResource(R.string.settings_network_subtitle),
@@ -462,38 +444,6 @@ private fun UserProfileSection(
                         )
                     }
 
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onNavigateToDownloads),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = null,
-                            tint = Color(0xFF06B6D4),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.downloads),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
                 }
             }
         }

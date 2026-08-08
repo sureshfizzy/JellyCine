@@ -37,8 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import com.jellycine.app.download.DownloadRepository
-import com.jellycine.app.download.DownloadRepositoryProvider
 import java.io.File
 import javax.inject.Inject
 
@@ -77,7 +75,6 @@ class PlayerViewModel @Inject constructor(
     private var videoTranscodingAllowed: Boolean? = null
     private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
-    private var downloadRepository: DownloadRepository? = null
     private var communityPlaybackSegmentsJob: Job? = null
     private var currentItemDetails: BaseItemDto? = null
     private var nextEpisodePrefetchJob: Job? = null
@@ -155,20 +152,10 @@ class PlayerViewModel @Inject constructor(
                 communityPlaybackSegmentsJob = null
                 hasRenderedFirstFrame = false
                 spatializerHelper = SpatializerHelper(context)
-                downloadRepository = DownloadRepositoryProvider.getInstance(context)
-                val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
-                val hasOfflineFile = !offlinePath.isNullOrBlank() && File(offlinePath).exists()
-                val offlineItemDetails = if (hasOfflineFile) {
-                    downloadRepository?.offlineItemMetadata(mediaId)
-                } else {
-                    null
-                }
 
                 // Get item details to check for resume position
                 val itemDetails = if (initialItemDetails?.id == mediaId) {
                     initialItemDetails
-                } else if (hasOfflineFile) {
-                    offlineItemDetails ?: mediaRepository.getItemById(mediaId).getOrNull()
                 } else {
                     mediaRepository.getItemById(mediaId).getOrNull()
                 }
@@ -231,12 +218,7 @@ class PlayerViewModel @Inject constructor(
                 defaultAudioStreamIndex = null
                 defaultSubtitleStreamIndex = null
 
-                val mediaItem = if (hasOfflineFile) {
-                    val localFilePath = requireNotNull(offlinePath)
-                    sessionIsOfflinePlayback = true
-                    sessionPlayMethod = PlayMethod.OFFLINE
-                    MediaItem.fromUri(Uri.fromFile(File(localFilePath)))
-                } else {
+                val mediaItem = run {
                     sessionIsOfflinePlayback = false
 
                     // Get playback info first to obtain session details
@@ -540,12 +522,6 @@ class PlayerViewModel @Inject constructor(
         preferredSubtitleStreamIndex: Int?,
         playerPreferences: PlayerPreferences
     ) {
-        val nextDownloadRepository = downloadRepository ?: DownloadRepositoryProvider.getInstance(context)
-        val offlinePath = nextDownloadRepository.getOfflineFilePath(nextEpisodeId)
-        if (!offlinePath.isNullOrBlank() && File(offlinePath).exists()) {
-            return
-        }
-
         val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
         val isAudioTranscodingAllowed = isAudioTranscodingAllowedForUser()
         val audioTranscodeMode = if (isAudioTranscodingAllowed) {
@@ -728,7 +704,6 @@ class PlayerViewModel @Inject constructor(
         defaultAudioStreamIndex = null
         defaultSubtitleStreamIndex = null
         playerContext = null
-        downloadRepository = null
         hasHandledPlaybackCompletion = false
         hasRenderedFirstFrame = false
         audioDiagnosticsSignature = null
@@ -747,14 +722,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun persistPosition(markCompleted: Boolean = false) {
-        val session = playbackSession
-        if (!session.isOfflinePlayback) return
-        val mediaId = session.mediaId ?: return
-        downloadRepository?.updatePlaybackPosition(
-            itemId = mediaId,
-            positionMs = getCurrentPosition(),
-            markCompleted = markCompleted
-        )
     }
 
     fun clearError() {

@@ -38,10 +38,6 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.jellycine.app.cast.JellyCineCastOptionsProvider" />
-
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"
@@ -74,15 +70,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <receiver
-            android:name=".download.DownloadActionReceiver"
-            android:exported="false" />
-
-        <service
-            android:name=".download.DownloadForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
 
     </application>
 

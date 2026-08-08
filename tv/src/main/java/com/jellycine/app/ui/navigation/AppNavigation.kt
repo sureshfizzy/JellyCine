@@ -20,7 +20,6 @@ import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
-import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
@@ -207,9 +206,7 @@ fun AppNavigation() {
                     onNavigateToInterfaceSettings = {
                         navController.navigate("interface_settings")
                     },
-                    onNavigateToDownloads = {
-                        navController.navigate("downloads")
-                    },
+                    onNavigateToDownloads = {},
                     onNavigateToCacheSettings = {
                         navController.navigate("cache_settings")
                     },
@@ -451,18 +448,6 @@ fun AppNavigation() {
                 exitTransition = { textExitTransition(350) }
             ) {
                 SubtitleSettingsScreen(
-                    onBackPressed = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable(
-                "downloads",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
-            ) {
-                DownloadsScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }
