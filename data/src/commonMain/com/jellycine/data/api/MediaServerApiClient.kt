@@ -1,5 +1,6 @@
 package com.jellycine.data.api
 
+import com.jellycine.data.model.ActivityLogResult
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
@@ -12,7 +13,9 @@ import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.model.SystemInfoFull
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.network.ApiResponse
@@ -429,6 +432,30 @@ internal class MediaServerApiClient(
     ): ApiResponse<Unit> = post(
         endpoint = "Sessions/Playing/Stopped",
         requestBody = request
+    )
+
+    override suspend fun getSystemInfo(): ApiResponse<SystemInfoFull> =
+        get("System/Info")
+
+    override suspend fun getActiveSessions(): ApiResponse<List<AdminSessionInfo>> =
+        get(
+            endpoint = "Sessions",
+            queryParameters = listOf(
+                "ActiveWithinSeconds" to 960,
+                "_" to System.currentTimeMillis()
+            )
+        )
+
+    override suspend fun getActivityLog(
+        startIndex: Int?,
+        limit: Int?
+    ): ApiResponse<ActivityLogResult> = get(
+        endpoint = "System/ActivityLog/Entries",
+        queryParameters = listOf(
+            "startIndex" to startIndex,
+            "limit" to limit,
+            "_" to System.currentTimeMillis()
+        )
     )
 
     private suspend inline fun <reified T> get(

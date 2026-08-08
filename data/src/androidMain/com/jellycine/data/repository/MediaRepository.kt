@@ -24,7 +24,10 @@ import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.SearchMediaType
+import com.jellycine.data.model.ActivityLogResult
+import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SystemInfoFull
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.model.toSearchQueries
 import com.jellycine.data.network.HttpStatusException
@@ -2029,6 +2032,66 @@ class MediaRepository(private val context: Context) {
                 }
                 ?.value
                 ?.let { value -> "$key.$value" }
+        }
+    }
+
+    suspend fun getSystemInfo(): Result<SystemInfoFull> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getSystemInfo()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch system info: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getActiveSessions(): Result<List<AdminSessionInfo>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getActiveSessions()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch sessions: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getActivityLog(startIndex: Int? = null, limit: Int? = null): Result<ActivityLogResult> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getActivityLog(startIndex = startIndex, limit = limit)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch activity log: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

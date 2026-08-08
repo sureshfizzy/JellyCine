@@ -22,6 +22,7 @@ import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
+import com.jellycine.app.ui.screens.admin.ServerInfoScreen
 import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
@@ -222,6 +223,9 @@ fun AppNavigation() {
                     },
                     onNavigateToAbout = {
                         navController.navigate("about")
+                    },
+                    onNavigateToServerInfo = {
+                        navController.navigate("server_info")
                     },
                     onAddServer = {
                         navController.navigate("server_connection") {
@@ -510,6 +514,18 @@ fun AppNavigation() {
                 exitTransition = { textExitTransition(350) }
             ) {
                 AboutScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "server_info",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                ServerInfoScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }

@@ -54,6 +54,7 @@ fun Settings(
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
+    onNavigateToServerInfo: () -> Unit = {},
     onNavigateToRequestedItem: (BaseItemDto) -> Unit = {},
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
@@ -142,6 +143,7 @@ fun Settings(
                     },
                     onServerClick = serverSwitchDialogsState::openServers,
                     onNavigateToDownloads = onNavigateToDownloads,
+                    onNavigateToServerInfo = onNavigateToServerInfo,
                     onSeerrLimitClick = viewModel::loadSeerrRequestedItems
                 )
             }
@@ -398,6 +400,7 @@ private fun UserProfileSection(
     onUserClick: () -> Unit,
     onServerClick: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    onNavigateToServerInfo: () -> Unit,
     onSeerrLimitClick: (String) -> Unit
 ) {
     Card(
@@ -461,12 +464,31 @@ private fun UserProfileSection(
 
             if (isAdministrator == true) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.settings_administrator),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF4FD06B),
-                    fontWeight = FontWeight.Medium
-                )
+                Surface(
+                    modifier = Modifier.clickable(onClick = onNavigateToServerInfo),
+                    color = Color(0xFF4FD06B).copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(999.dp),
+                    border = BorderStroke(1.dp, Color(0xFF4FD06B).copy(alpha = 0.24f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = Color(0xFF4FD06B),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_administrator),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFF4FD06B),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

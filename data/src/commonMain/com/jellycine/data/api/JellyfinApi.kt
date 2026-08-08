@@ -1,5 +1,6 @@
 package com.jellycine.data.api
 
+import com.jellycine.data.model.ActivityLogResult
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
@@ -12,7 +13,9 @@ import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
+import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.model.SystemInfoFull
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiResponse
 
@@ -220,4 +223,13 @@ interface MediaServerApi {
     suspend fun reportPlaybackProgress(request: PlaybackProgressRequest): ApiResponse<Unit>
 
     suspend fun reportPlaybackStopped(request: PlaybackStoppedRequest): ApiResponse<Unit>
+
+    suspend fun getSystemInfo(): ApiResponse<SystemInfoFull>
+
+    suspend fun getActiveSessions(): ApiResponse<List<AdminSessionInfo>>
+
+    suspend fun getActivityLog(
+        startIndex: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<ActivityLogResult>
 }
