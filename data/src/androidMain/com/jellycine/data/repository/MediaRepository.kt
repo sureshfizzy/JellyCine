@@ -109,7 +109,8 @@ class MediaRepository(private val context: Context) {
         val displayName: String,
         val downloadUrl: String,
         val authToken: String?,
-        val fileExtension: String?
+        val fileExtension: String?,
+        val estimatedBytes: Long = 0L
     )
 
     @Volatile
@@ -411,7 +412,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
             val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
-            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,RemoteTrailers"
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,RemoteTrailers,MediaStreams,MediaSources"
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,
@@ -1606,6 +1607,81 @@ class MediaRepository(private val context: Context) {
                     downloadUrl = downloadUrl,
                     authToken = accessToken,
                     fileExtension = extension
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getTranscodedDownloadRequest(
+        itemId: String,
+        maxBitrate: Int,
+        maxHeight: Int
+    ): Result<ItemDownloadRequest> {
+        return try {
+            val config = getSessionConfig()
+                ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val serverUrl = config.serverUrl
+            val accessToken = config.accessToken
+            if (accessToken.isNullOrBlank()) {
+                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
+            }
+
+            val item = getItemById(itemId).getOrNull()
+            val displayName = item?.name?.takeIf { it.isNotBlank() } ?: "jellycine_$itemId"
+
+            val playbackInfo = getPlaybackInfo(
+                itemId = itemId,
+                maxStreamingBitrate = maxBitrate
+            ).getOrElse {
+                return Result.failure(it)
+            }
+
+            val mediaSource = playbackInfo.mediaSources?.firstOrNull()
+                ?: return Result.failure(Exception("No media source available"))
+
+            val mediaSourceId = mediaSource.id ?: itemId
+            val container = "mp4"
+            val audioBitrate = 192_000
+
+            val queryParams = mutableListOf<Pair<String, String?>>(
+                "mediaSourceId" to mediaSourceId,
+                "VideoCodec" to "h264",
+                "AudioCodec" to "aac",
+                "VideoBitRate" to maxBitrate.toString(),
+                "AudioBitRate" to audioBitrate.toString(),
+                "MaxHeight" to maxHeight.toString(),
+                "TranscodingMaxAudioChannels" to "2",
+                "PlaySessionId" to playbackInfo.playSessionId,
+                "api_key" to accessToken
+            )
+
+            val downloadUrl = buildServerUrl(
+                baseUrl = serverUrl,
+                encodedPath = "Videos/$itemId/stream.$container",
+                queryParams = queryParams
+            )
+
+            val runtimeTicks = item?.runTimeTicks ?: mediaSource.runTimeTicks ?: 0L
+            val runtimeSeconds = runtimeTicks / 10_000_000.0
+            val sourceBitrate = mediaSource.bitrate ?: 0
+            val effectiveVideoBitrate = if (sourceBitrate > 0) {
+                minOf(maxBitrate, sourceBitrate)
+            } else {
+                maxBitrate
+            }
+            val estimatedBytes = ((effectiveVideoBitrate.toLong() + audioBitrate) * runtimeSeconds / 8.0).toLong()
+                .coerceAtLeast(0L)
+
+            Result.success(
+                ItemDownloadRequest(
+                    itemId = itemId,
+                    displayName = displayName,
+                    downloadUrl = downloadUrl,
+                    authToken = null,
+                    fileExtension = container,
+                    estimatedBytes = estimatedBytes
                 )
             )
         } catch (e: Exception) {

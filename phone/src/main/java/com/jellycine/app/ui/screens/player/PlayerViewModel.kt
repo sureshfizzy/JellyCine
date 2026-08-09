@@ -293,6 +293,9 @@ class PlayerViewModel @Inject constructor(
                     val localFilePath = requireNotNull(offlinePath)
                     sessionIsOfflinePlayback = true
                     sessionPlayMethod = PlayMethod.OFFLINE
+                    if (downloadRepository?.isTranscodedDownload(mediaId) == true) {
+                        activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
+                    }
                     MediaItem.fromUri(downloadLocationUri(localFilePath))
                 } else {
                     sessionIsOfflinePlayback = false
@@ -769,7 +772,11 @@ class PlayerViewModel @Inject constructor(
 
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
 
-    fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: mpvPlayer?.duration ?: 0L
+    fun getDuration(): Long {
+        val playerDuration = exoPlayer?.duration?.coerceAtLeast(0L) ?: mpvPlayer?.duration ?: 0L
+        if (playerDuration > 0L) return playerDuration
+        return currentItemDetails?.runTimeTicks?.takeIf { it > 0L }?.div(10_000L) ?: 0L
+    }
 
     fun updateNextEpisodeCache(
         context: Context,
@@ -1428,7 +1435,8 @@ class PlayerViewModel @Inject constructor(
                 isLoading = shouldShowLoading,
                 isPlaying = isNowPlaying,
                 playWhenReady = playWhenReady,
-                hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame
+                hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame,
+                duration = getDuration().takeIf { it > 0L } ?: currentState.duration
             )
 
             if (
@@ -1477,7 +1485,8 @@ class PlayerViewModel @Inject constructor(
             hasRenderedFirstFrame = true
             _playerState.value = _playerState.value.copy(
                 isLoading = false,
-                hasStartedPlayback = true
+                hasStartedPlayback = true,
+                duration = getDuration().takeIf { it > 0L } ?: _playerState.value.duration
             )
             if (
                 exoPlayer?.playWhenReady == true &&

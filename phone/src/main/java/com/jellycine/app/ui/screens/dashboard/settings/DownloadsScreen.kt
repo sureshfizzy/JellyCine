@@ -136,6 +136,7 @@ fun DownloadsScreen(
     var storageBehavior by remember { mutableStateOf(downloadPreferences.getStorageBehavior()) }
     var deviceDownloadsTreeUri by remember { mutableStateOf(downloadPreferences.getDeviceDownloadsTreeUri()) }
     var maxConcurrentDownloads by remember { mutableStateOf(downloadPreferences.getMaxConcurrentDownloads()) }
+    var downloadQualityLabel by remember { mutableStateOf(downloadPreferences.getDownloadQualityLabel()) }
     val appStoragePath = remember(context) {
         context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
             ?.absolutePath
@@ -280,12 +281,17 @@ fun DownloadsScreen(
                     storageBehavior = storageBehavior,
                     deviceDownloadsTreeUri = deviceDownloadsTreeUri,
                     maxConcurrentDownloads = maxConcurrentDownloads,
+                    downloadQualityLabel = downloadQualityLabel,
                     appStoragePath = appStoragePath,
                     defaultDeviceDownloadsPath = defaultDeviceDownloadsPath,
                     onMaxConcurrentDownloadsChange = { count ->
                         maxConcurrentDownloads = count
                         downloadPreferences.setMaxConcurrentDownloads(count)
                         downloadRepository.onDownloadPreferencesChanged()
+                    },
+                    onDownloadQualityChange = { label ->
+                        downloadQualityLabel = label
+                        downloadPreferences.setDownloadQualityLabel(label)
                     },
                     onStorageBehaviorChange = { behavior ->
                         if (behavior == DownloadStorageBehavior.DEVICE_DOWNLOADS) {
@@ -368,9 +374,11 @@ private fun DownloadSettingsContent(
     storageBehavior: DownloadStorageBehavior,
     deviceDownloadsTreeUri: String?,
     maxConcurrentDownloads: Int,
+    downloadQualityLabel: String,
     appStoragePath: String,
     defaultDeviceDownloadsPath: String,
     onMaxConcurrentDownloadsChange: (Int) -> Unit,
+    onDownloadQualityChange: (String) -> Unit,
     onStorageBehaviorChange: (DownloadStorageBehavior) -> Unit,
     onChooseFolder: () -> Unit,
     onUseDefaultFolder: () -> Unit
@@ -483,6 +491,13 @@ private fun DownloadSettingsContent(
                 onSelected = onMaxConcurrentDownloadsChange
             )
         }
+
+        item {
+            DownloadQualitySetting(
+                selectedLabel = downloadQualityLabel,
+                onSelected = onDownloadQualityChange
+            )
+        }
     }
 }
 
@@ -570,6 +585,93 @@ private fun DownloadConcurrencySetting(
                         },
                         onClick = {
                             onSelected(count)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadQualitySetting(
+    selectedLabel: String,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = remember {
+        listOf("Original", "4K", "1080p", "720p", "480p", "360p")
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Default Download Quality",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Quality picker will still appear for each download. This sets the pre-selected default.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(
+                        width = 1.dp,
+                        color = DownloadAccentColor.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = DownloadAccentColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option,
+                                color = if (selectedLabel == option) {
+                                    DownloadAccentColor
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        },
+                        onClick = {
+                            onSelected(option)
                             expanded = false
                         }
                     )

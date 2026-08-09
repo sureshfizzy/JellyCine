@@ -149,7 +149,13 @@ internal class DownloadTransfer(
             if (!append && storage.exists(destination.location) && storage.length(destination.location) > 0L) {
                 storage.outputStream(destination.location, append = false).use { /* truncate partial file */ }
             }
-            val totalBytes = if (body.contentLength() > 0L) downloadedStart + body.contentLength() else 0L
+            val totalBytes = if (body.contentLength() > 0L) {
+                downloadedStart + body.contentLength()
+            } else if (requestData.estimatedBytes > 0L) {
+                requestData.estimatedBytes
+            } else {
+                0L
+            }
             if (totalBytes > 0L) {
                 ensureStorageCapacity(totalBytes, (totalBytes - downloadedStart).coerceAtLeast(0L))
             }
@@ -211,7 +217,7 @@ internal class DownloadTransfer(
                             progress = 1f,
                             downloadId = downloadId,
                             downloadedBytes = downloadedBytes,
-                            totalBytes = if (totalBytes > 0L) totalBytes else downloadedBytes,
+                            totalBytes = downloadedBytes,
                             filePath = destination.location
                         ),
                         true,

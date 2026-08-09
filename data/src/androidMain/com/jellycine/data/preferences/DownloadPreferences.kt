@@ -49,6 +49,15 @@ class DownloadPreferences(context: Context) {
             .apply()
     }
 
+    fun getDownloadQualityLabel(): String {
+        return prefs.getString(KEY_DOWNLOAD_QUALITY, DEFAULT_DOWNLOAD_QUALITY)
+            ?: DEFAULT_DOWNLOAD_QUALITY
+    }
+
+    fun setDownloadQualityLabel(label: String) {
+        prefs.edit().putString(KEY_DOWNLOAD_QUALITY, label).apply()
+    }
+
     fun getCancelDeleteWaitMs(): Long = DEFAULT_CANCEL_DELETE_WAIT_MS
 
     fun getMetadataPersistIntervalMs(): Long = DEFAULT_METADATA_PERSIST_INTERVAL_MS
@@ -57,6 +66,7 @@ class DownloadPreferences(context: Context) {
 
     companion object {
         val DEFAULT_STORAGE_BEHAVIOR = DownloadStorageBehavior.APP_STORAGE
+        const val DEFAULT_DOWNLOAD_QUALITY = "Original"
 
         const val MIN_CONCURRENT_DOWNLOADS = 1
         const val MAX_CONCURRENT_DOWNLOADS = 10
@@ -72,5 +82,6 @@ class DownloadPreferences(context: Context) {
         private const val KEY_STORAGE_BEHAVIOR = "storage_behavior"
         private const val KEY_DEVICE_DOWNLOADS_TREE_URI = "device_downloads_tree_uri"
         private const val KEY_MAX_CONCURRENT_DOWNLOADS = "max_concurrent_downloads"
+        private const val KEY_DOWNLOAD_QUALITY = "download_quality"
     }
 }

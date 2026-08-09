@@ -22,6 +22,8 @@ import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.preferences.DownloadPreferences
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.player.preferences.TranscodeProfile
+import com.jellycine.player.preferences.TranscodeProfiles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,6 +109,12 @@ class DownloadRepository(context: Context) {
         }
     }
 
+    fun isTranscodedDownload(itemId: String): Boolean {
+        val metadata = metadataStore.read(itemId) ?: return false
+        val label = metadata.qualityLabel ?: return false
+        return label != TranscodeProfiles.ORIGINAL
+    }
+
     fun updatePlaybackPosition(
         itemId: String,
         positionMs: Long,
@@ -179,7 +187,10 @@ class DownloadRepository(context: Context) {
         )
     }
 
-    suspend fun enqueueItemDownload(item: BaseItemDto): Result<Long> = withContext(Dispatchers.IO) {
+    suspend fun enqueueItemDownload(
+        item: BaseItemDto,
+        quality: TranscodeProfile? = null
+    ): Result<Long> = withContext(Dispatchers.IO) {
         val itemId = item.id ?: return@withContext Result.failure(Exception(messages.itemIdUnavailable))
         val current = stateFlows.getOrPut(itemId) { MutableStateFlow(ItemDownloadState()) }.value
         val metadata = metadataStore.read(itemId)
@@ -193,26 +204,46 @@ class DownloadRepository(context: Context) {
             return@withContext Result.success(queuedDownloadId)
         }
 
-        val requestData = mediaRepository.getItemDownloadRequest(itemId).getOrElse {
-            val failureState = ItemDownloadState(
-                status = DownloadStatus.FAILED,
-                progress = 0f,
-                message = it.message ?: messages.prepareDownloadFailed
-            )
-            setFlowState(itemId, failureState)
-            metadataStore.persist(
-                PersistedDownloadMetadata(
-                    itemId = itemId,
-                    title = item.name?.takeIf { name -> name.isNotBlank() } ?: messages.itemFallbackTitle(itemId),
-                    subtitle = DownloadItemMetadata.subtitle(item),
-                    mediaType = item.type,
-                    year = item.productionYear,
-                    status = DownloadStatus.FAILED.name,
-                    message = failureState.message,
-                    fullItemJson = metadataStore.serializeItem(item)
+        val isTranscoded = quality != null && quality.label != TranscodeProfiles.ORIGINAL &&
+            quality.maxBitrate != null && quality.maxHeight != null
+        val requestData = if (isTranscoded) {
+            mediaRepository.getTranscodedDownloadRequest(
+                itemId = itemId,
+                maxBitrate = quality!!.maxBitrate!!,
+                maxHeight = quality.maxHeight!!
+            ).getOrElse {
+                mediaRepository.getItemDownloadRequest(itemId).getOrElse { fallbackError ->
+                    val failureState = ItemDownloadState(
+                        status = DownloadStatus.FAILED,
+                        progress = 0f,
+                        message = fallbackError.message ?: messages.prepareDownloadFailed
+                    )
+                    setFlowState(itemId, failureState)
+                    return@withContext Result.failure(fallbackError)
+                }
+            }
+        } else {
+            mediaRepository.getItemDownloadRequest(itemId).getOrElse {
+                val failureState = ItemDownloadState(
+                    status = DownloadStatus.FAILED,
+                    progress = 0f,
+                    message = it.message ?: messages.prepareDownloadFailed
                 )
-            )
-            return@withContext Result.failure(it)
+                setFlowState(itemId, failureState)
+                metadataStore.persist(
+                    PersistedDownloadMetadata(
+                        itemId = itemId,
+                        title = item.name?.takeIf { name -> name.isNotBlank() } ?: messages.itemFallbackTitle(itemId),
+                        subtitle = DownloadItemMetadata.subtitle(item),
+                        mediaType = item.type,
+                        year = item.productionYear,
+                        status = DownloadStatus.FAILED.name,
+                        message = failureState.message,
+                        fullItemJson = metadataStore.serializeItem(item)
+                    )
+                )
+                return@withContext Result.failure(it)
+            }
         }
 
         val metadataItem = downloadMetadataItem(item).let { resolvedItem ->
@@ -300,7 +331,8 @@ class DownloadRepository(context: Context) {
                 downloadedBytes = downloadedBytes,
                 totalBytes = totalBytes,
                 downloadId = downloadId,
-                fullItemJson = metadataStore.serializeItem(metadataItem)
+                fullItemJson = metadataStore.serializeItem(metadataItem),
+                qualityLabel = quality?.label ?: metadata?.qualityLabel
             )
         )
 
@@ -371,10 +403,14 @@ class DownloadRepository(context: Context) {
         )
     }
 
-    suspend fun enqueueEpisodeDownloads(episodes: List<BaseItemDto>): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun enqueueEpisodeDownloads(
+        episodes: List<BaseItemDto>,
+        quality: TranscodeProfile? = null
+    ): Result<Int> = withContext(Dispatchers.IO) {
         enqueueEpisodeBatch(
             episodes = episodes,
-            emptyError = messages.noEpisodesSelected
+            emptyError = messages.noEpisodesSelected,
+            quality = quality
         )
     }
 
@@ -393,8 +429,9 @@ class DownloadRepository(context: Context) {
         pausedItems.remove(itemId)
         val metadata = metadataStore.read(itemId) ?: return
         val fullItem = metadataStore.parseItem(metadata.fullItemJson, metadata.itemId) ?: return
+        val quality = metadata.qualityLabel?.let { TranscodeProfiles.byLabel(it) }
         scope.launch {
-            enqueueItemDownload(fullItem)
+            enqueueItemDownload(fullItem, quality)
         }
     }
 
@@ -420,7 +457,8 @@ class DownloadRepository(context: Context) {
 
     private suspend fun enqueueEpisodeBatch(
         episodes: List<BaseItemDto>,
-        emptyError: String
+        emptyError: String,
+        quality: TranscodeProfile? = null
     ): Result<Int> {
         val estimate = buildEpisodeBatchEstimate(
             episodes = episodes,
@@ -438,7 +476,7 @@ class DownloadRepository(context: Context) {
         var queued = 0
         estimate.candidates.forEach { candidate ->
             val episode = candidate.item
-            val result = enqueueItemDownload(episode)
+            val result = enqueueItemDownload(episode, quality)
             if (result.isSuccess) {
                 queued += 1
             }
@@ -730,7 +768,7 @@ class DownloadRepository(context: Context) {
                 metadataStore.read(itemId)?.let { metadata -> itemId to metadata }
             }
             .sortedBy { (_, metadata) -> metadata.requestedAt }
-        val itemsToResume = mutableListOf<BaseItemDto>()
+        val itemsToResume = mutableListOf<Pair<BaseItemDto, TranscodeProfile?>>()
         trackedMetadata.forEach { (itemId, metadata) ->
             val downloadId = metadataStore.downloadId(itemId) ?: metadata.downloadId
             val fallbackStatus = metadataStore.parseStatus(metadata.status)
@@ -768,15 +806,16 @@ class DownloadRepository(context: Context) {
                 !isPausedDownloadState(decision.status, decision.message, pausedStatusMessage)
             ) {
                 metadataStore.parseItem(metadata.fullItemJson, metadata.itemId)?.let { parsed ->
-                    itemsToResume.add(parsed)
+                    val quality = metadata.qualityLabel?.let { TranscodeProfiles.byLabel(it) }
+                    itemsToResume.add(parsed to quality)
                 }
             }
         }
         refreshTrackedDownloads()
         if (itemsToResume.isNotEmpty()) {
             scope.launch {
-                itemsToResume.forEach { item ->
-                    enqueueItemDownload(item)
+                itemsToResume.forEach { (item, quality) ->
+                    enqueueItemDownload(item, quality)
                 }
             }
         }
@@ -807,12 +846,14 @@ class DownloadRepository(context: Context) {
             if (isQueued(itemId)) return@mapNotNull null
 
             metadataStore.read(itemId)?.let { metadata ->
-                metadataStore.parseItem(metadata.fullItemJson, metadata.itemId)
+                val item = metadataStore.parseItem(metadata.fullItemJson, metadata.itemId)
+                val quality = metadata.qualityLabel?.let { TranscodeProfiles.byLabel(it) }
+                item?.let { it to quality }
             }
         }
 
-        candidates.forEach { item ->
-            enqueueItemDownload(item)
+        candidates.forEach { (item, quality) ->
+            enqueueItemDownload(item, quality)
         }
     }
 

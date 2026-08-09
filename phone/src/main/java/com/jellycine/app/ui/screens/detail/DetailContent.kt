@@ -66,6 +66,7 @@ import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.player.preferences.TranscodeProfile
 import com.jellycine.shared.playback.UserDataRefreshEvent
 import com.jellycine.shared.playback.UserDataRefreshSignals
 import com.jellycine.app.ui.components.common.DetailBackdropHero
@@ -254,6 +255,8 @@ fun DetailContent(
     val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
     val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
             itemDownloadState.status == DownloadStatus.QUEUED
+    var showDownloadQualityPicker by remember(item.id) { mutableStateOf(false) }
+    var pendingSeriesEpisodes by remember(item.id) { mutableStateOf<List<BaseItemDto>?>(null) }
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
     var downloadActionMenu by remember(
         item.id,
@@ -1090,15 +1093,7 @@ fun DetailContent(
                                 },
                                 onTrailerClick = ::playTrailer,
                                 onDownloadClick = {
-                                    coroutineScope.launch {
-                                        downloadRepository.enqueueItemDownload(item)
-                                            .onFailure { throwable ->
-                                                downloadErrorDialogMessage =
-                                                    downloadFailure(
-                                                        rawMessage = throwable.message
-                                                    )
-                                            }
-                                    }
+                                    showDownloadQualityPicker = true
                                 },
                                 onDownloadMenuChange = { expanded ->
                                     downloadActionMenu = expanded
@@ -1335,24 +1330,59 @@ fun DetailContent(
                     .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
                     .distinctBy { it.id }
                 seriesStorageSelectionDialogState = null
-                coroutineScope.launch {
-                    seriesQueueInProgress = true
-                    try {
-                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes)
-                            .onFailure { throwable ->
-                                downloadErrorDialogMessage =
-                                    downloadFailure(rawMessage = throwable.message)
-                            }
-                    } finally {
-                        seriesQueueInProgress = false
-                    }
-                }
+                pendingSeriesEpisodes = selectedEpisodes
+                showDownloadQualityPicker = true
             }
         },
         onDismissDownloadError = {
             downloadErrorDialogMessage = null
         }
     )
+
+    if (showDownloadQualityPicker) {
+        val videoStream = remember(item.id, effectiveMediaStreams) {
+            effectiveMediaStreams
+                .firstOrNull { it.type.equals("Video", ignoreCase = true) }
+        }
+        val primarySource = remember(item.id, item.mediaSources) {
+            item.mediaSources?.firstOrNull()
+        }
+        DownloadQualityPicker(
+            runtimeTicks = item.runTimeTicks,
+            sourceHeight = videoStream?.height,
+            sourceBitrate = primarySource?.bitrate ?: videoStream?.bitRate,
+            sourceFileSize = primarySource?.size,
+            onDismiss = {
+                showDownloadQualityPicker = false
+                pendingSeriesEpisodes = null
+            },
+            onSelected = { selectedQuality ->
+                showDownloadQualityPicker = false
+                val episodes = pendingSeriesEpisodes
+                pendingSeriesEpisodes = null
+                coroutineScope.launch {
+                    if (episodes != null) {
+                        seriesQueueInProgress = true
+                        try {
+                            downloadRepository.enqueueEpisodeDownloads(episodes, selectedQuality)
+                                .onFailure { throwable ->
+                                    downloadErrorDialogMessage =
+                                        downloadFailure(rawMessage = throwable.message)
+                                }
+                        } finally {
+                            seriesQueueInProgress = false
+                        }
+                    } else {
+                        downloadRepository.enqueueItemDownload(item, selectedQuality)
+                            .onFailure { throwable ->
+                                downloadErrorDialogMessage =
+                                    downloadFailure(rawMessage = throwable.message)
+                            }
+                    }
+                }
+            }
+        )
+    }
 
 }
 
