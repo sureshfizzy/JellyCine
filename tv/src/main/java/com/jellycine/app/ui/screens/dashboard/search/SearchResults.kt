@@ -7,11 +7,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
+import com.jellycine.shared.ui.components.common.SeerrTopBadges
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.ui.components.common.episodeDisplaySubtitle
@@ -31,8 +35,12 @@ import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.data.model.SeerrRecommendationTitle
+import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
+import coil3.compose.AsyncImage
+import java.util.Locale
 
 @Composable
 fun SearchResultsViewSkeleton(
@@ -126,8 +134,7 @@ fun SearchResultsView(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Movies Section
-        if (uiState.movieResults.isNotEmpty()) {
+        if (uiState.movieResults.isNotEmpty() || uiState.seerrMovieResults.isNotEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.movies),
@@ -137,7 +144,7 @@ fun SearchResultsView(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
-            
+
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -149,12 +156,21 @@ fun SearchResultsView(
                             onItemClick = { onItemClick(movie) }
                         )
                     }
+
+                    itemsIndexed(
+                        items = uiState.seerrMovieResults,
+                        key = { index, seerrItem -> "seerr-movie-${seerrItem.tmdbId}_$index" }
+                    ) { _, seerrItem ->
+                        SearchSeerrResultCard(
+                            item = seerrItem,
+                            onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }
+                        )
+                    }
                 }
             }
         }
-        
-        // TV Shows Section
-        if (uiState.showResults.isNotEmpty()) {
+
+        if (uiState.showResults.isNotEmpty() || uiState.seerrShowResults.isNotEmpty()) {
             item {
                 Text(
                     text = stringResource(R.string.search_results_shows),
@@ -164,7 +180,7 @@ fun SearchResultsView(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
-            
+
             item {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -176,11 +192,20 @@ fun SearchResultsView(
                             onItemClick = { onItemClick(show) }
                         )
                     }
+
+                    itemsIndexed(
+                        items = uiState.seerrShowResults,
+                        key = { index, seerrItem -> "seerr-show-${seerrItem.tmdbId}_$index" }
+                    ) { _, seerrItem ->
+                        SearchSeerrResultCard(
+                            item = seerrItem,
+                            onItemClick = { onItemClick(seerrItem.toSeerDetailItem()) }
+                        )
+                    }
                 }
             }
         }
-        
-        // Episodes Section
+
         if (uiState.episodeResults.isNotEmpty()) {
             item {
                 Text(
@@ -191,7 +216,7 @@ fun SearchResultsView(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
-            
+
             items(uiState.episodeResults) { episode ->
                 EpisodeResultCard(
                     item = episode,
@@ -214,7 +239,6 @@ private fun SearchResultCard(
             .width(120.dp)
             .clickable { onItemClick() }
     ) {
-        // Poster
         Card(
             modifier = Modifier
                 .width(120.dp)
@@ -241,10 +265,9 @@ private fun SearchResultCard(
                 cornerRadius = 12
             )
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
-        // Title
+
         Text(
             text = item.preferredDisplayTitle(
                 unknownTitle = unknownTitle,
@@ -257,8 +280,7 @@ private fun SearchResultCard(
             overflow = TextOverflow.Ellipsis,
             lineHeight = 16.sp
         )
-        
-        // Year and Genre
+
         Text(
             text = item.getYearAndGenre(),
             color = Color.Gray,
@@ -283,7 +305,6 @@ private fun EpisodeResultCard(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Episode Thumbnail
         Card(
             modifier = Modifier.size(80.dp, 60.dp),
             colors = CardDefaults.cardColors(
@@ -309,10 +330,9 @@ private fun EpisodeResultCard(
                 cornerRadius = 8
             )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
-        // Episode Info
+
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -327,9 +347,9 @@ private fun EpisodeResultCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             Spacer(modifier = Modifier.height(4.dp))
-            
+
             Text(
                 text = item.episodeDisplaySubtitle(fallback = unknownEpisode),
                 color = Color.Gray,
@@ -338,5 +358,70 @@ private fun EpisodeResultCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun SearchSeerrResultCard(
+    item: SeerrRecommendationTitle,
+    onItemClick: () -> Unit
+) {
+    val posterUrl = remember(item.posterUrl) { item.posterUrl?.takeIf { it.isNotBlank() } }
+
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .clickable { onItemClick() }
+    ) {
+        Card(
+            modifier = Modifier
+                .width(120.dp)
+                .aspectRatio(0.67f),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Gray.copy(alpha = 0.2f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (!posterUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = posterUrl,
+                        contentDescription = item.title,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                SeerrTopBadges(
+                    requestState = item.requestState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = item.title,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 16.sp
+        )
+
+        Text(
+            text = item.productionYear?.toString()
+                ?: item.mediaType.replaceFirstChar { char ->
+                    if (char.isLowerCase()) char.titlecase(Locale.US) else char.toString()
+                },
+            color = Color.Gray,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

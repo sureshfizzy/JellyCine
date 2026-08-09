@@ -2,7 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.search
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -13,28 +13,39 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.res.stringResource
 import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
 @Composable
 fun SuggestionsStoriesView(
     suggestions: List<BaseItemDto>,
-    onItemClick: (BaseItemDto) -> Unit
+    onItemClick: (BaseItemDto) -> Unit,
+    pagerFocusRequester: FocusRequester = remember { FocusRequester() },
+    onUpPressed: () -> Unit = {}
 ) {
     if (suggestions.isEmpty()) {
         Box(
@@ -52,9 +63,8 @@ fun SuggestionsStoriesView(
 
     val itemCount = suggestions.size
     val initialPage = remember(itemCount) {
-        if (itemCount <= 1) {
-            0
-        } else {
+        if (itemCount <= 1) 0
+        else {
             val midpoint = Int.MAX_VALUE / 2
             midpoint - (midpoint % itemCount)
         }
@@ -64,77 +74,71 @@ fun SuggestionsStoriesView(
         pageCount = { if (itemCount <= 1) 1 else Int.MAX_VALUE }
     )
     val currentItemIndex = ((pagerState.currentPage % itemCount) + itemCount) % itemCount
+    val coroutineScope = rememberCoroutineScope()
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val cardWidth = 260.dp
+    val horizontalPadding = (screenWidth - cardWidth) / 2
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        val currentItem = suggestions[currentItemIndex]
-        val backgroundImageUrl = rememberImageUrl(itemId = currentItem.id, imageType = "Primary")
-
-        LazyImageLoader(
-            imageUrl = backgroundImageUrl,
-            contentDescription = stringResource(R.string.cd_backdrop),
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            cornerRadius = 0
-        )
-        
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.3f),
-                            Color.Black.copy(alpha = 0.6f),
-                            Color.Black.copy(alpha = 0.9f)
-                        ),
-                        radius = 1200f
-                    )
-                )
-        )
-        
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.2f),
-                            Color.Black.copy(alpha = 0.8f)
-                        ),
-                        startY = 0f,
-                        endY = Float.POSITIVE_INFINITY
-                    )
-                )
-        )
-        
+    Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 72.dp),
-            contentPadding = PaddingValues(horizontal = 60.dp),
-            pageSpacing = 16.dp
+                .focusRequester(pagerFocusRequester)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.DirectionLeft -> {
+                                if (pagerState.currentPage > 0) {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                }
+                                true
+                            }
+                            Key.DirectionRight -> {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                }
+                                true
+                            }
+                            Key.DirectionUp -> {
+                                onUpPressed()
+                                true
+                            }
+                            Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                                onItemClick(suggestions[currentItemIndex])
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .focusable(),
+            contentPadding = PaddingValues(
+                start = horizontalPadding,
+                end = horizontalPadding,
+                top = 60.dp,
+                bottom = 90.dp
+            ),
+            pageSpacing = 8.dp,
+            verticalAlignment = Alignment.CenterVertically
         ) { page ->
-            val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+            val rawOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
             val itemIndex = ((page % itemCount) + itemCount) % itemCount
 
             SuggestionsCard(
                 item = suggestions[itemIndex],
-                isActive = itemIndex == currentItemIndex,
-                pageOffset = pageOffset,
-                onItemClick = { onItemClick(suggestions[itemIndex]) }
+                pageOffset = rawOffset
             )
         }
 
+        val currentItem = suggestions[currentItemIndex]
         val typeText = when (currentItem.type) {
             "Movie" -> stringResource(R.string.suggestions_type_movie)
             "Series" -> stringResource(R.string.suggestions_type_tv_series)
             else -> currentItem.type ?: stringResource(R.string.suggestions_type_media)
         }
-
         val yearText = currentItem.productionYear
             ?: currentItem.premiereDate?.take(4)?.toIntOrNull()
         val genreText = currentItem.genres?.take(3)?.joinToString(" | ").orEmpty()
@@ -150,214 +154,163 @@ fun SuggestionsStoriesView(
             }
         }
 
-        Box(
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 32.dp)
-                .padding(bottom = 160.dp),
-            contentAlignment = Alignment.Center
+                .padding(bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = displayText,
-                color = Color.White,
-                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 48.dp, vertical = 6.dp)
             )
-        }
 
-        if (suggestions.size > 1) {
-            val totalPages = itemCount
-            val maxVisibleDots = 7
-            val visibleCount = minOf(totalPages, maxVisibleDots)
-            val centerSlot = visibleCount / 2
+            if (suggestions.size > 1) {
+                val maxVisibleDots = 7
+                val visibleCount = minOf(itemCount, maxVisibleDots)
+                val centerSlot = visibleCount / 2
 
-            val slotWidth = 10.dp
-            val slotHeight = 6.dp
-            val slotSpacing = 7.dp
-            val step = slotWidth + slotSpacing
-            val offsetFraction = pagerState.currentPageOffsetFraction.coerceIn(-1f, 1f)
-            val trackOffset = step * (-offsetFraction)
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 118.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    modifier = Modifier.offset(x = trackOffset),
-                    horizontalArrangement = Arrangement.spacedBy(slotSpacing)
-                ) {
-                    repeat(visibleCount) { slot ->
-                        val relative = slot - centerSlot
-                        val distanceFromCenter = kotlin.math.abs(relative + offsetFraction)
-                        val dotWidth = when {
-                            distanceFromCenter < 0.6f -> 10.dp
-                            distanceFromCenter < 1.6f -> 8.dp
-                            else -> 6.dp
-                        }
-                        val dotAlpha = when {
-                            distanceFromCenter < 0.6f -> 0.40f
-                            distanceFromCenter < 1.6f -> 0.32f
-                            else -> 0.24f
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .width(slotWidth)
-                                .height(slotHeight)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .width(dotWidth)
-                                    .height(slotHeight)
-                                    .background(
-                                        color = Color.White.copy(alpha = dotAlpha),
-                                        shape = CircleShape
-                                    )
-                            )
-                        }
-                    }
-                }
+                val slotWidth = 10.dp
+                val slotHeight = 6.dp
+                val slotSpacing = 7.dp
+                val step = slotWidth + slotSpacing
+                val offsetFraction = pagerState.currentPageOffsetFraction.coerceIn(-1f, 1f)
+                val trackOffset = step * (-offsetFraction)
 
                 Box(
-                    modifier = Modifier
-                        .width(16.dp)
-                        .height(slotHeight)
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFFFF2D2D),
-                                    Color(0xFFFF0000)
+                    modifier = Modifier.padding(top = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier.offset(x = trackOffset),
+                        horizontalArrangement = Arrangement.spacedBy(slotSpacing)
+                    ) {
+                        repeat(visibleCount) { slot ->
+                            val relative = slot - centerSlot
+                            val distanceFromCenter = kotlin.math.abs(relative + offsetFraction)
+                            val dotWidth = when {
+                                distanceFromCenter < 0.6f -> 10.dp
+                                distanceFromCenter < 1.6f -> 8.dp
+                                else -> 6.dp
+                            }
+                            val dotAlpha = when {
+                                distanceFromCenter < 0.6f -> 0.40f
+                                distanceFromCenter < 1.6f -> 0.32f
+                                else -> 0.24f
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .width(slotWidth)
+                                    .height(slotHeight)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .width(dotWidth)
+                                        .height(slotHeight)
+                                        .background(
+                                            color = Color.White.copy(alpha = dotAlpha),
+                                            shape = CircleShape
+                                        )
                                 )
-                            ),
-                            shape = CircleShape
-                        )
-                        .graphicsLayer { shadowElevation = 6.dp.toPx() }
-                )
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(16.dp)
+                            .height(slotHeight)
+                            .background(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFFFF2D2D),
+                                        Color(0xFFFF0000)
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                            .graphicsLayer { shadowElevation = 6.dp.toPx() }
+                    )
+                }
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        pagerFocusRequester.requestFocus()
     }
 }
 
 @Composable
 private fun SuggestionsCard(
     item: BaseItemDto,
-    isActive: Boolean,
-    pageOffset: Float,
-    onItemClick: () -> Unit
+    pageOffset: Float
 ) {
-    var isPressed by remember { mutableStateOf(false) }
-    
+    val absOffset = pageOffset.absoluteValue
+
     val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.95f
-            isActive -> 1.0f
-            else -> 0.85f
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        targetValue = 1f - (absOffset.coerceIn(0f, 2f) * 0.06f),
+        animationSpec = tween(200),
         label = "scale"
     )
-    
+
     val alpha by animateFloatAsState(
-        targetValue = if (isActive) 1.0f else 0.6f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        targetValue = 1f - (absOffset.coerceIn(0f, 2f) * 0.20f),
+        animationSpec = tween(200),
         label = "alpha"
     )
 
+    val rotation = pageOffset.coerceIn(-2f, 2f) * 25f
+
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .aspectRatio(0.67f)
             .graphicsLayer {
-                val rotation = pageOffset * 25f
-                val translationX = pageOffset * 50f
-                
                 scaleX = scale
                 scaleY = scale
                 this.alpha = alpha
                 rotationY = rotation
-                this.translationX = translationX
-                cameraDistance = 12f * density
+                transformOrigin = if (pageOffset > 0) {
+                    TransformOrigin(0f, 0.5f)
+                } else {
+                    TransformOrigin(1f, 0.5f)
+                }
+                cameraDistance = 8f * density
                 compositingStrategy = CompositingStrategy.Offscreen
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = {
-                        onItemClick()
-                    }
-                )
             },
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier
-                .width(280.dp)
-                .aspectRatio(0.67f),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Black
-            ),
-            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxSize(),
+            colors = CardDefaults.cardColors(containerColor = Color.Black),
+            shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = if (isActive) 12.dp else 6.dp
+                defaultElevation = if (absOffset < 0.5f) 16.dp else 4.dp
             )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                val imageUrl = rememberImageUrl(itemId = item.id, imageType = "Primary")
-                LazyImageLoader(
-                    imageUrl = imageUrl,
-                    contentDescription = item.name,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(20.dp)),
-                    contentScale = ContentScale.Crop,
-                    cornerRadius = 20
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.2f))
-                )
-            }
+            val imageUrl = item.imageUrl ?: rememberImageUrl(
+                itemId = item.id,
+                imageType = "Primary",
+                enableImageEnhancers = false
+            )
+            LazyImageLoader(
+                imageUrl = imageUrl,
+                contentDescription = item.name,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp)),
+                contentScale = ContentScale.Crop,
+                cornerRadius = 16
+            )
         }
     }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
-@Composable
-fun SuggestionsStoriesViewPreview() {
-    val mockMovies = listOf(
-        BaseItemDto(
-            name = "Guru",
-            id = "1",
-            productionYear = 2007,
-            genres = listOf("Drama", "Biography", "Musical")
-        ),
-        BaseItemDto(
-            name = "Scott Pilgrim vs. The World",
-            id = "2",
-            productionYear = 2010,
-            genres = listOf("Action", "Comedy", "Romance")
-        )
-    )
-    
-    SuggestionsStoriesView(
-        suggestions = mockMovies,
-        onItemClick = {}
-    )
 }

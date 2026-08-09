@@ -1,17 +1,26 @@
 package com.jellycine.app.ui.screens.dashboard.search
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.SeerrDiscoveryCategory
+import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SearchMediaType
+import com.jellycine.data.model.filterSeerTitles
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.SeerrRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
+import java.util.Locale
 import javax.inject.Inject
 
 private val defaultSearchTypes = setOf(
@@ -21,8 +30,11 @@ private val defaultSearchTypes = setOf(
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
     private val mediaRepository: MediaRepository
 ) : ViewModel() {
+    private val authRepository = AuthRepositoryProvider.getInstance(context)
+    private val seerrRepository = SeerrRepository(context)
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -30,23 +42,35 @@ class SearchViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _selectedDiscoveryTab = MutableStateFlow(SearchDiscoveryTab.SUGGESTIONS)
+    val selectedDiscoveryTab: StateFlow<SearchDiscoveryTab> = _selectedDiscoveryTab.asStateFlow()
+
     private val _selectedSearchTypes = MutableStateFlow(defaultSearchTypes)
     val selectedSearchTypes: StateFlow<Set<SearchMediaType>> = _selectedSearchTypes.asStateFlow()
 
     private var searchJob: Job? = null
-
-    private val searchCache = mutableMapOf<String, SearchCacheEntry>()
-    private val cacheExpirationTime = 300_000L // 5 minutes
+    private var seerrScopeId: String? = null
 
     init {
         loadsuggestions()
+        refreshSeerrConnectionState()
+    }
+
+    fun selectDiscoveryTab(tab: SearchDiscoveryTab) {
+        if (_selectedDiscoveryTab.value == tab &&
+            (tab.seerrCategory == null || _uiState.value.seerrDiscoveryItems.isNotEmpty())
+        ) {
+            return
+        }
+        _selectedDiscoveryTab.value = tab
+        tab.seerrCategory?.let(::loadSeerrDiscovery)
     }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
 
         searchJob?.cancel()
-        
+
         if (query.isNotEmpty()) {
             _uiState.value = _uiState.value.copy(
                 isSearching = true,
@@ -61,6 +85,8 @@ class SearchViewModel @Inject constructor(
                 movieResults = emptyList(),
                 showResults = emptyList(),
                 episodeResults = emptyList(),
+                seerrMovieResults = emptyList(),
+                seerrShowResults = emptyList(),
                 isSearching = false,
                 error = null
             )
@@ -98,99 +124,52 @@ class SearchViewModel @Inject constructor(
             error = null
         )
 
+        val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
+        val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
         val selectedTypes = _selectedSearchTypes.value
-        val cacheKey = "${query.lowercase().trim()}|${selectedTypes.cacheKey()}"
-        val cachedEntry = searchCache[cacheKey]
-        val currentTime = System.currentTimeMillis()
-
-        if (cachedEntry != null && (currentTime - cachedEntry.timestamp) < cacheExpirationTime) {
-            _uiState.value = _uiState.value.copy(
-                movieResults = cachedEntry.movieResults,
-                showResults = cachedEntry.showResults,
-                episodeResults = cachedEntry.episodeResults,
-                isSearching = false,
-                error = null
+        val seerrTitles = if (
+            SearchMediaType.MOVIE in selectedTypes ||
+            SearchMediaType.SERIES in selectedTypes
+        ) {
+            fetchSeerrTitles(
+                query = query,
+                activeServerId = activeServerId,
+                isSeerrConnected = isSeerrConnected
             )
+        } else {
+            emptyList()
+        }
+
+        val localItems = mediaRepository.searchItems(
+            searchTerm = query,
+            selectedTypes = selectedTypes,
+            limit = 60
+        ).getOrNull()?.let { items ->
+            filterSearchItems(items, query)
+        }
+        if (localItems == null) {
+            if (seerrTitles.isNotEmpty()) {
+                applySearchResults(
+                    localItems = emptyList(),
+                    seerrTitles = seerrTitles,
+                    query = query,
+                    selectedTypes = selectedTypes
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isSearching = false,
+                    error = "Search failed"
+                )
+            }
             return
         }
 
-        try {
-            val allItems = mediaRepository.searchItems(
-                searchTerm = query,
-                selectedTypes = selectedTypes,
-                limit = 60
-            ).getOrNull()
-            if (allItems == null) {
-                performClientSideSearch(query, selectedTypes)
-                return
-            }
-            val filteredItems = filterSearchItems(allItems, query)
-            val categorizedResults = categorizeResults(filteredItems, selectedTypes)
-
-            searchCache[cacheKey] = SearchCacheEntry(
-                movieResults = categorizedResults.movieResults,
-                showResults = categorizedResults.showResults,
-                episodeResults = categorizedResults.episodeResults,
-                timestamp = currentTime
-            )
-
-            _uiState.value = _uiState.value.copy(
-                movieResults = categorizedResults.movieResults,
-                showResults = categorizedResults.showResults,
-                episodeResults = categorizedResults.episodeResults,
-                isSearching = false,
-                error = null
-            )
-
-        } catch (e: Exception) {
-            performClientSideSearch(query, selectedTypes)
-        }
-    }
-
-    private suspend fun performClientSideSearch(
-        query: String,
-        selectedTypes: Set<SearchMediaType>
-    ) {
-        try {
-            val allItems = mutableListOf<BaseItemDto>()
-
-            selectedTypes.forEach { type ->
-                mediaRepository.getUserItems(
-                    includeItemTypes = type.serverValue,
-                    recursive = true,
-                    limit = 100,
-                    sortBy = "SortName",
-                    sortOrder = "Ascending"
-                ).getOrNull()?.items?.let { items ->
-                    allItems.addAll(items)
-                }
-            }
-
-            if (allItems.isEmpty()) {
-                mediaRepository.getLatestItems(
-                    includeItemTypes = selectedTypes.joinToString(",") { it.serverValue },
-                    limit = 50
-                ).getOrNull()?.let { latest ->
-                    allItems.addAll(latest)
-                }
-            }
-
-            val filteredResults = filterSearchItems(allItems, query).take(20)
-            val categorizedResults = categorizeResults(filteredResults, selectedTypes)
-
-            _uiState.value = _uiState.value.copy(
-                movieResults = categorizedResults.movieResults,
-                showResults = categorizedResults.showResults,
-                episodeResults = categorizedResults.episodeResults,
-                isSearching = false,
-                error = null
-            )
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isSearching = false,
-                error = e.message
-            )
-        }
+        applySearchResults(
+            localItems = localItems,
+            seerrTitles = seerrTitles,
+            query = query,
+            selectedTypes = selectedTypes
+        )
     }
 
     private fun loadsuggestions() {
@@ -226,36 +205,243 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    private fun filterSearchItems(items: List<BaseItemDto>, query: String): List<BaseItemDto> {
-        val lowerQuery = query.lowercase()
-        val queryWords = lowerQuery.split(" ").filter { it.isNotBlank() }
+    fun refreshSeerrConnectionState(activeServerId: String? = authRepository.getActiveSessionSnapshot().activeServerId) {
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+        val scopeChanged = seerrScopeId != scopeId
+        val wasSeerrConnected = _uiState.value.isSeerrConnected
+        seerrScopeId = scopeId
+        val isSeerrConnected = scopeId != null &&
+            seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
 
-        if (queryWords.size <= 1) return items
+        if (!isSeerrConnected) {
+            _selectedDiscoveryTab.value = SearchDiscoveryTab.SUGGESTIONS
+            _uiState.value = _uiState.value.copy(
+                isSeerrConnected = false,
+                seerrMovieResults = emptyList(),
+                seerrShowResults = emptyList(),
+                seerrDiscoveryItems = emptyList(),
+                seerrDiscoveryLoading = false
+            )
+            return
+        }
 
-        val filteredItems = items.filter { item ->
-            val text = "${item.name.orEmpty()} ${item.originalTitle.orEmpty()}".lowercase()
-            text.contains(lowerQuery) || run {
-                var index = -1
-                queryWords.all { word ->
-                    index = text.indexOf(word, index + 1)
-                    index >= 0
+        _uiState.value = _uiState.value.copy(
+            isSeerrConnected = true,
+            seerrDiscoveryItems = if (scopeChanged) emptyList() else _uiState.value.seerrDiscoveryItems
+        )
+
+        if ((_searchQuery.value.isNotBlank()) && (!wasSeerrConnected || scopeChanged)) {
+            executeSearch()
+            return
+        }
+
+        val category = _selectedDiscoveryTab.value.seerrCategory ?: return
+        if ((scopeChanged || _uiState.value.seerrDiscoveryItems.isEmpty()) && !_uiState.value.seerrDiscoveryLoading) {
+            loadSeerrDiscovery(category)
+        }
+    }
+
+    private fun loadSeerrDiscovery(category: SeerrDiscoveryCategory) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                seerrDiscoveryLoading = true
+            )
+
+            val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
+            val scopeId = activeServerId?.takeIf { it.isNotBlank() }
+            val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
+            if (scopeId == null || !isSeerrConnected) {
+                _uiState.value = _uiState.value.copy(
+                    isSeerrConnected = false,
+                    seerrDiscoveryItems = emptyList(),
+                    seerrDiscoveryLoading = false,
+                )
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isSeerrConnected = true)
+
+            seerrRepository.getDiscoveryTitles(
+                scopeId = scopeId,
+                category = category,
+                limit = 20
+            ).fold(
+                onSuccess = { titles ->
+                    if (_selectedDiscoveryTab.value.seerrCategory == category) {
+                        _uiState.value = _uiState.value.copy(
+                            seerrDiscoveryItems = titles.toDiscoveryItems(),
+                            seerrDiscoveryLoading = false
+                        )
+                    }
+                },
+                onFailure = {
+                    if (_selectedDiscoveryTab.value.seerrCategory == category) {
+                        _uiState.value = _uiState.value.copy(
+                            seerrDiscoveryItems = emptyList(),
+                            seerrDiscoveryLoading = false
+                        )
+                    }
                 }
+            )
+        }
+    }
+
+    private fun List<SeerrRecommendationTitle>.toDiscoveryItems(): List<BaseItemDto> =
+        distinctBy { title -> "${title.mediaType}:${title.tmdbId}" }
+            .map { title ->
+                BaseItemDto(
+                    id = SeerrItemIds.detailId(tmdbId = title.tmdbId, mediaType = title.mediaType),
+                    name = title.title,
+                    type = if (title.mediaType.equals("tv", ignoreCase = true)) "Series" else "Movie",
+                    providerIds = buildMap {
+                        put("tmdb", title.tmdbId)
+                        title.jellyfinMediaId?.takeIf { it.isNotBlank() }?.let { put("jellyfin", it) }
+                    },
+                    productionYear = title.productionYear,
+                    imageUrl = title.posterUrl
+                )
+            }
+
+    private fun filterSearchItems(items: List<BaseItemDto>, query: String): List<BaseItemDto> {
+        return items
+            .mapNotNull { item ->
+                bestSearchMatch(query, item.name, item.originalTitle)?.let { match -> item to match }
+            }
+            .sortedBy { (_, match) -> match.priority }
+            .map { (item, _) -> item }
+    }
+
+    private fun applySearchResults(
+        localItems: List<BaseItemDto>,
+        seerrTitles: List<SeerrRecommendationTitle>,
+        query: String,
+        selectedTypes: Set<SearchMediaType>
+    ) {
+        val movieResults = localItems.resultsFor(SearchMediaType.MOVIE, selectedTypes)
+        val showResults = localItems.resultsFor(SearchMediaType.SERIES, selectedTypes)
+        val episodeResults = localItems.resultsFor(SearchMediaType.EPISODE, selectedTypes)
+
+        _uiState.value = _uiState.value.copy(
+            movieResults = movieResults,
+            showResults = showResults,
+            episodeResults = episodeResults,
+            seerrMovieResults = if (SearchMediaType.MOVIE in selectedTypes) {
+                buildSeerrResults(
+                    seerrTitles = seerrTitles,
+                    mediaType = "movie",
+                    query = query,
+                    localItems = movieResults
+                )
+            } else {
+                emptyList()
+            },
+            seerrShowResults = if (SearchMediaType.SERIES in selectedTypes) {
+                buildSeerrResults(
+                    seerrTitles = seerrTitles,
+                    mediaType = "tv",
+                    query = query,
+                    localItems = showResults
+                )
+            } else {
+                emptyList()
+            },
+            isSearching = false,
+            error = null
+        )
+    }
+
+    private fun buildSeerrResults(
+        seerrTitles: List<SeerrRecommendationTitle>,
+        mediaType: String,
+        query: String,
+        localItems: List<BaseItemDto>
+    ): List<SeerrRecommendationTitle> {
+        if (seerrTitles.isEmpty()) return emptyList()
+
+        val matchedTitles = seerrTitles
+            .filter { title -> title.mediaType.equals(mediaType, ignoreCase = true) }
+            .mapNotNull { title ->
+                bestSearchMatch(query, title.title)?.let { match -> title to match }
+            }
+            .sortedBy { (_, match) -> match.priority }
+            .map { (title, _) -> title }
+            .distinctBy { title -> title.tmdbId }
+
+        return filterSeerTitles(
+            seerrTitles = matchedTitles,
+            localItems = localItems
+        ).take(12)
+    }
+
+    private fun bestSearchMatch(query: String, vararg texts: String?): SearchMatch? {
+        return texts
+            .filterNotNull()
+            .mapNotNull { text -> textSearchMatch(text, query) }
+            .minByOrNull { match -> match.priority }
+    }
+
+    private fun textSearchMatch(
+        text: String,
+        query: String
+    ): SearchMatch? {
+        val trimmedQuery = query.trim()
+        if (text.isBlank() || trimmedQuery.isBlank()) return null
+
+        val lowerQuery = trimmedQuery.lowercase(Locale.US)
+        val normalizedQuery = trimmedQuery.normalizedSearchKey()
+        val lowerText = text.lowercase(Locale.US)
+        val normalizedText = text.normalizedSearchKey()
+        val queryWords = lowerQuery
+            .split(Regex("[^a-z0-9]+"))
+            .filter { word -> word.isNotBlank() }
+        val tokens = lowerText.split(Regex("[^a-z0-9]+")).filter { token -> token.isNotBlank() }
+        val allWordsMatch = queryWords.all { word ->
+            tokens.any { token ->
+                token == word || token.startsWith(word) || token.contains(word)
             }
         }
 
-        return filteredItems.ifEmpty { items }
+        return when {
+            normalizedText == normalizedQuery -> SearchMatch.EXACT
+            lowerText == lowerQuery -> SearchMatch.EXACT_TEXT
+            lowerText.contains(lowerQuery) -> SearchMatch.PHRASE
+            normalizedText.contains(normalizedQuery) -> SearchMatch.NORMALIZED_PHRASE
+            allWordsMatch -> SearchMatch.ALL_WORDS
+            queryWords.size == 1 && tokens.any { token ->
+                token.startsWith(queryWords.first()) || token.contains(queryWords.first())
+            } -> SearchMatch.SINGLE_WORD
+            else -> null
+        }
     }
 
-    private fun categorizeResults(
-        items: List<BaseItemDto>,
-        selectedTypes: Set<SearchMediaType>
-    ): CategorizedSearchResults {
-        return CategorizedSearchResults(
-            movieResults = items.resultsFor(SearchMediaType.MOVIE, selectedTypes),
-            showResults = items.resultsFor(SearchMediaType.SERIES, selectedTypes),
-            episodeResults = items.resultsFor(SearchMediaType.EPISODE, selectedTypes)
-        )
+    private fun String.normalizedSearchKey(): String {
+        return lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "")
     }
+
+    private suspend fun fetchSeerrTitles(
+        query: String,
+        activeServerId: String?,
+        isSeerrConnected: Boolean
+    ): List<SeerrRecommendationTitle> {
+        val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return emptyList()
+        if (!isSeerrConnected) return emptyList()
+
+        return seerrRepository.searchTitles(
+            scopeId = scopeId,
+            query = query,
+            limit = 20
+        ).getOrElse { emptyList() }
+    }
+
+    private enum class SearchMatch(val priority: Int) {
+        EXACT(0),
+        EXACT_TEXT(1),
+        PHRASE(2),
+        NORMALIZED_PHRASE(3),
+        ALL_WORDS(4),
+        SINGLE_WORD(5)
+    }
+
 }
 
 private fun List<BaseItemDto>.resultsFor(
@@ -264,28 +450,26 @@ private fun List<BaseItemDto>.resultsFor(
 ): List<BaseItemDto> =
     if (type in selectedTypes) filter { it.type == type.serverValue }.take(20) else emptyList()
 
-private fun Set<SearchMediaType>.cacheKey(): String =
-    map { it.serverValue }.sorted().joinToString(",")
+enum class SearchDiscoveryTab(val seerrCategory: SeerrDiscoveryCategory?) {
+    SUGGESTIONS(null),
+    TRENDING(SeerrDiscoveryCategory.TRENDING),
+    POPULAR_MOVIES(SeerrDiscoveryCategory.POPULAR_MOVIES),
+    POPULAR_SHOWS(SeerrDiscoveryCategory.POPULAR_SHOWS),
+    UPCOMING_MOVIES(SeerrDiscoveryCategory.UPCOMING_MOVIES),
+    UPCOMING_SHOWS(SeerrDiscoveryCategory.UPCOMING_SHOWS)
+}
 
 data class SearchUiState(
     val suggestions: List<BaseItemDto> = emptyList(),
     val movieResults: List<BaseItemDto> = emptyList(),
     val showResults: List<BaseItemDto> = emptyList(),
     val episodeResults: List<BaseItemDto> = emptyList(),
+    val seerrMovieResults: List<SeerrRecommendationTitle> = emptyList(),
+    val seerrShowResults: List<SeerrRecommendationTitle> = emptyList(),
+    val seerrDiscoveryItems: List<BaseItemDto> = emptyList(),
+    val isSeerrConnected: Boolean = false,
     val isSearching: Boolean = false,
     val SuggestionsLoading: Boolean = false,
+    val seerrDiscoveryLoading: Boolean = false,
     val error: String? = null
-)
-
-data class SearchCacheEntry(
-    val movieResults: List<BaseItemDto>,
-    val showResults: List<BaseItemDto>,
-    val episodeResults: List<BaseItemDto>,
-    val timestamp: Long
-)
-
-private data class CategorizedSearchResults(
-    val movieResults: List<BaseItemDto>,
-    val showResults: List<BaseItemDto>,
-    val episodeResults: List<BaseItemDto>
 )

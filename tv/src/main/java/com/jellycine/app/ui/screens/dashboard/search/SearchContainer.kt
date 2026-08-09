@@ -1,57 +1,53 @@
 package com.jellycine.app.ui.screens.dashboard.search
 
-import androidx.compose.foundation.text.BasicTextField
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SearchMediaType
+import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.imageLoader
 import coil3.request.*
@@ -61,9 +57,7 @@ import java.util.concurrent.ConcurrentHashMap
 private object SearchBurstImagePrefetcher {
     private val prefetchedPrimary = ConcurrentHashMap.newKeySet<String>()
 
-    fun clear() {
-        prefetchedPrimary.clear()
-    }
+    fun clear() { prefetchedPrimary.clear() }
 
     suspend fun preload(
         items: List<BaseItemDto>,
@@ -82,51 +76,36 @@ private object SearchBurstImagePrefetcher {
         suspend fun enqueuePrimary(item: BaseItemDto) {
             val itemId = item.id ?: return
             if (!prefetchedPrimary.add(itemId)) return
-
-            val itemEnhancersEnabled = if (item.type.equals("Episode", ignoreCase = true)) {
-                false
-            } else {
-                enableImageEnhancers
-            }
-
-            val primaryUrl = mediaRepository.getImageUrlString(
+            val enhancers = !item.type.equals("Episode", ignoreCase = true) && enableImageEnhancers
+            val url = mediaRepository.getImageUrlString(
                 itemId = itemId,
                 imageType = "Primary",
                 width = 300,
                 height = 450,
                 quality = 80,
-                enableImageEnhancers = itemEnhancersEnabled
+                enableImageEnhancers = enhancers
             )
-
-            if (!primaryUrl.isNullOrBlank()) {
+            if (!url.isNullOrBlank()) {
                 imageLoader.enqueue(
                     ImageRequest.Builder(context)
-                        .data(primaryUrl)
+                        .data(url)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
-                        .networkCachePolicy(CachePolicy.ENABLED)
                         .crossfade(false)
                         .allowHardware(true)
-                        .allowRgb565(true)
                         .build()
                 )
             }
         }
 
-        distinctItems.take(10).forEach { item ->
-            enqueuePrimary(item)
-        }
-
+        distinctItems.take(10).forEach { enqueuePrimary(it) }
         if (distinctItems.size > 10) {
             delay(200)
-            distinctItems.drop(10).forEach { item ->
-                enqueuePrimary(item)
-            }
+            distinctItems.drop(10).forEach { enqueuePrimary(it) }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchContainer(
     onNavigateToDetail: (BaseItemDto) -> Unit = {},
@@ -135,53 +114,68 @@ fun SearchContainer(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val selectedDiscoveryTab by viewModel.selectedDiscoveryTab.collectAsStateWithLifecycle()
     val selectedSearchTypes by viewModel.selectedSearchTypes.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val activeServerId by authRepository.getActiveServerId().collectAsStateWithLifecycle(
+        initialValue = authRepository.getActiveSessionSnapshot().activeServerId
+    )
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
+    val pagerFocusRequester = remember { FocusRequester() }
+    val searchIconFocusRequester = remember { FocusRequester() }
+    val keyboardFocusRequester = remember { FocusRequester() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var isKeyboardOpen by remember { mutableStateOf(false) }
     val isSearchActive = searchQuery.isNotEmpty()
     val hasSearchResults = remember(
-        uiState.movieResults,
-        uiState.showResults,
-        uiState.episodeResults
+        uiState.movieResults, uiState.showResults, uiState.episodeResults,
+        uiState.seerrMovieResults, uiState.seerrShowResults
     ) {
-        uiState.movieResults.isNotEmpty() ||
-            uiState.showResults.isNotEmpty() ||
-            uiState.episodeResults.isNotEmpty()
+        uiState.movieResults.isNotEmpty() || uiState.showResults.isNotEmpty() ||
+            uiState.episodeResults.isNotEmpty() || uiState.seerrMovieResults.isNotEmpty() ||
+            uiState.seerrShowResults.isNotEmpty()
     }
-    val burstPrefetchItems = remember(
-        isSearchActive,
-        uiState.movieResults,
-        uiState.showResults,
-        uiState.episodeResults
-    ) {
+
+    LaunchedEffect(disablePosterEnhancers) { SearchBurstImagePrefetcher.clear() }
+
+    LaunchedEffect(activeServerId) { viewModel.refreshSeerrConnectionState(activeServerId) }
+
+    DisposableEffect(lifecycleOwner, activeServerId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSeerrConnectionState(activeServerId)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val burstPrefetchItems = remember(isSearchActive, uiState.movieResults, uiState.showResults, uiState.episodeResults) {
         if (isSearchActive) {
             buildList {
                 addAll(uiState.movieResults.take(12))
                 addAll(uiState.showResults.take(12))
                 addAll(uiState.episodeResults.take(12))
-            }.filter { it.id != null && !it.name.isNullOrBlank() }
-                .distinctBy { it.id }
-        } else {
-            emptyList()
-        }
-    }
-
-    LaunchedEffect(disablePosterEnhancers) {
-        SearchBurstImagePrefetcher.clear()
+            }.filter { it.id != null && !it.name.isNullOrBlank() }.distinctBy { it.id }
+        } else emptyList()
     }
 
     LaunchedEffect(burstPrefetchItems.hashCode(), disablePosterEnhancers) {
         if (burstPrefetchItems.isEmpty()) return@LaunchedEffect
-        SearchBurstImagePrefetcher.preload(
-            items = burstPrefetchItems,
-            mediaRepository = mediaRepository,
-            context = context,
-            enableImageEnhancers = !disablePosterEnhancers
-        )
+        SearchBurstImagePrefetcher.preload(burstPrefetchItems, mediaRepository, context, !disablePosterEnhancers)
+    }
+
+    LaunchedEffect(isKeyboardOpen) {
+        if (isKeyboardOpen) keyboardFocusRequester.requestFocus()
+    }
+
+    BackHandler(enabled = isKeyboardOpen) {
+        viewModel.updateSearchQuery("")
+        isKeyboardOpen = false
     }
 
     Box(
@@ -189,66 +183,265 @@ fun SearchContainer(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        if (isSearchActive) {
-            Box(
+        val showSeerrDiscovery = selectedDiscoveryTab.seerrCategory != null && uiState.isSeerrConnected &&
+            (uiState.seerrDiscoveryLoading || uiState.seerrDiscoveryItems.isNotEmpty())
+
+        if (!isKeyboardOpen) {
+            ImmersiveSection(
+                movies = if (showSeerrDiscovery) uiState.seerrDiscoveryItems else uiState.suggestions,
+                isLoading = if (showSeerrDiscovery) uiState.seerrDiscoveryLoading else uiState.SuggestionsLoading,
+                onItemClick = { onNavigateToDetail(it.withJellyfinNavigationId()) },
+                modifier = Modifier.fillMaxSize(),
+                pagerFocusRequester = pagerFocusRequester,
+                onUpPressed = { searchIconFocusRequester.requestFocus() }
+            )
+
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(top = 120.dp)
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (uiState.isSearching) {
-                    SearchResultsViewSkeleton()
-                } else if (hasSearchResults) {
-                    SearchResultsView(
-                        uiState = uiState,
-                        onItemClick = onNavigateToDetail,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        EmptySearchState(
-                            message = uiState.error ?: stringResource(R.string.search_no_results)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val tabs = if (uiState.isSeerrConnected) SearchDiscoveryTab.entries.toList() else listOf(SearchDiscoveryTab.SUGGESTIONS)
+                    tabs.forEach { tab ->
+                        DiscoveryTabChip(
+                            tab = tab,
+                            selected = tab == selectedDiscoveryTab,
+                            onClick = { viewModel.selectDiscoveryTab(tab) }
                         )
                     }
                 }
+
+                SearchIconButton(
+                    focusRequester = searchIconFocusRequester,
+                    onClick = { isKeyboardOpen = true },
+                    onDownPressed = { pagerFocusRequester.requestFocus() }
+                )
             }
-        } else {
-            ImmersiveSection(
-                title = stringResource(R.string.suggestions),
-                movies = uiState.suggestions,
-                isLoading = uiState.SuggestionsLoading,
-                onItemClick = onNavigateToDetail,
+        }
+
+        AnimatedVisibility(
+            visible = isKeyboardOpen,
+            enter = fadeIn(tween(200)) + slideInHorizontally(tween(250)) { -it },
+            exit = fadeOut(tween(150)) + slideOutHorizontally(tween(200)) { -it }
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 20.dp)
+                    .background(Color.Black)
+            ) {
+                LetterKeyboard(
+                    onLetterClick = { viewModel.updateSearchQuery(searchQuery + it) },
+                    onDeleteClick = {
+                        if (searchQuery.isNotEmpty()) viewModel.updateSearchQuery(searchQuery.dropLast(1))
+                    },
+                    onClearClick = { viewModel.updateSearchQuery("") },
+                    onBackPressed = {
+                        viewModel.updateSearchQuery("")
+                        isKeyboardOpen = false
+                    },
+                    focusRequester = keyboardFocusRequester,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(260.dp)
+                        .padding(start = 24.dp, top = 24.dp, bottom = 24.dp, end = 16.dp)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 16.dp, top = 24.dp, end = 32.dp, bottom = 24.dp)
+                ) {
+                    Surface(
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = searchQuery.ifEmpty { stringResource(R.string.search_hint) },
+                                color = if (searchQuery.isEmpty()) Color.White.copy(alpha = 0.4f) else Color.White,
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (isSearchActive) {
+                        SearchTypeChips(
+                            selectedTypes = selectedSearchTypes,
+                            onToggle = viewModel::toggleSearchType,
+                            modifier = Modifier.padding(bottom = 14.dp)
+                        )
+
+                        if (uiState.isSearching) {
+                            SearchResultsViewSkeleton(modifier = Modifier.weight(1f))
+                        } else if (hasSearchResults) {
+                            SearchResultsView(
+                                uiState = uiState,
+                                onItemClick = onNavigateToDetail,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EmptySearchState(
+                                    message = uiState.error ?: stringResource(R.string.search_no_results)
+                                )
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .offset(y = (-32).dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Start typing to search",
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchIconButton(
+    focusRequester: FocusRequester,
+    onClick: () -> Unit,
+    onDownPressed: () -> Unit = {}
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier
+            .size(48.dp)
+            .focusRequester(focusRequester)
+            .onFocusChanged { isFocused = it.isFocused }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> { onClick(); true }
+                        Key.DirectionDown -> { onDownPressed(); true }
+                        else -> false
+                    }
+                } else false
+            }
+            .clickable { onClick() }
+            .focusable(),
+        color = if (isFocused) Color.White else Color.White.copy(alpha = 0.15f),
+        shape = CircleShape
+    ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search),
+                tint = if (isFocused) Color.Black else Color.White,
+                modifier = Modifier.size(22.dp)
             )
         }
+    }
+}
 
-        if (isSearchActive) {
-            SearchTypeChips(
-                selectedTypes = selectedSearchTypes,
-                onToggle = viewModel::toggleSearchType,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .padding(start = 16.dp, top = 72.dp, end = 16.dp)
-            )
+@Composable
+private fun LetterKeyboard(
+    onLetterClick: (String) -> Unit,
+    onDeleteClick: () -> Unit,
+    onClearClick: () -> Unit,
+    onBackPressed: () -> Unit,
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier
+) {
+    val keys = remember {
+        listOf(
+            "a", "b", "c", "d", "e", "f",
+            "g", "h", "i", "j", "k", "l",
+            "m", "n", "o", "p", "q", "r",
+            "s", "t", "u", "v", "w", "x",
+            "y", "z", "1", "2", "3", "4",
+            "5", "6", "7", "8", "9", "0"
+        )
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(6),
+        modifier = modifier
+            .focusRequester(focusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Back) {
+                    onBackPressed(); true
+                } else false
+            },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items(keys) { letter ->
+            KeyboardKey(label = letter, onClick = { onLetterClick(letter) })
         }
+        item { KeyboardKey(label = "␣", onClick = { onLetterClick(" ") }) }
+        item { KeyboardKey(label = "⌫", onClick = onDeleteClick) }
+        item { KeyboardKey(label = "CLR", onClick = onClearClick) }
+    }
+}
 
-        SearchBar(
-            query = searchQuery,
-            onQueryChange = viewModel::updateSearchQuery,
-            onCancel = onCancel,
-            onSearch = viewModel::executeSearch,
-            focusRequester = focusRequester,
-            keyboardController = keyboardController,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+@Composable
+private fun KeyboardKey(label: String, onClick: () -> Unit) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .aspectRatio(1f)
+            .background(
+                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .clickable { onClick() }
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (isFocused) Color.Black else Color.White,
+            fontSize = if (label.length > 1) 14.sp else 18.sp,
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -269,11 +462,7 @@ private fun SearchTypeChips(
             Card(
                 modifier = Modifier.clickable { onToggle(type) },
                 colors = CardDefaults.cardColors(
-                    containerColor = if (selected) {
-                        Color.White
-                    } else {
-                        Color.White.copy(alpha = 0.12f)
-                    }
+                    containerColor = if (selected) Color.White else Color.White.copy(alpha = 0.12f)
                 ),
                 shape = RoundedCornerShape(18.dp)
             ) {
@@ -296,104 +485,17 @@ private fun SearchMediaType.label(): String = when (this) {
     SearchMediaType.EPISODE -> stringResource(R.string.search_results_episodes)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun BaseItemDto.withJellyfinNavigationId(): BaseItemDto {
+    val jellyfinMediaId = providerIds?.get("jellyfin")?.takeIf { it.isNotBlank() } ?: return this
+    return copy(id = jellyfinMediaId)
+}
+
 @Composable
-private fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onCancel: () -> Unit,
-    onSearch: () -> Unit,
-    focusRequester: FocusRequester,
-    keyboardController: SoftwareKeyboardController?,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Card(
-            modifier = Modifier.weight(1f),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.1f)
-            ),
-            shape = RoundedCornerShape(25.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search),
-                    tint = Color.Gray,
-                    modifier = Modifier.size(20.dp)
-                )
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    BasicTextField(
-                        value = query,
-                        onValueChange = onQueryChange,
-                        textStyle = TextStyle(
-                            color = Color.White,
-                            fontSize = 16.sp
-                        ),
-                        cursorBrush = SolidColor(Color.White),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                keyboardController?.hide()
-                                onSearch()
-                            }
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester)
-                    )
-                    
-                    if (query.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.search_hint),
-                            color = Color.Gray,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-                
-                if (query.isNotEmpty()) {
-                    IconButton(
-                        onClick = { onQueryChange("") },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = stringResource(R.string.clear_search),
-                            tint = Color.Gray,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-        }
-        
-        Spacer(modifier = Modifier.width(16.dp))
-        
-        TextButton(
-            onClick = onCancel,
-            colors = ButtonDefaults.textButtonColors(
-                contentColor = Color.White
-            )
-        ) {
-            Text(
-                text = stringResource(R.string.cancel),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
+fun SearchDiscoveryTab.label(): String = when (this) {
+    SearchDiscoveryTab.SUGGESTIONS -> stringResource(R.string.suggestions)
+    SearchDiscoveryTab.TRENDING -> stringResource(R.string.search_discover_trending)
+    SearchDiscoveryTab.POPULAR_MOVIES -> stringResource(R.string.search_discover_popular_movies)
+    SearchDiscoveryTab.POPULAR_SHOWS -> stringResource(R.string.search_discover_popular_shows)
+    SearchDiscoveryTab.UPCOMING_MOVIES -> stringResource(R.string.search_discover_upcoming_movies)
+    SearchDiscoveryTab.UPCOMING_SHOWS -> stringResource(R.string.search_discover_upcoming_shows)
 }

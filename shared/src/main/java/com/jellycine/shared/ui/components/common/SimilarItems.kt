@@ -334,7 +334,7 @@ private fun SeerrRecommendationCard(
 }
 
 @Composable
-private fun SeerrTopBadges(
+fun SeerrTopBadges(
     requestState: SeerrRequestState,
     modifier: Modifier = Modifier
 ) {
@@ -354,7 +354,7 @@ private fun SeerrTopBadges(
 }
 
 @Composable
-private fun SeerrSourceBadge(modifier: Modifier = Modifier) {
+fun SeerrSourceBadge(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.height(20.dp),
         shape = RoundedCornerShape(999.dp),
@@ -380,7 +380,7 @@ private fun SeerrSourceBadge(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SeerrRequestBadge(modifier: Modifier = Modifier) {
+fun SeerrRequestBadge(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = CircleShape,
