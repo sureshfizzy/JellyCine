@@ -51,7 +51,12 @@ class DownloadRepository(context: Context) {
     private val messages = DownloadMessages(appContext)
     private val queue = DownloadQueue()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val httpClient = OkHttpClient.Builder().retryOnConnectionFailure(true).build()
+    private val httpClient = OkHttpClient.Builder()
+        .retryOnConnectionFailure(true)
+        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(2, java.util.concurrent.TimeUnit.MINUTES)
+        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     private val stateFlows = ConcurrentHashMap<String, MutableStateFlow<ItemDownloadState>>()
     private val downloadTracker = DownloadTracker(
