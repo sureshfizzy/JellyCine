@@ -123,7 +123,7 @@ internal fun DownloadQualityPicker(
                                 QualityRow(
                                     title = "Original",
                                     subtitle = "Full quality" + (sizeEstimator.originalSizeLabel()?.let { " · $it" } ?: ""),
-                                    onClick = { completeWith(TranscodeProfiles.PRESETS.first()) }
+                                    onClick = { onSelected(DownloadQualitySelection(TranscodeProfiles.PRESETS.first())) }
                                 )
                             }
                             items(resolutionGroups, key = { it.label }) { group ->
