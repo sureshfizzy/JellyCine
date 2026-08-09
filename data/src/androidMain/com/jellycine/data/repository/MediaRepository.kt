@@ -110,7 +110,8 @@ class MediaRepository(private val context: Context) {
         val downloadUrl: String,
         val authToken: String?,
         val fileExtension: String?,
-        val estimatedBytes: Long = 0L
+        val estimatedBytes: Long = 0L,
+        val isTranscodeResume: Boolean = false
     )
 
     @Volatile
@@ -1618,7 +1619,8 @@ class MediaRepository(private val context: Context) {
         itemId: String,
         maxBitrate: Int,
         maxHeight: Int,
-        audioStreamIndex: Int? = null
+        audioStreamIndex: Int? = null,
+        startTimeTicks: Long? = null
     ): Result<ItemDownloadRequest> {
         return try {
             val config = getSessionConfig()
@@ -1660,6 +1662,9 @@ class MediaRepository(private val context: Context) {
             if (audioStreamIndex != null) {
                 queryParams.add("AudioStreamIndex" to audioStreamIndex.toString())
             }
+            if (startTimeTicks != null && startTimeTicks > 0L) {
+                queryParams.add("StartTimeTicks" to startTimeTicks.toString())
+            }
 
             val downloadUrl = buildServerUrl(
                 baseUrl = serverUrl,
@@ -1685,7 +1690,8 @@ class MediaRepository(private val context: Context) {
                     downloadUrl = downloadUrl,
                     authToken = null,
                     fileExtension = container,
-                    estimatedBytes = estimatedBytes
+                    estimatedBytes = estimatedBytes,
+                    isTranscodeResume = startTimeTicks != null && startTimeTicks > 0L
                 )
             )
         } catch (e: Exception) {

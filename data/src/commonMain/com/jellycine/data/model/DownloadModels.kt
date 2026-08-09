@@ -85,7 +85,8 @@ data class PersistedDownloadMetadata(
     val message: String? = null,
     val downloadId: Long? = null,
     val fullItemJson: String? = null,
-    val qualityLabel: String? = null
+    val qualityLabel: String? = null,
+    val transcodeBitrate: Int? = null
 )
 
 data class TrackedDownload(

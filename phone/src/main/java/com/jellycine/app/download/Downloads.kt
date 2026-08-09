@@ -130,9 +130,14 @@ internal class DownloadTransfer(
         }
 
         val fileExists = storage.exists(destination.location)
-        val resumeFrom = if (fileExists) storage.length(destination.location) else initialBytes
-        if (resumeFrom > 0L) {
-            requestBuilder.header("Range", "bytes=$resumeFrom-")
+        val existingFileBytes = if (fileExists) storage.length(destination.location) else 0L
+        val isTranscodeResume = requestData.isTranscodeResume && existingFileBytes > 0L
+
+        if (!isTranscodeResume) {
+            val resumeFrom = if (fileExists) existingFileBytes else initialBytes
+            if (resumeFrom > 0L) {
+                requestBuilder.header("Range", "bytes=$resumeFrom-")
+            }
         }
 
         val call = httpClient.newCall(requestBuilder.build())
@@ -144,12 +149,20 @@ internal class DownloadTransfer(
             }
 
             val body = response.body
-            val append = response.code == 206 && resumeFrom > 0L
-            val downloadedStart = if (append) resumeFrom else 0L
+            val append = if (isTranscodeResume) {
+                true
+            } else {
+                response.code == 206 && existingFileBytes > 0L
+            }
+            val downloadedStart = if (append) existingFileBytes else 0L
             if (!append && storage.exists(destination.location) && storage.length(destination.location) > 0L) {
                 storage.outputStream(destination.location, append = false).use { /* truncate partial file */ }
             }
-            val totalBytes = if (body.contentLength() > 0L) {
+            val totalBytes = if (isTranscodeResume) {
+                if (body.contentLength() > 0L) downloadedStart + body.contentLength()
+                else if (requestData.estimatedBytes > 0L) requestData.estimatedBytes
+                else 0L
+            } else if (body.contentLength() > 0L) {
                 downloadedStart + body.contentLength()
             } else if (requestData.estimatedBytes > 0L) {
                 requestData.estimatedBytes
