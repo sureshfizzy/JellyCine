@@ -1347,16 +1347,20 @@ fun DetailContent(
         val primarySource = remember(item.id, item.mediaSources) {
             item.mediaSources?.firstOrNull()
         }
+        val audioStreams = remember(item.id, effectiveMediaStreams) {
+            effectiveMediaStreams.filter { it.type.equals("Audio", ignoreCase = true) }
+        }
         DownloadQualityPicker(
             runtimeTicks = item.runTimeTicks,
             sourceHeight = videoStream?.height,
             sourceBitrate = primarySource?.bitrate ?: videoStream?.bitRate,
             sourceFileSize = primarySource?.size,
+            audioStreams = audioStreams,
             onDismiss = {
                 showDownloadQualityPicker = false
                 pendingSeriesEpisodes = null
             },
-            onSelected = { selectedQuality ->
+            onSelected = { selection ->
                 showDownloadQualityPicker = false
                 val episodes = pendingSeriesEpisodes
                 pendingSeriesEpisodes = null
@@ -1364,20 +1368,22 @@ fun DetailContent(
                     if (episodes != null) {
                         seriesQueueInProgress = true
                         try {
-                            downloadRepository.enqueueEpisodeDownloads(episodes, selectedQuality)
-                                .onFailure { throwable ->
-                                    downloadErrorDialogMessage =
-                                        downloadFailure(rawMessage = throwable.message)
-                                }
+                            downloadRepository.enqueueEpisodeDownloads(
+                                episodes, selection.quality, selection.audioStreamIndex
+                            ).onFailure { throwable ->
+                                downloadErrorDialogMessage =
+                                    downloadFailure(rawMessage = throwable.message)
+                            }
                         } finally {
                             seriesQueueInProgress = false
                         }
                     } else {
-                        downloadRepository.enqueueItemDownload(item, selectedQuality)
-                            .onFailure { throwable ->
-                                downloadErrorDialogMessage =
-                                    downloadFailure(rawMessage = throwable.message)
-                            }
+                        downloadRepository.enqueueItemDownload(
+                            item, selection.quality, selection.audioStreamIndex
+                        ).onFailure { throwable ->
+                            downloadErrorDialogMessage =
+                                downloadFailure(rawMessage = throwable.message)
+                        }
                     }
                 }
             }

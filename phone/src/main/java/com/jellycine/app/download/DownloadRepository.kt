@@ -189,7 +189,8 @@ class DownloadRepository(context: Context) {
 
     suspend fun enqueueItemDownload(
         item: BaseItemDto,
-        quality: TranscodeProfile? = null
+        quality: TranscodeProfile? = null,
+        audioStreamIndex: Int? = null
     ): Result<Long> = withContext(Dispatchers.IO) {
         val itemId = item.id ?: return@withContext Result.failure(Exception(messages.itemIdUnavailable))
         val current = stateFlows.getOrPut(itemId) { MutableStateFlow(ItemDownloadState()) }.value
@@ -210,7 +211,8 @@ class DownloadRepository(context: Context) {
             mediaRepository.getTranscodedDownloadRequest(
                 itemId = itemId,
                 maxBitrate = quality!!.maxBitrate!!,
-                maxHeight = quality.maxHeight!!
+                maxHeight = quality.maxHeight!!,
+                audioStreamIndex = audioStreamIndex
             ).getOrElse {
                 mediaRepository.getItemDownloadRequest(itemId).getOrElse { fallbackError ->
                     val failureState = ItemDownloadState(
@@ -405,12 +407,14 @@ class DownloadRepository(context: Context) {
 
     suspend fun enqueueEpisodeDownloads(
         episodes: List<BaseItemDto>,
-        quality: TranscodeProfile? = null
+        quality: TranscodeProfile? = null,
+        audioStreamIndex: Int? = null
     ): Result<Int> = withContext(Dispatchers.IO) {
         enqueueEpisodeBatch(
             episodes = episodes,
             emptyError = messages.noEpisodesSelected,
-            quality = quality
+            quality = quality,
+            audioStreamIndex = audioStreamIndex
         )
     }
 
@@ -458,7 +462,8 @@ class DownloadRepository(context: Context) {
     private suspend fun enqueueEpisodeBatch(
         episodes: List<BaseItemDto>,
         emptyError: String,
-        quality: TranscodeProfile? = null
+        quality: TranscodeProfile? = null,
+        audioStreamIndex: Int? = null
     ): Result<Int> {
         val estimate = buildEpisodeBatchEstimate(
             episodes = episodes,
@@ -476,7 +481,7 @@ class DownloadRepository(context: Context) {
         var queued = 0
         estimate.candidates.forEach { candidate ->
             val episode = candidate.item
-            val result = enqueueItemDownload(episode, quality)
+            val result = enqueueItemDownload(episode, quality, audioStreamIndex)
             if (result.isSuccess) {
                 queued += 1
             }

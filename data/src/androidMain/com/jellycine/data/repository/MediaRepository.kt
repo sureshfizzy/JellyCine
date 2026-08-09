@@ -1617,7 +1617,8 @@ class MediaRepository(private val context: Context) {
     suspend fun getTranscodedDownloadRequest(
         itemId: String,
         maxBitrate: Int,
-        maxHeight: Int
+        maxHeight: Int,
+        audioStreamIndex: Int? = null
     ): Result<ItemDownloadRequest> {
         return try {
             val config = getSessionConfig()
@@ -1656,6 +1657,9 @@ class MediaRepository(private val context: Context) {
                 "PlaySessionId" to playbackInfo.playSessionId,
                 "api_key" to accessToken
             )
+            if (audioStreamIndex != null) {
+                queryParams.add("AudioStreamIndex" to audioStreamIndex.toString())
+            }
 
             val downloadUrl = buildServerUrl(
                 baseUrl = serverUrl,
