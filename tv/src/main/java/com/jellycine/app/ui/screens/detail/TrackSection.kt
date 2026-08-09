@@ -1,17 +1,16 @@
 package com.jellycine.app.ui.screens.detail
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -29,7 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,7 +45,6 @@ import com.jellycine.player.core.mediaStreamDisplayTitles
 
 @Composable
 internal fun TrackSection(
-    isWidescreenLayout: Boolean,
     displayedSelectedVideo: String,
     videoOptions: List<String>,
     videoInlineMetaText: String?,
@@ -56,102 +60,15 @@ internal fun TrackSection(
     val hasVideoSection = videoOptions.isNotEmpty()
     val hasAudioSection = audioOptions.isNotEmpty()
     val hasSubtitleSection = subtitleOptions.size > 1
-    val isVideoAudioOnlyWideLayout = hasVideoSection && hasAudioSection && !hasSubtitleSection
 
-    if (isWidescreenLayout) {
-        if (isVideoAudioOnlyWideLayout) {
-            Row(
-                modifier = modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val videoModifier = if (videoOptions.size > 1) {
-                    Modifier.widthIn(max = 520.dp)
-                } else {
-                    Modifier.wrapContentWidth()
-                }
-                TrackField(
-                    modifier = videoModifier,
-                    label = "Video",
-                    selectedOption = displayedSelectedVideo,
-                    options = videoOptions,
-                    inlineMetaText = videoInlineMetaText,
-                    singleValueFillWidth = false,
-                    onOptionSelected = onVideoOptionSelected
-                )
-
-                val audioModifier = if (audioOptions.size > 1) {
-                    Modifier.widthIn(min = 260.dp, max = 560.dp)
-                } else {
-                    Modifier.wrapContentWidth()
-                }
-                TrackField(
-                    modifier = audioModifier,
-                    label = "Audio",
-                    selectedOption = selectedAudio,
-                    options = audioOptions,
-                    singleValueFillWidth = false,
-                    onOptionSelected = onAudioOptionSelected
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-            }
-        } else if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
-            Row(
-                modifier = modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (hasVideoSection) {
-                    val videoModifier = when {
-                        hasSubtitleSection -> Modifier.weight(1f)
-                        hasAudioSection -> Modifier.widthIn(max = 520.dp)
-                        else -> Modifier.fillMaxWidth()
-                    }
-                    TrackField(
-                        modifier = videoModifier,
-                        label = "Video",
-                        selectedOption = displayedSelectedVideo,
-                        options = videoOptions,
-                        inlineMetaText = videoInlineMetaText,
-                        onOptionSelected = onVideoOptionSelected
-                    )
-                }
-
-                if (hasAudioSection) {
-                    val audioModifier = if (hasSubtitleSection || hasVideoSection) {
-                        Modifier.weight(1f)
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }
-                    TrackField(
-                        modifier = audioModifier,
-                        label = "Audio",
-                        selectedOption = selectedAudio,
-                        options = audioOptions,
-                        onOptionSelected = onAudioOptionSelected
-                    )
-                }
-
-                if (hasSubtitleSection) {
-                    val subtitleModifier = if (hasVideoSection || hasAudioSection) {
-                        Modifier.weight(1f)
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }
-                    TrackField(
-                        modifier = subtitleModifier,
-                        label = "Subtitles",
-                        selectedOption = selectedSubtitle,
-                        options = subtitleOptions,
-                        onOptionSelected = onSubtitleOptionSelected
-                    )
-                }
-            }
-        }
-    } else {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         if (hasVideoSection) {
             TrackField(
+                modifier = Modifier.weight(1.2f),
                 label = "Video",
                 selectedOption = displayedSelectedVideo,
                 options = videoOptions,
@@ -160,12 +77,9 @@ internal fun TrackSection(
             )
         }
 
-        if (hasVideoSection && hasAudioSection) {
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
         if (hasAudioSection) {
             TrackField(
+                modifier = Modifier.weight(1f),
                 label = "Audio",
                 selectedOption = selectedAudio,
                 options = audioOptions,
@@ -174,41 +88,14 @@ internal fun TrackSection(
         }
 
         if (hasSubtitleSection) {
-            Spacer(modifier = Modifier.height(4.dp))
             TrackField(
+                modifier = Modifier.weight(0.8f),
                 label = "Subtitles",
                 selectedOption = selectedSubtitle,
                 options = subtitleOptions,
                 onOptionSelected = onSubtitleOptionSelected
             )
         }
-    }
-}
-
-
-@Composable
-internal fun DetailInfoRow(
-    label: String,
-    value: String,
-    fillWidth: Boolean = true
-) {
-    Row(
-        modifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "$label  ",
-            fontSize = 13.sp,
-            color = Color.White,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = value,
-            fontSize = 13.sp,
-            color = Color.White.copy(alpha = 0.78f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 
@@ -219,30 +106,42 @@ internal fun TrackField(
     options: List<String>,
     modifier: Modifier = Modifier,
     inlineMetaText: String? = null,
-    singleValueFillWidth: Boolean = true,
     onOptionSelected: (String) -> Unit
 ) {
     if (options.isEmpty()) return
 
-    Box(modifier = modifier) {
-        if (options.size > 1) {
-            OptionSelectorRow(
-                label = label,
-                selectedOption = selectedOption,
-                options = options,
-                inlineMetaText = inlineMetaText,
-                onOptionSelected = onOptionSelected
-            )
+    if (options.size > 1) {
+        OptionSelectorRow(
+            modifier = modifier,
+            label = label,
+            selectedOption = selectedOption,
+            options = options,
+            inlineMetaText = inlineMetaText,
+            onOptionSelected = onOptionSelected
+        )
+    } else {
+        val value = if (!inlineMetaText.isNullOrBlank()) {
+            "${options.first()} / $inlineMetaText"
         } else {
-            val value = if (!inlineMetaText.isNullOrBlank()) {
-                "${options.first()} / $inlineMetaText"
-            } else {
-                options.first()
-            }
-            DetailInfoRow(
-                label = label,
-                value = value,
-                fillWidth = singleValueFillWidth
+            options.first()
+        }
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = value,
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -254,26 +153,29 @@ internal fun OptionSelectorRow(
     label: String,
     selectedOption: String,
     options: List<String>,
+    modifier: Modifier = Modifier,
     inlineMetaText: String? = null,
     onOptionSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "$label  ",
+            text = label,
             fontSize = 13.sp,
             color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
 
+        Spacer(modifier = Modifier.width(10.dp))
+
         ExposedDropdownMenuBox(
             expanded = expanded,
-            onExpandedChange = { expanded = it },
-            modifier = Modifier.fillMaxWidth()
+            onExpandedChange = { expanded = it }
         ) {
             Surface(
                 modifier = Modifier
@@ -281,17 +183,27 @@ internal fun OptionSelectorRow(
                         type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
                         enabled = true
                     )
-                    .fillMaxWidth()
-                    .heightIn(min = 38.dp),
-                color = Color(0xFF1F1F24),
-                shape = RoundedCornerShape(16.dp)
+                    .heightIn(min = 34.dp)
+                    .onFocusChanged { isFocused = it.isFocused }
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.key) {
+                                Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                                    expanded = true
+                                    true
+                                }
+                                else -> false
+                            }
+                        } else false
+                    }
+                    .focusable(),
+                color = if (isFocused) Color(0xFF3A3A40) else Color(0xFF2A2A2E),
+                shape = RoundedCornerShape(8.dp),
+                border = if (isFocused) BorderStroke(1.5.dp, Color.White.copy(alpha = 0.6f)) else null
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     val displayText = buildString {
                         append(selectedOption.ifBlank { options.firstOrNull().orEmpty() })
@@ -302,29 +214,34 @@ internal fun OptionSelectorRow(
                     }
                     Text(
                         text = displayText,
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontSize = 12.sp,
+                        maxLines = 1
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowDown,
                         contentDescription = "Select $label",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 200.dp)
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option) },
+                        text = {
+                            Text(
+                                text = option,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         onClick = {
                             onOptionSelected(option)
                             expanded = false
@@ -354,8 +271,6 @@ internal fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
     return defaultSubtitleDisplayTitle(streams)
 }
 
-
-
 internal fun OptionLabels(options: List<String>): List<String> {
     val counts = mutableMapOf<String, Int>()
     return options.map { option ->
@@ -364,7 +279,6 @@ internal fun OptionLabels(options: List<String>): List<String> {
         if (seen == 1) option else "$option ($seen)"
     }
 }
-
 
 internal fun AudioStreamIndex(
     streams: List<MediaStream>,

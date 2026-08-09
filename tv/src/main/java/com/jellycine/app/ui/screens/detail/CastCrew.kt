@@ -3,8 +3,6 @@ package com.jellycine.app.ui.screens.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,19 +27,17 @@ internal fun DirectorCreditRow(
     if (directors.isEmpty()) return
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp),
+        modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
 
         Row {
             directors.forEachIndexed { index, person ->
@@ -50,7 +46,7 @@ internal fun DirectorCreditRow(
                 val name = person.name ?: "Unknown"
                 Text(
                     text = name + if (index < directors.lastIndex) ", " else "",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = Color(0xFF89ECFF),
                     modifier = Modifier.clickable(enabled = canOpenPerson) {
                         personId?.let(onPersonClick)

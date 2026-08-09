@@ -12,7 +12,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -20,14 +22,17 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -74,6 +79,13 @@ fun DetailContent(
     val playerPreferences = remember { PlayerPreferences(context) }
     val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
+    var userProfileImageUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val user = runCatching { mediaRepository.getCurrentUser().getOrNull() }.getOrNull()
+        userProfileImageUrl = runCatching {
+            mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
+        }.getOrNull()
+    }
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
@@ -424,6 +436,7 @@ fun DetailContent(
     val playFocusRequester = remember { FocusRequester() }
     val favoriteFocusRequester = remember { FocusRequester() }
     val watchedFocusRequester = remember { FocusRequester() }
+    val profileFocusRequester = remember { FocusRequester() }
     var contentPanelPage by remember { mutableStateOf(0) }
     val showContentPanel = contentPanelPage > 0
 
@@ -456,9 +469,9 @@ fun DetailContent(
                 .background(
                     Brush.horizontalGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.Black.copy(alpha = 0.58f),
-                            0.25f to Color.Black.copy(alpha = 0.38f),
-                            0.50f to Color.Black.copy(alpha = 0.12f),
+                            0.0f to Color.Black.copy(alpha = 0.35f),
+                            0.20f to Color.Black.copy(alpha = 0.20f),
+                            0.45f to Color.Black.copy(alpha = 0.04f),
                             1.0f to Color.Transparent
                         )
                     )
@@ -471,32 +484,53 @@ fun DetailContent(
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.Black.copy(alpha = 0.05f),
-                            0.50f to Color.Transparent,
-                            0.75f to Color.Black.copy(alpha = 0.40f),
-                            0.90f to Color.Black.copy(alpha = 0.82f),
-                            1.0f to Color.Black
+                            0.0f to Color.Transparent,
+                            0.55f to Color.Transparent,
+                            0.72f to Color.Black.copy(alpha = 0.22f),
+                            0.88f to Color.Black.copy(alpha = 0.55f),
+                            1.0f to Color.Black.copy(alpha = 0.80f)
                         )
                     )
                 )
         )
 
+        // User profile avatar
+        var profileFocused by remember { mutableStateOf(false) }
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .drawWithCache {
-                    val radius = size.maxDimension * 0.72f
-                    val brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.18f)
-                        ),
-                        center = Offset(size.width / 2f, size.height / 2f),
-                        radius = radius
-                    )
-                    onDrawBehind { drawRect(brush) }
+                .align(Alignment.TopEnd)
+                .padding(top = 24.dp, end = 32.dp)
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(
+                    if (profileFocused) Color.White.copy(alpha = 0.3f)
+                    else Color.White.copy(alpha = 0.12f)
+                )
+                .focusRequester(profileFocusRequester)
+                .onFocusChanged { profileFocused = it.isFocused }
+                .focusProperties {
+                    down = if (isSeries) watchedFocusRequester else playFocusRequester
                 }
-        )
+                .focusable(),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!userProfileImageUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    imageUrl = userProfileImageUrl,
+                    contentDescription = "User",
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                    context = context,
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = "User",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
 
         AnimatedVisibility(
             visible = !showContentPanel,
@@ -506,202 +540,190 @@ fun DetailContent(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth(0.55f)
-                    .padding(start = 48.dp, end = 24.dp, bottom = 60.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .fillMaxWidth(0.58f)
+                    .padding(start = 40.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
-                    JellyfinPosterImage(
-                        imageUrl = logoImageUrl,
-                        contentDescription = item.name,
-                        modifier = Modifier
-                            .fillMaxWidth(0.72f)
-                            .height(72.dp),
-                        context = context,
-                        contentScale = ContentScale.Fit,
-                        alignment = Alignment.CenterStart,
-                        onErrorStateChange = { hasError ->
-                            logoLoadError = hasError
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                } else if (showTitleFallback) {
-                    Text(
-                        text = logoFallbackTitle,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        lineHeight = 32.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                if (isEpisode) {
-                    episodeHeaderText?.let { header ->
-                        Text(
-                            text = header,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.92f),
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    item.communityRating?.let { rating ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Star,
-                                contentDescription = "Rating",
-                                tint = Color(0xFFE84B3C),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.1f", rating),
-                                fontSize = 14.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
-                            )
-                        }
-                    }
-
-                    item.productionYear?.let { year ->
-                        Text(
-                            text = year.toString(),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.88f),
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
-
-                    item.runTimeTicks?.let { ticks ->
-                        Text(
-                            text = CodecUtils.formatRuntime(ticks),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.88f),
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1
-                        )
-                    }
-
-                    val officialRatingLabel = item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
-                    Surface(
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
-                    ) {
-                        Text(
-                            text = officialRatingLabel,
-                            fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            maxLines = 1
-                        )
-                    }
-
                     if (!genresText.isNullOrBlank()) {
                         Text(
-                            text = genresText,
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.88f),
+                            text = genresText.replace(", ", " • "),
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.85f),
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                }
 
-                val tagline = item.taglines?.firstOrNull { !it.isNullOrBlank() }
-                if (!tagline.isNullOrBlank()) {
-                    Text(
-                        text = tagline,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
+                    if (!logoImageUrl.isNullOrBlank() && !logoLoadError) {
+                        JellyfinPosterImage(
+                            imageUrl = logoImageUrl,
+                            contentDescription = item.name,
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .height(56.dp),
+                            context = context,
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart,
+                            onErrorStateChange = { hasError ->
+                                logoLoadError = hasError
+                            }
+                        )
+                    } else if (showTitleFallback) {
+                        Text(
+                            text = logoFallbackTitle,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            lineHeight = 28.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                val overviewText = item.overview?.takeIf { it.isNotBlank() }
-                if (overviewText != null) {
-                    Text(
-                        text = overviewText,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = Color.White.copy(alpha = 0.88f),
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
+                    if (isEpisode) {
+                        episodeHeaderText?.let { header ->
+                            Text(
+                                text = header,
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-                if (directors.isNotEmpty()) {
-                    DirectorCreditRow(
-                        label = "Director:",
-                        directors = directors,
-                        onPersonClick = onPersonClick
-                    )
-                }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        item.productionYear?.let { year ->
+                            Text(
+                                text = year.toString(),
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
 
-                Spacer(modifier = Modifier.height(4.dp))
-                TrackSection(
-                    isWidescreenLayout = true,
-                    displayedSelectedVideo = displayedSelectedVideo,
-                    videoOptions = videoOptions,
-                    videoInlineMetaText = videoInlineMetaText,
-                    selectedAudio = selectedAudio,
-                    audioOptions = audioOptions,
-                    selectedSubtitle = selectedSubtitle,
-                    subtitleOptions = subtitleOptions,
-                    onVideoOptionSelected = onVideoOptionSelected,
-                    onAudioOptionSelected = onAudioOptionSelected,
-                    onSubtitleOptionSelected = onSubtitleOptionSelected
-                )
+                        item.runTimeTicks?.let { ticks ->
+                            Text(
+                                text = "• ${CodecUtils.formatRuntime(ticks)}",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
 
-                if (isSeries) {
-                    SeriesHeroActions(
-                        isFavorite = isFavorite,
-                        isWatched = isWatched,
-                        watchedFocusRequester = watchedFocusRequester,
-                        favoriteFocusRequester = favoriteFocusRequester,
-                        onWatchedClick = ::toggleWatched,
-                        onFavoriteClick = ::toggleFavorite,
-                        onDownPressed = { contentPanelPage = 1 }
-                    )
-                } else {
-                    DetailHeroActions(
-                        playButtonText = playButtonText,
-                        isFavorite = isFavorite,
-                        playFocusRequester = playFocusRequester,
-                        favoriteFocusRequester = favoriteFocusRequester,
-                        onPlayClick = {
-                            val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
-                                persistTrackSelection(
-                                    audioOption = selectedAudio,
-                                    subtitleOption = selectedSubtitle
+                        val officialRatingLabel = item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
+                        Surface(
+                            color = Color.Transparent,
+                            shape = RoundedCornerShape(3.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                        ) {
+                            Text(
+                                text = officialRatingLabel,
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    val overviewText = item.overview?.takeIf { it.isNotBlank() }
+                    if (overviewText != null) {
+                        Text(
+                            text = overviewText,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            color = Color.White,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.padding(top = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (directors.isNotEmpty()) {
+                            DirectorCreditRow(
+                                label = "Director:",
+                                directors = directors,
+                                onPersonClick = onPersonClick
+                            )
+                        }
+
+                        item.communityRating?.let { rating ->
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                Text(
+                                    text = String.format(Locale.US, "%.1f", rating),
+                                    fontSize = 18.sp,
+                                    color = Color(0xFFFFC107),
+                                    fontWeight = FontWeight.Bold
                                 )
-                            onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
-                        },
-                        onFavoriteClick = ::toggleFavorite,
-                        onDownPressed = { contentPanelPage = 1 }
+                                Text(
+                                    text = "/10",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(bottom = 1.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TrackSection(
+                        displayedSelectedVideo = displayedSelectedVideo,
+                        videoOptions = videoOptions,
+                        videoInlineMetaText = videoInlineMetaText,
+                        selectedAudio = selectedAudio,
+                        audioOptions = audioOptions,
+                        selectedSubtitle = selectedSubtitle,
+                        subtitleOptions = subtitleOptions,
+                        onVideoOptionSelected = onVideoOptionSelected,
+                        onAudioOptionSelected = onAudioOptionSelected,
+                        onSubtitleOptionSelected = onSubtitleOptionSelected
                     )
+
+                    if (isSeries) {
+                        SeriesHeroActions(
+                            isFavorite = isFavorite,
+                            isWatched = isWatched,
+                            watchedFocusRequester = watchedFocusRequester,
+                            favoriteFocusRequester = favoriteFocusRequester,
+                            onWatchedClick = ::toggleWatched,
+                            onFavoriteClick = ::toggleFavorite,
+                            onDownPressed = { contentPanelPage = 1 }
+                        )
+                    } else {
+                        DetailHeroActions(
+                            playButtonText = playButtonText,
+                            isFavorite = isFavorite,
+                            playFocusRequester = playFocusRequester,
+                            favoriteFocusRequester = favoriteFocusRequester,
+                            onPlayClick = {
+                                val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
+                                    persistTrackSelection(
+                                        audioOption = selectedAudio,
+                                        subtitleOption = selectedSubtitle
+                                    )
+                                onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
+                            },
+                            onFavoriteClick = ::toggleFavorite,
+                            onDownPressed = { contentPanelPage = 1 }
+                        )
+                    }
                 }
-            }
         }
 
         AnimatedVisibility(

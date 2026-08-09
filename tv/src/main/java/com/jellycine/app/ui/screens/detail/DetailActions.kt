@@ -55,8 +55,8 @@ internal fun DetailHeroActions(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         HeroPillButton(
@@ -97,8 +97,8 @@ internal fun SeriesHeroActions(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.padding(top = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         HeroPillButton(
@@ -170,7 +170,7 @@ private fun HeroPillButton(
     Row(
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
-            .widthIn(min = 140.dp)
+            .widthIn(min = 110.dp)
             .clip(shape)
             .background(backgroundColor, shape)
             .then(
@@ -185,7 +185,7 @@ private fun HeroPillButton(
                     when (event.key) {
                         Key.DirectionDown -> {
                             onDownPressed()
-                            false
+                            true
                         }
                         Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
                             onClick()
@@ -200,7 +200,7 @@ private fun HeroPillButton(
             .clickable(onClick = onClick)
             .focusable()
             .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -214,7 +214,8 @@ private fun HeroPillButton(
             fontSize = 13.sp,
             fontWeight = fontWeight,
             color = contentColor,
-            maxLines = 1
+            maxLines = 1,
+            modifier = Modifier.padding(start = 6.dp)
         )
     }
 }
