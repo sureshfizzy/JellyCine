@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -21,8 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -51,13 +60,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
 
-private data class SeasonDetailData(
-    val seriesId: String,
-    val seasonId: String,
-    val seasonName: String?,
-    val initialHeroImageUrl: String?,
-    val initialLogoImageUrl: String?
-)
 
 @UnstableApi
 @Composable
@@ -85,7 +87,6 @@ fun DetailScreenContainer(
 
     // Navigation state
     var currentScreen by remember { mutableStateOf("detail") }
-    var seasonDetailData by remember { mutableStateOf<SeasonDetailData?>(null) }
     var episodeDetailId by remember { mutableStateOf<String?>(null) }
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
@@ -116,10 +117,7 @@ fun DetailScreenContainer(
                 showPlayer = false
                 playbackItemId = null
             }
-            currentScreen == "episode" && seasonDetailData != null -> {
-                currentScreen = "season"
-            }
-            currentScreen == "season" -> {
+            currentScreen == "episode" -> {
                 currentScreen = "detail"
             }
             else -> onBackPressed()
@@ -340,38 +338,10 @@ fun DetailScreenContainer(
                                     onPersonClick = { personId ->
                                         onNavigateToPerson(personId)
                                     },
-                                    onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
-                                        seasonDetailData = SeasonDetailData(
-                                            seriesId = seriesId,
-                                            seasonId = seasonId,
-                                            seasonName = seasonName,
-                                            initialHeroImageUrl = heroImageUrl,
-                                            initialLogoImageUrl = logoImageUrl
-                                        )
-                                        currentScreen = "season"
-                                    }
+                                    onSeasonClick = { _, _, _, _, _ -> }
                                 )
                             } else {
                                 DetailScreenSkeleton(onBackPressed = handleBackNavigation)
-                            }
-                        }
-                    }
-
-                    "season" -> {
-                        seasonDetailData?.let { seasonData ->
-                            ScreenWrapper(isActive = true) {
-                                SeasonDetailScreen(
-                                    seriesId = seasonData.seriesId,
-                                    seasonId = seasonData.seasonId,
-                                    seasonName = seasonData.seasonName,
-                                    initialHeroImageUrl = seasonData.initialHeroImageUrl,
-                                    initialLogoImageUrl = seasonData.initialLogoImageUrl,
-                                    onBackPressed = handleBackNavigation,
-                                    onEpisodeClick = { episodeId ->
-                                        episodeDetailId = episodeId
-                                        currentScreen = "episode"
-                                    }
-                                )
                             }
                         }
                     }
@@ -382,12 +352,8 @@ fun DetailScreenContainer(
                                 when {
                                     episodeError != null -> {
                                         LaunchedEffect(episodeError) {
-                                            if (seasonDetailData != null) {
-                                                currentScreen = "season"
-                                                episodeError = null
-                                            } else {
-                                                onBackPressed()
-                                            }
+                                            currentScreen = "detail"
+                                            episodeError = null
                                         }
                                     }
 
@@ -416,16 +382,7 @@ fun DetailScreenContainer(
                                             onPersonClick = { personId ->
                                                 onNavigateToPerson(personId)
                                             },
-                                            onSeasonClick = { seriesId, seasonId, seasonName, heroImageUrl, logoImageUrl ->
-                                                seasonDetailData = SeasonDetailData(
-                                                    seriesId = seriesId,
-                                                    seasonId = seasonId,
-                                                    seasonName = seasonName,
-                                                    initialHeroImageUrl = heroImageUrl,
-                                                    initialLogoImageUrl = logoImageUrl
-                                                )
-                                                currentScreen = "season"
-                                            }
+                                            onSeasonClick = { _, _, _, _, _ -> }
                                         )
                                     }
 
@@ -669,12 +626,18 @@ internal fun episodeHeaderText(item: BaseItemDto): String? {
 internal fun SeasonsSection(
     seriesId: String,
     mediaRepository: MediaRepository,
-    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+    onEpisodeClick: (String) -> Unit = {},
+    onDismiss: () -> Unit = {},
+    onNextSection: () -> Unit = {}
 ) {
     var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoadingSeasons by remember { mutableStateOf(true) }
+    var selectedSeasonIndex by remember { mutableStateOf(0) }
+    var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var isLoadingEpisodes by remember { mutableStateOf(false) }
+    val episodeListState = rememberLazyListState()
+    val seasonFocusRequester = remember { FocusRequester() }
 
-    // Load seasons
     LaunchedEffect(seriesId) {
         isLoadingSeasons = true
         try {
@@ -684,60 +647,300 @@ internal fun SeasonsSection(
                     seasons = seasonList.sortedBy { it.indexNumber ?: 0 }
                     isLoadingSeasons = false
                 },
-                onFailure = {
-                    isLoadingSeasons = false
-                }
+                onFailure = { isLoadingSeasons = false }
             )
         } catch (e: Exception) {
             isLoadingSeasons = false
         }
     }
 
-    Column(
-        modifier = Modifier.padding(top = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Seasons Section
-        Text(
-            text = "Seasons",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+    val selectedSeason = seasons.getOrNull(selectedSeasonIndex)
 
-        when {
-            isLoadingSeasons -> {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
+    LaunchedEffect(selectedSeason?.id) {
+        val seasonId = selectedSeason?.id ?: return@LaunchedEffect
+        isLoadingEpisodes = true
+        episodes = emptyList()
+        try {
+            val result = mediaRepository.getEpisodes(seriesId = seriesId, seasonId = seasonId)
+            result.fold(
+                onSuccess = { episodeList ->
+                    episodes = episodeList.sortedBy { it.indexNumber ?: 0 }
+                    isLoadingEpisodes = false
+                },
+                onFailure = { isLoadingEpisodes = false }
+            )
+        } catch (e: Exception) {
+            isLoadingEpisodes = false
+        }
+    }
+
+    LaunchedEffect(selectedSeasonIndex) {
+        episodeListState.scrollToItem(0)
+    }
+
+    if (isLoadingSeasons || seasons.isEmpty()) return
+
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .width(180.dp)
+                .focusRequester(seasonFocusRequester)
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.DirectionDown -> {
+                                if (selectedSeasonIndex < seasons.lastIndex) {
+                                    selectedSeasonIndex++
+                                } else {
+                                    onNextSection()
+                                }
+                                true
+                            }
+                            Key.DirectionUp -> {
+                                if (selectedSeasonIndex > 0) {
+                                    selectedSeasonIndex--
+                                } else {
+                                    onDismiss()
+                                }
+                                true
+                            }
+                            Key.DirectionLeft -> {
+                                onDismiss()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                }
+                .focusable()
+        ) {
+            seasons.forEachIndexed { index, season ->
+                val isSelected = index == selectedSeasonIndex
+                Surface(
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(6.dp),
+                    border = if (isSelected) BorderStroke(1.5.dp, Color.White) else null,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(3) {
-                        SeasonCardSkeleton()
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = season.name ?: "Season ${season.indexNumber ?: (index + 1)}",
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        season.childCount?.let { count ->
+                            Text(
+                                text = "$count episodes",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.5f),
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
-            seasons.isNotEmpty() -> {
-                LazyRow(
+        }
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            selectedSeason?.let { season ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 0.dp)
+                    modifier = Modifier.padding(bottom = 10.dp)
                 ) {
-                    items(seasons) { season ->
-                        SeasonCard(
-                            season = season,
-                            mediaRepository = mediaRepository,
-                            onClick = {
-                                season.id?.let { seasonId ->
-                                    onSeasonClick(seriesId, seasonId, season.name)
-                                }
-                            },
-                            onPreviewClick = {
-                                // TODO: Implement season preview functionality
-                                season.id?.let { seasonId ->
-                                    onSeasonClick(seriesId, seasonId, season.name)
-                                }
-                            }
+                    Text(
+                        text = season.name ?: "Season",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    season.officialRating?.takeIf { it.isNotBlank() }?.let { rating ->
+                        Surface(
+                            color = Color.Transparent,
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                        ) {
+                            Text(
+                                text = rating,
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    season.genres?.takeIf { it.isNotEmpty() }?.let { genres ->
+                        Text(
+                            text = genres.joinToString(", "),
+                            fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
+                }
+            }
+
+            if (isLoadingEpisodes) {
+                repeat(3) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp),
+                        cornerRadius = 8f
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            } else {
+                LazyColumn(
+                    state = episodeListState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    itemsIndexed(episodes) { index, episode ->
+                        val isLastEpisode = index == episodes.lastIndex
+                        SeasonEpisodeRow(
+                            episode = episode,
+                            mediaRepository = mediaRepository,
+                            onClick = {
+                                episode.id?.let { episodeId ->
+                                    onEpisodeClick(episodeId)
+                                }
+                            },
+                            onLeftPressed = { seasonFocusRequester.requestFocus() },
+                            onDownPressed = if (isLastEpisode) onNextSection else null
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        seasonFocusRequester.requestFocus()
+    }
+}
+
+@Composable
+private fun SeasonEpisodeRow(
+    episode: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit = {},
+    onLeftPressed: (() -> Unit)? = null,
+    onDownPressed: (() -> Unit)? = null
+) {
+    val context = LocalContext.current
+    var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(episode.id) {
+        episodeImageUrl = com.jellycine.shared.util.image.getBackdrop(
+            episode = episode,
+            mediaRepository = mediaRepository,
+            width = 640,
+            height = 360,
+            quality = 90
+        )
+    }
+
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.DirectionLeft -> {
+                            onLeftPressed?.invoke()
+                            onLeftPressed != null
+                        }
+                        Key.DirectionDown -> {
+                            if (onDownPressed != null) {
+                                onDownPressed()
+                                true
+                            } else false
+                        }
+                        else -> false
+                    }
+                } else false
+            },
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1E1E1E))
+            ) {
+                JellyfinPosterImage(
+                    context = context,
+                    imageUrl = episodeImageUrl,
+                    contentDescription = episode.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Text(
+                    text = "S${episode.parentIndexNumber ?: 1}: E${episode.indexNumber ?: 1}",
+                    fontSize = 11.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .background(
+                            Color.Black.copy(alpha = 0.7f),
+                            RoundedCornerShape(topEnd = 6.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = episode.name ?: "Episode ${episode.indexNumber ?: ""}",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                episode.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                    Text(
+                        text = overview,
+                        fontSize = 13.sp,
+                        lineHeight = 17.sp,
+                        color = Color.White.copy(alpha = 0.72f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                episode.runTimeTicks?.let { ticks ->
+                    Text(
+                        text = "(${CodecUtils.formatRuntime(ticks)})",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
                 }
             }
         }

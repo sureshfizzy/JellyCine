@@ -424,7 +424,8 @@ fun DetailContent(
     val playFocusRequester = remember { FocusRequester() }
     val favoriteFocusRequester = remember { FocusRequester() }
     val watchedFocusRequester = remember { FocusRequester() }
-    var showContentPanel by remember { mutableStateOf(false) }
+    var contentPanelPage by remember { mutableStateOf(0) }
+    val showContentPanel = contentPanelPage > 0
 
     Box(
         modifier = Modifier
@@ -680,7 +681,7 @@ fun DetailContent(
                         favoriteFocusRequester = favoriteFocusRequester,
                         onWatchedClick = ::toggleWatched,
                         onFavoriteClick = ::toggleFavorite,
-                        onDownPressed = { showContentPanel = true }
+                        onDownPressed = { contentPanelPage = 1 }
                     )
                 } else {
                     DetailHeroActions(
@@ -697,7 +698,7 @@ fun DetailContent(
                             onPlayClick(selectedAudioStreamIndex, selectedSubtitleStreamIndex)
                         },
                         onFavoriteClick = ::toggleFavorite,
-                        onDownPressed = { showContentPanel = true }
+                        onDownPressed = { contentPanelPage = 1 }
                     )
                 }
             }
@@ -705,83 +706,129 @@ fun DetailContent(
 
         AnimatedVisibility(
             visible = showContentPanel,
-            enter = slideInVertically(tween(350)) { it / 3 } + fadeIn(tween(300)),
-            exit = slideOutVertically(tween(250)) { it / 3 } + fadeOut(tween(200))
+            enter = fadeIn(tween(300)),
+            exit = fadeOut(tween(200))
         ) {
-            BackHandler { showContentPanel = false }
-            val contentListState = rememberLazyListState()
-            val isAtTop = remember {
-                derivedStateOf {
-                    contentListState.firstVisibleItemIndex == 0 &&
-                        contentListState.firstVisibleItemScrollOffset == 0
-                }
+            BackHandler {
+                contentPanelPage = 0
+                onBackPressed()
             }
-            LazyColumn(
-                state = contentListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp && isAtTop.value) {
-                            showContentPanel = false
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (isEpisode && moreFromSeasonEpisodes.isNotEmpty()) {
-                    item(key = "more_from_season") {
-                        MoreFromSeasonSection(
-                            episodes = moreFromSeasonEpisodes,
-                            mediaRepository = mediaRepository,
-                            title = moreFromSeasonTitle,
-                            onEpisodeClick = onSimilarItemClick
-                        )
-                    }
-                }
 
-                if (isSeries) {
-                    item(key = "seasons") {
+            when {
+                isSeries && contentPanelPage == 1 -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.92f))
+                            .padding(horizontal = 48.dp, vertical = 32.dp)
+                    ) {
                         item.id?.let { seriesId ->
                             SeasonsSection(
                                 seriesId = seriesId,
                                 mediaRepository = mediaRepository,
-                                onSeasonClick = { selectedSeriesId, seasonId, seasonName ->
-                                    onSeasonClick(
-                                        selectedSeriesId,
-                                        seasonId,
-                                        seasonName,
-                                        backdropImageUrl,
-                                        logoImageUrl?.takeIf { !logoLoadError }
-                                    )
-                                }
+                                onEpisodeClick = onSimilarItemClick,
+                                onDismiss = { contentPanelPage = 0 },
+                                onNextSection = { contentPanelPage = 2 }
                             )
                         }
                     }
                 }
 
-                item(key = "cast") {
-                    CastCrewSection(
-                        item = item,
-                        mediaRepository = mediaRepository,
-                        onPersonClick = onPersonClick
-                    )
+                isSeries && contentPanelPage >= 2 -> {
+                    val castListState = rememberLazyListState()
+                    val castIsAtTop = remember {
+                        derivedStateOf {
+                            castListState.firstVisibleItemIndex == 0 &&
+                                castListState.firstVisibleItemScrollOffset == 0
+                        }
+                    }
+                    LazyColumn(
+                        state = castListState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.92f))
+                            .onPreviewKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp && castIsAtTop.value) {
+                                    contentPanelPage = 1
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item(key = "cast") {
+                            CastCrewSection(
+                                item = item,
+                                mediaRepository = mediaRepository,
+                                onPersonClick = onPersonClick
+                            )
+                        }
+
+                        item(key = "recs") {
+                            Recommendations(
+                                item = item,
+                                directors = directors,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onSimilarItemClick
+                            )
+                        }
+                    }
                 }
 
-                item(key = "recs") {
-                    Recommendations(
-                        item = item,
-                        directors = directors,
-                        mediaRepository = mediaRepository,
-                        onItemClick = onSimilarItemClick
-                    )
-                }
+                else -> {
+                    val contentListState = rememberLazyListState()
+                    val isAtTop = remember {
+                        derivedStateOf {
+                            contentListState.firstVisibleItemIndex == 0 &&
+                                contentListState.firstVisibleItemScrollOffset == 0
+                        }
+                    }
+                    LazyColumn(
+                        state = contentListState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.90f))
+                            .onPreviewKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp && isAtTop.value) {
+                                    contentPanelPage = 0
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (isEpisode && moreFromSeasonEpisodes.isNotEmpty()) {
+                            item(key = "more_from_season") {
+                                MoreFromSeasonSection(
+                                    episodes = moreFromSeasonEpisodes,
+                                    mediaRepository = mediaRepository,
+                                    title = moreFromSeasonTitle,
+                                    onEpisodeClick = onSimilarItemClick
+                                )
+                            }
+                        }
 
-                item(key = "spacer") {
-                    Spacer(modifier = Modifier.height(80.dp))
+                        item(key = "cast") {
+                            CastCrewSection(
+                                item = item,
+                                mediaRepository = mediaRepository,
+                                onPersonClick = onPersonClick
+                            )
+                        }
+
+                        item(key = "recs") {
+                            Recommendations(
+                                item = item,
+                                directors = directors,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onSimilarItemClick
+                            )
+                        }
+                    }
                 }
             }
         }
