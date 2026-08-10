@@ -252,7 +252,7 @@ class PlayerViewModel @Inject constructor(
                         quality = 90,
                         enableImageEnhancers = false
                     )
-                }
+                } ?: itemDetails?.let { mediaRepository.getTmdbLogoUrl(it) }
                 val posterItemId = if (itemDetails?.type.equals("Episode", ignoreCase = true)) {
                     itemDetails?.seriesId ?: itemDetails?.id
                 } else {
