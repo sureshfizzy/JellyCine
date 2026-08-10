@@ -24,6 +24,7 @@ class Preferences(context: Context) {
         private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
         private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
+        private const val KEY_DISCORD_RPC_ENABLED = "discord_rpc_enabled"
 
         const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
         const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
@@ -245,6 +246,27 @@ class Preferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_SEERR_NETWORKS_ENABLED) {
                 trySend(isSeerrNetworksEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isDiscordRpcEnabled(): Boolean {
+        return prefs.getBoolean(KEY_DISCORD_RPC_ENABLED, false)
+    }
+
+    fun setDiscordRpcEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DISCORD_RPC_ENABLED, enabled).apply()
+    }
+
+    fun discordRpcEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isDiscordRpcEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_DISCORD_RPC_ENABLED) {
+                trySend(isDiscordRpcEnabled())
             }
         }
 

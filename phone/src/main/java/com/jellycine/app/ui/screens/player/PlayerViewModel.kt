@@ -98,6 +98,8 @@ class PlayerViewModel @Inject constructor(
     private var communityPlaybackSegmentsJob: Job? = null
     private var spatialAudioAnalysisJob: Job? = null
     private var currentItemDetails: BaseItemDto? = null
+    var discordPosterUrl: String? = null
+        private set
     private var nextEpisodePrefetchJob: Job? = null
     private var nextEpisodePrefetchSignature: String? = null
     private var mpvWatchdogJob: Job? = null
@@ -249,6 +251,19 @@ class PlayerViewModel @Inject constructor(
                         width = 320,
                         quality = 90,
                         enableImageEnhancers = false
+                    )
+                }
+                val posterItemId = if (itemDetails?.type.equals("Episode", ignoreCase = true)) {
+                    itemDetails?.seriesId ?: itemDetails?.id
+                } else {
+                    itemDetails?.id
+                }
+                discordPosterUrl = posterItemId?.let { id ->
+                    mediaRepository.getImageUrlString(
+                        itemId = id,
+                        imageType = "Primary",
+                        width = 300,
+                        quality = 80
                     )
                 }
                 val seasonEpisodeLabel = itemDetails?.let { item ->

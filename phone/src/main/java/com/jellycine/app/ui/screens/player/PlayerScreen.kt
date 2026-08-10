@@ -37,7 +37,9 @@ import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.core.findActiveSkippableSegment
+import com.jellycine.player.discord.NowPlayingInfo
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.app.discord.DiscordRpcEffect
 
 /**
  * Player state data class to group related states
@@ -205,6 +207,20 @@ fun PlayerScreen(
         onLifecycleChange = { lifecycle = it },
         onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged
+    )
+
+    // Discord Rich Presence
+    DiscordRpcEffect(
+        playerState = viewModel.playerState,
+        mediaId = mediaId,
+        seriesName = initialItemDetails?.seriesName,
+        year = initialItemDetails?.productionYear,
+        mediaType = when {
+            initialItemDetails?.type.equals("Episode", ignoreCase = true) -> NowPlayingInfo.MediaType.EPISODE
+            initialItemDetails?.type.equals("Audio", ignoreCase = true) -> NowPlayingInfo.MediaType.MUSIC
+            else -> NowPlayingInfo.MediaType.MOVIE
+        },
+        imageUrlProvider = { viewModel.discordPosterUrl }
     )
 
     val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||

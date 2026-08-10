@@ -5,6 +5,7 @@ plugins {
 android {
     namespace = 'com.jellycine.core'
     compileSdk = 36
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         minSdk = 27
@@ -12,6 +13,27 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
+
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++20'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    buildFeatures {
+        prefab true
     }
 
     buildTypes {
@@ -54,6 +76,12 @@ dependencies {
     // Remote trailer URL extraction
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
     implementation 'com.github.MonseyNY:NewPipeExtractor:7ccf36f4'
+
+    // Discord Social SDK
+    implementation files('libs/discord_partner_sdk.aar')
+
+    // Encrypted SharedPreferences for Discord auth tokens
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
 
     // Hilt for dependency injection
     implementation 'com.google.dagger:hilt-android:2.59.2'
