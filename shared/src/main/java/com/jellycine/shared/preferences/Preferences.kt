@@ -254,7 +254,7 @@ class Preferences(context: Context) {
     }.distinctUntilChanged()
 
     fun isDiscordRpcEnabled(): Boolean {
-        return prefs.getBoolean(KEY_DISCORD_RPC_ENABLED, false)
+        return prefs.getBoolean(KEY_DISCORD_RPC_ENABLED, true)
     }
 
     fun setDiscordRpcEnabled(enabled: Boolean) {
