@@ -22,12 +22,6 @@ data class PlayerSettingsUiState(
     val audioTranscodeMode: String = AudioTranscodeMode.AUTO.displayName,
     val isVideoTranscodingAllowed: Boolean = false,
     val isAudioTranscodingAllowed: Boolean = false,
-    val playerGesturesEnabled: Boolean = true,
-    val volumeBrightnessGesturesEnabled: Boolean = true,
-    val useDeviceVolumeInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER,
-    val useDeviceBrightnessInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER,
-    val progressSeekGestureEnabled: Boolean = true,
-    val zoomGestureEnabled: Boolean = true,
     val startMaximized: Boolean = false,
     val cacheNextEpisodeEnabled: Boolean = false,
     val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
@@ -37,8 +31,6 @@ data class PlayerSettingsUiState(
     val skipIntroEnabled: Boolean = PlayerPreferences.DEFAULT_SKIP_INTRO_ENABLED,
     val chapterMarkersEnabled: Boolean = PlayerPreferences.DEFAULT_CHAPTER_MARKERS_ENABLED,
     
-    // Performance
-    val batteryOptimizationEnabled: Boolean = false,
 
     // Loading states
     val isLoading: Boolean = false,
@@ -64,17 +56,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         userTranscodingPolicy()
     }
 
-    private fun updateGestureState() {
-        _uiState.value = _uiState.value.copy(
-            playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
-            volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
-            useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
-            useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
-            progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
-            zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
-            startMaximized = playerPreferences.isStartMaximizedEnabled()
-        )
-    }
     
     private fun loadSettings() {
         viewModelScope.launch {
@@ -84,12 +65,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
                 audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
-                playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
-                volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
-                useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
-                useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
-                progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
-                zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
                 startMaximized = playerPreferences.isStartMaximizedEnabled(),
                 cacheNextEpisodeEnabled = playerPreferences.isCacheNextEpisodeEnabled(),
                 playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
@@ -97,8 +72,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
                 seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
                 skipIntroEnabled = playerPreferences.isSkipIntroEnabled(),
-                chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled(),
-                batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
+                chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
             )
         }
     }
@@ -176,39 +150,10 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         _uiState.value = _uiState.value.copy(audioTranscodeMode = mode.displayName)
     }
 
-    fun setPlayerGesturesEnabled(enabled: Boolean) {
-        playerPreferences.setPlayerGesturesEnabled(enabled)
-        updateGestureState()
-    }
-
-    fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
-        playerPreferences.setVolumeBrightnessGesturesEnabled(enabled)
-        updateGestureState()
-    }
-
-    fun setUseDeviceVolumeInPlayer(enabled: Boolean) {
-        playerPreferences.setUseDeviceVolumeInPlayerEnabled(enabled)
-        updateGestureState()
-    }
-
-    fun setUseDeviceBrightnessInPlayer(enabled: Boolean) {
-        playerPreferences.setUseDeviceBrightnessInPlayerEnabled(enabled)
-        updateGestureState()
-    }
-
-    fun setProgressSeekGestureEnabled(enabled: Boolean) {
-        playerPreferences.setProgressSeekGestureEnabled(enabled)
-        updateGestureState()
-    }
-
-    fun setZoomGestureEnabled(enabled: Boolean) {
-        playerPreferences.setZoomGestureEnabled(enabled)
-        updateGestureState()
-    }
     
     fun setStartMaximized(enabled: Boolean) {
         playerPreferences.setStartMaximizedEnabled(enabled)
-        updateGestureState()
+        _uiState.value = _uiState.value.copy(startMaximized = enabled)
     }
 
     fun setCacheNextEpisodeEnabled(enabled: Boolean) {
@@ -258,11 +203,6 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         _uiState.value = _uiState.value.copy(
             chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
         )
-    }
-    
-    fun setBatteryOptimizationEnabled(enabled: Boolean) {
-        playerPreferences.setBatteryOptimizationEnabled(enabled)
-        _uiState.value = _uiState.value.copy(batteryOptimizationEnabled = enabled)
     }
     
     fun clearError() {

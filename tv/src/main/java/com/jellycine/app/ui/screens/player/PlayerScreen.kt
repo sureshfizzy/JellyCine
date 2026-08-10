@@ -3,8 +3,6 @@ package com.jellycine.app.ui.screens.player
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.media.AudioManager
-import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -19,7 +17,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -50,8 +47,6 @@ import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
-import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
@@ -74,18 +69,11 @@ private fun flushImgCache(context: Context) {
 data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
-    val isPlaying: Boolean = false,
-    val volumeLevel: Float? = null,
-    val brightnessLevel: Float? = null,
-    val seekPosition: String? = null,
-    val seekSide: SeekSide = SeekSide.CENTER,
-    val videoScale: Float = 1f,
-    val videoOffsetX: Float = 0f,
-    val videoOffsetY: Float = 0f
+    val isPlaying: Boolean = false
 )
 
 /**
- * Player Screen with proper immersive mode and gestures
+ * Player Screen with proper immersive mode
  */
 @UnstableApi
 @Composable
@@ -158,33 +146,7 @@ fun PlayerScreen(
     }
 
     // System managers
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val playerPreferences = remember { PlayerPreferences(context) }
-    val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
-    val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
-
-    // Store original values to restore on exit
-    val originalVolume = remember { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
-
-    // Player-level brightness and volume (persistent)
-    var playerBrightness by remember(useDeviceBrightnessInPlayer) {
-        mutableStateOf(
-            if (useDeviceBrightnessInPlayer) {
-                readCurrentDeviceBrightness(context)
-            } else {
-                playerPreferences.getPlayerBrightness()
-            }
-        )
-    }
-    var playerVolume by remember(useDeviceVolumeInPlayer) {
-        mutableStateOf(
-            if (useDeviceVolumeInPlayer) {
-                readCurrentDeviceVolume(audioManager)
-            } else {
-                playerPreferences.getPlayerVolume()
-            }
-        )
-    }
     var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
     val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
     var currentAudioTranscodeMode by remember {
@@ -210,12 +172,6 @@ fun PlayerScreen(
             activity?.let { act ->
                 act.requestedOrientation = originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                if (!useDeviceVolumeInPlayer) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                }
-                val layoutParams = act.window.attributes
-                layoutParams.screenBrightness = -1f
-                act.window.attributes = layoutParams
                 val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
                 windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
             }
@@ -302,7 +258,6 @@ fun PlayerScreen(
     val playbackDuration = viewModel.getDuration()
     val activeSkippableSegment = remember(
         skipIntroEnabled,
-        playerState.isLocked,
         playerState.recapStartMs,
         playerState.recapEndMs,
         playerState.introStartMs,
@@ -314,7 +269,7 @@ fun PlayerScreen(
         playbackDuration,
         uiState.currentPosition
     ) {
-        if (!skipIntroEnabled || playerState.isLocked) {
+        if (!skipIntroEnabled) {
             null
         } else {
             playerState.findActiveSkippableSegment(
@@ -456,42 +411,6 @@ fun PlayerScreen(
         }
     }
 
-    // Initialize player brightness
-    LaunchedEffect(Unit) {
-        val activity = context as? Activity
-        activity?.let { act ->
-            val layoutParams = act.window.attributes
-            layoutParams.screenBrightness = playerBrightness
-            act.window.attributes = layoutParams
-        }
-
-        // Set initial volume
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val initialVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, initialVolume, 0)
-    }
-
-    // Auto-hide gesture indicators
-    LaunchedEffect(uiState.volumeLevel) {
-        uiState.volumeLevel?.let {
-            delay(CONTROLS_AUTO_HIDE_DELAY)
-            uiState = uiState.copy(volumeLevel = null)
-        }
-    }
-
-    LaunchedEffect(uiState.brightnessLevel) {
-        uiState.brightnessLevel?.let {
-            delay(CONTROLS_AUTO_HIDE_DELAY)
-            uiState = uiState.copy(brightnessLevel = null)
-        }
-    }
-
-    LaunchedEffect(uiState.seekPosition) {
-        uiState.seekPosition?.let {
-            delay(GESTURE_INDICATOR_HIDE_DELAY)
-            uiState = uiState.copy(seekPosition = null)
-        }
-    }
 
     LaunchedEffect(
         uiState.controlsVisible,
@@ -556,70 +475,10 @@ fun PlayerScreen(
         VideoSurface(
             player = viewModel.exoPlayer,
             lifecycle = lifecycle,
-            scale = playerState.videoScale,
-            offsetX = playerState.videoOffsetX,
-            offsetY = playerState.videoOffsetY,
             resizeMode = viewModel.getCurrentResizeMode(),
-            onScaleChange = { scale, offsetX, offsetY ->
-                if (!playerState.isLocked) {
-                    // Update ViewModel state directly to avoid conflicts with start maximized setting
-                    viewModel.updateVideoTransform(scale, offsetX, offsetY)
-                }
-            },
-            onVolumeChange = { level ->
-                if (!playerState.isLocked) {
-                    playerVolume = level.coerceIn(0f, 1f)
-                    if (!useDeviceVolumeInPlayer) {
-                        playerPreferences.setPlayerVolume(playerVolume)
-                    }
-
-                    // Apply volume to system
-                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
-
-                    uiState = uiState.copy(volumeLevel = playerVolume)
-                }
-            },
-            onBrightnessChange = { delta ->
-                if (!playerState.isLocked) {
-                    val activity = context as? Activity
-                    activity?.let { act ->
-                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
-                        playerBrightness = newPlayerBrightness
-                        if (!useDeviceBrightnessInPlayer) {
-                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
-                        }
-
-                        val layoutParams = act.window.attributes
-                        layoutParams.screenBrightness = newPlayerBrightness
-                        act.window.attributes = layoutParams
-
-                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
-                    }
-                }
-            },
-            getCurrentVolumeLevel = { playerVolume },
-            getCurrentBrightnessLevel = { playerBrightness },
-            onSeek = { delta ->
-                if (!playerState.isLocked) {
-                    viewModel.seekBy(delta)
-
-                    // Show seek indicator
-                    val isForward = delta > 0
-                    val seconds = kotlin.math.abs(delta) / 1000
-                    val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                    val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
-
-                    uiState = uiState.copy(seekPosition = seekText, seekSide = side)
-                }
-            },
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
-            },
-            onZoomChange = { isZooming ->
-                viewModel.handlePinchZoom(isZooming)
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -660,12 +519,6 @@ fun PlayerScreen(
                 onShowMediaInfo = {
                     resetAutoHideTimer()
                     showMediaInfo = true
-                },
-                // Lock and track selection parameters
-                isLocked = playerState.isLocked,
-                onToggleLock = {
-                    resetAutoHideTimer()
-                    viewModel.toggleLock()
                 },
                 currentStreamingQuality = currentStreamingQuality,
                 showPlaybackSettingsButton = hasPlaybackSettings,
@@ -854,14 +707,6 @@ fun PlayerScreen(
             }
         }
 
-        // Gesture indicators
-        GestureIndicators(
-            volumeLevel = uiState.volumeLevel,
-            brightnessLevel = uiState.brightnessLevel,
-            seekPosition = uiState.seekPosition,
-            seekSide = uiState.seekSide
-        )
-
         // Track selection dialogs
         AudioTrackSelectionDialog(
             isVisible = showAudioTrackDialog,
@@ -934,20 +779,6 @@ fun PlayerScreen(
     }
 }
 
-private fun readCurrentDeviceVolume(audioManager: AudioManager): Float {
-    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-    if (maxVolume <= 0) return 0f
-    return audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVolume.toFloat()
-}
-
-private fun readCurrentDeviceBrightness(context: Context): Float {
-    return runCatching {
-        Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-            .toFloat()
-            .div(255f)
-            .coerceIn(0.01f, 1f)
-    }.getOrDefault(PlayerPreferences(context).getPlayerBrightness())
-}
 
 @Composable
 fun SpatialAudioInfoDialog(
@@ -1094,8 +925,6 @@ fun PlayerScreenPreview() {
             onBackClick = { },
             onPlayPause = { },
             onSeek = { },
-            isLocked = false,
-            onToggleLock = { },
             onShowAudioTrackSelection = { },
             onShowSubtitleTrackSelection = { },
             onCycleAspectRatio = { },
@@ -1106,55 +935,6 @@ fun PlayerScreenPreview() {
     }
 }
 
-@Preview(
-    name = "Player Screen - Gesture Indicators",
-    showBackground = true,
-    widthDp = 800,
-    heightDp = 450
-)
-@Composable
-fun PlayerScreenGesturePreview() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Mock video surface
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Gray),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Video Surface",
-                color = Color.White,
-                fontSize = 24.sp
-            )
-        }
-
-        // Gesture indicators preview
-        GestureIndicators(
-            volumeLevel = 0.7f, // 70% volume
-            brightnessLevel = 0.5f, // 50% brightness
-            seekPosition = "+10s"
-        )
-
-        // Loading indicator preview
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(
-                color = Color.White,
-                strokeWidth = 3.dp,
-                modifier = Modifier.size(48.dp)
-            )
-        }
-    }
-}
 
 @Preview(
     name = "Player Screen - Controls Hidden",

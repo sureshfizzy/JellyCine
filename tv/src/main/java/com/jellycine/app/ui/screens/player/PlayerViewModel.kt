@@ -681,9 +681,6 @@ class PlayerViewModel @Inject constructor(
         _playerState.value = _playerState.value.copy(volume = volume)
     }
 
-    fun setBrightness(brightness: Float) {
-        _playerState.value = _playerState.value.copy(brightness = brightness)
-    }
 
     fun toggleControls() {
         _playerState.value = _playerState.value.copy(showControls = !_playerState.value.showControls)
@@ -733,16 +730,6 @@ class PlayerViewModel @Inject constructor(
         _playerState.value = _playerState.value.copy(error = null)
     }
 
-    /**
-     * Toggle lock state - when locked, disable all gestures and hide controls
-     */
-    fun toggleLock() {
-        val currentState = _playerState.value
-        _playerState.value = currentState.copy(
-            isLocked = !currentState.isLocked,
-            showControls = if (!currentState.isLocked) false else currentState.showControls
-        )
-    }
 
     /**
      * Update track information from ExoPlayer
@@ -928,31 +915,6 @@ class PlayerViewModel @Inject constructor(
      */
     fun getCurrentResizeMode(): Int = currentResizeMode
     
-    /**
-     * Handle pinch-to-zoom gesture to set appropriate resize mode
-     */
-    fun handlePinchZoom(isZooming: Boolean) {
-        if (isZooming && currentAspectRatio == 0) {
-            currentAspectRatio = 1
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Zoom",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
-        } else if (!isZooming && currentAspectRatio == 1) {
-            // Switch to fit mode when user pinches to fit
-            currentAspectRatio = 0
-            currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-            _playerState.value = _playerState.value.copy(
-                aspectRatioMode = "Fit",
-                videoScale = 1f,
-                videoOffsetX = 0f,
-                videoOffsetY = 0f
-            )
-        }
-    }
 
     /**
      * Apply start maximized setting based on user preference
@@ -983,18 +945,6 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Update video transform values
-     */
-    fun updateVideoTransform(scale: Float, offsetX: Float, offsetY: Float) {
-        val mode = aspectRatioModes[currentAspectRatio]
-        _playerState.value = _playerState.value.copy(
-            videoScale = scale,
-            videoOffsetX = offsetX,
-            videoOffsetY = offsetY,
-            aspectRatioMode = mode
-        )
-    }
 
     /**
      * Seek backward by the configured interval

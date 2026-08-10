@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Devices
@@ -89,9 +88,7 @@ fun PlayerSettingsScreen(
     val decodingColor = Color(0xFF3B82F6)
     val transcodingColor = Color(0xFF8B5CF6)
     val videoColor = Color(0xFFF97316)
-    val gesturesColor = Color(0xFF14B8A6)
     val seekingColor = Color(0xFFEF4444)
-    val performanceColor = Color(0xFF22C55E)
     val cacheColor = Color(0xFF06B6D4)
 
     Scaffold(
@@ -208,73 +205,6 @@ fun PlayerSettingsScreen(
                         checked = uiState.startMaximized,
                         onCheckedChange = viewModel::setStartMaximized,
                         accentColor = videoColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.Devices,
-                        title = stringResource(R.string.player_settings_use_device_volume_in_player),
-                        subtitle = stringResource(R.string.player_settings_use_device_volume_in_player_summary),
-                        checked = uiState.useDeviceVolumeInPlayer,
-                        onCheckedChange = viewModel::setUseDeviceVolumeInPlayer,
-                        accentColor = videoColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.DisplaySettings,
-                        title = stringResource(R.string.player_settings_use_device_brightness_in_player),
-                        subtitle = stringResource(R.string.player_settings_use_device_brightness_in_player_summary),
-                        checked = uiState.useDeviceBrightnessInPlayer,
-                        onCheckedChange = viewModel::setUseDeviceBrightnessInPlayer,
-                        accentColor = videoColor
-                    )
-                }
-            }
-
-            item { SectionLabel(stringResource(R.string.player_settings_section_gestures)) }
-            item {
-                SettingsSection {
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.Tune,
-                        title = stringResource(R.string.player_settings_gestures),
-                        subtitle = stringResource(R.string.player_settings_gestures_summary),
-                        checked = uiState.playerGesturesEnabled,
-                        onCheckedChange = viewModel::setPlayerGesturesEnabled,
-                        accentColor = gesturesColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.Brush,
-                        title = stringResource(R.string.player_settings_volume_brightness_gestures),
-                        subtitle = stringResource(R.string.player_settings_volume_brightness_gestures_summary),
-                        checked = uiState.volumeBrightnessGesturesEnabled,
-                        onCheckedChange = viewModel::setVolumeBrightnessGesturesEnabled,
-                        enabled = uiState.playerGesturesEnabled,
-                        accentColor = gesturesColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.FastForward,
-                        title = stringResource(R.string.player_settings_progress_seek_gesture),
-                        subtitle = stringResource(R.string.player_settings_progress_seek_gesture_summary),
-                        checked = uiState.progressSeekGestureEnabled,
-                        onCheckedChange = viewModel::setProgressSeekGestureEnabled,
-                        enabled = uiState.playerGesturesEnabled,
-                        accentColor = gesturesColor
-                    )
-
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.Fullscreen,
-                        title = stringResource(R.string.player_settings_zoom_gesture),
-                        subtitle = stringResource(R.string.player_settings_zoom_gesture_summary),
-                        checked = uiState.zoomGestureEnabled,
-                        onCheckedChange = viewModel::setZoomGestureEnabled,
-                        enabled = uiState.playerGesturesEnabled,
-                        accentColor = gesturesColor
                     )
 
                 }
@@ -402,19 +332,6 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            item { SectionLabel(stringResource(R.string.player_settings_section_performance)) }
-            item {
-                SettingsSection {
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.BatteryStd,
-                        title = stringResource(R.string.player_settings_battery_optimization),
-                        subtitle = stringResource(R.string.player_settings_battery_optimization_summary),
-                        checked = uiState.batteryOptimizationEnabled,
-                        onCheckedChange = viewModel::setBatteryOptimizationEnabled,
-                        accentColor = performanceColor
-                    )
-                }
-            }
 
         }
     }

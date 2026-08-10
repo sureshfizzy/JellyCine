@@ -66,8 +66,6 @@ fun ControlsOverlay(
     isSpatialAudioEnabled: Boolean = false,
     isHdrEnabled: Boolean = false,
     onShowMediaInfo: () -> Unit = {},
-    isLocked: Boolean = false,
-    onToggleLock: () -> Unit = {},
     currentStreamingQuality: String = "",
     showPlaybackSettingsButton: Boolean = true,
     onShowPlaybackSettings: () -> Unit = {},
@@ -124,102 +122,81 @@ fun ControlsOverlay(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!isLocked) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    if (logoRequest != null) {
-                        AsyncImage(
-                            model = logoRequest,
-                            contentDescription = "$title logo",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .height(24.dp)
-                                .widthIn(min = 24.dp, max = 180.dp)
-                                .padding(end = 12.dp)
-                        )
-                    } else {
-                        if (title.isNotBlank()) {
-                            Text(
-                                text = title,
-                                modifier = Modifier.padding(end = 12.dp),
-                                color = Color.White,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                // Action buttons
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Media Information Button
-                    IconButton(onClick = onShowMediaInfo) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = "Media Information",
-                            tint = Color(0xFF4CAF50),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = onCycleAspectRatio) {
-                        Icon(
-                            imageVector = Icons.Outlined.AspectRatio,
-                            contentDescription = "Aspect Ratio",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    if (showPlaybackSettingsButton) {
-                        IconButton(onClick = onShowPlaybackSettings) {
-                            Icon(
-                                imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Playback Settings ($currentStreamingQuality)",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    IconButton(onClick = onShowAudioTrackSelection) {
-                        Icon(
-                            imageVector = Icons.Outlined.Audiotrack,
-                            contentDescription = "Audio Tracks",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = onShowSubtitleTrackSelection) {
-                        Icon(
-                            imageVector = Icons.Outlined.Subtitles,
-                            contentDescription = "Subtitles",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = onToggleLock) {
-                        Icon(
-                            imageVector = Icons.Outlined.LockOpen,
-                            contentDescription = "Lock",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            } else {
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = onToggleLock) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = Icons.Filled.Lock,
-                        contentDescription = "Unlock",
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                if (logoRequest != null) {
+                    AsyncImage(
+                        model = logoRequest,
+                        contentDescription = "$title logo",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .height(24.dp)
+                            .widthIn(min = 24.dp, max = 180.dp)
+                            .padding(end = 12.dp)
+                    )
+                } else {
+                    if (title.isNotBlank()) {
+                        Text(
+                            text = title,
+                            modifier = Modifier.padding(end = 12.dp),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Action buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(onClick = onShowMediaInfo) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Media Information",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = onCycleAspectRatio) {
+                    Icon(
+                        imageVector = Icons.Outlined.AspectRatio,
+                        contentDescription = "Aspect Ratio",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                if (showPlaybackSettingsButton) {
+                    IconButton(onClick = onShowPlaybackSettings) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = "Playback Settings ($currentStreamingQuality)",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onShowAudioTrackSelection) {
+                    Icon(
+                        imageVector = Icons.Outlined.Audiotrack,
+                        contentDescription = "Audio Tracks",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                IconButton(onClick = onShowSubtitleTrackSelection) {
+                    Icon(
+                        imageVector = Icons.Outlined.Subtitles,
+                        contentDescription = "Subtitles",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
@@ -228,15 +205,14 @@ fun ControlsOverlay(
         }
 
         // Center controls
-        if (!isLocked) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(
-                    if (canPlayPreviousEpisode || canPlayNextEpisode) 22.dp else 32.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(
+                if (canPlayPreviousEpisode || canPlayNextEpisode) 22.dp else 32.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
             ) {
             if (canPlayPreviousEpisode) {
                 IconButton(
@@ -334,18 +310,16 @@ fun ControlsOverlay(
                 }
             }
         }
-        }
 
         // Bottom section - Time and seekbar
-        if (!isLocked) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .align(Alignment.BottomCenter),
-                verticalArrangement = Arrangement.Bottom
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .align(Alignment.BottomCenter),
+            verticalArrangement = Arrangement.Bottom
+        ) {
                 if (!seasonEpisodeLabel.isNullOrBlank()) {
                     Text(
                         text = seasonEpisodeLabel,
@@ -441,10 +415,10 @@ fun ControlsOverlay(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
         }
     }
 }
+
 
 private fun replayIcon(seconds: Int): ImageVector {
     return when (seconds) {
@@ -671,8 +645,6 @@ fun ControlsOverlayPreviewPlaying() {
         ),
         isSpatialAudioEnabled = true,
         onShowMediaInfo = { },
-        isLocked = false,
-        onToggleLock = { },
         onShowAudioTrackSelection = { },
         onShowSubtitleTrackSelection = { },
         onCycleAspectRatio = { },
@@ -712,8 +684,6 @@ fun ControlsOverlayPreviewPaused() {
         ),
         isSpatialAudioEnabled = false,
         onShowMediaInfo = { },
-        isLocked = false,
-        onToggleLock = { },
         onShowAudioTrackSelection = { },
         onShowSubtitleTrackSelection = { },
         onCycleAspectRatio = { },

@@ -1,10 +1,6 @@
 package com.jellycine.app.ui.screens.player
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.media.AudioManager
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,9 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.jellycine.player.preferences.PlayerPreferences
 import androidx.lifecycle.Lifecycle
@@ -31,43 +26,12 @@ import kotlin.math.roundToInt
 fun VideoSurface(
     player: ExoPlayer?,
     lifecycle: Lifecycle.Event,
-    scale: Float,
-    offsetX: Float,
-    offsetY: Float,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
-    onScaleChange: (Float, Float, Float) -> Unit,
-    onVolumeChange: (Float) -> Unit,
-    onBrightnessChange: (Float) -> Unit,
-    getCurrentVolumeLevel: () -> Float,
-    getCurrentBrightnessLevel: () -> Float,
-    onSeek: (Long) -> Unit,
     onToggleControls: () -> Unit,
-    onZoomChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
-    // Animation states for smooth transitions
-    val animatedScale by animateFloatAsState(
-        targetValue = scale,
-        animationSpec = tween(durationMillis = 200),
-        label = "video_scale"
-    )
-    val animatedOffsetX by animateFloatAsState(
-        targetValue = offsetX,
-        animationSpec = tween(durationMillis = 200),
-        label = "video_offset_x"
-    )
-    val animatedOffsetY by animateFloatAsState(
-        targetValue = offsetY,
-        animationSpec = tween(durationMillis = 200),
-        label = "video_offset_y"
-    )
-
-    // Initialize gesture helper
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val playerPreferences = remember { PlayerPreferences(context) }
-    var gestureHelper: GestureHelper? by remember { mutableStateOf(null) }
 
     Box(
         modifier = modifier.background(Color.Black)
@@ -86,14 +50,9 @@ fun VideoSurface(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     )
 
-                    // Smooth video rendering
                     setDefaultArtwork(null)
 
-                    // Set up  gesture handling
-                    setOnTouchListener { _, event ->
-                        val result = gestureHelper?.handleTouchEvent(event) ?: false
-                        result
-                    }
+                    setOnClickListener { onToggleControls() }
                 }
             },
             update = { playerView ->
@@ -137,23 +96,6 @@ fun VideoSurface(
                     }
                 }
 
-                // Initialize gesture helper
-                if (gestureHelper == null) {
-                    gestureHelper = GestureHelper(
-                        context = context,
-                        playerView = playerView,
-                        audioManager = audioManager,
-                        onShowControls = onToggleControls,
-                        onHideControls = onToggleControls,
-                        onSeek = onSeek,
-                        onVolumeChange = onVolumeChange,
-                        onBrightnessChange = onBrightnessChange,
-                        getCurrentVolumeLevel = getCurrentVolumeLevel,
-                        getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                        onZoomChange = onZoomChange
-                    )
-                }
-
                 when (lifecycle) {
                     Lifecycle.Event.ON_PAUSE -> {
                         playerView.onPause()
@@ -168,13 +110,6 @@ fun VideoSurface(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(0.dp))
-                .graphicsLayer(
-                    scaleX = animatedScale,
-                    scaleY = animatedScale,
-                    translationX = animatedOffsetX,
-                    translationY = animatedOffsetY,
-                    clip = false
-                )
         )
 
     }
