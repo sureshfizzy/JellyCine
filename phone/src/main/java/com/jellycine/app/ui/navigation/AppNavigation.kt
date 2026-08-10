@@ -22,6 +22,7 @@ import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.ConnectionsSettingsScreen
 import com.jellycine.app.ui.screens.admin.ServerInfoScreen
 import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
@@ -214,6 +215,9 @@ fun AppNavigation() {
                     },
                     onNavigateToInterfaceSettings = {
                         navController.navigate("interface_settings")
+                    },
+                    onNavigateToConnections = {
+                        navController.navigate("connections_settings")
                     },
                     onNavigateToDownloads = {
                         navController.navigate("downloads")
@@ -492,6 +496,21 @@ fun AppNavigation() {
                 InterfaceSettingsScreen(
                     onBackPressed = {
                         navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "connections_settings",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                ConnectionsSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToRequestedItem = { item ->
+                        navController.navigate("detail/${item.id}")
                     }
                 )
             }
