@@ -1656,6 +1656,10 @@ class MediaRepository(private val context: Context) {
                 "AudioBitRate" to audioBitrate.toString(),
                 "MaxHeight" to maxHeight.toString(),
                 "TranscodingMaxAudioChannels" to "2",
+                "EnableAutoStreamCopy" to "true",
+                "AllowVideoStreamCopy" to "true",
+                "AllowAudioStreamCopy" to "true",
+                "BreakOnNonKeyFrames" to "true",
                 "PlaySessionId" to playbackInfo.playSessionId,
                 "api_key" to accessToken
             )

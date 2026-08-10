@@ -54,7 +54,7 @@ class DownloadRepository(context: Context) {
     private val httpClient = OkHttpClient.Builder()
         .retryOnConnectionFailure(true)
         .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(2, java.util.concurrent.TimeUnit.MINUTES)
+        .readTimeout(5, java.util.concurrent.TimeUnit.MINUTES)
         .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
