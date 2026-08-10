@@ -38,12 +38,10 @@ import androidx.navigation.compose.rememberNavController
 import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.media.Discover
-import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.network.NetworkModule
-import com.jellycine.shared.preferences.Preferences
 
 private fun dashboardEnterTransition(): EnterTransition {
     return fadeIn(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing))
@@ -75,7 +73,6 @@ fun DashboardContainer(
     var railHasFocus by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val preferences = remember(context) { Preferences(context) }
     val appContext = remember(context) { context.applicationContext }
     val networkAvailabilityFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
@@ -83,10 +80,6 @@ fun DashboardContainer(
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
         initialValue = NetworkModule.isInternetAvailable(appContext)
     )
-    val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled().collectAsStateWithLifecycle(
-        initialValue = preferences.isUseMyMediaTabEnabled()
-    )
-
     val destinations = remember(isNetworkAvailable) {
         if (isNetworkAvailable) onlineDestinations() else offlineDestinations()
     }
@@ -165,21 +158,13 @@ fun DashboardContainer(
                     enterTransition = { dashboardEnterTransition() },
                     exitTransition = { dashboardExitTransition() }
                 ) {
-                    if (useMyMediaTabEnabled) {
-                        MyMedia(
-                            onLibraryClick = { contentType, parentId, title ->
-                                onNavigateToViewAll(contentType.name, parentId, title)
-                            }
-                        )
-                    } else {
-                        Discover(
-                            onItemClick = onNavigateToDetail,
-                            onWatchedItemClick = onNavigateToMergedDetail,
-                            onNavigateToViewAll = { contentType, parentId, title ->
-                                onNavigateToViewAll(contentType.name, parentId, title)
-                            }
-                        )
-                    }
+                    Discover(
+                        onItemClick = onNavigateToDetail,
+                        onWatchedItemClick = onNavigateToMergedDetail,
+                        onNavigateToViewAll = { contentType, parentId, title ->
+                            onNavigateToViewAll(contentType.name, parentId, title)
+                        }
+                    )
                 }
 
                 composable(

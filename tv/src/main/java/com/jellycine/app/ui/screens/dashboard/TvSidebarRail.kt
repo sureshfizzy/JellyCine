@@ -21,7 +21,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.VideoLibrary
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,9 +64,9 @@ internal sealed class DashboardDestination(
 
     data object Library : DashboardDestination(
         route = "dashboard_library",
-        labelRes = R.string.libraries,
-        selectedIcon = Icons.Rounded.VideoLibrary,
-        unselectedIcon = Icons.Rounded.VideoLibrary
+        labelRes = R.string.dashboard_discover,
+        selectedIcon = Icons.Rounded.Explore,
+        unselectedIcon = Icons.Rounded.Explore
     )
 
     data object Search : DashboardDestination(

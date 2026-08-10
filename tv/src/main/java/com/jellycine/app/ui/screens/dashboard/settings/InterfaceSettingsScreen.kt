@@ -20,7 +20,6 @@ import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.MergeType
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.ViewCarousel
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -75,10 +74,6 @@ fun InterfaceSettingsScreen(
     val nextUpEnabled by preferences.NextUpEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isNextUpEnabled()
-        )
-    val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
-        .collectAsStateWithLifecycle(
-            initialValue = preferences.isUseMyMediaTabEnabled()
         )
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsStateWithLifecycle(
@@ -155,18 +150,6 @@ fun InterfaceSettingsScreen(
                         checked = nextUpEnabled,
                         onCheckedChange = preferences::setNextUpEnabled,
                         accentColor = Color(0xFF3B82F6)
-                    )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                    )
-                    InterfaceSwitchItem(
-                        icon = Icons.Rounded.VideoLibrary,
-                        title = stringResource(R.string.interface_use_my_media_tab),
-                        subtitle = stringResource(R.string.interface_use_my_media_tab_subtitle),
-                        checked = useMyMediaTabEnabled,
-                        onCheckedChange = preferences::setUseMyMediaTabEnabled,
-                        accentColor = Color(0xFFEC4899)
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
