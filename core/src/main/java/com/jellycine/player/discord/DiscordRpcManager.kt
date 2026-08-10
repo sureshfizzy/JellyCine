@@ -25,7 +25,7 @@ class DiscordRpcManager private constructor(private val context: Context) {
         private const val OAUTH2_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
         private const val OAUTH2_TOKEN_URL = "https://discord.com/api/oauth2/token"
         private const val DISCORD_USER_URL = "https://discord.com/api/users/@me"
-        private const val SCOPES = "identify openid sdk.social_layer_presence"
+        private const val SCOPES = "identify sdk.social_layer_presence"
         private const val PREFS_NAME = "discord_auth_prefs"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
