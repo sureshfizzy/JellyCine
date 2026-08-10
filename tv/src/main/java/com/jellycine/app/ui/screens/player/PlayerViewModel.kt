@@ -463,6 +463,11 @@ class PlayerViewModel @Inject constructor(
 
     fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L
 
+    private fun currentMediaHasVideo(): Boolean =
+        apiMediaStreams.isNullOrEmpty() || apiMediaStreams.orEmpty().any { stream ->
+            stream.type.equals("Video", ignoreCase = true)
+        }
+
     fun updateNextEpisodeCache(
         context: Context,
         nextEpisodeId: String?,
@@ -1032,10 +1037,14 @@ class PlayerViewModel @Inject constructor(
                 isLoading = shouldShowLoading,
                 isPlaying = isNowPlaying,
                 playWhenReady = playWhenReady,
-                hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame
+                hasStartedPlayback = currentState.hasStartedPlayback || hasRenderedFirstFrame,
+                duration = getDuration().takeIf { it > 0L } ?: currentState.duration
             )
 
-            if (playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart) {
+            if (
+                playbackState == Player.STATE_READY && isNowPlaying && !hasReportedStart &&
+                (hasRenderedFirstFrame || !currentMediaHasVideo())
+            ) {
                 playbackReporter.reportPlaybackStatus()
             }
 
@@ -1075,8 +1084,16 @@ class PlayerViewModel @Inject constructor(
             hasRenderedFirstFrame = true
             _playerState.value = _playerState.value.copy(
                 isLoading = false,
-                hasStartedPlayback = true
+                hasStartedPlayback = true,
+                duration = getDuration().takeIf { it > 0L } ?: _playerState.value.duration
             )
+            if (
+                exoPlayer?.playWhenReady == true &&
+                exoPlayer?.playbackState == Player.STATE_READY &&
+                !playbackReporter.hasReportedStart()
+            ) {
+                playbackReporter.reportPlaybackStatus()
+            }
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
