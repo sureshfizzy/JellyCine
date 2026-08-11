@@ -15,8 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -25,13 +23,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -44,13 +48,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import coil3.SingletonImageLoader
 import com.jellycine.shared.R
-import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.app.ui.screens.player.MediaInfoDialog
 import kotlinx.coroutines.delay
 
 private const val NEXT_EPISODE_AUTOPLAY_DELAY_MS = 10_000L
@@ -63,18 +65,12 @@ private fun flushImgCache(context: Context) {
     }
 }
 
-/**
- * Player state data class to group related states
- */
 data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
     val isPlaying: Boolean = false
 )
 
-/**
- * Player Screen with proper immersive mode
- */
 @UnstableApi
 @Composable
 fun PlayerScreen(
@@ -96,7 +92,6 @@ fun PlayerScreen(
     val currentView = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Consolidated UI state
     var uiState by remember { mutableStateOf(PlayerUiState()) }
     var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
     var autoHideKey by remember { mutableStateOf(0) }
@@ -113,13 +108,11 @@ fun PlayerScreen(
         }
     }
 
-    // Helper function to reset auto-hide timer
     val resetAutoHideTimer = {
         autoHideKey++
         hideSystemBars()
     }
 
-    // Dialog states
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
     var showStreamingQualityDialog by remember { mutableStateOf(false) }
@@ -130,7 +123,6 @@ fun PlayerScreen(
         if (showMediaInfo) viewModel.getMediaMetadataInfo() else null
     }
 
-    // Player state from ViewModel
     val playerState by viewModel.playerState.collectAsState()
     val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
     val sourceVideoHeight = viewModel.getSourceVideoHeight()
@@ -145,7 +137,6 @@ fun PlayerScreen(
         }
     }
 
-    // System managers
     val playerPreferences = remember { PlayerPreferences(context) }
     var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
     val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
@@ -156,7 +147,6 @@ fun PlayerScreen(
     val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
     val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
 
-    // Setup player-specific settings
     DisposableEffect(Unit) {
         currentView.keepScreenOn = true
         val activity = context as? Activity
@@ -178,7 +168,6 @@ fun PlayerScreen(
         }
     }
 
-    // Handle lifecycle events
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             lifecycle = event
@@ -189,10 +178,8 @@ fun PlayerScreen(
         }
     }
 
-    // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
     
-    // Initialize player
     LaunchedEffect(mediaId) {
         if (initializedMediaId == mediaId) return@LaunchedEffect
 
@@ -211,7 +198,6 @@ fun PlayerScreen(
             )
             initializedMediaId = mediaId
         } catch (e: Exception) {
-            // Initialization failed, will be handled by PlayerViewModel
         }
     }
 
@@ -221,7 +207,6 @@ fun PlayerScreen(
         }
     }
 
-    // Update position and playing state
     LaunchedEffect(viewModel.exoPlayer) {
         while (true) {
             val currentPosition = viewModel.getCurrentPosition()
@@ -447,7 +432,6 @@ fun PlayerScreen(
         }
     }
 
-    // Auto-hide controls after 3 seconds
     LaunchedEffect(
         uiState.controlsVisible,
         playerState.hasStartedPlayback,
@@ -460,16 +444,77 @@ fun PlayerScreen(
         }
     }
 
-    // Back handler
     BackHandler {
         viewModel.releasePlayer()
         onBackPressed?.invoke()
+    }
+
+    val rootFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        rootFocusRequester.requestFocus()
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .focusRequester(rootFocusRequester)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                val dialogOpen = showAudioTrackDialog || showSubtitleTrackDialog ||
+                    showStreamingQualityDialog || showAudioTranscodingDialog || showMediaInfo
+                if (dialogOpen) return@onPreviewKeyEvent false
+
+                if (!uiState.controlsVisible) {
+                    when (event.key) {
+                        Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                            resetAutoHideTimer()
+                            uiState = uiState.copy(controlsVisible = true)
+                            true
+                        }
+                        Key.DirectionLeft -> {
+                            resetAutoHideTimer()
+                            viewModel.seekBackward()
+                            uiState = uiState.copy(controlsVisible = true)
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            resetAutoHideTimer()
+                            viewModel.seekForward()
+                            uiState = uiState.copy(controlsVisible = true)
+                            true
+                        }
+                        Key.DirectionUp, Key.DirectionDown -> {
+                            resetAutoHideTimer()
+                            uiState = uiState.copy(controlsVisible = true)
+                            true
+                        }
+                        Key.Spacebar, Key.MediaPlayPause -> {
+                            resetAutoHideTimer()
+                            if (playerState.playWhenReady) viewModel.pause() else viewModel.play()
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    when (event.key) {
+                        Key.Spacebar, Key.MediaPlayPause -> {
+                            resetAutoHideTimer()
+                            if (playerState.playWhenReady) viewModel.pause() else viewModel.play()
+                            true
+                        }
+                        Key.DirectionLeft, Key.DirectionRight,
+                        Key.DirectionUp, Key.DirectionDown,
+                        Key.Enter, Key.NumPadEnter, Key.DirectionCenter -> {
+                            resetAutoHideTimer()
+                            false
+                        }
+                        else -> false
+                    }
+                }
+            }
             .focusable()
     ) {
         VideoSurface(
@@ -483,7 +528,9 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        if (uiState.controlsVisible) {
+        if (uiState.controlsVisible && !showAudioTrackDialog && !showSubtitleTrackDialog &&
+            !showStreamingQualityDialog && !showAudioTranscodingDialog && !showMediaInfo
+        ) {
             ControlsOverlay(
                 title = playerState.mediaTitle,
                 mediaLogoUrl = playerState.mediaLogoUrl,
@@ -512,7 +559,6 @@ fun PlayerScreen(
                     isScrubbing = scrubbing
                     resetAutoHideTimer()
                 },
-                // Media info parameters
                 spatializationResult = playerState.spatializationResult,
                 isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
                 isHdrEnabled = playerState.isHdrEnabled,
@@ -543,7 +589,6 @@ fun PlayerScreen(
                     resetAutoHideTimer()
                     viewModel.cycleAspectRatio()
                 },
-                // Seek functions
                 onSeekBackward = {
                     resetAutoHideTimer()
                     viewModel.seekBackward()
@@ -707,7 +752,6 @@ fun PlayerScreen(
             }
         }
 
-        // Track selection dialogs
         AudioTrackSelectionDialog(
             isVisible = showAudioTrackDialog,
             audioTracks = playerState.availableAudioTracks,
@@ -751,8 +795,10 @@ fun PlayerScreen(
             }
         )
 
-        // Loading indicator
-        if (playerState.isLoading) {
+        val dialogboxOpen = showAudioTrackDialog || showSubtitleTrackDialog ||
+            showStreamingQualityDialog || showAudioTranscodingDialog || showMediaInfo
+
+        if (playerState.isLoading && !dialogboxOpen) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -767,7 +813,6 @@ fun PlayerScreen(
             }
         }
 
-        // Media Information Dialog
         if (showMediaInfo) {
             mediaInfoSnapshot?.let { mediaInfo ->
                 MediaInfoDialog(
@@ -775,191 +820,6 @@ fun PlayerScreen(
                     onDismiss = { showMediaInfo = false }
                 )
             }
-        }
-    }
-}
-
-
-@Composable
-fun SpatialAudioInfoDialog(
-    spatialInfo: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Spatial Audio Status",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        },
-        text = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = spatialInfo,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("OK")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
-    )
-}
-
-@Composable
-fun HdrFormatInfoDialog(
-    hdrInfo: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "HDR Format & Fallback Status",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        },
-        text = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = hdrInfo,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("OK")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
-    )
-}
-
-@Preview(
-    name = "Player Screen - Controls Visible",
-    showBackground = true,
-    widthDp = 800,
-    heightDp = 450
-)
-@Composable
-fun PlayerScreenPreview() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        // Mock video surface
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.material3.Text(
-                text = "Video Content",
-                color = Color.White.copy(alpha = 0.3f),
-                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
-            )
-        }
-
-        // Show controls overlay
-        ControlsOverlay(
-            title = "Sample Movie Title",
-            chapterMarkers = emptyList(),
-            isPlaying = true,
-            currentPosition = 45000L, // 45 seconds
-            duration = 7200000L, // 2 hours
-            onBackClick = { },
-            onPlayPause = { },
-            onSeek = { },
-            onShowAudioTrackSelection = { },
-            onShowSubtitleTrackSelection = { },
-            onCycleAspectRatio = { },
-            onSeekBackward = { },
-            onSeekForward = { },
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-
-@Preview(
-    name = "Player Screen - Controls Hidden",
-    showBackground = true,
-    widthDp = 800,
-    heightDp = 450
-)
-@Composable
-fun PlayerScreenPreviewHidden() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.material3.Text(
-                text = "Video Content",
-                color = Color.White.copy(alpha = 0.3f),
-                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
-            )
         }
     }
 }

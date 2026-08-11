@@ -52,6 +52,8 @@ fun VideoSurface(
 
                     setDefaultArtwork(null)
 
+                    isFocusable = false
+                    isFocusableInTouchMode = false
                     setOnClickListener { onToggleControls() }
                 }
             },
