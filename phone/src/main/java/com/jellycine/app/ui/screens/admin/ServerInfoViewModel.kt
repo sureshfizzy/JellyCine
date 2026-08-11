@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.ActivityLogEntry
 import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.SystemInfoFull
+import com.jellycine.data.network.HttpStatusException
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -54,6 +55,14 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
         startActivityPolling()
     }
 
+    fun retry() {
+        loadSystemInfo()
+        sessionsPollingJob?.cancel()
+        activityPollingJob?.cancel()
+        startSessionsPolling()
+        startActivityPolling()
+    }
+
     private fun loadSystemInfo() {
         viewModelScope.launch {
             _serverInfoState.value = _serverInfoState.value.copy(isLoading = true, error = null)
@@ -67,7 +76,7 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
                 .onFailure { e ->
                     _serverInfoState.value = _serverInfoState.value.copy(
                         isLoading = false,
-                        error = e.message ?: "Failed to load server info"
+                        error = mapErrorMessage(e)
                     )
                 }
         }
@@ -98,7 +107,7 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
                             if (_sessionsState.value.sessions.isEmpty()) {
                                 _sessionsState.value = SessionsUiState(
                                     isLoading = false,
-                                    error = e.message
+                                    error = mapErrorMessage(e)
                                 )
                             }
                         }
@@ -124,7 +133,7 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
                             if (_activityState.value.entries.isEmpty()) {
                                 _activityState.value = ActivityLogUiState(
                                     isLoading = false,
-                                    error = e.message
+                                    error = mapErrorMessage(e)
                                 )
                             }
                         }
@@ -138,5 +147,28 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
         super.onCleared()
         sessionsPollingJob?.cancel()
         activityPollingJob?.cancel()
+    }
+
+    private fun mapErrorMessage(e: Throwable): String {
+        val msg = e.message?.lowercase() ?: ""
+        return when {
+            e is HttpStatusException -> when (e.statusCode) {
+                401, 403 -> "Access denied. Admin privileges required."
+                404 -> "Server endpoint not found. Check server version."
+                500, 502, 503 -> "Server error. Try again later."
+                else -> "Server returned error ${e.statusCode}"
+            }
+            msg.contains("unable to resolve host") || msg.contains("no address associated") ->
+                "No internet connection"
+            msg.contains("timeout") || msg.contains("timed out") ->
+                "Connection timed out. Server may be unreachable."
+            msg.contains("failed to connect") || msg.contains("connection refused") ->
+                "Cannot reach server. Check if it's running."
+            msg.contains("network") || msg.contains("socket") ->
+                "Network error. Check your connection."
+            msg.contains("ssl") || msg.contains("certificate") ->
+                "Secure connection failed. Check server certificate."
+            else -> "Something went wrong. Please try again."
+        }
     }
 }

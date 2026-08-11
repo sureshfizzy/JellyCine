@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -147,7 +148,7 @@ private fun ServerTab(viewModel: AdminPanelViewModel) {
         return
     }
     if (serverState.error != null && serverState.systemInfo == null) {
-        ErrorState(serverState.error!!)
+        ErrorState(serverState.error!!, onRetry = { viewModel.retry() })
         return
     }
 
@@ -198,7 +199,7 @@ private fun ActivityLogTab(viewModel: AdminPanelViewModel) {
         return
     }
     if (uiState.error != null && uiState.entries.isEmpty()) {
-        ErrorState(uiState.error!!)
+        ErrorState(uiState.error!!, onRetry = { viewModel.retry() })
         return
     }
     if (uiState.entries.isEmpty()) {
@@ -538,12 +539,33 @@ private fun LoadingState() {
 }
 
 @Composable
-private fun ErrorState(message: String) {
+private fun ErrorState(message: String, onRetry: (() -> Unit)? = null) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Rounded.Warning, null, tint = AccentOrange, modifier = Modifier.size(48.dp))
+            Icon(Icons.Rounded.WifiOff, null, tint = AccentOrange, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(12.dp))
-            Text(message, color = SecondaryText, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                message,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            if (onRetry != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    onClick = onRetry,
+                    shape = RoundedCornerShape(12.dp),
+                    color = AccentBlue
+                ) {
+                    Text(
+                        "Try Again",
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 10.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
         }
     }
 }
