@@ -106,18 +106,10 @@ fun DashboardContainer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF151822),
-                        Color(0xFF0C0F16),
-                        Color(0xFF050608)
-                    )
-                )
-            )
+            .background(Color(0xFF0A0A0A))
     ) {
         val railSlotWidth by animateDpAsState(
-            targetValue = if (railHasFocus) 128.dp else 48.dp,
+            targetValue = if (railHasFocus) 130.dp else 48.dp,
             label = "dashboard_rail_slot_width"
         )
 
@@ -208,16 +200,6 @@ fun DashboardContainer(
                 modifier = Modifier
                     .width(railSlotWidth)
                     .fillMaxHeight()
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color(0xCC090B12),
-                                0.32f to Color(0xA0121622),
-                                0.72f to Color(0x400D1017),
-                                1.0f to Color.Transparent
-                            )
-                        )
-                    )
             ) {
                 TvSidebarRail(
                     destinations = destinations,

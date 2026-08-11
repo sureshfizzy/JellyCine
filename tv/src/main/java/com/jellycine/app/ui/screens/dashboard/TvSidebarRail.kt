@@ -116,7 +116,7 @@ internal fun TvSidebarRail(
 ) {
     var railHasFocus by remember { mutableStateOf(false) }
     val railWidth by animateDpAsState(
-        targetValue = if (railHasFocus) 118.dp else 30.dp,
+        targetValue = if (railHasFocus) 120.dp else 30.dp,
         label = "tv_sidebar_width"
     )
     val itemSlotHeight = 36.dp
@@ -178,7 +178,7 @@ private fun TvSidebarItem(
     onMoveRight: () -> Boolean,
     onClick: () -> Unit
 ) {
-    val selectedColor = Color(0xFF8A5CFF)
+    val selectedColor = Color.White
     var isFocused by remember(destination.route) { mutableStateOf(false) }
 
     Row(
@@ -191,7 +191,6 @@ private fun TvSidebarItem(
                 }
             )
             .fillMaxWidth()
-            .padding(horizontal = if (showLabel) 8.dp else 2.dp)
             .onPreviewKeyEvent { keyEvent ->
                 if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.DirectionRight) {
                     onMoveRight()
@@ -205,7 +204,7 @@ private fun TvSidebarItem(
             .clickable(onClick = onClick)
             .focusable()
             .padding(
-                horizontal = if (showLabel) 8.dp else 2.dp,
+                horizontal = if (showLabel) 6.dp else 2.dp,
                 vertical = 6.dp
             ),
         verticalAlignment = Alignment.CenterVertically,
@@ -215,7 +214,7 @@ private fun TvSidebarItem(
             Box(
                 modifier = Modifier
                     .width(if (isSelected || isFocused) 2.dp else 0.dp)
-                    .height(22.dp)
+                    .height(20.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(
                         if (isSelected || isFocused) {
@@ -235,8 +234,8 @@ private fun TvSidebarItem(
                 else -> Color.White.copy(alpha = 0.62f)
             },
             modifier = Modifier
-                .padding(start = if (showLabel) 10.dp else 0.dp)
-                .size(20.dp)
+                .padding(start = if (showLabel) 8.dp else 0.dp)
+                .size(18.dp)
         )
         if (showLabel) {
             Text(
@@ -246,7 +245,7 @@ private fun TvSidebarItem(
                 fontWeight = if (isSelected || isFocused) FontWeight.SemiBold else FontWeight.Medium,
                 fontSize = 11.sp,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 10.dp)
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
     }
