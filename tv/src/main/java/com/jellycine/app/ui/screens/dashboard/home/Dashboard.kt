@@ -91,7 +91,15 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -2344,7 +2352,7 @@ private fun HomeMyMediaSection(
                     horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
                     contentPadding = ScrollOptimization.optimizedContentPadding,
                     flingBehavior = flingBehavior,
-                    modifier = ScrollOptimization.getScrollContainerModifier()
+                    modifier = ScrollOptimization.getScrollContainerModifier().focusGroup()
                 ) {
                     itemsIndexed(
                         items = libraries,
@@ -2441,7 +2449,7 @@ private fun ContinueWatchingSection(
                     horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
                     contentPadding = ScrollOptimization.optimizedContentPadding,
                     flingBehavior = flingBehavior,
-                    modifier = ScrollOptimization.getScrollContainerModifier()
+                    modifier = ScrollOptimization.getScrollContainerModifier().focusGroup()
                 ) {
                     items(
                         count = renderedCount.coerceAtMost(items.size),
@@ -2805,7 +2813,7 @@ private fun BurstLibrarySection(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 16.dp),
             flingBehavior = libraryFlingBehavior,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().focusGroup()
         ) {
             itemsIndexed(
                 items = section.items,
@@ -2874,6 +2882,11 @@ internal fun LibraryItemCard(
     val metadataFontSize = if (landscapeLayout) 14.sp else 12.sp
     val metadataLineHeight = if (landscapeLayout) 16.sp else 13.sp
 
+    var navigatingVertically by remember { mutableStateOf(false) }
+    var navJob by remember { mutableStateOf<Job?>(null) }
+    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
+
     val animatedWidth by animateDpAsState(
         targetValue = if (isFocused && !landscapeLayout) expandedCardWidth else baseCardWidth,
         animationSpec = tween(200),
@@ -2884,17 +2897,39 @@ internal fun LibraryItemCard(
         animationSpec = tween(200),
         label = "card_image_height"
     )
-    val showBackdrop = isFocused && !landscapeLayout
+    val displayWidth = if (navigatingVertically) baseCardWidth else animatedWidth
+    val displayHeight = if (navigatingVertically) baseImageHeight else animatedImageHeight
+    val showBackdrop = isFocused && !landscapeLayout && !navigatingVertically
 
     Column(
         modifier = modifier
-            .width(animatedWidth)
+            .width(displayWidth)
     ) {
         Card(
             modifier = cardModifier
-                .width(animatedWidth)
-                .height(animatedImageHeight)
-                .onFocusChanged { state -> isFocused = state.isFocused },
+                .width(displayWidth)
+                .height(displayHeight)
+                .onFocusChanged { state ->
+                    isFocused = state.isFocused
+                    if (!state.isFocused) navigatingVertically = false
+                }
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown &&
+                        isFocused && !landscapeLayout &&
+                        (event.key == Key.DirectionDown || event.key == Key.DirectionUp)
+                    ) {
+                        val direction = if (event.key == Key.DirectionDown)
+                            FocusDirection.Down else FocusDirection.Up
+                        navJob?.cancel()
+                        navigatingVertically = true
+                        navJob = coroutineScope.launch {
+                            delay(50)
+                            focusManager.moveFocus(direction)
+                            navigatingVertically = false
+                        }
+                        true
+                    } else false
+                },
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
@@ -3534,6 +3569,7 @@ private fun ProgressiveMovieGenreSection(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusGroup()
                 ) {
                     items(
                         count = genreMovies.size,
@@ -3671,7 +3707,7 @@ private fun ProgressiveTVShowGenreSection(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusGroup()
                 ) {
                     itemsIndexed(
                         items = genreShows,
