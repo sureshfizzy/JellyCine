@@ -140,37 +140,43 @@ internal fun DownloadQualityPicker(
                                 )
                             }
                         }
-                        1 -> StepContent(
-                            title = selectedResolution!!.label,
-                            subtitle = "Select bitrate",
-                            onBack = { selectedResolution = null },
-                            onDismiss = onDismiss
-                        ) {
-                            items(selectedResolution!!.profiles, key = { it.label }) { profile ->
-                                QualityRow(
-                                    title = formatBitrate(profile.maxBitrate),
-                                    subtitle = profile.label,
-                                    trailingText = profile.maxBitrate?.let { sizeEstimator.estimate(it) }?.let { "~$it" },
-                                    onClick = { completeWith(profile) }
-                                )
+                        1 -> {
+                            val resolution = selectedResolution ?: return@AnimatedContent
+                            StepContent(
+                                title = resolution.label,
+                                subtitle = "Select bitrate",
+                                onBack = { selectedResolution = null },
+                                onDismiss = onDismiss
+                            ) {
+                                items(resolution.profiles, key = { it.label }) { profile ->
+                                    QualityRow(
+                                        title = formatBitrate(profile.maxBitrate),
+                                        subtitle = profile.label,
+                                        trailingText = profile.maxBitrate?.let { sizeEstimator.estimate(it) }?.let { "~$it" },
+                                        onClick = { completeWith(profile) }
+                                    )
+                                }
                             }
                         }
-                        2 -> StepContent(
-                            title = "Audio Track",
-                            subtitle = "Select audio to include",
-                            onBack = { selectedProfile = null },
-                            onDismiss = onDismiss
-                        ) {
-                            items(audioStreams, key = { it.index ?: it.hashCode() }) { stream ->
-                                QualityRow(
-                                    title = stream.displayTitle ?: buildAudioLabel(stream),
-                                    subtitle = listOfNotNull(
-                                        stream.codec?.uppercase(Locale.US),
-                                        stream.channelLayout ?: stream.channels?.let { "${it}ch" }
-                                    ).joinToString(" · "),
-                                    trailingText = stream.bitRate?.let { formatBitrate(it) },
-                                    onClick = { onSelected(DownloadQualitySelection(selectedProfile!!, stream.index)) }
-                                )
+                        2 -> {
+                            val profile = selectedProfile ?: return@AnimatedContent
+                            StepContent(
+                                title = "Audio Track",
+                                subtitle = "Select audio to include",
+                                onBack = { selectedProfile = null },
+                                onDismiss = onDismiss
+                            ) {
+                                items(audioStreams, key = { it.index ?: it.hashCode() }) { stream ->
+                                    QualityRow(
+                                        title = stream.displayTitle ?: buildAudioLabel(stream),
+                                        subtitle = listOfNotNull(
+                                            stream.codec?.uppercase(Locale.US),
+                                            stream.channelLayout ?: stream.channels?.let { "${it}ch" }
+                                        ).joinToString(" · "),
+                                        trailingText = stream.bitRate?.let { formatBitrate(it) },
+                                        onClick = { onSelected(DownloadQualitySelection(profile, stream.index)) }
+                                    )
+                                }
                             }
                         }
                     }
