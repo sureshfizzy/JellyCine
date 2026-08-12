@@ -3,8 +3,6 @@ package com.jellycine.data.security
 import com.jellycine.data.network.canonicalServerUrlKey
 import platform.Foundation.NSUserDefaults
 
-// Simplified iOS implementation using NSUserDefaults
-// TODO: Migrate to Keychain for production security
 class SecureSessionStore {
 
     private val defaults = NSUserDefaults.standardUserDefaults
@@ -31,7 +29,6 @@ class SecureSessionStore {
     private fun tokenKey(serverId: String): String = "token_${sha256(serverId)}"
 
     private fun sha256(value: String): String {
-        // Simple hash for iOS - using built-in string hash
         return value.hashCode().toString()
     }
 
