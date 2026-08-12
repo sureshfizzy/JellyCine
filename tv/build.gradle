@@ -153,7 +153,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
 
     // Networking
-    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
+    implementation 'com.squareup.okhttp3:okhttp:5.4.0'
 
     // DataStore
     implementation 'androidx.datastore:datastore-preferences:1.2.1'
