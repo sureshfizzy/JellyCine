@@ -1,5 +1,6 @@
 package com.jellycine.data.api
 
+import com.jellycine.data.util.currentTimeMillis
 import com.jellycine.data.model.ActivityLogResult
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
@@ -442,7 +443,7 @@ internal class MediaServerApiClient(
             endpoint = "Sessions",
             queryParameters = listOf(
                 "ActiveWithinSeconds" to 960,
-                "_" to System.currentTimeMillis()
+                "_" to currentTimeMillis()
             )
         )
 
@@ -454,7 +455,7 @@ internal class MediaServerApiClient(
         queryParameters = listOf(
             "startIndex" to startIndex,
             "limit" to limit,
-            "_" to System.currentTimeMillis()
+            "_" to currentTimeMillis()
         )
     )
 

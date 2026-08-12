@@ -1,5 +1,6 @@
 package com.jellycine.data.model
 
+import com.jellycine.data.util.currentTimeMillis
 import kotlinx.serialization.Serializable
 
 enum class DownloadStatus {
@@ -75,7 +76,7 @@ data class PersistedDownloadMetadata(
     val subtitle: String? = null,
     val mediaType: String? = null,
     val year: Int? = null,
-    val requestedAt: Long = System.currentTimeMillis(),
+    val requestedAt: Long = currentTimeMillis(),
     val completedAt: Long? = null,
     val localPath: String? = null,
     val status: String = DownloadStatus.IDLE.name,
