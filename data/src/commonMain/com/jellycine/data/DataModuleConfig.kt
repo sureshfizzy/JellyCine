@@ -1,5 +1,5 @@
 package com.jellycine.data
 
-internal object DataModuleConfig {
+object DataModuleConfig {
     const val CLIENT_VERSION = "1.3.2"
 }

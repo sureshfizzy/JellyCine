@@ -9,7 +9,7 @@ import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
-import com.jellycine.shared.BuildConfig
+import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.network.ServerType
@@ -127,7 +127,7 @@ object ImageLoaderConfig {
                 val header = AuthHeaderDto.fromServerType(
                     serverType = serverType,
                     deviceId = deviceId,
-                    version = BuildConfig.CLIENT_VERSION,
+                    version = DataModuleConfig.CLIENT_VERSION,
                     accessToken = accessToken
                 ).asHeaderValue()
                 cachedAuthHeader = header

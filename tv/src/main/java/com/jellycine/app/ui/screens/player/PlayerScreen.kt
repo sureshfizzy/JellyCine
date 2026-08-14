@@ -444,9 +444,26 @@ fun PlayerScreen(
         }
     }
 
+    val dialogboxOpen = showAudioTrackDialog || showSubtitleTrackDialog ||
+        showStreamingQualityDialog || showAudioTranscodingDialog || showMediaInfo
+
     BackHandler {
-        viewModel.releasePlayer()
-        onBackPressed?.invoke()
+        when {
+            dialogboxOpen -> {
+                showAudioTrackDialog = false
+                showSubtitleTrackDialog = false
+                showStreamingQualityDialog = false
+                showAudioTranscodingDialog = false
+                showMediaInfo = false
+            }
+            uiState.controlsVisible -> {
+                uiState = uiState.copy(controlsVisible = false)
+            }
+            else -> {
+                viewModel.releasePlayer()
+                onBackPressed?.invoke()
+            }
+        }
     }
 
     val rootFocusRequester = remember { FocusRequester() }
@@ -794,9 +811,6 @@ fun PlayerScreen(
                 showAudioTranscodingDialog = false
             }
         )
-
-        val dialogboxOpen = showAudioTrackDialog || showSubtitleTrackDialog ||
-            showStreamingQualityDialog || showAudioTranscodingDialog || showMediaInfo
 
         if (playerState.isLoading && !dialogboxOpen) {
             Box(
