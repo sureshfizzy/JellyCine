@@ -1358,9 +1358,10 @@ fun Dashboard(
             ): Float {
                 val leadingEdge = offset
                 val trailingEdge = offset + size
+                val topPadding = 80f
                 return when {
-                    leadingEdge < 0f -> leadingEdge
-                    trailingEdge > containerSize -> trailingEdge - containerSize
+                    leadingEdge < topPadding -> leadingEdge - topPadding
+                    trailingEdge > containerSize -> trailingEdge - containerSize + topPadding
                     else -> 0f
                 }
             }
@@ -1760,6 +1761,7 @@ fun Dashboard(
                             contentFocusRequester = contentEntryFocusRequester,
                             onHeroZoneFocused = {
                                 onHomeReturnTargetChanged?.invoke(heroActionEntryFocusRequester)
+                                scope.launch { lazyColumnState.animateScrollToItem(0) }
                             }
                         )
                     }
