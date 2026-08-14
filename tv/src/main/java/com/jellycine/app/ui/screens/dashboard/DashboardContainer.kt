@@ -209,7 +209,13 @@ fun DashboardContainer(
                         if (currentRoute == DashboardDestination.Home.route) {
                             val restored = dashboardFocus.requestHomeReturnFocus()
                             if (!restored) {
-                                dashboardFocus.homeHeader.requestFocus()
+                                val headerRestored = runCatching {
+                                    dashboardFocus.homeHeader.requestFocus()
+                                    true
+                                }.getOrDefault(false)
+                                if (!headerRestored) {
+                                    runCatching { dashboardFocus.homeContent.requestFocus() }
+                                }
                             }
                             true
                         } else {
