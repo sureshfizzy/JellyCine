@@ -82,6 +82,55 @@ fun SuggestionsStoriesView(
     val horizontalPadding = (screenWidth - cardWidth) / 2
 
     Box(modifier = Modifier.fillMaxSize()) {
+        val currentItem = suggestions[currentItemIndex]
+
+        val primaryUrl = currentItem.imageUrl
+            ?: rememberImageUrl(
+                itemId = currentItem.id,
+                imageType = "Primary",
+                enableImageEnhancers = false,
+                mediaRepository = mediaRepository
+            )
+
+        var displayUrl by remember { mutableStateOf(primaryUrl) }
+        if (!primaryUrl.isNullOrBlank()) displayUrl = primaryUrl
+
+        LazyImageLoader(
+            imageUrl = displayUrl,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            cornerRadius = 0
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.3f),
+                            Color.Black.copy(alpha = 0.6f),
+                            Color.Black.copy(alpha = 0.9f)
+                        ),
+                        radius = 1200f
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.2f),
+                            Color.Black.copy(alpha = 0.8f)
+                        )
+                    )
+                )
+        )
+
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
@@ -136,7 +185,6 @@ fun SuggestionsStoriesView(
             )
         }
 
-        val currentItem = suggestions[currentItemIndex]
         val typeText = when (currentItem.type) {
             "Movie" -> stringResource(R.string.suggestions_type_movie)
             "Series" -> stringResource(R.string.suggestions_type_tv_series)

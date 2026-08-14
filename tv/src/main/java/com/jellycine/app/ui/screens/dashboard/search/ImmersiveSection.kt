@@ -18,6 +18,21 @@ import coil3.imageLoader
 import coil3.request.*
 import kotlinx.coroutines.launch
 
+private fun buildImmersiveImageRequest(
+    context: android.content.Context,
+    imageUrl: String
+): ImageRequest {
+    return ImageRequest.Builder(context)
+        .data(imageUrl)
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .networkCachePolicy(CachePolicy.ENABLED)
+        .crossfade(false)
+        .allowHardware(true)
+        .allowRgb565(true)
+        .build()
+}
+
 @Composable
 fun ImmersiveSection(
     movies: List<BaseItemDto>,
@@ -29,73 +44,88 @@ fun ImmersiveSection(
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    var isPreloaded by remember(isLoading, movies.firstOrNull()?.id) {
-        mutableStateOf(isLoading || movies.isEmpty())
+    val firstMovie = movies.firstOrNull()
+    var isFirstImageReady by remember(isLoading, firstMovie?.id) {
+        mutableStateOf(isLoading || firstMovie?.id == null)
     }
 
-    LaunchedEffect(isLoading, movies.firstOrNull()?.id) {
-        if (isLoading || movies.isEmpty()) {
-            isPreloaded = false
+    LaunchedEffect(isLoading, firstMovie?.id) {
+        if (isLoading) {
+            isFirstImageReady = false
             return@LaunchedEffect
         }
 
-        isPreloaded = false
-        val imageLoader = context.imageLoader
-        val itemsToPreload = movies.take(5)
+        val itemId = firstMovie?.id
+        if (itemId.isNullOrBlank()) {
+            isFirstImageReady = true
+            return@LaunchedEffect
+        }
 
-        itemsToPreload.firstOrNull()?.let { item ->
-            val imageUrl = item.imageUrl ?: runCatching {
-                mediaRepository.getImageUrlString(
-                    itemId = item.id ?: "",
-                    imageType = "Primary",
-                    enableImageEnhancers = false
-                )
-            }.getOrNull()
+        isFirstImageReady = false
+        val firstImageUrl = runCatching {
+            firstMovie?.imageUrl ?: mediaRepository.getImageUrlString(
+                itemId = itemId,
+                imageType = "Primary",
+                enableImageEnhancers = false
+            )
+        }.getOrNull()
 
-            imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                runCatching {
-                    imageLoader.execute(
-                        ImageRequest.Builder(context)
-                            .data(url)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .crossfade(false)
-                            .allowHardware(true)
-                            .build()
-                    )
-                }
+        firstImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+            runCatching {
+                context.imageLoader.execute(buildImmersiveImageRequest(context, imageUrl))
             }
         }
 
-        isPreloaded = true
+        isFirstImageReady = true
 
         launch {
-            itemsToPreload.drop(1).forEach { item ->
-                val imageUrl = item.imageUrl ?: runCatching {
-                    mediaRepository.getImageUrlString(
-                        itemId = item.id ?: "",
+            val prioritizedIds = buildList {
+                movies.getOrNull(1)?.id?.let(::add)
+                movies.lastOrNull()?.id?.let(::add)
+                movies.asSequence()
+                    .drop(2)
+                    .mapNotNull { it.id }
+                    .forEach(::add)
+            }
+                .distinct()
+                .take(10)
+
+            prioritizedIds.firstOrNull()?.let { nextId ->
+                val nextItem = movies.firstOrNull { it.id == nextId }
+                val nextImageUrl = runCatching {
+                    nextItem?.imageUrl ?: mediaRepository.getImageUrlString(
+                        itemId = nextId,
                         imageType = "Primary",
                         enableImageEnhancers = false
                     )
                 }.getOrNull()
 
-                imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                    imageLoader.enqueue(
-                        ImageRequest.Builder(context)
-                            .data(url)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .crossfade(false)
-                            .allowHardware(true)
-                            .build()
+                nextImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+                    runCatching {
+                        context.imageLoader.execute(buildImmersiveImageRequest(context, imageUrl))
+                    }
+                }
+            }
+
+            prioritizedIds.drop(1).forEach { bgId ->
+                val bgItem = movies.firstOrNull { it.id == bgId }
+                val bgImageUrl = runCatching {
+                    bgItem?.imageUrl ?: mediaRepository.getImageUrlString(
+                        itemId = bgId,
+                        imageType = "Primary",
+                        enableImageEnhancers = false
                     )
+                }.getOrNull()
+
+                bgImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
+                    context.imageLoader.enqueue(buildImmersiveImageRequest(context, imageUrl))
                 }
             }
         }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (isLoading || !isPreloaded) {
+        if (isLoading || !isFirstImageReady) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center

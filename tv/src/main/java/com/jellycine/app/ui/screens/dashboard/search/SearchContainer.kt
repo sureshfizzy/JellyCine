@@ -91,8 +91,10 @@ private object SearchBurstImagePrefetcher {
                         .data(url)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.ENABLED)
                         .crossfade(false)
                         .allowHardware(true)
+                        .allowRgb565(true)
                         .build()
                 )
             }
