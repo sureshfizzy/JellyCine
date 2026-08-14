@@ -103,10 +103,10 @@ fun DetailContent(
     var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
     var heroImageIndex by remember(item.id) { mutableStateOf(0) }
     val backdropImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
-    var logoImageUrl by remember { mutableStateOf<String?>(null) }
-    var logoResolved by remember { mutableStateOf(false) }
-    var logoLookup by remember { mutableStateOf(true) }
-    var logoLoadError by remember { mutableStateOf(false) }
+    var logoImageUrl by remember(item.id) { mutableStateOf<String?>(null) }
+    var logoResolved by remember(item.id) { mutableStateOf(false) }
+    var logoLookup by remember(item.id) { mutableStateOf(true) }
+    var logoLoadError by remember(item.id) { mutableStateOf(false) }
     val activeMediaSources = remember(item.id, item.mediaSources) {
         item.activeDetailMediaSources()
     }
@@ -733,7 +733,6 @@ fun DetailContent(
         ) {
             BackHandler {
                 contentPanelPage = 0
-                onBackPressed()
             }
 
             when {
