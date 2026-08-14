@@ -30,6 +30,19 @@ kotlin {
         }
     }
 
+    // iOS targets
+    def iosX64 = iosX64()
+    def iosArm64 = iosArm64()
+    def iosSimulatorArm64 = iosSimulatorArm64()
+
+    // Configure iOS framework for Xcode
+    [iosX64, iosArm64, iosSimulatorArm64].forEach { target ->
+        target.binaries.framework {
+            baseName = "JellyCineData"
+            isStatic = true
+        }
+    }
+
     sourceSets {
         commonMain {
             kotlin.srcDirs = ['src/commonMain']
@@ -58,5 +71,41 @@ kotlin {
                 implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.0"
             }
         }
+        iosMain {
+            kotlin.srcDirs = ['src/iosMain']
+            dependencies {
+                implementation "io.ktor:ktor-client-darwin:3.5.0"
+                implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.0"
+                implementation "androidx.datastore:datastore-preferences-core:1.2.1"
+                implementation "com.squareup.okio:okio:3.9.0"
+            }
+        }
     }
+}
+
+// XCFramework configuration for iOS
+tasks.register('assembleXCFramework', Exec) {
+    dependsOn 'linkDebugFrameworkIosArm64'
+    dependsOn 'linkDebugFrameworkIosSimulatorArm64'
+
+    def frameworkPath = "JellyCineData.framework"
+    def xcframeworkPath = "${buildDir}/XCFrameworks/debug/JellyCineData.xcframework"
+
+    doFirst {
+        delete xcframeworkPath
+    }
+
+    commandLine 'xcodebuild', '-create-xcframework',
+        '-framework', "${buildDir}/bin/iosArm64/debugFramework/${frameworkPath}",
+        '-framework', "${buildDir}/bin/iosSimulatorArm64/debugFramework/${frameworkPath}",
+        '-output', xcframeworkPath
+}
+
+tasks.register('copyFrameworkToIosApp', Copy) {
+    dependsOn 'assembleXCFramework'
+
+    from("${buildDir}/XCFrameworks/debug") {
+        include "JellyCineData.xcframework/**"
+    }
+    into "${rootDir}/iosApp/Frameworks"
 }

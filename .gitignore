@@ -72,3 +72,18 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Xcode
+**/xcuserdata/
+**/project.xcworkspace/
+DerivedData/
+.swiftpm/
+Pods/
