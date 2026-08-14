@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -2857,23 +2859,56 @@ internal fun LibraryItemCard(
     val useWatchedSeriesBadge = watchedFeedStyle && item.type == "Series"
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
+    val landscapeLayout = useLandscapeLayout || useWatchedEpisodeImage
 
     val displayName = if (useWatchedEpisodeImage) {
         item.episodeSeriesTitle(unknownTitle, unknownEpisode)
     } else {
-        item.preferredDisplayTitle(
-            unknownTitle = unknownTitle,
-            unknownEpisode = unknownEpisode
-        )
+        item.preferredDisplayTitle(unknownTitle = unknownTitle, unknownEpisode = unknownEpisode)
     }
 
-    val landscapeLayout = useLandscapeLayout || useWatchedEpisodeImage
     var isFocused by remember(item.id) { mutableStateOf(false) }
+    var navigatingVertically by remember { mutableStateOf(false) }
+    var navJob by remember { mutableStateOf<Job?>(null) }
+    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
 
-    val baseCardWidth = if (landscapeLayout) 200.dp else 112.dp
-    val expandedCardWidth = 240.dp
-    val baseImageHeight = if (landscapeLayout) 120.dp else 166.dp
-    val expandedImageHeight = 166.dp
+    val expanded = isFocused && !landscapeLayout
+    val showBackdrop = expanded && !navigatingVertically
+
+    // Dimensions
+    val baseWidth = if (landscapeLayout) 200.dp else 112.dp
+    val baseHeight = if (landscapeLayout) 120.dp else 166.dp
+    val expandedWidth = 240.dp
+    val expandedHeight = 166.dp
+
+    val cardWidth by animateDpAsState(
+        targetValue = if (expanded) expandedWidth else baseWidth,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium),
+        label = "card_width"
+    )
+    val cardHeight by animateDpAsState(
+        targetValue = if (expanded) expandedHeight else baseHeight,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium),
+        label = "card_height"
+    )
+    val displayWidth = if (navigatingVertically) baseWidth else cardWidth
+    val displayHeight = if (navigatingVertically) baseHeight else cardHeight
+
+    // Preload logo for expanded state
+    val preloadLogoUrl = if (!landscapeLayout) {
+        rememberImageUrl(
+            itemId = stableItem.seriesId?.takeIf { it.isNotBlank() } ?: stableItem.id,
+            imageType = "Logo",
+            width = 400,
+            quality = 90,
+            enableImageEnhancers = false,
+            mediaRepository = mediaRepository
+        )
+    } else null
+    WarmImageUrl(imageUrl = preloadLogoUrl)
+
+    // Title area sizing
     val titleAreaHeight = if (landscapeLayout) 64.dp else 46.dp
     val titleTopPadding = if (landscapeLayout) 10.dp else 4.dp
     val titleFontSize = if (landscapeLayout) 16.sp else 13.sp
@@ -2882,29 +2917,7 @@ internal fun LibraryItemCard(
     val metadataFontSize = if (landscapeLayout) 14.sp else 12.sp
     val metadataLineHeight = if (landscapeLayout) 16.sp else 13.sp
 
-    var navigatingVertically by remember { mutableStateOf(false) }
-    var navJob by remember { mutableStateOf<Job?>(null) }
-    val focusManager = LocalFocusManager.current
-    val coroutineScope = rememberCoroutineScope()
-
-    val animatedWidth by animateDpAsState(
-        targetValue = if (isFocused && !landscapeLayout) expandedCardWidth else baseCardWidth,
-        animationSpec = tween(200),
-        label = "card_width"
-    )
-    val animatedImageHeight by animateDpAsState(
-        targetValue = if (isFocused && !landscapeLayout) expandedImageHeight else baseImageHeight,
-        animationSpec = tween(200),
-        label = "card_image_height"
-    )
-    val displayWidth = if (navigatingVertically) baseCardWidth else animatedWidth
-    val displayHeight = if (navigatingVertically) baseImageHeight else animatedImageHeight
-    val showBackdrop = isFocused && !landscapeLayout && !navigatingVertically
-
-    Column(
-        modifier = modifier
-            .width(displayWidth)
-    ) {
+    Column(modifier = modifier.width(displayWidth)) {
         Card(
             modifier = cardModifier
                 .width(displayWidth)
@@ -2931,40 +2944,63 @@ internal fun LibraryItemCard(
                     } else false
                 },
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent
-            ),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             onClick = onClick
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                if (showBackdrop) {
-                    ImageLoader(
-                        itemId = stableItem.seriesId ?: stableItem.id,
-                        seriesId = stableItem.seriesId,
-                        imageType = "Backdrop",
-                        fallbackImageType = "Thumb",
-                        extraFallbackImageTypes = listOf("Primary"),
-                        preferSeriesIdForThumbBackdrop = true,
-                        preferSeriesIdForEpisodePrimary = false,
-                        contentDescription = item.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        cornerRadius = 12,
-                        crossfadeMillis = 0,
-                        mediaRepository = mediaRepository,
-                        imageMetadata = item,
-                        itemType = stableItem.type,
-                        hasImageEnhancers = !disableImageEnhancers,
-                        imageTag = null
-                    )
+            Box(modifier = Modifier.fillMaxSize()) {
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
+                // Base layer: always visible primary/thumb image
+                ImageLoader(
+                    itemId = stableItem.id,
+                    seriesId = stableItem.seriesId,
+                    imageType = if (landscapeLayout && !useWatchedEpisodeImage) "Thumb" else "Primary",
+                    fallbackImageType = if (landscapeLayout) "Backdrop" else null,
+                    extraFallbackImageTypes = if (useWatchedEpisodeImage) listOf("Thumb")
+                        else if (landscapeLayout) listOf("Primary") else emptyList(),
+                    preferSeriesIdForThumbBackdrop = landscapeLayout && !useWatchedEpisodeImage,
+                    preferSeriesIdForEpisodePrimary = !useWatchedEpisodeImage,
+                    contentDescription = item.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    cornerRadius = 12,
+                    crossfadeMillis = 0,
+                    mediaRepository = mediaRepository,
+                    imageMetadata = item,
+                    itemType = stableItem.type,
+                    hasImageEnhancers = !disableImageEnhancers,
+                    imageTag = null
+                )
+
+                // Expanded overlay: backdrop + gradient + logo
+                val backdropAlpha by animateFloatAsState(
+                    targetValue = if (showBackdrop) 1f else 0f,
+                    animationSpec = tween(if (showBackdrop) 280 else 150, easing = LinearOutSlowInEasing),
+                    label = "backdrop_alpha"
+                )
+                if (backdropAlpha > 0f) {
+                    Box(modifier = Modifier.fillMaxSize().graphicsLayer { alpha = backdropAlpha }) {
+                        ImageLoader(
+                            itemId = stableItem.seriesId ?: stableItem.id,
+                            seriesId = stableItem.seriesId,
+                            imageType = "Backdrop",
+                            fallbackImageType = "Thumb",
+                            extraFallbackImageTypes = listOf("Primary"),
+                            preferSeriesIdForThumbBackdrop = true,
+                            preferSeriesIdForEpisodePrimary = false,
+                            contentDescription = item.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            cornerRadius = 12,
+                            crossfadeMillis = 300,
+                            mediaRepository = mediaRepository,
+                            imageMetadata = item,
+                            itemType = stableItem.type,
+                            hasImageEnhancers = !disableImageEnhancers,
+                            imageTag = null
+                        )
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(
                                 Brush.verticalGradient(
                                     colorStops = arrayOf(
                                         0.0f to Color.Transparent,
@@ -2974,114 +3010,55 @@ internal fun LibraryItemCard(
                                     )
                                 )
                             )
-                    )
-
-                    val logoItemId = stableItem.seriesId?.takeIf { it.isNotBlank() } ?: stableItem.id
-                    val logoUrl = rememberImageUrl(
-                        itemId = logoItemId,
-                        imageType = "Logo",
-                        width = 400,
-                        quality = 90,
-                        enableImageEnhancers = false,
-                        mediaRepository = mediaRepository
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(horizontal = 10.dp, vertical = 10.dp)
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        contentAlignment = Alignment.BottomStart
-                    ) {
-                        if (!logoUrl.isNullOrBlank()) {
+                        )
+                        if (!preloadLogoUrl.isNullOrBlank()) {
                             AsyncImage(
-                                model = logoUrl,
+                                model = preloadLogoUrl,
                                 contentDescription = item.name,
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(horizontal = 10.dp, vertical = 10.dp)
                                     .fillMaxWidth(0.82f)
                                     .height(38.dp),
                                 alignment = Alignment.BottomStart
                             )
-                        } else {
-                            Text(
-                                text = displayName,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 2,
-                                lineHeight = 16.sp,
-                                overflow = TextOverflow.Ellipsis
-                            )
                         }
                     }
-                } else {
-                    val imageType = if (landscapeLayout && !useWatchedEpisodeImage) "Thumb" else "Primary"
-                    val fallbackImageType = if (landscapeLayout) "Backdrop" else null
-
-                    ImageLoader(
-                        itemId = stableItem.id,
-                        seriesId = stableItem.seriesId,
-                        imageType = imageType,
-                        fallbackImageType = fallbackImageType,
-                        extraFallbackImageTypes = if (useWatchedEpisodeImage) listOf("Thumb") else if (landscapeLayout) listOf("Primary") else emptyList(),
-                        preferSeriesIdForThumbBackdrop = landscapeLayout && !useWatchedEpisodeImage,
-                        preferSeriesIdForEpisodePrimary = !useWatchedEpisodeImage,
-                        contentDescription = item.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        cornerRadius = 12,
-                        crossfadeMillis = 0,
-                        mediaRepository = mediaRepository,
-                        imageMetadata = item,
-                        itemType = stableItem.type,
-                        hasImageEnhancers = !disableImageEnhancers,
-                        imageTag = null
-                    )
                 }
 
-                val episodeCount = when {
-                    item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
-                    useWatchedSeriesBadge -> null
-                    item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
-                    item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
-                    else -> null
-                }
-
-                val isFullyWatched = item.type == "Series" &&
-                    item.userData?.unplayedItemCount == 0
-
+                // Badges
                 if (!showBackdrop) {
+                    val episodeCount = when {
+                        item.type == "Series" && item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
+                        useWatchedSeriesBadge -> null
+                        item.type == "Series" && item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount!!
+                        item.type == "Series" && item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount!!
+                        else -> null
+                    }
+                    val isFullyWatched = item.type == "Series" && item.userData?.unplayedItemCount == 0
+
                     episodeCount?.takeIf { it > 0 }?.let { count ->
                         if (useWatchedSeriesBadge) {
                             PosterTextBadge(
                                 text = stringResource(R.string.count_left, count),
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(end = 8.dp, bottom = 8.dp)
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 8.dp)
                             )
                         } else {
                             PosterCountBadge(
                                 count = count,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(top = 8.dp, end = 4.dp)
+                                modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 4.dp)
                             )
                         }
                     }
-
                     if (!watchedFeedStyle && (isFullyWatched || (episodeCount == null && stableItem.isWatched))) {
-                        WatchedIndicatorBadge(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(4.dp)
-                        )
+                        WatchedIndicatorBadge(modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
                     }
                 }
             }
         }
 
+        // Title area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3104,7 +3081,6 @@ internal fun LibraryItemCard(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 val metadataText = if (useWatchedEpisodeImage) item.episodeDisplaySubtitle() else buildMetadataText(item)
                 if (metadataText.isNotEmpty()) {
                     Text(
