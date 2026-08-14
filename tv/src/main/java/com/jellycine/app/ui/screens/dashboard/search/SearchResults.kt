@@ -35,6 +35,8 @@ import com.jellycine.shared.ui.components.common.preferredDisplayTitle
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.data.repository.MediaRepositoryProvider
+import androidx.compose.ui.platform.LocalContext
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.getYearAndGenre
@@ -234,6 +236,8 @@ private fun SearchResultCard(
 ) {
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
+    val context = LocalContext.current
+    val mediaRepository = remember(context) { MediaRepositoryProvider.getInstance(context) }
     Column(
         modifier = Modifier
             .width(120.dp)
@@ -253,7 +257,8 @@ private fun SearchResultCard(
                 imageType = "Primary",
                 width = 300,
                 height = 450,
-                quality = 80
+                quality = 80,
+                mediaRepository = mediaRepository
             )
             LazyImageLoader(
                 imageUrl = imageUrl,
@@ -298,6 +303,8 @@ private fun EpisodeResultCard(
 ) {
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
+    val context = LocalContext.current
+    val mediaRepository = remember(context) { MediaRepositoryProvider.getInstance(context) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -318,7 +325,8 @@ private fun EpisodeResultCard(
                 width = 240,
                 height = 180,
                 quality = 75,
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                mediaRepository = mediaRepository
             )
             LazyImageLoader(
                 imageUrl = imageUrl,

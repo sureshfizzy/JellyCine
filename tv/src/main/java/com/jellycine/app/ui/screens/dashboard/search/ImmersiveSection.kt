@@ -106,6 +106,7 @@ fun ImmersiveSection(
             SuggestionsStoriesView(
                 suggestions = movies,
                 onItemClick = onItemClick,
+                mediaRepository = mediaRepository,
                 pagerFocusRequester = pagerFocusRequester,
                 onUpPressed = onUpPressed
             )

@@ -37,6 +37,7 @@ import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
@@ -44,6 +45,7 @@ import kotlin.math.absoluteValue
 fun SuggestionsStoriesView(
     suggestions: List<BaseItemDto>,
     onItemClick: (BaseItemDto) -> Unit,
+    mediaRepository: MediaRepository,
     pagerFocusRequester: FocusRequester = remember { FocusRequester() },
     onUpPressed: () -> Unit = {}
 ) {
@@ -129,7 +131,8 @@ fun SuggestionsStoriesView(
 
             SuggestionsCard(
                 item = suggestions[itemIndex],
-                pageOffset = rawOffset
+                pageOffset = rawOffset,
+                mediaRepository = mediaRepository
             )
         }
 
@@ -252,7 +255,8 @@ fun SuggestionsStoriesView(
 @Composable
 private fun SuggestionsCard(
     item: BaseItemDto,
-    pageOffset: Float
+    pageOffset: Float,
+    mediaRepository: MediaRepository
 ) {
     val absOffset = pageOffset.absoluteValue
 
@@ -300,7 +304,8 @@ private fun SuggestionsCard(
             val imageUrl = item.imageUrl ?: rememberImageUrl(
                 itemId = item.id,
                 imageType = "Primary",
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                mediaRepository = mediaRepository
             )
             LazyImageLoader(
                 imageUrl = imageUrl,
