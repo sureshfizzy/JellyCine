@@ -1662,8 +1662,7 @@ class MediaRepository(private val context: Context) {
                 "AllowVideoStreamCopy" to "true",
                 "AllowAudioStreamCopy" to "true",
                 "BreakOnNonKeyFrames" to "true",
-                "PlaySessionId" to playbackInfo.playSessionId,
-                "api_key" to accessToken
+                "PlaySessionId" to playbackInfo.playSessionId
             )
             if (audioStreamIndex != null) {
                 queryParams.add("AudioStreamIndex" to audioStreamIndex.toString())
@@ -1694,7 +1693,7 @@ class MediaRepository(private val context: Context) {
                     itemId = itemId,
                     displayName = displayName,
                     downloadUrl = downloadUrl,
-                    authToken = null,
+                    authToken = accessToken,
                     fileExtension = container,
                     estimatedBytes = estimatedBytes,
                     isTranscodeResume = startTimeTicks != null && startTimeTicks > 0L
