@@ -39,6 +39,7 @@ fun ConnectionsSettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val discordRpcManager = remember { DiscordRpcManager.getInstance(context) }
+    val isDiscordAppInstalled = remember { discordRpcManager.isDiscordInstalled() }
     var isDiscordAuthorized by remember { mutableStateOf(discordRpcManager.isAuthorized()) }
     val preferences = remember { com.jellycine.shared.preferences.Preferences(context) }
     var discordRpcEnabled by remember { mutableStateOf(preferences.isDiscordRpcEnabled()) }
@@ -116,6 +117,16 @@ fun ConnectionsSettingsScreen(
                         }
                     }
                 )
+            }
+            if (!isDiscordAppInstalled) {
+                item {
+                    Text(
+                        text = stringResource(R.string.settings_discord_note_app_required),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
             }
         }
     }

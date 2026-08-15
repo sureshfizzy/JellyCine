@@ -80,7 +80,7 @@ class DiscordRpcManager private constructor(private val context: Context) {
         }
     }
 
-    private fun isDiscordInstalled(): Boolean {
+    fun isDiscordInstalled(): Boolean {
         val packages = listOf("com.discord", "com.discord.rlz")
         return packages.any { pkg ->
             try {

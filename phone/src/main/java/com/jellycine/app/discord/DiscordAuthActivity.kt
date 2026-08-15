@@ -1,7 +1,10 @@
 package com.jellycine.app.discord
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.lifecycle.lifecycleScope
@@ -57,9 +60,19 @@ class DiscordAuthActivity : ComponentActivity() {
     private fun openAuthFlow() {
         val manager = DiscordRpcManager.getInstance(this)
         val authUrl = manager.getAuthorizationUrl()
-        CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .build()
-            .launchUrl(this, Uri.parse(authUrl))
+        val uri = Uri.parse(authUrl)
+        try {
+            CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+                .launchUrl(this, uri)
+        } catch (_: ActivityNotFoundException) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(this, "No browser available", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
     }
 }
