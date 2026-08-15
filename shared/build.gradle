@@ -29,7 +29,7 @@ kotlin {
             dependencies {
                 implementation project(':data')
 
-                implementation 'androidx.core:core-ktx:1.18.0'
+                implementation 'androidx.core:core-ktx:1.19.0'
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
 
                 implementation platform('androidx.compose:compose-bom:2026.05.01')
