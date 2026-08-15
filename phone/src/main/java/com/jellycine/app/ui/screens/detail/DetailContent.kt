@@ -255,6 +255,9 @@ fun DetailContent(
     val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
     val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
             itemDownloadState.status == DownloadStatus.QUEUED
+    val isSyncTranscodingAllowed = remember {
+        mediaRepository.getPersistedHomeSnapshot()?.isSyncTranscodingAllowed ?: true
+    }
     var showDownloadQualityPicker by remember(item.id) { mutableStateOf(false) }
     var pendingSeriesEpisodes by remember(item.id) { mutableStateOf<List<BaseItemDto>?>(null) }
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
@@ -1093,7 +1096,18 @@ fun DetailContent(
                                 },
                                 onTrailerClick = ::playTrailer,
                                 onDownloadClick = {
-                                    showDownloadQualityPicker = true
+                                    if (isSyncTranscodingAllowed) {
+                                        showDownloadQualityPicker = true
+                                    } else {
+                                        coroutineScope.launch {
+                                            downloadRepository.enqueueItemDownload(
+                                                item, TranscodeProfile("Original", null, null), null
+                                            ).onFailure { throwable ->
+                                                downloadErrorDialogMessage =
+                                                    downloadFailure(rawMessage = throwable.message)
+                                            }
+                                        }
+                                    }
                                 },
                                 onDownloadMenuChange = { expanded ->
                                     downloadActionMenu = expanded
@@ -1330,8 +1344,24 @@ fun DetailContent(
                     .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
                     .distinctBy { it.id }
                 seriesStorageSelectionDialogState = null
-                pendingSeriesEpisodes = selectedEpisodes
-                showDownloadQualityPicker = true
+                if (isSyncTranscodingAllowed) {
+                    pendingSeriesEpisodes = selectedEpisodes
+                    showDownloadQualityPicker = true
+                } else {
+                    coroutineScope.launch {
+                        seriesQueueInProgress = true
+                        try {
+                            downloadRepository.enqueueEpisodeDownloads(
+                                selectedEpisodes, TranscodeProfile("Original", null, null), null
+                            ).onFailure { throwable ->
+                                downloadErrorDialogMessage =
+                                    downloadFailure(rawMessage = throwable.message)
+                            }
+                        } finally {
+                            seriesQueueInProgress = false
+                        }
+                    }
+                }
             }
         },
         onDismissDownloadError = {

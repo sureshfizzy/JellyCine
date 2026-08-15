@@ -269,7 +269,8 @@ class MediaRepository(private val context: Context) {
         profileImageUrl: String? = null,
         isAdministrator: Boolean? = null,
         isVideoTranscodingAllowed: Boolean? = null,
-        isAudioTranscodingAllowed: Boolean? = null
+        isAudioTranscodingAllowed: Boolean? = null,
+        isSyncTranscodingAllowed: Boolean? = null
     ) {
         val config = getSessionConfig() ?: return
         homeSnapshotStore.persistHomeSnapshot(
@@ -285,7 +286,8 @@ class MediaRepository(private val context: Context) {
             profileImageUrl = profileImageUrl,
             isAdministrator = isAdministrator,
             isVideoTranscodingAllowed = isVideoTranscodingAllowed,
-            isAudioTranscodingAllowed = isAudioTranscodingAllowed
+            isAudioTranscodingAllowed = isAudioTranscodingAllowed,
+            isSyncTranscodingAllowed = isSyncTranscodingAllowed
         )
     }
 

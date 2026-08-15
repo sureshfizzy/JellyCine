@@ -141,5 +141,8 @@ data class UserPolicy(
     val enableAudioPlaybackTranscoding: Boolean? = null,
     
     @SerialName("EnableVideoPlaybackTranscoding")
-    val enableVideoPlaybackTranscoding: Boolean? = null
+    val enableVideoPlaybackTranscoding: Boolean? = null,
+
+    @SerialName("EnableSyncTranscoding")
+    val enableSyncTranscoding: Boolean? = null
 )

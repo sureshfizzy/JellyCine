@@ -1318,6 +1318,7 @@ fun Dashboard(
             val user = userResult.getOrNull()
             val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
             val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
+            val isSyncTranscodingEnabled = user?.policy?.enableSyncTranscoding ?: user?.let { true }
             val profileUrl = try {
                 mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
             } catch (error: CancellationException) {
@@ -1340,7 +1341,8 @@ fun Dashboard(
                 profileImageUrl = profileUrl,
                 isAdministrator = user?.policy?.isAdministrator,
                 isVideoTranscodingAllowed = isVideoTranscodingEnabled,
-                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled,
+                isSyncTranscodingAllowed = isSyncTranscodingEnabled
             )
             user?.policy?.isDisabled == true
         } else {

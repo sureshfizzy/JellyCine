@@ -57,7 +57,8 @@ class HomeSnapshotStore(
         profileImageUrl: String? = null,
         isAdministrator: Boolean? = null,
         isVideoTranscodingAllowed: Boolean? = null,
-        isAudioTranscodingAllowed: Boolean? = null
+        isAudioTranscodingAllowed: Boolean? = null,
+        isSyncTranscodingAllowed: Boolean? = null
     ) {
         withContext(Dispatchers.IO) {
             homeSnapshotMutex.withLock {
@@ -81,7 +82,9 @@ class HomeSnapshotStore(
                         isVideoTranscodingAllowed = isVideoTranscodingAllowed
                             ?: sameSessionSnapshot?.isVideoTranscodingAllowed,
                         isAudioTranscodingAllowed = isAudioTranscodingAllowed
-                            ?: sameSessionSnapshot?.isAudioTranscodingAllowed
+                            ?: sameSessionSnapshot?.isAudioTranscodingAllowed,
+                        isSyncTranscodingAllowed = isSyncTranscodingAllowed
+                            ?: sameSessionSnapshot?.isSyncTranscodingAllowed
                     )
                     writeSnapshotAtomically(file, next)
                 }

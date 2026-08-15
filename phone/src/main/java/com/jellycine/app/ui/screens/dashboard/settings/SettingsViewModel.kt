@@ -223,6 +223,7 @@ class SettingsViewModel(
         if (userResult.isSuccess) {
             val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
             val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
+            val isSyncTranscodingEnabled = user?.policy?.enableSyncTranscoding ?: user?.let { true }
             authRepository.updateActiveServerProfileImage(updatedProfileUrl)
             val updatedState = _uiState.value
             _uiState.value = updatedState.copy(
@@ -247,7 +248,8 @@ class SettingsViewModel(
                 profileImageUrl = updatedProfileUrl,
                 isAdministrator = user?.policy?.isAdministrator,
                 isVideoTranscodingAllowed = isVideoTranscodingEnabled,
-                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled,
+                isSyncTranscodingAllowed = isSyncTranscodingEnabled
             )
         } else {
             _uiState.value = _uiState.value.copy(

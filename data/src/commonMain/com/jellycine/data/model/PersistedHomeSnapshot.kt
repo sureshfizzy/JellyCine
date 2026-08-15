@@ -23,5 +23,6 @@ data class PersistedHomeSnapshot(
     val profileImageUrl: String? = null,
     val isAdministrator: Boolean? = null,
     val isVideoTranscodingAllowed: Boolean? = null,
-    val isAudioTranscodingAllowed: Boolean? = null
+    val isAudioTranscodingAllowed: Boolean? = null,
+    val isSyncTranscodingAllowed: Boolean? = null
 )
