@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,8 @@ import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.getYearAndGenre
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.MediaRepositoryProvider
 import coil3.compose.AsyncImage
 import java.util.Locale
 
@@ -235,6 +238,8 @@ private fun SearchResultCard(
     item: BaseItemDto,
     onItemClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
     Column(
@@ -257,7 +262,8 @@ private fun SearchResultCard(
                 imageType = "Primary",
                 width = 300,
                 height = 450,
-                quality = 80
+                quality = 80,
+                mediaRepository = mediaRepository
             )
             LazyImageLoader(
                 imageUrl = imageUrl,
@@ -302,6 +308,8 @@ private fun EpisodeResultCard(
     item: BaseItemDto,
     onItemClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val unknownTitle = stringResource(R.string.search_result_unknown_title)
     val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
     Row(
@@ -325,7 +333,8 @@ private fun EpisodeResultCard(
                 width = 240,
                 height = 180,
                 quality = 75,
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                mediaRepository = mediaRepository
             )
             LazyImageLoader(
                 imageUrl = imageUrl,

@@ -33,12 +33,18 @@ import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
+import androidx.compose.ui.platform.LocalContext
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.MediaRepositoryProvider
 
 @Composable
 fun SuggestionsStoriesView(
     suggestions: List<BaseItemDto>,
     onItemClick: (BaseItemDto) -> Unit
 ) {
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+
     if (suggestions.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -90,7 +96,8 @@ fun SuggestionsStoriesView(
             ?: rememberImageUrl(
                 itemId = currentItem.id,
                 imageType = "Primary",
-                enableImageEnhancers = false
+                enableImageEnhancers = false,
+                mediaRepository = mediaRepository
             )
 
         LazyImageLoader(
@@ -148,7 +155,8 @@ fun SuggestionsStoriesView(
                 item = suggestions[itemIndex],
                 isActive = itemIndex == currentItemIndex,
                 pageOffset = pageOffset,
-                onItemClick = { onItemClick(suggestions[itemIndex]) }
+                onItemClick = { onItemClick(suggestions[itemIndex]) },
+                mediaRepository = mediaRepository
             )
         }
 
@@ -272,7 +280,8 @@ private fun SuggestionsCard(
     item: BaseItemDto,
     isActive: Boolean,
     pageOffset: Float,
-    onItemClick: () -> Unit
+    onItemClick: () -> Unit,
+    mediaRepository: MediaRepository
 ) {
     var isPressed by remember { mutableStateOf(false) }
     
@@ -343,7 +352,8 @@ private fun SuggestionsCard(
                 val imageUrl = item.imageUrl ?: rememberImageUrl(
                     itemId = item.id,
                     imageType = "Primary",
-                    enableImageEnhancers = false
+                    enableImageEnhancers = false,
+                    mediaRepository = mediaRepository
                 )
                 LazyImageLoader(
                     imageUrl = imageUrl,
