@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -73,6 +74,10 @@ import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.amoledAuthFieldColors
 import com.jellycine.shared.ui.theme.JellyBlue
 import com.jellycine.shared.ui.theme.JellyRed
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings as AndroidSettings
 import com.jellycine.data.repository.AuthRepositoryProvider
 import kotlinx.coroutines.launch
 
@@ -247,6 +252,30 @@ fun AuthScreen(
                         }
                     )
                 }
+            }
+
+            IconButton(
+                onClick = {
+                    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        Intent(AndroidSettings.ACTION_APP_LOCALE_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                    } else {
+                        Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
+                    }
+                    runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 4.dp, end = 4.dp)
+                    .size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Translate,
+                    contentDescription = stringResource(R.string.settings_language),
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
