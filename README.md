@@ -105,6 +105,14 @@ Debug and release APKs are named as:
 
 See [PRIVACY](PRIVACY) for the current privacy policy.
 
+## Translating
+
+<a href="https://weblate.jellycine.org/engage/jellycine/">
+<img src="https://weblate.jellycine.org/widget/jellycine/multi-auto.svg" alt="Translation status" />
+</a>
+
+Help translate JellyCine into your language on our [Weblate](https://weblate.jellycine.org/engage/jellycine/).
+
 ## Contributing
 
 Issues and pull requests are welcome. For large feature work, open an issue first to align on scope.
