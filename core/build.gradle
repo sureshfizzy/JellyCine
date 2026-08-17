@@ -81,7 +81,7 @@ dependencies {
     implementation files('libs/discord_partner_sdk.aar')
 
     // Encrypted SharedPreferences for Discord auth tokens
-    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    implementation 'androidx.security:security-crypto:1.1.0'
 
     // Hilt for dependency injection
     implementation 'com.google.dagger:hilt-android:2.59.2'
