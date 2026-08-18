@@ -1,5 +1,11 @@
 package com.jellycine.app.ui.screens.admin
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,7 +40,6 @@ import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -55,12 +60,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -533,8 +540,31 @@ private fun InfoRow(icon: ImageVector, label: String, value: String, accentColor
 
 @Composable
 private fun LoadingState() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = AccentBlue)
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val offset by transition.animateFloat(
+        initialValue = -1f, targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label = "offset"
+    )
+    val brush = Brush.linearGradient(
+        listOf(Color(0xFF111111), Color(0xFF1A1A1A), Color(0xFF222222), Color(0xFF1A1A1A), Color(0xFF111111)),
+        start = androidx.compose.ui.geometry.Offset(offset * 1000f, 0f),
+        end = androidx.compose.ui.geometry.Offset(offset * 1000f + 600f, 0f)
+    )
+
+    @Composable fun bar(h: Dp, w: Modifier = Modifier.fillMaxWidth(), r: Dp = 16.dp) =
+        Box(modifier = w.height(h).background(brush, RoundedCornerShape(r)))
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        bar(80.dp)
+        bar(12.dp, Modifier.width(80.dp), 6.dp)
+        bar(120.dp)
+        bar(12.dp, Modifier.width(100.dp), 6.dp)
+        bar(90.dp)
+        bar(90.dp)
     }
 }
 
