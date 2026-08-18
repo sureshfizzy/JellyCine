@@ -82,7 +82,9 @@ fun Discover(
     var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
     var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
     val showWatchedTab = feed == DiscoverFeed.WATCHED
-    var isLoading by remember { mutableStateOf(true) }
+    var loadingFeed by remember { mutableStateOf(true) }
+    var loadingWatched by remember { mutableStateOf(true) }
+    val isLoading = if (showWatchedTab) loadingWatched else loadingFeed
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
@@ -113,24 +115,26 @@ fun Discover(
 
     fun refresh() {
         scope.launch {
-            isLoading = true
-            val recommendationResult = async { loadRecommendationFeed(mediaRepository) }
-            val watchedResult = async {
-                loadWatchedFeed(
-                    mediaRepository = mediaRepository,
-                    moviesTitle = watchedMoviesTitle,
-                    showsTitle = watchedShowsTitle,
-                    episodesTitle = watchedEpisodesTitle
-                )
-            }
-            val result = recommendationResult.await()
-            val watched = watchedResult.await()
+            loadingFeed = true
+            val result = loadRecommendationFeed(mediaRepository)
             sections = result.sections
+            error = result.error
+            loadingFeed = false
+        }
+
+        scope.launch {
+            loadingWatched = true
+            val watched = loadWatchedFeed(
+                mediaRepository = mediaRepository,
+                moviesTitle = watchedMoviesTitle,
+                showsTitle = watchedShowsTitle,
+                episodesTitle = watchedEpisodesTitle
+            )
             watchedSections = watched.sections.map { section ->
                 RecommendationSectionUi(section.title, section.items)
             }
-            error = result.error ?: watched.error
-            isLoading = false
+            if (error == null) error = watched.error
+            loadingWatched = false
         }
     }
 
