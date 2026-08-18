@@ -1,109 +1,157 @@
 <p align="center">
-  <img src="phone/src/main/assets/jellycine_logo.png" alt="JellyCine Logo">
+  <img src="phone/src/main/assets/jellycine_logo.png" alt="JellyCine" width="200">
 </p>
 
-<p align="center"><strong>JellyCine</strong></p>
-<p align="center">Jetpack Compose Android client for Jellyfin and Emby, focuses on a fast, fluid UI and smooth playback.</p>
+<h1 align="center">JellyCine</h1>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/Sureshfizzy">
-    <img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support%20development-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
-  </a>
-  <a href="https://www.patreon.com/c/sureshs/membership">
-    <img src="https://img.shields.io/badge/Patreon-become%20a%20patron-FF424D?style=for-the-badge&logo=patreon&logoColor=white" alt="Patreon">
-  </a>
+   A Jetpack Compose based client for <strong>Jellyfin</strong> and <strong>Emby</strong> — designed for phone, TV, and beyond.
 </p>
 
 <p align="center">
   <a href="https://play.google.com/store/apps/details?id=com.jellycine.app">
-    <img src="https://img.shields.io/badge/Google%20Play-download%20app-34A853?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
+    <img src="https://img.shields.io/badge/Google_Play-Download-34A853?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
+  </a>
+  <a href="https://github.com/sureshfizzy/JellyCine/releases">
+    <img src="https://img.shields.io/badge/GitHub-APK_Download-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Releases">
   </a>
 </p>
 
+<p align="center">
+  <a href="https://www.buymeacoffee.com/Sureshfizzy">
+    <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
+  </a>
+  <a href="https://www.patreon.com/c/sureshs/membership">
+    <img src="https://img.shields.io/badge/Patreon-FF424D?style=for-the-badge&logo=patreon&logoColor=white" alt="Patreon">
+  </a>
+</p>
+
+---
+
 ## Features
 
-- Seerr integration for discovery, search, recommendations, detail pages, request badges, request limits, and title requests
-- MPV playback engine with fallback when ExoPlayer cannot render video
-- Merge-version support with local version selection for multi-source items (No server side support required)
+### Playback
+
+- **MPV-based player** with HDR10/HDR10+/Dolby Vision support and HDR format badges
+- Audio passthrough (TrueHD, DTS-HD, Atmos) when supported by device/output
+- Spatial audio passthrough on compatible devices
+- Media3 ExoPlayer fallback when MPV cannot render
+- Jellyfin FFmpeg extension integration for broad codec coverage
+- In-player quality selection, audio transcoding controls, and configurable player cache
+- Gesture controls (seek, volume, brightness), lock mode, and start-maximized preference
+- Skip Intro button when IntroDB/TheIntroDB markers are available
+- Subtitle styling controls with improved track handling
+- Google Cast with inline remote playback controls
+
+### Discovery
+
+- **In-app Trailers** with autoplay in feature carousel (capped to 720p on phones)
+- Trailers & Extras section on detail screens
+- **For You** personalized recommendations with watched feed
+- Awards category powered by Wikidata
+- Immersive search with suggestions, live results, and categorized output
+- Favorites tab with compact header and view-all navigation
+
+### Seerr Integration
+
+- Discovery, search, recommendations, and detail pages
+- Request badges, request limits, and title requests
+- Trailer support for Seerr detail items
+
+### Downloads
+
+- Offline downloads with queue, pause/resume/cancel, and persistent state recovery
+- **Transcoded download support** with quality picker
+- Audio track selection in download quality picker
+- Season and series download with storage estimation
+- Offline-aware navigation — falls back to downloaded content when network is unavailable
+
+### TV
+
+- Redesigned TV UI with D-pad navigation and remote control support
+- Cinematic full-bleed detail screen overlay
+- Immersive backdrop for suggestions
+- Keyboard overlay search with carousel results
+- Feature hero card with card expand and backdrop crossfade
+
+### Multi-Server & Connections
+
 - Jellyfin and Emby support with automatic endpoint resolution
-- Spatial audio passthrough when supported by the device/output route
-- Compose-first UI with Home, My Media, Search, Favorites, and Settings sections
-- Offline-aware navigation mode that falls back to downloaded content when network is unavailable
-- Immersive search experience with suggestions, live results, and categorized results
-- Offline downloads with queueing, pause/resume/cancel, and persistent state recovery
-- Season and series download actions with storage estimation before enqueueing
-- Media3 ExoPlayer playback with Jellyfin FFmpeg extension integration
-- In-player streaming quality selection, audio transcoding controls, and configurable player cache
-- Subtitle styling controls with improved subtitle and audio track handling
-- Google Cast support with inline remote playback controls
-- Gesture controls in player (seek, volume, brightness), lock mode, and start-maximized preference
-- Skip Intro support: shows a Skip Intro button when IntroDB/TheIntroDB markers are available; configurable in player settings
+- Merge-version support with local version selection (no server-side changes required)
+- **Discord Rich Presence** via official Social SDK with connection management
+- **Admin Panel** with live server info, sessions, and activity log
+
+### Platforms
+
+| Platform | Status |
+|----------|--------|
+| Android Phone | Stable |
+| Android TV | Stable |
+| iOS | In Development |
+
+---
 
 ## Screenshots
 
 <div align="center">
   <img src="docs/screenshots/home.jpg" alt="Home" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/viewall.jpg" alt="View All" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/search-immersive.jpg" alt="Search - immersive" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
+  <img src="docs/screenshots/details.jpg" alt="Details" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
+  <img src="docs/screenshots/search-immersive.jpg" alt="Search" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
 </div>
 
 <div align="center">
+  <img src="docs/screenshots/viewall.jpg" alt="View All" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
   <img src="docs/screenshots/settings.jpg" alt="Settings" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/details.jpg" alt="Details" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/searchscreen.jpg" alt="Search Screen" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
+  <img src="docs/screenshots/searchscreen.jpg" alt="Search Results" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
 </div>
 
-For community discussions and support, see [Discussions](https://github.com/sureshfizzy/JellyCine/discussions).
-
-## Project Structure
-
-- `phone`: Phone-specific Android app module (Compose UI, navigation, player, settings)
-- `tv`: TV-specific Android app module (leanback/DPAD support, sidebar rail, TV-specific UI/flows)
-- `data`: APIs, repositories, models; multiplatform/shared networking and serialization helpers
-- `core`: Shared player, preferences, and utility code used by app modules
-- `shared`: Shared UI components and image infrastructure moved into its own module
-- `docs`: Screenshots and documentation assets
+---
 
 ## Tech Stack
 
-- Kotlin, Coroutines, Flow
-- Jetpack Compose + Material 3 + Navigation Compose
-- Hilt + KSP for DI/code generation
-- Ktor Client + OkHttp 5
-- Coil 3 for image loading
-- Media3 ExoPlayer (`exoplayer`, `ui`, `session`, `dash`, `hls`, `smoothstreaming`, `effect`)
-- `org.jellyfin.media3:media3-ffmpeg-decoder` extension
+| Layer | Technology |
+|-------|-----------|
+| Language | Kotlin 2.3, Coroutines, Flow |
+| UI | Jetpack Compose + Material 3 |
+| DI | Hilt + KSP |
+| Networking | Ktor Client + OkHttp 5 |
+| Images | Coil 3 |
+| Player | MPV (primary), Media3 ExoPlayer (fallback) |
+| Multiplatform | Kotlin Multiplatform (Android + iOS) |
+
+## Project Structure
+
+```
+phone/   — Phone app module (Compose UI, navigation, player, settings)
+tv/      — TV app module (leanback/DPAD, sidebar rail, TV-specific flows)
+data/    — APIs, repositories, models; multiplatform networking
+core/    — Shared player, preferences, and utilities
+shared/  — Shared UI components and image infrastructure
+```
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Android Studio (latest stable recommended)
+- Android Studio (latest stable)
 - JDK 17
-- Android SDK platform for API 36
+- Android SDK API 36
 
-### Build and Run
-
-1. Clone the repository.
-2. Open it in Android Studio.
-3. Let Gradle sync complete.
-4. Select a device/emulator (Android 8.1+).
-5. Run the `app` module.
-
-CLI build:
+### Build
 
 ```bash
+# Phone
 ./gradlew :phone:assembleDebug
+
+# TV
+./gradlew :tv:assembleDebug
 ```
 
-Debug and release APKs are named as:
+APK naming: `jellycine-{debug|release}-<version>.apk`
 
-- `jellycine-debug-<version>.apk`
-- `jellycine-release-<version>.apk`
-
-## Privacy
-
-See [PRIVACY](PRIVACY) for the current privacy policy.
+---
 
 ## Translating
 
@@ -111,12 +159,22 @@ See [PRIVACY](PRIVACY) for the current privacy policy.
 <img src="https://weblate.jellycine.org/widget/jellycine/multi-auto.svg" alt="Translation status" />
 </a>
 
-Help translate JellyCine into your language on our [Weblate](https://weblate.jellycine.org/engage/jellycine/).
+Help translate JellyCine into your language on [Weblate](https://weblate.jellycine.org/engage/jellycine/).
+
+---
 
 ## Contributing
 
 Issues and pull requests are welcome. For large feature work, open an issue first to align on scope.
 
+For community discussions and support, see [Discussions](https://github.com/sureshfizzy/JellyCine/discussions).
+
+---
+
+## Privacy
+
+See [PRIVACY](PRIVACY) for the current privacy policy.
+
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
