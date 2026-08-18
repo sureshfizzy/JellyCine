@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = 'com.jellycine.core'
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
@@ -84,7 +84,7 @@ dependencies {
     implementation 'androidx.security:security-crypto:1.1.0'
 
     // Hilt for dependency injection
-    implementation 'com.google.dagger:hilt-android:2.59.2'
+    implementation 'com.google.dagger:hilt-android:2.60.1'
 
     // Data module dependency
     implementation project(':data')

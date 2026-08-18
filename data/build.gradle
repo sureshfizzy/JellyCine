@@ -7,7 +7,7 @@ plugins {
 kotlin {
     android {
         namespace = 'com.jellycine.data'
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 27
 
         androidResources {
@@ -30,16 +30,18 @@ kotlin {
         }
     }
 
-    // iOS targets
-    def iosX64 = iosX64()
-    def iosArm64 = iosArm64()
-    def iosSimulatorArm64 = iosSimulatorArm64()
+    // iOS targets (only on macOS)
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+        def iosX64 = iosX64()
+        def iosArm64 = iosArm64()
+        def iosSimulatorArm64 = iosSimulatorArm64()
 
-    // Configure iOS framework for Xcode
-    [iosX64, iosArm64, iosSimulatorArm64].forEach { target ->
-        target.binaries.framework {
-            baseName = "JellyCineData"
-            isStatic = true
+        // Configure iOS framework for Xcode
+        [iosX64, iosArm64, iosSimulatorArm64].forEach { target ->
+            target.binaries.framework {
+                baseName = "JellyCineData"
+                isStatic = true
+            }
         }
     }
 
@@ -71,13 +73,15 @@ kotlin {
                 implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
             }
         }
-        iosMain {
-            kotlin.srcDirs = ['src/iosMain']
-            dependencies {
-                implementation "io.ktor:ktor-client-darwin:3.5.2"
-                implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
-                implementation "androidx.datastore:datastore-preferences-core:1.2.1"
-                implementation "com.squareup.okio:okio:3.9.0"
+        if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
+            iosMain {
+                kotlin.srcDirs = ['src/iosMain']
+                dependencies {
+                    implementation "io.ktor:ktor-client-darwin:3.5.2"
+                    implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
+                    implementation "androidx.datastore:datastore-preferences-core:1.2.1"
+                    implementation "com.squareup.okio:okio:3.9.0"
+                }
             }
         }
     }
