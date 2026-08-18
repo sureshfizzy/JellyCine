@@ -3,9 +3,9 @@ package com.jellycine.app.player.mpv
 import android.content.Context
 import android.view.Surface
 import com.jellycine.player.preferences.PlayerPreferences
-import dev.jdtech.mpv.MPVLib
-import dev.jdtech.mpv.MPVLib.MpvEvent
-import dev.jdtech.mpv.MPVLib.MpvFormat
+import org.jellycine.mpv.MPVLib
+import org.jellycine.mpv.MPVLib.MpvEvent
+import org.jellycine.mpv.MPVLib.MpvFormat
 
 class MpvPlayerController(
     context: Context,
@@ -21,7 +21,8 @@ class MpvPlayerController(
         fun onEnded()
     }
 
-    private val mpv = MPVLib.create(context.applicationContext)
+    private val appContext = context.applicationContext
+    private val mpv = MPVLib.create(appContext)
         ?: error("MPVLib.create() returned null")
     private var released = false
     private var ready = false
@@ -254,6 +255,9 @@ class MpvPlayerController(
         val cacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds().toString()
         val cacheSizeMb = playerPreferences.getPlayerCacheSizeMb()
 
+        val shaderCacheDir = appContext.cacheDir.resolve("mpv-shaders")
+        shaderCacheDir.mkdirs()
+        mpv.setOptionString("gpu-shader-cache-dir", shaderCacheDir.path)
         mpv.setOptionString("config", "no")
         mpv.setOptionString("load-scripts", "no")
         mpv.setOptionString("load-auto-profiles", "no")
@@ -272,11 +276,12 @@ class MpvPlayerController(
         mpv.setOptionString("correct-downscaling", "no")
         mpv.setOptionString("linear-downscaling", "no")
         mpv.setOptionString("sigmoid-upscaling", "no")
-        mpv.setOptionString("hdr-compute-peak", "no")
+        mpv.setOptionString("hdr-compute-peak", "auto")
         mpv.setOptionString("allow-delayed-peak-detect", "yes")
+        mpv.setOptionString("target-colorspace-hint", "yes")
+        mpv.setOptionString("audio-spdif", "ac3,eac3,dts,truehd")
         mpv.setOptionString("vo", videoOutput)
         mpv.setOptionString("gpu-context", "android")
-        mpv.setOptionString("opengl-es", "yes")
         mpv.setOptionString("ao", audioOutput)
         mpv.setOptionString("hwdec", hardwareDecoding)
         mpv.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
