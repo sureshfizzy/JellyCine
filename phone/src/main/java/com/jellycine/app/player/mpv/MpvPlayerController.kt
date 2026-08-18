@@ -279,7 +279,6 @@ class MpvPlayerController(
         mpv.setOptionString("hdr-compute-peak", "auto")
         mpv.setOptionString("allow-delayed-peak-detect", "yes")
         mpv.setOptionString("target-colorspace-hint", "yes")
-        mpv.setOptionString("audio-spdif", "ac3,eac3,dts,truehd")
         mpv.setOptionString("vo", videoOutput)
         mpv.setOptionString("gpu-context", "android")
         mpv.setOptionString("ao", audioOutput)
