@@ -25,20 +25,24 @@ import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.DisplaySettings
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VideoSettings
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -73,8 +77,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jellycine.shared.R
+import com.jellycine.app.ui.components.common.AmoledSelectionDialog
+import com.jellycine.app.ui.components.common.SelectionOption
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.shared.R
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -151,6 +157,93 @@ fun PlayerSettingsScreen(
                             options = PlayerPreferences.MPV_AUDIO_OUTPUT_OPTIONS,
                             onOptionSelected = viewModel::setMpvAudioOutput,
                             accentColor = videoColor
+                        )
+                    }
+                }
+            }
+
+            if (uiState.playerEngine == PlayerPreferences.PLAYER_ENGINE_MPV) {
+                val renderingColor = Color(0xFFF59E0B)
+                item { SectionLabel("RENDERING") }
+                item {
+                    SettingsSection {
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Tune,
+                            title = "Upscale Filter",
+                            subtitle = uiState.mpvUpscaleFilter,
+                            selectedValue = uiState.mpvUpscaleFilter,
+                            options = listOf(
+                                SelectionOption("bilinear", "Bilinear", "Fast, smooth, slightly soft"),
+                                SelectionOption("spline36", "Spline36", "Balanced sharpness and smoothness"),
+                                SelectionOption("lanczos", "Lanczos", "Sharp and detailed", isDefault = true),
+                                SelectionOption("ewa_lanczos", "EWA Lanczos", "Sharpest quality, GPU intensive")
+                            ),
+                            onOptionSelected = viewModel::setMpvUpscaleFilter,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Tune,
+                            title = "Downscale Filter",
+                            subtitle = uiState.mpvDownscaleFilter,
+                            selectedValue = uiState.mpvDownscaleFilter,
+                            options = listOf(
+                                SelectionOption("hermite", "Hermite", "Smooth and soft, reduces aliasing", isDefault = true),
+                                SelectionOption("mitchell", "Mitchell", "Balanced, slight sharpness"),
+                                SelectionOption("catmull_rom", "Catmull-Rom", "Sharper, preserves edges"),
+                                SelectionOption("lanczos", "Lanczos", "Sharpest downscale, may ring slightly")
+                            ),
+                            onOptionSelected = viewModel::setMpvDownscaleFilter,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Contrast,
+                            title = "Tone Mapping",
+                            subtitle = uiState.mpvToneMapping,
+                            selectedValue = uiState.mpvToneMapping,
+                            options = listOf(
+                                SelectionOption("auto", "Auto", "Best overall quality (spline)", isDefault = true),
+                                SelectionOption("bt.2390", "BT.2390", "Broadcast standard, natural highlights"),
+                                SelectionOption("spline", "Spline", "Smooth curve, preserves mid-tones"),
+                                SelectionOption("hable", "Filmic", "Cinematic roll-off, softer highlights"),
+                                SelectionOption("mobius", "Mobius", "Soft roll-off, preserves dark detail"),
+                                SelectionOption("reinhard", "Reinhard", "Simple, slightly desaturated highlights")
+                            ),
+                            onOptionSelected = viewModel::setMpvToneMapping,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SwitchSettingsItem(
+                            icon = Icons.Rounded.SlowMotionVideo,
+                            title = "Smooth Motion",
+                            subtitle = "Interpolate frames on high refresh displays",
+                            checked = uiState.mpvSmoothMotion,
+                            onCheckedChange = viewModel::setMpvSmoothMotion,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SwitchSettingsItem(
+                            icon = Icons.Rounded.Gradient,
+                            title = "Deband",
+                            subtitle = "Reduce color banding in dark gradients",
+                            checked = uiState.mpvDeband,
+                            onCheckedChange = viewModel::setMpvDeband,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SwitchSettingsItem(
+                            icon = Icons.Rounded.WbSunny,
+                            title = "Dynamic Brightness",
+                            subtitle = "Adapt tone mapping per scene",
+                            checked = uiState.mpvDynamicPeak,
+                            onCheckedChange = viewModel::setMpvDynamicPeak,
+                            accentColor = renderingColor
                         )
                     }
                 }
@@ -1024,6 +1117,49 @@ private fun PercentageSliderSettingsItem(
     )
 }
 
+
+@Composable
+private fun SelectionDialogSettingsItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    selectedValue: String,
+    options: List<SelectionOption>,
+    onOptionSelected: (String) -> Unit,
+    accentColor: Color = MaterialTheme.colorScheme.primary
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    BaseSettingsItem(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        accentColor = accentColor,
+        onClick = { showDialog = true },
+        trailing = {
+            Icon(
+                imageVector = Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    )
+
+    if (showDialog) {
+        AmoledSelectionDialog(
+            title = title,
+            options = options,
+            selectedValue = selectedValue,
+            accentColor = accentColor,
+            onOptionSelected = { value ->
+                onOptionSelected(value)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false }
+        )
+    }
+}
 
 @Preview(showBackground = true)
 @Composable

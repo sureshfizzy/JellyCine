@@ -130,7 +130,13 @@ object MpvWarmPool {
         val subtitleBackgroundColor: String,
         val subtitleEdgeType: String,
         val subtitleTextOpacityPercent: Int,
-        val subtitlePosition: Int
+        val subtitlePosition: Int,
+        val upscaleFilter: String,
+        val downscaleFilter: String,
+        val toneMapping: String,
+        val smoothMotion: Boolean,
+        val deband: Boolean,
+        val dynamicPeak: Boolean
     ) {
         companion object {
             fun from(preferences: PlayerPreferences): MpvWarmConfig {
@@ -145,7 +151,13 @@ object MpvWarmPool {
                     subtitleBackgroundColor = preferences.getSubtitleBackgroundColor(),
                     subtitleEdgeType = preferences.getSubtitleEdgeType(),
                     subtitleTextOpacityPercent = preferences.getSubtitleTextOpacityPercent(),
-                    subtitlePosition = preferences.getSubtitlePosition()
+                    subtitlePosition = preferences.getSubtitlePosition(),
+                    upscaleFilter = preferences.getMpvUpscaleFilter(),
+                    downscaleFilter = preferences.getMpvDownscaleFilter(),
+                    toneMapping = preferences.getMpvToneMapping(),
+                    smoothMotion = preferences.getMpvSmoothMotion(),
+                    deband = preferences.getMpvDeband(),
+                    dynamicPeak = preferences.getMpvDynamicPeak()
                 )
             }
         }

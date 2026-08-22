@@ -16,6 +16,12 @@ data class PlayerSettingsUiState(
     val mpvHardwareDecoding: String = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
     val mpvVideoOutput: String = PlayerPreferences.DEFAULT_MPV_VIDEO_OUTPUT,
     val mpvAudioOutput: String = PlayerPreferences.DEFAULT_MPV_AUDIO_OUTPUT,
+    val mpvUpscaleFilter: String = PlayerPreferences.DEFAULT_MPV_UPSCALE_FILTER,
+    val mpvDownscaleFilter: String = PlayerPreferences.DEFAULT_MPV_DOWNSCALE_FILTER,
+    val mpvToneMapping: String = PlayerPreferences.DEFAULT_MPV_TONE_MAPPING,
+    val mpvSmoothMotion: Boolean = PlayerPreferences.DEFAULT_MPV_SMOOTH_MOTION,
+    val mpvDeband: Boolean = PlayerPreferences.DEFAULT_MPV_DEBAND,
+    val mpvDynamicPeak: Boolean = PlayerPreferences.DEFAULT_MPV_DYNAMIC_PEAK,
 
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
@@ -89,6 +95,12 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding(),
                 mpvVideoOutput = playerPreferences.getMpvVideoOutput(),
                 mpvAudioOutput = playerPreferences.getMpvAudioOutput(),
+                mpvUpscaleFilter = playerPreferences.getMpvUpscaleFilter(),
+                mpvDownscaleFilter = playerPreferences.getMpvDownscaleFilter(),
+                mpvToneMapping = playerPreferences.getMpvToneMapping(),
+                mpvSmoothMotion = playerPreferences.getMpvSmoothMotion(),
+                mpvDeband = playerPreferences.getMpvDeband(),
+                mpvDynamicPeak = playerPreferences.getMpvDynamicPeak(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
@@ -133,6 +145,36 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setMpvAudioOutput(audioOutput: String) {
         playerPreferences.setMpvAudioOutput(audioOutput)
         _uiState.value = _uiState.value.copy(mpvAudioOutput = playerPreferences.getMpvAudioOutput())
+    }
+
+    fun setMpvUpscaleFilter(filter: String) {
+        playerPreferences.setMpvUpscaleFilter(filter)
+        _uiState.value = _uiState.value.copy(mpvUpscaleFilter = playerPreferences.getMpvUpscaleFilter())
+    }
+
+    fun setMpvDownscaleFilter(filter: String) {
+        playerPreferences.setMpvDownscaleFilter(filter)
+        _uiState.value = _uiState.value.copy(mpvDownscaleFilter = playerPreferences.getMpvDownscaleFilter())
+    }
+
+    fun setMpvToneMapping(toneMapping: String) {
+        playerPreferences.setMpvToneMapping(toneMapping)
+        _uiState.value = _uiState.value.copy(mpvToneMapping = playerPreferences.getMpvToneMapping())
+    }
+
+    fun setMpvSmoothMotion(enabled: Boolean) {
+        playerPreferences.setMpvSmoothMotion(enabled)
+        _uiState.value = _uiState.value.copy(mpvSmoothMotion = enabled)
+    }
+
+    fun setMpvDeband(enabled: Boolean) {
+        playerPreferences.setMpvDeband(enabled)
+        _uiState.value = _uiState.value.copy(mpvDeband = enabled)
+    }
+
+    fun setMpvDynamicPeak(enabled: Boolean) {
+        playerPreferences.setMpvDynamicPeak(enabled)
+        _uiState.value = _uiState.value.copy(mpvDynamicPeak = enabled)
     }
 
     fun setHardwareDecodingEnabled(enabled: Boolean) {

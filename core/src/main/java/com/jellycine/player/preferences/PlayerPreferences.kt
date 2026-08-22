@@ -21,6 +21,12 @@ class PlayerPreferences(context: Context) {
         private const val KEY_MPV_HARDWARE_DECODING = "mpv_hardware_decoding"
         private const val KEY_MPV_VIDEO_OUTPUT = "mpv_video_output"
         private const val KEY_MPV_AUDIO_OUTPUT = "mpv_audio_output"
+        private const val KEY_MPV_UPSCALE_FILTER = "mpv_upscale_filter"
+        private const val KEY_MPV_DOWNSCALE_FILTER = "mpv_downscale_filter"
+        private const val KEY_MPV_TONE_MAPPING = "mpv_tone_mapping"
+        private const val KEY_MPV_SMOOTH_MOTION = "mpv_smooth_motion"
+        private const val KEY_MPV_DEBAND = "mpv_deband"
+        private const val KEY_MPV_DYNAMIC_PEAK = "mpv_dynamic_peak"
         private const val KEY_HARDWARE_ACCELERATION = "hardware_acceleration_enabled"
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
@@ -149,6 +155,50 @@ class PlayerPreferences(context: Context) {
             MPV_AUDIO_OUTPUT_AUDIOTRACK,
             MPV_AUDIO_OUTPUT_OPENSLES
         )
+
+        const val MPV_UPSCALE_FILTER_BILINEAR = "bilinear"
+        const val MPV_UPSCALE_FILTER_SPLINE36 = "spline36"
+        const val MPV_UPSCALE_FILTER_LANCZOS = "lanczos"
+        const val MPV_UPSCALE_FILTER_EWA_LANCZOS = "ewa_lanczos"
+        const val DEFAULT_MPV_UPSCALE_FILTER = MPV_UPSCALE_FILTER_LANCZOS
+        val MPV_UPSCALE_FILTER_OPTIONS = listOf(
+            MPV_UPSCALE_FILTER_BILINEAR,
+            MPV_UPSCALE_FILTER_SPLINE36,
+            MPV_UPSCALE_FILTER_LANCZOS,
+            MPV_UPSCALE_FILTER_EWA_LANCZOS
+        )
+
+        const val MPV_DOWNSCALE_FILTER_HERMITE = "hermite"
+        const val MPV_DOWNSCALE_FILTER_MITCHELL = "mitchell"
+        const val MPV_DOWNSCALE_FILTER_CATMULL_ROM = "catmull_rom"
+        const val MPV_DOWNSCALE_FILTER_LANCZOS = "lanczos"
+        const val DEFAULT_MPV_DOWNSCALE_FILTER = MPV_DOWNSCALE_FILTER_HERMITE
+        val MPV_DOWNSCALE_FILTER_OPTIONS = listOf(
+            MPV_DOWNSCALE_FILTER_HERMITE,
+            MPV_DOWNSCALE_FILTER_MITCHELL,
+            MPV_DOWNSCALE_FILTER_CATMULL_ROM,
+            MPV_DOWNSCALE_FILTER_LANCZOS
+        )
+
+        const val MPV_TONE_MAPPING_AUTO = "auto"
+        const val MPV_TONE_MAPPING_BT2390 = "bt.2390"
+        const val MPV_TONE_MAPPING_SPLINE = "spline"
+        const val MPV_TONE_MAPPING_HABLE = "hable"
+        const val MPV_TONE_MAPPING_MOBIUS = "mobius"
+        const val MPV_TONE_MAPPING_REINHARD = "reinhard"
+        const val DEFAULT_MPV_TONE_MAPPING = MPV_TONE_MAPPING_AUTO
+        val MPV_TONE_MAPPING_OPTIONS = listOf(
+            MPV_TONE_MAPPING_AUTO,
+            MPV_TONE_MAPPING_BT2390,
+            MPV_TONE_MAPPING_SPLINE,
+            MPV_TONE_MAPPING_HABLE,
+            MPV_TONE_MAPPING_MOBIUS,
+            MPV_TONE_MAPPING_REINHARD
+        )
+
+        const val DEFAULT_MPV_SMOOTH_MOTION = false
+        const val DEFAULT_MPV_DEBAND = true
+        const val DEFAULT_MPV_DYNAMIC_PEAK = true
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
         const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
         const val DECODER_PRIORITY_AUTO = "Auto"
@@ -283,7 +333,76 @@ class PlayerPreferences(context: Context) {
             )
             .apply()
     }
-    
+
+    fun getMpvUpscaleFilter(): String {
+        val value = prefs.getString(KEY_MPV_UPSCALE_FILTER, DEFAULT_MPV_UPSCALE_FILTER)
+            ?: DEFAULT_MPV_UPSCALE_FILTER
+        return if (value in MPV_UPSCALE_FILTER_OPTIONS) value else DEFAULT_MPV_UPSCALE_FILTER
+    }
+
+    fun setMpvUpscaleFilter(filter: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_UPSCALE_FILTER,
+                if (filter in MPV_UPSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_UPSCALE_FILTER
+            )
+            .apply()
+    }
+
+    fun getMpvDownscaleFilter(): String {
+        val value = prefs.getString(KEY_MPV_DOWNSCALE_FILTER, DEFAULT_MPV_DOWNSCALE_FILTER)
+            ?: DEFAULT_MPV_DOWNSCALE_FILTER
+        return if (value in MPV_DOWNSCALE_FILTER_OPTIONS) value else DEFAULT_MPV_DOWNSCALE_FILTER
+    }
+
+    fun setMpvDownscaleFilter(filter: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_DOWNSCALE_FILTER,
+                if (filter in MPV_DOWNSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_DOWNSCALE_FILTER
+            )
+            .apply()
+    }
+
+    fun getMpvToneMapping(): String {
+        val value = prefs.getString(KEY_MPV_TONE_MAPPING, DEFAULT_MPV_TONE_MAPPING)
+            ?: DEFAULT_MPV_TONE_MAPPING
+        return if (value in MPV_TONE_MAPPING_OPTIONS) value else DEFAULT_MPV_TONE_MAPPING
+    }
+
+    fun setMpvToneMapping(toneMapping: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_TONE_MAPPING,
+                if (toneMapping in MPV_TONE_MAPPING_OPTIONS) toneMapping else DEFAULT_MPV_TONE_MAPPING
+            )
+            .apply()
+    }
+
+    fun getMpvSmoothMotion(): Boolean {
+        return prefs.getBoolean(KEY_MPV_SMOOTH_MOTION, DEFAULT_MPV_SMOOTH_MOTION)
+    }
+
+    fun setMpvSmoothMotion(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MPV_SMOOTH_MOTION, enabled).apply()
+    }
+
+    fun getMpvDeband(): Boolean {
+        return prefs.getBoolean(KEY_MPV_DEBAND, DEFAULT_MPV_DEBAND)
+    }
+
+    fun setMpvDeband(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MPV_DEBAND, enabled).apply()
+    }
+
+    fun getMpvDynamicPeak(): Boolean {
+        return prefs.getBoolean(KEY_MPV_DYNAMIC_PEAK, DEFAULT_MPV_DYNAMIC_PEAK)
+    }
+
+    fun setMpvDynamicPeak(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MPV_DYNAMIC_PEAK, enabled).apply()
+    }
+
     /**
      * Get hardware acceleration preference
      */
