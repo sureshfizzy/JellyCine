@@ -81,7 +81,8 @@ object MpvWarmPool {
 
     fun acquire(
         context: Context,
-        listener: MpvPlayerController.Listener
+        listener: MpvPlayerController.Listener,
+        hdrOutput: Boolean = false
     ): MpvPlayerController? {
         val config = MpvWarmConfig.from(PlayerPreferences(context.applicationContext))
         var stalePlayer: MpvPlayerController? = null

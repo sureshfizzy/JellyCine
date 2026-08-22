@@ -383,6 +383,7 @@ fun PlayerScreen(
             offsetX = playerState.videoOffsetX,
             offsetY = playerState.videoOffsetY,
             resizeMode = viewModel.getCurrentResizeMode(),
+            isHdr = playerState.isHdrEnabled,
             onVolumeChange = { level ->
                 if (!playerState.isLocked) {
                     playerVolume = level.coerceIn(0f, 1f)

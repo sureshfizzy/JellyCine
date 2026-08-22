@@ -1190,15 +1190,18 @@ class PlayerViewModel @Inject constructor(
     private suspend fun createMpvPlayer(context: Context): MpvPlayerController {
         val preferences = PlayerPreferences(context)
         val listener = createMpvListener()
+        val hdrOutput = MPVPlayer.isHdr(apiMediaStreams)
         return MpvWarmPool.acquire(
             context = context,
-            listener = listener
+            listener = listener,
+            hdrOutput = hdrOutput
         ) ?: withContext(Dispatchers.Default) {
             MpvPlayerController(
                 context = context,
                 hardwareDecoding = preferences.getMpvHardwareDecoding(),
                 videoOutput = preferences.getMpvVideoOutput(),
                 audioOutput = preferences.getMpvAudioOutput(),
+                hdrOutput = hdrOutput,
                 listener = listener
             )
         }

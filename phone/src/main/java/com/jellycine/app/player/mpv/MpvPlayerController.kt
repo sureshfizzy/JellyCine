@@ -12,6 +12,7 @@ class MpvPlayerController(
     private val hardwareDecoding: String,
     private val videoOutput: String,
     private val audioOutput: String,
+    @Suppress("unused") private val hdrOutput: Boolean = false,
     listener: Listener
 ) : MPVLib.EventObserver {
 
@@ -267,20 +268,20 @@ class MpvPlayerController(
         mpv.setOptionString("load-select", "no")
         mpv.setOptionString("load-positioning", "no")
         mpv.setOptionString("terminal", "no")
-        mpv.setOptionString("quiet", "yes")
-        mpv.setOptionString("really-quiet", "yes")
         mpv.setOptionString("msg-level", "all=no")
-        mpv.setOptionString("scale", "bilinear")
-        mpv.setOptionString("dscale", "bilinear")
-        mpv.setOptionString("dither", "no")
-        mpv.setOptionString("correct-downscaling", "no")
-        mpv.setOptionString("linear-downscaling", "no")
-        mpv.setOptionString("sigmoid-upscaling", "no")
-        mpv.setOptionString("hdr-compute-peak", "auto")
-        mpv.setOptionString("allow-delayed-peak-detect", "yes")
-        mpv.setOptionString("target-colorspace-hint", "yes")
         mpv.setOptionString("vo", videoOutput)
         mpv.setOptionString("gpu-context", "android")
+        mpv.setOptionString("scale", "lanczos")
+        mpv.setOptionString("dscale", "hermite")
+        mpv.setOptionString("dither", "fruit")
+        mpv.setOptionString("deband", "yes")
+        mpv.setOptionString("correct-downscaling", "yes")
+        mpv.setOptionString("linear-downscaling", "yes")
+        mpv.setOptionString("sigmoid-upscaling", "yes")
+        mpv.setOptionString("tone-mapping", "bt.2390")
+        mpv.setOptionString("tone-mapping-mode", "luma")
+        mpv.setOptionString("hdr-compute-peak", "yes")
+        mpv.setOptionString("video-sync", "audio")
         mpv.setOptionString("ao", audioOutput)
         mpv.setOptionString("hwdec", hardwareDecoding)
         mpv.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")

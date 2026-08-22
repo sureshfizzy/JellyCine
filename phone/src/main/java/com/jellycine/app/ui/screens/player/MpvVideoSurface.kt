@@ -21,6 +21,7 @@ fun MpvVideoSurface(
     lifecycle: Lifecycle.Event,
     resizeMode: Int,
     audioManager: AudioManager,
+    @Suppress("UNUSED_PARAMETER") isHdr: Boolean,
     onToggleControls: () -> Unit,
     onSeek: (Long) -> Unit,
     onVolumeChange: (Float) -> Unit,
@@ -38,7 +39,6 @@ fun MpvVideoSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-
                 val gestureHelper = GestureHelper(
                     context = context,
                     touchView = this,
