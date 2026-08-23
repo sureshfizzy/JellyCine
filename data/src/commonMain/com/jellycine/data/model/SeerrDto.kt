@@ -182,6 +182,7 @@ internal data class SeerrSearchResult(
     val posterPath: String? = null,
     val releaseDate: String? = null,
     val firstAirDate: String? = null,
+    val voteAverage: Double? = null,
     val mediaInfo: SeerrMediaInfo? = null
 )
 
@@ -309,6 +310,7 @@ data class SeerrRecommendationTitle(
     val posterUrl: String? = null,
     val jellyfinMediaId: String? = null,
     val roleLabel: String? = null,
+    val voteAverage: Double? = null,
     val requestState: SeerrRequestState = SeerrRequestState.NONE
 )
 

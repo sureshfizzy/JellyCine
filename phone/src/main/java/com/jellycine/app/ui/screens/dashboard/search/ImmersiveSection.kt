@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.screens.detail.logoImage
 import coil3.imageLoader
 import coil3.request.*
 import kotlinx.coroutines.launch
@@ -88,6 +89,18 @@ fun ImmersiveSection(
             }
         }
 
+        val firstLogoUrl = firstMovie?.let { movie ->
+            runCatching {
+                logoImage(item = movie, mediaRepository = mediaRepository)
+                    ?: mediaRepository.getTmdbLogoUrl(movie)
+            }.getOrNull()
+        }
+        firstLogoUrl?.takeIf { it.isNotBlank() }?.let { logoUrl ->
+            runCatching {
+                context.imageLoader.enqueue(buildImmersiveImageRequest(context, logoUrl))
+            }
+        }
+
         isFirstImageReady = true
 
         launch {
@@ -135,6 +148,16 @@ fun ImmersiveSection(
                     context.imageLoader.enqueue(
                         buildImmersiveImageRequest(context, imageUrl)
                     )
+                }
+
+                val logoUrl = backgroundItem?.let { bgItem ->
+                    runCatching {
+                        logoImage(item = bgItem, mediaRepository = mediaRepository)
+                            ?: mediaRepository.getTmdbLogoUrl(bgItem)
+                    }.getOrNull()
+                }
+                logoUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    context.imageLoader.enqueue(buildImmersiveImageRequest(context, url))
                 }
             }
         }
@@ -189,16 +212,26 @@ private fun SuggestionsShimmer() {
         end = androidx.compose.ui.geometry.Offset(offset * 1000f + 600f, 0f)
     )
 
+    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
         Column(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().padding(horizontal = 60.dp, vertical = 0.dp).padding(bottom = 72.dp + navBarPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Box(Modifier.width(280.dp).aspectRatio(0.67f).background(brush, RoundedCornerShape(20.dp)))
-            Spacer(Modifier.height(32.dp))
-            Box(Modifier.width(200.dp).height(14.dp).background(brush, RoundedCornerShape(7.dp)))
-            Spacer(Modifier.height(24.dp))
+            Box(Modifier.widthIn(max = 280.dp).fillMaxWidth().aspectRatio(0.67f).background(brush, RoundedCornerShape(20.dp)))
+        }
+        Box(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 160.dp + navBarPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(Modifier.width(180.dp).height(12.dp).background(brush, RoundedCornerShape(6.dp)))
+        }
+        Box(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 118.dp + navBarPadding),
+            contentAlignment = Alignment.Center
+        ) {
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                 repeat(5) { i ->
                     val w = if (i == 2) 16.dp else if (i == 1 || i == 3) 8.dp else 6.dp

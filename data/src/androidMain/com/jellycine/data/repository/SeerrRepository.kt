@@ -1247,6 +1247,7 @@ class SeerrRepository(context: Context) {
                 size = "w500"
             ),
             jellyfinMediaId = mediaInfo?.jellyfinMediaId.ifNotBlank(),
+            voteAverage = voteAverage,
             requestState = mediaInfo.toRequestState()
         )
     }

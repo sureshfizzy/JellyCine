@@ -298,6 +298,7 @@ class SearchViewModel @Inject constructor(
                         title.jellyfinMediaId?.takeIf { it.isNotBlank() }?.let { put("jellyfin", it) }
                     },
                     productionYear = title.productionYear,
+                    communityRating = title.voteAverage?.toFloat(),
                     imageUrl = title.posterUrl
                 )
             }

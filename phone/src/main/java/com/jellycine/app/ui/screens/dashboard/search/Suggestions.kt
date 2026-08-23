@@ -19,9 +19,12 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
@@ -34,8 +37,11 @@ import com.jellycine.shared.ui.components.common.LazyImageLoader
 import com.jellycine.shared.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import androidx.compose.ui.platform.LocalContext
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.app.ui.screens.detail.logoImage
 
 @Composable
 fun SuggestionsStoriesView(
@@ -165,19 +171,52 @@ fun SuggestionsStoriesView(
             "Series" -> stringResource(R.string.suggestions_type_tv_series)
             else -> currentItem.type ?: stringResource(R.string.suggestions_type_media)
         }
-
         val yearText = currentItem.productionYear
             ?: currentItem.premiereDate?.take(4)?.toIntOrNull()
-        val genreText = currentItem.genres?.take(3)?.joinToString(" | ").orEmpty()
-        val displayText = buildString {
-            yearText?.let { append(it) }
+        val displayText = buildAnnotatedString {
+            var needsSep = false
+            currentItem.communityRating?.let { rating ->
+                withStyle(SpanStyle(color = Color(0xFFFF4D4F))) { append("★ ") }
+                append("%.1f".format(rating))
+                needsSep = true
+            }
+            yearText?.let {
+                if (needsSep) append("  •  ")
+                append(it.toString())
+                needsSep = true
+            }
             if (typeText.isNotBlank()) {
-                if (isNotEmpty()) append(" | ")
+                if (needsSep) append("  •  ")
                 append(typeText)
             }
-            if (genreText.isNotBlank()) {
-                if (isNotEmpty()) append(" | ")
-                append(genreText)
+        }
+
+        var logoUrl by remember(currentItem.id) { mutableStateOf<String?>(null) }
+        LaunchedEffect(currentItem.id) {
+            logoUrl = logoImage(item = currentItem, mediaRepository = mediaRepository)
+                ?: mediaRepository.getTmdbLogoUrl(currentItem)
+        }
+        var logoLoaded by remember(currentItem.id) { mutableStateOf(false) }
+        if (!logoUrl.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = detailsBottomPadding + 40.dp)
+                    .padding(horizontal = 60.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = logoUrl,
+                    contentDescription = currentItem.name,
+                    modifier = Modifier
+                        .heightIn(max = 40.dp)
+                        .widthIn(max = 180.dp)
+                        .graphicsLayer { alpha = if (logoLoaded) 1f else 0f },
+                    contentScale = ContentScale.Fit,
+                    onState = { state ->
+                        logoLoaded = state is AsyncImagePainter.State.Success
+                    }
+                )
             }
         }
 
@@ -190,10 +229,10 @@ fun SuggestionsStoriesView(
         ) {
             Text(
                 text = displayText,
-                color = Color.White,
-                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
             )
