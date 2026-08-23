@@ -221,7 +221,7 @@ fun PlayerSettingsScreen(
                             subtitle = uiState.mpvToneMapping,
                             selectedValue = uiState.mpvToneMapping,
                             options = listOf(
-                                SelectionOption("auto", "Auto", "Best overall quality (spline)", isDefault = true),
+                                SelectionOption("auto", "Auto", "Dynamically picks best algorithm per scene", isDefault = true),
                                 SelectionOption("bt.2390", "BT.2390", "Broadcast standard, natural highlights"),
                                 SelectionOption("spline", "Spline", "Smooth curve, preserves mid-tones"),
                                 SelectionOption("hable", "Filmic", "Cinematic roll-off, softer highlights"),

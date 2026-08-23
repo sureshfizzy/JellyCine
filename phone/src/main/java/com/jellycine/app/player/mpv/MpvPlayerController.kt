@@ -285,7 +285,7 @@ class MpvPlayerController(
         mpv.setOptionString("correct-downscaling", "yes")
         mpv.setOptionString("linear-downscaling", "yes")
         mpv.setOptionString("sigmoid-upscaling", "yes")
-        mpv.setOptionString("tone-mapping", if (toneMapping == "auto") "spline" else toneMapping)
+        mpv.setOptionString("tone-mapping", toneMapping)
         mpv.setOptionString("tone-mapping-mode", "luma")
         mpv.setOptionString("hdr-compute-peak", if (dynamicPeak) "yes" else "no")
         mpv.setOptionString("hdr-peak-percentile", "99.995")
