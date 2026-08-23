@@ -46,8 +46,6 @@ import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -119,42 +117,60 @@ fun PlayerSettingsScreen(
             item { SectionLabel(stringResource(R.string.player_settings_section_player)) }
             item {
                 SettingsSection {
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.VideoSettings,
                         title = stringResource(R.string.player_settings_player_engine),
                         subtitle = uiState.playerEngine,
-                        options = PlayerPreferences.PLAYER_ENGINE_OPTIONS,
+                        selectedValue = uiState.playerEngine,
+                        options = listOf(
+                            SelectionOption("ExoPlayer", "ExoPlayer", "Android native, battery efficient", isDefault = true),
+                            SelectionOption("MPV", "MPV", "Advanced rendering, custom shaders, better HDR")
+                        ),
                         onOptionSelected = viewModel::setPlayerEngine,
                         accentColor = videoColor
                     )
 
                     if (uiState.playerEngine == PlayerPreferences.PLAYER_ENGINE_MPV) {
                         SettingsDivider()
-                        DropdownSettingsItem(
+                        SelectionDialogSettingsItem(
                             icon = Icons.Rounded.Speed,
                             title = stringResource(R.string.player_settings_mpv_hardware_decoding),
                             subtitle = uiState.mpvHardwareDecoding,
-                            options = PlayerPreferences.MPV_HARDWARE_DECODING_OPTIONS,
+                            selectedValue = uiState.mpvHardwareDecoding,
+                            options = listOf(
+                                SelectionOption("mediacodec", "MediaCodec", "Direct hardware decode, best performance", isDefault = true),
+                                SelectionOption("mediacodec-copy", "MediaCodec (copy)", "Hardware decode with CPU copy, wider format support"),
+                                SelectionOption("no", "Software", "CPU decode, highest compatibility")
+                            ),
                             onOptionSelected = viewModel::setMpvHardwareDecoding,
                             accentColor = videoColor
                         )
 
                         SettingsDivider()
-                        DropdownSettingsItem(
+                        SelectionDialogSettingsItem(
                             icon = Icons.Rounded.VideoSettings,
                             title = stringResource(R.string.player_settings_mpv_video_output),
                             subtitle = uiState.mpvVideoOutput,
-                            options = PlayerPreferences.MPV_VIDEO_OUTPUT_OPTIONS,
+                            selectedValue = uiState.mpvVideoOutput,
+                            options = listOf(
+                                SelectionOption("gpu-next", "GPU Next", "Modern libplacebo renderer, best quality", isDefault = true),
+                                SelectionOption("gpu", "GPU", "Legacy GPU renderer, wider device support")
+                            ),
                             onOptionSelected = viewModel::setMpvVideoOutput,
                             accentColor = videoColor
                         )
 
                         SettingsDivider()
-                        DropdownSettingsItem(
+                        SelectionDialogSettingsItem(
                             icon = Icons.Rounded.AudioFile,
                             title = stringResource(R.string.player_settings_mpv_audio_output),
                             subtitle = uiState.mpvAudioOutput,
-                            options = PlayerPreferences.MPV_AUDIO_OUTPUT_OPTIONS,
+                            selectedValue = uiState.mpvAudioOutput,
+                            options = listOf(
+                                SelectionOption("audiotrack", "AudioTrack", "Standard Android audio, most compatible", isDefault = true),
+                                SelectionOption("aaudio", "AAudio", "Low-latency audio, Android 8.1+"),
+                                SelectionOption("opensles", "OpenSL ES", "Legacy low-latency audio")
+                            ),
                             onOptionSelected = viewModel::setMpvAudioOutput,
                             accentColor = videoColor
                         )
@@ -294,11 +310,19 @@ fun PlayerSettingsScreen(
                 item {
                     SettingsSection {
                         if (uiState.isVideoTranscodingAllowed) {
-                            DropdownSettingsItem(
+                            SelectionDialogSettingsItem(
                                 icon = Icons.Rounded.HighQuality,
                                 title = stringResource(R.string.player_settings_streaming_quality),
                                 subtitle = uiState.streamingQuality,
-                                options = PlayerPreferences.STREAMING_QUALITY_OPTIONS,
+                                selectedValue = uiState.streamingQuality,
+                                options = PlayerPreferences.STREAMING_QUALITY_OPTIONS.map { quality ->
+                                    SelectionOption(
+                                        value = quality,
+                                        label = quality,
+                                        description = "",
+                                        isDefault = quality == PlayerPreferences.DEFAULT_STREAMING_QUALITY
+                                    )
+                                },
                                 onOptionSelected = viewModel::setStreamingQuality,
                                 accentColor = transcodingColor
                             )
@@ -309,11 +333,17 @@ fun PlayerSettingsScreen(
                         }
 
                         if (uiState.isAudioTranscodingAllowed) {
-                            DropdownSettingsItem(
+                            SelectionDialogSettingsItem(
                                 icon = Icons.Rounded.AudioFile,
                                 title = stringResource(R.string.player_settings_audio_quality),
                                 subtitle = uiState.audioTranscodeMode,
-                                options = PlayerPreferences.AUDIO_TRANSCODE_MODE_OPTIONS,
+                                selectedValue = uiState.audioTranscodeMode,
+                                options = listOf(
+                                    SelectionOption("Auto", "Auto", "Server decides based on client capability", isDefault = true),
+                                    SelectionOption("Stereo", "Stereo", "2-channel audio, most compatible"),
+                                    SelectionOption("5.1 Surround", "5.1 Surround", "6-channel surround sound"),
+                                    SelectionOption("Passthrough", "Passthrough", "Original audio, no transcoding")
+                                ),
                                 onOptionSelected = viewModel::setAudioTranscodeMode,
                                 accentColor = transcodingColor
                             )
@@ -325,16 +355,16 @@ fun PlayerSettingsScreen(
             item { SectionLabel(stringResource(R.string.player_settings_section_video)) }
             item {
                 SettingsSection {
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.VideoSettings,
                         title = stringResource(R.string.player_settings_decoder_priority),
                         subtitle = decoderPriorityLabel(uiState.decoderPriority),
+                        selectedValue = uiState.decoderPriority,
                         options = listOf(
-                            PlayerPreferences.DECODER_PRIORITY_HARDWARE,
-                            PlayerPreferences.DECODER_PRIORITY_SOFTWARE,
-                            PlayerPreferences.DECODER_PRIORITY_AUTO
+                            SelectionOption(PlayerPreferences.DECODER_PRIORITY_AUTO, "Auto", "Let the player decide based on content", isDefault = true),
+                            SelectionOption(PlayerPreferences.DECODER_PRIORITY_HARDWARE, "Hardware First", "Prefer GPU decoding, lower battery usage"),
+                            SelectionOption(PlayerPreferences.DECODER_PRIORITY_SOFTWARE, "Software First", "Prefer CPU decoding, wider codec support")
                         ),
-                        optionLabel = { decoderPriorityLabel(it) },
                         onOptionSelected = viewModel::setDecoderPriority,
                         accentColor = videoColor
                     )
@@ -442,18 +472,23 @@ fun PlayerSettingsScreen(
                     )
 
                     SettingsDivider()
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.FastRewind,
                         title = stringResource(R.string.player_settings_seek_backward),
                         subtitle = stringResource(
                             R.string.player_settings_seek_interval_value,
                             uiState.seekBackwardIntervalSeconds
                         ),
+                        selectedValue = uiState.seekBackwardIntervalSeconds.toString(),
                         options = (PlayerPreferences.MIN_SEEK_INTERVAL_SECONDS..PlayerPreferences.MAX_SEEK_INTERVAL_SECONDS step PlayerPreferences.SEEK_INTERVAL_STEP_SECONDS)
-                            .map(Int::toString),
-                        optionLabel = { seconds ->
-                            stringResource(R.string.player_settings_seek_interval_value, seconds.toInt())
-                        },
+                            .map { seconds ->
+                                SelectionOption(
+                                    value = seconds.toString(),
+                                    label = "${seconds}s",
+                                    description = "",
+                                    isDefault = seconds == PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS
+                                )
+                            },
                         onOptionSelected = { seconds ->
                             viewModel.setSeekBackwardIntervalSeconds(seconds.toInt())
                         },
@@ -461,18 +496,23 @@ fun PlayerSettingsScreen(
                     )
 
                     SettingsDivider()
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.FastForward,
                         title = stringResource(R.string.player_settings_seek_forward),
                         subtitle = stringResource(
                             R.string.player_settings_seek_interval_value,
                             uiState.seekForwardIntervalSeconds
                         ),
+                        selectedValue = uiState.seekForwardIntervalSeconds.toString(),
                         options = (PlayerPreferences.MIN_SEEK_INTERVAL_SECONDS..PlayerPreferences.MAX_SEEK_INTERVAL_SECONDS step PlayerPreferences.SEEK_INTERVAL_STEP_SECONDS)
-                            .map(Int::toString),
-                        optionLabel = { seconds ->
-                            stringResource(R.string.player_settings_seek_interval_value, seconds.toInt())
-                        },
+                            .map { seconds ->
+                                SelectionOption(
+                                    value = seconds.toString(),
+                                    label = "${seconds}s",
+                                    description = "",
+                                    isDefault = seconds == PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS
+                                )
+                            },
                         onOptionSelected = { seconds ->
                             viewModel.setSeekForwardIntervalSeconds(seconds.toInt())
                         },
@@ -597,11 +637,17 @@ fun SubtitleSettingsScreen(
             item { SectionLabel(stringResource(R.string.subtitle_settings_section_style)) }
             item {
                 SettingsSection {
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.Tune,
                         title = stringResource(R.string.subtitle_settings_text_size),
                         subtitle = textSize,
-                        options = PlayerPreferences.SUBTITLE_TEXT_SIZE_OPTIONS,
+                        selectedValue = textSize,
+                        options = listOf(
+                            SelectionOption("Small", "Small", "Compact text, more screen space"),
+                            SelectionOption("Normal", "Normal", "Standard readable size", isDefault = true),
+                            SelectionOption("Large", "Large", "Bigger text, easier to read"),
+                            SelectionOption("Extra Large", "Extra Large", "Maximum readability")
+                        ),
                         onOptionSelected = { selected ->
                             textSize = selected
                             playerPreferences.setSubtitleTextSize(selected)
@@ -610,11 +656,17 @@ fun SubtitleSettingsScreen(
                     )
 
                     SettingsDivider()
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.SortByAlpha,
                         title = stringResource(R.string.subtitle_settings_text_color),
                         subtitle = textColor,
-                        options = PlayerPreferences.SUBTITLE_TEXT_COLOR_OPTIONS,
+                        selectedValue = textColor,
+                        options = listOf(
+                            SelectionOption("White", "White", "Standard, works on most backgrounds", isDefault = true),
+                            SelectionOption("Yellow", "Yellow", "High contrast on dark scenes"),
+                            SelectionOption("Green", "Green", "Distinct color for visibility"),
+                            SelectionOption("Cyan", "Cyan", "Cool tone, easy on eyes")
+                        ),
                         onOptionSelected = { selected ->
                             textColor = selected
                             playerPreferences.setSubtitleTextColor(selected)
@@ -623,11 +675,16 @@ fun SubtitleSettingsScreen(
                     )
 
                     SettingsDivider()
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.Brush,
                         title = stringResource(R.string.subtitle_settings_background_color),
                         subtitle = backgroundColor,
-                        options = PlayerPreferences.SUBTITLE_BACKGROUND_OPTIONS,
+                        selectedValue = backgroundColor,
+                        options = listOf(
+                            SelectionOption("Transparent", "Transparent", "No background, clean look", isDefault = true),
+                            SelectionOption("Black", "Black", "Dark box behind text for contrast"),
+                            SelectionOption("White", "White", "Light box behind text")
+                        ),
                         onOptionSelected = { selected ->
                             backgroundColor = selected
                             playerPreferences.setSubtitleBackgroundColor(selected)
@@ -636,11 +693,18 @@ fun SubtitleSettingsScreen(
                     )
 
                     SettingsDivider()
-                    DropdownSettingsItem(
+                    SelectionDialogSettingsItem(
                         icon = Icons.Rounded.Tune,
                         title = stringResource(R.string.subtitle_settings_edge_type),
                         subtitle = edgeType,
-                        options = PlayerPreferences.SUBTITLE_EDGE_TYPE_OPTIONS,
+                        selectedValue = edgeType,
+                        options = listOf(
+                            SelectionOption("None", "None", "No edge effect", isDefault = true),
+                            SelectionOption("Outline", "Outline", "Border around text for readability"),
+                            SelectionOption("Drop Shadow", "Drop Shadow", "Shadow below text for depth"),
+                            SelectionOption("Raised", "Raised", "Embossed 3D effect"),
+                            SelectionOption("Depressed", "Depressed", "Engraved 3D effect")
+                        ),
                         onOptionSelected = { selected ->
                             edgeType = selected
                             playerPreferences.setSubtitleEdgeType(selected)
@@ -828,53 +892,6 @@ private fun ClickableSettingsItem(
     )
 }
 
-@Composable
-private fun DropdownSettingsItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    options: List<String>,
-    optionLabel: @Composable (String) -> String = { it },
-    onOptionSelected: (String) -> Unit,
-    enabled: Boolean = true,
-    accentColor: Color = MaterialTheme.colorScheme.primary
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    BaseSettingsItem(
-        icon = icon,
-        title = title,
-        subtitle = subtitle,
-        enabled = enabled,
-        accentColor = accentColor,
-        onClick = if (enabled) ({ expanded = true }) else null,
-        trailing = {
-            Box {
-                Icon(
-                    imageVector = Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp)
-                )
-
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    options.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(optionLabel(option)) },
-                            onClick = {
-                                onOptionSelected(option)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    )
-}
 
 @Composable
 private fun BaseSettingsItem(
