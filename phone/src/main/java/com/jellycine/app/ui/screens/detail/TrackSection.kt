@@ -1,24 +1,29 @@
 package com.jellycine.app.ui.screens.detail
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,14 +33,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.jellycine.data.model.MediaStream
 import com.jellycine.player.core.defaultSubtitleDisplayTitle
 import com.jellycine.player.core.mediaStreamDisplayTitles
+import com.jellycine.shared.R
 
 @Composable
 internal fun TrackSection(
@@ -221,7 +233,36 @@ internal fun TrackField(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private data class TrackBadge(val keyword: String, val res: Int, val w: Int, val h: Int)
+
+private val trackBadges = listOf(
+    TrackBadge("HDR10+", R.drawable.hdr10plus_badge, 56, 20),
+    TrackBadge("HDR 10+", R.drawable.hdr10plus_badge, 56, 20),
+    TrackBadge("HDR10", R.drawable.hdr10_badge, 52, 20),
+    TrackBadge("HDR 10", R.drawable.hdr10_badge, 52, 20),
+    TrackBadge("HDR", R.drawable.hdr_badge, 44, 20),
+    TrackBadge("Dolby Vision", R.drawable.dolby_vision_badge, 56, 22),
+    TrackBadge("DoVi", R.drawable.dolby_vision_badge, 56, 22),
+    TrackBadge("Dolby Atmos", R.drawable.ic_dolby_atmos, 22, 22),
+    TrackBadge("Atmos", R.drawable.ic_dolby_atmos, 22, 22),
+)
+
+private val hdrRes = setOf(R.drawable.hdr_badge, R.drawable.hdr10_badge, R.drawable.hdr10plus_badge)
+
+private fun matchingBadges(option: String): List<TrackBadge> {
+    val text = option.lowercase()
+    val used = mutableSetOf<Int>()
+    return trackBadges.filter { badge ->
+        if (badge.res in used) return@filter false
+        val match = text.contains(badge.keyword.lowercase())
+        if (match) {
+            used.add(badge.res)
+            if (badge.res in hdrRes) used.addAll(hdrRes)
+        }
+        match
+    }
+}
+
 @Composable
 internal fun OptionSelectorRow(
     label: String,
@@ -230,7 +271,7 @@ internal fun OptionSelectorRow(
     inlineMetaText: String? = null,
     onOptionSelected: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -242,67 +283,126 @@ internal fun OptionSelectorRow(
             color = Color.White,
             fontWeight = FontWeight.SemiBold
         )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 38.dp)
+                .clickable { showDialog = true },
+            color = Color(0xFF1F1F24),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val displayText = buildString {
+                    append(selectedOption.ifBlank { options.firstOrNull().orEmpty() })
+                    if (!inlineMetaText.isNullOrBlank()) append(" / $inlineMetaText")
+                }
+                Text(
+                    text = displayText,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
 
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-            modifier = Modifier.fillMaxWidth()
+    if (showDialog) {
+        Dialog(
+            onDismissRequest = { showDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(
-                modifier = Modifier
-                    .menuAnchor(
-                        type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                        enabled = true
-                    )
-                    .fillMaxWidth()
-                    .heightIn(min = 38.dp),
-                color = Color(0xFF1F1F24),
-                shape = RoundedCornerShape(16.dp)
+                modifier = Modifier.fillMaxWidth(0.92f).widthIn(max = 420.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Black,
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val displayText = buildString {
-                        append(selectedOption.ifBlank { options.firstOrNull().orEmpty() })
-                        if (!inlineMetaText.isNullOrBlank()) {
-                            append(" / ")
-                            append(inlineMetaText)
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Column(
+                        modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        options.forEach { option ->
+                            val isSelected = option == selectedOption
+                            val badges = remember(option) { matchingBadges(option) }
+                            val shape = RoundedCornerShape(10.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .then(
+                                        if (isSelected) Modifier
+                                            .background(Color.White.copy(alpha = 0.10f), shape)
+                                            .border(1.dp, Color.White.copy(alpha = 0.25f), shape)
+                                        else Modifier
+                                    )
+                                    .clip(shape)
+                                    .clickable {
+                                        onOptionSelected(option)
+                                        showDialog = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = option,
+                                    fontSize = 13.sp,
+                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.75f),
+                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                badges.forEach { badge ->
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .height(badge.h.dp)
+                                            .widthIn(min = badge.w.dp)
+                                            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 3.dp, vertical = 2.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            painter = painterResource(badge.res),
+                                            contentDescription = null,
+                                            modifier = Modifier.heightIn(max = (badge.h - 4).dp),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                         }
                     }
-                    Text(
-                        text = displayText,
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = "Select $label",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            onOptionSelected(option)
-                            expanded = false
-                        }
-                    )
                 }
             }
         }
