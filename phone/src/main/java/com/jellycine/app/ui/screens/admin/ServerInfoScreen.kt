@@ -190,7 +190,7 @@ private fun ServerTab(viewModel: AdminPanelViewModel) {
 
         if (nowPlaying.isNotEmpty()) {
             item { SectionLabel("NOW PLAYING") }
-            items(nowPlaying) { session ->
+            items(nowPlaying, key = { it.id ?: it.deviceName ?: "" }) { session ->
                 SessionCard(session, viewModel)
             }
         }
@@ -451,11 +451,15 @@ private fun formatTicks(ticks: Long): String {
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
 
-private fun formatActivityDate(isoDate: String): String {
-    return try {
-        isoDate.substringBefore(".").substringBefore("Z").replace("T", " ").take(16)
-    } catch (_: Exception) { isoDate }
+private val utcParse = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+    timeZone = java.util.TimeZone.getTimeZone("UTC")
 }
+private val localFmt = java.text.SimpleDateFormat("MMM d, yyyy  h:mm a", java.util.Locale.US)
+
+private fun formatActivityDate(isoDate: String): String = try {
+    val date = utcParse.parse(isoDate.substringBefore(".").substringBefore("Z"))!!
+    localFmt.format(date)
+} catch (_: Exception) { isoDate }
 
 @Composable
 private fun ServerHeader(info: SystemInfoFull?) {
