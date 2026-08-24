@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -126,12 +127,6 @@ private data class FeatureCardImages(
     val versionKey: String? = null
 )
 
-private fun FeatureCardImages?.isHeroReady(): Boolean {
-    val hasBackdrop = !this?.backdropUrl.isNullOrBlank() || !this?.lowBackdropUrl.isNullOrBlank()
-    val hasLogo = !this?.logoUrl.isNullOrBlank()
-    return hasBackdrop && hasLogo
-}
-
 @Composable
 fun FeatureTab(
     modifier: Modifier = Modifier,
@@ -179,69 +174,43 @@ fun FeatureTab(
     }
 
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
+    val preloadedItemIds = remember { mutableStateListOf<String>() }
     var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val metadataQualifiedFeaturedItems = remember(featuredItems) {
         derivedStateOf {
             featuredItems.filter(::hasFeatureHeroAssets)
         }
     }
-    val displayFeaturedItems = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
+    val currentAssetsReady by remember(metadataQualifiedFeaturedItems.value) {
         derivedStateOf {
-            metadataQualifiedFeaturedItems.value.filter { item ->
-                val itemId = item.id ?: return@filter false
-                val cachedImages = imageCacheByItemId[itemId] ?: return@filter false
-                val hasBackdrop = !cachedImages.backdropUrl.isNullOrBlank() ||
-                    !cachedImages.lowBackdropUrl.isNullOrBlank()
-                val hasLogo = !cachedImages.logoUrl.isNullOrBlank()
-                hasBackdrop && hasLogo
-            }
+            metadataQualifiedFeaturedItems.value.isNotEmpty() &&
+                metadataQualifiedFeaturedItems.value.all { candidate ->
+                    candidate.id.orEmpty() in preloadedItemIds
+                }
         }
-    }
-    val CurrentAssetsReady = remember(metadataQualifiedFeaturedItems.value, imageCacheByItemId) {
-        metadataQualifiedFeaturedItems.value.isNotEmpty() &&
-            metadataQualifiedFeaturedItems.value.all { candidate ->
-                imageCacheByItemId[candidate.id.orEmpty()].isHeroReady()
-            }
     }
     val resolvedFeaturedItems = remember(
         metadataQualifiedFeaturedItems.value,
-        displayFeaturedItems.value,
         stableFeaturedItems,
-        CurrentAssetsReady
+        currentAssetsReady
     ) {
         derivedStateOf {
             val targetItems = metadataQualifiedFeaturedItems.value
             if (targetItems.isEmpty()) return@derivedStateOf stableFeaturedItems
-
-            val fallbackItems = if (stableFeaturedItems.isNotEmpty()) stableFeaturedItems else targetItems
-            if (CurrentAssetsReady || fallbackItems.isEmpty()) return@derivedStateOf targetItems
-
-            buildList {
-                targetItems.forEachIndexed { index, targetItem ->
-                    val fallbackAtIndex = fallbackItems.getOrNull(index)
-                    val isTargetReady = imageCacheByItemId[targetItem.id.orEmpty()].isHeroReady()
-
-                    when {
-                        index < 2 && fallbackAtIndex != null -> add(fallbackAtIndex)
-                        isTargetReady -> add(targetItem)
-                        fallbackAtIndex != null -> add(fallbackAtIndex)
-                        else -> add(targetItem)
-                    }
-                }
-            }.distinctBy { it.id ?: it.name.orEmpty() }
+            if (currentAssetsReady) return@derivedStateOf targetItems
+            if (stableFeaturedItems.isEmpty()) return@derivedStateOf targetItems
+            stableFeaturedItems
         }
     }
 
-    LaunchedEffect(CurrentAssetsReady, metadataQualifiedFeaturedItems.value) {
-        if (CurrentAssetsReady && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
-            stableFeaturedItems = metadataQualifiedFeaturedItems.value
-        } else if (stableFeaturedItems.isEmpty() && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
+    LaunchedEffect(currentAssetsReady, metadataQualifiedFeaturedItems.value) {
+        if (currentAssetsReady && metadataQualifiedFeaturedItems.value.isNotEmpty()) {
             stableFeaturedItems = metadataQualifiedFeaturedItems.value
         }
     }
 
     val featuredKeys = remember(resolvedFeaturedItems.value) {
-        resolvedFeaturedItems.value.mapIndexed { index, item -> item.id ?: item.name ?: index.toString() }
+        resolvedFeaturedItems.value.indices.map { it.toString() }
     }
     val isFeatureAssets = remember(
         isLoading,
@@ -363,8 +332,11 @@ fun FeatureTab(
                         )
                     }
 
+                    var backdropLoaded = lowBackdropUrl.isNullOrBlank()
+                    var logoLoaded = logoUrl.isNullOrBlank()
+
                     if (!lowBackdropUrl.isNullOrBlank()) {
-                        imageLoader.enqueue(
+                        val result = imageLoader.execute(
                             ImageRequest.Builder(context)
                                 .data(lowBackdropUrl)
                                 .memoryCachePolicy(CachePolicy.ENABLED)
@@ -375,6 +347,7 @@ fun FeatureTab(
                                 .allowRgb565(true)
                                 .build()
                         )
+                        backdropLoaded = result is SuccessResult
                     }
 
                     if (!backdropUrl.isNullOrBlank()) {
@@ -392,7 +365,7 @@ fun FeatureTab(
                     }
 
                     if (!logoUrl.isNullOrBlank()) {
-                        imageLoader.enqueue(
+                        val result = imageLoader.execute(
                             ImageRequest.Builder(context)
                                 .data(logoUrl)
                                 .memoryCachePolicy(CachePolicy.ENABLED)
@@ -403,6 +376,13 @@ fun FeatureTab(
                                 .allowRgb565(true)
                                 .build()
                         )
+                        logoLoaded = result is SuccessResult
+                    }
+
+                    if (backdropLoaded && logoLoaded) {
+                        withContext(Dispatchers.Main) {
+                            preloadedItemIds.add(itemId)
+                        }
                     }
                 }
             }
@@ -687,8 +667,7 @@ private fun FeatureHeroCard(
 ) {
     val context = LocalContext.current
     val itemName = item.name ?: stringResource(R.string.search_result_unknown_title)
-    var contentVisible by remember(item.id) { mutableStateOf(false) }
-    LaunchedEffect(item.id) { contentVisible = true }
+    var contentVisible by remember { mutableStateOf(true) }
     val logoAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
         label = "hero_logo_alpha"
@@ -727,7 +706,7 @@ private fun FeatureHeroCard(
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .networkCachePolicy(CachePolicy.ENABLED)
-                        .crossfade(true)
+                        .crossfade(false)
                         .allowHardware(true)
                         .allowRgb565(true)
                         .build()
