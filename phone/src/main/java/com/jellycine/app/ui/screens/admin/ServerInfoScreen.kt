@@ -160,7 +160,11 @@ private fun ServerTab(viewModel: AdminPanelViewModel) {
     }
 
     val info = serverState.systemInfo
-    val nowPlaying = sessionsState.sessions.filter { it.nowPlayingItem != null }
+    val nowPlaying = remember(sessionsState.sessions) {
+        sessionsState.sessions
+            .filter { it.nowPlayingItem != null }
+            .sortedBy { it.id.orEmpty() }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
