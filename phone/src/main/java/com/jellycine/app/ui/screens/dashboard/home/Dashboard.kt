@@ -1425,9 +1425,27 @@ fun Dashboard(
             val result = mediaRepository.getResumeItems(limit = 24)
             result.fold(
                 onSuccess = { items ->
+                    val seenKeys = mutableSetOf<String>()
                     val validItems = items.filter { item ->
-                        item.id != null &&
-                        !item.name.isNullOrBlank()
+                        item.id != null && !item.name.isNullOrBlank()
+                    }.filter { item ->
+                        val keys = when {
+                            item.type.equals("Episode", ignoreCase = true) -> buildSet {
+                                item.providerIds?.get("Tvdb")?.let { add("tvdb:$it") }
+                                add("${item.seriesName ?: item.name}:S${item.parentIndexNumber}E${item.indexNumber}")
+                            }
+                            else -> buildSet {
+                                item.providerIds?.get("Tmdb")?.let { add("tmdb:$it") }
+                                item.providerIds?.get("Imdb")?.let { add("imdb:$it") }
+                                add("${item.name}:${item.productionYear}")
+                            }
+                        }
+                        if (keys.any { it in seenKeys }) {
+                            false
+                        } else {
+                            seenKeys.addAll(keys)
+                            true
+                        }
                     }
                     if (validItems.isNotEmpty()) {
                         ImagePreloader.continueWatchingImages(
@@ -1457,8 +1475,8 @@ fun Dashboard(
             val result = mediaRepository.getNextUpItems(limit = 24)
             result.fold(
                 onSuccess = { items ->
+                    val seenNextUpKeys = mutableSetOf<String>()
                     val validItems = items
-                        .asSequence()
                         .filter { item ->
                             item.id != null &&
                                 (
@@ -1467,8 +1485,25 @@ fun Dashboard(
                                         !item.seriesName.isNullOrBlank()
                                     )
                         }
-                        .distinctBy { it.id }
-                        .toList()
+                        .filter { item ->
+                            val keys = when {
+                                item.type.equals("Episode", ignoreCase = true) -> buildSet {
+                                    item.providerIds?.get("Tvdb")?.let { add("tvdb:$it") }
+                                    add("${item.seriesName ?: item.name}:S${item.parentIndexNumber}E${item.indexNumber}")
+                                }
+                                else -> buildSet {
+                                    item.providerIds?.get("Tmdb")?.let { add("tmdb:$it") }
+                                    item.providerIds?.get("Imdb")?.let { add("imdb:$it") }
+                                    add("${item.name}:${item.productionYear}")
+                                }
+                            }
+                            if (keys.any { it in seenNextUpKeys }) {
+                                false
+                            } else {
+                                seenNextUpKeys.addAll(keys)
+                                true
+                            }
+                        }
                     if (validItems.isNotEmpty()) {
                         ImagePreloader.continueWatchingImages(
                             items = validItems,

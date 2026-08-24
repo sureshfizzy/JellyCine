@@ -1258,7 +1258,7 @@ class MediaRepository(private val context: Context) {
         includeItemTypes: String? = "Movie,Series,Episode",
         limit: Int? = null,
         startIndex: Int? = null,
-        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear"
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear,ProviderIds"
     ): Result<List<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
@@ -1291,7 +1291,7 @@ class MediaRepository(private val context: Context) {
         parentId: String? = null,
         limit: Int? = null,
         startIndex: Int? = null,
-        fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId"
+        fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId,ProviderIds,ProductionYear"
     ): Result<List<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
