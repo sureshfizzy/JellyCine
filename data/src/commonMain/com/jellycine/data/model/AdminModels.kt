@@ -45,8 +45,12 @@ data class SessionNowPlayingItem(
     val name: String? = null,
     @SerialName("SeriesName")
     val seriesName: String? = null,
+    @SerialName("SeriesId")
+    val seriesId: String? = null,
     @SerialName("Id")
     val id: String? = null,
+    @SerialName("Type")
+    val type: String? = null,
     @SerialName("Container")
     val container: String? = null,
     @SerialName("RunTimeTicks")

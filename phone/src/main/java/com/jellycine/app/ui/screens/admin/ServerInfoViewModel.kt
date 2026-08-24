@@ -82,12 +82,14 @@ class AdminPanelViewModel(context: Context) : ViewModel() {
         }
     }
 
-    suspend fun getItemImageUrl(itemId: String): String? {
+    suspend fun getItemImageUrl(itemId: String, seriesId: String? = null, type: String? = null): String? {
+        val targetId = if (type.equals("Episode", ignoreCase = true) && !seriesId.isNullOrBlank()) seriesId else itemId
         return mediaRepository.getImageUrlString(
-            itemId = itemId,
+            itemId = targetId,
             imageType = "Primary",
-            width = 120,
-            quality = 80
+            width = 280,
+            quality = 90,
+            enableImageEnhancers = false
         )
     }
 

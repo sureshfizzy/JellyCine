@@ -236,8 +236,9 @@ private fun SessionCard(session: AdminSessionInfo, viewModel: AdminPanelViewMode
 
     var posterUrl by remember(session.nowPlayingItem?.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(session.nowPlayingItem?.id) {
-        val itemId = session.nowPlayingItem?.id
-        if (itemId != null) posterUrl = viewModel.getItemImageUrl(itemId)
+        val item = session.nowPlayingItem
+        val itemId = item?.id
+        if (itemId != null) posterUrl = viewModel.getItemImageUrl(itemId, item.seriesId, item.type)
     }
 
     Card(
