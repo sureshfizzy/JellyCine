@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,7 +105,7 @@ fun Discover(
     val showWatchedTab = feed == DiscoverFeed.WATCHED
     var loadingFeed by remember { mutableStateOf(true) }
     var loadingWatched by remember { mutableStateOf(true) }
-    val isLoading = if (showWatchedTab) loadingWatched else loadingFeed
+    val isLoading = (loadingFeed && sections.isEmpty()) && (loadingWatched && watchedSections.isEmpty())
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
@@ -114,7 +115,9 @@ fun Discover(
     val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
     val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
-    val listState = rememberLazyListState()
+    val feedListState = rememberLazyListState()
+    val watchedListState = rememberLazyListState()
+    val listState = if (showWatchedTab) watchedListState else feedListState
     val compactHeaderProgress = rememberCompactProgress(
         state = listState,
         compactDistance = 92.dp
@@ -198,19 +201,20 @@ fun Discover(
                 }
         }
 
-        scope.launch {
-            loadingWatched = true
+        scope.launch(Dispatchers.IO) {
             val watched = loadWatchedFeed(
                 mediaRepository = mediaRepository,
                 moviesTitle = watchedMoviesTitle,
                 showsTitle = watchedShowsTitle,
                 episodesTitle = watchedEpisodesTitle
             )
-            watchedSections = watched.sections.map { section ->
-                RecommendationSectionUi(section.title, section.items)
+            withContext(Dispatchers.Main) {
+                watchedSections = watched.sections.map { section ->
+                    RecommendationSectionUi(section.title, section.items)
+                }
+                if (error == null) error = watched.error
+                loadingWatched = false
             }
-            if (error == null) error = watched.error
-            loadingWatched = false
         }
     }
 
@@ -300,6 +304,12 @@ fun Discover(
                                     feed = feed,
                                     onFeedChange = { feed = it }
                                 )
+                            }
+
+                            if (activeSections.isEmpty() && ((showWatchedTab && loadingWatched) || (!showWatchedTab && loadingFeed))) {
+                                items(3, key = { "shimmer_$it" }) {
+                                    ShimmerPosterRail()
+                                }
                             }
 
                             itemsIndexed(
