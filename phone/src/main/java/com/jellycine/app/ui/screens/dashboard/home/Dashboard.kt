@@ -2,6 +2,7 @@ package com.jellycine.app.ui.screens.dashboard.home
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -304,7 +305,7 @@ object ImagePreloader {
     private val imageUrlCache = ConcurrentHashMap<String, String>()
     private val preferredImageTypeCache = ConcurrentHashMap<String, String>()
     private val lastRenderedImageUrlCache = ConcurrentHashMap<String, String>()
-    private val prefetchSemaphore = Semaphore(64)
+    private val prefetchSemaphore = Semaphore(12)
     private const val posterWidth = 240
     private const val posterHeight = 360
     private const val posterQuality = 80
@@ -3018,7 +3019,7 @@ private fun BurstLibrarySection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun LibraryItemCard(
     item: BaseItemDto,
@@ -3027,7 +3028,8 @@ internal fun LibraryItemCard(
     disableImageEnhancers: Boolean = false,
     useLandscapeLayout: Boolean = false,
     watchedFeedStyle: Boolean = false,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null
 ) {
     val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
     val useWatchedEpisodeImage = watchedFeedStyle && item.type == "Episode"
@@ -3064,13 +3066,16 @@ internal fun LibraryItemCard(
         Card(
             modifier = Modifier
                 .width(cardWidth)
-                .height(imageHeight),
+                .height(imageHeight)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            onClick = onClick
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box(
                 modifier = Modifier.fillMaxSize()

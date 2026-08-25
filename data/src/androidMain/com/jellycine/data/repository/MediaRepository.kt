@@ -762,6 +762,174 @@ class MediaRepository(private val context: Context) {
         return setPlayedStatus(itemId = seriesId, isPlayed = isPlayed)
     }
 
+    suspend fun refreshItemMetadata(
+        itemId: String,
+        recursive: Boolean = true,
+        metadataRefreshMode: String = "Default",
+        imageRefreshMode: String = "Default",
+        replaceAllMetadata: Boolean = false
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.refreshItem(
+                itemId = itemId,
+                recursive = recursive,
+                metadataRefreshMode = metadataRefreshMode,
+                imageRefreshMode = imageRefreshMode,
+                replaceAllMetadata = replaceAllMetadata
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to refresh item: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteLibraryItem(itemId: String): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.deleteItem(itemId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to delete item: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setItemLocked(itemId: String, locked: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val itemResponse = api.getItemById(userId = userId, itemId = itemId)
+            val item = itemResponse.body()
+                ?: return Result.failure(Exception(string(R.string.media_error_fetch_item_failed, itemResponse.code())))
+            val response = api.updateItem(itemId, item.copy(lockData = locked))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to update lock: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearItemIdentification(itemId: String): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val itemResponse = api.getItemById(userId = userId, itemId = itemId)
+            val item = itemResponse.body()
+                ?: return Result.failure(Exception(string(R.string.media_error_fetch_item_failed, itemResponse.code())))
+            val response = api.updateItem(itemId, item.copy(providerIds = emptyMap()))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to remove identification: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getPlaylists(): Result<List<BaseItemDto>> {
+        return getUserItems(
+            includeItemTypes = "Playlist",
+            recursive = true,
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            fields = "ChildCount,RecursiveItemCount,UserData"
+        ).map { result ->
+            result.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
+        }
+    }
+
+    suspend fun addItemsToPlaylist(playlistId: String, itemIds: List<String>): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val response = api.addToPlaylist(
+                playlistId = playlistId,
+                ids = itemIds.joinToString(","),
+                userId = userId
+            )
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception("Failed to add to playlist: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createPlaylistWithItems(name: String, itemIds: List<String>): Result<String?> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val response = api.createPlaylist(
+                name = name,
+                ids = itemIds.joinToString(","),
+                userId = userId
+            )
+            if (response.isSuccessful) Result.success(response.body()?.id)
+            else Result.failure(Exception("Failed to create playlist: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addItemsToCollection(collectionId: String, itemIds: List<String>): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.addToCollection(
+                collectionId = collectionId,
+                ids = itemIds.joinToString(",")
+            )
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception("Failed to add to collection: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createCollectionWithItems(name: String, itemIds: List<String>): Result<String?> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.createCollection(
+                name = name,
+                ids = itemIds.joinToString(",")
+            )
+            if (response.isSuccessful) Result.success(response.body()?.id)
+            else Result.failure(Exception("Failed to create collection: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resolvePlayableItemId(item: BaseItemDto): Result<String> {
+        val itemId = item.id?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+        if (!item.type.equals("Series", ignoreCase = true)) {
+            return Result.success(itemId)
+        }
+        return getEpisodes(seriesId = itemId).mapCatching { episodes ->
+            episodes
+                .sortedWith(
+                    compareBy<BaseItemDto>(
+                        { it.parentIndexNumber ?: Int.MAX_VALUE },
+                        { it.indexNumber ?: Int.MAX_VALUE }
+                    )
+                )
+                .firstOrNull { !it.id.isNullOrBlank() }
+                ?.id
+                ?: throw IllegalStateException("No playable episodes")
+        }
+    }
+
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))

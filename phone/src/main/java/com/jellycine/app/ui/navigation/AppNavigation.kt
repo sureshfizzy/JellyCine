@@ -277,16 +277,24 @@ fun AppNavigation() {
             }
 
             composable(
-                "player/{itemId}",
-                arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+                "player/{itemId}?fromStart={fromStart}",
+                arguments = listOf(
+                    navArgument("itemId") { type = NavType.StringType },
+                    navArgument("fromStart") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    }
+                ),
                 enterTransition = { textTransition(500) },
                 exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
+                val fromStart = backStackEntry.arguments?.getBoolean("fromStart") ?: false
 
                 if (!itemId.isNullOrBlank()) {
                     PlayerScreen(
                         mediaId = itemId,
+                        startFromBeginning = fromStart,
                         onBackPressed = { navController.popBackStack() }
                     )
                 } else {
@@ -445,6 +453,9 @@ fun AppNavigation() {
                             val mergeVersions = parentId == com.jellycine.app.ui.screens.dashboard.media.WATCHED_VIEW_ALL_PARENT_ID
                             navController.navigate("detail/$itemId${if (mergeVersions) "?mergeVersions=true" else ""}")
                         }
+                    },
+                    onPlayFromBeginning = { itemId ->
+                        navController.navigate("player/$itemId?fromStart=true")
                     }
                 )
             }

@@ -86,6 +86,7 @@ internal fun PlayerScreenEffects(
     remoteMediaTitle: String?,
     preferredAudioStreamIndex: Int?,
     preferredSubtitleStreamIndex: Int?,
+    startFromBeginning: Boolean = false,
     viewModel: PlayerViewModel,
     onPlaybackCompleted: ((String) -> Unit)?,
     preferredStreamIndexes: PreferredStreamIndexes,
@@ -214,7 +215,8 @@ internal fun PlayerScreenEffects(
                     mediaId = mediaId,
                     initialItemDetails = initialItemDetails,
                     preferredAudioStreamIndex = preferredAudioStreamIndex,
-                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+                    startFromBeginning = startFromBeginning
                 )
             }
             onInitializedMediaIdChange(initializationKey)

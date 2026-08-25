@@ -1,10 +1,20 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Check
+import com.jellycine.app.ui.screens.dashboard.home.ImageLoader
+import com.jellycine.app.ui.screens.dashboard.home.ImagePreloader
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyRowItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -15,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.animation.*
 import coil3.compose.AsyncImage
 import coil3.request.*
@@ -37,8 +49,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.annotation.StringRes
-import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
@@ -66,7 +76,7 @@ import com.jellycine.app.ui.components.common.SeerrTopBadges
 import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun ViewAllScreen(
     contentType: ContentType,
@@ -75,6 +85,7 @@ fun ViewAllScreen(
     genreId: String? = null,
     onBackPressed: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit,
+    onPlayFromBeginning: (String) -> Unit = {},
     viewModel: ViewAllViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -122,17 +133,35 @@ fun ViewAllScreen(
             ?.logoUrl
     }
     var showSortSheet by remember { mutableStateOf(false) }
+    var overflowItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val browseTabs = remember(contentType, isLibraryCatalog, isWatchedViewAll, isFavoritesViewAll) {
+        if (isLibraryCatalog && !isWatchedViewAll && !isFavoritesViewAll) {
+            libraryBrowseTabs(contentType)
+        } else {
+            emptyList()
+        }
+    }
+    val showLibraryChrome = browseTabs.isNotEmpty()
+    val successMessage = stringResource(R.string.item_action_success)
+    val failedMessage = stringResource(R.string.item_action_failed)
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
-    val resolvedTitle = title.takeIf { it.isNotBlank() } ?: stringResource(R.string.view_all_title)
+    val resolvedTitle = uiState.folderTitle?.takeIf { it.isNotBlank() }
+        ?: title.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.view_all_title)
     val filterSignature = remember(
         uiState.sortBy,
         uiState.sortOrder,
-        uiState.selectedGenres
+        uiState.selectedGenres,
+        uiState.browseTab,
+        uiState.folderTitle
     ) {
         listOf(
             uiState.sortBy,
             uiState.sortOrder,
+            uiState.browseTab.name,
+            uiState.folderTitle.orEmpty(),
             uiState.selectedGenres.toList().sorted().joinToString("|")
         ).joinToString("::")
     }
@@ -235,71 +264,114 @@ fun ViewAllScreen(
         }
     }
 
+    LaunchedEffect(displayItems, gridState.firstVisibleItemIndex) {
+        val from = gridState.firstVisibleItemIndex.coerceAtLeast(0)
+        val window = displayItems.drop(from).take(18)
+        if (window.isNotEmpty()) {
+            ImagePreloader.preloadCriticalImages(window, mediaRepository, context)
+        }
+    }
+
+    LaunchedEffect(uiState.actionMessage) {
+        val message = uiState.actionMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            if (message == "ok") successMessage else failedMessage
+        )
+        viewModel.clearActionMessage()
+    }
+
+    val handleItemClick: (BaseItemDto) -> Unit = { item ->
+        when {
+            item.type.equals("Genre", ignoreCase = true) -> {
+                viewModel.openGenre(item, contentType, parentId, genreId)
+            }
+            uiState.browseTab == LibraryBrowseTab.FOLDERS &&
+                (item.isFolder == true || item.type.equals("Folder", ignoreCase = true)) -> {
+                viewModel.openFolder(item, contentType, parentId, genreId)
+            }
+            else -> onItemClick(item)
+        }
+    }
+
     @Composable
     fun HeaderContent(
         modifier: Modifier = Modifier,
         compactProgress: Float = 0f
     ) {
-        if (!isSeerrCatalog || seerrLogoUrl == null) {
-            CompactPageHeader(
-                title = resolvedTitle,
-                subtitle = headerCountText,
-                modifier = modifier,
-                includeStatusBarsPadding = false,
-                horizontalPadding = if (usesCompactHeader) 0.dp else horizontalPadding,
-                verticalPadding = if (usesCompactHeader) 18.dp else 20.dp,
-                titleFontSize = if (isTablet) 28.sp else 24.sp,
-                titleFontWeight = FontWeight.Bold,
-                subtitleFontSize = if (isTablet) 15.sp else 13.sp,
-                centered = usesCompactHeader
-            )
-            return
-        }
-
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = if (usesCompactHeader) 0.dp else horizontalPadding,
-                    vertical = if (usesCompactHeader) 18.dp else 20.dp
-                ),
-            horizontalAlignment = if (usesCompactHeader) {
-                Alignment.CenterHorizontally
+        Column(modifier = modifier.fillMaxWidth()) {
+            if (!isSeerrCatalog || seerrLogoUrl == null) {
+                CompactPageHeader(
+                    title = resolvedTitle,
+                    subtitle = headerCountText,
+                    includeStatusBarsPadding = false,
+                    horizontalPadding = if (usesCompactHeader) 0.dp else horizontalPadding,
+                    verticalPadding = if (usesCompactHeader) 18.dp else 20.dp,
+                    titleFontSize = if (isTablet) 28.sp else 24.sp,
+                    titleFontWeight = FontWeight.Bold,
+                    subtitleFontSize = if (isTablet) 15.sp else 13.sp,
+                    centered = usesCompactHeader
+                )
             } else {
-                Alignment.Start
-            }
-        ) {
-            if (isSeerrCatalog && seerrLogoUrl != null) {
-                WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(if (isTablet) 132.dp else 92.dp)
-                        .padding(horizontal = if (isTablet) 128.dp else 52.dp)
-                        .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
-                        .compactHeaderLogo(compactProgress),
-                    contentAlignment = Alignment.Center
+                        .padding(
+                            horizontal = if (usesCompactHeader) 0.dp else horizontalPadding,
+                            vertical = if (usesCompactHeader) 18.dp else 20.dp
+                        ),
+                    horizontalAlignment = if (usesCompactHeader) {
+                        Alignment.CenterHorizontally
+                    } else {
+                        Alignment.Start
+                    }
                 ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(seerrLogoUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = resolvedTitle,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                    WarmImageUrl(imageUrl = seerrLogoUrl, allowRgb565 = true)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(if (isTablet) 132.dp else 92.dp)
+                            .padding(horizontal = if (isTablet) 128.dp else 52.dp)
+                            .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
+                            .compactHeaderLogo(compactProgress),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(seerrLogoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = resolvedTitle,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    if (headerCountText != null) {
+                        Text(
+                            text = headerCountText,
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = if (isTablet) 15.sp else 13.sp,
+                            textAlign = if (usesCompactHeader) TextAlign.Center else TextAlign.Unspecified,
+                            modifier = Modifier.padding(top = if (usesCompactHeader) 8.dp else 4.dp)
+                        )
+                    }
                 }
             }
-            if (headerCountText != null) {
-                Text(
-                    text = headerCountText,
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = if (isTablet) 15.sp else 13.sp,
-                    textAlign = if (usesCompactHeader) TextAlign.Center else TextAlign.Unspecified,
-                    modifier = Modifier.padding(top = if (usesCompactHeader) 8.dp else 4.dp)
+            if (showLibraryChrome) {
+                LibraryBrowseTabRow(
+                    tabs = browseTabs,
+                    selected = uiState.browseTab,
+                    contentType = contentType,
+                    onSelected = { tab ->
+                        viewModel.setBrowseTab(tab, contentType, parentId, genreId)
+                    }
                 )
             }
+        }
+    }
+
+    BackHandler {
+        if (!viewModel.popBrowseLevel(contentType, parentId, genreId)) {
+            onBackPressed()
         }
     }
 
@@ -394,26 +466,34 @@ fun ViewAllScreen(
                         }
                     }
                     
-                    displayItems.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
+                    displayItems.isEmpty() && uiState.recommendationSections.isEmpty() -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (usesCompactHeader) {
+                                HeaderContent(
+                                    modifier = Modifier
+                                        .statusBarsPadding()
+                                        .padding(horizontal = horizontalPadding),
+                                    compactProgress = 0f
+                                )
+                            }
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = stringResource(R.string.view_all_empty_title),
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = stringResource(R.string.view_all_empty_message),
-                                    color = Color.White.copy(alpha = 0.6f),
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = stringResource(R.string.view_all_empty_title),
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.view_all_empty_message),
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -442,28 +522,73 @@ fun ViewAllScreen(
                                     )
                                 }
 
-                                items(
-                                    items = displayItems,
-                                    key = ::viewAllItemKey
-                                ) { item ->
-                                    if (isWatchedEpisodeViewAll) {
-                                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                            LibraryItemCard(
-                                                item = item,
-                                                mediaRepository = mediaRepository,
-                                                disableImageEnhancers = true,
-                                                watchedFeedStyle = true,
-                                                onClick = { onItemClick(item) }
+                                if (uiState.browseTab == LibraryBrowseTab.RECOMMENDED &&
+                                    uiState.recommendationSections.isNotEmpty()
+                                ) {
+                                    uiState.recommendationSections.forEach { section ->
+                                        item(
+                                            key = "rec_${section.recommendationType}_${section.baselineName}",
+                                            span = { GridItemSpan(maxLineSpan) }
+                                        ) {
+                                            val title = section.baselineName?.takeIf { it.isNotBlank() }?.let { name ->
+                                                stringResource(recommendationTitleRes(section.recommendationType), name)
+                                            } ?: stringResource(R.string.library_tab_recommended)
+                                            Text(
+                                                text = title,
+                                                color = Color.White,
+                                                fontSize = if (isTablet) 20.sp else 18.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                                             )
                                         }
-                                    } else {
-                                        PosterCard(
-                                            item = item,
-                                            isTablet = isTablet,
-                                            mediaRepository = mediaRepository,
-                                            watchedViewAll = isWatchedViewAll,
-                                            onClick = { onItemClick(item) }
-                                        )
+                                        item(
+                                            key = "rec_row_${section.recommendationType}_${section.baselineName}",
+                                            span = { GridItemSpan(maxLineSpan) }
+                                        ) {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                contentPadding = PaddingValues(bottom = 12.dp)
+                                            ) {
+                                                lazyRowItems(
+                                                    items = section.items,
+                                                    key = ::viewAllItemKey
+                                                ) { item ->
+                                                    LibraryItemCard(
+                                                        item = item,
+                                                        mediaRepository = mediaRepository,
+                                                        onClick = { handleItemClick(item) },
+                                                        onLongClick = { overflowItem = item }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    items(
+                                        items = displayItems,
+                                        key = ::viewAllItemKey
+                                    ) { item ->
+                                        if (isWatchedEpisodeViewAll) {
+                                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                                LibraryItemCard(
+                                                    item = item,
+                                                    mediaRepository = mediaRepository,
+                                                    disableImageEnhancers = true,
+                                                    watchedFeedStyle = true,
+                                                    onClick = { handleItemClick(item) },
+                                                    onLongClick = { overflowItem = item }
+                                                )
+                                            }
+                                        } else {
+                                            PosterCard(
+                                                item = item,
+                                                isTablet = isTablet,
+                                                mediaRepository = mediaRepository,
+                                                watchedViewAll = isWatchedViewAll,
+                                                onClick = { handleItemClick(item) },
+                                                onLongClick = { overflowItem = item }
+                                            )
+                                        }
                                     }
                                 }
 
@@ -526,7 +651,11 @@ fun ViewAllScreen(
         }
 
         BackButton(
-            onClick = onBackPressed,
+            onClick = {
+                if (!viewModel.popBrowseLevel(contentType, parentId, genreId)) {
+                    onBackPressed()
+                }
+            },
             modifier = Modifier.align(Alignment.TopStart)
         )
 
@@ -576,7 +705,11 @@ fun ViewAllScreen(
             )
         }
 
-        if (!isSeerrCatalog && !isWatchedEpisodeViewAll && !isAward) {
+        val showSort = !isSeerrCatalog &&
+            !isWatchedEpisodeViewAll &&
+            !isAward &&
+            (!showLibraryChrome || uiState.browseTab.supportsSort())
+        if (showSort) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
@@ -599,6 +732,32 @@ fun ViewAllScreen(
                 onDismiss = { showSortSheet = false }
             )
         }
+
+        overflowItem?.let { item ->
+            ItemOverflowSheet(
+                item = item,
+                isAdministrator = uiState.isAdministrator,
+                mediaRepository = mediaRepository,
+                onDismiss = { overflowItem = null },
+                onPlayFromBeginning = { playableId ->
+                    overflowItem = null
+                    onPlayFromBeginning(playableId)
+                },
+                onItemMutated = { updated ->
+                    updated.id?.let { id -> viewModel.updateLocalItem(id) { updated } }
+                },
+                onItemDeleted = { id -> viewModel.removeLocalItem(id) },
+                onMessage = { success -> viewModel.showActionResult(success) }
+            )
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 96.dp)
+        )
     }
 }
 
@@ -613,7 +772,7 @@ private fun LazyGridScope.compactHeaderItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun PosterCard(
     item: BaseItemDto,
@@ -621,158 +780,84 @@ internal fun PosterCard(
     mediaRepository: MediaRepository,
     watchedViewAll: Boolean = false,
     showSeerrBadge: Boolean = true,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
     val disablePosterEnhancers = DisableEmbyPosterEnhancers()
-    val directImageUrl = item.imageUrl?.takeIf { it.isNotBlank() }
     val isSeerrSource = item.id?.startsWith("seerr:") == true
-    var imageUrl by remember(item.id, directImageUrl, watchedViewAll) { mutableStateOf(directImageUrl) }
-    var isLoading by remember(item.id, directImageUrl, watchedViewAll) { mutableStateOf(directImageUrl == null) }
-
-    LaunchedEffect(item.id, directImageUrl, disablePosterEnhancers, watchedViewAll) {
-        if (directImageUrl != null) {
-            imageUrl = directImageUrl
-            isLoading = false
-            return@LaunchedEffect
-        }
-        val itemId = item.id
-        if (itemId != null) {
-            try {
-                val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                    item.seriesId ?: itemId
-                } else {
-                    itemId
-                }
-
-                val url = mediaRepository.getImageUrl(
-                    itemId = actualItemId,
-                    width = 300,
-                    height = 450,
-                    quality = 90,
-                    enableImageEnhancers = !disablePosterEnhancers && !watchedViewAll
-                ).first()
-                imageUrl = url
-                isLoading = false
-            } catch (e: Exception) {
-                imageUrl = null
-                isLoading = false
-            }
-        }
-    }
-
     val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
         item.seriesName!!
     } else {
         item.name ?: stringResource(R.string.search_result_unknown_title)
     }
+    val corner = if (isTablet) 18.dp else 16.dp
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
-
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f),
-            shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.Transparent
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            onClick = onClick
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = displayName,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = null,
-                    error = null,
-                    fallback = null
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(corner))
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
                 )
+        ) {
+            ImageLoader(
+                itemId = item.id,
+                seriesId = item.seriesId,
+                contentDescription = displayName,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                cornerRadius = if (isTablet) 18 else 16,
+                crossfadeMillis = 0,
+                mediaRepository = mediaRepository,
+                imageMetadata = item,
+                itemType = item.type,
+                hasImageEnhancers = !disablePosterEnhancers && !watchedViewAll
+            )
 
-                if (imageUrl == null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF1A1A2E),
-                                        Color(0xFF16213E)
-                                    )
-                                ),
-                                shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = displayName.take(2).uppercase(),
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = if (isTablet) 22.sp else 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+            if (isSeerrSource && showSeerrBadge) {
+                SeerrTopBadges(
+                    requestState = SeerrRequestState.NONE,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+
+            val itemCount = when {
+                item.type == "Series" -> {
+                    when {
+                        item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
+                        item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount
+                        item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount
+                        item.childCount != null && item.childCount!! > 0 -> item.childCount
+                        else -> null
                     }
                 }
+                else -> item.childCount ?: item.recursiveItemCount
+            }
 
-                if (isSeerrSource && showSeerrBadge) {
-                    SeerrTopBadges(
-                        requestState = SeerrRequestState.NONE,
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    )
-                }
+            val isFullyWatched = item.type == "Series" &&
+                item.userData?.unplayedItemCount == 0
 
-                // Episode/item count badge
-                val itemCount = when {
-                    item.type == "Series" -> {
-                        when {
-                            item.userData?.unplayedItemCount != null -> item.userData?.unplayedItemCount
-                            item.episodeCount != null && item.episodeCount!! > 0 -> item.episodeCount
-                            item.recursiveItemCount != null && item.recursiveItemCount!! > 0 -> item.recursiveItemCount
-                            item.childCount != null && item.childCount!! > 0 -> item.childCount
-                            else -> null
-                        }
-                    }
-                    else -> null
-                }
+            itemCount?.takeIf { it > 0 && !watchedViewAll }?.let { count ->
+                PosterCountBadge(
+                    count = count,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 4.dp)
+                )
+            }
 
-                val isFullyWatched = item.type == "Series" &&
-                    item.userData?.unplayedItemCount == 0
-
-                itemCount?.takeIf { it > 0 && !watchedViewAll }?.let { count ->
-                    PosterCountBadge(
-                        count = count,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 4.dp)
-                    )
-                }
-
-                if (!watchedViewAll && (isFullyWatched || (itemCount == null && item.userData?.played == true))) {
-                    WatchedIndicatorBadge(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                    )
-                }
-
+            if (!watchedViewAll && (isFullyWatched || (itemCount == null && item.userData?.played == true))) {
+                WatchedIndicatorBadge(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                )
             }
         }
 
@@ -948,26 +1033,52 @@ private fun SortBottomSheet(
                 )
             }
 
-            val sortOptions = listOf(
-                SortOption("DateCreated", "Descending"),
-                SortOption("SortName", "Ascending"),
-                SortOption("SortName", "Descending"),
-                SortOption("ProductionYear", "Descending"),
-                SortOption("ProductionYear", "Ascending"),
-                SortOption("CommunityRating", "Descending"),
-                SortOption("CommunityRating", "Ascending")
-            )
-
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                sortOptions.forEach { option ->
-                    MediaFilterChip(
-                        label = stringResource(sortOptionLabelRes(option.sortBy, option.sortOrder)),
-                        isSelected = currentSortBy == option.sortBy && currentSortOrder == option.sortOrder,
-                        onClick = { onSortSelected(option.sortBy, option.sortOrder) }
+            librarySortFields().forEach { field ->
+                val selected = currentSortBy == field.sortBy
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            val nextOrder = if (selected) {
+                                if (currentSortOrder == "Descending") "Ascending" else "Descending"
+                            } else {
+                                field.defaultOrder
+                            }
+                            onSortSelected(field.sortBy, nextOrder)
+                        }
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.size(18.dp))
+                    }
+                    Text(
+                        text = stringResource(field.labelRes),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
                     )
+                    if (selected) {
+                        Icon(
+                            imageVector = if (currentSortOrder == "Descending") {
+                                Icons.Filled.KeyboardArrowDown
+                            } else {
+                                Icons.Filled.KeyboardArrowUp
+                            },
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
                 }
             }
 
@@ -1043,11 +1154,6 @@ private fun SortBottomSheet(
     }
 }
 
-private data class SortOption(
-    val sortBy: String,
-    val sortOrder: String
-)
-
 private fun viewAllItemKey(item: BaseItemDto): String {
     return item.id ?: "${item.name}_${item.type}_${item.seriesId}_${item.indexNumber ?: 0}"
 }
@@ -1058,16 +1164,35 @@ private fun ContentType.includesSeriesItems(): Boolean {
         this == ContentType.ALL
 }
 
-@StringRes
-private fun sortOptionLabelRes(sortBy: String, sortOrder: String): Int {
-    return when (sortBy to sortOrder) {
-        "DateCreated" to "Descending" -> R.string.view_all_sort_recently_added
-        "SortName" to "Ascending" -> R.string.view_all_sort_name_az
-        "SortName" to "Descending" -> R.string.view_all_sort_name_za
-        "ProductionYear" to "Descending" -> R.string.view_all_sort_year_newest
-        "ProductionYear" to "Ascending" -> R.string.view_all_sort_year_oldest
-        "CommunityRating" to "Descending" -> R.string.view_all_sort_rating_high
-        "CommunityRating" to "Ascending" -> R.string.view_all_sort_rating_low
-        else -> R.string.view_all_sort_recently_added
+@Composable
+private fun LibraryBrowseTabRow(
+    tabs: List<LibraryBrowseTab>,
+    selected: LibraryBrowseTab,
+    contentType: ContentType,
+    onSelected: (LibraryBrowseTab) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(bottom = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        tabs.forEach { tab ->
+            val isSelected = tab == selected
+            Surface(
+                onClick = { onSelected(tab) },
+                shape = RoundedCornerShape(999.dp),
+                color = if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent
+            ) {
+                Text(
+                    text = stringResource(tab.labelRes(contentType)),
+                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.62f),
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                )
+            }
+        }
     }
 }

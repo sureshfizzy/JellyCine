@@ -147,6 +147,7 @@ class PlayerViewModel @Inject constructor(
         preferredSubtitleStreamIndex: Int? = null,
         initialSeekPositionMs: Long? = null,
         startPlayback: Boolean = true,
+        startFromBeginning: Boolean = false,
         forcedPlayerEngine: String? = null
     ) {
         viewModelScope.launch {
@@ -235,7 +236,9 @@ class PlayerViewModel @Inject constructor(
                 }
                 currentItemDetails = itemDetails
                 val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
-                val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
+                val storedResumePositionMs = if (startFromBeginning) {
+                    null
+                } else if (resumePositionTicks != null && resumePositionTicks > 0) {
                     resumePositionTicks / 10000L
                 } else {
                     null
@@ -291,7 +294,11 @@ class PlayerViewModel @Inject constructor(
                     }
                 }
                 val chapterMarkers = PlaybackMarkerUtils.buildChapterMarkers(itemDetails?.chapters)
-                val playerStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
+                val playerStartPositionMs = if (startFromBeginning) {
+                    0L
+                } else {
+                    initialSeekPositionMs ?: storedResumePositionMs
+                }
                 val introSegment = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
 
                 var primaryMediaSource: MediaSource? = null

@@ -14,6 +14,7 @@ import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.AdminSessionInfo
+import com.jellycine.data.model.ItemIdResult
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.SystemInfoFull
 import com.jellycine.data.model.UserDto
@@ -232,4 +233,38 @@ interface MediaServerApi {
         startIndex: Int? = null,
         limit: Int? = null
     ): ApiResponse<ActivityLogResult>
+
+    suspend fun refreshItem(
+        itemId: String,
+        recursive: Boolean = true,
+        metadataRefreshMode: String = "Default",
+        imageRefreshMode: String = "Default",
+        replaceAllMetadata: Boolean = false
+    ): ApiResponse<Unit>
+
+    suspend fun deleteItem(itemId: String): ApiResponse<Unit>
+
+    suspend fun updateItem(itemId: String, item: BaseItemDto): ApiResponse<Unit>
+
+    suspend fun createPlaylist(
+        name: String,
+        ids: String,
+        userId: String
+    ): ApiResponse<ItemIdResult>
+
+    suspend fun addToPlaylist(
+        playlistId: String,
+        ids: String,
+        userId: String
+    ): ApiResponse<Unit>
+
+    suspend fun createCollection(
+        name: String,
+        ids: String
+    ): ApiResponse<ItemIdResult>
+
+    suspend fun addToCollection(
+        collectionId: String,
+        ids: String
+    ): ApiResponse<Unit>
 }

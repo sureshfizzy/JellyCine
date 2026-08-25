@@ -610,10 +610,8 @@ fun DashboardContainer(
                             clip = false
                         )
                         .graphicsLayer(
-                            rotationX = if (isOfflineTwoTabMode) 0f else -3f,
                             transformOrigin = TransformOrigin(0.5f, 1f),
-                            scaleY = 1f,
-                            cameraDistance = 8f * density.density
+                            compositingStrategy = CompositingStrategy.Offscreen
                         )
                         .drawBehind {
                             if (isOfflineTwoTabMode) {
