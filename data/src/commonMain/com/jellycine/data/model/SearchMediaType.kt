@@ -13,6 +13,6 @@ fun Set<SearchMediaType>.toSearchQueries(): List<Pair<String, Long>> =
             .takeIf { it.isNotBlank() }
             ?.let { add(it to 30_000L) }
         if (SearchMediaType.EPISODE in this@toSearchQueries) {
-            add(SearchMediaType.EPISODE.serverValue to 12_000L)
+            add(SearchMediaType.EPISODE.serverValue to 25_000L)
         }
     }

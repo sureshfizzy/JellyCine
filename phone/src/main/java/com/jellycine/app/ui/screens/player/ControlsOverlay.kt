@@ -1,10 +1,12 @@
 package com.jellycine.app.ui.screens.player
 
+import android.content.res.Configuration
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -29,6 +31,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -77,6 +80,8 @@ fun ControlsOverlay(
     onShowAudioTrackSelection: () -> Unit = {},
     onShowSubtitleTrackSelection: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
+    onToggleOrientation: () -> Unit = {},
+    onTitleClick: () -> Unit = {},
     onSeekBackward: () -> Unit = {},
     onSeekForward: () -> Unit = {},
     seekBackwardSeconds: Int = 30,
@@ -87,6 +92,7 @@ fun ControlsOverlay(
     onPlayNextEpisode: () -> Unit = {},
     onScrubStateChange: (Boolean) -> Unit = {}
 ) {
+    val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val context = LocalContext.current
     var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
     val overlayGradient = remember {
@@ -122,6 +128,37 @@ fun ControlsOverlay(
     val hdrChipColor = if (useDolbyVisionBadge) Color.White else Color(0xFFE8E8E8)
     val hdrChipHorizontalPadding = if (useDolbyVisionBadge) 5.dp else 8.dp
     val hdrChipVerticalPadding = if (useDolbyVisionBadge) 2.dp else 4.dp
+
+    if (isPortrait) {
+        PortraitPlayerOverlay(
+            title = title,
+            seasonEpisodeLabel = seasonEpisodeLabel,
+            isPlaying = isPlaying,
+            currentPosition = currentPosition,
+            duration = duration,
+            displayedPosition = displayedPosition,
+            chapterMarkers = chapterMarkers,
+            isLocked = isLocked,
+            showPlaybackSettingsButton = showPlaybackSettingsButton,
+            onBackClick = onBackClick,
+            onPlayPause = onPlayPause,
+            onSeek = onSeek,
+            onScrubProgressChange = {
+                scrubPreviewProgress = it
+                onScrubStateChange(it != null)
+            },
+            onToggleLock = onToggleLock,
+            onShowMediaInfo = onShowMediaInfo,
+            onShowPlaybackSettings = onShowPlaybackSettings,
+            onShowAudioTrackSelection = onShowAudioTrackSelection,
+            onShowSubtitleTrackSelection = onShowSubtitleTrackSelection,
+            onCycleAspectRatio = onCycleAspectRatio,
+            onToggleOrientation = onToggleOrientation,
+            onTitleClick = onTitleClick,
+            modifier = modifier
+        )
+        return
+    }
 
     Box(
         modifier = modifier
@@ -189,6 +226,14 @@ fun ControlsOverlay(
                         Icon(
                             imageVector = Icons.Outlined.AspectRatio,
                             contentDescription = "Aspect Ratio",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onToggleOrientation) {
+                        Icon(
+                            imageVector = Icons.Outlined.ScreenRotation,
+                            contentDescription = stringResource(R.string.player_cd_toggle_orientation),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
@@ -480,6 +525,218 @@ fun ControlsOverlay(
     }
 }
 
+@Composable
+private fun PortraitPlayerOverlay(
+    title: String,
+    seasonEpisodeLabel: String?,
+    isPlaying: Boolean,
+    currentPosition: Long,
+    duration: Long,
+    displayedPosition: Long,
+    chapterMarkers: List<ChapterMarker>,
+    isLocked: Boolean,
+    showPlaybackSettingsButton: Boolean,
+    onBackClick: () -> Unit,
+    onPlayPause: () -> Unit,
+    onSeek: (Float) -> Unit,
+    onScrubProgressChange: (Float?) -> Unit,
+    onToggleLock: () -> Unit,
+    onShowMediaInfo: () -> Unit,
+    onShowPlaybackSettings: () -> Unit,
+    onShowAudioTrackSelection: () -> Unit,
+    onShowSubtitleTrackSelection: () -> Unit,
+    onCycleAspectRatio: () -> Unit,
+    onToggleOrientation: () -> Unit,
+    onTitleClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    var showOverflow by remember { mutableStateOf(false) }
+    val progress = if (duration > 0 && currentPosition >= 0) {
+        (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .align(Alignment.TopCenter),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back_button),
+                    tint = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (!isLocked) {
+                IconButton(onClick = onCycleAspectRatio) {
+                    Icon(
+                        imageVector = Icons.Outlined.AspectRatio,
+                        contentDescription = stringResource(R.string.player_settings_start_maximized),
+                        tint = Color.White
+                    )
+                }
+                IconButton(onClick = onToggleOrientation) {
+                    Icon(
+                        imageVector = Icons.Outlined.ScreenRotation,
+                        contentDescription = stringResource(R.string.player_cd_toggle_orientation),
+                        tint = Color.White
+                    )
+                }
+                Box {
+                    IconButton(onClick = { showOverflow = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = stringResource(R.string.player_more),
+                            tint = Color.White
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showOverflow,
+                        onDismissRequest = { showOverflow = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.player_media_info)) },
+                            onClick = {
+                                showOverflow = false
+                                onShowMediaInfo()
+                            }
+                        )
+                        if (showPlaybackSettingsButton) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.player_settings_streaming_quality)) },
+                                onClick = {
+                                    showOverflow = false
+                                    onShowPlaybackSettings()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!isLocked) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                IconButton(onClick = onToggleLock) {
+                    Icon(
+                        imageVector = Icons.Outlined.LockOpen,
+                        contentDescription = stringResource(R.string.player_lock),
+                        tint = Color.White
+                    )
+                }
+            }
+        } else {
+            IconButton(
+                onClick = onToggleLock,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = stringResource(R.string.player_unlock),
+                    tint = Color.White
+                )
+            }
+        }
+
+        if (!isLocked) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(onClick = onTitleClick)
+                )
+                if (!seasonEpisodeLabel.isNullOrBlank()) {
+                    Text(
+                        text = seasonEpisodeLabel,
+                        color = Color.White.copy(alpha = 0.72f),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${formatTime(displayedPosition)} / ${formatTime(if (duration > 0) duration else 0L)}",
+                        color = Color.White.copy(alpha = 0.78f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    SeekBar(
+                        progress = progress,
+                        duration = duration,
+                        chapterMarkers = chapterMarkers,
+                        onSeek = onSeek,
+                        onScrubProgressChange = onScrubProgressChange,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onPlayPause) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = if (isPlaying) {
+                                stringResource(R.string.pause)
+                            } else {
+                                stringResource(R.string.play)
+                            },
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    IconButton(onClick = onShowAudioTrackSelection) {
+                        Icon(
+                            imageVector = Icons.Outlined.Audiotrack,
+                            contentDescription = stringResource(R.string.player_dialog_audio_title),
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = onShowSubtitleTrackSelection) {
+                        Icon(
+                            imageVector = Icons.Outlined.Subtitles,
+                            contentDescription = stringResource(R.string.player_dialog_subtitles_title),
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun replayIcon(seconds: Int): ImageVector {
     return when (seconds) {
         5 -> Icons.Filled.Replay5
@@ -529,7 +786,7 @@ private fun SeekBar(
 
     Box(
         modifier = modifier
-            .height(PROGRESS_BAR_HEIGHT_DP.dp)
+            .height(36.dp)
             .onSizeChanged { widthPx = it.width }
             .pointerInteropFilter { event ->
                 if (widthPx <= 0) return@pointerInteropFilter false
@@ -540,6 +797,7 @@ private fun SeekBar(
                         dragActive = true
                         scrubProgress = newProgress
                         onScrubProgressChange(scrubProgress)
+                        onSeek(scrubProgress)
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -562,7 +820,8 @@ private fun SeekBar(
                     }
                     else -> false
                 }
-            }
+            },
+        contentAlignment = Alignment.Center
     ) {
         val renderedProgress = scrubProgress.coerceIn(0f, 1f)
 

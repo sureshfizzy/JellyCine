@@ -18,6 +18,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PLAYER_BRIGHTNESS = "player_brightness"
         private const val KEY_PLAYER_VOLUME = "player_volume"
         private const val KEY_PLAYER_ENGINE = "player_engine"
+        private const val KEY_PLAYER_ORIENTATION = "player_orientation"
         private const val KEY_MPV_HARDWARE_DECODING = "mpv_hardware_decoding"
         private const val KEY_MPV_VIDEO_OUTPUT = "mpv_video_output"
         private const val KEY_MPV_AUDIO_OUTPUT = "mpv_audio_output"
@@ -121,18 +122,27 @@ class PlayerPreferences(context: Context) {
         const val MAX_PLAYER_CACHE_TIME_SECONDS = 900
         const val MIN_PLAYER_CACHE_TIME_SECONDS = 30
         const val PLAYER_CACHE_TIME_STEP_SECONDS = 30
-        const val DEFAULT_SEEK_INTERVAL_SECONDS = 30
+        const val DEFAULT_SEEK_INTERVAL_SECONDS = 10
         const val MAX_SEEK_INTERVAL_SECONDS = 30
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
         const val DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER = false
         const val DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER = false
-        const val DEFAULT_CACHE_NEXT_EPISODE = false
+        const val DEFAULT_CACHE_NEXT_EPISODE = true
         const val DEFAULT_SKIP_INTRO_ENABLED = true
         const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
         const val PLAYER_ENGINE_EXO = "ExoPlayer"
         const val PLAYER_ENGINE_MPV = "MPV"
-        const val DEFAULT_PLAYER_ENGINE = PLAYER_ENGINE_EXO
+        const val DEFAULT_PLAYER_ENGINE = PLAYER_ENGINE_MPV
+        const val PLAYER_ORIENTATION_PORTRAIT = "portrait"
+        const val PLAYER_ORIENTATION_LANDSCAPE = "landscape"
+        const val PLAYER_ORIENTATION_AUTO = "auto"
+        const val DEFAULT_PLAYER_ORIENTATION = PLAYER_ORIENTATION_PORTRAIT
+        val PLAYER_ORIENTATION_OPTIONS = listOf(
+            PLAYER_ORIENTATION_PORTRAIT,
+            PLAYER_ORIENTATION_LANDSCAPE,
+            PLAYER_ORIENTATION_AUTO
+        )
         val PLAYER_ENGINE_OPTIONS = listOf(PLAYER_ENGINE_EXO, PLAYER_ENGINE_MPV)
         const val MPV_HARDWARE_DECODING_NONE = "no"
         const val MPV_HARDWARE_DECODING_MEDIACODEC = "mediacodec"
@@ -276,6 +286,21 @@ class PlayerPreferences(context: Context) {
     fun getPlayerEngine(): String {
         val engine = prefs.getString(KEY_PLAYER_ENGINE, DEFAULT_PLAYER_ENGINE) ?: DEFAULT_PLAYER_ENGINE
         return if (engine in PLAYER_ENGINE_OPTIONS) engine else DEFAULT_PLAYER_ENGINE
+    }
+
+    fun getPlayerOrientation(): String {
+        val value = prefs.getString(KEY_PLAYER_ORIENTATION, DEFAULT_PLAYER_ORIENTATION)
+            ?: DEFAULT_PLAYER_ORIENTATION
+        return if (value in PLAYER_ORIENTATION_OPTIONS) value else DEFAULT_PLAYER_ORIENTATION
+    }
+
+    fun setPlayerOrientation(orientation: String) {
+        prefs.edit()
+            .putString(
+                KEY_PLAYER_ORIENTATION,
+                if (orientation in PLAYER_ORIENTATION_OPTIONS) orientation else DEFAULT_PLAYER_ORIENTATION
+            )
+            .apply()
     }
 
     fun setPlayerEngine(engine: String) {

@@ -98,6 +98,8 @@ class PlayerViewModel @Inject constructor(
     private var communityPlaybackSegmentsJob: Job? = null
     private var spatialAudioAnalysisJob: Job? = null
     private var currentItemDetails: BaseItemDto? = null
+    val playbackItem: BaseItemDto?
+        get() = currentItemDetails
     var discordPosterUrl: String? = null
         private set
     private var nextEpisodePrefetchJob: Job? = null

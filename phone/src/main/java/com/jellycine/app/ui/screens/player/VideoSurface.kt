@@ -152,21 +152,7 @@ private fun ExoPlayerView(
                 )
                 setDefaultArtwork(null)
 
-                val helper = GestureHelper(
-                    context = viewContext,
-                    touchView = this,
-                    audioManager = audioManager,
-                    onShowControls = onToggleControls,
-                    onSeek = onSeek,
-                    onVolumeChange = onVolumeChange,
-                    onBrightnessChange = onBrightnessChange,
-                    getCurrentVolumeLevel = getCurrentVolumeLevel,
-                    getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                    onZoomChange = onZoomChange,
-                    onTogglePlayPause = onTogglePlayPause,
-                    getPlayer = { this.player }
-                )
-                setOnTouchListener { _, event -> helper.handleTouchEvent(event) }
+                // Gestures are handled by PlayerGestureLayer so portrait letterbox swipes work.
             }
         },
         update = { playerView ->

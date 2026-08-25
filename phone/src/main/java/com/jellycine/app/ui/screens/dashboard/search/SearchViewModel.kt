@@ -25,7 +25,8 @@ import javax.inject.Inject
 
 private val defaultSearchTypes = setOf(
     SearchMediaType.MOVIE,
-    SearchMediaType.SERIES
+    SearchMediaType.SERIES,
+    SearchMediaType.EPISODE
 )
 
 @HiltViewModel
@@ -158,7 +159,7 @@ class SearchViewModel @Inject constructor(
             } else {
                 _uiState.value = _uiState.value.copy(
                     isSearching = false,
-                    error = "Search failed"
+                    error = context.getString(com.jellycine.shared.R.string.search_failed)
                 )
             }
             return
@@ -388,15 +389,15 @@ class SearchViewModel @Inject constructor(
         val trimmedQuery = query.trim()
         if (text.isBlank() || trimmedQuery.isBlank()) return null
 
-        val lowerQuery = trimmedQuery.lowercase(Locale.US)
+        val lowerQuery = trimmedQuery.lowercase(Locale.getDefault())
         val normalizedQuery = trimmedQuery.normalizedSearchKey()
-        val lowerText = text.lowercase(Locale.US)
+        val lowerText = text.lowercase(Locale.getDefault())
         val normalizedText = text.normalizedSearchKey()
         val queryWords = lowerQuery
-            .split(Regex("[^a-z0-9]+"))
+            .split(Regex("[\\s\\p{Punct}]+"))
             .filter { word -> word.isNotBlank() }
-        val tokens = lowerText.split(Regex("[^a-z0-9]+")).filter { token -> token.isNotBlank() }
-        val allWordsMatch = queryWords.all { word ->
+        val tokens = lowerText.split(Regex("[\\s\\p{Punct}]+")).filter { token -> token.isNotBlank() }
+        val allWordsMatch = queryWords.isNotEmpty() && queryWords.all { word ->
             tokens.any { token ->
                 token == word || token.startsWith(word) || token.contains(word)
             }
@@ -416,7 +417,7 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun String.normalizedSearchKey(): String {
-        return lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "")
+        return lowercase(Locale.getDefault()).replace(Regex("[\\s\\p{Punct}]+"), "")
     }
 
     private suspend fun fetchSeerrTitles(
@@ -449,7 +450,12 @@ private fun List<BaseItemDto>.resultsFor(
     type: SearchMediaType,
     selectedTypes: Set<SearchMediaType>
 ): List<BaseItemDto> =
-    if (type in selectedTypes) filter { it.type == type.serverValue }.take(20) else emptyList()
+    if (type in selectedTypes) {
+        val limit = if (type == SearchMediaType.EPISODE) 40 else 20
+        filter { it.type == type.serverValue }.take(limit)
+    } else {
+        emptyList()
+    }
 
 enum class SearchDiscoveryTab(val seerrCategory: SeerrDiscoveryCategory?) {
     SUGGESTIONS(null),

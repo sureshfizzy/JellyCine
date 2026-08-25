@@ -1757,15 +1757,7 @@ fun Dashboard(
             )
         }
 
-        val featureParallaxOffsetPx by remember {
-            derivedStateOf {
-                if (lazyColumnState.firstVisibleItemIndex == 0) {
-                    lazyColumnState.firstVisibleItemScrollOffset.toFloat()
-                } else {
-                    0f
-                }
-            }
-        }
+        val featureParallaxOffsetPx = 0f
 
         if (!isNetworkAvailable) {
             if (trackedDownloads.any { it.isOfflineAvailable }) {
@@ -2807,7 +2799,7 @@ private fun ContinueWatchingCard(
                     fallbackImageType = "Backdrop",
                     extraFallbackImageTypes = listOf("Primary"),
                     preferSeriesIdForThumbBackdrop = true,
-                    allowRgb565 = false,
+                    allowRgb565 = true,
                     contentDescription = stableItem.name,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -3013,34 +3005,10 @@ private fun BurstLibrarySection(
                 key = { index, item -> "${item.id ?: section.libraryId}_$index" }
             ) { index, item ->
                 val stableOnClick = remember(item.id, item.name) { { onItemClick(item) } }
-                val isVisible by remember(libraryRowState, index) {
-                    derivedStateOf {
-                        libraryRowState.layoutInfo.visibleItemsInfo.any { it.index == index }
-                    }
-                }
-                var hasEntered by remember(item.id ?: "${section.libraryId}_$index") {
-                    mutableStateOf(false)
-                }
-                LaunchedEffect(isVisible) {
-                    if (isVisible && !hasEntered) {
-                        hasEntered = true
-                    }
-                }
-                val entranceProgress by animateFloatAsState(
-                    targetValue = if (hasEntered) 1f else 0.88f,
-                    animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
-                    label = "burst_library_item_entrance"
-                )
 
                 LibraryItemCard(
                     item = item,
-                    modifier = Modifier.graphicsLayer {
-                        alpha = entranceProgress
-                        translationX = (1f - entranceProgress) * 26f
-                        val scale = 0.96f + (0.04f * entranceProgress)
-                        scaleX = scale
-                        scaleY = scale
-                    },
+                    modifier = Modifier,
                     mediaRepository = mediaRepository,
                     disableImageEnhancers = disablePosterEnhancers,
                     onClick = stableOnClick

@@ -12,7 +12,7 @@ import android.os.IBinder
 import androidx.core.content.ContextCompat
 import com.jellycine.player.discord.DiscordRpcManager
 import com.jellycine.player.discord.NowPlayingInfo
-import com.jellycine.shared.R
+import com.jellycine.shared.R as SharedR
 
 class DiscordRpcService : Service() {
 
@@ -93,10 +93,10 @@ class DiscordRpcService : Service() {
     private fun ensureNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Discord Rich Presence",
+            getString(SharedR.string.discord_rpc_notification_title),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Shows when Discord Rich Presence is active"
+            description = getString(SharedR.string.discord_rpc_notification_text)
             setShowBadge(false)
         }
         val manager = getSystemService(NotificationManager::class.java)
@@ -105,9 +105,9 @@ class DiscordRpcService : Service() {
 
     private fun buildNotification(): Notification {
         return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Discord Rich Presence")
-            .setContentText("Sharing activity with Discord")
+            .setSmallIcon(SharedR.mipmap.ic_launcher)
+            .setContentTitle(getString(SharedR.string.discord_rpc_notification_title))
+            .setContentText(getString(SharedR.string.discord_rpc_notification_text))
             .setOngoing(true)
             .build()
     }

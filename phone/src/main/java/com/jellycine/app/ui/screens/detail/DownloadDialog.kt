@@ -38,12 +38,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.util.Locale
+import com.jellycine.shared.R
 
 internal data class StorageSelectionOption(
     val id: String,
@@ -80,7 +82,7 @@ internal fun FailureDialog(
                     contentColor = Color(0xFF22D3EE)
                 )
             ) {
-                Text("OK", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.ok), fontWeight = FontWeight.SemiBold)
             }
         }
     )
@@ -262,7 +264,7 @@ internal fun DownloadDialog(
                             contentColor = Color.White.copy(alpha = 0.8f)
                         )
                     ) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                     Spacer(modifier = Modifier.size(6.dp))
                     Button(

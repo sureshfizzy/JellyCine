@@ -79,7 +79,7 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.jellycine.shared.R
-import com.jellycine.data.network.canonicalServerUrlKey
+
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 
@@ -398,7 +398,7 @@ internal fun ServerSwitchDialog(
 ) {
     val serverGroups = remember(servers, activeServerId) {
         servers
-            .groupBy { canonicalServerUrlKey(it.serverUrl) }
+            .groupBy { it.groupingKey() }
             .map { (_, groupedUsers) ->
                 val sortedUsers = groupedUsers.sortedWith(
                     compareByDescending<AuthRepository.SavedServer> {

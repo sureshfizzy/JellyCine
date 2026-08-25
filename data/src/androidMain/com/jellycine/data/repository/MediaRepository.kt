@@ -71,6 +71,7 @@ class MediaRepository(private val context: Context) {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
+        private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
         private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
     }
 
@@ -173,7 +174,9 @@ class MediaRepository(private val context: Context) {
         val serverType = serverTypeRaw?.let {
             runCatching { ServerType.valueOf(it) }.getOrNull()
         }
-        val accessToken = secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
+        val activeServerId = preferences[ACTIVE_SERVER_ID_KEY]?.takeIf { it.isNotBlank() }
+        val accessToken = activeServerId?.let { secureSessionStore.getToken(it) }
+            ?: secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
             ?: preferences[LEGACY_ACCESS_TOKEN_KEY]
 
         return SessionConfig(
@@ -1936,18 +1939,21 @@ class MediaRepository(private val context: Context) {
                 includeItemTypes = includeItemTypes,
                 recursive = true,
                 limit = limit,
-                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
             )
 
-            // If searchTerm doesn't work, try nameStartsWith
-            if (!response.isSuccessful || response.body()?.items?.isEmpty() == true) {
+            // Prefix fallback is only useful for Latin queries.
+            if (
+                searchTerm.any { it in 'A'..'Z' || it in 'a'..'z' } &&
+                (!response.isSuccessful || response.body()?.items?.isEmpty() == true)
+            ) {
                 response = api.searchItemsByName(
                     userId = userId,
                     nameStartsWith = searchTerm,
                     includeItemTypes = includeItemTypes,
                     recursive = true,
                     limit = limit,
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
                 )
             }
 

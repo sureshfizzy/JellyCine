@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.player.preferences.TranscodeProfile
 import com.jellycine.player.preferences.TranscodeProfiles
 import java.util.Locale
+import com.jellycine.shared.R
 
 data class ResolutionGroup(
     val label: String,
@@ -219,7 +221,7 @@ private fun StepContent(
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
             }
         }
     }

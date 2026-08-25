@@ -64,16 +64,17 @@ fun Settings(
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
     var showNetworkDialog by remember { mutableStateOf(false) }
+    var showServerLinesDialog by remember { mutableStateOf(false) }
     var editingNetworkTimeout by remember { mutableStateOf<NetworkTimeoutField?>(null) }
     val activeSavedServer = remember(uiState.savedServers, uiState.activeServerId) {
         uiState.savedServers.firstOrNull { it.id == uiState.activeServerId }
     }
     val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl, uiState.activeServerId) {
         val currentServerUrl = uiState.serverUrl
+        val currentServer = activeSavedServer
         uiState.savedServers
             .filter { savedServer ->
-                currentServerUrl != null &&
-                    sameServerUrl(savedServer.serverUrl, currentServerUrl)
+                currentServer != null && savedServer.groupingKey() == currentServer.groupingKey()
             }
             .sortedWith(
                 compareByDescending<AuthRepository.SavedServer> {
@@ -142,6 +143,17 @@ fun Settings(
             item { SectionLabel(stringResource(R.string.settings_preferences)) }
             item {
                 SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.Router,
+                        title = stringResource(R.string.settings_server_lines),
+                        subtitle = stringResource(R.string.settings_server_lines_subtitle),
+                        accentColor = Color(0xFFF97316),
+                        onClick = { showServerLinesDialog = true }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                     SettingsItem(
                         icon = Icons.Rounded.DisplaySettings,
                         title = stringResource(R.string.settings_interface),
@@ -267,6 +279,18 @@ fun Settings(
                 }
                 editingNetworkTimeout = null
             }
+        )
+    }
+
+    if (showServerLinesDialog) {
+        ServerLinesDialog(
+            server = activeSavedServer,
+            isBusy = uiState.isLineBusy,
+            onDismiss = { showServerLinesDialog = false },
+            onAddLine = { url, name -> viewModel.addServerLine(url, name) },
+            onSwitchLine = viewModel::switchServerLine,
+            onRemoveLine = viewModel::removeServerLine,
+            onAutoSelect = viewModel::autoSelectServerLine
         )
     }
 

@@ -115,21 +115,10 @@ fun AuthScreen(
     var currentStep by remember(login) {
         mutableStateOf(if (login) AuthStep.LOGIN else AuthStep.SERVER_CONNECTION)
     }
-    val showServerConnection = currentStep == AuthStep.SERVER_CONNECTION && displaySavedServers
     var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
     val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
 
-    LaunchedEffect(displaySavedServers, currentStep) {
-        if (
-            displaySavedServers &&
-            currentStep == AuthStep.SERVER_CONNECTION &&
-            !serverSwitchDialogsState.showServerSwitchDialog &&
-            !serverSwitchDialogsState.showUserSwitchDialog
-        ) {
-            serverSwitchDialogsState.openServers()
-        }
-    }
 
     BackHandler(enabled = canNavigateBackToServerStep && !uiState.isLoginLoading) {
         authViewModel.clearLoginError()
@@ -216,11 +205,39 @@ fun AuthScreen(
                     .fillMaxSize()
                     .padding(top = 8.dp)
             ) {
-                when (currentStep) {
-                    AuthStep.SERVER_CONNECTION -> ServerConnectionContent(
+                when {
+                    displaySavedServers && currentStep == AuthStep.SERVER_CONNECTION -> {
+                        SavedServersGrid(
+                            modifier = Modifier.fillMaxSize(),
+                            servers = sessionSnapshot.savedServers,
+                            activeServerId = sessionSnapshot.activeServerId,
+                            isSwitching = serverSwitchUiState.isBusy,
+                            onAddServer = onAddServer,
+                            onOpenServerUsers = { name, users ->
+                                serverSwitchDialogsState.openUsers(name, users)
+                            },
+                            onServerSelected = { savedServer ->
+                                serverSwitchViewModel.switchServer(
+                                    serverId = savedServer.id,
+                                    activeServerId = sessionSnapshot.activeServerId,
+                                    onSwitchComplete = onAuthSuccess,
+                                    onSwitchFailed = { error ->
+                                        authViewModel.updateServerUrl(savedServer.serverUrl)
+                                        authViewModel.updateUsername(savedServer.username)
+                                        authViewModel.updatePassword("")
+                                        authViewModel.setLoginError(error)
+                                        selectedServerUrl = savedServer.serverUrl
+                                        selectedServerName = savedServer.serverName
+                                        currentStep = AuthStep.LOGIN
+                                    }
+                                )
+                            }
+                        )
+                    }
+                    currentStep == AuthStep.SERVER_CONNECTION -> ServerConnectionContent(
                         modifier = Modifier.fillMaxSize(),
                         serverUrl = uiState.serverUrl,
-                        isAwaitingSavedServers = showServerConnection,
+                        isAwaitingSavedServers = false,
                         isLoading = uiState.isServerLoading,
                         errorMessage = uiState.serverErrorMessage,
                         onServerUrlChange = authViewModel::updateServerUrl,
@@ -232,8 +249,7 @@ fun AuthScreen(
                             }
                         }
                     )
-
-                    AuthStep.LOGIN -> LoginContent(
+                    else -> LoginContent(
                         modifier = Modifier.fillMaxSize(),
                         serverUrl = selectedServerUrl,
                         serverName = selectedServerName,
@@ -253,6 +269,7 @@ fun AuthScreen(
                     )
                 }
             }
+
 
             IconButton(
                 onClick = {

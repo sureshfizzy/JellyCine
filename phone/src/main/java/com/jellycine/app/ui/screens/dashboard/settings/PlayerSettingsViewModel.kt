@@ -13,6 +13,7 @@ import com.jellycine.player.preferences.PlayerPreferences
 
 data class PlayerSettingsUiState(
     val playerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE,
+    val playerOrientation: String = PlayerPreferences.DEFAULT_PLAYER_ORIENTATION,
     val mpvHardwareDecoding: String = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
     val mpvVideoOutput: String = PlayerPreferences.DEFAULT_MPV_VIDEO_OUTPUT,
     val mpvAudioOutput: String = PlayerPreferences.DEFAULT_MPV_AUDIO_OUTPUT,
@@ -93,6 +94,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
             _uiState.value = _uiState.value.copy(
                 hardwareDecodingEnabled = playerPreferences.isHardwareAccelerationEnabled(),
                 playerEngine = playerPreferences.getPlayerEngine(),
+                playerOrientation = playerPreferences.getPlayerOrientation(),
                 mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding(),
                 mpvVideoOutput = playerPreferences.getMpvVideoOutput(),
                 mpvAudioOutput = playerPreferences.getMpvAudioOutput(),
@@ -130,6 +132,13 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setPlayerEngine(engine: String) {
         playerPreferences.setPlayerEngine(engine)
         _uiState.value = _uiState.value.copy(playerEngine = playerPreferences.getPlayerEngine())
+    }
+
+    fun setPlayerOrientation(orientation: String) {
+        playerPreferences.setPlayerOrientation(orientation)
+        _uiState.value = _uiState.value.copy(
+            playerOrientation = playerPreferences.getPlayerOrientation()
+        )
     }
 
     fun setMpvHardwareDecoding(hardwareDecoding: String) {

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VideoSettings
@@ -128,6 +129,39 @@ fun PlayerSettingsScreen(
                             SelectionOption("MPV", "MPV", "Advanced rendering, custom shaders, better HDR")
                         ),
                         onOptionSelected = viewModel::setPlayerEngine,
+                        accentColor = videoColor
+                    )
+                    SettingsDivider()
+                    SelectionDialogSettingsItem(
+                        icon = Icons.Rounded.ScreenRotation,
+                        title = stringResource(R.string.player_settings_orientation),
+                        subtitle = when (uiState.playerOrientation) {
+                            PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE ->
+                                stringResource(R.string.player_settings_orientation_landscape)
+                            PlayerPreferences.PLAYER_ORIENTATION_AUTO ->
+                                stringResource(R.string.player_settings_orientation_auto)
+                            else -> stringResource(R.string.player_settings_orientation_portrait)
+                        },
+                        selectedValue = uiState.playerOrientation,
+                        options = listOf(
+                            SelectionOption(
+                                PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT,
+                                stringResource(R.string.player_settings_orientation_portrait),
+                                stringResource(R.string.player_settings_orientation_portrait),
+                                isDefault = true
+                            ),
+                            SelectionOption(
+                                PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE,
+                                stringResource(R.string.player_settings_orientation_landscape),
+                                stringResource(R.string.player_settings_orientation_landscape)
+                            ),
+                            SelectionOption(
+                                PlayerPreferences.PLAYER_ORIENTATION_AUTO,
+                                stringResource(R.string.player_settings_orientation_auto),
+                                stringResource(R.string.player_settings_orientation_auto)
+                            )
+                        ),
+                        onOptionSelected = viewModel::setPlayerOrientation,
                         accentColor = videoColor
                     )
 
@@ -413,7 +447,7 @@ fun PlayerSettingsScreen(
                 }
             }
 
-            item { SectionLabel(stringResource(R.string.player_settings_section_gestures)) }
+            item { SectionLabel(stringResource(R.string.player_settings_section_interaction)) }
             item {
                 SettingsSection {
                     SwitchSettingsItem(
@@ -802,10 +836,10 @@ private fun topbar(
 @Composable
 private fun SectionLabel(title: String) {
     Text(
-        text = title.uppercase(),
+        text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp)
+        color = Color(0xFF8B93B8),
+        modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp)
     )
 }
 
@@ -813,26 +847,13 @@ private fun SectionLabel(title: String) {
 private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column { content() }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        content()
     }
 }
 
 @Composable
 private fun SettingsDivider() {
-    HorizontalDivider(
-        thickness = 1.dp,
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-    )
 }
 
 @Composable
@@ -929,30 +950,16 @@ private fun BaseSettingsItem(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .background(
-                    color = when {
-                        isDestructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        else -> accentColor.copy(alpha = 0.16f)
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = when {
-                    isDestructive -> MaterialTheme.colorScheme.error
-                    !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    else -> accentColor
-                },
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = when {
+                isDestructive -> MaterialTheme.colorScheme.error
+                !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                else -> Color(0xFFD0D4E4)
+            },
+            modifier = Modifier.size(22.dp)
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 

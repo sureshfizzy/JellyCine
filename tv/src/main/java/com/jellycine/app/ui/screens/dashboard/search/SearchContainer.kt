@@ -330,7 +330,7 @@ fun SearchContainer(
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Start typing to search",
+                                    text = stringResource(R.string.search_empty_default),
                                     color = Color.White.copy(alpha = 0.4f),
                                     fontSize = 15.sp
                                 )

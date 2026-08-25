@@ -40,7 +40,7 @@ class Preferences(context: Context) {
     }
 
     fun isFeatureCarouselEnabled(): Boolean {
-        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, true)
+        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, false)
     }
 
     fun setFeatureCarouselEnabled(enabled: Boolean) {

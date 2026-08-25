@@ -3,6 +3,7 @@ package com.jellycine.app.ui.screens.detail
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,7 +60,7 @@ internal fun ActionSection(
 ) {
     val iconOnlyDownload = !useTabletLayout
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth(
                 detailActionWidth(
@@ -67,12 +68,11 @@ internal fun ActionSection(
                     useTabletLayout = useTabletLayout
                 )
             )
-            .padding(top = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(top = 12.dp)
     ) {
         Box(
             modifier = Modifier
-                .weight(1f)
+                .fillMaxWidth()
                 .height(buttonHeight)
                 .clip(RoundedCornerShape(24.dp))
         ) {
@@ -85,66 +85,73 @@ internal fun ActionSection(
             )
         }
 
-        Box(
+        Row(
             modifier = Modifier
-                .then(
-                    if (iconOnlyDownload) {
-                        Modifier.size(buttonHeight)
-                    } else {
-                        Modifier
-                            .weight(1f)
-                            .height(buttonHeight)
-                    }
-                )
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val downloadActionState = when {
-                !canDownloadItem -> DetailDownloadActionState.Unavailable
-                itemDownloadState.status == DownloadStatus.COMPLETED ->
-                    DetailDownloadActionState.Completed
-                itemDownloadState.status == DownloadStatus.DOWNLOADING ->
-                    DetailDownloadActionState.Downloading
-                isPausedDownload -> DetailDownloadActionState.Paused
-                itemDownloadState.status == DownloadStatus.QUEUED ->
-                    DetailDownloadActionState.Queued
-                else -> DetailDownloadActionState.Idle
+            Box(
+                modifier = Modifier
+                    .then(
+                        if (iconOnlyDownload) {
+                            Modifier.size(buttonHeight)
+                        } else {
+                            Modifier
+                                .weight(1f)
+                                .height(buttonHeight)
+                        }
+                    )
+            ) {
+                val downloadActionState = when {
+                    !canDownloadItem -> DetailDownloadActionState.Unavailable
+                    itemDownloadState.status == DownloadStatus.COMPLETED ->
+                        DetailDownloadActionState.Completed
+                    itemDownloadState.status == DownloadStatus.DOWNLOADING ->
+                        DetailDownloadActionState.Downloading
+                    isPausedDownload -> DetailDownloadActionState.Paused
+                    itemDownloadState.status == DownloadStatus.QUEUED ->
+                        DetailDownloadActionState.Queued
+                    else -> DetailDownloadActionState.Idle
+                }
+
+                DetailDownloadActionButton(
+                    state = downloadActionState,
+                    progress = downloadProgress,
+                    onClick = {
+                        when {
+                            !canDownloadItem -> Unit
+                            hasActiveDownload -> onDownloadMenuChange(true)
+                            else -> onDownloadClick()
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    iconOnly = iconOnlyDownload
+                )
+
+                DownloadActionMenu(
+                    expanded = downloadActionMenu,
+                    canResume = isPausedDownload,
+                    hasActiveDownloads = hasActiveDownload,
+                    onDismissRequest = { onDownloadMenuChange(false) },
+                    onPauseResume = onPauseResumeDownload,
+                    onCancel = onCancelDownload
+                )
             }
 
-            DetailDownloadActionButton(
-                state = downloadActionState,
-                progress = downloadProgress,
-                onClick = {
-                    when {
-                        !canDownloadItem -> Unit
-                        hasActiveDownload -> onDownloadMenuChange(true)
-                        else -> onDownloadClick()
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-                iconOnly = iconOnlyDownload
-            )
+            if (hasTrailer) {
+                DetailTrailerButton(
+                    onClick = onTrailerClick,
+                    size = buttonHeight
+                )
+            }
 
-            DownloadActionMenu(
-                expanded = downloadActionMenu,
-                canResume = isPausedDownload,
-                hasActiveDownloads = hasActiveDownload,
-                onDismissRequest = { onDownloadMenuChange(false) },
-                onPauseResume = onPauseResumeDownload,
-                onCancel = onCancelDownload
-            )
-        }
-
-        if (hasTrailer) {
-            DetailTrailerButton(
-                onClick = onTrailerClick,
+            FavoriteActionButton(
+                isFavorite = isFavorite,
+                onClick = onFavoriteClick,
                 size = buttonHeight
             )
         }
-
-        FavoriteActionButton(
-            isFavorite = isFavorite,
-            onClick = onFavoriteClick,
-            size = buttonHeight
-        )
     }
 }
 

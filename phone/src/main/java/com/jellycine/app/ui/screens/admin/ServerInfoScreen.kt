@@ -65,6 +65,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -75,6 +76,7 @@ import coil3.compose.AsyncImage
 import com.jellycine.data.model.ActivityLogEntry
 import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.SystemInfoFull
+import com.jellycine.shared.R
 
 private val CardColor = Color(0xFF0B0E12)
 private val BorderColor = Color.White.copy(alpha = 0.08f)
@@ -96,10 +98,10 @@ fun ServerInfoScreen(onBackPressed: () -> Unit = {}) {
         containerColor = Color.Black,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Admin Panel", fontWeight = FontWeight.SemiBold, color = Color.White) },
+                title = { Text(stringResource(R.string.admin_panel), fontWeight = FontWeight.SemiBold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.cd_back_button), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
@@ -505,7 +507,7 @@ private fun ServerHeader(info: SystemInfoFull?) {
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Icon(Icons.Rounded.Update, null, tint = AccentOrange, modifier = Modifier.size(13.dp))
-                    Text("Update available", style = MaterialTheme.typography.labelSmall, color = AccentOrange)
+                    Text(stringResource(R.string.admin_update_available), style = MaterialTheme.typography.labelSmall, color = AccentOrange)
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.app.Activity
+import android.content.res.Configuration
 import android.content.Context
 import android.media.AudioManager
 import android.provider.Settings
@@ -18,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -167,8 +169,12 @@ fun PlayerScreen(
         mutableStateOf(playerPreferences.getAudioTranscodeMode())
     }
     val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
+    var showPlaybackInfoSheet by remember { mutableStateOf(false) }
     val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
     val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
+    var playbackOrientation by remember {
+        mutableStateOf(playerPreferences.getPlayerOrientation())
+    }
 
     // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
@@ -206,7 +212,8 @@ fun PlayerScreen(
         onInitializedMediaIdChange = { initializedMediaId = it },
         onLifecycleChange = { lifecycle = it },
         onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
-        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged
+        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        playerOrientation = playbackOrientation
     )
 
     // Discord Rich Presence
@@ -369,11 +376,13 @@ fun PlayerScreen(
         onBackPressed?.invoke()
     }
 
+    val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .focusable()
+            .focusable(),
+        contentAlignment = Alignment.Center
     ) {
         VideoSurface(
             player = viewModel.exoPlayer,
@@ -440,7 +449,66 @@ fun PlayerScreen(
             onZoomChange = { isZooming ->
                 viewModel.handlePinchZoom(isZooming)
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = if (isPortraitPlayback) {
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+            } else {
+                Modifier.fillMaxSize()
+            }
+        )
+
+        PlayerGestureLayer(
+            audioManager = audioManager,
+            enabled = !playerState.isLocked,
+            onToggleControls = {
+                resetAutoHideTimer()
+                uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
+            },
+            onSeek = { delta ->
+                if (!playerState.isLocked) {
+                    viewModel.seekBy(delta)
+                    val isForward = delta > 0
+                    val seconds = kotlin.math.abs(delta) / 1000
+                    val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
+                    val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
+                    uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                }
+            },
+            onVolumeChange = { level ->
+                if (!playerState.isLocked) {
+                    playerVolume = level.coerceIn(0f, 1f)
+                    if (!useDeviceVolumeInPlayer) {
+                        playerPreferences.setPlayerVolume(playerVolume)
+                    }
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
+                    uiState = uiState.copy(volumeLevel = playerVolume)
+                }
+            },
+            onBrightnessChange = { delta ->
+                if (!playerState.isLocked) {
+                    val activity = context as? Activity
+                    activity?.let { act ->
+                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
+                        playerBrightness = newPlayerBrightness
+                        if (!useDeviceBrightnessInPlayer) {
+                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                        }
+                        val layoutParams = act.window.attributes
+                        layoutParams.screenBrightness = newPlayerBrightness
+                        act.window.attributes = layoutParams
+                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
+                    }
+                }
+            },
+            getCurrentVolumeLevel = { playerVolume },
+            getCurrentBrightnessLevel = { playerBrightness },
+            onZoomChange = { isZooming ->
+                viewModel.handlePinchZoom(isZooming)
+            },
+            onTogglePlayPause = viewModel::togglePlayPause
         )
 
         PlayerOverlayHost(
@@ -481,7 +549,17 @@ fun PlayerScreen(
                 showAudioTranscodingDialog = true
             },
             onShowAudioTrackDialog = { showAudioTrackDialog = true },
-            onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true }
+            onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true },
+            onToggleOrientation = {
+                playbackOrientation = if (
+                    playbackOrientation == PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
+                ) {
+                    PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT
+                } else {
+                    PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
+                }
+            },
+            onTitleClick = { showPlaybackInfoSheet = true }
         )
 
         PlayerDialogsHost(
@@ -517,6 +595,21 @@ fun PlayerScreen(
             },
             onDismissMediaInfo = { showMediaInfo = false }
         )
+
+        if (showPlaybackInfoSheet) {
+            PlaybackInfoSheet(
+                item = viewModel.playbackItem ?: initialItemDetails,
+                title = playerState.mediaTitle,
+                onDismiss = { showPlaybackInfoSheet = false },
+                onPlayFromStart = {
+                    viewModel.seekTo(0L)
+                    if (!playerState.isPlaying) {
+                        viewModel.togglePlayPause()
+                    }
+                    showPlaybackInfoSheet = false
+                }
+            )
+        }
     }
 }
 
@@ -581,7 +674,7 @@ fun SpatialAudioInfoDialog(
             TextButton(
                 onClick = onDismiss
             ) {
-                Text("OK")
+                Text(stringResource(R.string.ok))
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,
@@ -610,7 +703,7 @@ fun HdrFormatInfoDialog(
                 IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = stringResource(R.string.settings_close),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -635,7 +728,7 @@ fun HdrFormatInfoDialog(
             TextButton(
                 onClick = onDismiss
             ) {
-                Text("OK")
+                Text(stringResource(R.string.ok))
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,

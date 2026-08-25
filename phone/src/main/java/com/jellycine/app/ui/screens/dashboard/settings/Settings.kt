@@ -76,12 +76,11 @@ fun Settings(
     val activeSavedServer = remember(uiState.savedServers, uiState.activeServerId) {
         uiState.savedServers.firstOrNull { it.id == uiState.activeServerId }
     }
-    val usersForCurrentServer = remember(uiState.savedServers, uiState.serverUrl, uiState.activeServerId) {
-        val currentServerUrl = uiState.serverUrl
+    val usersForCurrentServer = remember(uiState.savedServers, uiState.activeServerId) {
+        val currentServer = activeSavedServer
         uiState.savedServers
             .filter { savedServer ->
-                currentServerUrl != null &&
-                    sameServerUrl(savedServer.serverUrl, currentServerUrl)
+                currentServer != null && savedServer.groupingKey() == currentServer.groupingKey()
             }
             .sortedWith(
                 compareByDescending<AuthRepository.SavedServer> {
@@ -97,88 +96,70 @@ fun Settings(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings)) },
-                actions = {
-                    IconButton(onClick = { openAppLanguageSettings(context) }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Translate,
-                            contentDescription = stringResource(R.string.settings_language)
-                        )
-                    }
-                    IconButton(onClick = onNavigateToAbout) {
-                        Icon(
-                            imageVector = Icons.Rounded.Info,
-                            contentDescription = stringResource(R.string.cd_about_button)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+            Column(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
-            )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding),
             state = listState,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            item {
-                UserProfileSection(
-                    user = uiState.user,
-                    username = uiState.username ?: stringResource(R.string.settings_unknown_user),
-                    serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
-                    serverUrl = uiState.serverUrl,
-                    seerr = uiState.seerr,
-                    serverTypeRaw = activeSavedServer?.serverTypeRaw,
-                    profileImageUrl = uiState.profileImageUrl,
-                    isAdministrator = uiState.isAdministrator,
-                    onUserClick = {
-                        serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
-                    },
-                    onServerClick = serverSwitchDialogsState::openServers,
-                    onNavigateToDownloads = onNavigateToDownloads,
-                    onNavigateToServerInfo = onNavigateToServerInfo,
-                    onSeerrLimitClick = viewModel::loadSeerrRequestedItems
-                )
-            }
-
+            item { SectionLabel(stringResource(R.string.settings_general)) }
             item {
                 SettingsSection {
-                    SettingsItem(
-                        icon = Icons.Rounded.Link,
-                        title = stringResource(R.string.settings_connections),
-                        subtitle = stringResource(R.string.settings_connections_subtitle),
-                        accentColor = Color(0xFF8B5CF6),
-                        onClick = onNavigateToConnections
+                    UserProfileSection(
+                        user = uiState.user,
+                        username = uiState.username ?: stringResource(R.string.settings_unknown_user),
+                        serverName = uiState.serverName ?: stringResource(R.string.settings_unknown_server),
+                        serverUrl = uiState.serverUrl,
+                        seerr = uiState.seerr,
+                        serverTypeRaw = activeSavedServer?.serverTypeRaw,
+                        profileImageUrl = uiState.profileImageUrl,
+                        isAdministrator = uiState.isAdministrator,
+                        onUserClick = {
+                            serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
+                        },
+                        onServerClick = serverSwitchDialogsState::openServers,
+                        onNavigateToDownloads = onNavigateToDownloads,
+                        onNavigateToServerInfo = onNavigateToServerInfo,
+                        onSeerrLimitClick = viewModel::loadSeerrRequestedItems
                     )
-                }
-            }
-
-            item {
-                QuickActionsRow(
-                    onNavigateToPlayerSettings = onNavigateToPlayerSettings
-                )
-            }
-
-            item { SectionLabel(stringResource(R.string.settings_preferences)) }
-            item {
-                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.Translate,
+                        title = stringResource(R.string.settings_language),
+                        subtitle = stringResource(R.string.settings_auto),
+                        onClick = { openAppLanguageSettings(context) }
+                    )
                     SettingsItem(
                         icon = Icons.Rounded.DisplaySettings,
                         title = stringResource(R.string.settings_interface),
                         subtitle = stringResource(R.string.settings_visual_options),
-                        accentColor = Color(0xFF8B5CF6),
                         onClick = onNavigateToInterfaceSettings
                     )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    SettingsItem(
+                        icon = Icons.Rounded.Link,
+                        title = stringResource(R.string.settings_connections),
+                        subtitle = stringResource(R.string.settings_connections_subtitle),
+                        onClick = onNavigateToConnections
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Download,
+                        title = stringResource(R.string.downloads),
+                        subtitle = "",
+                        onClick = onNavigateToDownloads
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Wifi,
@@ -186,7 +167,6 @@ fun Settings(
                         subtitle = stringResource(
                             if (uiState.wifiOnlyDownloads) R.string.settings_enabled else R.string.settings_disabled
                         ),
-                        accentColor = Color(0xFF0EA5E9),
                         trailing = {
                             Switch(
                                 checked = uiState.wifiOnlyDownloads,
@@ -194,34 +174,42 @@ fun Settings(
                             )
                         }
                     )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
                     SettingsItem(
                         icon = Icons.Rounded.SettingsEthernet,
                         title = stringResource(R.string.settings_network),
                         subtitle = stringResource(R.string.settings_network_subtitle),
-                        accentColor = Color(0xFF06B6D4),
                         onClick = { showNetworkDialog = true }
-                    )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Storage,
                         title = stringResource(R.string.settings_cache),
                         subtitle = stringResource(R.string.settings_cache_subtitle),
-                        accentColor = Color(0xFF22D3EE),
                         onClick = onNavigateToCacheSettings
                     )
                 }
             }
 
-            item { SectionLabel(stringResource(R.string.settings_device_info)) }
+            item { SectionLabel(stringResource(R.string.player_settings_title)) }
             item {
                 SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.PlayArrow,
+                        title = stringResource(R.string.player_settings_title),
+                        subtitle = stringResource(R.string.settings_player_settings_subtitle),
+                        onClick = onNavigateToPlayerSettings
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.about)) }
+            item {
+                SettingsSection {
+                    SettingsItem(
+                        icon = Icons.Rounded.Info,
+                        title = stringResource(R.string.about_title),
+                        subtitle = "",
+                        onClick = onNavigateToAbout
+                    )
                     SettingsItem(
                         icon = Icons.Rounded.Smartphone,
                         title = stringResource(R.string.settings_device_model),
@@ -231,10 +219,6 @@ fun Settings(
                             Build.MODEL
                         ),
                         accentColor = Color(0xFF14B8A6)
-                    )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Android,
@@ -246,29 +230,18 @@ fun Settings(
                         ),
                         accentColor = Color(0xFF10B981)
                     )
-                    HorizontalDivider(
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
                     SettingsItem(
                         icon = Icons.Rounded.VideoLibrary,
                         title = stringResource(R.string.settings_video_codecs),
                         subtitle = supportedCodecs,
                         accentColor = Color(0xFFF59E0B)
                     )
-                }
-            }
-
-            item { SectionLabel(stringResource(R.string.settings_account)) }
-            item {
-                SettingsSection {
                     SettingsItem(
                         icon = Icons.AutoMirrored.Rounded.Logout,
                         title = stringResource(R.string.logout),
                         subtitle = stringResource(R.string.settings_sign_out_subtitle),
                         onClick = { viewModel.logout(onLogout) },
-                        isDestructive = true,
-                        accentColor = Color(0xFFEF4444)
+                        isDestructive = true
                     )
                 }
             }
@@ -370,213 +343,59 @@ private fun UserProfileSection(
     onNavigateToServerInfo: () -> Unit,
     onSeerrLimitClick: (String) -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-        ),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .clickable(onClick = onUserClick)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            ProfileImageLoader(
-                imageUrl = profileImageUrl,
-                serverTypeRaw = serverTypeRaw,
-                modifier = Modifier
-                    .size(120.dp)
-                    .clickable(onClick = onUserClick)
+        ProfileImageLoader(
+            imageUrl = profileImageUrl,
+            serverTypeRaw = serverTypeRaw,
+            modifier = Modifier.size(44.dp)
+        )
+        Spacer(modifier = Modifier.width(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = user?.name ?: username,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Box(
-                modifier = Modifier
-                    .wrapContentSize()
-                    .padding(horizontal = 10.dp)
-                    .clickable(onClick = onUserClick)
-            ) {
-                Text(
-                    text = user?.name ?: username,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                )
-                IconButton(
-                    onClick = onUserClick,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 16.dp, y = (-8).dp)
-                        .size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AddCircle,
-                        contentDescription = stringResource(R.string.settings_add_user),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            if (isAdministrator == true) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Surface(
-                    modifier = Modifier.clickable(onClick = onNavigateToServerInfo),
-                    color = Color(0xFF4FD06B).copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(999.dp),
-                    border = BorderStroke(1.dp, Color(0xFF4FD06B).copy(alpha = 0.24f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AdminPanelSettings,
-                            contentDescription = null,
-                            tint = Color(0xFF4FD06B),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_administrator),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF4FD06B),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onServerClick),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Storage,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = stringResource(R.string.settings_server_label),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = user?.serverName ?: serverName,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            if (serverUrl != null) {
-                                Text(
-                                    text = serverUrl,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = stringResource(R.string.settings_switch_server),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onNavigateToDownloads),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = null,
-                            tint = Color(0xFF06B6D4),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.downloads),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    val requestLimits = seerr.requestLimits
-                    if (
-                        requestLimits != null &&
-                        (seerr.status == SeerrConnectionStatus.CONNECTED ||
-                            seerr.status == SeerrConnectionStatus.CHECKING)
-                    ) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
-                        )
-
-                        SeerrRequestLimitsRow(
-                            requestLimits = requestLimits,
-                            onLimitClick = onSeerrLimitClick
-                        )
-                    }
-                }
-            }
+            Text(
+                text = listOfNotNull(
+                    user?.serverName ?: serverName.takeIf { it.isNotBlank() },
+                    if (isAdministrator == true) stringResource(R.string.settings_administrator) else null
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.55f)
+            )
+        }
+        IconButton(onClick = onServerClick) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = stringResource(R.string.settings_switch_server),
+                tint = Color.White.copy(alpha = 0.35f)
+            )
         }
     }
+}
+
+private fun openAppLanguageSettings(context: Context) {
+    val appLanguageIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Intent(AndroidSettings.ACTION_APP_LOCALE_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+        }
+    } else {
+        Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
+    }
+    val fallbackIntent = Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
+    val intentToLaunch = when {
+        appLanguageIntent.resolveActivity(context.packageManager) != null -> appLanguageIntent
+        fallbackIntent.resolveActivity(context.packageManager) != null -> fallbackIntent
+        else -> return
+    }
+    context.startActivity(intentToLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 @Composable
@@ -785,54 +604,25 @@ private fun ActionTile(
     }
 }
 
+private val HillsSectionColor = Color(0xFF8B93B8)
+private val HillsIconColor = Color(0xFFD0D4E4)
+
 @Composable
 private fun SectionLabel(title: String) {
     Text(
-        text = title.uppercase(),
+        text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp)
+        color = HillsSectionColor,
+        modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp)
     )
-}
-
-private fun openAppLanguageSettings(context: Context) {
-    val appLanguageIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Intent(AndroidSettings.ACTION_APP_LOCALE_SETTINGS).apply {
-            data = Uri.fromParts("package", context.packageName, null)
-        }
-    } else {
-        Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
-    }
-
-    val fallbackIntent = Intent(AndroidSettings.ACTION_LOCALE_SETTINGS)
-    val intentToLaunch = when {
-        appLanguageIntent.resolveActivity(context.packageManager) != null -> appLanguageIntent
-        fallbackIntent.resolveActivity(context.packageManager) != null -> fallbackIntent
-        else -> return
-    }
-
-    context.startActivity(intentToLaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 @Composable
 private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column {
-            content()
-        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        content()
     }
 }
 
@@ -843,7 +633,7 @@ private fun SettingsItem(
     subtitle: String,
     isLoading: Boolean = false,
     isDestructive: Boolean = false,
-    accentColor: Color = MaterialTheme.colorScheme.primary,
+    accentColor: Color = HillsIconColor,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -857,67 +647,52 @@ private fun SettingsItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(clickableModifier)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .background(
-                    color = if (isDestructive)
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                    else
-                        accentColor.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(12.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isDestructive)
-                    MaterialTheme.colorScheme.error
-                else
-                    accentColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) MaterialTheme.colorScheme.error else HillsIconColor,
+            modifier = Modifier.size(22.dp)
+        )
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(18.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isDestructive)
+                color = if (isDestructive) {
                     MaterialTheme.colorScheme.error
-                else
+                } else {
                     MaterialTheme.colorScheme.onSurface
+                }
             )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                )
+            }
         }
 
         when {
             isLoading -> {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 2.dp
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = accentColor
                 )
             }
-            trailing != null -> {
-                trailing()
-            }
+            trailing != null -> trailing()
             onClick != null -> {
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp)
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

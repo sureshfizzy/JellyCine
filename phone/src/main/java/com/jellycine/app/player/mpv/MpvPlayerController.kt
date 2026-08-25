@@ -1,6 +1,7 @@
 package com.jellycine.app.player.mpv
 
 import android.content.Context
+import android.os.Build
 import android.view.Surface
 import com.jellycine.player.preferences.PlayerPreferences
 import org.jellycine.mpv.MPVLib
@@ -39,6 +40,7 @@ class MpvPlayerController(
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
+    private var outputSurface: Surface? = null
 
     val isPlaying: Boolean
         get() = ready && playWhenReady
@@ -99,6 +101,7 @@ class MpvPlayerController(
 
     fun attachSurface(surface: Surface, width: Int, height: Int) {
         if (released) return
+        outputSurface = surface
         mpv.attachSurface(surface)
         mpv.setOptionString("force-window", "yes")
         mpv.setOptionString("vo", videoOutput)
@@ -150,6 +153,7 @@ class MpvPlayerController(
 
     fun detachSurface() {
         if (released) return
+        outputSurface = null
         mpv.setOptionString("vo", "null")
         mpv.setOptionString("force-window", "no")
         mpv.detachSurface()
@@ -199,6 +203,7 @@ class MpvPlayerController(
     fun release() {
         if (released) return
         released = true
+        outputSurface = null
         runCatching { mpv.removeObserver(this) }
         runCatching { mpv.detachSurface() }
         runCatching { mpv.destroy() }
@@ -256,14 +261,23 @@ class MpvPlayerController(
                     gamma.contains("hlg", ignoreCase = true)
                 val hdrToSdr = playerPreferences.getMpvHdrToSdrTonemapping()
                 if (isHdrContent && !hdrToSdr) {
-                    mpv.setSurfaceDataSpace(DATASPACE_BT2020_PQ)
+                    applySurfaceDataSpace(DATASPACE_BT2020_PQ)
                 } else {
-                    mpv.setSurfaceDataSpace(DATASPACE_V0_SRGB)
+                    applySurfaceDataSpace(DATASPACE_V0_SRGB)
                 }
                 listener.onReady()
             }
             MpvEvent.MPV_EVENT_SHUTDOWN -> Unit
             else -> Unit
+        }
+    }
+
+    private fun applySurfaceDataSpace(dataSpace: Int) {
+        val surface = outputSurface?.takeIf { it.isValid } ?: return
+        runCatching {
+            Surface::class.java
+                .getMethod("setDataSpace", Int::class.javaPrimitiveType)
+                .invoke(surface, dataSpace)
         }
     }
 

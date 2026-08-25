@@ -48,6 +48,11 @@
     <string name="auth_error_authentication_failed">Authentication failed: %1$d</string>
     <string name="auth_error_quick_connect_start_failed">Unable to start Quick Connect: %1$d</string>
     <string name="auth_error_quick_connect_secret_missing">Quick Connect secret is missing.</string>
+    <string name="auth_error_server_line_mismatch">This URL belongs to a different server</string>
+    <string name="auth_error_server_line_duplicate">This URL is already added</string>
+    <string name="auth_error_server_line_remove_last">Keep at least one line</string>
+    <string name="auth_error_server_line_not_found">Server line not found</string>
+    <string name="auth_error_server_line_none_reachable">No reachable server line</string>
 
     <!-- Media Errors -->
     <string name="media_error_fetch_latest_items_failed">Failed to fetch latest items: %1$d</string>

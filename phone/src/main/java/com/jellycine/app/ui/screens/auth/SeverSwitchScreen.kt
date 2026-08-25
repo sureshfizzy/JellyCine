@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
@@ -38,6 +42,8 @@ import androidx.compose.material.icons.rounded.PersonAddAlt1
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -76,7 +82,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
-import com.jellycine.data.network.canonicalServerUrlKey
+
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 
@@ -307,7 +313,7 @@ internal fun ServerSwitchDialog(
 ) {
     val serverGroups = remember(servers, activeServerId) {
         servers
-            .groupBy { canonicalServerUrlKey(it.serverUrl) }
+            .groupBy { it.groupingKey() }
             .map { (_, groupedUsers) ->
                 val sortedUsers = groupedUsers.sortedWith(
                     compareByDescending<AuthRepository.SavedServer> {
@@ -481,12 +487,152 @@ internal fun ServerSwitchDialog(
     }
 }
 
-private data class ServerGroupUiModel(
+internal data class ServerGroupUiModel(
     val serverName: String,
     val serverUrl: String,
     val users: List<AuthRepository.SavedServer>,
     val activeUser: AuthRepository.SavedServer?
 )
+
+internal fun List<AuthRepository.SavedServer>.toServerGroups(
+    activeServerId: String?
+): List<ServerGroupUiModel> {
+    return groupBy { it.groupingKey() }
+        .map { (_, groupedUsers) ->
+            val sortedUsers = groupedUsers.sortedWith(
+                compareByDescending<AuthRepository.SavedServer> {
+                    if (it.isActiveServer(activeServerId)) 1 else 0
+                }.thenBy { it.username.lowercase() }
+            )
+            val activeUser = sortedUsers.firstOrNull { it.isActiveServer(activeServerId) }
+            val primary = activeUser ?: sortedUsers.first()
+            ServerGroupUiModel(
+                serverName = primary.serverName,
+                serverUrl = primary.serverUrl,
+                users = sortedUsers,
+                activeUser = activeUser
+            )
+        }
+        .sortedWith(
+            compareByDescending<ServerGroupUiModel> { if (it.activeUser != null) 1 else 0 }
+                .thenBy { it.serverName.lowercase() }
+        )
+}
+
+@Composable
+internal fun SavedServersGrid(
+    servers: List<AuthRepository.SavedServer>,
+    activeServerId: String?,
+    isSwitching: Boolean,
+    onAddServer: () -> Unit,
+    onOpenServerUsers: (String, List<AuthRepository.SavedServer>) -> Unit,
+    onServerSelected: (AuthRepository.SavedServer) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val serverGroups = remember(servers, activeServerId) {
+        servers.toServerGroups(activeServerId)
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text(
+                text = stringResource(R.string.auth_saved_servers_title),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.padding(start = 4.dp, bottom = 16.dp)
+            )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 88.dp)
+            ) {
+                items(serverGroups, key = { it.serverUrl + it.serverName }) { group ->
+                    val hasMultipleUsers = group.users.size > 1
+                    val singleUser = group.users.firstOrNull()
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(132.dp)
+                            .clickable(enabled = !isSwitching) {
+                                if (hasMultipleUsers) {
+                                    onOpenServerUsers(group.serverName, group.users)
+                                } else {
+                                    singleUser?.let(onServerSelected)
+                                }
+                            },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (group.activeUser != null) {
+                                Color(0xFF1B2430)
+                            } else {
+                                Color(0xFF141414)
+                            }
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (group.activeUser != null) {
+                                Color(0xFF4FD06B).copy(alpha = 0.55f)
+                            } else {
+                                Color.White.copy(alpha = 0.08f)
+                            }
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            ProfileImageLoader(
+                                imageUrl = (group.activeUser ?: singleUser)?.profileImageUrl,
+                                serverTypeRaw = (group.activeUser ?: singleUser)?.serverTypeRaw,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = group.serverName.ifBlank {
+                                        stringResource(R.string.settings_media_server)
+                                    },
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = group.serverUrl,
+                                    color = Color.White.copy(alpha = 0.62f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        FilledIconButton(
+            onClick = onAddServer,
+            enabled = !isSwitching,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(8.dp)
+                .size(56.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = Color(0xFFF97316),
+                contentColor = Color.White
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.auth_saved_servers_add)
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

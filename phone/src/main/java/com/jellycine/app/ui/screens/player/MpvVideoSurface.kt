@@ -39,20 +39,7 @@ fun MpvVideoSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                val gestureHelper = GestureHelper(
-                    context = context,
-                    touchView = this,
-                    audioManager = audioManager,
-                    onShowControls = onToggleControls,
-                    onSeek = onSeek,
-                    onVolumeChange = onVolumeChange,
-                    onBrightnessChange = onBrightnessChange,
-                    getCurrentVolumeLevel = getCurrentVolumeLevel,
-                    getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                    onZoomChange = onZoomChange,
-                    onTogglePlayPause = onTogglePlayPause
-                )
-                setOnTouchListener { _, event -> gestureHelper.handleTouchEvent(event) }
+                // Gestures are handled by PlayerGestureLayer so portrait letterbox swipes work.
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
                         val frame = holder.surfaceFrame

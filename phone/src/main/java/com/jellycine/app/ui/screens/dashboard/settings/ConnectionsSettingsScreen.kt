@@ -93,6 +93,20 @@ fun ConnectionsSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            item { SectionLabel(stringResource(R.string.settings_server_lines)) }
+            item {
+                val activeServer = uiState.savedServers.firstOrNull { it.id == uiState.activeServerId }
+                ServerLinesSection(
+                    server = activeServer,
+                    isBusy = uiState.isLineBusy,
+                    onAddLine = { url, name -> viewModel.addServerLine(url, name) },
+                    onSwitchLine = viewModel::switchServerLine,
+                    onRemoveLine = viewModel::removeServerLine,
+                    onAutoSelect = viewModel::autoSelectServerLine
+                )
+            }
+            item { Spacer(modifier = Modifier.height(4.dp)) }
+
             item { SectionLabel(stringResource(R.string.settings_seerr)) }
             item {
                 SeerrConnectionCard(

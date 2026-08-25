@@ -109,16 +109,19 @@ internal fun PlayerScreenEffects(
     onInitializedMediaIdChange: (String?) -> Unit,
     onLifecycleChange: (Lifecycle.Event) -> Unit,
     onCurrentAudioTranscodeModeChange: (AudioTranscodeMode) -> Unit,
-    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit,
+    playerOrientation: String = PlayerPreferences.DEFAULT_PLAYER_ORIENTATION
 ) {
-    DisposableEffect(Unit) {
+    DisposableEffect(playerOrientation) {
         currentView.keepScreenOn = true
         val activity = context as? Activity
         val originalRequestedOrientation = activity?.requestedOrientation
         activity?.let { act ->
-            act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            act.requestedOrientation = requestedOrientationFor(playerOrientation)
             act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            hideSystemBars()
+            if (playerOrientation != PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT) {
+                hideSystemBars()
+            }
         }
 
         onDispose {
@@ -351,8 +354,10 @@ internal fun BoxScope.PlayerOverlayHost(
     onShowStreamingQualityDialog: () -> Unit,
     onShowAudioTranscodingDialog: () -> Unit,
     onShowAudioTrackDialog: () -> Unit,
-    onShowSubtitleTrackDialog: () -> Unit
-) {
+    onShowSubtitleTrackDialog: () -> Unit,
+    onToggleOrientation: () -> Unit = {},
+    onTitleClick: () -> Unit = {}
+): Unit {
     var nextEpisodeButtonProgress by remember(
         activeCreditsSegment?.startMs,
         activeCreditsSegment?.endMs,
@@ -449,6 +454,14 @@ internal fun BoxScope.PlayerOverlayHost(
             onCycleAspectRatio = {
                 resetAutoHideTimer()
                 viewModel.cycleAspectRatio()
+            },
+            onToggleOrientation = {
+                resetAutoHideTimer()
+                onToggleOrientation()
+            },
+            onTitleClick = {
+                resetAutoHideTimer()
+                onTitleClick()
             },
             onSeekBackward = {
                 resetAutoHideTimer()
@@ -698,5 +711,15 @@ internal fun PlayerDialogsHost(
                 onDismiss = onDismissMediaInfo
             )
         }
+    }
+}
+
+private fun requestedOrientationFor(orientation: String): Int {
+    return when (orientation) {
+        PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE ->
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        PlayerPreferences.PLAYER_ORIENTATION_AUTO ->
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        else -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 }

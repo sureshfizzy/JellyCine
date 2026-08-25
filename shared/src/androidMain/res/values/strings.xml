@@ -111,7 +111,7 @@
     <string name="suggestions">Suggestions</string>
     <string name="search_hint">Search...</string>
     <string name="clear_search">Clear search</string>
-    <string name="search_empty_default">Start typing to search for movies and shows</string>
+    <string name="search_empty_default">Start typing to search for movies, shows, and episodes</string>
     <string name="search_no_results">No results found</string>
     <string name="search_results_shows">Shows</string>
     <string name="search_results_episodes">Episodes</string>
@@ -163,6 +163,21 @@
     <string name="player_settings_title">Player Settings</string>
     <string name="player_settings_section_player">Player</string>
     <string name="player_settings_player_engine">Player Engine</string>
+    <string name="player_settings_orientation">Playback orientation</string>
+    <string name="player_settings_orientation_portrait">Portrait</string>
+    <string name="player_settings_orientation_landscape">Landscape</string>
+    <string name="player_settings_orientation_auto">Auto</string>
+    <string name="player_cd_toggle_orientation">Rotate screen</string>
+    <string name="auth_saved_servers_title">Servers</string>
+    <string name="auth_saved_servers_add">Add server</string>
+    <string name="settings_general">General</string>
+    <string name="about">About</string>
+    <string name="player_play_from_start">Play from start</string>
+    <string name="player_settings_section_interaction">Interaction</string>
+    <string name="player_more">More</string>
+    <string name="player_lock">Lock</string>
+    <string name="player_unlock">Unlock</string>
+    <string name="player_media_info">Media info</string>
     <string name="player_settings_mpv_hardware_decoding">MPV Hardware Decoder</string>
     <string name="player_settings_mpv_video_output">MPV Video Output</string>
     <string name="player_settings_mpv_audio_output">MPV Audio Output</string>
@@ -561,7 +576,26 @@
 
     <!-- Connections Settings -->
     <string name="settings_connections">Connections</string>
-    <string name="settings_connections_subtitle">Seerr, Discord</string>
+    <string name="settings_connections_subtitle">Server lines, Seerr, Discord</string>
+    <string name="settings_server_lines">Server Lines</string>
+    <string name="settings_server_lines_subtitle">LAN, WAN, and custom URLs for the same Jellyfin or Emby server</string>
+    <string name="settings_server_line_current">Current</string>
+    <string name="settings_server_line_add">Add line</string>
+    <string name="settings_server_line_name">Line name</string>
+    <string name="settings_server_line_name_placeholder">LAN / WAN</string>
+    <string name="settings_server_line_url">Line URL</string>
+    <string name="settings_server_line_auto_select">Auto select</string>
+    <string name="settings_server_line_auto_selecting">Testing lines…</string>
+    <string name="settings_server_line_remove">Remove line</string>
+    <string name="settings_server_line_empty">Add a LAN or WAN URL for the same server</string>
+    <string name="settings_server_line_lan">LAN</string>
+    <string name="settings_server_line_wan">WAN</string>
+    <string name="settings_server_line_primary">Primary</string>
+    <string name="search_failed">Search failed</string>
+    <string name="admin_panel">Admin Panel</string>
+    <string name="admin_update_available">Update available</string>
+    <string name="discord_rpc_notification_title">Discord Rich Presence</string>
+    <string name="discord_rpc_notification_text">Sharing activity with Discord</string>
 
     <!-- Discord Settings -->
     <string name="settings_discord">Discord</string>

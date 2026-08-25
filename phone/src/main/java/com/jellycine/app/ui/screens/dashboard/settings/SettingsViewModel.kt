@@ -66,6 +66,7 @@ data class SettingsUiState(
     val seerr: SeerrUiState = SeerrUiState(),
     val seerrRequestedItems: SeerrRequestedItemsUiState = SeerrRequestedItemsUiState(),
     val isLoading: Boolean = false,
+    val isLineBusy: Boolean = false,
     val error: String? = null
 )
 
@@ -274,6 +275,77 @@ class SettingsViewModel(
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun addServerLine(
+        url: String,
+        name: String,
+        onComplete: (Result<AuthRepository.SavedServer>) -> Unit = {}
+    ) {
+        val serverId = _uiState.value.activeServerId ?: return
+        if (_uiState.value.isLineBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
+            val result = authRepository.addServerLine(serverId, url, name)
+            _uiState.value = _uiState.value.copy(
+                isLineBusy = false,
+                error = result.exceptionOrNull()?.message
+            )
+            onComplete(result)
+        }
+    }
+
+    fun switchServerLine(lineId: String) {
+        val serverId = _uiState.value.activeServerId ?: return
+        if (_uiState.value.isLineBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
+            authRepository.switchServerLine(serverId, lineId).fold(
+                onSuccess = {
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    _uiState.value = _uiState.value.copy(isLineBusy = false)
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(isLineBusy = false, error = error.message)
+                }
+            )
+        }
+    }
+
+    fun removeServerLine(lineId: String) {
+        val serverId = _uiState.value.activeServerId ?: return
+        if (_uiState.value.isLineBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
+            val result = authRepository.removeServerLine(serverId, lineId)
+            if (result.isSuccess) {
+                mediaRepository.clearPersistedHomeSnapshot()
+                CachedData.clearAllCache()
+            }
+            _uiState.value = _uiState.value.copy(
+                isLineBusy = false,
+                error = result.exceptionOrNull()?.message
+            )
+        }
+    }
+
+    fun autoSelectServerLine() {
+        val serverId = _uiState.value.activeServerId ?: return
+        if (_uiState.value.isLineBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
+            authRepository.autoSelectServerLine(serverId).fold(
+                onSuccess = {
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    _uiState.value = _uiState.value.copy(isLineBusy = false)
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(isLineBusy = false, error = error.message)
+                }
+            )
+        }
     }
 
     fun setWifiOnlyDownloads(enabled: Boolean) {
