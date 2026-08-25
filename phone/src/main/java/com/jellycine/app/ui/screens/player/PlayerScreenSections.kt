@@ -64,6 +64,7 @@ import com.jellycine.player.core.PlayerConstants.NEXT_EPISODE_PROGRESS_UPDATE_DE
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.SkippableSegmentAction
 import com.jellycine.player.core.SkippableSegmentType
+import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 
 private const val PLAYER_POSITION_UPDATE_MS = 250L
@@ -148,9 +149,10 @@ internal fun PlayerScreenEffects(
         }
     }
 
-    DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled) {
+    val hdrPassthrough = remember { !PlayerPreferences(context).getMpvHdrToSdrTonemapping() }
+    DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled, hdrPassthrough) {
         val activity = context as? Activity
-        val shouldUseHdrColorMode = viewModel.mpvPlayer != null && playerState.isHdrEnabled
+        val shouldUseHdrColorMode = viewModel.mpvPlayer != null && playerState.isHdrEnabled && hdrPassthrough
         val originalColorMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             activity?.window?.colorMode
         } else {

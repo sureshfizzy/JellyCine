@@ -12,9 +12,13 @@ class MpvPlayerController(
     private val hardwareDecoding: String,
     private val videoOutput: String,
     private val audioOutput: String,
-    @Suppress("unused") private val hdrOutput: Boolean = false,
     listener: Listener
 ) : MPVLib.EventObserver {
+
+    companion object {
+        private const val DATASPACE_V0_SRGB = 142671872
+        private const val DATASPACE_BT2020_PQ = 163971072
+    }
 
     interface Listener {
         fun onBuffering()
@@ -245,6 +249,17 @@ class MpvPlayerController(
                 if (playWhenReady) {
                     mpv.setPropertyBoolean("pause", false)
                 }
+                val gamma = mpv.getPropertyString("video-params/gamma").orEmpty()
+                val primaries = mpv.getPropertyString("video-params/primaries").orEmpty()
+                val sigPeak = mpv.getPropertyString("video-params/sig-peak").orEmpty()
+                val isHdrContent = gamma.contains("pq", ignoreCase = true) ||
+                    gamma.contains("hlg", ignoreCase = true)
+                val hdrToSdr = playerPreferences.getMpvHdrToSdrTonemapping()
+                if (isHdrContent && !hdrToSdr) {
+                    mpv.setSurfaceDataSpace(DATASPACE_BT2020_PQ)
+                } else {
+                    mpv.setSurfaceDataSpace(DATASPACE_V0_SRGB)
+                }
                 listener.onReady()
             }
             MpvEvent.MPV_EVENT_SHUTDOWN -> Unit
@@ -285,12 +300,23 @@ class MpvPlayerController(
         mpv.setOptionString("correct-downscaling", "yes")
         mpv.setOptionString("linear-downscaling", "yes")
         mpv.setOptionString("sigmoid-upscaling", "yes")
+        val hdrToSdr = playerPreferences.getMpvHdrToSdrTonemapping()
         mpv.setOptionString("tone-mapping", toneMapping)
-        mpv.setOptionString("tone-mapping-mode", "luma")
         mpv.setOptionString("hdr-compute-peak", if (dynamicPeak) "yes" else "no")
         mpv.setOptionString("hdr-peak-percentile", "99.995")
-        mpv.setOptionString("hdr-contrast-recovery", "0.3")
-        mpv.setOptionString("gamut-mapping-mode", "perceptual")
+        mpv.setOptionString("hdr-contrast-recovery", "0.5")
+        if (hdrToSdr) {
+            mpv.setOptionString("target-prim", "bt.709")
+            mpv.setOptionString("target-trc", "bt.1886")
+            mpv.setOptionString("tone-mapping-mode", "hybrid")
+            mpv.setOptionString("gamut-mapping-mode", "perceptual")
+        } else {
+            mpv.setOptionString("target-prim", "auto")
+            mpv.setOptionString("target-trc", "auto")
+            mpv.setOptionString("tone-mapping-mode", "auto")
+            mpv.setOptionString("gamut-mapping-mode", "auto")
+        }
+        mpv.setOptionString("video-output-levels", "full")
         if (smoothMotion) {
             mpv.setOptionString("interpolation", "yes")
             mpv.setOptionString("tscale", "oversample")

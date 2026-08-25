@@ -22,6 +22,7 @@ data class PlayerSettingsUiState(
     val mpvSmoothMotion: Boolean = PlayerPreferences.DEFAULT_MPV_SMOOTH_MOTION,
     val mpvDeband: Boolean = PlayerPreferences.DEFAULT_MPV_DEBAND,
     val mpvDynamicPeak: Boolean = PlayerPreferences.DEFAULT_MPV_DYNAMIC_PEAK,
+    val mpvHdrToSdrTonemapping: Boolean = PlayerPreferences.DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING,
 
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
@@ -101,6 +102,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 mpvSmoothMotion = playerPreferences.getMpvSmoothMotion(),
                 mpvDeband = playerPreferences.getMpvDeband(),
                 mpvDynamicPeak = playerPreferences.getMpvDynamicPeak(),
+                mpvHdrToSdrTonemapping = playerPreferences.getMpvHdrToSdrTonemapping(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
@@ -175,6 +177,11 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setMpvDynamicPeak(enabled: Boolean) {
         playerPreferences.setMpvDynamicPeak(enabled)
         _uiState.value = _uiState.value.copy(mpvDynamicPeak = enabled)
+    }
+
+    fun setMpvHdrToSdrTonemapping(enabled: Boolean) {
+        playerPreferences.setMpvHdrToSdrTonemapping(enabled)
+        _uiState.value = _uiState.value.copy(mpvHdrToSdrTonemapping = enabled)
     }
 
     fun setHardwareDecodingEnabled(enabled: Boolean) {

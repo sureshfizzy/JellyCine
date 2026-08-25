@@ -81,8 +81,7 @@ object MpvWarmPool {
 
     fun acquire(
         context: Context,
-        listener: MpvPlayerController.Listener,
-        hdrOutput: Boolean = false
+        listener: MpvPlayerController.Listener
     ): MpvPlayerController? {
         val config = MpvWarmConfig.from(PlayerPreferences(context.applicationContext))
         var stalePlayer: MpvPlayerController? = null
@@ -136,7 +135,8 @@ object MpvWarmPool {
         val toneMapping: String,
         val smoothMotion: Boolean,
         val deband: Boolean,
-        val dynamicPeak: Boolean
+        val dynamicPeak: Boolean,
+        val hdrToSdrTonemapping: Boolean
     ) {
         companion object {
             fun from(preferences: PlayerPreferences): MpvWarmConfig {
@@ -157,7 +157,8 @@ object MpvWarmPool {
                     toneMapping = preferences.getMpvToneMapping(),
                     smoothMotion = preferences.getMpvSmoothMotion(),
                     deband = preferences.getMpvDeband(),
-                    dynamicPeak = preferences.getMpvDynamicPeak()
+                    dynamicPeak = preferences.getMpvDynamicPeak(),
+                    hdrToSdrTonemapping = preferences.getMpvHdrToSdrTonemapping()
                 )
             }
         }

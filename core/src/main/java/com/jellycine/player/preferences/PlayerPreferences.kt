@@ -27,6 +27,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_MPV_SMOOTH_MOTION = "mpv_smooth_motion"
         private const val KEY_MPV_DEBAND = "mpv_deband"
         private const val KEY_MPV_DYNAMIC_PEAK = "mpv_dynamic_peak"
+        private const val KEY_MPV_HDR_TO_SDR_TONEMAPPING = "mpv_hdr_to_sdr_tonemapping"
         private const val KEY_HARDWARE_ACCELERATION = "hardware_acceleration_enabled"
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
@@ -199,6 +200,7 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_MPV_SMOOTH_MOTION = false
         const val DEFAULT_MPV_DEBAND = true
         const val DEFAULT_MPV_DYNAMIC_PEAK = true
+        const val DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING = false
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
         const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
         const val DECODER_PRIORITY_AUTO = "Auto"
@@ -401,6 +403,14 @@ class PlayerPreferences(context: Context) {
 
     fun setMpvDynamicPeak(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_MPV_DYNAMIC_PEAK, enabled).apply()
+    }
+
+    fun getMpvHdrToSdrTonemapping(): Boolean {
+        return prefs.getBoolean(KEY_MPV_HDR_TO_SDR_TONEMAPPING, DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING)
+    }
+
+    fun setMpvHdrToSdrTonemapping(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MPV_HDR_TO_SDR_TONEMAPPING, enabled).commit()
     }
 
     /**

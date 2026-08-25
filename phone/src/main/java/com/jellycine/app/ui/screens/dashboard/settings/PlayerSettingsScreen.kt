@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Gradient
+import androidx.compose.material.icons.rounded.HdrOn
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
@@ -229,6 +230,7 @@ fun PlayerSettingsScreen(
                                 SelectionOption("reinhard", "Reinhard", "Simple, slightly desaturated highlights")
                             ),
                             onOptionSelected = viewModel::setMpvToneMapping,
+                            enabled = uiState.mpvHdrToSdrTonemapping,
                             accentColor = renderingColor
                         )
 
@@ -259,6 +261,16 @@ fun PlayerSettingsScreen(
                             subtitle = "Adapt tone mapping per scene",
                             checked = uiState.mpvDynamicPeak,
                             onCheckedChange = viewModel::setMpvDynamicPeak,
+                            enabled = uiState.mpvHdrToSdrTonemapping,
+                            accentColor = renderingColor
+                        )
+                        SettingsDivider()
+                        SwitchSettingsItem(
+                            icon = Icons.Rounded.HdrOn,
+                            title = "HDR to SDR Tonemapping",
+                            subtitle = "Tone map HDR content to SDR for accurate colors",
+                            checked = uiState.mpvHdrToSdrTonemapping,
+                            onCheckedChange = viewModel::setMpvHdrToSdrTonemapping,
                             accentColor = renderingColor
                         )
                     }
@@ -1143,6 +1155,7 @@ private fun SelectionDialogSettingsItem(
     selectedValue: String,
     options: List<SelectionOption>,
     onOptionSelected: (String) -> Unit,
+    enabled: Boolean = true,
     accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -1151,6 +1164,7 @@ private fun SelectionDialogSettingsItem(
         icon = icon,
         title = title,
         subtitle = subtitle,
+        enabled = enabled,
         accentColor = accentColor,
         onClick = { showDialog = true },
         trailing = {
