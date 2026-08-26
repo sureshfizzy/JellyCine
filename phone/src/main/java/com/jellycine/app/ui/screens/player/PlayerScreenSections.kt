@@ -328,7 +328,7 @@ internal fun PlayerScreenEffects(
         isScrubbing
     ) {
         if (uiStateProvider().controlsVisible && playerState.hasStartedPlayback && !isScrubbing) {
-            delay(3000L)
+            delay(CONTROLS_AUTO_HIDE_DELAY)
             onUiStateChange(uiStateProvider().copy(controlsVisible = false))
         }
     }
@@ -361,7 +361,11 @@ internal fun BoxScope.PlayerOverlayHost(
     onShowAudioTrackDialog: () -> Unit,
     onShowSubtitleTrackDialog: () -> Unit,
     onToggleOrientation: () -> Unit = {},
-    onTitleClick: () -> Unit = {}
+    onTitleClick: () -> Unit = {},
+    onEnterPip: () -> Unit = {},
+    onShowChapters: () -> Unit = {},
+    onBackgroundClick: () -> Unit = {},
+    onPositionChanged: (Long) -> Unit = {}
 ): Unit {
     var nextEpisodeButtonProgress by remember(
         activeCreditsSegment?.startMs,
@@ -419,7 +423,13 @@ internal fun BoxScope.PlayerOverlayHost(
             },
             onSeek = { progress ->
                 resetAutoHideTimer()
-                viewModel.seekToProgress(progress)
+                viewModel.seekToProgress(progress, exact = true)
+                onPositionChanged(viewModel.getCurrentPosition())
+            },
+            onLiveSeek = { progress ->
+                resetAutoHideTimer()
+                viewModel.seekToProgress(progress, exact = false)
+                onPositionChanged(viewModel.getCurrentPosition())
             },
             onScrubStateChange = { scrubbing ->
                 onScrubbingChange(scrubbing)
@@ -471,10 +481,12 @@ internal fun BoxScope.PlayerOverlayHost(
             onSeekBackward = {
                 resetAutoHideTimer()
                 viewModel.seekBackward()
+                onPositionChanged(viewModel.getCurrentPosition())
             },
             onSeekForward = {
                 resetAutoHideTimer()
                 viewModel.seekForward()
+                onPositionChanged(viewModel.getCurrentPosition())
             },
             canPlayPreviousEpisode = canWatchPreviousEpisode,
             canPlayNextEpisode = canWatchNextEpisode,
@@ -488,6 +500,27 @@ internal fun BoxScope.PlayerOverlayHost(
             },
             seekBackwardSeconds = seekBackwardSeconds,
             seekForwardSeconds = seekForwardSeconds,
+            onEnterPip = {
+                resetAutoHideTimer()
+                onEnterPip()
+            },
+            onToggleHardwareDecoding = {
+                resetAutoHideTimer()
+                viewModel.toggleHardwareDecoding()
+            },
+            onShowChapters = {
+                resetAutoHideTimer()
+                onShowChapters()
+            },
+            onNudgeSpeed = { delta ->
+                resetAutoHideTimer()
+                viewModel.nudgePlaybackSpeed(delta)
+            },
+            playbackSpeed = playerState.playbackSpeed,
+            hardwareDecodingEnabled = playerState.hardwareDecoding !=
+                PlayerPreferences.MPV_HARDWARE_DECODING_NONE,
+            onUserInteraction = resetAutoHideTimer,
+            onBackgroundClick = onBackgroundClick,
             modifier = Modifier.fillMaxSize()
         )
     }

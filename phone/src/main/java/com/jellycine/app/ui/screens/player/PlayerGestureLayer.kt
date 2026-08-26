@@ -10,6 +10,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 
+private class GestureLayerCallbacks {
+    var enabled: Boolean = true
+    var onToggleControls: () -> Unit = {}
+    var onSeek: (Long) -> Unit = {}
+    var onVolumeChange: (Float) -> Unit = {}
+    var onBrightnessChange: (Float) -> Unit = {}
+    var getCurrentVolumeLevel: () -> Float = { 0f }
+    var getCurrentBrightnessLevel: () -> Float = { 0f }
+    var onZoomChange: (Boolean) -> Unit = {}
+    var onTogglePlayPause: () -> Unit = {}
+    var getPlaybackPosition: () -> Long = { 0L }
+    var getPlaybackDuration: () -> Long = { 0L }
+    var onSeekPreview: (Long?) -> Unit = {}
+    var onHoldSpeed: (Boolean) -> Unit = {}
+}
+
 @SuppressLint("ClickableViewAccessibility")
 @UnstableApi
 @Composable
@@ -32,6 +48,7 @@ fun PlayerGestureLayer(
 ) {
     AndroidView(
         factory = { context ->
+            val callbacks = GestureLayerCallbacks()
             View(context).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -39,28 +56,45 @@ fun PlayerGestureLayer(
                 )
                 isClickable = true
                 isFocusable = false
+                setTag(callbacks)
                 val helper = GestureHelper(
                     context = context,
                     touchView = this,
                     audioManager = audioManager,
-                    onShowControls = onToggleControls,
-                    onSeek = onSeek,
-                    onVolumeChange = onVolumeChange,
-                    onBrightnessChange = onBrightnessChange,
-                    getCurrentVolumeLevel = getCurrentVolumeLevel,
-                    getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                    onZoomChange = onZoomChange,
-                    onTogglePlayPause = onTogglePlayPause,
-                    getPlaybackPosition = getPlaybackPosition,
-                    getPlaybackDuration = getPlaybackDuration,
-                    onSeekPreview = onSeekPreview,
-                    onHoldSpeed = onHoldSpeed
+                    onShowControls = { callbacks.onToggleControls() },
+                    onSeek = { callbacks.onSeek(it) },
+                    onVolumeChange = { callbacks.onVolumeChange(it) },
+                    onBrightnessChange = { callbacks.onBrightnessChange(it) },
+                    getCurrentVolumeLevel = { callbacks.getCurrentVolumeLevel() },
+                    getCurrentBrightnessLevel = { callbacks.getCurrentBrightnessLevel() },
+                    onZoomChange = { callbacks.onZoomChange(it) },
+                    onTogglePlayPause = { callbacks.onTogglePlayPause() },
+                    getPlaybackPosition = { callbacks.getPlaybackPosition() },
+                    getPlaybackDuration = { callbacks.getPlaybackDuration() },
+                    onSeekPreview = { callbacks.onSeekPreview(it) },
+                    onHoldSpeed = { callbacks.onHoldSpeed(it) }
                 )
                 setOnTouchListener { _, event ->
-                    if (!enabled) return@setOnTouchListener false
+                    if (!callbacks.enabled) return@setOnTouchListener false
                     helper.handleTouchEvent(event)
                 }
             }
+        },
+        update = { view ->
+            val callbacks = view.tag as GestureLayerCallbacks
+            callbacks.enabled = enabled
+            callbacks.onToggleControls = onToggleControls
+            callbacks.onSeek = onSeek
+            callbacks.onVolumeChange = onVolumeChange
+            callbacks.onBrightnessChange = onBrightnessChange
+            callbacks.getCurrentVolumeLevel = getCurrentVolumeLevel
+            callbacks.getCurrentBrightnessLevel = getCurrentBrightnessLevel
+            callbacks.onZoomChange = onZoomChange
+            callbacks.onTogglePlayPause = onTogglePlayPause
+            callbacks.getPlaybackPosition = getPlaybackPosition
+            callbacks.getPlaybackDuration = getPlaybackDuration
+            callbacks.onSeekPreview = onSeekPreview
+            callbacks.onHoldSpeed = onHoldSpeed
         },
         modifier = modifier.fillMaxSize()
     )

@@ -177,6 +177,15 @@
     <string name="player_lock">锁定</string>
     <string name="player_unlock">解锁</string>
     <string name="player_media_info">媒体信息</string>
+    <string name="player_hw_plus">HW+</string>
+    <string name="player_pip">小窗播放</string>
+    <string name="player_pip_failed">当前设备无法进入小窗</string>
+    <string name="player_chapters">章节</string>
+    <string name="player_chapters_empty">本片没有章节</string>
+    <string name="player_speed_decrease">减慢倍速</string>
+    <string name="player_speed_increase">加快倍速</string>
+    <string name="player_cd_seek_backward">快退 %d 秒</string>
+    <string name="player_cd_seek_forward">快进 %d 秒</string>
     <string name="player_settings_mpv_hardware_decoding">MPV 硬件解码器</string>
     <string name="player_settings_mpv_video_output">MPV 视频输出</string>
     <string name="player_settings_mpv_audio_output">MPV 音频输出</string>

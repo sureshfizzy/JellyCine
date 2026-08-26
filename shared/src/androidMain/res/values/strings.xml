@@ -178,6 +178,15 @@
     <string name="player_lock">Lock</string>
     <string name="player_unlock">Unlock</string>
     <string name="player_media_info">Media info</string>
+    <string name="player_hw_plus">HW+</string>
+    <string name="player_pip">Picture in picture</string>
+    <string name="player_pip_failed">Picture-in-picture is not available on this device</string>
+    <string name="player_chapters">Chapters</string>
+    <string name="player_chapters_empty">No chapters for this title</string>
+    <string name="player_speed_decrease">Decrease speed</string>
+    <string name="player_speed_increase">Increase speed</string>
+    <string name="player_cd_seek_backward">Seek backward %d seconds</string>
+    <string name="player_cd_seek_forward">Seek forward %d seconds</string>
     <string name="player_settings_mpv_hardware_decoding">MPV Hardware Decoder</string>
     <string name="player_settings_mpv_video_output">MPV Video Output</string>
     <string name="player_settings_mpv_audio_output">MPV Audio Output</string>

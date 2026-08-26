@@ -1,10 +1,14 @@
 package com.jellycine.app.ui.screens.player
 
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.res.Configuration
 import android.content.Context
 import android.media.AudioManager
+import android.os.Build
 import android.provider.Settings
+import android.util.Rational
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -34,6 +38,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.shared.R
+import com.jellycine.app.ui.activity.JellyCineActivity
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
@@ -42,6 +47,7 @@ import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.discord.NowPlayingInfo
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.app.discord.DiscordRpcEffect
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Player state data class to group related states
@@ -173,11 +179,15 @@ fun PlayerScreen(
     }
     val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
     var showPlaybackInfoSheet by remember { mutableStateOf(false) }
+    var showChaptersSheet by remember { mutableStateOf(false) }
     val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
     val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
     var playbackOrientation by remember {
         mutableStateOf(playerPreferences.getPlayerOrientation())
     }
+    val hostActivity = context as? JellyCineActivity
+    val inPip by (hostActivity?.pictureInPictureMode ?: remember { MutableStateFlow(false) })
+        .collectAsState()
 
     // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
@@ -265,6 +275,26 @@ fun PlayerScreen(
     }
     val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
     val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
+
+    DisposableEffect(hostActivity, playerState.playWhenReady, playerState.isLocked) {
+        if (hostActivity == null) {
+            return@DisposableEffect onDispose { }
+        }
+        hostActivity.userLeaveHintHandler = {
+            if (playerState.playWhenReady && !playerState.isLocked) {
+                enterPlayerPip(hostActivity)
+            }
+        }
+        onDispose {
+            hostActivity.userLeaveHintHandler = null
+        }
+    }
+
+    LaunchedEffect(inPip) {
+        if (inPip) {
+            uiState = uiState.copy(controlsVisible = false)
+        }
+    }
 
     LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
         if (activeCreditsSegment == null) {
@@ -464,7 +494,7 @@ fun PlayerScreen(
 
         PlayerGestureLayer(
             audioManager = audioManager,
-            enabled = !playerState.isLocked,
+            enabled = !playerState.isLocked && !uiState.controlsVisible && !inPip,
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
@@ -476,7 +506,11 @@ fun PlayerScreen(
                     val seconds = kotlin.math.abs(delta) / 1000
                     val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
                     val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
-                    uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                    uiState = uiState.copy(
+                        currentPosition = viewModel.getCurrentPosition(),
+                        seekPosition = seekText,
+                        seekSide = side
+                    )
                 }
             },
             onVolumeChange = { level ->
@@ -531,7 +565,7 @@ fun PlayerScreen(
         )
 
         PlayerOverlayHost(
-            uiState = uiState,
+            uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip),
             playerState = playerState,
             currentStreamingQuality = currentStreamingQuality,
             hasPlaybackSettings = hasPlaybackSettings,
@@ -578,7 +612,15 @@ fun PlayerScreen(
                     PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
                 }
             },
-            onTitleClick = { showPlaybackInfoSheet = true }
+            onTitleClick = { showPlaybackInfoSheet = true },
+            onEnterPip = { enterPlayerPip(context as Activity) },
+            onShowChapters = { showChaptersSheet = true },
+            onBackgroundClick = {
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onPositionChanged = { position ->
+                uiState = uiState.copy(currentPosition = position)
+            }
         )
 
         PlayerDialogsHost(
@@ -629,6 +671,39 @@ fun PlayerScreen(
                 }
             )
         }
+
+        if (showChaptersSheet) {
+            ChapterListSheet(
+                chapters = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
+                onDismiss = { showChaptersSheet = false },
+                onChapterSelected = { chapter ->
+                    viewModel.seekTo(chapter.positionMs)
+                    uiState = uiState.copy(currentPosition = chapter.positionMs)
+                    showChaptersSheet = false
+                    resetAutoHideTimer()
+                }
+            )
+        }
+    }
+}
+
+private fun enterPlayerPip(activity: Activity) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
+        return
+    }
+    if (activity.isInPictureInPictureMode) return
+    val entered = try {
+        activity.enterPictureInPictureMode(
+            PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+        )
+    } catch (_: RuntimeException) {
+        false
+    }
+    if (!entered) {
+        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
     }
 }
 

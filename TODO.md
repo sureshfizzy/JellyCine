@@ -55,8 +55,10 @@ TV 模块：手势 / 竖屏 overlay 不跟；色彩、搜索、线路、收藏�
 
 - [ ] K50 固定片源：SDR 8bit、HDR10、杜比（若有），MPV vs Exo 并排截屏
 - [x] 对齐 `target-prim`/`target-trc` 与 Surface dataspace（PQ/HLG 直出，SDR 走 bt.709+sRGB）
-- [ ] 播放页保留硬解/软解切换（Phase 2），默认仍 MPV
-- [ ] K50 实测验收
+- [x] 播放页保留硬解/软解切换（Phase 2 overlay `HW+`），默认仍 MPV
+- [ ] K50 实测验收（用户反馈色彩已暂时正常，仍以 K50 面板为准）
+
+jniLibs 更新走 `scripts/sync-mpv-natives.sh`，源是 **mpv-android**（Yamby 同套 GLES），不是 Hills Vulkan，也不是把 ffmpeg/mpv 编进本仓库 Gradle。上游 `buildscripts` 只支持 Linux/macOS，**Windows / WSL 编不了**。默认 tag `2025-12-27`（libmpv 0.41.0 / FFmpeg 8 `LIBAVUTIL_60`）。`2026-08-11` 已是 FFmpeg 9，不要当 latest 直接灌。必须整套 so 替换，不能只换 `libmpv.so`，也不能跟 `org.jellycine.mpv` AAR 混装。
 
 ### 锚点
 
@@ -108,10 +110,10 @@ K50 上 SDR / HDR 不发灰、不过饱和、不偏绿；切 Exo 无明显色差
 | 音轨 / 字幕 / 旋转 / 比例 | 已有 | 位置按截图收拢 |
 | 更多 | 媒体信息 / 画质 | 露出已有偏好。不做 Anime4K / FSR |
 
-- [ ] 顶栏 HW+ / 小窗 / 比例 / 章节 / 更多
-- [ ] 底栏锁、±seek（秒数跟设置）、播放、倍速
-- [ ] `PictureInPicture`：进后台或点按钮进入；系统限制时 toast，不静默失败
-- [ ] 横屏同一套动作，不把竖屏按钮堆到画面中间
+- [x] 顶栏 HW+ / 小窗 / 比例 / 章节 / 更多
+- [x] 底栏锁、±seek（秒数跟设置）、播放、倍速
+- [x] `PictureInPicture`：进后台或点按钮进入；系统限制时 toast，不静默失败
+- [x] 横屏同一套动作，不把竖屏按钮堆到画面中间
 
 ### 锚点
 

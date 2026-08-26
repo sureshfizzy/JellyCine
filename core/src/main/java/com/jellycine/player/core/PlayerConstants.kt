@@ -27,5 +27,6 @@ object PlayerConstants {
     
     // UI dimensions
     const val PROGRESS_BAR_HEIGHT_DP = 12
+    const val PROGRESS_BAR_HIT_HEIGHT_DP = 56
     const val GESTURE_INDICATOR_PADDING_DP = 32
 }

@@ -46,8 +46,9 @@ data class PlayerState(
     // HDR related fields
     val isHdrEnabled: Boolean = false,
     val hdrFormat: String = "",
-    // Lock and track selection fields
     val isLocked: Boolean = false,
+    val playbackSpeed: Float = 1f,
+    val hardwareDecoding: String = "mediacodec",
     val currentAudioTrack: AudioTrackInfo? = null,
     val availableAudioTracks: List<AudioTrackInfo> = emptyList(),
     val currentSubtitleTrack: SubtitleTrackInfo? = null,

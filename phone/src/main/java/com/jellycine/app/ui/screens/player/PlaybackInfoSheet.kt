@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.player
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.player.core.ChapterMarker
 import com.jellycine.shared.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,4 +100,57 @@ private fun buildPlaybackMeta(item: BaseItemDto?): String {
     }
     item.officialRating?.takeIf { it.isNotBlank() }?.let { parts += it }
     return parts.joinToString("  ·  ")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChapterListSheet(
+    chapters: List<ChapterMarker>,
+    onDismiss: () -> Unit,
+    onChapterSelected: (ChapterMarker) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color(0xFF111111)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.player_chapters),
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (chapters.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.player_chapters_empty),
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 16.dp)
+                )
+            } else {
+                chapters.forEachIndexed { index, chapter ->
+                    val label = chapter.label?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.player_chapters)
+                    Text(
+                        text = "${index + 1}.  $label    ${formatPlaybackTime(chapter.positionMs)}",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onChapterSelected(chapter) }
+                            .padding(vertical = 12.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
 }

@@ -161,10 +161,19 @@ class MpvPlayerController(
         MPVLib.setPropertyBoolean("pause", true)
     }
 
-    fun seekTo(positionMs: Long) {
+    fun seekTo(positionMs: Long, exact: Boolean = true) {
         if (released) return
         this.positionMs = positionMs.coerceAtLeast(0L)
-        MPVLib.command(arrayOf("seek", (this.positionMs / 1000.0).toString(), "absolute+keyframes"))
+        val flags = if (exact) "absolute+exact" else "absolute"
+        MPVLib.command(
+            arrayOf("seek", (this.positionMs / 1000.0).toString(), flags)
+        )
+    }
+
+    fun setHardwareDecoding(mode: String) {
+        if (!released) {
+            MPVLib.setPropertyString("hwdec", mode)
+        }
     }
 
     fun setVolume(volume: Float) {
@@ -309,7 +318,7 @@ class MpvPlayerController(
         MPVLib.setOptionString("cache", "yes")
         MPVLib.setOptionString("cache-secs", cacheTimeSeconds)
         MPVLib.setOptionString("index", "default")
-        MPVLib.setOptionString("hr-seek", "no")
+        MPVLib.setOptionString("hr-seek", "yes")
         MPVLib.setOptionString("demuxer", "+lavf")
         MPVLib.setOptionString("demuxer-mkv-probe-start-time", "no")
         MPVLib.setOptionString("demuxer-mkv-probe-video-duration", "no")

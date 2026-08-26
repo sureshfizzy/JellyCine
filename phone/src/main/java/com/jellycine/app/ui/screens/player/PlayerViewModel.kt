@@ -110,6 +110,7 @@ class PlayerViewModel @Inject constructor(
     private var remotePlaybackRequestKey: String? = null
     private var playbackSpeed = 1f
     private var speedBeforeHold = 1f
+    private var lastHardwareDecoding = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
 
     private fun isMpvPlayback(): Boolean {
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
@@ -503,6 +504,12 @@ class PlayerViewModel @Inject constructor(
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
 
+                playbackSpeed = 1f
+                speedBeforeHold = 1f
+                val hardwareDecoding = playerPreferences.getMpvHardwareDecoding()
+                if (hardwareDecoding != PlayerPreferences.MPV_HARDWARE_DECODING_NONE) {
+                    lastHardwareDecoding = hardwareDecoding
+                }
                 _playerState.value = _playerState.value.copy(
                     isLoading = true,
                     isPlaying = false,
@@ -521,7 +528,9 @@ class PlayerViewModel @Inject constructor(
                     isSpatialAudioEnabled = false,
                     spatialAudioFormat = "",
                     isHdrEnabled = isHdrPlayback,
-                    hdrFormat = hdrFormat
+                    hdrFormat = hdrFormat,
+                    playbackSpeed = 1f,
+                    hardwareDecoding = hardwareDecoding
                 )
                 if (usesMpv) {
                     updateApiTrackInformation()
@@ -753,9 +762,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun seekTo(position: Long) {
+    fun seekTo(position: Long, exact: Boolean = true) {
         exoPlayer?.seekTo(position)
-        mpvPlayer?.seekTo(position)
+        mpvPlayer?.seekTo(position, exact)
         _playerState.value = _playerState.value.copy(currentPosition = position)
     }
 
@@ -776,10 +785,10 @@ class PlayerViewModel @Inject constructor(
         persistPosition()
     }
 
-    fun seekToProgress(progress: Float) {
+    fun seekToProgress(progress: Float, exact: Boolean = true) {
         val duration = getDuration()
         if (duration > 0L) {
-            seekTo((duration * progress).toLong())
+            seekTo((duration * progress).toLong(), exact)
         }
     }
 
@@ -798,6 +807,29 @@ class PlayerViewModel @Inject constructor(
         playbackSpeed = speed.coerceIn(0.25f, 4f)
         exoPlayer?.setPlaybackSpeed(playbackSpeed)
         mpvPlayer?.setSpeed(playbackSpeed.toDouble())
+        _playerState.value = _playerState.value.copy(playbackSpeed = playbackSpeed)
+    }
+
+    fun nudgePlaybackSpeed(delta: Float) {
+        val stepped = ((playbackSpeed + delta) * 20f).toInt() / 20f
+        setPlaybackSpeed(stepped)
+    }
+
+    fun toggleHardwareDecoding() {
+        val context = playerContext ?: return
+        val preferences = PlayerPreferences(context)
+        val current = preferences.getMpvHardwareDecoding()
+        val next = if (current == PlayerPreferences.MPV_HARDWARE_DECODING_NONE) {
+            lastHardwareDecoding.takeIf {
+                it != PlayerPreferences.MPV_HARDWARE_DECODING_NONE
+            } ?: PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
+        } else {
+            lastHardwareDecoding = current
+            PlayerPreferences.MPV_HARDWARE_DECODING_NONE
+        }
+        preferences.setMpvHardwareDecoding(next)
+        mpvPlayer?.setHardwareDecoding(next)
+        _playerState.value = _playerState.value.copy(hardwareDecoding = next)
     }
 
     fun beginHoldSpeed(speed: Float) {

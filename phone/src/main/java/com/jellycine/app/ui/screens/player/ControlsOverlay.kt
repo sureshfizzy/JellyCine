@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.content.res.Configuration
+import android.os.SystemClock
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,6 +52,7 @@ import com.jellycine.shared.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.ChapterMarker
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
+import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HIT_HEIGHT_DP
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -90,7 +93,16 @@ fun ControlsOverlay(
     canPlayNextEpisode: Boolean = false,
     onPlayPreviousEpisode: () -> Unit = {},
     onPlayNextEpisode: () -> Unit = {},
-    onScrubStateChange: (Boolean) -> Unit = {}
+    onScrubStateChange: (Boolean) -> Unit = {},
+    onLiveSeek: (Float) -> Unit = {},
+    onEnterPip: () -> Unit = {},
+    onToggleHardwareDecoding: () -> Unit = {},
+    onShowChapters: () -> Unit = {},
+    onNudgeSpeed: (Float) -> Unit = {},
+    playbackSpeed: Float = 1f,
+    hardwareDecodingEnabled: Boolean = true,
+    onUserInteraction: () -> Unit = {},
+    onBackgroundClick: () -> Unit = {}
 ) {
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val context = LocalContext.current
@@ -143,6 +155,7 @@ fun ControlsOverlay(
             onBackClick = onBackClick,
             onPlayPause = onPlayPause,
             onSeek = onSeek,
+            onLiveSeek = onLiveSeek,
             onScrubProgressChange = {
                 scrubPreviewProgress = it
                 onScrubStateChange(it != null)
@@ -155,6 +168,18 @@ fun ControlsOverlay(
             onCycleAspectRatio = onCycleAspectRatio,
             onToggleOrientation = onToggleOrientation,
             onTitleClick = onTitleClick,
+            onSeekBackward = onSeekBackward,
+            onSeekForward = onSeekForward,
+            seekBackwardSeconds = seekBackwardSeconds,
+            seekForwardSeconds = seekForwardSeconds,
+            onEnterPip = onEnterPip,
+            onToggleHardwareDecoding = onToggleHardwareDecoding,
+            onShowChapters = onShowChapters,
+            onNudgeSpeed = onNudgeSpeed,
+            playbackSpeed = playbackSpeed,
+            hardwareDecodingEnabled = hardwareDecodingEnabled,
+            onUserInteraction = onUserInteraction,
+            onBackgroundClick = onBackgroundClick,
             isScrubbing = scrubPreviewProgress != null,
             modifier = modifier
         )
@@ -214,7 +239,26 @@ fun ControlsOverlay(
 
                 // Action buttons
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Media Information Button
+                    HardwarePlusButton(
+                        enabled = hardwareDecodingEnabled,
+                        onClick = onToggleHardwareDecoding
+                    )
+                    IconButton(onClick = onEnterPip) {
+                        Icon(
+                            imageVector = Icons.Outlined.PictureInPictureAlt,
+                            contentDescription = stringResource(R.string.player_pip),
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(onClick = onShowChapters) {
+                        Icon(
+                            imageVector = Icons.Outlined.Bookmarks,
+                            contentDescription = stringResource(R.string.player_chapters),
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     IconButton(onClick = onShowMediaInfo) {
                         Icon(
                             imageVector = Icons.Outlined.Info,
@@ -404,6 +448,10 @@ fun ControlsOverlay(
                     )
                 }
             }
+            OverlaySpeedControl(
+                speed = playbackSpeed,
+                onNudgeSpeed = onNudgeSpeed
+            )
         }
         }
 
@@ -526,6 +574,7 @@ fun ControlsOverlay(
                     duration = duration,
                     chapterMarkers = chapterMarkers,
                     onSeek = onSeek,
+                    onLiveSeek = onLiveSeek,
                     onScrubProgressChange = {
                         scrubPreviewProgress = it
                         onScrubStateChange(it != null)
@@ -551,6 +600,7 @@ private fun PortraitPlayerOverlay(
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
+    onLiveSeek: (Float) -> Unit,
     onScrubProgressChange: (Float?) -> Unit,
     onToggleLock: () -> Unit,
     onShowMediaInfo: () -> Unit,
@@ -560,6 +610,18 @@ private fun PortraitPlayerOverlay(
     onCycleAspectRatio: () -> Unit,
     onToggleOrientation: () -> Unit,
     onTitleClick: () -> Unit = {},
+    onSeekBackward: () -> Unit = {},
+    onSeekForward: () -> Unit = {},
+    seekBackwardSeconds: Int = 30,
+    seekForwardSeconds: Int = 30,
+    onEnterPip: () -> Unit = {},
+    onToggleHardwareDecoding: () -> Unit = {},
+    onShowChapters: () -> Unit = {},
+    onNudgeSpeed: (Float) -> Unit = {},
+    playbackSpeed: Float = 1f,
+    hardwareDecodingEnabled: Boolean = true,
+    onUserInteraction: () -> Unit = {},
+    onBackgroundClick: () -> Unit = {},
     isScrubbing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -569,14 +631,28 @@ private fun PortraitPlayerOverlay(
     } else {
         0f
     }
+    val chromeInteraction = remember { MutableInteractionSource() }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onBackgroundClick
+            )
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .align(Alignment.TopCenter),
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .align(Alignment.TopCenter)
+                .clickable(
+                    interactionSource = chromeInteraction,
+                    indication = null,
+                    onClick = onUserInteraction
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
@@ -588,6 +664,17 @@ private fun PortraitPlayerOverlay(
             }
             Spacer(modifier = Modifier.weight(1f))
             if (!isLocked) {
+                HardwarePlusButton(
+                    enabled = hardwareDecodingEnabled,
+                    onClick = onToggleHardwareDecoding
+                )
+                IconButton(onClick = onEnterPip) {
+                    Icon(
+                        imageVector = Icons.Outlined.PictureInPictureAlt,
+                        contentDescription = stringResource(R.string.player_pip),
+                        tint = Color.White
+                    )
+                }
                 IconButton(onClick = onCycleAspectRatio) {
                     Icon(
                         imageVector = Icons.Outlined.AspectRatio,
@@ -595,10 +682,10 @@ private fun PortraitPlayerOverlay(
                         tint = Color.White
                     )
                 }
-                IconButton(onClick = onToggleOrientation) {
+                IconButton(onClick = onShowChapters) {
                     Icon(
-                        imageVector = Icons.Outlined.ScreenRotation,
-                        contentDescription = stringResource(R.string.player_cd_toggle_orientation),
+                        imageVector = Icons.Outlined.Bookmarks,
+                        contentDescription = stringResource(R.string.player_chapters),
                         tint = Color.White
                     )
                 }
@@ -614,6 +701,27 @@ private fun PortraitPlayerOverlay(
                         expanded = showOverflow,
                         onDismissRequest = { showOverflow = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.player_cd_toggle_orientation)) },
+                            onClick = {
+                                showOverflow = false
+                                onToggleOrientation()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.player_dialog_audio_title)) },
+                            onClick = {
+                                showOverflow = false
+                                onShowAudioTrackSelection()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.player_dialog_subtitles_title)) },
+                            onClick = {
+                                showOverflow = false
+                                onShowSubtitleTrackSelection()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.player_media_info)) },
                             onClick = {
@@ -646,22 +754,7 @@ private fun PortraitPlayerOverlay(
             )
         }
 
-        if (!isLocked) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                IconButton(onClick = onToggleLock) {
-                    Icon(
-                        imageVector = Icons.Outlined.LockOpen,
-                        contentDescription = stringResource(R.string.player_lock),
-                        tint = Color.White
-                    )
-                }
-            }
-        } else {
+        if (isLocked) {
             IconButton(
                 onClick = onToggleLock,
                 modifier = Modifier
@@ -682,7 +775,12 @@ private fun PortraitPlayerOverlay(
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onUserInteraction
+                    )
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Text(
                     text = title,
@@ -703,7 +801,7 @@ private fun PortraitPlayerOverlay(
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -719,42 +817,67 @@ private fun PortraitPlayerOverlay(
                         duration = duration,
                         chapterMarkers = chapterMarkers,
                         onSeek = onSeek,
+                        onLiveSeek = onLiveSeek,
                         onScrubProgressChange = onScrubProgressChange,
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    IconButton(onClick = onPlayPause) {
+                    IconButton(onClick = onToggleLock) {
                         Icon(
-                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (isPlaying) {
-                                stringResource(R.string.pause)
-                            } else {
-                                stringResource(R.string.play)
-                            },
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onShowAudioTrackSelection) {
-                        Icon(
-                            imageVector = Icons.Outlined.Audiotrack,
-                            contentDescription = stringResource(R.string.player_dialog_audio_title),
+                            imageVector = Icons.Outlined.LockOpen,
+                            contentDescription = stringResource(R.string.player_lock),
                             tint = Color.White
                         )
                     }
-                    IconButton(onClick = onShowSubtitleTrackSelection) {
-                        Icon(
-                            imageVector = Icons.Outlined.Subtitles,
-                            contentDescription = stringResource(R.string.player_dialog_subtitles_title),
-                            tint = Color.White
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onSeekBackward) {
+                            Icon(
+                                imageVector = replayIcon(seekBackwardSeconds),
+                                contentDescription = stringResource(
+                                    R.string.player_cd_seek_backward,
+                                    seekBackwardSeconds
+                                ),
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onPlayPause,
+                            modifier = Modifier.size(52.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) {
+                                    stringResource(R.string.pause)
+                                } else {
+                                    stringResource(R.string.play)
+                                },
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        IconButton(onClick = onSeekForward) {
+                            Icon(
+                                imageVector = replayforwardIcon(seekForwardSeconds),
+                                contentDescription = stringResource(
+                                    R.string.player_cd_seek_forward,
+                                    seekForwardSeconds
+                                ),
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
+                    OverlaySpeedControl(
+                        speed = playbackSpeed,
+                        onNudgeSpeed = onNudgeSpeed
+                    )
                 }
             }
         }
@@ -785,12 +908,14 @@ private fun SeekBar(
     duration: Long,
     chapterMarkers: List<ChapterMarker>,
     onSeek: (Float) -> Unit,
+    onLiveSeek: (Float) -> Unit = {},
     onScrubProgressChange: (Float?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var scrubProgress by remember { mutableFloatStateOf(progress.coerceIn(0f, 1f)) }
     var dragActive by remember { mutableStateOf(false) }
     var widthPx by remember { mutableIntStateOf(0) }
+    var lastLiveSeekAt by remember { mutableLongStateOf(0L) }
     val density = LocalDensity.current
     val trackHeightFraction by animateFloatAsState(
         targetValue = if (dragActive) 0.95f else 0.55f,
@@ -810,7 +935,7 @@ private fun SeekBar(
 
     Box(
         modifier = modifier
-            .height(36.dp)
+            .height(PROGRESS_BAR_HIT_HEIGHT_DP.dp)
             .onSizeChanged { widthPx = it.width }
             .pointerInteropFilter { event ->
                 if (widthPx <= 0) return@pointerInteropFilter false
@@ -820,13 +945,19 @@ private fun SeekBar(
                     MotionEvent.ACTION_DOWN -> {
                         dragActive = true
                         scrubProgress = newProgress
+                        lastLiveSeekAt = SystemClock.uptimeMillis()
                         onScrubProgressChange(scrubProgress)
-                        onSeek(scrubProgress)
+                        onLiveSeek(scrubProgress)
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
                         scrubProgress = newProgress
                         onScrubProgressChange(scrubProgress)
+                        val now = SystemClock.uptimeMillis()
+                        if (now - lastLiveSeekAt >= 80L) {
+                            lastLiveSeekAt = now
+                            onLiveSeek(scrubProgress)
+                        }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -853,7 +984,7 @@ private fun SeekBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(PROGRESS_BAR_HEIGHT_DP.dp)
-                .align(Alignment.BottomCenter)
+                .align(Alignment.Center)
         ) {
             val yOffset = size.height / 2
             val trackInset = 2.dp.toPx()
@@ -956,6 +1087,67 @@ private fun formatTime(timeMs: Long): String {
         String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
         String.format(Locale.US, "%02d:%02d", minutes, seconds)
+    }
+}
+
+private fun formatPlaybackSpeed(speed: Float): String {
+    val hundredths = (speed * 100f).toInt()
+    return if (hundredths % 10 == 0) {
+        String.format(Locale.US, "%.1fx", speed)
+    } else {
+        String.format(Locale.US, "%.2fx", speed)
+    }
+}
+
+@Composable
+private fun HardwarePlusButton(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    TextButton(onClick = onClick) {
+        Text(
+            text = stringResource(R.string.player_hw_plus),
+            color = if (enabled) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.55f),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun OverlaySpeedControl(
+    speed: Float,
+    onNudgeSpeed: (Float) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(
+            onClick = { onNudgeSpeed(-0.25f) },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Remove,
+                contentDescription = stringResource(R.string.player_speed_decrease),
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Text(
+            text = formatPlaybackSpeed(speed),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        IconButton(
+            onClick = { onNudgeSpeed(0.25f) },
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(R.string.player_speed_increase),
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 
