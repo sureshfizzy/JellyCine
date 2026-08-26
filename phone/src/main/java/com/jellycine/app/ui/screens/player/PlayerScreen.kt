@@ -42,6 +42,7 @@ import com.jellycine.app.ui.activity.JellyCineActivity
 import com.jellycine.app.ui.screens.player.PlayerViewModel
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.discord.NowPlayingInfo
@@ -191,12 +192,32 @@ fun PlayerScreen(
 
     // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
+    var currentPlaybackId by remember { mutableStateOf(mediaId) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+
+    LaunchedEffect(mediaId) {
+        if (mediaId != currentPlaybackId) {
+            currentPlaybackId = mediaId
+        }
+    }
+    LaunchedEffect(inPip) {
+        if (inPip) {
+            showPlaybackInfoSheet = false
+        }
+    }
+
+    val playEpisodeInPlace: (String) -> Unit = { episodeId ->
+        if (episodeId.isNotBlank() && episodeId != currentPlaybackId) {
+            currentPlaybackId = episodeId
+            onWatchNextEpisode?.invoke(episodeId)
+        }
+    }
 
     PlayerScreenEffects(
         context = context,
         currentView = currentView,
         lifecycleOwner = lifecycleOwner,
-        mediaId = mediaId,
+        mediaId = currentPlaybackId,
         initialItemDetails = initialItemDetails,
         remoteMediaUrl = remoteMediaUrl,
         remoteMediaTitle = remoteMediaTitle,
@@ -233,7 +254,7 @@ fun PlayerScreen(
     // Discord Rich Presence
     DiscordRpcEffect(
         playerState = viewModel.playerState,
-        mediaId = mediaId,
+        mediaId = currentPlaybackId,
         seriesName = initialItemDetails?.seriesName,
         year = initialItemDetails?.productionYear,
         mediaType = when {
@@ -354,7 +375,7 @@ fun PlayerScreen(
         initializedMediaId = null
         viewModel.initializePlayer(
             context = context,
-            mediaId = mediaId,
+            mediaId = currentPlaybackId,
             initialItemDetails = initialItemDetails,
             preferredAudioStreamIndex = preferredAudio,
             preferredSubtitleStreamIndex = preferredSubtitle,
@@ -406,8 +427,12 @@ fun PlayerScreen(
 
     // Back handler
     BackHandler {
-        viewModel.releasePlayer()
-        onBackPressed?.invoke()
+        if (showPlaybackInfoSheet) {
+            showPlaybackInfoSheet = false
+        } else {
+            viewModel.releasePlayer()
+            onBackPressed?.invoke()
+        }
     }
 
     val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
@@ -416,7 +441,11 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .focusable(),
-        contentAlignment = Alignment.Center
+        contentAlignment = if (showPlaybackInfoSheet && isPortraitPlayback) {
+            Alignment.TopCenter
+        } else {
+            Alignment.Center
+        }
     ) {
         VideoSurface(
             player = viewModel.exoPlayer,
@@ -494,7 +523,7 @@ fun PlayerScreen(
 
         PlayerGestureLayer(
             audioManager = audioManager,
-            enabled = !playerState.isLocked && !uiState.controlsVisible && !inPip,
+            enabled = !playerState.isLocked && !uiState.controlsVisible && !inPip && !showPlaybackInfoSheet,
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
@@ -565,7 +594,7 @@ fun PlayerScreen(
         )
 
         PlayerOverlayHost(
-            uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip),
+            uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip && !showPlaybackInfoSheet),
             playerState = playerState,
             currentStreamingQuality = currentStreamingQuality,
             hasPlaybackSettings = hasPlaybackSettings,
@@ -612,7 +641,10 @@ fun PlayerScreen(
                     PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
                 }
             },
-            onTitleClick = { showPlaybackInfoSheet = true },
+            onTitleClick = {
+                showPlaybackInfoSheet = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
             onEnterPip = { enterPlayerPip(context as Activity) },
             onShowChapters = { showChaptersSheet = true },
             onBackgroundClick = {
@@ -661,14 +693,11 @@ fun PlayerScreen(
             PlaybackInfoSheet(
                 item = viewModel.playbackItem ?: initialItemDetails,
                 title = playerState.mediaTitle,
+                isPortrait = isPortraitPlayback,
+                currentItemId = currentPlaybackId,
+                mediaRepository = mediaRepository,
                 onDismiss = { showPlaybackInfoSheet = false },
-                onPlayFromStart = {
-                    viewModel.seekTo(0L)
-                    if (!playerState.isPlaying) {
-                        viewModel.togglePlayPause()
-                    }
-                    showPlaybackInfoSheet = false
-                }
+                onEpisodeSelected = playEpisodeInPlace
             )
         }
 

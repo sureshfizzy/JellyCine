@@ -182,6 +182,14 @@
     <string name="player_pip_failed">当前设备无法进入小窗</string>
     <string name="player_chapters">章节</string>
     <string name="player_chapters_empty">本片没有章节</string>
+    <string name="player_info_cast">演员</string>
+    <string name="player_info_director">导演</string>
+    <string name="player_info_from_season">来自第 %1$d 季</string>
+    <string name="player_info_from_season_named">来自%1$s</string>
+    <string name="player_info_remaining">剩余: %1$s</string>
+    <string name="player_info_duration_hms">%1$d小时%2$d分</string>
+    <string name="player_info_duration_ms">%1$d分 %2$d秒</string>
+    <string name="player_info_duration_ms_compact">%1$d分%2$d秒</string>
     <string name="player_speed_decrease">减慢倍速</string>
     <string name="player_speed_increase">加快倍速</string>
     <string name="player_cd_seek_backward">快退 %d 秒</string>

@@ -1,105 +1,615 @@
 package com.jellycine.app.ui.screens.player
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.BaseItemPerson
+import com.jellycine.data.repository.MediaRepository
 import com.jellycine.player.core.ChapterMarker
 import com.jellycine.shared.R
+import com.jellycine.shared.ui.components.common.CastSection
+import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.shared.util.image.rememberImageUrl
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val PlaybackInfoPanelColor = Color(0xFF161618)
+private val PlaybackInfoOverviewColor = Color.White.copy(alpha = 0.62f)
+private val PlaybackInfoMetaColor = Color.White.copy(alpha = 0.48f)
+private val PlaybackInfoBadgeColor = Color(0xE61B3358)
+private val PlaybackInfoHandleColor = Color.White.copy(alpha = 0.28f)
+private val PlaybackInfoEpisodeShape = RoundedCornerShape(10.dp)
+
 @Composable
 fun PlaybackInfoSheet(
     item: BaseItemDto?,
     title: String,
+    isPortrait: Boolean,
+    currentItemId: String?,
+    mediaRepository: MediaRepository,
     onDismiss: () -> Unit,
-    onPlayFromStart: () -> Unit
+    onEpisodeSelected: (String) -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = Color(0xFF111111)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = item?.name ?: title,
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val dismissThresholdPx = with(density) { 88.dp.toPx() }
+    val offsetY = remember { Animatable(0f) }
+    val scrollState = rememberScrollState()
+
+    fun settleDismiss(velocityY: Float = 0f) {
+        val shouldDismiss = offsetY.value > dismissThresholdPx ||
+            velocityY > 1800f ||
+            offsetY.value < -dismissThresholdPx ||
+            velocityY < -1800f
+        if (shouldDismiss) {
+            onDismiss()
+        } else {
+            scope.launch { offsetY.animateTo(0f, tween(180)) }
+        }
+    }
+
+    val nestedScroll = remember(dismissThresholdPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.Drag) return Offset.Zero
+                val delta = available.y
+                if (delta > 0f && scrollState.value == 0) {
+                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
+                    return Offset(0f, delta)
+                }
+                if (delta < 0f && offsetY.value > 0f) {
+                    val consumed = delta.coerceAtLeast(-offsetY.value)
+                    scope.launch { offsetY.snapTo(offsetY.value + consumed) }
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (offsetY.value != 0f || (scrollState.value == 0 && abs(available.y) > 1800f)) {
+                    settleDismiss(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    val panelModifier = Modifier
+        .offset { IntOffset(0, offsetY.value.roundToInt()) }
+        .background(PlaybackInfoPanelColor)
+        .nestedScroll(nestedScroll)
+
+    if (isPortrait) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clickable(onClick = onDismiss)
             )
-            val meta = buildPlaybackMeta(item)
-            if (meta.isNotBlank()) {
-                Text(
-                    text = meta,
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            val overview = item?.overview.orEmpty()
-            if (overview.isNotBlank()) {
-                Text(
-                    text = overview,
-                    color = Color.White.copy(alpha = 0.82f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 14.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Button(
-                onClick = onPlayFromStart,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316))
-            ) {
-                Text(stringResource(R.string.player_play_from_start))
-            }
-            Spacer(modifier = Modifier.height(16.dp))
+            PlaybackInfoPanel(
+                item = item,
+                title = title,
+                showSeriesName = false,
+                currentItemId = currentItemId,
+                mediaRepository = mediaRepository,
+                scrollState = scrollState,
+                onEpisodeSelected = onEpisodeSelected,
+                onHandleDrag = { delta ->
+                    scope.launch { offsetY.snapTo(offsetY.value + delta) }
+                },
+                onHandleDragEnd = { settleDismiss() },
+                modifier = panelModifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+        }
+    } else {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = onDismiss)
+            )
+            PlaybackInfoPanel(
+                item = item,
+                title = title,
+                showSeriesName = true,
+                currentItemId = currentItemId,
+                mediaRepository = mediaRepository,
+                scrollState = scrollState,
+                onEpisodeSelected = onEpisodeSelected,
+                onHandleDrag = { delta ->
+                    scope.launch { offsetY.snapTo(offsetY.value + delta) }
+                },
+                onHandleDragEnd = { settleDismiss() },
+                modifier = panelModifier
+                    .align(Alignment.CenterStart)
+                    .fillMaxHeight()
+                    .padding(start = 12.dp, top = 10.dp, end = 56.dp, bottom = 10.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .fillMaxWidth()
+            )
         }
     }
 }
 
-private fun buildPlaybackMeta(item: BaseItemDto?): String {
-    if (item == null) return ""
-    val parts = mutableListOf<String>()
-    item.communityRating?.let { parts += String.format("%.1f", it) }
-    item.productionYear?.let { parts += it.toString() }
-    item.runTimeTicks?.let { ticks ->
-        val minutes = (ticks / 10_000_000L / 60L).toInt()
-        if (minutes > 0) {
-            val hours = minutes / 60
-            val remain = minutes % 60
-            parts += if (hours > 0) "${hours}h ${remain}m" else "${remain}m"
+@Composable
+private fun PlaybackInfoPanel(
+    item: BaseItemDto?,
+    title: String,
+    showSeriesName: Boolean,
+    currentItemId: String?,
+    mediaRepository: MediaRepository,
+    scrollState: androidx.compose.foundation.ScrollState,
+    onEpisodeSelected: (String) -> Unit,
+    onHandleDrag: (Float) -> Unit,
+    onHandleDragEnd: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var resolvedPeople by remember(item?.id) {
+        mutableStateOf(item?.people.orEmpty())
+    }
+    var seasonEpisodes by remember(item?.seriesId, item?.seasonId) {
+        mutableStateOf<List<BaseItemDto>>(emptyList())
+    }
+
+    LaunchedEffect(item?.id, item?.people, item?.seriesId) {
+        val localPeople = item?.people.orEmpty().filter { !it.name.isNullOrBlank() }
+        if (localPeople.isNotEmpty()) {
+            resolvedPeople = localPeople
+        } else {
+            val fromItem = item?.id
+                ?.takeIf { it.isNotBlank() }
+                ?.let { mediaRepository.getItemById(it).getOrNull()?.people }
+                .orEmpty()
+                .filter { !it.name.isNullOrBlank() }
+            if (fromItem.isNotEmpty()) {
+                resolvedPeople = fromItem
+            } else {
+                resolvedPeople = item?.seriesId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { mediaRepository.getItemById(it).getOrNull()?.people }
+                    .orEmpty()
+                    .filter { !it.name.isNullOrBlank() }
+            }
         }
     }
-    item.officialRating?.takeIf { it.isNotBlank() }?.let { parts += it }
-    return parts.joinToString("  ·  ")
+
+    LaunchedEffect(item?.seriesId, item?.seasonId) {
+        val seriesId = item?.seriesId?.takeIf { it.isNotBlank() }
+        if (seriesId == null || !item.type.equals("Episode", ignoreCase = true)) {
+            seasonEpisodes = emptyList()
+            return@LaunchedEffect
+        }
+        seasonEpisodes = mediaRepository.getEpisodes(
+            seriesId = seriesId,
+            seasonId = item.seasonId
+        ).getOrNull().orEmpty()
+    }
+
+    val actors = remember(resolvedPeople) {
+        resolvedPeople.filter { it.type.equals("Actor", ignoreCase = true) }
+    }
+    val directors = remember(resolvedPeople) {
+        resolvedPeople.filter { person ->
+            person.type.equals("Director", ignoreCase = true) ||
+                person.role.equals("Director", ignoreCase = true)
+        }
+    }
+    val peopleItem = remember(item, resolvedPeople) {
+        item?.copy(people = actors.ifEmpty { resolvedPeople })
+    }
+    val posterUrl = rememberImageUrl(
+        itemId = item?.id,
+        imageType = "Primary",
+        width = 480,
+        height = 270,
+        quality = 80,
+        mediaRepository = mediaRepository
+    )
+    val episodeListState = rememberLazyListState()
+    LaunchedEffect(seasonEpisodes, currentItemId) {
+        val index = seasonEpisodes.indexOfFirst { it.id == currentItemId }
+        if (index >= 0) {
+            episodeListState.scrollToItem(index)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .navigationBarsPadding()
+            .verticalScroll(scrollState)
+            .padding(bottom = 20.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, dragAmount -> onHandleDrag(dragAmount) },
+                        onDragEnd = onHandleDragEnd,
+                        onDragCancel = onHandleDragEnd
+                    )
+                }
+                .padding(top = 10.dp, bottom = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(99.dp))
+                    .background(PlaybackInfoHandleColor)
+            )
+        }
+
+        PlaybackInfoHeader(
+            item = item,
+            title = title,
+            showSeriesName = showSeriesName,
+            posterUrl = posterUrl
+        )
+
+        val overview = item?.overview.orEmpty()
+        if (overview.isNotBlank()) {
+            Text(
+                text = overview,
+                color = PlaybackInfoOverviewColor,
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)
+            )
+        }
+
+
+        if (seasonEpisodes.isNotEmpty()) {
+            Text(
+                text = playbackFromSeasonLabel(item),
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 12.dp)
+            )
+            LazyRow(
+                state = episodeListState,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 18.dp)
+            ) {
+                itemsIndexed(
+                    items = seasonEpisodes,
+                    key = { index, episode -> "${episode.id ?: episode.name}_$index" }
+                ) { _, episode ->
+                    PlaybackEpisodeCard(
+                        episode = episode,
+                        mediaRepository = mediaRepository,
+                        onClick = {
+                            episode.id?.takeIf { it.isNotBlank() }?.let(onEpisodeSelected)
+                        }
+                    )
+                }
+            }
+        }
+
+        if (peopleItem != null && actors.isNotEmpty()) {
+            CastSection(
+                item = peopleItem,
+                mediaRepository = mediaRepository,
+                title = stringResource(R.string.player_info_cast),
+                modifier = Modifier.padding(horizontal = 18.dp)
+            )
+        }
+        if (directors.isNotEmpty()) {
+            PlaybackDirectorRow(
+                directors = directors,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaybackInfoHeader(
+    item: BaseItemDto?,
+    title: String,
+    showSeriesName: Boolean,
+    posterUrl: String?
+) {
+    val context = LocalContext.current
+    val episodeTitle = playbackEpisodeTitle(item, title)
+    val seriesName = item?.seriesName?.takeIf { it.isNotBlank() }
+    val dateLabel = formatPlaybackPremiereDate(item?.premiereDate)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(148.dp)
+                .height(84.dp)
+                .clip(PlaybackInfoEpisodeShape)
+                .background(Color(0xFF2A2A2A))
+        ) {
+            if (!posterUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    context = context,
+                    imageUrl = posterUrl,
+                    contentDescription = episodeTitle,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .align(Alignment.Top)
+        ) {
+            if (showSeriesName && !seriesName.isNullOrBlank()) {
+                Text(
+                    text = seriesName,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            Text(
+                text = episodeTitle,
+                color = Color.White,
+                fontSize = if (showSeriesName) 16.sp else 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (dateLabel != null) {
+                Text(
+                    text = dateLabel,
+                    color = PlaybackInfoMetaColor,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackEpisodeCard(
+    episode: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageUrl = rememberImageUrl(
+        itemId = episode.id,
+        imageType = "Primary",
+        width = 400,
+        height = 225,
+        quality = 80,
+        mediaRepository = mediaRepository
+    )
+    val badge = playbackEpisodeBadge(episode)
+    val label = playbackEpisodeCardTitle(episode)
+
+    Column(
+        modifier = Modifier
+            .width(148.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+                .clip(PlaybackInfoEpisodeShape)
+                .background(Color(0xFF2A2A2A))
+        ) {
+            if (!imageUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    context = context,
+                    imageUrl = imageUrl,
+                    contentDescription = label,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            if (badge != null) {
+                Text(
+                    text = badge,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(PlaybackInfoBadgeColor)
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                )
+            }
+        }
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun PlaybackDirectorRow(
+    directors: List<BaseItemPerson>,
+    modifier: Modifier = Modifier
+) {
+    val names = directors.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } }
+        .distinct()
+        .joinToString("、")
+    if (names.isBlank()) return
+    Row(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.player_info_director),
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = names,
+            color = Color.White.copy(alpha = 0.78f),
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
+private fun playbackFromSeasonLabel(item: BaseItemDto?): String {
+    val seasonNumber = item?.parentIndexNumber
+    if (seasonNumber != null) {
+        return stringResource(R.string.player_info_from_season, seasonNumber)
+    }
+    val seasonName = item?.seasonName?.takeIf { it.isNotBlank() }
+    return if (seasonName != null) {
+        stringResource(R.string.player_info_from_season_named, seasonName)
+    } else {
+        stringResource(R.string.player_info_from_season_named, "")
+    }
+}
+
+@Composable
+private fun playbackEpisodeBadge(episode: BaseItemDto): String? {
+    val runtimeSeconds = ticksToSeconds(episode.runTimeTicks) ?: return null
+    val positionSeconds = ticksToSeconds(episode.userData?.playbackPositionTicks) ?: 0L
+    val remainingSeconds = (runtimeSeconds - positionSeconds).coerceAtLeast(0L)
+    val inProgress = positionSeconds > 0L &&
+        episode.userData?.played != true &&
+        remainingSeconds > 0L
+    val shown = if (inProgress) remainingSeconds else runtimeSeconds
+    val formatted = formatPlaybackDurationLabel(shown, compact = inProgress)
+    return if (inProgress) {
+        stringResource(R.string.player_info_remaining, formatted)
+    } else {
+        formatted
+    }
+}
+
+@Composable
+private fun formatPlaybackDurationLabel(totalSeconds: Long, compact: Boolean): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        stringResource(R.string.player_info_duration_hms, hours, minutes)
+    } else if (compact) {
+        stringResource(R.string.player_info_duration_ms_compact, minutes, seconds)
+    } else {
+        stringResource(R.string.player_info_duration_ms, minutes, seconds)
+    }
+}
+
+private fun playbackEpisodeTitle(item: BaseItemDto?, fallback: String): String {
+    if (item == null) return fallback
+    if (!item.type.equals("Episode", ignoreCase = true)) {
+        return item.name?.takeIf { it.isNotBlank() } ?: fallback
+    }
+    val episodeName = item.name?.takeIf { it.isNotBlank() } ?: fallback
+    val season = item.parentIndexNumber
+    val episode = item.indexNumber
+    return if (season != null && episode != null) {
+        "S${season}E$episode : $episodeName"
+    } else {
+        episodeName
+    }
+}
+
+private fun playbackEpisodeCardTitle(episode: BaseItemDto): String {
+    val name = episode.name?.takeIf { it.isNotBlank() }.orEmpty()
+    val number = episode.indexNumber
+    return if (number != null && name.isNotBlank()) {
+        "$number.$name"
+    } else {
+        name.ifBlank { episode.id.orEmpty() }
+    }
+}
+
+private fun formatPlaybackPremiereDate(premiereDate: String?): String? {
+    val raw = premiereDate?.takeIf { it.isNotBlank() } ?: return null
+    val datePart = raw.take(10)
+    if (datePart.length == 10 && datePart[4] == '-' && datePart[7] == '-') {
+        return "${datePart.substring(0, 4)}/${datePart.substring(5, 7)}/${datePart.substring(8, 10)}"
+    }
+    return raw
+}
+
+private fun ticksToSeconds(ticks: Long?): Long? {
+    if (ticks == null || ticks <= 0L) return null
+    return ticks / 10_000_000L
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

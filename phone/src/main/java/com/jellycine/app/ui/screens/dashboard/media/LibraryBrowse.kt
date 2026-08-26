@@ -116,4 +116,4 @@ fun recommendationTitleRes(recommendationType: String?): Int {
 }
 
 internal const val LIBRARY_ITEM_FIELDS =
-    "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData,CanDelete,CanDownload,LockData,ProviderIds,OfficialRating,PremiereDate,RunTimeTicks"
+    "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData,CanDelete,CanDownload,LockData,ProviderIds,OfficialRating,PremiereDate,RunTimeTicks,People"
