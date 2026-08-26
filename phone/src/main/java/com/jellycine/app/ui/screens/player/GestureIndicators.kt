@@ -117,12 +117,26 @@ fun GestureIndicators(
                 .padding(top = maxHeight * 0.25f)
         ) {
             holdSpeedLabel?.let { label ->
-                Text(
-                    text = label,
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                PlayerGlass(shape = RoundedCornerShape(999.dp)) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = label,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
     }
@@ -134,13 +148,18 @@ fun SeekTimeHud(
     durationMs: Long,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = "${formatPlaybackTime(positionMs)} / ${formatPlaybackTime(durationMs)}",
-        color = Color.White,
-        fontSize = 22.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = modifier
-    )
+    PlayerGlass(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = "${formatPlaybackTime(positionMs)} / ${formatPlaybackTime(durationMs)}",
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+    }
 }
 
 @Composable
