@@ -1,5 +1,17 @@
+
 plugins {
     id 'com.android.library'
+}
+
+def discordAar = file('libs/discord_partner_sdk.aar')
+def hasDiscordPrefab = false
+if (discordAar.exists()) {
+    def zip = new java.util.zip.ZipFile(discordAar)
+    try {
+        hasDiscordPrefab = zip.entries().any { it.name.startsWith('prefab/') }
+    } finally {
+        zip.close()
+    }
 }
 
 android {
@@ -18,17 +30,21 @@ android {
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
 
-        externalNativeBuild {
-            cmake {
-                cppFlags '-std=c++20'
+        if (hasDiscordPrefab) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags '-std=c++20'
+                }
             }
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path 'src/main/cpp/CMakeLists.txt'
-            version '3.22.1'
+    if (hasDiscordPrefab) {
+        externalNativeBuild {
+            cmake {
+                path 'src/main/cpp/CMakeLists.txt'
+                version '3.22.1'
+            }
         }
     }
 
