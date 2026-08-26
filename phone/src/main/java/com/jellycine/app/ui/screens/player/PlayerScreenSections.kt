@@ -364,6 +364,7 @@ internal fun BoxScope.PlayerOverlayHost(
     onTitleClick: () -> Unit = {},
     onEnterPip: () -> Unit = {},
     onShowChapters: () -> Unit = {},
+    onScreenshot: () -> Unit = {},
     onBackgroundClick: () -> Unit = {},
     onPositionChanged: (Long) -> Unit = {}
 ): Unit {
@@ -503,6 +504,10 @@ internal fun BoxScope.PlayerOverlayHost(
             onEnterPip = {
                 resetAutoHideTimer()
                 onEnterPip()
+            },
+            onScreenshot = {
+                resetAutoHideTimer()
+                onScreenshot()
             },
             onToggleHardwareDecoding = {
                 resetAutoHideTimer()

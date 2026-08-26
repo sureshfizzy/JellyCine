@@ -45,23 +45,26 @@ fun VideoSurface(
     onToggleControls: () -> Unit,
     onTogglePlayPause: () -> Unit = {},
     onZoomChange: (Boolean) -> Unit = {},
+    onSurfaceReady: () -> Unit = {},
+    snapTransform: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
+    val transformAnim = if (snapTransform) tween<Float>(durationMillis = 0) else tween<Float>(durationMillis = 200)
     val animatedScale by animateFloatAsState(
         targetValue = scale,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = transformAnim,
         label = "video_scale"
     )
     val animatedOffsetX by animateFloatAsState(
         targetValue = offsetX,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = transformAnim,
         label = "video_offset_x"
     )
     val animatedOffsetY by animateFloatAsState(
         targetValue = offsetY,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = transformAnim,
         label = "video_offset_y"
     )
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -94,6 +97,7 @@ fun VideoSurface(
                 getCurrentBrightnessLevel = getCurrentBrightnessLevel,
                 onZoomChange = onZoomChange,
                 onTogglePlayPause = onTogglePlayPause,
+                onSurfaceReady = onSurfaceReady,
                 modifier = surfaceModifier
             )
         } else if (player != null) {

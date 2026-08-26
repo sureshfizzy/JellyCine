@@ -48,6 +48,7 @@ import com.jellycine.player.core.findActiveSkippableSegment
 import com.jellycine.player.discord.NowPlayingInfo
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.app.discord.DiscordRpcEffect
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -436,17 +437,28 @@ fun PlayerScreen(
     }
 
     val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+    var hideVideoForRotation by remember { mutableStateOf(false) }
+    var seenPortraitPlayback by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isPortraitPlayback) {
+        val previous = seenPortraitPlayback
+        seenPortraitPlayback = isPortraitPlayback
+        if (previous == null || previous == isPortraitPlayback) return@LaunchedEffect
+        hideVideoForRotation = true
+        delay(180)
+        hideVideoForRotation = false
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .focusable(),
-        contentAlignment = if (showPlaybackInfoSheet && isPortraitPlayback) {
+        contentAlignment = if (isPortraitPlayback && showPlaybackInfoSheet) {
             Alignment.TopCenter
         } else {
             Alignment.Center
         }
     ) {
+        key(isPortraitPlayback) {
         VideoSurface(
             player = viewModel.exoPlayer,
             mpvPlayer = viewModel.mpvPlayer,
@@ -494,14 +506,7 @@ fun PlayerScreen(
             onSeek = { delta ->
                 if (!playerState.isLocked) {
                     viewModel.seekBy(delta)
-
-                    // Show seek indicator
-                    val isForward = delta > 0
-                    val seconds = kotlin.math.abs(delta) / 1000
-                    val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                    val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
-
-                    uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                    uiState = uiState.copy(seekPosition = null)
                 }
             },
             onToggleControls = {
@@ -512,18 +517,32 @@ fun PlayerScreen(
             onZoomChange = { isZooming ->
                 viewModel.handlePinchZoom(isZooming)
             },
+            onSurfaceReady = { hideVideoForRotation = false },
+            snapTransform = hideVideoForRotation,
             modifier = if (isPortraitPlayback) {
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
             } else {
-                Modifier.fillMaxSize()
+                Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(16f / 9f)
             }
         )
+        }
 
+        if (hideVideoForRotation) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+        }
+
+        key(isPortraitPlayback) {
         PlayerGestureLayer(
             audioManager = audioManager,
-            enabled = !playerState.isLocked && !uiState.controlsVisible && !inPip && !showPlaybackInfoSheet,
+            enabled = !playerState.isLocked && !inPip && !showPlaybackInfoSheet,
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
@@ -531,14 +550,9 @@ fun PlayerScreen(
             onSeek = { delta ->
                 if (!playerState.isLocked) {
                     viewModel.seekBy(delta)
-                    val isForward = delta > 0
-                    val seconds = kotlin.math.abs(delta) / 1000
-                    val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                    val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
                     uiState = uiState.copy(
                         currentPosition = viewModel.getCurrentPosition(),
-                        seekPosition = seekText,
-                        seekSide = side
+                        seekPosition = null
                     )
                 }
             },
@@ -592,6 +606,7 @@ fun PlayerScreen(
                 }
             }
         )
+        }
 
         PlayerOverlayHost(
             uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip && !showPlaybackInfoSheet),
@@ -647,6 +662,7 @@ fun PlayerScreen(
             },
             onEnterPip = { enterPlayerPip(context as Activity) },
             onShowChapters = { showChaptersSheet = true },
+            onScreenshot = { viewModel.captureScreenshot() },
             onBackgroundClick = {
                 uiState = uiState.copy(controlsVisible = false)
             },

@@ -31,6 +31,7 @@ fun MpvVideoSurface(
     getCurrentBrightnessLevel: () -> Float,
     onZoomChange: (Boolean) -> Unit,
     onTogglePlayPause: () -> Unit,
+    onSurfaceReady: () -> Unit = {},
     modifier: Modifier
 ) {
     AndroidView(
@@ -50,6 +51,9 @@ fun MpvVideoSurface(
                             width = frame.width(),
                             height = frame.height()
                         )
+                        if (frame.width() > 0 && frame.height() > 0) {
+                            post { onSurfaceReady() }
+                        }
                     }
 
                     override fun surfaceChanged(
@@ -59,6 +63,9 @@ fun MpvVideoSurface(
                         height: Int
                     ) {
                         player.resizeSurface(width, height)
+                        if (width > 0 && height > 0) {
+                            post { onSurfaceReady() }
+                        }
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -67,9 +74,12 @@ fun MpvVideoSurface(
                 })
             }
         },
-        update = {
+        update = { view ->
             player.applySubtitlePreferences()
             player.setZoomMode(resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
+            if (view.width > 0 && view.height > 0) {
+                player.resizeSurface(view.width, view.height)
+            }
             if (lifecycle == Lifecycle.Event.ON_PAUSE) {
                 player.pause()
             }

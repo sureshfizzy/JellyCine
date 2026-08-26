@@ -1485,6 +1485,22 @@ class PlayerViewModel @Inject constructor(
         seekBy(deltaMs = seconds * 1000L)
     }
 
+    fun captureScreenshot() {
+        val context = playerContext ?: return
+        val controller = mpvPlayer ?: return
+        val pictures = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES) ?: return
+        val dir = java.io.File(pictures, "JellyCine")
+        if (!dir.exists() && !dir.mkdirs()) return
+        val file = java.io.File(dir, "JellyCine_${System.currentTimeMillis()}.jpg")
+        controller.screenshotToFile(file.absolutePath)
+        android.widget.Toast.makeText(
+            context,
+            context.getString(com.jellycine.shared.R.string.player_screenshot_saved),
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
+
+
     private val playerListener = object : Player.Listener {
         override fun onTracksChanged(tracks: Tracks) {
             applyPendingTrackSelectionsIfNeeded()

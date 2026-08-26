@@ -107,6 +107,11 @@ class MpvPlayerController(
         }
     }
 
+    fun screenshotToFile(path: String) {
+        if (released) return
+        MPVLib.command(arrayOf("screenshot-to-file", path, "subtitles"))
+    }
+
     fun setZoomMode(enabled: Boolean) {
         if (released) return
         if (enabled) {

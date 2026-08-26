@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -162,12 +168,130 @@ fun PlaybackInfoSheet(
             )
         }
     } else {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
+        LandscapePlaybackInfo(
+            item = item,
+            title = title,
+            currentItemId = currentItemId,
+            mediaRepository = mediaRepository,
+            scrollState = scrollState,
+            onDismiss = onDismiss,
+            onEpisodeSelected = onEpisodeSelected
+        )
+    }
+}
+
+
+@Composable
+private fun LandscapePlaybackInfo(
+    item: BaseItemDto?,
+    title: String,
+    currentItemId: String?,
+    mediaRepository: MediaRepository,
+    scrollState: androidx.compose.foundation.ScrollState,
+    onDismiss: () -> Unit,
+    onEpisodeSelected: (String) -> Unit
+) {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val collapseThresholdPx = with(density) { 96.dp.toPx() }
+    val dismissThresholdPx = with(density) { 72.dp.toPx() }
+    var collapsed by remember { mutableStateOf(false) }
+    val offsetY = remember { Animatable(0f) }
+
+    fun settle(velocityY: Float = 0f) {
+        if (collapsed) {
+            if (offsetY.value > dismissThresholdPx || velocityY > 1400f) {
+                onDismiss()
+                return
+            }
+            if (velocityY < -900f || offsetY.value < -48f) {
+                collapsed = false
+                scope.launch { offsetY.snapTo(0f) }
+                return
+            }
+            scope.launch { offsetY.animateTo(0f, tween(180)) }
+            return
+        }
+        if (offsetY.value > collapseThresholdPx || velocityY > 1400f) {
+            collapsed = true
+            scope.launch { offsetY.snapTo(0f) }
+            return
+        }
+        scope.launch { offsetY.animateTo(0f, tween(180)) }
+    }
+
+    val nestedScroll = remember(collapseThresholdPx) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.Drag) return Offset.Zero
+                val delta = available.y
+                if (delta > 0f && scrollState.value == 0) {
+                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
+                    return Offset(0f, delta)
+                }
+                if (delta < 0f && offsetY.value > 0f) {
+                    val consumed = delta.coerceAtLeast(-offsetY.value)
+                    scope.launch { offsetY.snapTo(offsetY.value + consumed) }
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (collapsed) return Velocity.Zero
+                if (offsetY.value != 0f || (scrollState.value == 0 && abs(available.y) > 1400f)) {
+                    settle(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    val posterUrl = rememberImageUrl(
+        itemId = item?.id,
+        imageType = "Primary",
+        width = 480,
+        height = 270,
+        quality = 80,
+        mediaRepository = mediaRepository
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(onClick = onDismiss)
+        )
+        if (collapsed) {
+            LandscapeInfoMiniBar(
+                item = item,
+                title = title,
+                posterUrl = posterUrl,
+                onClick = {
+                    collapsed = false
+                    scope.launch { offsetY.snapTo(0f) }
+                },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(onClick = onDismiss)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = 48.dp, end = 48.dp, bottom = 28.dp)
+                    .offset { IntOffset(0, offsetY.value.roundToInt()) }
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(PlaybackInfoPanelColor)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { _, dragAmount ->
+                                scope.launch {
+                                    offsetY.snapTo(offsetY.value + dragAmount)
+                                }
+                            },
+                            onDragEnd = { settle() },
+                            onDragCancel = { settle() }
+                        )
+                    }
             )
+        } else {
             PlaybackInfoPanel(
                 item = item,
                 title = title,
@@ -177,16 +301,80 @@ fun PlaybackInfoSheet(
                 scrollState = scrollState,
                 onEpisodeSelected = onEpisodeSelected,
                 onHandleDrag = { delta ->
-                    scope.launch { offsetY.snapTo(offsetY.value + delta) }
+                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
                 },
-                onHandleDragEnd = { settleDismiss() },
-                modifier = panelModifier
-                    .align(Alignment.CenterStart)
-                    .fillMaxHeight()
-                    .padding(start = 12.dp, top = 10.dp, end = 56.dp, bottom = 10.dp)
+                onHandleDragEnd = { settle() },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                    .padding(start = 48.dp, top = 28.dp, end = 48.dp, bottom = 24.dp)
+                    .offset { IntOffset(0, offsetY.value.roundToInt()) }
                     .clip(RoundedCornerShape(22.dp))
-                    .fillMaxWidth()
+                    .background(PlaybackInfoPanelColor)
+                    .nestedScroll(nestedScroll)
             )
+        }
+    }
+}
+
+@Composable
+private fun LandscapeInfoMiniBar(
+    item: BaseItemDto?,
+    title: String,
+    posterUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val episodeTitle = playbackEpisodeTitle(item, title)
+    val seriesName = item?.seriesName?.takeIf { it.isNotBlank() }
+    Column(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(108.dp)
+                    .height(60.dp)
+                    .clip(PlaybackInfoEpisodeShape)
+                    .background(Color(0xFF2A2A2A))
+            ) {
+                if (!posterUrl.isNullOrBlank()) {
+                    JellyfinPosterImage(
+                        context = context,
+                        imageUrl = posterUrl,
+                        contentDescription = episodeTitle,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                if (!seriesName.isNullOrBlank()) {
+                    Text(
+                        text = seriesName,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = episodeTitle,
+                    color = Color.White.copy(alpha = 0.86f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
