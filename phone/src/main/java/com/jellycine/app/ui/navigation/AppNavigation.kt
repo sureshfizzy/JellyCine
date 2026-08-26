@@ -29,6 +29,7 @@ import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
 import com.jellycine.app.ui.screens.player.PlayerScreen
+import com.jellycine.app.ui.screens.screentime.ScreenTimeScreen
 import com.jellycine.app.player.mpv.MpvWarmPool
 import com.jellycine.auth.AuthStateManager
 import androidx.media3.common.util.UnstableApi
@@ -230,6 +231,9 @@ fun AppNavigation() {
                     },
                     onNavigateToServerInfo = {
                         navController.navigate("server_info")
+                    },
+                    onNavigateToScreenTime = {
+                        navController.navigate("screen_time")
                     },
                     onAddServer = {
                         navController.navigate("server_connection") {
@@ -548,6 +552,16 @@ fun AppNavigation() {
                     onBackPressed = {
                         navController.popBackStack()
                     }
+                )
+            }
+
+            composable(
+                "screen_time",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                ScreenTimeScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

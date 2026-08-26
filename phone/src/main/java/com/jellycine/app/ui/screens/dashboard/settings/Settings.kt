@@ -56,6 +56,7 @@ fun Settings(
     onNavigateToCacheSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToServerInfo: () -> Unit = {},
+    onNavigateToScreenTime: () -> Unit = {},
     onNavigateToRequestedItem: (BaseItemDto) -> Unit = {},
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
@@ -156,6 +157,17 @@ fun Settings(
                         subtitle = stringResource(R.string.settings_connections_subtitle),
                         accentColor = Color(0xFF8B5CF6),
                         onClick = onNavigateToConnections
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Timer,
+                        title = "Screen Time",
+                        subtitle = "View your watch activity and stats",
+                        accentColor = Color(0xFF22D3EE),
+                        onClick = onNavigateToScreenTime
                     )
                 }
             }
