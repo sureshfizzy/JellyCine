@@ -54,6 +54,8 @@ data class PlayerUiState(
     val brightnessLevel: Float? = null,
     val seekPosition: String? = null,
     val seekSide: SeekSide = SeekSide.CENTER,
+    val swipeSeekPositionMs: Long? = null,
+    val holdSpeedLabel: String? = null,
     val videoScale: Float = 1f,
     val videoOffsetX: Float = 0f,
     val videoOffsetY: Float = 0f
@@ -510,7 +512,22 @@ fun PlayerScreen(
             onZoomChange = { isZooming ->
                 viewModel.handlePinchZoom(isZooming)
             },
-            onTogglePlayPause = viewModel::togglePlayPause
+            onTogglePlayPause = viewModel::togglePlayPause,
+            getPlaybackPosition = { viewModel.getCurrentPosition() },
+            getPlaybackDuration = { viewModel.getDuration() },
+            onSeekPreview = { previewMs ->
+                uiState = uiState.copy(swipeSeekPositionMs = previewMs)
+            },
+            onHoldSpeed = { holding ->
+                if (holding) {
+                    val speed = playerPreferences.getLongPressPlaybackSpeed()
+                    viewModel.beginHoldSpeed(speed)
+                    uiState = uiState.copy(holdSpeedLabel = String.format(java.util.Locale.US, "%.1fx", speed))
+                } else {
+                    viewModel.endHoldSpeed()
+                    uiState = uiState.copy(holdSpeedLabel = null)
+                }
+            }
         )
 
         PlayerOverlayHost(

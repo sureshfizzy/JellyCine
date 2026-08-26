@@ -180,6 +180,10 @@
     <string name="player_settings_mpv_hardware_decoding">MPV 硬件解码器</string>
     <string name="player_settings_mpv_video_output">MPV 视频输出</string>
     <string name="player_settings_mpv_audio_output">MPV 音频输出</string>
+    <string name="player_settings_mpv_target_prim">目标色域</string>
+    <string name="player_settings_mpv_target_trc">目标伽马</string>
+    <string name="player_settings_mpv_output_levels">视频输出电平</string>
+    <string name="player_settings_mpv_color_restart_hint">改完需重新打开播放</string>
     <string name="player_settings_section_decoding">解码</string>
     <string name="player_settings_section_subtitles">字幕</string>
     <string name="player_settings_section_transcoding">转码</string>
@@ -215,6 +219,9 @@
     <string name="player_settings_seek_backward_summary">跳过倒带间隔</string>
     <string name="player_settings_seek_forward">快进</string>
     <string name="player_settings_seek_forward_summary">向前跳过间隔</string>
+    <string name="player_settings_long_press_speed">长按倍速</string>
+    <string name="player_settings_long_press_speed_summary">按住屏幕以该倍速播放，松手恢复</string>
+    <string name="player_settings_long_press_speed_value">%1$.1fx</string>
     <string name="player_settings_skip_intro">跳过片头</string>
     <string name="player_settings_skip_intro_summary">有片头标记时显示跳过片头按钮</string>
     <string name="player_settings_chapter_markers">章节标记</string>

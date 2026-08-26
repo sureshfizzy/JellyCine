@@ -181,6 +181,10 @@
     <string name="player_settings_mpv_hardware_decoding">MPV Hardware Decoder</string>
     <string name="player_settings_mpv_video_output">MPV Video Output</string>
     <string name="player_settings_mpv_audio_output">MPV Audio Output</string>
+    <string name="player_settings_mpv_target_prim">Target Primaries</string>
+    <string name="player_settings_mpv_target_trc">Target Transfer</string>
+    <string name="player_settings_mpv_output_levels">Video Output Levels</string>
+    <string name="player_settings_mpv_color_restart_hint">Reopen playback after changing</string>
     <string name="player_settings_section_decoding">Decoding</string>
     <string name="player_settings_section_subtitles">Subtitles</string>
     <string name="player_settings_section_transcoding">Transcoding</string>
@@ -216,6 +220,9 @@
     <string name="player_settings_seek_backward_summary">Skip interval for rewind</string>
     <string name="player_settings_seek_forward">Seek Forward</string>
     <string name="player_settings_seek_forward_summary">Skip interval for forward</string>
+    <string name="player_settings_long_press_speed">Long-press Speed</string>
+    <string name="player_settings_long_press_speed_summary">Hold the screen to play at this speed, release to restore</string>
+    <string name="player_settings_long_press_speed_value">%1$.1fx</string>
     <string name="player_settings_skip_intro">Skip Intro</string>
     <string name="player_settings_skip_intro_summary">Show a skip intro button when intro markers are available</string>
     <string name="player_settings_chapter_markers">Chapter Markers</string>

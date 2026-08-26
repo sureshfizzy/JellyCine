@@ -163,14 +163,17 @@ internal fun PlayerScreenEffects(
             null
         }
 
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            activity != null &&
-            shouldUseHdrColorMode
-        ) {
-            activity.window.colorMode = ActivityInfo.COLOR_MODE_HDR
-            if (Build.VERSION.SDK_INT >= 34) {
-                activity.window.setDesiredHdrHeadroom(4.0f)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && activity != null) {
+            if (shouldUseHdrColorMode) {
+                activity.window.colorMode = ActivityInfo.COLOR_MODE_HDR
+                if (Build.VERSION.SDK_INT >= 34) {
+                    activity.window.setDesiredHdrHeadroom(4.0f)
+                }
+            } else {
+                activity.window.colorMode = ActivityInfo.COLOR_MODE_DEFAULT
+                if (Build.VERSION.SDK_INT >= 34) {
+                    activity.window.setDesiredHdrHeadroom(1.0f)
+                }
             }
         }
 
@@ -577,7 +580,10 @@ internal fun BoxScope.PlayerOverlayHost(
         volumeLevel = uiState.volumeLevel,
         brightnessLevel = uiState.brightnessLevel,
         seekPosition = uiState.seekPosition,
-        seekSide = uiState.seekSide
+        seekSide = uiState.seekSide,
+        swipeSeekPositionMs = uiState.swipeSeekPositionMs,
+        swipeSeekDurationMs = playerState.duration.takeIf { it > 0L } ?: viewModel.getDuration(),
+        holdSpeedLabel = uiState.holdSpeedLabel
     )
 
     if (playerState.isLoading) {

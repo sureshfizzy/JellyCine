@@ -35,10 +35,12 @@ fun GestureIndicators(
     volumeLevel: Float? = null,
     brightnessLevel: Float? = null,
     seekPosition: String? = null,
-    seekSide: SeekSide = SeekSide.CENTER
+    seekSide: SeekSide = SeekSide.CENTER,
+    swipeSeekPositionMs: Long? = null,
+    swipeSeekDurationMs: Long = 0L,
+    holdSpeedLabel: String? = null
 ) {
-    Box(modifier = modifier.fillMaxSize()) {
-        // Volume indicator (right side)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = volumeLevel != null,
             enter = fadeIn() + slideInHorizontally(initialOffsetX = { it / 2 }),
@@ -53,7 +55,6 @@ fun GestureIndicators(
             }
         }
 
-        // Brightness indicator (left side)
         AnimatedVisibility(
             visible = brightnessLevel != null,
             enter = fadeIn() + slideInHorizontally(initialOffsetX = { -it / 2 }),
@@ -68,9 +69,8 @@ fun GestureIndicators(
             }
         }
 
-        // Seek indicator (positioned based on seekSide)
         AnimatedVisibility(
-            visible = seekPosition != null,
+            visible = seekPosition != null && swipeSeekPositionMs == null,
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
             modifier = Modifier.align(
@@ -91,6 +91,97 @@ fun GestureIndicators(
                 )
             }
         }
+
+        AnimatedVisibility(
+            visible = swipeSeekPositionMs != null && swipeSeekDurationMs > 0L,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 12.dp)
+        ) {
+            val position = swipeSeekPositionMs ?: 0L
+            SwipeSeekHud(
+                positionMs = position,
+                durationMs = swipeSeekDurationMs
+            )
+        }
+
+        AnimatedVisibility(
+            visible = holdSpeedLabel != null,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = maxHeight * 0.25f)
+        ) {
+            holdSpeedLabel?.let { label ->
+                Text(
+                    text = label,
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SeekTimeHud(
+    positionMs: Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = "${formatPlaybackTime(positionMs)} / ${formatPlaybackTime(durationMs)}",
+        color = Color.White,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun SwipeSeekHud(
+    positionMs: Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (durationMs > 0L) {
+        (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        SeekTimeHud(positionMs = positionMs, durationMs = durationMs)
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .height(4.dp),
+            color = Color.White,
+            trackColor = Color.White.copy(alpha = 0.28f),
+        )
+    }
+}
+
+internal fun formatPlaybackTime(timeMs: Long): String {
+    val totalSeconds = timeMs.coerceAtLeast(0L) / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
     }
 }
 

@@ -30,7 +30,11 @@ class GestureHelper(
     private val getCurrentBrightnessLevel: () -> Float,
     private val onZoomChange: (Boolean) -> Unit,
     private val onTogglePlayPause: () -> Unit = {},
-    private val getPlayer: () -> Player? = { null }
+    private val getPlayer: () -> Player? = { null },
+    private val getPlaybackPosition: () -> Long = { 0L },
+    private val getPlaybackDuration: () -> Long = { 0L },
+    private val onSeekPreview: (Long?) -> Unit = {},
+    private val onHoldSpeed: (Boolean) -> Unit = {}
 ) {
     private val playerPreferences = PlayerPreferences(context)
     // Gesture state tracking
@@ -45,6 +49,8 @@ class GestureHelper(
     private var isZoomEnabled = false
     private var screenWidth = 0
     private var screenHeight = 0
+    private var swipeSeekStartPosition = 0L
+    private var speedHoldActive = false
 
     // Constants
 
@@ -60,27 +66,45 @@ class GestureHelper(
     private val tapGestureDetector = GestureDetector(
         context,
         object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                onShowControls()
+                when (tapZone(e.x)) {
+                    -1 -> {
+                        if (!playerPreferences.arePlayerGesturesEnabled() ||
+                            !playerPreferences.isProgressSeekGestureEnabled()
+                        ) {
+                            onShowControls()
+                        } else {
+                            onSeek(-seekBackwardDeltaMs())
+                        }
+                    }
+                    1 -> {
+                        if (!playerPreferences.arePlayerGesturesEnabled() ||
+                            !playerPreferences.isProgressSeekGestureEnabled()
+                        ) {
+                            onShowControls()
+                        } else {
+                            onSeek(seekForwardDeltaMs())
+                        }
+                    }
+                    else -> onShowControls()
+                }
                 return true
             }
 
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 if (!playerPreferences.arePlayerGesturesEnabled()) return false
-
-                val viewWidth = touchView.measuredWidth
-                val areaWidth = viewWidth / 5 // Divide into 5 parts: 2:1:2
-                
-                val leftmostAreaStart = 0
-                val middleAreaStart = areaWidth * 2
-                val rightmostAreaStart = middleAreaStart + areaWidth
-
-                when (e.x.toInt()) {
-                    in leftmostAreaStart until middleAreaStart -> {
+                when (tapZone(e.x)) {
+                    -1 -> {
                         if (!playerPreferences.isProgressSeekGestureEnabled()) return false
                         onSeek(-seekBackwardDeltaMs())
                     }
-                    in middleAreaStart until rightmostAreaStart -> {
+                    1 -> {
+                        if (!playerPreferences.isProgressSeekGestureEnabled()) return false
+                        onSeek(seekForwardDeltaMs())
+                    }
+                    else -> {
                         val player = getPlayer()
                         if (player != null) {
                             player.playWhenReady = !player.playWhenReady
@@ -88,15 +112,29 @@ class GestureHelper(
                             onTogglePlayPause()
                         }
                     }
-                    in rightmostAreaStart until viewWidth -> {
-                        if (!playerPreferences.isProgressSeekGestureEnabled()) return false
-                        onSeek(seekForwardDeltaMs())
-                    }
                 }
                 return true
             }
+
+            override fun onLongPress(e: MotionEvent) {
+                if (!playerPreferences.arePlayerGesturesEnabled()) return
+                if (swipeGestureProgressOpen || swipeGestureVolumeOpen || swipeGestureBrightnessOpen) return
+                speedHoldActive = true
+                onHoldSpeed(true)
+            }
         }
     )
+
+    private fun tapZone(x: Float): Int {
+        val viewWidth = touchView.measuredWidth
+        if (viewWidth <= 0) return 0
+        val third = viewWidth / 3f
+        return when {
+            x < third -> -1
+            x >= third * 2f -> 1
+            else -> 0
+        }
+    }
 
     private val seekGestureDetector = GestureDetector(
         context,
@@ -117,11 +155,22 @@ class GestureHelper(
                 if (abs(distanceX) > abs(distanceY)) {
                     return if ((abs(currentEvent.x - firstEvent.x) > 50 || swipeGestureProgressOpen) &&
                         !swipeGestureBrightnessOpen && !swipeGestureVolumeOpen &&
+                        !speedHoldActive &&
                         (SystemClock.elapsedRealtime() - lastScaleEvent) > 200
                     ) {
                         val difference = ((currentEvent.x - firstEvent.x) * 90).toLong()
+                        if (!swipeGestureProgressOpen) {
+                            swipeSeekStartPosition = getPlaybackPosition()
+                        }
                         swipeGestureValueTrackerProgress = difference
                         swipeGestureProgressOpen = true
+                        val duration = getPlaybackDuration()
+                        val preview = if (duration > 0L) {
+                            (swipeSeekStartPosition + difference).coerceIn(0L, duration)
+                        } else {
+                            (swipeSeekStartPosition + difference).coerceAtLeast(0L)
+                        }
+                        onSeekPreview(preview)
                         true
                     } else {
                         false
@@ -235,20 +284,26 @@ class GestureHelper(
                 swipeGestureVolumeOpen = false
                 swipeGestureValueTrackerVolume = -1f
             }
-            
+
             if (swipeGestureBrightnessOpen) {
                 swipeGestureBrightnessOpen = false
                 swipeGestureValueTrackerBrightness = -1f
             }
-            
+
             if (swipeGestureProgressOpen) {
                 if (swipeGestureValueTrackerProgress != 0L) {
                     onSeek(swipeGestureValueTrackerProgress)
                 }
                 swipeGestureProgressOpen = false
                 swipeGestureValueTrackerProgress = 0L
+                onSeekPreview(null)
             }
-            
+
+            if (speedHoldActive) {
+                speedHoldActive = false
+                onHoldSpeed(false)
+            }
+
             currentNumberOfPointers = 0
         }
     }
@@ -276,7 +331,7 @@ class GestureHelper(
         when (event.pointerCount) {
             1 -> {
                 tapGestureDetector.onTouchEvent(event)
-                if (playerPreferences.arePlayerGesturesEnabled()) {
+                if (playerPreferences.arePlayerGesturesEnabled() && !speedHoldActive) {
                     vbGestureDetector.onTouchEvent(event)
                     seekGestureDetector.onTouchEvent(event)
                 }

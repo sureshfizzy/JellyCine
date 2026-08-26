@@ -24,6 +24,9 @@ data class PlayerSettingsUiState(
     val mpvDeband: Boolean = PlayerPreferences.DEFAULT_MPV_DEBAND,
     val mpvDynamicPeak: Boolean = PlayerPreferences.DEFAULT_MPV_DYNAMIC_PEAK,
     val mpvHdrToSdrTonemapping: Boolean = PlayerPreferences.DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING,
+    val mpvTargetPrim: String = PlayerPreferences.DEFAULT_MPV_TARGET_PRIM,
+    val mpvTargetTrc: String = PlayerPreferences.DEFAULT_MPV_TARGET_TRC,
+    val mpvOutputLevels: String = PlayerPreferences.DEFAULT_MPV_OUTPUT_LEVELS,
 
     // Hardware Acceleration
     val hardwareDecodingEnabled: Boolean = true,
@@ -47,6 +50,7 @@ data class PlayerSettingsUiState(
     val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
     val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
     val seekForwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
+    val longPressPlaybackSpeed: Float = PlayerPreferences.DEFAULT_LONG_PRESS_PLAYBACK_SPEED,
     val skipIntroEnabled: Boolean = PlayerPreferences.DEFAULT_SKIP_INTRO_ENABLED,
     val chapterMarkersEnabled: Boolean = PlayerPreferences.DEFAULT_CHAPTER_MARKERS_ENABLED,
     
@@ -105,6 +109,9 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 mpvDeband = playerPreferences.getMpvDeband(),
                 mpvDynamicPeak = playerPreferences.getMpvDynamicPeak(),
                 mpvHdrToSdrTonemapping = playerPreferences.getMpvHdrToSdrTonemapping(),
+                mpvTargetPrim = playerPreferences.getMpvTargetPrim(),
+                mpvTargetTrc = playerPreferences.getMpvTargetTrc(),
+                mpvOutputLevels = playerPreferences.getMpvOutputLevels(),
                 asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
                 decoderPriority = playerPreferences.getDecoderPriority(),
                 streamingQuality = playerPreferences.getStreamingQuality(),
@@ -121,6 +128,7 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
                 playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
                 seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
                 seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
+                longPressPlaybackSpeed = playerPreferences.getLongPressPlaybackSpeed(),
                 skipIntroEnabled = playerPreferences.isSkipIntroEnabled(),
                 chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled(),
                 batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
@@ -156,6 +164,21 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
     fun setMpvAudioOutput(audioOutput: String) {
         playerPreferences.setMpvAudioOutput(audioOutput)
         _uiState.value = _uiState.value.copy(mpvAudioOutput = playerPreferences.getMpvAudioOutput())
+    }
+
+    fun setMpvTargetPrim(value: String) {
+        playerPreferences.setMpvTargetPrim(value)
+        _uiState.value = _uiState.value.copy(mpvTargetPrim = playerPreferences.getMpvTargetPrim())
+    }
+
+    fun setMpvTargetTrc(value: String) {
+        playerPreferences.setMpvTargetTrc(value)
+        _uiState.value = _uiState.value.copy(mpvTargetTrc = playerPreferences.getMpvTargetTrc())
+    }
+
+    fun setMpvOutputLevels(value: String) {
+        playerPreferences.setMpvOutputLevels(value)
+        _uiState.value = _uiState.value.copy(mpvOutputLevels = playerPreferences.getMpvOutputLevels())
     }
 
     fun setMpvUpscaleFilter(filter: String) {
@@ -332,6 +355,13 @@ class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
         playerPreferences.setSeekForwardIntervalSeconds(seconds)
         _uiState.value = _uiState.value.copy(
             seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds()
+        )
+    }
+
+    fun setLongPressPlaybackSpeed(speed: Float) {
+        playerPreferences.setLongPressPlaybackSpeed(speed)
+        _uiState.value = _uiState.value.copy(
+            longPressPlaybackSpeed = playerPreferences.getLongPressPlaybackSpeed()
         )
     }
 

@@ -155,6 +155,7 @@ fun ControlsOverlay(
             onCycleAspectRatio = onCycleAspectRatio,
             onToggleOrientation = onToggleOrientation,
             onTitleClick = onTitleClick,
+            isScrubbing = scrubPreviewProgress != null,
             modifier = modifier
         )
         return
@@ -284,6 +285,17 @@ fun ControlsOverlay(
                     )
                 }
             }
+        }
+
+        if (scrubPreviewProgress != null && duration > 0L) {
+            SeekTimeHud(
+                positionMs = displayedPosition,
+                durationMs = duration,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
+                    .padding(top = 64.dp)
+            )
         }
 
         // Center controls
@@ -548,6 +560,7 @@ private fun PortraitPlayerOverlay(
     onCycleAspectRatio: () -> Unit,
     onToggleOrientation: () -> Unit,
     onTitleClick: () -> Unit = {},
+    isScrubbing: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var showOverflow by remember { mutableStateOf(false) }
@@ -620,6 +633,17 @@ private fun PortraitPlayerOverlay(
                     }
                 }
             }
+        }
+
+        if (isScrubbing && duration > 0L) {
+            SeekTimeHud(
+                positionMs = displayedPosition,
+                durationMs = duration,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 52.dp)
+            )
         }
 
         if (!isLocked) {

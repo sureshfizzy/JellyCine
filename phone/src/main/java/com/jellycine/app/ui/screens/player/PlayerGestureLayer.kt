@@ -24,6 +24,10 @@ fun PlayerGestureLayer(
     getCurrentBrightnessLevel: () -> Float,
     onZoomChange: (Boolean) -> Unit,
     onTogglePlayPause: () -> Unit,
+    getPlaybackPosition: () -> Long = { 0L },
+    getPlaybackDuration: () -> Long = { 0L },
+    onSeekPreview: (Long?) -> Unit = {},
+    onHoldSpeed: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AndroidView(
@@ -46,7 +50,11 @@ fun PlayerGestureLayer(
                     getCurrentVolumeLevel = getCurrentVolumeLevel,
                     getCurrentBrightnessLevel = getCurrentBrightnessLevel,
                     onZoomChange = onZoomChange,
-                    onTogglePlayPause = onTogglePlayPause
+                    onTogglePlayPause = onTogglePlayPause,
+                    getPlaybackPosition = getPlaybackPosition,
+                    getPlaybackDuration = getPlaybackDuration,
+                    onSeekPreview = onSeekPreview,
+                    onHoldSpeed = onHoldSpeed
                 )
                 setOnTouchListener { _, event ->
                     if (!enabled) return@setOnTouchListener false

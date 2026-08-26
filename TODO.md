@@ -54,9 +54,9 @@ TV 模块：手势 / 竖屏 overlay 不跟；色彩、搜索、线路、收藏�
 ### 做法
 
 - [ ] K50 固定片源：SDR 8bit、HDR10、杜比（若有），MPV vs Exo 并排截屏
-- [ ] 矩阵：`gpu` / `gpu-next` × `mediacodec` / `mediacodec-copy` / `no` × `full` / `limited` × HDR→SDR 开/关
-- [ ] 修一处根因（dataspace、output-levels、target-prim/trc、或 vo），不要堆开关
+- [x] 对齐 `target-prim`/`target-trc` 与 Surface dataspace（PQ/HLG 直出，SDR 走 bt.709+sRGB）
 - [ ] 播放页保留硬解/软解切换（Phase 2），默认仍 MPV
+- [ ] K50 实测验收
 
 ### 锚点
 
@@ -80,12 +80,11 @@ K50 上 SDR / HDR 不发灰、不过饱和、不偏绿；切 Exo 无明显色差
 - 无长按倍速
 
 ### 计划
-
-- [ ] 单击中间：仍显隐控件
-- [ ] 单击左 / 右：快退 / 快进（秒数走 `PlayerPreferences` 的 seek 间隔）
-- [ ] 长按：临时 2.0x（设置可改），OSD `2.0x`，松手恢复
-- [ ] 拖底部进度条：屏幕**上方**大号 `滑动到的时间 / 总时间`，松手消失
-- [ ] 屏幕横向滑动：最上方一条进度条跟手，松手 seek，滑动中可停
+- [x] 单击中间：仍显隐控件
+- [x] 单击左 / 右：快退 / 快进（秒数走 `PlayerPreferences` 的 seek 间隔）
+- [x] 长按：临时 2.0x（设置可改），OSD `2.0x`，松手恢复
+- [x] 拖底部进度条：屏幕**上方**大号 `滑动到的时间 / 总时间`，松手消失
+- [x] 屏幕横向滑动：最上方一条进度条跟手，松手 seek，滑动中可停
 
 ### 锚点
 

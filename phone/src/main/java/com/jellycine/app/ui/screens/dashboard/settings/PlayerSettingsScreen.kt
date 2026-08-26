@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.HdrOn
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SlowMotionVideo
@@ -188,8 +189,8 @@ fun PlayerSettingsScreen(
                             subtitle = uiState.mpvVideoOutput,
                             selectedValue = uiState.mpvVideoOutput,
                             options = listOf(
-                                SelectionOption("gpu-next", "GPU Next", "Modern libplacebo renderer, best quality", isDefault = true),
-                                SelectionOption("gpu", "GPU", "Legacy GPU renderer, wider device support")
+                                SelectionOption("gpu-next", "GPU Next", "libplacebo renderer", isDefault = false),
+                                SelectionOption("gpu", "GPU", "mpv-android / Hills default", isDefault = true)
                             ),
                             onOptionSelected = viewModel::setMpvVideoOutput,
                             accentColor = videoColor
@@ -265,6 +266,52 @@ fun PlayerSettingsScreen(
                             ),
                             onOptionSelected = viewModel::setMpvToneMapping,
                             enabled = uiState.mpvHdrToSdrTonemapping,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Palette,
+                            title = stringResource(R.string.player_settings_mpv_target_prim),
+                            subtitle = stringResource(R.string.player_settings_mpv_color_restart_hint),
+                            selectedValue = uiState.mpvTargetPrim,
+                            options = listOf(
+                                SelectionOption("auto", "auto", "Leave to mpv", isDefault = true),
+                                SelectionOption("bt.709", "bt.709", "SDR Rec.709"),
+                                SelectionOption("bt.2020", "bt.2020", "HDR Rec.2020")
+                            ),
+                            onOptionSelected = viewModel::setMpvTargetPrim,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Contrast,
+                            title = stringResource(R.string.player_settings_mpv_target_trc),
+                            subtitle = stringResource(R.string.player_settings_mpv_color_restart_hint),
+                            selectedValue = uiState.mpvTargetTrc,
+                            options = listOf(
+                                SelectionOption("auto", "auto", "Leave to mpv", isDefault = true),
+                                SelectionOption("bt.1886", "bt.1886", "TV / Exo-like"),
+                                SelectionOption("srgb", "srgb", "PC sRGB"),
+                                SelectionOption("gamma2.2", "gamma2.2", "Simple 2.2")
+                            ),
+                            onOptionSelected = viewModel::setMpvTargetTrc,
+                            accentColor = renderingColor
+                        )
+
+                        SettingsDivider()
+                        SelectionDialogSettingsItem(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.player_settings_mpv_output_levels),
+                            subtitle = stringResource(R.string.player_settings_mpv_color_restart_hint),
+                            selectedValue = uiState.mpvOutputLevels,
+                            options = listOf(
+                                SelectionOption("auto", "auto", "Leave to mpv", isDefault = true),
+                                SelectionOption("full", "full", "0–255 RGB"),
+                                SelectionOption("limited", "limited", "16–235")
+                            ),
+                            onOptionSelected = viewModel::setMpvOutputLevels,
                             accentColor = renderingColor
                         )
 
@@ -561,6 +608,26 @@ fun PlayerSettingsScreen(
                             },
                         onOptionSelected = { seconds ->
                             viewModel.setSeekForwardIntervalSeconds(seconds.toInt())
+                        },
+                        accentColor = seekingColor
+                    )
+
+                    SettingsDivider()
+                    SelectionDialogSettingsItem(
+                        icon = Icons.Rounded.Speed,
+                        title = stringResource(R.string.player_settings_long_press_speed),
+                        subtitle = stringResource(R.string.player_settings_long_press_speed_summary),
+                        selectedValue = uiState.longPressPlaybackSpeed.toString(),
+                        options = PlayerPreferences.LONG_PRESS_PLAYBACK_SPEED_OPTIONS.map { speed ->
+                            SelectionOption(
+                                value = speed.toString(),
+                                label = String.format(java.util.Locale.US, "%.1fx", speed),
+                                description = "",
+                                isDefault = speed == PlayerPreferences.DEFAULT_LONG_PRESS_PLAYBACK_SPEED
+                            )
+                        },
+                        onOptionSelected = { value ->
+                            viewModel.setLongPressPlaybackSpeed(value.toFloat())
                         },
                         accentColor = seekingColor
                     )

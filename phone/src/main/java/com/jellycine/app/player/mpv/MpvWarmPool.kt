@@ -3,6 +3,7 @@ package com.jellycine.app.player.mpv
 import android.content.Context
 import android.util.Log
 import com.jellycine.player.preferences.PlayerPreferences
+import `is`.xyz.mpv.MPVLib
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,7 +41,10 @@ object MpvWarmPool {
         replacedPlayer?.release()
 
         val controller = try {
-            withContext(Dispatchers.Default) {
+            withContext(Dispatchers.IO) {
+                MPVLib.preload()
+            }
+            withContext(Dispatchers.Main) {
                 MpvPlayerController(
                     context = appContext,
                     hardwareDecoding = config.hardwareDecoding,
@@ -54,11 +58,11 @@ object MpvWarmPool {
                 if (warmingConfig == config) warmingConfig = null
             }
             throw error
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             synchronized(lock) {
                 if (warmingConfig == config) warmingConfig = null
             }
-            Log.d(TAG, "MPV warmup skipped", error)
+            Log.e(TAG, "MPV warmup skipped", error)
             return
         }
 

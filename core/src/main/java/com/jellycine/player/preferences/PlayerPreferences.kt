@@ -29,6 +29,9 @@ class PlayerPreferences(context: Context) {
         private const val KEY_MPV_DEBAND = "mpv_deband"
         private const val KEY_MPV_DYNAMIC_PEAK = "mpv_dynamic_peak"
         private const val KEY_MPV_HDR_TO_SDR_TONEMAPPING = "mpv_hdr_to_sdr_tonemapping"
+        private const val KEY_MPV_TARGET_PRIM = "mpv_target_prim"
+        private const val KEY_MPV_TARGET_TRC = "mpv_target_trc"
+        private const val KEY_MPV_OUTPUT_LEVELS = "mpv_output_levels"
         private const val KEY_HARDWARE_ACCELERATION = "hardware_acceleration_enabled"
         private const val KEY_ASYNC_MEDIACODEC = "async_mediacodec_enabled"
         private const val KEY_DECODER_PRIORITY = "decoder_priority"
@@ -45,6 +48,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_PLAYER_CACHE_TIME_SECONDS = "player_cache_time_seconds"
         private const val KEY_SEEK_BACKWARD_INTERVAL_SECONDS = "seek_backward_interval_seconds"
         private const val KEY_SEEK_FORWARD_INTERVAL_SECONDS = "seek_forward_interval_seconds"
+        private const val KEY_LONG_PRESS_PLAYBACK_SPEED = "long_press_playback_speed"
         private const val KEY_SKIP_INTRO_ENABLED = "skip_intro_enabled"
         private const val KEY_CHAPTER_MARKERS_ENABLED = "chapter_markers_enabled"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
@@ -126,6 +130,10 @@ class PlayerPreferences(context: Context) {
         const val MAX_SEEK_INTERVAL_SECONDS = 30
         const val MIN_SEEK_INTERVAL_SECONDS = 5
         const val SEEK_INTERVAL_STEP_SECONDS = 5
+        const val DEFAULT_LONG_PRESS_PLAYBACK_SPEED = 2.0f
+        const val MIN_LONG_PRESS_PLAYBACK_SPEED = 1.5f
+        const val MAX_LONG_PRESS_PLAYBACK_SPEED = 3.0f
+        val LONG_PRESS_PLAYBACK_SPEED_OPTIONS = listOf(1.5f, 2.0f, 2.5f, 3.0f)
         const val DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER = false
         const val DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER = false
         const val DEFAULT_CACHE_NEXT_EPISODE = true
@@ -155,7 +163,7 @@ class PlayerPreferences(context: Context) {
         )
         const val MPV_VIDEO_OUTPUT_GPU_NEXT = "gpu-next"
         const val MPV_VIDEO_OUTPUT_GPU = "gpu"
-        const val DEFAULT_MPV_VIDEO_OUTPUT = MPV_VIDEO_OUTPUT_GPU_NEXT
+        const val DEFAULT_MPV_VIDEO_OUTPUT = MPV_VIDEO_OUTPUT_GPU
         val MPV_VIDEO_OUTPUT_OPTIONS = listOf(MPV_VIDEO_OUTPUT_GPU_NEXT, MPV_VIDEO_OUTPUT_GPU)
         const val MPV_AUDIO_OUTPUT_AAUDIO = "aaudio"
         const val MPV_AUDIO_OUTPUT_AUDIOTRACK = "audiotrack"
@@ -211,6 +219,35 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_MPV_DEBAND = true
         const val DEFAULT_MPV_DYNAMIC_PEAK = true
         const val DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING = false
+        const val MPV_TARGET_PRIM_AUTO = "auto"
+        const val MPV_TARGET_PRIM_BT709 = "bt.709"
+        const val MPV_TARGET_PRIM_BT2020 = "bt.2020"
+        const val DEFAULT_MPV_TARGET_PRIM = MPV_TARGET_PRIM_AUTO
+        val MPV_TARGET_PRIM_OPTIONS = listOf(
+            MPV_TARGET_PRIM_AUTO,
+            MPV_TARGET_PRIM_BT709,
+            MPV_TARGET_PRIM_BT2020
+        )
+        const val MPV_TARGET_TRC_AUTO = "auto"
+        const val MPV_TARGET_TRC_BT1886 = "bt.1886"
+        const val MPV_TARGET_TRC_SRGB = "srgb"
+        const val MPV_TARGET_TRC_GAMMA22 = "gamma2.2"
+        const val DEFAULT_MPV_TARGET_TRC = MPV_TARGET_TRC_AUTO
+        val MPV_TARGET_TRC_OPTIONS = listOf(
+            MPV_TARGET_TRC_AUTO,
+            MPV_TARGET_TRC_BT1886,
+            MPV_TARGET_TRC_SRGB,
+            MPV_TARGET_TRC_GAMMA22
+        )
+        const val MPV_OUTPUT_LEVELS_AUTO = "auto"
+        const val MPV_OUTPUT_LEVELS_FULL = "full"
+        const val MPV_OUTPUT_LEVELS_LIMITED = "limited"
+        const val DEFAULT_MPV_OUTPUT_LEVELS = MPV_OUTPUT_LEVELS_AUTO
+        val MPV_OUTPUT_LEVELS_OPTIONS = listOf(
+            MPV_OUTPUT_LEVELS_AUTO,
+            MPV_OUTPUT_LEVELS_FULL,
+            MPV_OUTPUT_LEVELS_LIMITED
+        )
         const val DECODER_PRIORITY_HARDWARE = "Hardware Decoder"
         const val DECODER_PRIORITY_SOFTWARE = "Software Decoder"
         const val DECODER_PRIORITY_AUTO = "Auto"
@@ -438,6 +475,51 @@ class PlayerPreferences(context: Context) {
         prefs.edit().putBoolean(KEY_MPV_HDR_TO_SDR_TONEMAPPING, enabled).commit()
     }
 
+    fun getMpvTargetPrim(): String {
+        val value = prefs.getString(KEY_MPV_TARGET_PRIM, DEFAULT_MPV_TARGET_PRIM)
+            ?: DEFAULT_MPV_TARGET_PRIM
+        return if (value in MPV_TARGET_PRIM_OPTIONS) value else DEFAULT_MPV_TARGET_PRIM
+    }
+
+    fun setMpvTargetPrim(value: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_TARGET_PRIM,
+                if (value in MPV_TARGET_PRIM_OPTIONS) value else DEFAULT_MPV_TARGET_PRIM
+            )
+            .apply()
+    }
+
+    fun getMpvTargetTrc(): String {
+        val value = prefs.getString(KEY_MPV_TARGET_TRC, DEFAULT_MPV_TARGET_TRC)
+            ?: DEFAULT_MPV_TARGET_TRC
+        return if (value in MPV_TARGET_TRC_OPTIONS) value else DEFAULT_MPV_TARGET_TRC
+    }
+
+    fun setMpvTargetTrc(value: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_TARGET_TRC,
+                if (value in MPV_TARGET_TRC_OPTIONS) value else DEFAULT_MPV_TARGET_TRC
+            )
+            .apply()
+    }
+
+    fun getMpvOutputLevels(): String {
+        val value = prefs.getString(KEY_MPV_OUTPUT_LEVELS, DEFAULT_MPV_OUTPUT_LEVELS)
+            ?: DEFAULT_MPV_OUTPUT_LEVELS
+        return if (value in MPV_OUTPUT_LEVELS_OPTIONS) value else DEFAULT_MPV_OUTPUT_LEVELS
+    }
+
+    fun setMpvOutputLevels(value: String) {
+        prefs.edit()
+            .putString(
+                KEY_MPV_OUTPUT_LEVELS,
+                if (value in MPV_OUTPUT_LEVELS_OPTIONS) value else DEFAULT_MPV_OUTPUT_LEVELS
+            )
+            .apply()
+    }
+
     /**
      * Get hardware acceleration preference
      */
@@ -636,6 +718,16 @@ class PlayerPreferences(context: Context) {
                 seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
             )
             .apply()
+    }
+
+    fun getLongPressPlaybackSpeed(): Float {
+        return prefs.getFloat(KEY_LONG_PRESS_PLAYBACK_SPEED, DEFAULT_LONG_PRESS_PLAYBACK_SPEED)
+            .coerceIn(MIN_LONG_PRESS_PLAYBACK_SPEED, MAX_LONG_PRESS_PLAYBACK_SPEED)
+    }
+
+    fun setLongPressPlaybackSpeed(speed: Float) {
+        val nearest = LONG_PRESS_PLAYBACK_SPEED_OPTIONS.minBy { option -> kotlin.math.abs(option - speed) }
+        prefs.edit().putFloat(KEY_LONG_PRESS_PLAYBACK_SPEED, nearest).apply()
     }
 
     fun isSkipIntroEnabled(): Boolean {

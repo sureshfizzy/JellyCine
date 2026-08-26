@@ -108,6 +108,8 @@ class PlayerViewModel @Inject constructor(
     private var hasRenderedFirstFrame = false
     private var mpvExternalSubtitleUrls: Map<Int, String> = emptyMap()
     private var remotePlaybackRequestKey: String? = null
+    private var playbackSpeed = 1f
+    private var speedBeforeHold = 1f
 
     private fun isMpvPlayback(): Boolean {
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
@@ -792,6 +794,21 @@ class PlayerViewModel @Inject constructor(
         seekTo(targetPosition)
     }
 
+    fun setPlaybackSpeed(speed: Float) {
+        playbackSpeed = speed.coerceIn(0.25f, 4f)
+        exoPlayer?.setPlaybackSpeed(playbackSpeed)
+        mpvPlayer?.setSpeed(playbackSpeed.toDouble())
+    }
+
+    fun beginHoldSpeed(speed: Float) {
+        speedBeforeHold = playbackSpeed
+        setPlaybackSpeed(speed)
+    }
+
+    fun endHoldSpeed() {
+        setPlaybackSpeed(speedBeforeHold)
+    }
+
     fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
 
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
@@ -1202,7 +1219,7 @@ class PlayerViewModel @Inject constructor(
         return MpvWarmPool.acquire(
             context = context,
             listener = listener
-        ) ?: withContext(Dispatchers.Default) {
+        ) ?: withContext(Dispatchers.Main) {
             MpvPlayerController(
                 context = context,
                 hardwareDecoding = preferences.getMpvHardwareDecoding(),

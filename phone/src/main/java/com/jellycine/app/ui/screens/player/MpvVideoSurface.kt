@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.player
 
 import android.annotation.SuppressLint
+import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -39,6 +40,7 @@ fun MpvVideoSurface(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                holder.setFormat(PixelFormat.RGBA_8888)
                 // Gestures are handled by PlayerGestureLayer so portrait letterbox swipes work.
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
