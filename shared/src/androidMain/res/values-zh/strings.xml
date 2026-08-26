@@ -180,6 +180,8 @@
     <string name="player_hw_plus">HW+</string>
     <string name="player_pip">小窗播放</string>
     <string name="player_pip_failed">当前设备无法进入小窗</string>
+    <string name="player_screenshot">截图</string>
+    <string name="player_screenshot_saved">截图已保存</string>
     <string name="player_chapters">章节</string>
     <string name="player_chapters_empty">本片没有章节</string>
     <string name="player_info_cast">演员</string>
@@ -581,6 +583,18 @@
     <string name="settings_apply">应用</string>
     <string name="settings_unavailable">不可用</string>
     <string name="settings_add_server">添加服务器</string>
+    <string name="settings_servers_subtitle">切换、添加或删除 Emby / Jellyfin 账号</string>
+    <string name="settings_add_server_dialog_title">添加服务器</string>
+    <string name="settings_server_address">服务器地址</string>
+    <string name="settings_server_protocol">协议</string>
+    <string name="settings_server_port">端口</string>
+    <string name="settings_server_path">路径（可选）</string>
+    <string name="settings_server_path_hint">无则留空</string>
+    <string name="settings_server_connect">连接</string>
+    <string name="settings_server_protocol_https">HTTPS</string>
+    <string name="settings_server_protocol_http">HTTP</string>
+    <string name="settings_servers_empty">还没有已保存的服务器，点 + 添加</string>
+    <string name="settings_server_menu">服务器选项</string>
     <string name="settings_auto">自动</string>
     <string name="cd_about_button">关于</string>
     <plurals name="settings_saved_users_count">

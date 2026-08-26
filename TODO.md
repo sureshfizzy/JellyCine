@@ -27,10 +27,11 @@ TV 模块：手势 / 竖屏 overlay 不跟；色彩、搜索、线路、收藏�
 2. **P0** 手势 + 进度 HUD
 3. **P1** Yamby overlay 按钮（含 HW+、小窗、章节、倍速）
 4. **P1** 点标题悬浮详情（上视频下详情，可切集）
-5. **P2** Hills 库排序芯片、库收藏 tab
-6. **P2** 多库聚合搜索
-7. **P2** 线路 Wi‑Fi / WAN 自动路由
-8. **持续** K50 性能、界面收口
+5. **P2** 多 Emby/Jellyfin 服务器
+6. **P2** Hills 库排序芯片、库收藏 tab
+7. **P2** 多库聚合搜索
+8. **P2** 线路 Wi‑Fi / WAN 自动路由
+9. **持续** K50 性能、界面收口
 
 ---
 
@@ -142,7 +143,25 @@ K50 上 SDR / HDR 不发灰、不过饱和、不偏绿；切 Exo 无明显色差
 
 ---
 
-## Phase 4 — 库排序 + 收藏（P2，对齐 Hills 08:18）
+## Phase 4 — 多服务器（P2，对齐 Hills / Yamby 服务器页）
+
+现状：`SavedServer` 已能存多台，token 在 `SecureSessionStore`，切服走弹窗。缺 Hills 式列表和页内添加。
+
+持久化继续用现有 **DataStore `auth_prefs` + `saved_servers_v1` JSON**，token 仍走 `SecureSessionStore`。不要另开 Room：会变成第二事实源，登录/切服/删服已经写这条路径。
+
+- [x] 独立「服务器」页：头像、服务器名、绿点 + 用户名、溢出菜单、FAB `+`
+- [x] 添加对话框：地址、协议、端口、可选路径、用户名、密码；连接成功即 `authenticateUser` upsert 并切到新会话
+- [x] 点条目 `switchServer`；溢出可删非当前服、可给该服加用户
+- [x] 首页顶栏 / 设置点服务器名进入此页，不再只靠弹窗
+### 锚点
+
+- `data/.../AuthRepository.kt`（`SavedServer`、`authenticateUser`、`switchServer`、`removeSavedServer`）
+- `phone/.../settings/ServersScreen.kt`
+- `phone/.../settings/ServersViewModel.kt`
+
+---
+
+## Phase 5 — 库排序 + 收藏（P2，对齐 Hills 08:18）
 
 ### 排序
 
@@ -160,7 +179,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 - [ ] 底栏收藏页保留
 - [ ] 库 tab 加「收藏」（Hills：全部 / 继续观看 / 收藏 / 类型 / 标签 / 合集）
-- [ ] 跨服收藏跟 Phase 5 一起，本阶段仍打当前服务器
+- [ ] 跨服收藏跟 Phase 6 一起，本阶段仍打当前服务器
 
 ### 锚点
 
@@ -170,7 +189,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 ---
 
-## Phase 5 — 多库聚合搜索（P2）
+## Phase 6 — 多库聚合搜索（P2）
 
 现状：`SearchViewModel` 只打活动服务器 + 可选 Seerr。
 
@@ -188,7 +207,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 ---
 
-## Phase 6 — 线路自动路由（P2）
+## Phase 7 — 线路自动路由（P2）
 
 现状：`SavedServer.lines` + 手动 `addServerLine` / `switchServerLine`。无 Wi‑Fi / 蜂窝自动选线。
 
@@ -208,7 +227,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 ---
 
-## Phase 7 — K50 性能（持续）
+## Phase 8 — K50 性能（持续）
 
 8+ Gen1 / Android 15。先动这些，不要先换库。
 
@@ -227,7 +246,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 ---
 
-## Phase 8 — 界面收口（持续）
+## Phase 9 — 界面收口（持续）
 
 对照 Hills 详情（唐宫奇案 23:46–47）和库页。
 

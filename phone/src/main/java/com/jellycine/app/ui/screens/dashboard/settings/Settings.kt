@@ -52,6 +52,7 @@ fun Settings(
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToConnections: () -> Unit = {},
+    onNavigateToServers: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
@@ -132,7 +133,7 @@ fun Settings(
                         onUserClick = {
                             serverSwitchDialogsState.openUsers(uiState.serverName, usersForCurrentServer)
                         },
-                        onServerClick = serverSwitchDialogsState::openServers,
+                        onServerClick = onNavigateToServers,
                         onNavigateToDownloads = onNavigateToDownloads,
                         onNavigateToServerInfo = onNavigateToServerInfo,
                         onSeerrLimitClick = viewModel::loadSeerrRequestedItems
@@ -148,6 +149,12 @@ fun Settings(
                         title = stringResource(R.string.settings_interface),
                         subtitle = stringResource(R.string.settings_visual_options),
                         onClick = onNavigateToInterfaceSettings
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.Dns,
+                        title = stringResource(R.string.settings_server_label),
+                        subtitle = stringResource(R.string.settings_servers_subtitle),
+                        onClick = onNavigateToServers
                     )
                     SettingsItem(
                         icon = Icons.Rounded.Link,

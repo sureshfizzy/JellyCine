@@ -23,6 +23,7 @@ import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.ConnectionsSettingsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.ServersScreen
 import com.jellycine.app.ui.screens.admin.ServerInfoScreen
 import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
@@ -219,6 +220,11 @@ fun AppNavigation() {
                     onNavigateToConnections = {
                         navController.navigate("connections_settings")
                     },
+                    onNavigateToServers = {
+                        navController.navigate("servers") {
+                            launchSingleTop = true
+                        }
+                    },
                     onNavigateToDownloads = {
                         navController.navigate("downloads")
                     },
@@ -232,7 +238,7 @@ fun AppNavigation() {
                         navController.navigate("server_info")
                     },
                     onAddServer = {
-                        navController.navigate("server_connection") {
+                        navController.navigate("servers") {
                             launchSingleTop = true
                         }
                     },
@@ -507,6 +513,28 @@ fun AppNavigation() {
                 InterfaceSettingsScreen(
                     onBackPressed = {
                         navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "servers",
+                enterTransition = { textTransition(450) },
+                exitTransition = { textExitTransition(350) }
+            ) {
+                ServersScreen(
+                    onBackPressed = { navController.popBackStack() },
+                    onServerSwitched = {
+                        navController.popBackStack("dashboard", inclusive = false)
+                    },
+                    onAddUser = { serverUrl, serverName ->
+                        val encodedServerUrl = java.net.URLEncoder.encode(serverUrl, "UTF-8")
+                        val encodedServerName = java.net.URLEncoder.encode(serverName.orEmpty(), "UTF-8")
+                        navController.navigate(
+                            "add_user?serverUrl=$encodedServerUrl&serverName=$encodedServerName"
+                        ) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

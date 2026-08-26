@@ -1152,6 +1152,7 @@ fun Dashboard(
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayer: (String) -> Unit = {},
     onAddServer: () -> Unit = {},
+    onNavigateToServers: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
     isTabActive: Boolean = true,
     dashboardScrollState: LazyListState? = null
@@ -1809,7 +1810,7 @@ fun Dashboard(
                             userName = HeaderUserName,
                             userImageUrl = noCarouselProfileImageUrl,
                             onProfileClick = { showAccountOverview = true },
-                            onServerClick = serverSwitchDialogsState::openServers
+                            onServerClick = onNavigateToServers
                         )
                     }
                 }

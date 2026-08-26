@@ -181,6 +181,8 @@
     <string name="player_hw_plus">HW+</string>
     <string name="player_pip">Picture in picture</string>
     <string name="player_pip_failed">Picture-in-picture is not available on this device</string>
+    <string name="player_screenshot">Screenshot</string>
+    <string name="player_screenshot_saved">Screenshot saved</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapters_empty">No chapters for this title</string>
     <string name="player_info_cast">Cast</string>
@@ -590,6 +592,18 @@
     <string name="settings_apply">Apply</string>
     <string name="settings_unavailable">Unavailable</string>
     <string name="settings_add_server">Add Server</string>
+    <string name="settings_servers_subtitle">Switch, add, or remove Emby and Jellyfin accounts</string>
+    <string name="settings_add_server_dialog_title">Add Server</string>
+    <string name="settings_server_address">Server address</string>
+    <string name="settings_server_protocol">Protocol</string>
+    <string name="settings_server_port">Port</string>
+    <string name="settings_server_path">Path (optional)</string>
+    <string name="settings_server_path_hint">Leave empty if unused</string>
+    <string name="settings_server_connect">Connect</string>
+    <string name="settings_server_protocol_https">HTTPS</string>
+    <string name="settings_server_protocol_http">HTTP</string>
+    <string name="settings_servers_empty">No saved servers yet. Tap + to add one.</string>
+    <string name="settings_server_menu">Server options</string>
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">About</string>
     <plurals name="settings_saved_users_count">

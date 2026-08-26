@@ -165,6 +165,7 @@ fun DashboardContainer(
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
     onNavigateToConnections: () -> Unit = {},
+    onNavigateToServers: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
@@ -493,6 +494,7 @@ fun DashboardContainer(
                             onNavigateToViewAll = onNavigateToViewAll,
                             onNavigateToPlayer = onNavigateToPlayer,
                             onAddServer = onAddServer,
+                            onNavigateToServers = onNavigateToServers,
                             onAddUser = onAddUser,
                             isTabActive = isHomeActive,
                             dashboardScrollState = homeScrollState
@@ -563,6 +565,7 @@ fun DashboardContainer(
                             onNavigateToPlayerSettings = onNavigateToPlayerSettings,
                             onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
                             onNavigateToConnections = onNavigateToConnections,
+                            onNavigateToServers = onNavigateToServers,
                             onNavigateToDownloads = onNavigateToDownloads,
                             onNavigateToCacheSettings = onNavigateToCacheSettings,
                             onNavigateToAbout = onNavigateToAbout,
