@@ -116,7 +116,7 @@ K50 上 SDR / HDR 不发灰、不过饱和、不偏绿；切 Exo 无明显色差
 - [x] 底栏锁、±seek（秒数跟设置）、播放、倍速
 - [x] `PictureInPicture`：进后台或点按钮进入；系统限制时 toast，不静默失败
 - [x] 横屏同一套动作，不把竖屏按钮堆到画面中间
-- [ ] 修复进入 `PictureInPicture` 后视频被 `ON_PAUSE` 暂停；PiP 内保持进入前的播放状态
+- [x] 修复进入 `PictureInPicture` 后视频被 `ON_PAUSE` 暂停；PiP 内保持进入前的播放状态
 
 ### 锚点
 
@@ -197,12 +197,12 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 现状：`SearchViewModel` 只打活动服务器 + 可选 Seerr。
 
-- [ ] 对所有已登录、token 有效的 `SavedServer` 并发 `searchItems`
-- [ ] 结果带 `serverId` / 服务器名徽章
-- [ ] chips：全部 / 各服务器
-- [ ] 点条目用该服务器 session 开详情 / 播放
-- [ ] 单服务器失败降级提示，不让整次搜索挂掉
-- [ ] 限并发，避免 K50 上同时打爆 4+ 台
+- [x] 对所有已登录、token 有效的 `SavedServer` 并发 `searchItems`
+- [x] 结果带 `serverId` / 服务器名徽章
+- [x] chips：全部 / 各服务器
+- [x] 点条目用该服务器 session 开详情 / 播放
+- [x] 单服务器失败降级提示，不让整次搜索挂掉
+- [x] 限并发，避免 K50 上同时打爆 4+ 台
 
 ### 锚点
 

@@ -166,12 +166,14 @@ fun ControlsOverlay(
             onLiveSeek = onLiveSeek,
             onScrubProgressChange = { progress ->
                 scrubPreviewProgress = progress
+                onScrubStateChange(progress != null)
+            },
+            onScrubPreviewProgressChange = { progress ->
                 onScrubPreviewPositionChange(
                     progress
                         ?.takeIf { duration > 0L }
                         ?.let { (duration * it).toLong() }
                 )
-                onScrubStateChange(progress != null)
             },
             onToggleLock = onToggleLock,
             onShowMediaInfo = onShowMediaInfo,
@@ -221,6 +223,7 @@ private fun PortraitPlayerOverlay(
     onSeek: (Float) -> Unit,
     onLiveSeek: (Float) -> Unit,
     onScrubProgressChange: (Float?) -> Unit,
+    onScrubPreviewProgressChange: (Float?) -> Unit,
     onToggleLock: () -> Unit,
     onShowMediaInfo: () -> Unit,
     onShowPlaybackSettings: () -> Unit,
@@ -645,6 +648,7 @@ private fun PortraitPlayerOverlay(
                             onSeek = onSeek,
                             onLiveSeek = onLiveSeek,
                             onScrubProgressChange = onScrubProgressChange,
+                            onScrubPreviewProgressChange = onScrubPreviewProgressChange,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp)
@@ -681,6 +685,7 @@ private fun PortraitPlayerOverlay(
                                 onSeek = onSeek,
                                 onLiveSeek = onLiveSeek,
                                 onScrubProgressChange = onScrubProgressChange,
+                                onScrubPreviewProgressChange = onScrubPreviewProgressChange,
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
@@ -746,6 +751,7 @@ private fun SeekBar(
     onSeek: (Float) -> Unit,
     onLiveSeek: (Float) -> Unit = {},
     onScrubProgressChange: (Float?) -> Unit,
+    onScrubPreviewProgressChange: (Float?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var scrubProgress by remember { mutableFloatStateOf(progress.coerceIn(0f, 1f)) }
@@ -786,7 +792,9 @@ private fun SeekBar(
                         scrubProgress = newProgress
                         lastLiveSeekAt = SystemClock.uptimeMillis()
                         onScrubProgressChange(scrubProgress)
+                        // MPV 只能截取当前解码帧，因此预览请求必须紧跟同一位置的 live seek。
                         onLiveSeek(scrubProgress)
+                        onScrubPreviewProgressChange(scrubProgress)
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -796,6 +804,7 @@ private fun SeekBar(
                         if (now - lastLiveSeekAt >= 80L) {
                             lastLiveSeekAt = now
                             onLiveSeek(scrubProgress)
+                            onScrubPreviewProgressChange(scrubProgress)
                         }
                         true
                     }
@@ -804,12 +813,14 @@ private fun SeekBar(
                         dragActive = false
                         onSeek(scrubProgress)
                         onScrubProgressChange(null)
+                        onScrubPreviewProgressChange(null)
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {
                         dragActive = false
                         scrubProgress = progress.coerceIn(0f, 1f)
                         onScrubProgressChange(null)
+                        onScrubPreviewProgressChange(null)
                         true
                     }
                     else -> false
@@ -1289,6 +1300,7 @@ fun SeekBarPreview() {
         previewFrame = null,
         onSeek = { },
         onScrubProgressChange = { },
+        onScrubPreviewProgressChange = { },
         modifier = Modifier.padding(16.dp)
     )
 }

@@ -463,6 +463,7 @@ fun PlayerScreen(
             player = viewModel.exoPlayer,
             mpvPlayer = viewModel.mpvPlayer,
             lifecycle = lifecycle,
+            isInPictureInPictureMode = inPip,
             scale = playerState.videoScale,
             offsetX = playerState.videoOffsetX,
             offsetY = playerState.videoOffsetY,

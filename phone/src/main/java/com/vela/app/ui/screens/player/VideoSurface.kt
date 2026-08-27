@@ -32,6 +32,7 @@ fun VideoSurface(
     player: ExoPlayer?,
     mpvPlayer: MpvPlayerController? = null,
     lifecycle: Lifecycle.Event,
+    isInPictureInPictureMode: Boolean,
     scale: Float,
     offsetX: Float,
     offsetY: Float,
@@ -85,7 +86,6 @@ fun VideoSurface(
         if (mpvPlayer != null) {
             MpvVideoSurface(
                 player = mpvPlayer,
-                lifecycle = lifecycle,
                 resizeMode = resizeMode,
                 audioManager = audioManager,
                 isHdr = isHdr,
@@ -104,6 +104,7 @@ fun VideoSurface(
             ExoPlayerView(
                 player = player,
                 lifecycle = lifecycle,
+                isInPictureInPictureMode = isInPictureInPictureMode,
                 resizeMode = resizeMode,
                 audioManager = audioManager,
                 onToggleControls = onToggleControls,
@@ -126,6 +127,7 @@ fun VideoSurface(
 private fun ExoPlayerView(
     player: ExoPlayer?,
     lifecycle: Lifecycle.Event,
+    isInPictureInPictureMode: Boolean,
     resizeMode: Int,
     audioManager: AudioManager,
     onToggleControls: () -> Unit,
@@ -165,9 +167,9 @@ private fun ExoPlayerView(
             playerView.applySubtitlePreferences(playerPreferences)
 
             when (lifecycle) {
-                Lifecycle.Event.ON_PAUSE -> {
-                    playerView.onPause()
-                    playerView.player?.pause()
+                // 播放意图由 PlayerScreenEffects 管理；Surface 生命周期不能把 PiP 的 ON_PAUSE 当成用户暂停。
+                Lifecycle.Event.ON_STOP -> {
+                    if (!isInPictureInPictureMode) playerView.onPause()
                 }
                 Lifecycle.Event.ON_RESUME -> playerView.onResume()
                 else -> Unit

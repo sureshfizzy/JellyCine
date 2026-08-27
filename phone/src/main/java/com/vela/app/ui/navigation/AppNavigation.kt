@@ -24,7 +24,7 @@ import com.vela.app.ui.screens.detail.PersonScreenContainer
 import com.vela.app.ui.screens.dashboard.settings.DownloadsScreen
 import com.vela.app.ui.screens.dashboard.settings.CacheSettingsScreen
 import com.vela.app.ui.screens.dashboard.settings.ConnectionsSettingsScreen
-import com.vela.app.ui.screens.dashboard.settings.ServersScreen
+import com.vela.app.ui.screens.home.AppHomeContainer
 import com.vela.app.ui.screens.admin.ServerInfoScreen
 import com.vela.app.ui.screens.dashboard.settings.AboutScreen
 import com.vela.app.ui.screens.dashboard.settings.PlayerSettingsScreen
@@ -57,6 +57,22 @@ private fun NavController.openServerPicker() {
             launchSingleTop = true
         }
     }
+}
+
+private fun NavController.openViewAll(contentType: String, parentId: String?, title: String) {
+    val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
+    val route = when {
+        contentType.contains("GENRE") && parentId != null -> {
+            "viewall/$contentType?genreId=$parentId&title=$encodedTitle"
+        }
+        parentId != null -> {
+            "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
+        }
+        else -> {
+            "viewall/$contentType?title=$encodedTitle"
+        }
+    }
+    navigate(route)
 }
 
 @UnstableApi
@@ -250,19 +266,7 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateToViewAll = { contentType, parentId, title ->
-                        val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-                        val route = when {
-                            contentType.contains("GENRE") && parentId != null -> {
-                                "viewall/$contentType?genreId=$parentId&title=$encodedTitle"
-                            }
-                            parentId != null -> {
-                                "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
-                            }
-                            else -> {
-                                "viewall/$contentType?title=$encodedTitle"
-                            }
-                        }
-                        navController.navigate(route)
+                        navController.openViewAll(contentType, parentId, title)
                     },
                     onNavigateToPlayer = { itemId ->
                         navController.navigate("player/$itemId")
@@ -510,9 +514,38 @@ fun AppNavigation() {
                 enterTransition = { textTransition(450) },
                 exitTransition = { textExitTransition(350) }
             ) {
-                ServersScreen(
+                AppHomeContainer(
                     onServerSwitched = {
                         navController.enterDashboard()
+                    },
+                    onNavigateToDetail = { item ->
+                        item.id?.let { itemId ->
+                            navController.navigate("detail/$itemId")
+                        }
+                    },
+                    onNavigateToViewAll = { contentType, parentId, title ->
+                        navController.openViewAll(contentType, parentId, title)
+                    },
+                    onNavigateToPlayerSettings = {
+                        navController.navigate("player_settings")
+                    },
+                    onNavigateToInterfaceSettings = {
+                        navController.navigate("interface_settings")
+                    },
+                    onNavigateToConnections = {
+                        navController.navigate("connections_settings")
+                    },
+                    onNavigateToDownloads = {
+                        navController.navigate("downloads")
+                    },
+                    onNavigateToCacheSettings = {
+                        navController.navigate("cache_settings")
+                    },
+                    onNavigateToAbout = {
+                        navController.navigate("about")
+                    },
+                    onNavigateToServerInfo = {
+                        navController.navigate("server_info")
                     },
                     onAddUser = { serverUrl, serverName ->
                         val encodedServerUrl = java.net.URLEncoder.encode(serverUrl, "UTF-8")

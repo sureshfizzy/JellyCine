@@ -148,6 +148,15 @@ internal fun PlayerScreenEffects(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             onLifecycleChange(event)
+            val activity = context as? Activity
+            if (
+                event == Lifecycle.Event.ON_STOP &&
+                activity?.isInPictureInPictureMode != true &&
+                activity?.isChangingConfigurations != true
+            ) {
+                // ON_PAUSE 也会在进入 PiP 时触发；仅真正退到后台后暂停，并保留用户原有的暂停状态。
+                viewModel.pause()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {

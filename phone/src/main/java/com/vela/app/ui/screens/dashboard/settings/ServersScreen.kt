@@ -78,7 +78,8 @@ private val OfflineDotColor = Color.White.copy(alpha = 0.28f)
 @Composable
 fun ServersScreen(
     onServerSwitched: () -> Unit = {},
-    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
+    reserveHomeNavigationSpace: Boolean = false
 ) {
     val context = LocalContext.current
     val viewModel: ServersViewModel = viewModel {
@@ -119,7 +120,8 @@ fun ServersScreen(
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = Color(0xFFB8C7FF),
-                contentColor = Color(0xFF1B2550)
+                contentColor = Color(0xFF1B2550),
+                modifier = Modifier.padding(bottom = if (reserveHomeNavigationSpace) 76.dp else 0.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
@@ -151,7 +153,7 @@ fun ServersScreen(
                     start = 16.dp,
                     end = 16.dp,
                     top = 8.dp,
-                    bottom = 96.dp
+                    bottom = if (reserveHomeNavigationSpace) 112.dp else 96.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {

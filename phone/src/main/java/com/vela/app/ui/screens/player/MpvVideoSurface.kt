@@ -9,7 +9,6 @@ import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.vela.app.player.mpv.MpvPlayerController
@@ -19,7 +18,6 @@ import com.vela.app.player.mpv.MpvPlayerController
 @Composable
 fun MpvVideoSurface(
     player: MpvPlayerController,
-    lifecycle: Lifecycle.Event,
     resizeMode: Int,
     audioManager: AudioManager,
     @Suppress("UNUSED_PARAMETER") isHdr: Boolean,
@@ -79,9 +77,6 @@ fun MpvVideoSurface(
             player.setZoomMode(resizeMode == AspectRatioFrameLayout.RESIZE_MODE_ZOOM)
             if (view.width > 0 && view.height > 0) {
                 player.resizeSurface(view.width, view.height)
-            }
-            if (lifecycle == Lifecycle.Event.ON_PAUSE) {
-                player.pause()
             }
         },
         modifier = modifier
