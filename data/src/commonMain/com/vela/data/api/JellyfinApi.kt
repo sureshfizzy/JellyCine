@@ -1,0 +1,270 @@
+package com.vela.data.api
+
+import com.vela.data.model.ActivityLogResult
+import com.vela.data.model.AuthenticationRequest
+import com.vela.data.model.AuthenticationResult
+import com.vela.data.model.BaseItemDto
+import com.vela.data.model.PlaybackInfoResponse
+import com.vela.data.model.PlaybackInfoRequest
+import com.vela.data.model.PlaybackProgressRequest
+import com.vela.data.model.PlaybackStartRequest
+import com.vela.data.model.PlaybackStoppedRequest
+import com.vela.data.model.RecommendationDto
+import com.vela.data.model.QuickConnectDto
+import com.vela.data.model.QuickConnectResult
+import com.vela.data.model.QueryResult
+import com.vela.data.model.AdminSessionInfo
+import com.vela.data.model.ItemIdResult
+import com.vela.data.model.ServerInfo
+import com.vela.data.model.SystemInfoFull
+import com.vela.data.model.UserDto
+import com.vela.data.network.ApiResponse
+
+interface MediaServerApi {
+
+    suspend fun getPublicSystemInfo(): ApiResponse<ServerInfo>
+
+    suspend fun authenticateByName(request: AuthenticationRequest): ApiResponse<AuthenticationResult>
+
+    suspend fun initiateQuickConnect(): ApiResponse<QuickConnectResult>
+
+    suspend fun authenticateWithQuickConnect(
+        request: QuickConnectDto
+    ): ApiResponse<AuthenticationResult>
+
+    suspend fun getLatestItems(
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<List<BaseItemDto>>
+
+    suspend fun getUserItems(
+        userId: String,
+        parentId: String? = null,
+        personIds: String? = null,
+        genres: String? = null,
+        genreIds: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        filters: String? = null,
+        anyProviderIdEquals: String? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getSuggestions(
+        endpoint: String,
+        userId: String? = null,
+        mediaType: String? = null,
+        type: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getUserViews(userId: String): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getMovieRecommendations(
+        userId: String,
+        parentId: String? = null,
+        categoryLimit: Int? = null,
+        itemLimit: Int? = null,
+        fields: String? = null
+    ): ApiResponse<List<RecommendationDto>>
+
+    suspend fun getResumeItems(
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        recursive: Boolean = true,
+        sortBy: String = "DatePlayed",
+        sortOrder: String = "Descending",
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getNextUp(
+        userId: String,
+        seriesId: String? = null,
+        parentId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        legacyNextUp: Boolean? = null,
+        fields: String? = null,
+        enableUserData: Boolean? = null,
+        enableImages: Boolean? = null,
+        imageTypeLimit: Int? = null,
+        enableImageTypes: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getUserById(userId: String): ApiResponse<UserDto>
+
+    suspend fun getItemById(
+        userId: String,
+        itemId: String,
+        fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData,Chapters"
+    ): ApiResponse<BaseItemDto>
+
+    suspend fun getSimilarItems(
+        itemId: String,
+        userId: String,
+        limit: Int? = null,
+        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun markAsFavorite(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun unmarkAsFavorite(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun markAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun unmarkAsPlayed(
+        userId: String,
+        itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun getGenres(
+        userId: String,
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        enableTotalRecordCount: Boolean? = null,
+        enableImages: Boolean? = null,
+        startIndex: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getItemsByGenre(
+        userId: String,
+        genreIds: String,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        limit: Int? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        fields: String? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getSeasons(
+        seriesId: String,
+        userId: String,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount"
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getEpisodes(
+        seriesId: String,
+        userId: String,
+        seasonId: String? = null,
+        fields: String? = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId",
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getPlaybackInfoGet(
+        itemId: String,
+        userId: String,
+        maxStreamingBitrate: Int? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        enableDirectPlay: Boolean? = null,
+        enableDirectStream: Boolean? = null,
+        enableTranscoding: Boolean? = null
+    ): ApiResponse<PlaybackInfoResponse>
+
+    suspend fun getPlaybackInfoPost(
+        itemId: String,
+        request: PlaybackInfoRequest
+    ): ApiResponse<PlaybackInfoResponse>
+
+    suspend fun getVideoStreamUrl(
+        itemId: String,
+        static: Boolean = true,
+        mediaSourceId: String? = null,
+        deviceId: String? = null,
+        apiKey: String? = null
+    ): String
+
+    suspend fun searchItems(
+        userId: String,
+        searchTerm: String,
+        includeItemTypes: String? = "Movie,Series",
+        recursive: Boolean = true,
+        limit: Int? = 50,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun searchItemsByName(
+        userId: String,
+        nameStartsWith: String,
+        includeItemTypes: String? = "Movie,Series",
+        recursive: Boolean = true,
+        limit: Int? = 50,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun reportPlaybackStart(request: PlaybackStartRequest): ApiResponse<Unit>
+
+    suspend fun reportPlaybackProgress(request: PlaybackProgressRequest): ApiResponse<Unit>
+
+    suspend fun reportPlaybackStopped(request: PlaybackStoppedRequest): ApiResponse<Unit>
+
+    suspend fun getSystemInfo(): ApiResponse<SystemInfoFull>
+
+    suspend fun getActiveSessions(): ApiResponse<List<AdminSessionInfo>>
+
+    suspend fun getActivityLog(
+        startIndex: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<ActivityLogResult>
+
+    suspend fun refreshItem(
+        itemId: String,
+        recursive: Boolean = true,
+        metadataRefreshMode: String = "Default",
+        imageRefreshMode: String = "Default",
+        replaceAllMetadata: Boolean = false
+    ): ApiResponse<Unit>
+
+    suspend fun deleteItem(itemId: String): ApiResponse<Unit>
+
+    suspend fun updateItem(itemId: String, item: BaseItemDto): ApiResponse<Unit>
+
+    suspend fun createPlaylist(
+        name: String,
+        ids: String,
+        userId: String
+    ): ApiResponse<ItemIdResult>
+
+    suspend fun addToPlaylist(
+        playlistId: String,
+        ids: String,
+        userId: String
+    ): ApiResponse<Unit>
+
+    suspend fun createCollection(
+        name: String,
+        ids: String
+    ): ApiResponse<ItemIdResult>
+
+    suspend fun addToCollection(
+        collectionId: String,
+        ids: String
+    ): ApiResponse<Unit>
+}

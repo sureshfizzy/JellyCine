@@ -1,0 +1,1011 @@
+package com.vela.app.ui.screens.player
+
+import android.app.Activity
+import android.app.PictureInPictureParams
+import android.content.res.Configuration
+import android.content.Context
+import android.media.AudioManager
+import android.os.Build
+import android.provider.Settings
+import android.util.Rational
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.util.UnstableApi
+import com.vela.shared.R
+import com.vela.app.ui.activity.VelaActivity
+import com.vela.app.ui.screens.player.PlayerViewModel
+import com.vela.data.model.AudioTranscodeMode
+import com.vela.data.model.BaseItemDto
+import com.vela.data.repository.MediaRepositoryProvider
+import com.vela.player.core.SkippableSegmentType
+import com.vela.player.core.findActiveSkippableSegment
+import com.vela.player.discord.NowPlayingInfo
+import com.vela.player.preferences.PlayerPreferences
+import com.vela.app.discord.DiscordRpcEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+
+/**
+ * Player state data class to group related states
+ */
+data class PlayerUiState(
+    val controlsVisible: Boolean = true,
+    val currentPosition: Long = 0L,
+    val isPlaying: Boolean = false,
+    val volumeLevel: Float? = null,
+    val brightnessLevel: Float? = null,
+    val seekPosition: String? = null,
+    val seekSide: SeekSide = SeekSide.CENTER,
+    val seekFeedbackId: Long = 0L,
+    val swipeSeekPositionMs: Long? = null,
+    val holdSpeedLabel: String? = null,
+    val videoScale: Float = 1f,
+    val videoOffsetX: Float = 0f,
+    val videoOffsetY: Float = 0f
+)
+
+/**
+ * Player Screen with proper immersive mode and gestures
+ */
+@UnstableApi
+@Composable
+fun PlayerScreen(
+    mediaId: String,
+    initialItemDetails: BaseItemDto? = null,
+    remoteMediaUrl: String? = null,
+    remoteMediaTitle: String? = null,
+    preferredAudioStreamIndex: Int? = null,
+    preferredSubtitleStreamIndex: Int? = null,
+    startFromBeginning: Boolean = false,
+    initialSeekPositionMs: Long? = null,
+    modifier: Modifier = Modifier,
+    viewModel: PlayerViewModel = hiltViewModel(),
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onBackPressed: (() -> Unit)? = null,
+    onPlaybackCompleted: ((String) -> Unit)? = null,
+    previousEpisodeId: String? = null,
+    onWatchPreviousEpisode: ((String) -> Unit)? = null,
+    nextEpisodeId: String? = null,
+    onWatchNextEpisode: ((String) -> Unit)? = null
+) {
+    val context = LocalContext.current
+    val currentView = LocalView.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Consolidated UI state
+    var uiState by remember { mutableStateOf(PlayerUiState()) }
+    var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
+    var autoHideKey by remember { mutableStateOf(0) }
+    var isScrubbing by remember { mutableStateOf(false) }
+    var dismissedCreditsPrompt by remember(mediaId) { mutableStateOf(false) }
+
+    val hideSystemBars: () -> Unit = {
+        (context as? Activity)?.let { act ->
+            val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
+            windowInsetsController?.apply {
+                hide(WindowInsetsCompat.Type.systemBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+        Unit
+    }
+
+    // Helper function to reset auto-hide timer
+    val resetAutoHideTimer = {
+        autoHideKey++
+        hideSystemBars()
+    }
+
+    // Dialog states
+    var showAudioTrackDialog by remember { mutableStateOf(false) }
+    var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+    var showStreamingQualityDialog by remember { mutableStateOf(false) }
+    var showAudioTranscodingDialog by remember { mutableStateOf(false) }
+    var pendingStreamingQualitySelection by remember { mutableStateOf<String?>(null) }
+    var showMediaInfo by remember { mutableStateOf(false) }
+    val mediaInfoSnapshot = remember(showMediaInfo, viewModel) {
+        if (showMediaInfo) viewModel.getMediaMetadataInfo() else null
+    }
+
+    // Player state from ViewModel
+    val playerState by viewModel.playerState.collectAsState()
+    val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
+    val sourceVideoHeight = viewModel.getSourceVideoHeight()
+    val availableStreamingQualityOptions = remember(
+        sourceVideoHeight,
+        playerState.isVideoTranscodingAllowed
+    ) {
+        if (playerState.isVideoTranscodingAllowed) {
+            PlayerPreferences.getStreamingQualityOptions(sourceVideoHeight)
+        } else {
+            listOf(PlayerPreferences.STREAMING_QUALITY_ORIGINAL)
+        }
+    }
+
+    // System managers
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val playerPreferences = remember { PlayerPreferences(context) }
+    val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
+    val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
+
+    // Store original values to restore on exit
+    val originalVolume = remember { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }
+
+    // Player-level brightness and volume (persistent)
+    var playerBrightness by remember(useDeviceBrightnessInPlayer) {
+        mutableStateOf(
+            if (useDeviceBrightnessInPlayer) {
+                readCurrentDeviceBrightness(context)
+            } else {
+                playerPreferences.getPlayerBrightness()
+            }
+        )
+    }
+    var playerVolume by remember(useDeviceVolumeInPlayer) {
+        mutableStateOf(
+            if (useDeviceVolumeInPlayer) {
+                readCurrentDeviceVolume(audioManager)
+            } else {
+                playerPreferences.getPlayerVolume()
+            }
+        )
+    }
+    var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
+    val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
+    var currentAudioTranscodeMode by remember {
+        mutableStateOf(playerPreferences.getAudioTranscodeMode())
+    }
+    val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
+    var showPlaybackInfoSheet by remember { mutableStateOf(false) }
+    var showChaptersSheet by remember { mutableStateOf(false) }
+    val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
+    val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
+    var playbackOrientation by remember {
+        mutableStateOf(playerPreferences.getPlayerOrientation())
+    }
+    val hostActivity = context as? VelaActivity
+    val inPip by (hostActivity?.pictureInPictureMode ?: remember { MutableStateFlow(false) })
+        .collectAsState()
+
+    // Track initialized media so this screen can switch to a new episode in-place.
+    var initializedMediaId by remember { mutableStateOf<String?>(null) }
+    var currentPlaybackId by remember { mutableStateOf(mediaId) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+
+    LaunchedEffect(mediaId) {
+        if (mediaId != currentPlaybackId) {
+            currentPlaybackId = mediaId
+        }
+    }
+    LaunchedEffect(inPip) {
+        if (inPip) {
+            showPlaybackInfoSheet = false
+        }
+    }
+
+    val playEpisodeInPlace: (String) -> Unit = { episodeId ->
+        if (episodeId.isNotBlank() && episodeId != currentPlaybackId) {
+            currentPlaybackId = episodeId
+            onWatchNextEpisode?.invoke(episodeId)
+        }
+    }
+
+    PlayerScreenEffects(
+        context = context,
+        currentView = currentView,
+        lifecycleOwner = lifecycleOwner,
+        mediaId = currentPlaybackId,
+        initialItemDetails = initialItemDetails,
+        remoteMediaUrl = remoteMediaUrl,
+        remoteMediaTitle = remoteMediaTitle,
+        preferredAudioStreamIndex = preferredAudioStreamIndex,
+        preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+        startFromBeginning = startFromBeginning,
+        initialSeekPositionMs = initialSeekPositionMs,
+        viewModel = viewModel,
+        onPlaybackCompleted = onPlaybackCompleted,
+        preferredStreamIndexes = preferredStreamIndexes,
+        playerState = playerState,
+        useDeviceVolumeInPlayer = useDeviceVolumeInPlayer,
+        audioManager = audioManager,
+        originalVolume = originalVolume,
+        playerBrightness = playerBrightness,
+        playerVolume = playerVolume,
+        showAudioTrackDialog = showAudioTrackDialog,
+        showSubtitleTrackDialog = showSubtitleTrackDialog,
+        showStreamingQualityDialog = showStreamingQualityDialog,
+        showAudioTranscodingDialog = showAudioTranscodingDialog,
+        showMediaInfo = showMediaInfo,
+        autoHideKey = autoHideKey,
+        isScrubbing = isScrubbing,
+        hideSystemBars = hideSystemBars,
+        uiStateProvider = { uiState },
+        onUiStateChange = { uiState = it },
+        initializedMediaIdProvider = { initializedMediaId },
+        onInitializedMediaIdChange = { initializedMediaId = it },
+        onLifecycleChange = { lifecycle = it },
+        onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
+        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        playerOrientation = playbackOrientation
+    )
+
+    // Discord Rich Presence
+    DiscordRpcEffect(
+        playerState = viewModel.playerState,
+        mediaId = currentPlaybackId,
+        seriesName = initialItemDetails?.seriesName,
+        year = initialItemDetails?.productionYear,
+        mediaType = when {
+            initialItemDetails?.type.equals("Episode", ignoreCase = true) -> NowPlayingInfo.MediaType.EPISODE
+            initialItemDetails?.type.equals("Audio", ignoreCase = true) -> NowPlayingInfo.MediaType.MUSIC
+            else -> NowPlayingInfo.MediaType.MOVIE
+        },
+        imageUrlProvider = { viewModel.discordPosterUrl }
+    )
+
+    val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
+        playerState.isAudioTranscodingAllowed
+    val playbackDuration = viewModel.getDuration()
+    val activeSkippableSegment = remember(
+        skipIntroEnabled,
+        playerState.isLocked,
+        playerState.recapStartMs,
+        playerState.recapEndMs,
+        playerState.introStartMs,
+        playerState.introEndMs,
+        playerState.creditsStartMs,
+        playerState.creditsEndMs,
+        playerState.previewStartMs,
+        playerState.previewEndMs,
+        playbackDuration,
+        uiState.currentPosition
+    ) {
+        if (!skipIntroEnabled || playerState.isLocked) {
+            null
+        } else {
+            playerState.findActiveSkippableSegment(
+                positionMs = uiState.currentPosition,
+                durationMs = playbackDuration
+            )
+        }
+    }
+    val activeCreditsSegment = activeSkippableSegment?.takeIf {
+        it.type == SkippableSegmentType.CREDITS
+    }
+    val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
+    val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
+
+    DisposableEffect(hostActivity, playerState.playWhenReady, playerState.isLocked) {
+        if (hostActivity == null) {
+            return@DisposableEffect onDispose { }
+        }
+        hostActivity.userLeaveHintHandler = {
+            if (playerState.playWhenReady && !playerState.isLocked) {
+                enterPlayerPip(hostActivity)
+            }
+        }
+        onDispose {
+            hostActivity.userLeaveHintHandler = null
+        }
+    }
+
+    LaunchedEffect(inPip) {
+        if (inPip) {
+            uiState = uiState.copy(controlsVisible = false)
+        }
+    }
+
+    LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
+        if (activeCreditsSegment == null) {
+            dismissedCreditsPrompt = false
+        }
+    }
+
+    LaunchedEffect(
+        initializedMediaId,
+        nextEpisodeId,
+        activeCreditsSegment != null,
+        canWatchNextEpisode,
+        dismissedCreditsPrompt,
+        preferredStreamIndexes.audioStreamIndex,
+        preferredStreamIndexes.subtitleStreamIndex
+    ) {
+        viewModel.updateNextEpisodeCache(
+            context = context,
+            nextEpisodeId = nextEpisodeId.takeIf {
+                initializedMediaId == mediaId &&
+                    activeCreditsSegment != null &&
+                    canWatchNextEpisode &&
+                    !dismissedCreditsPrompt
+            },
+            preferredAudioStreamIndex = preferredStreamIndexes.audioStreamIndex,
+            preferredSubtitleStreamIndex = preferredStreamIndexes.subtitleStreamIndex
+        )
+    }
+
+    val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
+        val selectedQuality = quality.trim()
+        val qualityChanged = selectedQuality.isNotEmpty() && selectedQuality != currentStreamingQuality
+        val audioModeChanged = audioMode != currentAudioTranscodeMode
+
+        pendingStreamingQualitySelection = null
+        showStreamingQualityDialog = false
+        showAudioTranscodingDialog = false
+
+        if (selectedQuality.isEmpty()) return@applyPlaybackSettingsSelection
+
+        playerPreferences.setStreamingQuality(selectedQuality)
+        currentStreamingQuality = playerPreferences.getStreamingQuality()
+        playerPreferences.setAudioTranscodeMode(audioMode)
+        currentAudioTranscodeMode = playerPreferences.getAudioTranscodeMode()
+
+        if (!qualityChanged && !audioModeChanged) {
+            return@applyPlaybackSettingsSelection
+        }
+
+        val resumePositionMs = viewModel.getCurrentPosition()
+        val shouldResumePlaying = viewModel.isPlayingNow()
+        val preferredAudio = preferredStreamIndexes.audioStreamIndex
+        val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
+
+        uiState = uiState.copy(controlsVisible = true)
+        viewModel.releasePlayer()
+        initializedMediaId = null
+        viewModel.initializePlayer(
+            context = context,
+            mediaId = currentPlaybackId,
+            initialItemDetails = initialItemDetails,
+            preferredAudioStreamIndex = preferredAudio,
+            preferredSubtitleStreamIndex = preferredSubtitle,
+            initialSeekPositionMs = resumePositionMs,
+            startPlayback = shouldResumePlaying
+        )
+        initializedMediaId = mediaId
+    }
+
+    val applyStreamingQualitySelection: (String) -> Unit = { selectedQuality ->
+        if (!playerState.isVideoTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
+            showStreamingQualityDialog = false
+        } else {
+            val selection = selectedQuality.trim()
+            if (selection.isEmpty()) {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = false
+                showStreamingQualityDialog = false
+            } else {
+                val needsAudioPrompt = playerState.isAudioTranscodingAllowed
+
+                if (needsAudioPrompt) {
+                    pendingStreamingQualitySelection = selection
+                    showStreamingQualityDialog = false
+                    showAudioTranscodingDialog = true
+                } else {
+                    applyPlaybackSettingsSelection(selection, currentAudioTranscodeMode)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(
+        playerState.isVideoTranscodingAllowed,
+        playerState.isAudioTranscodingAllowed
+    ) {
+        if (!playerState.isVideoTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
+            showStreamingQualityDialog = false
+        }
+        if (!playerState.isAudioTranscodingAllowed) {
+            pendingStreamingQualitySelection = null
+            showAudioTranscodingDialog = false
+        }
+    }
+
+    // Back handler
+    BackHandler {
+        if (showPlaybackInfoSheet) {
+            showPlaybackInfoSheet = false
+        } else {
+            viewModel.releasePlayer()
+            onBackPressed?.invoke()
+        }
+    }
+
+    val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+    var hideVideoForRotation by remember { mutableStateOf(false) }
+    var seenPortraitPlayback by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isPortraitPlayback) {
+        val previous = seenPortraitPlayback
+        seenPortraitPlayback = isPortraitPlayback
+        if (previous == null || previous == isPortraitPlayback) return@LaunchedEffect
+        hideVideoForRotation = true
+        delay(180)
+        hideVideoForRotation = false
+    }
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .focusable(),
+        // 元数据始终作为悬浮覆盖层；切换横竖屏时视频画面保持在播放器中央。
+        contentAlignment = Alignment.Center
+    ) {
+        key(isPortraitPlayback) {
+        VideoSurface(
+            player = viewModel.exoPlayer,
+            mpvPlayer = viewModel.mpvPlayer,
+            lifecycle = lifecycle,
+            scale = playerState.videoScale,
+            offsetX = playerState.videoOffsetX,
+            offsetY = playerState.videoOffsetY,
+            resizeMode = viewModel.getCurrentResizeMode(),
+            isHdr = playerState.isHdrEnabled,
+            onVolumeChange = { level ->
+                if (!playerState.isLocked) {
+                    playerVolume = level.coerceIn(0f, 1f)
+                    if (!useDeviceVolumeInPlayer) {
+                        playerPreferences.setPlayerVolume(playerVolume)
+                    }
+
+                    // Apply volume to system
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
+
+                    uiState = uiState.copy(volumeLevel = playerVolume)
+                }
+            },
+            onBrightnessChange = { delta ->
+                if (!playerState.isLocked) {
+                    val activity = context as? Activity
+                    activity?.let { act ->
+                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
+                        playerBrightness = newPlayerBrightness
+                        if (!useDeviceBrightnessInPlayer) {
+                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                        }
+
+                        val layoutParams = act.window.attributes
+                        layoutParams.screenBrightness = newPlayerBrightness
+                        act.window.attributes = layoutParams
+
+                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
+                    }
+                }
+            },
+            getCurrentVolumeLevel = { playerVolume },
+            getCurrentBrightnessLevel = { playerBrightness },
+            onSeek = { delta ->
+                if (!playerState.isLocked) {
+                    viewModel.seekBy(delta)
+                    uiState = uiState.copy(seekPosition = null)
+                }
+            },
+            onToggleControls = {
+                resetAutoHideTimer()
+                uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
+            },
+            onTogglePlayPause = viewModel::togglePlayPause,
+            onZoomChange = { isZooming ->
+                viewModel.handlePinchZoom(isZooming)
+            },
+            onSurfaceReady = { hideVideoForRotation = false },
+            snapTransform = hideVideoForRotation,
+            modifier = if (isPortraitPlayback) {
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+            } else {
+                Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(16f / 9f)
+            }
+        )
+        }
+
+        if (hideVideoForRotation) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            )
+        }
+
+        key(isPortraitPlayback) {
+        PlayerGestureLayer(
+            audioManager = audioManager,
+            enabled = !playerState.isLocked && !inPip && !showPlaybackInfoSheet,
+            onToggleControls = {
+                resetAutoHideTimer()
+                uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
+            },
+            onSeek = { delta ->
+                if (!playerState.isLocked) {
+                    viewModel.seekBy(delta)
+                    uiState = uiState.copy(
+                        currentPosition = viewModel.getCurrentPosition(),
+                        seekPosition = null
+                    )
+                }
+            },
+            onVolumeChange = { level ->
+                if (!playerState.isLocked) {
+                    playerVolume = level.coerceIn(0f, 1f)
+                    if (!useDeviceVolumeInPlayer) {
+                        playerPreferences.setPlayerVolume(playerVolume)
+                    }
+                    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val newVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0)
+                    uiState = uiState.copy(volumeLevel = playerVolume)
+                }
+            },
+            onBrightnessChange = { delta ->
+                if (!playerState.isLocked) {
+                    val activity = context as? Activity
+                    activity?.let { act ->
+                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
+                        playerBrightness = newPlayerBrightness
+                        if (!useDeviceBrightnessInPlayer) {
+                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
+                        }
+                        val layoutParams = act.window.attributes
+                        layoutParams.screenBrightness = newPlayerBrightness
+                        act.window.attributes = layoutParams
+                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
+                    }
+                }
+            },
+            getCurrentVolumeLevel = { playerVolume },
+            getCurrentBrightnessLevel = { playerBrightness },
+            onZoomChange = { isZooming ->
+                viewModel.handlePinchZoom(isZooming)
+            },
+            onTogglePlayPause = viewModel::togglePlayPause,
+            getPlaybackPosition = { viewModel.getCurrentPosition() },
+            getPlaybackDuration = { viewModel.getDuration() },
+            onSeekPreview = { previewMs ->
+                uiState = uiState.copy(swipeSeekPositionMs = previewMs)
+            },
+            onHoldSpeed = { holding ->
+                if (holding) {
+                    val speed = playerPreferences.getLongPressPlaybackSpeed()
+                    viewModel.beginHoldSpeed(speed)
+                    uiState = uiState.copy(holdSpeedLabel = String.format(java.util.Locale.US, "%.1fx", speed))
+                } else {
+                    viewModel.endHoldSpeed()
+                    uiState = uiState.copy(holdSpeedLabel = null)
+                }
+            }
+        )
+        }
+
+        PlayerOverlayHost(
+            uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip && !showPlaybackInfoSheet),
+            playerState = playerState,
+            currentStreamingQuality = currentStreamingQuality,
+            hasPlaybackSettings = hasPlaybackSettings,
+            chapterMarkersEnabled = chapterMarkersEnabled,
+            seekBackwardSeconds = seekBackwardSeconds,
+            seekForwardSeconds = seekForwardSeconds,
+            activeSkippableSegment = activeSkippableSegment,
+            activeCreditsSegment = activeCreditsSegment,
+            dismissedCreditsPrompt = dismissedCreditsPrompt,
+            canWatchPreviousEpisode = canWatchPreviousEpisode,
+            canWatchNextEpisode = canWatchNextEpisode,
+            viewModel = viewModel,
+            onBackPressed = onBackPressed,
+            resetAutoHideTimer = resetAutoHideTimer,
+            onScrubbingChange = { isScrubbing = it },
+            onWatchCredits = {
+                dismissedCreditsPrompt = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onWatchPreviousEpisode = {
+                previousEpisodeId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { onWatchPreviousEpisode?.invoke(it) }
+            },
+            onWatchNextEpisode = {
+                nextEpisodeId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { onWatchNextEpisode?.invoke(it) }
+            },
+            onShowMediaInfo = { showMediaInfo = true },
+            onShowStreamingQualityDialog = { showStreamingQualityDialog = true },
+            onShowAudioTranscodingDialog = {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = true
+            },
+            onShowAudioTrackDialog = { showAudioTrackDialog = true },
+            onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true },
+            onToggleOrientation = {
+                playbackOrientation = if (
+                    playbackOrientation == PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
+                ) {
+                    PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT
+                } else {
+                    PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
+                }
+            },
+            onTitleClick = {
+                showPlaybackInfoSheet = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onEnterPip = { enterPlayerPip(context as Activity) },
+            onShowChapters = { showChaptersSheet = true },
+            onScreenshot = { viewModel.captureScreenshot() },
+            onBackgroundClick = {
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onSeekFeedback = { label, side ->
+                // 事件序号保证连续点击同一方向时也会重新开始提示的淡出计时。
+                uiState = uiState.copy(
+                    seekPosition = label,
+                    seekSide = side,
+                    seekFeedbackId = uiState.seekFeedbackId + 1L
+                )
+            },
+            onPositionChanged = { position ->
+                uiState = uiState.copy(currentPosition = position)
+            }
+        )
+
+        PlayerDialogsHost(
+            playerState = playerState,
+            showAudioTrackDialog = showAudioTrackDialog,
+            showSubtitleTrackDialog = showSubtitleTrackDialog,
+            showStreamingQualityDialog = showStreamingQualityDialog,
+            showAudioTranscodingDialog = showAudioTranscodingDialog,
+            showMediaInfo = showMediaInfo,
+            availableStreamingQualityOptions = availableStreamingQualityOptions,
+            currentStreamingQuality = currentStreamingQuality,
+            currentAudioTranscodeMode = currentAudioTranscodeMode,
+            mediaInfoSnapshot = mediaInfoSnapshot,
+            onAudioTrackSelected = { trackId ->
+                viewModel.selectAudioTrack(trackId)
+                showAudioTrackDialog = false
+            },
+            onSubtitleTrackSelected = { trackId ->
+                viewModel.selectSubtitleTrack(trackId)
+                showSubtitleTrackDialog = false
+            },
+            onStreamingQualitySelected = applyStreamingQualitySelection,
+            onAudioTranscodingSelected = { selectedMode ->
+                val targetQuality = pendingStreamingQualitySelection ?: currentStreamingQuality
+                applyPlaybackSettingsSelection(targetQuality, selectedMode)
+            },
+            onDismissAudioTrackDialog = { showAudioTrackDialog = false },
+            onDismissSubtitleTrackDialog = { showSubtitleTrackDialog = false },
+            onDismissStreamingQualityDialog = { showStreamingQualityDialog = false },
+            onDismissAudioTranscodingDialog = {
+                pendingStreamingQualitySelection = null
+                showAudioTranscodingDialog = false
+            },
+            onDismissMediaInfo = { showMediaInfo = false }
+        )
+
+        if (showPlaybackInfoSheet) {
+            PlaybackInfoSheet(
+                item = viewModel.playbackItem ?: initialItemDetails,
+                title = playerState.mediaTitle,
+                isPortrait = isPortraitPlayback,
+                currentItemId = currentPlaybackId,
+                mediaRepository = mediaRepository,
+                onDismiss = { showPlaybackInfoSheet = false },
+                onEpisodeSelected = playEpisodeInPlace
+            )
+        }
+
+        if (showChaptersSheet) {
+            ChapterListSheet(
+                chapters = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
+                onDismiss = { showChaptersSheet = false },
+                onChapterSelected = { chapter ->
+                    viewModel.seekTo(chapter.positionMs)
+                    uiState = uiState.copy(currentPosition = chapter.positionMs)
+                    showChaptersSheet = false
+                    resetAutoHideTimer()
+                }
+            )
+        }
+    }
+}
+
+private fun enterPlayerPip(activity: Activity) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
+        return
+    }
+    if (activity.isInPictureInPictureMode) return
+    val entered = try {
+        activity.enterPictureInPictureMode(
+            PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+        )
+    } catch (_: RuntimeException) {
+        false
+    }
+    if (!entered) {
+        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun readCurrentDeviceVolume(audioManager: AudioManager): Float {
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    if (maxVolume <= 0) return 0f
+    return audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maxVolume.toFloat()
+}
+
+private fun readCurrentDeviceBrightness(context: Context): Float {
+    return runCatching {
+        Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            .toFloat()
+            .div(255f)
+            .coerceIn(0.01f, 1f)
+    }.getOrDefault(PlayerPreferences(context).getPlayerBrightness())
+}
+
+@Composable
+fun SpatialAudioInfoDialog(
+    spatialInfo: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Spatial Audio Status",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
+        text = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = spatialInfo,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Composable
+fun HdrFormatInfoDialog(
+    hdrInfo: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "HDR Format & Fallback Status",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.settings_close),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        },
+        text = {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = hdrInfo,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@Preview(
+    name = "Player Screen - Controls Visible",
+    showBackground = true,
+    widthDp = 800,
+    heightDp = 450
+)
+@Composable
+fun PlayerScreenPreview() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Mock video surface
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Text(
+                text = "Video Content",
+                color = Color.White.copy(alpha = 0.3f),
+                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+            )
+        }
+
+        // Show controls overlay
+        ControlsOverlay(
+            title = "Sample Movie Title",
+            chapterMarkers = emptyList(),
+            isPlaying = true,
+            currentPosition = 45000L, // 45 seconds
+            duration = 7200000L, // 2 hours
+            onBackClick = { },
+            onPlayPause = { },
+            onSeek = { },
+            isLocked = false,
+            onToggleLock = { },
+            onShowAudioTrackSelection = { },
+            onShowSubtitleTrackSelection = { },
+            onCycleAspectRatio = { },
+            onSeekBackward = { },
+            onSeekForward = { },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Preview(
+    name = "Player Screen - Gesture Indicators",
+    showBackground = true,
+    widthDp = 800,
+    heightDp = 450
+)
+@Composable
+fun PlayerScreenGesturePreview() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Mock video surface
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Gray),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Video Surface",
+                color = Color.White,
+                fontSize = 24.sp
+            )
+        }
+
+        // Gesture indicators preview
+        GestureIndicators(
+            volumeLevel = 0.7f, // 70% volume
+            brightnessLevel = 0.5f, // 50% brightness
+            seekPosition = "+10s"
+        )
+
+        // Loading indicator preview
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 3.dp,
+                modifier = Modifier.size(48.dp)
+            )
+        }
+    }
+}
+
+@Preview(
+    name = "Player Screen - Controls Hidden",
+    showBackground = true,
+    widthDp = 800,
+    heightDp = 450
+)
+@Composable
+fun PlayerScreenPreviewHidden() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Text(
+                text = "Video Content",
+                color = Color.White.copy(alpha = 0.3f),
+                style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+            )
+        }
+    }
+}

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Yükleniyor…</string>
     <string name="error">Hata</string>
@@ -325,7 +325,7 @@
     <string name="downloads_settings_selected_folder">Seçilen klasör</string>
     <string name="downloads_settings_change_folder">Klasörü değiştir</string>
     <string name="downloads_settings_use_default">Varsayılanı kullan</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9, JellyCine genel İndirilenler klasörüne yazmadan önce dosya erişimi ister.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9, Vela genel İndirilenler klasörüne yazmadan önce dosya erişimi ister.</string>
     <string name="downloads_queue_options">Kuyruk seçenekleri</string>
     <string name="downloads_series_fallback">Dizi</string>
     <string name="downloads_season_number">Sezon %1$d</string>
@@ -505,15 +505,15 @@
     <string name="about_section_project">Yasal</string>
     <string name="about_section_connect">Bağlan</string>
     <string name="about_privacy_policy">Gizlilik Politikası</string>
-    <string name="about_privacy_policy_subtitle">JellyCine\'in oynatma verilerini ve gizliliğini nasıl ele aldığını okuyun</string>
+    <string name="about_privacy_policy_subtitle">Vela\'in oynatma verilerini ve gizliliğini nasıl ele aldığını okuyun</string>
     <string name="about_open_source_license">Lisans</string>
     <string name="about_open_source_license_subtitle">GNU Genel Kamu Lisansı v3.0</string>
     <string name="about_source_code">Kaynak Kodu</string>
     <string name="about_rate_app">Google Play\'de puanlama</string>
-    <string name="about_rate_app_subtitle">Daha fazla kişinin JellyCine\'i bulmasına yardımcı olmak için bir puan veya inceleme bırakın</string>
+    <string name="about_rate_app_subtitle">Daha fazla kişinin Vela\'i bulmasına yardımcı olmak için bir puan veya inceleme bırakın</string>
     <string name="about_contact_developer">Geliştiriciye Ulaşın</string>
     <string name="about_contact_developer_subtitle">E-posta ile geri bildirim, hata raporları veya gizlilik soruları gönderin</string>
-    <string name="about_feedback_subject">JellyCine Geribildirim</string>
+    <string name="about_feedback_subject">Vela Geribildirim</string>
     <string name="about_buy_me_a_coffee">Bana bir kahve ısmarla</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

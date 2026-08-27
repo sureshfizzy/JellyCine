@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Vela monochrome mark</title>
+  <desc id="desc">A single-color sail, play symbol, and wave.</desc>
+  <!-- 单色版去掉内部光效，供通知栏、Android themed icon 与小尺寸场景使用。 -->
+  <path fill="currentColor" fill-rule="evenodd" d="M93 377C126 265 184 164 290 86c-54 89-76 173-61 252-45-18-88-5-136 39Zm149-212c0-14 15-23 27-16l154 91c12 7 12 25 0 32l-154 91c-12 7-27-2-27-16V165ZM102 392c84-36 157-26 224 6 31 15 64 17 98 6-45 37-94 47-148 27-58-21-111-25-174-2 31-24 64-35 101-36-34-9-67-10-101-1Z"/>
+</svg>

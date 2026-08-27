@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Jelly Cine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Aan het laden…</string>
     <string name="error">Fout</string>
@@ -325,7 +325,7 @@
     <string name="downloads_settings_selected_folder">Geselecteerde map</string>
     <string name="downloads_settings_change_folder">Map wijzigen</string>
     <string name="downloads_settings_use_default">Gebruik de standaardinstelling</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 vraagt om toegang tot bestanden voordat JellyCine naar de openbare map Downloads kan schrijven.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 vraagt om toegang tot bestanden voordat Vela naar de openbare map Downloads kan schrijven.</string>
     <string name="downloads_queue_options">Wachtrij-opties</string>
     <string name="downloads_series_fallback">Serie</string>
     <string name="downloads_season_number">Seizoen %1$d</string>
@@ -505,15 +505,15 @@
     <string name="about_section_project">Juridisch</string>
     <string name="about_section_connect">Verbind</string>
     <string name="about_privacy_policy">Privacybeleid</string>
-    <string name="about_privacy_policy_subtitle">Lees hoe JellyCine omgaat met afspeelgegevens en privacy</string>
+    <string name="about_privacy_policy_subtitle">Lees hoe Vela omgaat met afspeelgegevens en privacy</string>
     <string name="about_open_source_license">Licentie</string>
     <string name="about_open_source_license_subtitle">GNU General Public License v3.0</string>
     <string name="about_source_code">Broncode</string>
     <string name="about_rate_app">Beoordeel op Google Play</string>
-    <string name="about_rate_app_subtitle">Laat een beoordeling of recensie achter zodat meer mensen JellyCine kunnen vinden</string>
+    <string name="about_rate_app_subtitle">Laat een beoordeling of recensie achter zodat meer mensen Vela kunnen vinden</string>
     <string name="about_contact_developer">Contact opnemen met de ontwikkelaar</string>
     <string name="about_contact_developer_subtitle">Feedback, bugrapporten of privacyvragen per e-mail verzenden</string>
-    <string name="about_feedback_subject">JellyCine terugkoppeling</string>
+    <string name="about_feedback_subject">Vela terugkoppeling</string>
     <string name="about_buy_me_a_coffee">Koop koffie voor me</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

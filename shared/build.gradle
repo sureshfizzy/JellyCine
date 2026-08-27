@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = 'com.jellycine.shared'
+        namespace = 'com.vela.shared'
         compileSdk = 37
         minSdk = 27
 

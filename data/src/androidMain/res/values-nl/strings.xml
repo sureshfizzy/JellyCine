@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Voer uw Serr-URL in.</string>
     <string name="seerr_error_url_scheme_required">De URL van de server moet beginnen met http://of https://</string>
     <string name="seerr_error_url_invalid">Voer een geldige Seerr-URL in.</string>
-    <string name="seerr_error_media_server_url_missing">De URL van je mediaserver ontbreekt. Meld je eerst aan bij JellyCine.</string>
+    <string name="seerr_error_media_server_url_missing">De URL van je mediaserver ontbreekt. Meld je eerst aan bij Vela.</string>
     <string name="seerr_error_media_server_url_invalid">De URL van je mediaserver is ongeldig.</string>
     <string name="seerr_error_not_connected">Seerr is niet verbonden.</string>
     <string name="seerr_error_current_user_parse">Kon de huidige Serr-gebruiker niet parseren.</string>

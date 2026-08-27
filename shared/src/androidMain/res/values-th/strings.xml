@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">เจลลีซีน</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">กำลังโหลด…</string>
     <string name="error">ข้อผิดพลาด</string>
@@ -321,7 +321,7 @@
     <string name="downloads_settings_selected_folder">โฟลเดอร์ที่เลือก</string>
     <string name="downloads_settings_change_folder">เปลี่ยนโฟลเดอร์</string>
     <string name="downloads_settings_use_default">ใช้ค่าเริ่มต้น</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 ขอการเข้าถึงไฟล์ก่อนที่ JellyCine สามารถเขียนไปยังโฟลเดอร์ดาวน์โหลดสาธารณะได้</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 ขอการเข้าถึงไฟล์ก่อนที่ Vela สามารถเขียนไปยังโฟลเดอร์ดาวน์โหลดสาธารณะได้</string>
     <string name="downloads_queue_options">ตัวเลือกคิว</string>
     <string name="downloads_series_fallback">ซีรี่ส์</string>
     <string name="downloads_season_number">ฤดูกาล %1$d</string>
@@ -492,15 +492,15 @@
     <string name="about_section_project">กฎหมาย</string>
     <string name="about_section_connect">เชื่อมต่อ</string>
     <string name="about_privacy_policy">นโยบายความเป็นส่วนตัว</string>
-    <string name="about_privacy_policy_subtitle">อ่านวิธีที่ JellyCine จัดการข้อมูลการเล่นและความเป็นส่วนตัว</string>
+    <string name="about_privacy_policy_subtitle">อ่านวิธีที่ Vela จัดการข้อมูลการเล่นและความเป็นส่วนตัว</string>
     <string name="about_open_source_license">ใบอนุญาต</string>
     <string name="about_open_source_license_subtitle">ใบอนุญาตสาธารณะทั่วไป GNU v3.0</string>
     <string name="about_source_code">ซอร์สโค้ด</string>
     <string name="about_rate_app">ให้คะแนนบน Google Play</string>
-    <string name="about_rate_app_subtitle">แสดงคะแนนหรือรีวิวเพื่อช่วยให้ผู้คนค้นหา JellyCine ได้มากขึ้น</string>
+    <string name="about_rate_app_subtitle">แสดงคะแนนหรือรีวิวเพื่อช่วยให้ผู้คนค้นหา Vela ได้มากขึ้น</string>
     <string name="about_contact_developer">ติดต่อนักพัฒนา</string>
     <string name="about_contact_developer_subtitle">ส่งข้อเสนอแนะ รายงานข้อบกพร่อง หรือคำถามเกี่ยวกับความเป็นส่วนตัวทางอีเมล</string>
-    <string name="about_feedback_subject">ข้อเสนอแนะ JellyCine</string>
+    <string name="about_feedback_subject">ข้อเสนอแนะ Vela</string>
     <string name="about_buy_me_a_coffee">ซื้อกาแฟให้ฉัน</string>
     <string name="about_patreon">ปาเทรอน</string>
     <!-- Interface Settings -->

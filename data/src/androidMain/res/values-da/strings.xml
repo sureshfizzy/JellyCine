@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Indtast venligst din Seerr URL.</string>
     <string name="seerr_error_url_scheme_required">Seerr URL skal starte med http://eller https://</string>
     <string name="seerr_error_url_invalid">Indtast venligst en gyldig Seerr URL.</string>
-    <string name="seerr_error_media_server_url_missing">Din medieserver-URL mangler. Log ind på JellyCine først.</string>
+    <string name="seerr_error_media_server_url_missing">Din medieserver-URL mangler. Log ind på Vela først.</string>
     <string name="seerr_error_media_server_url_invalid">Webadressen til medieserveren er ugyldig.</string>
     <string name="seerr_error_not_connected">Seerr er ikke logget på.</string>
     <string name="seerr_error_current_user_parse">Kunne ikke analysere den aktuelle Seerr-bruger.</string>

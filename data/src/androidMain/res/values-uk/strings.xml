@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Будь ласка, введіть свою URL-адресу Seerr.</string>
     <string name="seerr_error_url_scheme_required">URL-адреса Seerr повинна починатися з http://або https://</string>
     <string name="seerr_error_url_invalid">Будь ласка, введіть дійсну URL-адресу Seerr.</string>
-    <string name="seerr_error_media_server_url_missing">URL-адреса вашого медіасервера відсутня. Спочатку увійдіть у JellyCine.</string>
+    <string name="seerr_error_media_server_url_missing">URL-адреса вашого медіасервера відсутня. Спочатку увійдіть у Vela.</string>
     <string name="seerr_error_media_server_url_invalid">URL-адреса вашого медіасервера недійсна.</string>
     <string name="seerr_error_not_connected">Seerr не підключений.</string>
     <string name="seerr_error_current_user_parse">Не вдалося проаналізувати поточного користувача Seerr.</string>

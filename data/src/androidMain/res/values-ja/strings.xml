@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">下見者 URL を入力してください。</string>
     <string name="seerr_error_url_scheme_required">サーバーの URL は http://または https://で始まる必要があります</string>
     <string name="seerr_error_url_invalid">有効な Seerr URL を入力してください。</string>
-    <string name="seerr_error_media_server_url_missing">メディアサーバーの URL が見つかりません。まず JellyCine にサインインしてください。</string>
+    <string name="seerr_error_media_server_url_missing">メディアサーバーの URL が見つかりません。まず Vela にサインインしてください。</string>
     <string name="seerr_error_media_server_url_invalid">メディアサーバーの URL が無効です。</string>
     <string name="seerr_error_not_connected">Seerrは接続されていません。</string>
     <string name="seerr_error_current_user_parse">現在の Seerr ユーザーを解析できませんでした。</string>

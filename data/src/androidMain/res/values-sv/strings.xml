@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Ange din Seerr-URL.</string>
     <string name="seerr_error_url_scheme_required">Seerr URL måste börja med http://eller https://</string>
     <string name="seerr_error_url_invalid">Ange en giltig Seerr-URL.</string>
-    <string name="seerr_error_media_server_url_missing">Webbadressen för mediaservern saknas. Logga in på JellyCine först.</string>
+    <string name="seerr_error_media_server_url_missing">Webbadressen för mediaservern saknas. Logga in på Vela först.</string>
     <string name="seerr_error_media_server_url_invalid">Webbadressen för medieservern är ogiltig.</string>
     <string name="seerr_error_not_connected">Seerr är inte ansluten.</string>
     <string name="seerr_error_current_user_parse">Det gick inte att analysera den aktuella Seerr-användaren.</string>

@@ -1,0 +1,2494 @@
+package com.vela.data.repository
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.vela.data.DataModuleConfig
+import com.vela.data.R
+import com.vela.data.api.MediaServerApi
+import com.vela.data.api.TmdbApi
+import com.vela.data.datastore.DataStoreProvider
+import com.vela.data.datastore.HomeSnapshotStore
+import com.vela.data.model.AudioTranscodeMode
+import com.vela.data.model.BaseItemDto
+import com.vela.data.model.HomeLibrarySectionData
+import com.vela.data.model.MediaExtra
+import com.vela.data.model.PlaybackSegments
+import com.vela.data.model.PlaybackAuthContext
+import com.vela.data.model.PlaybackUrlBuilder
+import com.vela.data.model.PlaybackRequest
+import com.vela.data.model.PlaybackStreamOptions
+import com.vela.data.model.PersistedHomeSnapshot
+import com.vela.data.model.QueryResult
+import com.vela.data.model.PlaybackInfoRequest
+import com.vela.data.model.RecommendationDto
+import com.vela.data.model.SearchMediaType
+import com.vela.data.model.ActivityLogResult
+import com.vela.data.model.AdminSessionInfo
+import com.vela.data.model.SeerrItemIds
+import com.vela.data.model.SystemInfoFull
+import com.vela.data.model.UserDto
+import com.vela.data.model.toSearchQueries
+import com.vela.data.network.HttpStatusException
+import com.vela.data.network.VelaJson
+import com.vela.data.network.NetworkModule
+import com.vela.data.network.ServerType
+import com.vela.data.network.trimTrailingSlash
+import com.vela.data.preferences.NetworkPreferences
+import com.vela.data.preferences.NetworkTimeoutConfig
+import com.vela.data.security.AuthSessionIds
+import com.vela.data.security.LEGACY_ACCESS_TOKEN_KEY
+import com.vela.data.security.SecureSessionStore
+import com.vela.data.util.buildServerUrl
+import com.vela.data.util.getServerUrl
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.serialization.kotlinx.json.json
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.OkHttpClient
+
+data class EpisodeNavigationIds(
+    val previousEpisodeId: String? = null,
+    val nextEpisodeId: String? = null
+)
+
+class MediaRepository(private val context: Context) {
+    companion object {
+        private val SERVER_URL_KEY = stringPreferencesKey("server_url")
+        private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
+        private val USER_ID_KEY = stringPreferencesKey("user_id")
+        private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
+        private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
+    }
+
+    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
+    private val networkPreferences = NetworkPreferences(context)
+    private val secureSessionStore = SecureSessionStore(context)
+    private val tmdbApi by lazy { TmdbApi(createTmdbHttpClient()) }
+
+    private data class ImageAuthState(
+        val serverUrl: String?
+    )
+
+    private data class ApiSession(
+        val api: MediaServerApi,
+        val userId: String,
+        val serverType: ServerType?,
+        val baseUrl: String
+    )
+
+    private data class SuggestionsRoute(
+        val endpoint: String,
+        val userIdQuery: String?
+    )
+
+    private data class SessionConfig(
+        val serverUrl: String,
+        val serverTypeRaw: String?,
+        val serverType: ServerType?,
+        val accessToken: String?,
+        val userId: String,
+        val timeoutConfig: NetworkTimeoutConfig
+    )
+
+    data class ItemDownloadRequest(
+        val itemId: String,
+        val displayName: String,
+        val downloadUrl: String,
+        val authToken: String?,
+        val fileExtension: String?,
+        val estimatedBytes: Long = 0L,
+        val isTranscodeResume: Boolean = false
+    )
+
+    @Volatile
+    private var cachedSession: ApiSession? = null
+
+    @Volatile
+    private var cachedSessionKey: String? = null
+
+    @Volatile
+    private var cachedSessionConfig: SessionConfig? = null
+
+    private val imageAuthCacheTtlMs = 1500L
+
+    @Volatile
+    private var cachedImageAuthState: ImageAuthState? = null
+
+    @Volatile
+    private var cachedImageAuthAt: Long = 0L
+
+    private val homeSnapshotStore = HomeSnapshotStore(context.filesDir)
+    private val theIntroDbClient = TheIntroDbClient(
+        getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
+    )
+    private val introDbClient = IntroDbClient(
+        getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
+    )
+
+    private val imageAuthStateFlow: Flow<ImageAuthState> = dataStore.data
+        .map { preferences ->
+            ImageAuthState(
+                serverUrl = preferences[SERVER_URL_KEY]
+            )
+        }
+        .distinctUntilChanged()
+
+    private suspend fun getApi(): MediaServerApi? = getApiSession()?.api
+
+    private suspend fun getUserId(): String? = getApiSession()?.userId
+
+    private fun normalizeSubtitleStreamIndex(subtitleStreamIndex: Int?): Int? {
+        return subtitleStreamIndex?.takeIf { it >= 0 }
+    }
+
+    private fun createPlaybackAuthContext(config: SessionConfig): PlaybackAuthContext {
+        return PlaybackAuthContext(
+            serverUrl = config.serverUrl,
+            serverType = config.serverType,
+            accessToken = config.accessToken,
+            deviceId = NetworkModule.getClientDeviceId(),
+            clientVersion = DataModuleConfig.CLIENT_VERSION
+        )
+    }
+
+    private suspend fun getSessionConfig(): SessionConfig? {
+        val preferences = dataStore.data.first()
+        val serverUrl = preferences[SERVER_URL_KEY] ?: return null
+        val userId = preferences[USER_ID_KEY] ?: return null
+        val serverTypeRaw = preferences[SERVER_TYPE_KEY]
+        val serverType = serverTypeRaw?.let {
+            runCatching { ServerType.valueOf(it) }.getOrNull()
+        }
+        val activeServerId = preferences[ACTIVE_SERVER_ID_KEY]?.takeIf { it.isNotBlank() }
+        val accessToken = activeServerId?.let { secureSessionStore.getToken(it) }
+            ?: secureSessionStore.getToken(AuthSessionIds.buildServerId(serverUrl, userId))
+            ?: preferences[LEGACY_ACCESS_TOKEN_KEY]
+
+        return SessionConfig(
+            serverUrl = serverUrl,
+            serverTypeRaw = serverTypeRaw,
+            serverType = serverType,
+            accessToken = accessToken,
+            userId = userId,
+            timeoutConfig = networkPreferences.getTimeoutConfig()
+        ).also {
+            cachedSessionConfig = it
+        }
+    }
+
+    private suspend fun getApiSession(): ApiSession? {
+        val config = getSessionConfig() ?: return null
+        val newSessionKey = buildString {
+            append(config.serverUrl)
+            append("|")
+            append(config.serverTypeRaw ?: "")
+            append("|")
+            append(config.accessToken ?: "")
+            append("|")
+            append(config.userId)
+            append("|")
+            append(config.timeoutConfig.requestTimeoutMs)
+            append("|")
+            append(config.timeoutConfig.connectionTimeoutMs)
+            append("|")
+            append(config.timeoutConfig.socketTimeoutMs)
+        }
+
+        cachedSession?.let { session ->
+            if (cachedSessionKey == newSessionKey) {
+                return session
+            }
+        }
+
+        synchronized(this) {
+            cachedSession?.let { session ->
+                if (cachedSessionKey == newSessionKey) {
+                    return session
+                }
+            }
+
+            val api = NetworkModule.createMediaServerApi(
+                baseUrl = config.serverUrl,
+                accessToken = config.accessToken,
+                serverType = config.serverType,
+                storageDir = context.filesDir,
+                timeoutConfig = config.timeoutConfig
+            )
+
+            val session = ApiSession(
+                api = api,
+                userId = config.userId,
+                serverType = config.serverType,
+                baseUrl = config.serverUrl
+            )
+            cachedSession = session
+            cachedSessionKey = newSessionKey
+            return session
+        }
+    }
+
+    private fun buildSnapshotKey(config: SessionConfig): String {
+        return "${trimTrailingSlash(config.serverUrl)}|${config.userId}"
+    }
+
+    fun getPersistedHomeSnapshot(): PersistedHomeSnapshot? {
+        return homeSnapshotStore.getPersistedHomeSnapshot()
+    }
+
+    suspend fun loadPersistedHomeSnapshot(
+        maxAgeMs: Long? = null
+    ): PersistedHomeSnapshot? {
+        val config = getSessionConfig() ?: return null
+        return homeSnapshotStore.loadPersistedHomeSnapshot(
+            expectedSnapshotKey = buildSnapshotKey(config),
+            maxAgeMs = maxAgeMs
+        )
+    }
+
+    suspend fun persistHomeSnapshot(
+        featuredHomeItems: List<BaseItemDto>? = null,
+        continueWatchingItems: List<BaseItemDto>? = null,
+        nextUpItems: List<BaseItemDto>? = null,
+        homeLibrarySections: List<HomeLibrarySectionData>? = null,
+        myMediaLibraries: List<BaseItemDto>? = null,
+        username: String? = null,
+        serverName: String? = null,
+        serverUrl: String? = null,
+        profileImageUrl: String? = null,
+        isAdministrator: Boolean? = null,
+        isVideoTranscodingAllowed: Boolean? = null,
+        isAudioTranscodingAllowed: Boolean? = null,
+        isSyncTranscodingAllowed: Boolean? = null
+    ) {
+        val config = getSessionConfig() ?: return
+        homeSnapshotStore.persistHomeSnapshot(
+            snapshotKey = buildSnapshotKey(config),
+            featuredHomeItems = featuredHomeItems,
+            continueWatchingItems = continueWatchingItems,
+            nextUpItems = nextUpItems,
+            homeLibrarySections = homeLibrarySections,
+            myMediaLibraries = myMediaLibraries,
+            username = username,
+            serverName = serverName,
+            serverUrl = serverUrl,
+            profileImageUrl = profileImageUrl,
+            isAdministrator = isAdministrator,
+            isVideoTranscodingAllowed = isVideoTranscodingAllowed,
+            isAudioTranscodingAllowed = isAudioTranscodingAllowed,
+            isSyncTranscodingAllowed = isSyncTranscodingAllowed
+        )
+    }
+
+    suspend fun clearPersistedHomeSnapshot() {
+        homeSnapshotStore.clearPersistedHomeSnapshot()
+    }
+
+    suspend fun getLatestItems(
+        parentId: String? = null,
+        includeItemTypes: String? = "Movie,Series",
+        limit: Int? = 20,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+
+            val response = session.api.getLatestItems(
+                userId = session.userId,
+                parentId = parentId,
+                includeItemTypes = includeItemTypes,
+                limit = limit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_latest_items_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSuggestions(
+        mediaType: String = "Movie,Series",
+        limit: Int = 15,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val route = SuggestionsEndpoint(
+                serverType = session.serverType,
+                userId = session.userId
+            )
+            val isEmby = route.userIdQuery == null
+            val response = session.api.getSuggestions(
+                endpoint = route.endpoint,
+                userId = route.userIdQuery,
+                mediaType = null,
+                type = if (isEmby) null else mediaType,
+                includeItemTypes = if (isEmby) mediaType else null,
+                limit = limit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val items = response.body()!!.items
+                    .orEmpty()
+                    .asSequence()
+                    .filter { it.id != null && !it.name.isNullOrBlank() }
+                    .distinctBy { it.id }
+                    .take(limit)
+                    .toList()
+                Result.success(items)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_suggestions_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getMovieRecommendations(
+        parentId: String? = null,
+        categoryLimit: Int = 8,
+        itemLimit: Int = 16,
+        fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,People"
+    ): Result<List<RecommendationDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getMovieRecommendations(
+                userId = userId,
+                parentId = parentId,
+                categoryLimit = categoryLimit,
+                itemLimit = itemLimit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val recommendations = response.body().orEmpty()
+                    .map { row ->
+                        row.copy(
+                            items = row.items
+                                .orEmpty()
+                                .filter { item -> item.id != null && !item.name.isNullOrBlank() }
+                                .distinctBy { item -> item.id }
+                        )
+                    }
+                    .filter { it.items.orEmpty().isNotEmpty() }
+                Result.success(recommendations)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_movie_recommendations_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun SuggestionsEndpoint(
+        serverType: ServerType?,
+        userId: String
+    ): SuggestionsRoute {
+        val isEmby = serverType == ServerType.EMBY
+        return if (isEmby) {
+            SuggestionsRoute(endpoint = "Users/$userId/Suggestions", userIdQuery = null)
+        } else {
+            SuggestionsRoute(endpoint = "Items/Suggestions", userIdQuery = userId)
+        }
+    }
+
+    suspend fun getItemById(itemId: String): Result<BaseItemDto> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,PremiereDate,SeasonName,SeasonId,RemoteTrailers,MediaStreams,MediaSources,ExternalUrls"
+            val response = api.getItemById(
+                userId = userId,
+                itemId = itemId,
+                fields = detailFields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val item = response.body()!!
+                val mappedItem = if (
+                    item.type == "Episode" &&
+                    item.officialRating.isNullOrBlank() &&
+                    !item.seriesId.isNullOrBlank()
+                ) {
+                    val seriesResponse = api.getItemById(
+                        userId = userId,
+                        itemId = item.seriesId!!,
+                        fields = "OfficialRating"
+                    )
+
+                    val seriesRating = seriesResponse.body()
+                        ?.officialRating
+                        ?.takeIf { it.isNotBlank() }
+
+                    if (seriesResponse.isSuccessful && seriesRating != null) {
+                        item.copy(officialRating = seriesRating)
+                    } else {
+                        item
+                    }
+                } else {
+                    item
+                }
+
+                Result.success(mappedItem)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_item_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCommunityPlaybackSegments(item: BaseItemDto): Result<PlaybackSegments?> {
+        val theIntroDbSegments = try {
+            theIntroDbClient.getPlaybackSegments(item)
+        } catch (e: Exception) {
+            null
+        }
+        if (theIntroDbSegments?.intro != null) {
+            return Result.success(theIntroDbSegments)
+        }
+
+        val introDbSegments = try {
+            introDbClient.getPlaybackSegments(item)
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+
+        val mergedSegments = when {
+            theIntroDbSegments == null && introDbSegments == null -> null
+            theIntroDbSegments == null -> introDbSegments
+            introDbSegments?.intro == null -> theIntroDbSegments.takeIf { it.hasAnySegments() }
+            else -> theIntroDbSegments.copy(intro = theIntroDbSegments.intro ?: introDbSegments.intro)
+        }
+
+        return Result.success(mergedSegments)
+    }
+
+    suspend fun getLocalVersions(item: BaseItemDto): Result<List<BaseItemDto>> {
+        return try {
+            val itemType = item.type?.takeIf { type ->
+                type.equals("Movie", ignoreCase = true) ||
+                    type.equals("Episode", ignoreCase = true)
+            } ?: return Result.success(emptyList())
+
+            if (item.id.isNullOrBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val providerLookup = item.localVersionLookup()
+                ?: return Result.success(listOf(item))
+
+            val result = getUserItems(
+                includeItemTypes = itemType,
+                recursive = true,
+                anyProviderIdEquals = providerLookup,
+                limit = 100,
+                fields = "MediaStreams,MediaSources,UserData"
+            )
+
+            if (result.isFailure) {
+                return Result.failure(result.exceptionOrNull() ?: Exception("Failed to fetch local versions"))
+            }
+
+            val versions = (item.localMediaVersions() + listOf(item) + result.getOrThrow().items.orEmpty())
+                .filter { candidate ->
+                    candidate.id != null &&
+                        candidate.type.equals(itemType, ignoreCase = true)
+                }
+                .distinctBy { version ->
+                    version.mediaSources.orEmpty().firstOrNull()?.path?.lowercase()
+                        ?: version.id.orEmpty()
+                }
+
+            Result.success(versions)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSimilarItems(
+        itemId: String,
+        limit: Int = 12,
+        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getSimilarItems(
+                itemId = itemId,
+                userId = userId,
+                limit = limit,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items.orEmpty().filter { it.id != itemId })
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_similar_items_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserItems(
+        parentId: String? = null,
+        personIds: String? = null,
+        genres: String? = null,
+        genreIds: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        filters: String? = null,
+        anyProviderIdEquals: String? = null,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
+    ): Result<QueryResult<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getUserItems(
+                userId = userId,
+                parentId = parentId,
+                personIds = personIds,
+                genres = genres,
+                genreIds = genreIds,
+                includeItemTypes = includeItemTypes,
+                recursive = recursive,
+                sortBy = sortBy,
+                sortOrder = sortOrder,
+                limit = limit,
+                startIndex = startIndex,
+                filters = filters,
+                anyProviderIdEquals = anyProviderIdEquals,
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_items_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loadWatchedItems(includeItemTypes: String): Result<List<BaseItemDto>> {
+        val expectedTypes = includeItemTypes.split(',').map { it.trim() }.toSet()
+        val result = getUserItems(
+            includeItemTypes = includeItemTypes,
+            recursive = true,
+            sortBy = "DatePlayed",
+            sortOrder = "Descending",
+            filters = "IsPlayed",
+            fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,IndexNumber,ParentIndexNumber,ProductionYear,RunTimeTicks,Overview,ProviderIds,UserData"
+        ).getOrElse { return Result.failure(it) }
+
+        return runCatching {
+            val items = result.items.orEmpty()
+                .filter { item ->
+                    item.id != null &&
+                        !item.name.isNullOrBlank() &&
+                        item.type in expectedTypes &&
+                        item.userData?.played == true
+                }
+
+            if (expectedTypes == setOf("Episode")) {
+                val seriesById = getWatchedSeriesById(items.mapNotNull { it.seriesId })
+                items
+                    .filter { item -> item.watchedEpisodeTmdbKey(seriesById) != null }
+                    .distinctBy { item -> item.watchedEpisodeTmdbKey(seriesById) }
+            } else {
+                items
+                    .filter { item -> item.watchedTmdbKey() != null }
+                    .distinctBy { item -> item.watchedTmdbKey() }
+            }
+        }
+    }
+
+    suspend fun loadSeriesForWatchedEpisodes(watchedEpisodes: List<BaseItemDto>): Result<List<BaseItemDto>> {
+        val orderedSeriesIds = watchedEpisodes.mapNotNull { it.seriesId }.distinct()
+        if (orderedSeriesIds.isEmpty()) return Result.success(emptyList())
+
+        return runCatching {
+            val seriesById = getWatchedSeriesById(orderedSeriesIds)
+            orderedSeriesIds.mapNotNull(seriesById::get)
+                .filter { item -> item.watchedTmdbKey() != null }
+                .distinctBy { item -> item.watchedTmdbKey() }
+        }
+    }
+
+    private suspend fun getWatchedSeriesById(seriesIds: List<String>): Map<String, BaseItemDto> {
+        return seriesIds.distinct()
+            .mapNotNull { seriesId -> getItemById(seriesId).getOrNull() }
+            .filter { item -> item.id != null && !item.name.isNullOrBlank() && item.type == "Series" }
+            .associateBy { item -> item.id.orEmpty() }
+    }
+
+    private fun BaseItemDto.watchedEpisodeTmdbKey(seriesById: Map<String, BaseItemDto>): String? {
+        val seriesTmdb = seriesId?.let(seriesById::get)?.tmdbProviderId() ?: return null
+        val season = parentIndexNumber ?: return null
+        val episode = indexNumber ?: return null
+        return "Episode:tmdb:$seriesTmdb:s$season:e$episode"
+    }
+
+    private fun BaseItemDto.watchedTmdbKey(): String? {
+        return tmdbProviderId()?.let { "${type.orEmpty()}:tmdb:$it" }
+    }
+
+    private fun BaseItemDto.tmdbProviderId(): String? {
+        return providerIds.orEmpty()
+            .entries
+            .firstOrNull { (key, value) -> key.equals("Tmdb", ignoreCase = true) && value.isNotBlank() }
+            ?.value
+    }
+
+    suspend fun getItemsForPerson(
+        personId: String,
+        limit: Int = 120
+    ): Result<List<BaseItemDto>> {
+        return getUserItems(
+            personIds = personId,
+            includeItemTypes = "Movie,Series,Episode",
+            recursive = true,
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            limit = limit,
+            fields = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+        ).map { result ->
+            result.items
+                .orEmpty()
+                .filter { it.id != null && !it.name.isNullOrBlank() }
+                .distinctBy { it.id }
+        }
+    }
+
+    suspend fun getFavoriteItems(
+        includeItemTypes: String? = "Movie,Series,Episode",
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): Result<QueryResult<BaseItemDto>> {
+        return getUserItems(
+            includeItemTypes = includeItemTypes,
+            recursive = true,
+            sortBy = "DateCreated",
+            sortOrder = "Descending",
+            limit = limit,
+            startIndex = startIndex,
+            filters = "IsFavorite",
+            fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,IndexNumber,ParentIndexNumber,ProductionYear,RunTimeTicks,Overview,DateCreated"
+        )
+    }
+
+    suspend fun setFavoriteStatus(itemId: String, isFavorite: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = if (isFavorite) {
+                api.markAsFavorite(userId = userId, itemId = itemId)
+            } else {
+                api.unmarkAsFavorite(userId = userId, itemId = itemId)
+            }
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to ${if (isFavorite) "favorite" else "unfavorite"} item: ${response.code()} - ${response.message()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setPlayedStatus(itemId: String, isPlayed: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = if (isPlayed) {
+                api.markAsPlayed(userId = userId, itemId = itemId)
+            } else {
+                api.unmarkAsPlayed(userId = userId, itemId = itemId)
+            }
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to ${if (isPlayed) "mark item watched" else "mark item unwatched"}: ${response.code()} - ${response.message()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setSeriesPlayedStatus(seriesId: String, isPlayed: Boolean): Result<Unit> {
+        return setPlayedStatus(itemId = seriesId, isPlayed = isPlayed)
+    }
+
+    suspend fun refreshItemMetadata(
+        itemId: String,
+        recursive: Boolean = true,
+        metadataRefreshMode: String = "Default",
+        imageRefreshMode: String = "Default",
+        replaceAllMetadata: Boolean = false
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.refreshItem(
+                itemId = itemId,
+                recursive = recursive,
+                metadataRefreshMode = metadataRefreshMode,
+                imageRefreshMode = imageRefreshMode,
+                replaceAllMetadata = replaceAllMetadata
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to refresh item: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteLibraryItem(itemId: String): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.deleteItem(itemId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to delete item: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setItemLocked(itemId: String, locked: Boolean): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val itemResponse = api.getItemById(userId = userId, itemId = itemId)
+            val item = itemResponse.body()
+                ?: return Result.failure(Exception(string(R.string.media_error_fetch_item_failed, itemResponse.code())))
+            val response = api.updateItem(itemId, item.copy(lockData = locked))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to update lock: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun clearItemIdentification(itemId: String): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val itemResponse = api.getItemById(userId = userId, itemId = itemId)
+            val item = itemResponse.body()
+                ?: return Result.failure(Exception(string(R.string.media_error_fetch_item_failed, itemResponse.code())))
+            val response = api.updateItem(itemId, item.copy(providerIds = emptyMap()))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to remove identification: ${response.code()} - ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getPlaylists(): Result<List<BaseItemDto>> {
+        return getUserItems(
+            includeItemTypes = "Playlist",
+            recursive = true,
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            fields = "ChildCount,RecursiveItemCount,UserData"
+        ).map { result ->
+            result.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
+        }
+    }
+
+    suspend fun addItemsToPlaylist(playlistId: String, itemIds: List<String>): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val response = api.addToPlaylist(
+                playlistId = playlistId,
+                ids = itemIds.joinToString(","),
+                userId = userId
+            )
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception("Failed to add to playlist: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createPlaylistWithItems(name: String, itemIds: List<String>): Result<String?> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val response = api.createPlaylist(
+                name = name,
+                ids = itemIds.joinToString(","),
+                userId = userId
+            )
+            if (response.isSuccessful) Result.success(response.body()?.id)
+            else Result.failure(Exception("Failed to create playlist: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addItemsToCollection(collectionId: String, itemIds: List<String>): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.addToCollection(
+                collectionId = collectionId,
+                ids = itemIds.joinToString(",")
+            )
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception("Failed to add to collection: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createCollectionWithItems(name: String, itemIds: List<String>): Result<String?> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.createCollection(
+                name = name,
+                ids = itemIds.joinToString(",")
+            )
+            if (response.isSuccessful) Result.success(response.body()?.id)
+            else Result.failure(Exception("Failed to create collection: ${response.code()} - ${response.message()}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun resolvePlayableItemId(item: BaseItemDto): Result<String> {
+        val itemId = item.id?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+        if (!item.type.equals("Series", ignoreCase = true)) {
+            return Result.success(itemId)
+        }
+        return getEpisodes(seriesId = itemId).mapCatching { episodes ->
+            episodes
+                .sortedWith(
+                    compareBy<BaseItemDto>(
+                        { it.parentIndexNumber ?: Int.MAX_VALUE },
+                        { it.indexNumber ?: Int.MAX_VALUE }
+                    )
+                )
+                .firstOrNull { !it.id.isNullOrBlank() }
+                ?.id
+                ?: throw IllegalStateException("No playable episodes")
+        }
+    }
+
+    suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val response = session.api.getUserViews(session.userId)
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                val orderedViewIds = getCurrentUser()
+                    .getOrNull()
+                    ?.configuration
+                    ?.orderedViews
+
+                Result.success(
+                    queryResult.copy(
+                        items = queryResult.items?.orderedViews(orderedViewIds)
+                    )
+                )
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun List<BaseItemDto>.orderedViews(orderedViewIds: List<String>?): List<BaseItemDto> {
+        val orderedLookup = orderedViewIds
+            .orEmpty()
+            .mapIndexedNotNull { index, viewId ->
+                viewId.takeIf { it.isNotBlank() }?.let { it to index }
+            }
+            .toMap()
+
+        if (orderedLookup.isEmpty()) return this
+
+        return mapIndexed { originalIndex, item -> originalIndex to item }
+            .sortedWith(
+                compareBy<Pair<Int, BaseItemDto>> { (_, item) ->
+                    orderedLookup[item.id] ?: Int.MAX_VALUE
+                }.thenBy { (originalIndex, _) ->
+                    originalIndex
+                }
+            )
+            .map { (_, item) -> item }
+    }
+
+    suspend fun getHomeLibrarySections(
+        maxLibraries: Int? = null,
+        itemsPerLibrary: Int = 20
+    ): Result<List<HomeLibrarySectionData>> = coroutineScope {
+        val viewsResult = getUserViews()
+        viewsResult.fold(
+            onSuccess = { queryResult ->
+                val libraries = queryResult.items
+                    .orEmpty()
+                    .asSequence()
+                    .filter { library ->
+                        val libraryId = library.id
+                        val libraryName = library.name
+                        val type = library.type
+                        val collectionType = library.collectionType
+                        libraryId != null &&
+                            !libraryName.isNullOrBlank() &&
+                            collectionType != "boxsets" &&
+                            collectionType != "playlists" &&
+                            collectionType != "folders" &&
+                            (type == "CollectionFolder" || type == "Folder") &&
+                            (collectionType == "movies" || collectionType == "tvshows" || collectionType == null)
+                    }
+                    .distinctBy { it.id }
+                    .let { sequence ->
+                        if (maxLibraries != null) sequence.take(maxLibraries) else sequence
+                    }
+                    .toList()
+
+                if (libraries.isEmpty()) {
+                    return@fold Result.success(emptyList<HomeLibrarySectionData>())
+                }
+
+                val session = getApiSession() ?: return@fold Result.failure(
+                    Exception(string(R.string.data_error_session_not_available))
+                )
+                val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber,UserData"
+                val sectionFetchSemaphore = Semaphore(4)
+
+                val sections = libraries.map { library ->
+                    async(Dispatchers.IO) {
+                        sectionFetchSemaphore.withPermit {
+                            val libraryId = library.id ?: return@withPermit null
+                            val includeItemTypes = when (library.collectionType) {
+                                "movies" -> "Movie"
+                                "tvshows" -> "Episode,Series"
+                                else -> "Movie,Series,Episode"
+                            }
+
+                            val latestItemsResponse = runCatching {
+                                session.api.getLatestItems(
+                                    userId = session.userId,
+                                    parentId = libraryId,
+                                    includeItemTypes = includeItemTypes,
+                                    limit = itemsPerLibrary,
+                                    fields = fields
+                                )
+                            }.getOrNull()
+
+                            val latestItems: List<BaseItemDto> =
+                                if (latestItemsResponse?.isSuccessful == true) {
+                                    latestItemsResponse.body().orEmpty()
+                                } else {
+                                    emptyList()
+                                }
+
+                            val items = latestItems
+                                .asSequence()
+                                .filter { it.id != null && !it.name.isNullOrBlank() }
+                                .distinctBy { it.id }
+                                .toList()
+
+                            HomeLibrarySectionData(
+                                library = library,
+                                items = items
+                            )
+                        }
+                    }
+                }.awaitAll()
+                    .filterNotNull()
+                    .filter { it.items.isNotEmpty() }
+
+                Result.success(sections)
+            },
+            onFailure = { error ->
+                Result.failure(error)
+            }
+        )
+    }
+
+    private suspend fun getImageAuthState(): ImageAuthState {
+        val now = System.currentTimeMillis()
+        cachedImageAuthState?.let { cached ->
+            if (now - cachedImageAuthAt < imageAuthCacheTtlMs) {
+                return cached
+            }
+        }
+
+        val config = getSessionConfig()
+        val state = ImageAuthState(
+            serverUrl = config?.serverUrl
+        )
+        cachedImageAuthState = state
+        cachedImageAuthAt = now
+        return state
+    }
+
+    suspend fun getImageUrlString(
+        itemId: String,
+        imageType: String = "Primary",
+        width: Int? = null,
+        height: Int? = null,
+        quality: Int? = 90,
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
+    ): String? {
+        val authState = getImageAuthState()
+        val serverUrl = authState.serverUrl
+        if (serverUrl.isNullOrEmpty() || itemId.isBlank()) {
+            return null
+        }
+
+        val queryParams = mutableListOf<Pair<String, String?>>()
+        width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+        height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
+        quality?.let { queryParams.add("quality" to it.toString()) }
+        imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
+        if (!enableImageEnhancers) {
+            queryParams.add("HasImageEnhancers" to "false")
+            queryParams.add("EnableImageEnhancers" to "false")
+        }
+        return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
+    }
+
+    suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(Dispatchers.IO) {
+        val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val tmdbId = lookupItem.providerIds
+            ?.entries
+            ?.firstOrNull { (key, value) ->
+                key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
+            }
+            ?.value
+            ?: return@withContext null
+        val tmdbType = when {
+            lookupItem.type.equals("Series", ignoreCase = true) -> "tv"
+            lookupItem.type.equals("Movie", ignoreCase = true) -> "movie"
+            else -> return@withContext null
+        }
+        tmdbApi.titleLogoUrl(tmdbType, tmdbId)
+    }
+
+    suspend fun getTmdbExtras(item: BaseItemDto): List<MediaExtra> = withContext(Dispatchers.IO) {
+        val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val tmdbId = lookupItem.providerIds
+            ?.entries
+            ?.firstOrNull { (key, value) ->
+                key.equals("tmdb", ignoreCase = true) && value.isNotBlank()
+            }
+            ?.value
+            ?: return@withContext emptyList()
+        val tmdbType = when {
+            lookupItem.type.equals("Series", ignoreCase = true) -> "tv"
+            lookupItem.type.equals("Movie", ignoreCase = true) -> "movie"
+            else -> return@withContext emptyList()
+        }
+        tmdbApi.fetchExtras(tmdbType, tmdbId)
+    }
+
+    fun getImageUrl(
+        itemId: String,
+        imageType: String = "Primary",
+        width: Int? = null,
+        height: Int? = null,
+        quality: Int? = 90,
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
+    ): Flow<String?> {
+        return imageAuthStateFlow.map { authState ->
+            val serverUrl = authState.serverUrl
+            if (serverUrl != null && itemId.isNotEmpty()) {
+                val queryParams = mutableListOf<Pair<String, String?>>()
+                width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+                height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
+                quality?.let { queryParams.add("quality" to it.toString()) }
+                imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
+                if (!enableImageEnhancers) {
+                    queryParams.add("HasImageEnhancers" to "false")
+                    queryParams.add("EnableImageEnhancers" to "false")
+                }
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
+            } else {
+                null
+            }
+        }
+    }
+
+    fun getBackdropImageUrl(
+        itemId: String,
+        imageIndex: Int = 0,
+        width: Int? = null,
+        height: Int? = null,
+        quality: Int? = 90,
+        enableImageEnhancers: Boolean = true,
+        imageTag: String? = null
+    ): Flow<String?> {
+        return imageAuthStateFlow.map { authState ->
+            val serverUrl = authState.serverUrl
+            if (serverUrl != null && itemId.isNotEmpty()) {
+                val queryParams = mutableListOf<Pair<String, String?>>()
+                width?.let { queryParams.add((if (height == null) "maxWidth" else "fillWidth") to it.toString()) }
+                height?.let { queryParams.add((if (width == null) "maxHeight" else "fillHeight") to it.toString()) }
+                quality?.let { queryParams.add("quality" to it.toString()) }
+                imageTag?.takeIf { it.isNotBlank() }?.let { queryParams.add("tag" to it) }
+                if (!enableImageEnhancers) {
+                    queryParams.add("HasImageEnhancers" to "false")
+                    queryParams.add("EnableImageEnhancers" to "false")
+                }
+                buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/Backdrop/$imageIndex", queryParams = queryParams)
+            } else {
+                null
+            }
+        }
+    }
+
+    suspend fun getRecentlyAddedMovies(limit: Int = 10): Result<List<BaseItemDto>> {
+        return getLatestItems(
+            includeItemTypes = "Movie",
+            limit = limit,
+            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+        )
+    }
+
+    suspend fun getRecentlyAddedSeries(limit: Int = 10): Result<List<BaseItemDto>> {
+        return getLatestItems(
+            includeItemTypes = "Series",
+            limit = limit,
+            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
+        )
+    }
+
+    suspend fun getRecentlyAddedEpisodes(limit: Int = 10): Result<List<BaseItemDto>> {
+        return getLatestItems(
+            includeItemTypes = "Episode",
+            limit = limit
+        )
+    }
+
+    suspend fun getGenres(
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        sortBy: String? = "SortName",
+        sortOrder: String? = "Ascending"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getGenres(
+                userId = userId,
+                parentId = parentId,
+                includeItemTypes = includeItemTypes,
+                recursive = recursive,
+                sortBy = sortBy,
+                sortOrder = sortOrder,
+                enableTotalRecordCount = true,
+                enableImages = false
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val items = body.items ?: emptyList()
+
+                Result.success(items)
+            } else {
+                val errorMsg = "Failed to fetch genres: ${response.code()} - ${response.message()}"
+
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get filtered genres like the official Jellyfin web client
+     * This filters out redundant individual genres when compound genres exist
+     */
+    suspend fun getFilteredGenres(
+        parentId: String? = null,
+        includeItemTypes: String? = null,
+        recursive: Boolean? = true,
+        sortBy: String? = "SortName",
+        sortOrder: String? = "Ascending"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val genresResult = getGenres(parentId, includeItemTypes, recursive, sortBy, sortOrder)
+
+            genresResult.fold(
+                onSuccess = { genres ->
+                    val filteredGenres = filterRedundantGenres(genres, includeItemTypes)
+                    Result.success(filteredGenres)
+                },
+                onFailure = { exception ->
+                    Result.failure(exception)
+                }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Filter out redundant individual genres when compound genres exist
+     * Based on how the official Jellyfin web client handles genre display
+     */
+    private fun filterRedundantGenres(genres: List<BaseItemDto>, includeItemTypes: String? = null): List<BaseItemDto> {
+        val genreNames = genres.mapNotNull { it.name }.toSet()
+
+        // Define compound genre patterns and their individual components
+        // Based on common TMDB/TVDB genre patterns
+        val compoundGenreMap = mapOf(
+            "Action & Adventure" to setOf("Action", "Adventure"),
+            "Sci-Fi & Fantasy" to setOf("Sci-Fi", "Science Fiction", "Fantasy", "Sci Fi", "SciFi"),
+            "Crime & Mystery" to setOf("Crime", "Mystery"),
+            "Comedy & Drama" to setOf("Comedy", "Drama"),
+            "Horror & Thriller" to setOf("Horror", "Thriller"),
+            "Romance & Drama" to setOf("Romance", "Drama"),
+            "War & Politics" to setOf("War", "Politics"),
+            "Kids & Family" to setOf("Kids", "Family", "Children"),
+            "News & Documentary" to setOf("News", "Documentary"),
+            "Reality & Talk Show" to setOf("Reality", "Talk Show", "Talk"),
+            "Soap & Drama" to setOf("Soap", "Drama")
+        )
+
+        // Additional genre consolidation rules (prefer one over the other)
+        val genreConsolidationMap = mapOf(
+            "Talk" to setOf("Talk-Show", "Talk Show"),
+            "Reality" to setOf("Reality TV", "Reality-TV"),
+            "Mystery" to setOf("Thriller"),
+            "Animation" to setOf("Anime")
+        )
+
+        // Find which compound genres actually exist in the data
+        val existingCompoundGenres = genreNames.filter { genreName ->
+            compoundGenreMap.keys.any { compound ->
+                genreName.equals(compound, ignoreCase = true)
+            }
+        }
+
+        // Collect all individual genres that should be filtered out
+        val genresToFilter = mutableSetOf<String>()
+        existingCompoundGenres.forEach { compoundGenre ->
+            compoundGenreMap.entries.find {
+                it.key.equals(compoundGenre, ignoreCase = true)
+            }?.value?.let { individuals ->
+                genresToFilter.addAll(individuals)
+            }
+        }
+
+        // Also handle any other " & " patterns dynamically
+        val dynamicCompoundGenres = genreNames.filter {
+            it.contains(" & ") && !compoundGenreMap.keys.any { compound ->
+                it.equals(compound, ignoreCase = true)
+            }
+        }
+
+        dynamicCompoundGenres.forEach { compound ->
+            val parts = compound.split(" & ").map { it.trim() }
+            genresToFilter.addAll(parts)
+        }
+
+        // Apply genre consolidation rules
+        genreConsolidationMap.forEach { (preferredGenre, genresToMerge) ->
+            // If the preferred genre exists, filter out the genres to merge
+            if (genreNames.any { it.equals(preferredGenre, ignoreCase = true) }) {
+                genresToFilter.addAll(genresToMerge)
+            }
+        }
+
+        // Additional filtering for TV Shows - exclude Romance and Game Show
+        val tvShowExcludedGenres = setOf("Romance", "Game Show", "Game-Show")
+        val isTVShows = includeItemTypes?.contains("Series", ignoreCase = true) == true
+
+        // Filter the genres
+        return genres.filter { genre ->
+            val genreName = genre.name ?: return@filter false
+
+            // Exclude specific genres for TV Shows
+            if (isTVShows && tvShowExcludedGenres.any { it.equals(genreName, ignoreCase = true) }) {
+                return@filter false
+            }
+
+            // Always keep compound genres
+            if (genreName.contains(" & ")) {
+                true
+            } else {
+                // Keep individual genres only if they're not part of any compound genre
+                !genresToFilter.any { filterGenre ->
+                    genreName.equals(filterGenre, ignoreCase = true)
+                }
+            }
+        }.sortedBy { it.name } // Sort alphabetically for consistent display
+    }
+
+    suspend fun getItemsByGenre(
+        genreId: String,
+        includeItemTypes: String? = null,
+        limit: Int? = 20
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+
+            val response = session.api.getItemsByGenre(
+                userId = session.userId,
+                genreIds = genreId,
+                includeItemTypes = includeItemTypes,
+                recursive = true,
+                limit = limit,
+                sortBy = "DateCreated",
+                sortOrder = "Descending",
+                fields = "Genres,RecursiveItemCount,ChildCount,EpisodeCount,ProductionYear,PremiereDate,EndDate,SeriesName,SeriesId"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val body = response.body()!!
+                val items = body.items ?: emptyList()
+
+                Result.success(items)
+            } else {
+                val errorMsg = "Failed to fetch items by genreId '$genreId': ${response.code()} - ${response.message()}"
+
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(string(R.string.media_error_fetch_items_by_genre_failed, genreId, e.message.orEmpty()), e))
+        }
+    }
+
+    suspend fun getResumeItems(
+        parentId: String? = null,
+        includeItemTypes: String? = "Movie,Series,Episode",
+        limit: Int? = null,
+        startIndex: Int? = null,
+        fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear,ProviderIds"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+
+            val response = session.api.getResumeItems(
+                userId = session.userId,
+                parentId = parentId,
+                includeItemTypes = includeItemTypes,
+                limit = limit,
+                startIndex = startIndex,
+                recursive = true,
+                sortBy = "DatePlayed",
+                sortOrder = "Descending",
+                fields = fields
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_resume_items_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getNextUpItems(
+        seriesId: String? = null,
+        parentId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null,
+        fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId,ProviderIds,ProductionYear"
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val legacyNextUp = if (session.serverType == ServerType.EMBY) true else null
+
+            val response = session.api.getNextUp(
+                userId = session.userId,
+                seriesId = seriesId,
+                parentId = parentId,
+                limit = limit,
+                startIndex = startIndex,
+                legacyNextUp = legacyNextUp,
+                fields = fields,
+                enableUserData = true,
+                enableImages = true
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_next_up_items_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSeasons(seriesId: String): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getSeasons(
+                seriesId = seriesId,
+                userId = userId,
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount"
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_seasons_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEpisodes(
+        seriesId: String,
+        seasonId: String? = null,
+        limit: Int? = null,
+        startIndex: Int? = null
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getEpisodes(
+                seriesId = seriesId,
+                userId = userId,
+                seasonId = seasonId,
+                fields = "Overview,MediaStreams,SeriesName,SeriesId,SeasonName,SeasonId,UserData,RunTimeTicks,IndexNumber,ParentIndexNumber,PremiereDate",
+                limit = limit,
+                startIndex = startIndex
+            )
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                Result.success(queryResult.items ?: emptyList())
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_episodes_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEpisodeNavigationIds(currentItemId: String): EpisodeNavigationIds {
+        val currentItem = getItemById(currentItemId).getOrNull()
+            ?: return EpisodeNavigationIds()
+        if (!currentItem.type.equals("Episode", ignoreCase = true)) return EpisodeNavigationIds()
+
+        val seriesId = currentItem.seriesId ?: return EpisodeNavigationIds()
+        val orderedEpisodes = getEpisodes(seriesId = seriesId)
+            .getOrNull()
+            ?.sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.parentIndexNumber ?: Int.MAX_VALUE },
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+            .orEmpty()
+
+        if (orderedEpisodes.isEmpty()) return EpisodeNavigationIds()
+        val currentIndex = orderedEpisodes.indexOfFirst { it.id == currentItemId }
+        if (currentIndex < 0) return EpisodeNavigationIds()
+
+        val previousEpisodeId = orderedEpisodes
+            .getOrNull(currentIndex - 1)
+            ?.id
+            ?.takeIf { it.isNotBlank() && it != currentItemId }
+        val nextEpisodeId = orderedEpisodes
+            .getOrNull(currentIndex + 1)
+            ?.id
+            ?.takeIf { it.isNotBlank() && it != currentItemId }
+
+        return EpisodeNavigationIds(
+            previousEpisodeId = previousEpisodeId,
+            nextEpisodeId = nextEpisodeId
+        )
+    }
+
+    suspend fun getNextEpisodeId(currentItemId: String): String? {
+        return getEpisodeNavigationIds(currentItemId).nextEpisodeId
+    }
+
+    suspend fun getCurrentUser(): Result<UserDto> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            val response = api.getUserById(userId)
+
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                val statusCode = response.code()
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = statusCode,
+                        statusMessage = response.message(),
+                        message = string(R.string.media_error_fetch_user_info_failed, statusCode)
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getUserProfileImageUrl(primaryImageTag: String? = null): String? {
+        val config = getSessionConfig()
+        val serverUrl = config?.serverUrl
+        val userId = config?.userId
+
+        return if (serverUrl != null && userId != null) {
+            buildServerUrl(
+                baseUrl = serverUrl,
+                encodedPath = "Users/$userId/Images/Primary",
+                queryParams = listOf("tag" to primaryImageTag)
+            )
+        } else {
+            null
+        }
+    }
+
+    // Player-related methods
+
+    /**
+     * Get playback information for a media item
+     */
+    suspend fun getPlaybackInfo(
+        itemId: String,
+        maxStreamingBitrate: Int? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
+    ): Result<com.vela.data.model.PlaybackInfoResponse> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val api = session.api
+            val userId = session.userId
+            val serverUrl = session.baseUrl
+            val serverType = session.serverType
+            val forceTranscode = (maxStreamingBitrate ?: 0) > 0
+            val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
+            val preferGetPlaybackInfo = (
+                serverType == ServerType.EMBY || serverType == ServerType.JELLYFIN
+            ) &&
+                !forceTranscode && audioTranscodeMode == AudioTranscodeMode.AUTO
+            val enableDirectPlay = if (forceTranscode) false else true
+            val enableDirectStream = if (forceTranscode) false else true
+            val enableTranscoding = true
+            val deviceProfile = PlaybackDeviceProfileFactory.create(
+                maxStreamingBitrate = maxStreamingBitrate?.toLong(),
+                audioTranscodeMode = audioTranscodeMode
+            )
+            if (preferGetPlaybackInfo) {
+                val getResponse = api.getPlaybackInfoGet(
+                    itemId = itemId,
+                    userId = userId,
+                    maxStreamingBitrate = maxStreamingBitrate,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = normalizedSubtitleStreamIndex,
+                    enableDirectPlay = enableDirectPlay,
+                    enableDirectStream = enableDirectStream,
+                    enableTranscoding = enableTranscoding
+                )
+
+                if (getResponse.isSuccessful && getResponse.body() != null) {
+                    val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
+                        serverUrl = serverUrl,
+                        playbackInfo = getResponse.body()!!
+                    )
+                    return Result.success(responseBody)
+                }
+            }
+
+            val playbackInfoRequest = PlaybackInfoRequest(
+                userId = userId,
+                mediaSourceId = null,
+                maxStreamingBitrate = maxStreamingBitrate?.toLong(),
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = normalizedSubtitleStreamIndex,
+                enableDirectPlay = enableDirectPlay,
+                enableDirectStream = enableDirectStream,
+                enableTranscoding = enableTranscoding,
+                deviceProfile = deviceProfile
+            )
+
+            val postResponse = api.getPlaybackInfoPost(
+                itemId = itemId,
+                request = playbackInfoRequest
+            )
+
+            if (postResponse.isSuccessful && postResponse.body() != null) {
+                val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
+                    serverUrl = serverUrl,
+                    playbackInfo = postResponse.body()!!
+                )
+                return Result.success(responseBody)
+            }
+
+            val getResponse = api.getPlaybackInfoGet(
+                itemId = itemId,
+                userId = userId,
+                maxStreamingBitrate = maxStreamingBitrate,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = normalizedSubtitleStreamIndex,
+                enableDirectPlay = enableDirectPlay,
+                enableDirectStream = enableDirectStream,
+                enableTranscoding = enableTranscoding
+            )
+
+            if (getResponse.isSuccessful && getResponse.body() != null) {
+                val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
+                    serverUrl = serverUrl,
+                    playbackInfo = getResponse.body()!!
+                )
+                Result.success(responseBody)
+            } else {
+                Result.failure(
+                    Exception(
+                        "Failed to fetch playback info: POST ${postResponse.code()} / GET ${getResponse.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Build authenticated direct-download request data for DownloadManager.
+     */
+    suspend fun getItemDownloadRequest(itemId: String): Result<ItemDownloadRequest> {
+        return try {
+            val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val serverUrl = config.serverUrl
+            val accessToken = config.accessToken
+            if (accessToken.isNullOrBlank()) {
+                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
+            }
+
+            val item = getItemById(itemId).getOrNull()
+            val itemDisplayName = item?.name?.takeIf { it.isNotBlank() }
+            val itemExtension = when {
+                !item?.container.isNullOrBlank() -> item?.container
+                else -> item?.path
+                    ?.substringAfterLast('.', missingDelimiterValue = "")
+                    ?.takeIf { it.isNotBlank() }
+            }?.trimStart('.')
+                ?.lowercase()
+
+            val needsPlaybackInfo = itemDisplayName.isNullOrBlank() || itemExtension.isNullOrBlank()
+            val mediaSource = if (needsPlaybackInfo) {
+                getPlaybackInfo(itemId).getOrNull()?.mediaSources?.firstOrNull()
+            } else {
+                null
+            }
+
+            val displayName = itemDisplayName
+                ?: mediaSource?.name?.takeIf { it.isNotBlank() }
+                ?: "vela_$itemId"
+
+            val extension = itemExtension
+                ?: mediaSource?.container
+                    ?.trimStart('.')
+                    ?.lowercase()
+
+            val downloadUrl = buildServerUrl(
+                baseUrl = serverUrl,
+                encodedPath = "Items/$itemId/Download",
+                queryParams = listOf("name" to displayName)
+            )
+
+            Result.success(
+                ItemDownloadRequest(
+                    itemId = itemId,
+                    displayName = displayName,
+                    downloadUrl = downloadUrl,
+                    authToken = accessToken,
+                    fileExtension = extension
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getTranscodedDownloadRequest(
+        itemId: String,
+        maxBitrate: Int,
+        maxHeight: Int,
+        audioStreamIndex: Int? = null,
+        startTimeTicks: Long? = null
+    ): Result<ItemDownloadRequest> {
+        return try {
+            val config = getSessionConfig()
+                ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val serverUrl = config.serverUrl
+            val accessToken = config.accessToken
+            if (accessToken.isNullOrBlank()) {
+                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
+            }
+
+            val item = getItemById(itemId).getOrNull()
+            val displayName = item?.name?.takeIf { it.isNotBlank() } ?: "vela_$itemId"
+
+            val playbackInfo = getPlaybackInfo(
+                itemId = itemId,
+                maxStreamingBitrate = maxBitrate
+            ).getOrElse {
+                return Result.failure(it)
+            }
+
+            val mediaSource = playbackInfo.mediaSources?.firstOrNull()
+                ?: return Result.failure(Exception("No media source available"))
+
+            val mediaSourceId = mediaSource.id ?: itemId
+            val container = "mp4"
+            val audioBitrate = 192_000
+
+            val queryParams = mutableListOf<Pair<String, String?>>(
+                "mediaSourceId" to mediaSourceId,
+                "VideoCodec" to "h264",
+                "AudioCodec" to "aac",
+                "VideoBitRate" to maxBitrate.toString(),
+                "AudioBitRate" to audioBitrate.toString(),
+                "MaxHeight" to maxHeight.toString(),
+                "TranscodingMaxAudioChannels" to "2",
+                "EnableAutoStreamCopy" to "true",
+                "AllowVideoStreamCopy" to "true",
+                "AllowAudioStreamCopy" to "true",
+                "BreakOnNonKeyFrames" to "true",
+                "PlaySessionId" to playbackInfo.playSessionId
+            )
+            if (audioStreamIndex != null) {
+                queryParams.add("AudioStreamIndex" to audioStreamIndex.toString())
+            }
+            if (startTimeTicks != null && startTimeTicks > 0L) {
+                queryParams.add("StartTimeTicks" to startTimeTicks.toString())
+            }
+
+            val downloadUrl = buildServerUrl(
+                baseUrl = serverUrl,
+                encodedPath = "Videos/$itemId/stream.$container",
+                queryParams = queryParams
+            )
+
+            val runtimeTicks = item?.runTimeTicks ?: mediaSource.runTimeTicks ?: 0L
+            val runtimeSeconds = runtimeTicks / 10_000_000.0
+            val sourceBitrate = mediaSource.bitrate ?: 0
+            val effectiveVideoBitrate = if (sourceBitrate > 0) {
+                minOf(maxBitrate, sourceBitrate)
+            } else {
+                maxBitrate
+            }
+            val estimatedBytes = ((effectiveVideoBitrate.toLong() + audioBitrate) * runtimeSeconds / 8.0).toLong()
+                .coerceAtLeast(0L)
+
+            Result.success(
+                ItemDownloadRequest(
+                    itemId = itemId,
+                    displayName = displayName,
+                    downloadUrl = downloadUrl,
+                    authToken = accessToken,
+                    fileExtension = container,
+                    estimatedBytes = estimatedBytes,
+                    isTranscodeResume = startTimeTicks != null && startTimeTicks > 0L
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getPlaybackRequest(
+        itemId: String,
+        maxStreamingBitrate: Int? = null,
+        maxStreamingHeight: Int? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
+        playbackInfo: com.vela.data.model.PlaybackInfoResponse? = null,
+        includeAccessToken: Boolean = false
+    ): Result<PlaybackRequest> {
+        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+        val authContext = createPlaybackAuthContext(config)
+        val activePlaybackInfo = playbackInfo ?: run {
+            val playbackInfoResult = getPlaybackInfo(
+                itemId = itemId,
+                maxStreamingBitrate = maxStreamingBitrate,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                audioTranscodeMode = audioTranscodeMode
+            )
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(
+                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
+                )
+            }
+            playbackInfoResult.getOrNull()
+        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
+
+        return PlaybackUrlBuilder.createLocalPlaybackRequest(
+            context = context,
+            authContext = authContext,
+            itemId = itemId,
+            playbackInfo = activePlaybackInfo,
+            options = PlaybackStreamOptions(
+                maxStreamingBitrate = maxStreamingBitrate,
+                maxStreamingHeight = maxStreamingHeight,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                audioTranscodeMode = audioTranscodeMode,
+                includeAccessToken = includeAccessToken
+            )
+        )
+    }
+
+    suspend fun getCastStreamingUrl(
+        itemId: String,
+        maxStreamingBitrate: Int? = null,
+        maxStreamingHeight: Int? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
+        playbackInfo: com.vela.data.model.PlaybackInfoResponse? = null
+    ): Result<String> {
+        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+        val authContext = createPlaybackAuthContext(config)
+        val activePlaybackInfo = playbackInfo ?: run {
+            val playbackInfoResult = getPlaybackInfo(
+                itemId = itemId,
+                maxStreamingBitrate = maxStreamingBitrate,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                audioTranscodeMode = audioTranscodeMode
+            )
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(
+                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
+                )
+            }
+            playbackInfoResult.getOrNull()
+        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
+
+        return PlaybackUrlBuilder.createCastStreamingUrl(
+            context = context,
+            authContext = authContext,
+            itemId = itemId,
+            playbackInfo = activePlaybackInfo,
+            options = PlaybackStreamOptions(
+                maxStreamingBitrate = maxStreamingBitrate,
+                maxStreamingHeight = maxStreamingHeight,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                audioTranscodeMode = audioTranscodeMode
+            )
+        )
+    }
+
+    /**
+     * Get available audio tracks for a media item
+     */
+    suspend fun getAudioTracks(itemId: String): Result<List<com.vela.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val audioStreams = mediaSource?.mediaStreams?.filter { it.type == "Audio" } ?: emptyList()
+
+            Result.success(audioStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get available video tracks for a media item
+     */
+    suspend fun getVideoTracks(itemId: String): Result<List<com.vela.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val videoStreams = mediaSource?.mediaStreams?.filter { it.type == "Video" } ?: emptyList()
+
+            Result.success(videoStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Get available subtitle tracks for a media item
+     */
+    suspend fun getSubtitleTracks(itemId: String): Result<List<com.vela.data.model.MediaStream>> {
+        return try {
+            val playbackInfoResult = getPlaybackInfo(itemId)
+            if (playbackInfoResult.isFailure) {
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+            }
+
+            val playbackInfo = playbackInfoResult.getOrNull()
+            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
+            val subtitleStreams = mediaSource?.mediaStreams?.filter { it.type == "Subtitle" } ?: emptyList()
+
+            Result.success(subtitleStreams)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getTmdbTitleDetail(tmdbId: String, mediaType: String): Result<BaseItemDto> {
+        val normalizedType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
+        val detail = tmdbApi.titleDetail(normalizedType, tmdbId)
+            ?: return Result.failure(Exception("Title details unavailable"))
+        val title = detail.title?.takeIf { it.isNotBlank() }
+            ?: detail.name?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(Exception("Title details unavailable"))
+        val releaseDate = detail.releaseDate?.takeIf { it.isNotBlank() }
+            ?: detail.firstAirDate?.takeIf { it.isNotBlank() }
+        val runtimeMinutes = (detail.runtime ?: detail.episodeRunTime.firstOrNull())?.takeIf { it > 0 }
+
+        return Result.success(
+            BaseItemDto(
+                id = SeerrItemIds.detailId(tmdbId, normalizedType),
+                name = title,
+                overview = detail.overview?.takeIf { it.isNotBlank() },
+                type = if (normalizedType == "tv") "Series" else "Movie",
+                productionYear = releaseDate?.take(4)?.toIntOrNull(),
+                premiereDate = releaseDate,
+                communityRating = detail.voteAverage?.toFloat(),
+                runTimeTicks = runtimeMinutes?.toLong()?.times(600_000_000L),
+                genres = detail.genres.mapNotNull { genre -> genre.name?.takeIf { it.isNotBlank() } },
+                taglines = listOfNotNull(detail.tagline?.takeIf { it.isNotBlank() }),
+                providerIds = mapOf("tmdb" to tmdbId),
+                imageUrl = tmdbImageUrl(detail.posterPath, "w780"),
+                backdropImageUrl = tmdbImageUrl(detail.backdropPath, "w1280")
+            )
+        )
+    }
+
+    private fun tmdbImageUrl(path: String?, size: String): String? {
+        val cleaned = path?.takeIf { it.isNotBlank() } ?: return null
+        return "https://image.tmdb.org/t/p/$size/${cleaned.removePrefix("/")}"
+    }
+
+    suspend fun findLocalItemIdsByTmdb(tmdbIds: List<String>): Map<String, String> {
+        val ids = tmdbIds.filter { it.isNotBlank() }.distinct()
+        if (ids.isEmpty()) return emptyMap()
+        return try {
+            val api = getApi() ?: return emptyMap()
+            val userId = getUserId() ?: return emptyMap()
+            val result = mutableMapOf<String, String>()
+            ids.chunked(20).forEach { batch ->
+                val response = api.getUserItems(
+                    userId = userId,
+                    includeItemTypes = "Movie,Series",
+                    recursive = true,
+                    limit = batch.size * 2,
+                    anyProviderIdEquals = batch.joinToString(",") { "Tmdb.$it" },
+                    fields = "ProviderIds"
+                )
+                response.body()?.items.orEmpty().forEach { item ->
+                    val tmdb = item.providerIds?.entries
+                        ?.firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }
+                        ?.value
+                    val localId = item.id?.takeIf { it.isNotBlank() }
+                    if (tmdb != null && localId != null && !result.containsKey(tmdb)) {
+                        result[tmdb] = localId
+                    }
+                }
+            }
+            result
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    /**
+     * Search for items using Jellyfin's search API
+     */
+    suspend fun searchItems(
+        searchTerm: String,
+        includeItemTypes: String? = "Movie,Series",
+        limit: Int? = 50
+    ): Result<List<BaseItemDto>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+
+            // Try searchTerm parameter first
+            var response = api.searchItems(
+                userId = userId,
+                searchTerm = searchTerm,
+                includeItemTypes = includeItemTypes,
+                recursive = true,
+                limit = limit,
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
+            )
+
+            // Prefix fallback is only useful for Latin queries.
+            if (
+                searchTerm.any { it in 'A'..'Z' || it in 'a'..'z' } &&
+                (!response.isSuccessful || response.body()?.items?.isEmpty() == true)
+            ) {
+                response = api.searchItemsByName(
+                    userId = userId,
+                    nameStartsWith = searchTerm,
+                    includeItemTypes = includeItemTypes,
+                    recursive = true,
+                    limit = limit,
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
+                )
+            }
+
+            if (response.isSuccessful && response.body() != null) {
+                val queryResult = response.body()!!
+                val items = queryResult.items ?: emptyList()
+                Result.success(items)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_search_items_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun searchItems(
+        searchTerm: String,
+        selectedTypes: Set<SearchMediaType>,
+        limit: Int? = 60
+    ): Result<List<BaseItemDto>> = coroutineScope {
+        val searchQueries = selectedTypes.toSearchQueries()
+        if (searchQueries.isEmpty()) {
+            return@coroutineScope Result.success(emptyList())
+        }
+
+        val results = searchQueries.map { (includeItemTypes, timeoutMs) ->
+            async {
+                runCatching {
+                    withTimeoutOrNull(timeoutMs) {
+                        searchItems(
+                            searchTerm = searchTerm,
+                            includeItemTypes = includeItemTypes,
+                            limit = limit
+                        ).getOrNull()
+                    }
+                }.getOrNull()
+            }
+        }.awaitAll()
+
+        val items = results
+            .filterNotNull()
+            .flatten()
+            .distinctBy { item -> item.id ?: "${item.type}:${item.name}" }
+
+        if (items.isEmpty() && results.all { it == null }) {
+            Result.failure(Exception(string(R.string.media_error_search_items_failed, 0, "Search timed out")))
+        } else {
+            Result.success(items)
+        }
+    }
+
+    // Session reporting methods for playback progress tracking
+
+    /**
+     * Report playback start to Jellyfin server
+     */
+    suspend fun reportPlaybackStart(
+        itemId: String,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        positionTicks: Long? = null,
+        playMethod: String? = null
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+
+            val request = com.vela.data.model.PlaybackStartRequest(
+                itemId = itemId,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                positionTicks = positionTicks,
+                playMethod = playMethod
+            )
+
+            val response = api.reportPlaybackStart(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_report_playback_start_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Report playback progress to Jellyfin server
+     */
+    suspend fun reportPlaybackProgress(
+        itemId: String,
+        positionTicks: Long,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        audioStreamIndex: Int? = null,
+        subtitleStreamIndex: Int? = null,
+        isPaused: Boolean = false,
+        isMuted: Boolean = false,
+        volumeLevel: Int? = null,
+        playMethod: String? = null
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+
+            val request = com.vela.data.model.PlaybackProgressRequest(
+                itemId = itemId,
+                positionTicks = positionTicks,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                audioStreamIndex = audioStreamIndex,
+                subtitleStreamIndex = subtitleStreamIndex,
+                isPaused = isPaused,
+                isMuted = isMuted,
+                volumeLevel = volumeLevel,
+                playMethod = playMethod
+            )
+
+            val response = api.reportPlaybackProgress(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_report_playback_progress_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Report playback stopped to Jellyfin server
+     */
+    suspend fun reportPlaybackStopped(
+        itemId: String,
+        positionTicks: Long? = null,
+        playSessionId: String? = null,
+        mediaSourceId: String? = null,
+        failed: Boolean = false
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+
+            val request = com.vela.data.model.PlaybackStoppedRequest(
+                itemId = itemId,
+                positionTicks = positionTicks,
+                playSessionId = playSessionId,
+                mediaSourceId = mediaSourceId,
+                failed = failed
+            )
+
+            val response = api.reportPlaybackStopped(request)
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_report_playback_stopped_failed, response.code(), response.message())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun BaseItemDto.localVersionLookup(): String? {
+        val ids = providerIds.orEmpty()
+        return PROVIDER_KEYS.firstNotNullOfOrNull { key ->
+            ids.entries
+                .firstOrNull { (providerKey, value) ->
+                    providerKey.equals(key, ignoreCase = true) && value.isNotBlank()
+                }
+                ?.value
+                ?.let { value -> "$key.$value" }
+        }
+    }
+
+    suspend fun getSystemInfo(): Result<SystemInfoFull> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getSystemInfo()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch system info: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getActiveSessions(): Result<List<AdminSessionInfo>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getActiveSessions()
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch sessions: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getActivityLog(startIndex: Int? = null, limit: Int? = null): Result<ActivityLogResult> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.getActivityLog(startIndex = startIndex, limit = limit)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Failed to fetch activity log: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun string(resId: Int, vararg formatArgs: Any): String =
+        context.getString(resId, *formatArgs)
+
+    private fun createTmdbHttpClient(): HttpClient {
+        val timeouts = networkPreferences.getTimeoutConfig()
+        val okHttpClient = OkHttpClient.Builder()
+            .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+
+        return HttpClient(OkHttp) {
+            expectSuccess = false
+            engine {
+                preconfigured = okHttpClient
+            }
+            install(ContentNegotiation) {
+                json(VelaJson)
+            }
+        }
+    }
+}
+
+private fun BaseItemDto.localMediaVersions(): List<BaseItemDto> =
+    mediaSources
+        .orEmpty()
+        .mapNotNull { source ->
+            val sourceItemId = source.id
+                ?.removePrefix("mediasource_")
+                ?.takeIf { it.isNotBlank() }
+                ?: return@mapNotNull null
+            if (source.mediaStreams.orEmpty().none { it.type.equals("Video", ignoreCase = true) }) {
+                return@mapNotNull null
+            }
+
+            copy(
+                id = sourceItemId,
+                mediaSources = listOf(source),
+                mediaStreams = source.mediaStreams
+            )
+        }
+        .sortedByDescending { it.id == id }
+
+// Extension functions for BaseItemDto
+/**
+ * Extension function to get image URL for BaseItemDto
+ * Returns the item ID which will be used by the image loader to construct the full URL
+ */
+fun BaseItemDto.getImageUrl(imageType: String = "Primary"): String {
+    // Return the item ID - the LazyImageLoader will handle constructing the full URL
+    return this.id ?: ""
+}
+
+/**
+ * Get formatted runtime string from ticks
+ */
+fun BaseItemDto.getFormattedRuntime(): String {
+    return runTimeTicks?.let { ticks ->
+        val minutes = (ticks / 600000000).toInt()
+        val hours = minutes / 60
+        val remainingMinutes = minutes % 60
+        if (hours > 0) "${hours}h ${remainingMinutes}m" else "${minutes}m"
+    } ?: ""
+}
+
+/**
+ * Get formatted year and genre string
+ */
+fun BaseItemDto.getYearAndGenre(): String {
+    val year = productionYear?.toString() ?: "Unknown"
+    val genre = genres?.firstOrNull() ?: "Unknown"
+    return "$year | $genre"
+}
+
+/**
+ * Get formatted rating string
+ */
+fun BaseItemDto.getFormattedRating(): String? {
+    return communityRating?.let { rating ->
+        String.format("%.1f", rating)
+    }
+}
+
+/**
+ * Get resume position in ticks from user data
+ */
+fun BaseItemDto.getResumePositionTicks(): Long? {
+    return userData?.playbackPositionTicks
+}
+
+/**
+ * Check if item is resumable (has a saved position and is not finished)
+ */
+fun BaseItemDto.isResumable(): Boolean {
+    val positionTicks = userData?.playbackPositionTicks ?: return false
+    val totalTicks = runTimeTicks ?: return false
+
+    // Consider item resumable if position is > 0 and < 95% of total runtime
+    return positionTicks > 0 && positionTicks < (totalTicks * 0.95)
+}
+
+/**
+ * Get resume position as percentage (0.0 to 1.0)
+ */
+fun BaseItemDto.getResumePercentage(): Double {
+    val positionTicks = userData?.playbackPositionTicks ?: return 0.0
+    val totalTicks = runTimeTicks ?: return 0.0
+
+    return if (totalTicks > 0) {
+        (positionTicks.toDouble() / totalTicks.toDouble()).coerceIn(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+/**
+ * Get formatted resume position as time string (e.g., "15:30")
+ */
+fun BaseItemDto.getFormattedResumePosition(): String? {
+    val positionTicks = userData?.playbackPositionTicks ?: return null
+    val seconds = (positionTicks / 10_000_000).toInt()
+    val minutes = seconds / 60
+    val hours = minutes / 60
+
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes % 60, seconds % 60)
+    } else {
+        String.format("%d:%02d", minutes, seconds % 60)
+    }
+}

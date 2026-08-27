@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">젤리신</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">로드 중…</string>
     <string name="error">오류</string>
@@ -321,7 +321,7 @@
     <string name="downloads_settings_selected_folder">선택한 폴더</string>
     <string name="downloads_settings_change_folder">폴더 변경</string>
     <string name="downloads_settings_use_default">기본값 사용</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9에서는 JellyCine이 공개 다운로드 폴더에 쓰기 전에 파일 액세스를 요청합니다.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9에서는 Vela이 공개 다운로드 폴더에 쓰기 전에 파일 액세스를 요청합니다.</string>
     <string name="downloads_queue_options">대기열 옵션</string>
     <string name="downloads_series_fallback">시리즈</string>
     <string name="downloads_season_number">시즌 %1$d</string>
@@ -492,12 +492,12 @@
     <string name="about_section_project">법률</string>
     <string name="about_section_connect">커넥트</string>
     <string name="about_privacy_policy">개인정보 보호 정책</string>
-    <string name="about_privacy_policy_subtitle">JellyCine이 재생 데이터 및 개인 정보 보호를 어떻게 처리하는지 읽어보세요</string>
+    <string name="about_privacy_policy_subtitle">Vela이 재생 데이터 및 개인 정보 보호를 어떻게 처리하는지 읽어보세요</string>
     <string name="about_open_source_license">라이선스</string>
     <string name="about_open_source_license_subtitle">GNU 일반 공중 사용 허가서 v3.0</string>
     <string name="about_source_code">소스 코드</string>
     <string name="about_rate_app">구글 플레이 평점</string>
-    <string name="about_rate_app_subtitle">더 많은 사람들이 JellyCine을 찾을 수 있도록 평점이나 리뷰를 남겨주세요.</string>
+    <string name="about_rate_app_subtitle">더 많은 사람들이 Vela을 찾을 수 있도록 평점이나 리뷰를 남겨주세요.</string>
     <string name="about_contact_developer">개발자에게 문의하기</string>
     <string name="about_contact_developer_subtitle">피드백, 버그 리포트 또는 개인정보 보호 질문을 이메일로 보내기</string>
     <string name="about_feedback_subject">젤리신 피드백</string>

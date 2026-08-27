@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Safe zone for circular icons is about 66dp diameter within 108dp canvas -->
     <item
-        android:drawable="@drawable/jellycine_logo"
+        android:drawable="@drawable/vela_logo"
         android:gravity="center"
         android:width="66dp"
         android:height="50dp" />

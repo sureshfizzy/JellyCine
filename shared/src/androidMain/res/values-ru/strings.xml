@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Загрузка…</string>
     <string name="error">Ошибка</string>
@@ -333,7 +333,7 @@
     <string name="downloads_settings_selected_folder">Выбранная папка</string>
     <string name="downloads_settings_change_folder">Изменить папку</string>
     <string name="downloads_settings_use_default">Использовать по умолчанию</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 запрашивает доступ к файлам, прежде чем JellyCine сможет записать их в общедоступную папку «Загрузки».</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 запрашивает доступ к файлам, прежде чем Vela сможет записать их в общедоступную папку «Загрузки».</string>
     <string name="downloads_queue_options">Опции очереди</string>
     <string name="downloads_series_fallback">Серии</string>
     <string name="downloads_season_number">Сезон %1$d</string>
@@ -531,15 +531,15 @@
     <string name="about_section_project">Юридический</string>
     <string name="about_section_connect">Подключить</string>
     <string name="about_privacy_policy">Политика конфиденциальности</string>
-    <string name="about_privacy_policy_subtitle">Узнайте, как JellyCine обрабатывает данные воспроизведения и обеспечивает конфиденциальность</string>
+    <string name="about_privacy_policy_subtitle">Узнайте, как Vela обрабатывает данные воспроизведения и обеспечивает конфиденциальность</string>
     <string name="about_open_source_license">Лицензия</string>
     <string name="about_open_source_license_subtitle">Стандартная общественная лицензия GNU v3.0</string>
     <string name="about_source_code">Исходный код</string>
     <string name="about_rate_app">Оцените в Google Play</string>
-    <string name="about_rate_app_subtitle">Оставьте оценку или отзыв, чтобы помочь большему количеству людей найти JellyCine</string>
+    <string name="about_rate_app_subtitle">Оставьте оценку или отзыв, чтобы помочь большему количеству людей найти Vela</string>
     <string name="about_contact_developer">Связаться с разработчиком</string>
     <string name="about_contact_developer_subtitle">Отправляйте отзывы, сообщения об ошибках или вопросы о конфиденциальности по электронной почте</string>
-    <string name="about_feedback_subject">Отзывы о компании JellyCine</string>
+    <string name="about_feedback_subject">Отзывы о компании Vela</string>
     <string name="about_buy_me_a_coffee">Купи мне кофе</string>
     <string name="about_patreon">Патреон</string>
     <!-- Interface Settings -->

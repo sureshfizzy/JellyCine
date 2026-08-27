@@ -27,4 +27,4 @@
 -keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
 
 # Google Cast
--keep class com.jellycine.app.cast.JellyCineCastOptionsProvider { *; }
+-keep class com.vela.app.cast.VelaCastOptionsProvider { *; }

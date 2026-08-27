@@ -1,0 +1,284 @@
+package com.vela.shared.preferences
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+class Preferences(context: Context) {
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    companion object {
+        private const val PREFS_NAME = "vela_download_prefs"
+        private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
+        private const val KEY_FEATURE_CAROUSEL_ENABLED = "feature_carousel_enabled"
+        private const val KEY_FEATURE_CAROUSEL_HEIGHT = "feature_carousel_height"
+        private const val KEY_POSTER_ENHANCERS_ENABLED = "poster_enhancers_enabled"
+        private const val KEY_CONTINUE_WATCHING_ENABLED = "continue_watching_enabled"
+        private const val KEY_NEXT_UP_ENABLED = "next_up_enabled"
+        private const val KEY_USE_MY_MEDIA_TAB = "use_my_media_tab"
+        private const val KEY_MERGE_VERSIONS_ENABLED = "merge_versions_enabled"
+        private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
+        private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
+        private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
+        private const val KEY_DISCORD_RPC_ENABLED = "discord_rpc_enabled"
+
+        const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
+        const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
+        const val FEATURE_CAROUSEL_HEIGHT_SMALL = "small"
+    }
+
+    fun isWifiOnlyDownloadsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, false)
+    }
+
+    fun setWifiOnlyDownloadsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, enabled).apply()
+    }
+
+    fun isFeatureCarouselEnabled(): Boolean {
+        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, false)
+    }
+
+    fun setFeatureCarouselEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FEATURE_CAROUSEL_ENABLED, enabled).apply()
+    }
+
+    fun FeatureCarouselEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isFeatureCarouselEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FEATURE_CAROUSEL_ENABLED) {
+                trySend(isFeatureCarouselEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun getFeatureCarouselHeight(): String {
+        return normalizeFeatureCarouselHeight(
+            prefs.getString(KEY_FEATURE_CAROUSEL_HEIGHT, FEATURE_CAROUSEL_HEIGHT_LARGE)
+        )
+    }
+
+    fun setFeatureCarouselHeight(height: String) {
+        prefs.edit()
+            .putString(KEY_FEATURE_CAROUSEL_HEIGHT, normalizeFeatureCarouselHeight(height))
+            .apply()
+    }
+
+    fun FeatureCarouselHeight(): Flow<String> = callbackFlow {
+        trySend(getFeatureCarouselHeight())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FEATURE_CAROUSEL_HEIGHT) {
+                trySend(getFeatureCarouselHeight())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isAutoplayTrailersEnabled(): Boolean {
+        return prefs.getBoolean(KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS, false)
+    }
+
+    fun setFeatureCarouselAutoplayTrailersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS, enabled).apply()
+    }
+
+    fun autoplayTrailersEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isAutoplayTrailersEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS) {
+                trySend(isAutoplayTrailersEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isPosterEnhancersEnabled(): Boolean {
+        return prefs.getBoolean(KEY_POSTER_ENHANCERS_ENABLED, false)
+    }
+
+    fun setPosterEnhancersEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_POSTER_ENHANCERS_ENABLED, enabled).apply()
+    }
+
+    fun PosterEnhancersEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isPosterEnhancersEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_POSTER_ENHANCERS_ENABLED) {
+                trySend(isPosterEnhancersEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isContinueWatchingEnabled(): Boolean {
+        return prefs.getBoolean(KEY_CONTINUE_WATCHING_ENABLED, true)
+    }
+
+    fun setContinueWatchingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CONTINUE_WATCHING_ENABLED, enabled).apply()
+    }
+
+    fun ContinueWatchingEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isContinueWatchingEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_CONTINUE_WATCHING_ENABLED) {
+                trySend(isContinueWatchingEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isNextUpEnabled(): Boolean {
+        return prefs.getBoolean(KEY_NEXT_UP_ENABLED, false)
+    }
+
+    fun setNextUpEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NEXT_UP_ENABLED, enabled).apply()
+    }
+
+    fun NextUpEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isNextUpEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_NEXT_UP_ENABLED) {
+                trySend(isNextUpEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isUseMyMediaTabEnabled(): Boolean {
+        return prefs.getBoolean(KEY_USE_MY_MEDIA_TAB, false)
+    }
+
+    fun setUseMyMediaTabEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_MY_MEDIA_TAB, enabled).apply()
+    }
+
+    fun UseMyMediaTabEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isUseMyMediaTabEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_USE_MY_MEDIA_TAB) {
+                trySend(isUseMyMediaTabEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isMergeVersionsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_MERGE_VERSIONS_ENABLED, false)
+    }
+
+    fun setMergeVersionsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MERGE_VERSIONS_ENABLED, enabled).apply()
+    }
+
+    fun MergeVersionsEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isMergeVersionsEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_MERGE_VERSIONS_ENABLED) {
+                trySend(isMergeVersionsEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isSeerrStudiosEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SEERR_STUDIOS_ENABLED, true)
+    }
+
+    fun setSeerrStudiosEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SEERR_STUDIOS_ENABLED, enabled).apply()
+    }
+
+    fun SeerrStudiosEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isSeerrStudiosEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_SEERR_STUDIOS_ENABLED) {
+                trySend(isSeerrStudiosEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isSeerrNetworksEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SEERR_NETWORKS_ENABLED, true)
+    }
+
+    fun setSeerrNetworksEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SEERR_NETWORKS_ENABLED, enabled).apply()
+    }
+
+    fun SeerrNetworksEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isSeerrNetworksEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_SEERR_NETWORKS_ENABLED) {
+                trySend(isSeerrNetworksEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isDiscordRpcEnabled(): Boolean {
+        return prefs.getBoolean(KEY_DISCORD_RPC_ENABLED, true)
+    }
+
+    fun setDiscordRpcEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DISCORD_RPC_ENABLED, enabled).apply()
+    }
+
+    fun discordRpcEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isDiscordRpcEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_DISCORD_RPC_ENABLED) {
+                trySend(isDiscordRpcEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    private fun normalizeFeatureCarouselHeight(height: String?): String {
+        return when (height) {
+            FEATURE_CAROUSEL_HEIGHT_SMALL -> FEATURE_CAROUSEL_HEIGHT_SMALL
+            FEATURE_CAROUSEL_HEIGHT_MEDIUM -> FEATURE_CAROUSEL_HEIGHT_MEDIUM
+            else -> FEATURE_CAROUSEL_HEIGHT_LARGE
+        }
+    }
+}

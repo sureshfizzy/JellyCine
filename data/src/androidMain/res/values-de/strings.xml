@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Bitte geben Sie Ihre Server-URL ein.</string>
     <string name="seerr_error_url_scheme_required">Die URL des Servers muss mit http://oder https://beginnen</string>
     <string name="seerr_error_url_invalid">Bitte geben Sie eine gültige Server-URL ein.</string>
-    <string name="seerr_error_media_server_url_missing">Ihre Medienserver-URL fehlt. Melden Sie sich zuerst bei JellyCine an.</string>
+    <string name="seerr_error_media_server_url_missing">Ihre Medienserver-URL fehlt. Melden Sie sich zuerst bei Vela an.</string>
     <string name="seerr_error_media_server_url_invalid">Ihre Medienserver-URL ist ungültig.</string>
     <string name="seerr_error_not_connected">Seerr ist nicht verbunden.</string>
     <string name="seerr_error_current_user_parse">Der aktuelle Seerr-Benutzer konnte nicht analysiert werden.</string>

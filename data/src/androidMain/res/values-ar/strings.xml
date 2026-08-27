@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">يرجى إدخال عنوان URL الخاص بـ Seerr.</string>
     <string name="seerr_error_url_scheme_required">يجب أن يبدأ عنوان URL الخاص بالمتصفح بـ http://أو https://</string>
     <string name="seerr_error_url_invalid">يرجى إدخال عنوان URL صالح لـ Seerr.</string>
-    <string name="seerr_error_media_server_url_missing">عنوان URL لخادم الوسائط الخاص بك مفقود. قم بتسجيل الدخول إلى JellyCine أولاً.</string>
+    <string name="seerr_error_media_server_url_missing">عنوان URL لخادم الوسائط الخاص بك مفقود. قم بتسجيل الدخول إلى Vela أولاً.</string>
     <string name="seerr_error_media_server_url_invalid">عنوان URL لخادم الوسائط الخاص بك غير صالح.</string>
     <string name="seerr_error_not_connected">السير غير متصل.</string>
     <string name="seerr_error_current_user_parse">تعذر تحليل مستخدم Seerr الحالي.</string>

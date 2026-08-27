@@ -1,6 +1,6 @@
-# JellyCine 手机端开发计划
+# Vela 手机端开发计划
 
-ZeroDevi1/JellyCine fork。本文件是已确认的实现顺序，不是愿望清单。
+ZeroDevi1/Vela fork。本文件是已确认的实现顺序，不是愿望清单。
 TV 模块：手势 / 竖屏 overlay 不跟；色彩、搜索、线路、收藏能下沉 data 层的共用。
 
 参考图：K50 Ultra `/sdcard/DCIM/Screenshots/`（Hills `com.mountains.hills`、Yamby `com.hush.yamby`）。拉图用 skill `jellycine-screenshot-refs`。
@@ -16,7 +16,7 @@ TV 模块：手势 / 竖屏 overlay 不跟；色彩、搜索、线路、收藏�
 - **单击左右秒数**：跟设置里的快退/快进间隔（10/30），不写死 10。
 - **小窗**：必须做 Android `PictureInPicture`。
 - **聚合搜索**：所有已登录 Emby/Jellyfin 并发搜索，结果合并一列，顶部 chips 可筛服务器。点条目用该服务器 session。
-- **品牌**：这一期不改显示名、icon、包名。仍用 `JellyCine` / `com.jellycine.app`。关于页可加致敬一行。
+- **品牌**：这一期不改显示名、icon、包名。仍用 `Vela` / `com.vela.app`。关于页可加致敬一行。
 - **不对齐**：Hills Pro / 弹幕 / Anime4K / FSR。
 
 ---
@@ -153,6 +153,8 @@ K50 上 SDR / HDR 不发灰、不过饱和、不偏绿；切 Exo 无明显色差
 - [x] 添加对话框：地址、协议、端口、可选路径、用户名、密码；连接成功即 `authenticateUser` upsert 并切到新会话
 - [x] 点条目 `switchServer`；溢出可删非当前服、可给该服加用户
 - [x] 首页顶栏 / 设置点服务器名进入此页，不再只靠弹窗
+- [x] 打开应用先进入服务器页，点条目进入该服 Emby/Jellyfin 首页
+
 ### 锚点
 
 - `data/.../AuthRepository.kt`（`SavedServer`、`authenticateUser`、`switchServer`、`removeSavedServer`）
@@ -253,7 +255,7 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 - [ ] 详情：全宽继续播放、导演一行、继续观看横滑、演职人员页
 - [ ] 库：tab 文案 / 位置、排序芯片、已看勾
 - [ ] 跟现有深色 token，不引入 Hills 粉橙硬编码
-- [ ] 关于页：`Based on JellyCine`
+- [ ] 关于页：`Based on Vela`
 
 改名 / 改包 / 改 icon 放到产品稳定之后。覆盖安装不能丢登录。
 

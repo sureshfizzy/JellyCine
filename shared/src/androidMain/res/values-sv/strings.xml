@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Laddar…</string>
     <string name="error">Fel</string>
@@ -325,7 +325,7 @@
     <string name="downloads_settings_selected_folder">Vald mapp</string>
     <string name="downloads_settings_change_folder">Ändra mapp</string>
     <string name="downloads_settings_use_default">Använd standard</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 ber om filåtkomst innan JellyCine kan skriva till den offentliga nedladdningsmappen.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 ber om filåtkomst innan Vela kan skriva till den offentliga nedladdningsmappen.</string>
     <string name="downloads_queue_options">Köalternativ</string>
     <string name="downloads_series_fallback">Serien</string>
     <string name="downloads_season_number">Säsong %1$d</string>
@@ -505,15 +505,15 @@
     <string name="about_section_project">Rättslig</string>
     <string name="about_section_connect">Anslut</string>
     <string name="about_privacy_policy">Sekretesspolicy</string>
-    <string name="about_privacy_policy_subtitle">Läs hur JellyCine hanterar uppspelningsdata och sekretess</string>
+    <string name="about_privacy_policy_subtitle">Läs hur Vela hanterar uppspelningsdata och sekretess</string>
     <string name="about_open_source_license">Licens</string>
     <string name="about_open_source_license_subtitle">GNU General Public License v3.0</string>
     <string name="about_source_code">Källkod</string>
     <string name="about_rate_app">Betygsätt på Google Play</string>
-    <string name="about_rate_app_subtitle">Lämna ett betyg eller recension för att hjälpa fler att hitta JellyCine</string>
+    <string name="about_rate_app_subtitle">Lämna ett betyg eller recension för att hjälpa fler att hitta Vela</string>
     <string name="about_contact_developer">Kontakta utvecklaren</string>
     <string name="about_contact_developer_subtitle">Skicka feedback, felrapporter eller sekretessfrågor via e-post</string>
-    <string name="about_feedback_subject">JellyCine Feedback</string>
+    <string name="about_feedback_subject">Vela Feedback</string>
     <string name="about_buy_me_a_coffee">Köp mig en kaffe</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

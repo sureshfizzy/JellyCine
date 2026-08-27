@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     
     <!-- General -->
     <string name="loading">加载中…</string>
@@ -428,7 +428,7 @@
     <string name="downloads_settings_selected_folder">选定的文件夹</string>
     <string name="downloads_settings_change_folder">更改文件夹</string>
     <string name="downloads_settings_use_default">使用默认</string>
-    <string name="downloads_settings_legacy_permission_hint">在 JellyCine 写入公共下载文件夹之前，Android 8/9 要求访问文件。</string>
+    <string name="downloads_settings_legacy_permission_hint">在 Vela 写入公共下载文件夹之前，Android 8/9 要求访问文件。</string>
     <string name="downloads_queue_options">队列选项</string>
     <string name="downloads_series_fallback">系列</string>
     <string name="downloads_season_number">赛季 %1$d</string>
@@ -588,7 +588,7 @@
     <string name="settings_server_address">服务器地址</string>
     <string name="settings_server_protocol">协议</string>
     <string name="settings_server_port">端口</string>
-    <string name="settings_server_path">路径（可选）</string>
+    <string name="settings_server_path">路径(可选,无则留空)</string>
     <string name="settings_server_path_hint">无则留空</string>
     <string name="settings_server_connect">连接</string>
     <string name="settings_server_protocol_https">HTTPS</string>
@@ -613,15 +613,15 @@
     <string name="about_section_project">合法</string>
     <string name="about_section_connect">连接</string>
     <string name="about_privacy_policy">隐私政策</string>
-    <string name="about_privacy_policy_subtitle">阅读 JellyCine 如何处理播放数据和隐私</string>
+    <string name="about_privacy_policy_subtitle">阅读 Vela 如何处理播放数据和隐私</string>
     <string name="about_open_source_license">执照</string>
     <string name="about_open_source_license_subtitle">GNU 通用公共许可证 v3.0</string>
     <string name="about_source_code">源代码</string>
     <string name="about_rate_app">在 Google Play 上评分</string>
-    <string name="about_rate_app_subtitle">评分或评价，帮助更多人发现 JellyCine</string>
+    <string name="about_rate_app_subtitle">评分或评价，帮助更多人发现 Vela</string>
     <string name="about_contact_developer">联系开发者</string>
     <string name="about_contact_developer_subtitle">通过电子邮件发送反馈、错误报告或隐私问题</string>
-    <string name="about_feedback_subject">JellyCine 反馈</string>
+    <string name="about_feedback_subject">Vela 反馈</string>
     <string name="about_buy_me_a_coffee">给我买杯咖啡</string>
     <string name="about_patreon">Patreon</string>
 
@@ -715,6 +715,44 @@
     <string name="detail_seerr_recommendations_title">Seerr 推荐</string>
     <string name="detail_similar_item_unknown">未知</string>
     <string name="detail_continue_playback">继续播放</string>
+    <string name="detail_continue_play_at">继续播放 %1$s</string>
+    <string name="detail_action_cast">投屏</string>
+    <string name="detail_more_from_season">更多来自 第%1$d季</string>
+    <string name="detail_more_from_season_named">更多来自 %1$s</string>
+    <string name="detail_season_fallback">季</string>
+    <string name="detail_open_season">打开本季</string>
+    <string name="detail_jump_episode">跳转剧集</string>
+    <string name="detail_jump_episode_hint">输入集数或标题</string>
+    <string name="detail_jump_episode_empty">没有匹配的剧集</string>
+    <string name="detail_jump_confirm">跳转</string>
+    <string name="detail_episode_range">%1$d–%2$d</string>
+    <string name="detail_episodes">剧集</string>
+    <string name="detail_chapters">章节</string>
+    <string name="detail_chapter_fallback">章节 %1$d</string>
+    <string name="detail_external_links">外部链接</string>
+    <string name="detail_media_info">媒体信息</string>
+    <string name="detail_media_video">视频</string>
+    <string name="detail_media_audio">音频</string>
+    <string name="detail_media_type">类型</string>
+    <string name="detail_media_index">索引</string>
+    <string name="detail_media_display_title">显示标题</string>
+    <string name="detail_media_language">语言</string>
+    <string name="detail_media_codec">编码器</string>
+    <string name="detail_media_bitrate">码率</string>
+    <string name="detail_media_range">动态范围</string>
+    <string name="detail_media_bit_depth">位深度</string>
+    <string name="detail_media_pixel_format">像素格式</string>
+    <string name="detail_media_width">宽度</string>
+    <string name="detail_media_height">高度</string>
+    <string name="detail_media_aspect">长宽比</string>
+    <string name="detail_media_framerate">帧率</string>
+    <string name="detail_media_default">默认</string>
+    <string name="detail_media_external">外部</string>
+    <string name="detail_audio_fallback">音频</string>
+    <string name="detail_subtitle_fallback">字幕</string>
+    <string name="detail_overflow">更多</string>
+    <string name="detail_runtime_hms">%1$d小时%2$d分%3$d秒</string>
+    <string name="detail_runtime_ms">%1$d分%2$d秒</string>
     <string name="detail_play_trailer">播放预告片</string>
     <string name="detail_unfavorite">取消收藏</string>
     <string name="detail_video_fallback">视频</string>

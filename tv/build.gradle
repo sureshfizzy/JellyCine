@@ -20,11 +20,11 @@ def signingValue = { String key, String envKey ->
 }
 
 android {
-    namespace = 'com.jellycine.app'
+    namespace = 'com.vela.app'
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.jellycine.tv"
+        applicationId = "com.vela.tv"
         minSdk = 27
         targetSdk = 36
         versionCode = rootProject.ext.appVersionCode as Integer
@@ -38,7 +38,7 @@ android {
 
     signingConfigs {
         release {
-            def storeFilePath = signingValue("storeFile", "JELLYCINE_STORE_FILE") ?: "jellycine-release.keystore"
+            def storeFilePath = signingValue("storeFile", "JELLYCINE_STORE_FILE") ?: "vela-release.keystore"
             def storePasswordValue = signingValue("storePassword", "JELLYCINE_STORE_PASSWORD")
             def keyAliasValue = signingValue("keyAlias", "JELLYCINE_KEY_ALIAS")
             def keyPasswordValue = signingValue("keyPassword", "JELLYCINE_KEY_PASSWORD")
@@ -110,7 +110,7 @@ androidComponents {
             def versionName = rootProject.ext.appVersionName as String
             def abiName = output.filters.find { it.filterType.toString() == "ABI" }?.identifier
             def abiSuffix = abiName != null ? "-${abiName}" : ""
-            output.outputFileName.set("jellycine-tv-${buildTypeName}-${versionName}${abiSuffix}.apk")
+            output.outputFileName.set("vela-tv-${buildTypeName}-${versionName}${abiSuffix}.apk")
         }
     }
 }

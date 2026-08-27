@@ -1,24 +1,24 @@
 <p align="center">
-  <img src="phone/src/main/assets/jellycine_logo.png" alt="JellyCine" width="200">
+  <img src="phone/src/main/assets/vela_logo.png" alt="Vela" width="200">
 </p>
 
-<h1 align="center">JellyCine</h1>
+<h1 align="center">Vela</h1>
 
 <p align="center">
    A Jetpack Compose based client for <strong>Jellyfin</strong> and <strong>Emby</strong> — designed for phone, TV, and beyond.
 </p>
 
 <p align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.jellycine.app">
+  <a href="https://play.google.com/store/apps/details?id=com.vela.app">
     <img src="https://img.shields.io/badge/Google_Play-Download-34A853?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
   </a>
-  <a href="https://github.com/sureshfizzy/JellyCine/releases">
+  <a href="https://github.com/ZeroDevi1/Vela/releases">
     <img src="https://img.shields.io/badge/GitHub-APK_Download-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Releases">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/Sureshfizzy">
+  <a href="https://www.buymeacoffee.com/ZeroDevi1">
     <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
   </a>
   <a href="https://www.patreon.com/c/sureshs/membership">
@@ -149,17 +149,17 @@ shared/  — Shared UI components and image infrastructure
 ./gradlew :tv:assembleDebug
 ```
 
-APK naming: `jellycine-{debug|release}-<version>.apk`
+APK naming: `vela-{debug|release}-<version>.apk`
 
 ---
 
 ## Translating
 
-<a href="https://weblate.jellycine.org/engage/jellycine/">
-<img src="https://weblate.jellycine.org/widget/jellycine/multi-auto.svg" alt="Translation status" />
+<a href="https://weblate.vela.org/engage/vela/">
+<img src="https://weblate.vela.org/widget/vela/multi-auto.svg" alt="Translation status" />
 </a>
 
-Help translate JellyCine into your language on [Weblate](https://weblate.jellycine.org/engage/jellycine/).
+Help translate Vela into your language on [Weblate](https://weblate.vela.org/engage/vela/).
 
 ---
 
@@ -167,7 +167,7 @@ Help translate JellyCine into your language on [Weblate](https://weblate.jellyci
 
 Issues and pull requests are welcome. For large feature work, open an issue first to align on scope.
 
-For community discussions and support, see [Discussions](https://github.com/sureshfizzy/JellyCine/discussions).
+For community discussions and support, see [Discussions](https://github.com/ZeroDevi1/Vela/discussions).
 
 ---
 

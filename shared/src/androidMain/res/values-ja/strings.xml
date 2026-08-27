@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ジェリーシネ</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">読み込み中…</string>
     <string name="error">[エラー]</string>
@@ -321,7 +321,7 @@
     <string name="downloads_settings_selected_folder">選択したフォルダー</string>
     <string name="downloads_settings_change_folder">フォルダを変更</string>
     <string name="downloads_settings_use_default">デフォルトを使用</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9は、JellyCineがパブリックダウンロードフォルダーに書き込む前にファイルへのアクセスを要求します。</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9は、Velaがパブリックダウンロードフォルダーに書き込む前にファイルへのアクセスを要求します。</string>
     <string name="downloads_queue_options">キューオプション</string>
     <string name="downloads_series_fallback">シリーズ</string>
     <string name="downloads_season_number">シーズン %1$d</string>
@@ -492,12 +492,12 @@
     <string name="about_section_project">リーガル</string>
     <string name="about_section_connect">接続</string>
     <string name="about_privacy_policy">プライバシーポリシー</string>
-    <string name="about_privacy_policy_subtitle">JellyCineが再生データとプライバシーをどのように処理するかを読んでください</string>
+    <string name="about_privacy_policy_subtitle">Velaが再生データとプライバシーをどのように処理するかを読んでください</string>
     <string name="about_open_source_license">ライセンス</string>
     <string name="about_open_source_license_subtitle">GNU 一般公衆利用許諾契約書 v3.0</string>
     <string name="about_source_code">[ソースコード]</string>
     <string name="about_rate_app">グーグルプレイでのレート</string>
-    <string name="about_rate_app_subtitle">より多くの人がJellyCineを見つけられるように、評価またはレビューを残してください</string>
+    <string name="about_rate_app_subtitle">より多くの人がVelaを見つけられるように、評価またはレビューを残してください</string>
     <string name="about_contact_developer">開発者に連絡</string>
     <string name="about_contact_developer_subtitle">フィードバック、バグレポート、プライバシーに関する質問をメールで送信する</string>
     <string name="about_feedback_subject">ジェリーシネフィードバック</string>

@@ -113,7 +113,7 @@
     <string name="seerr_error_url_required">请输入您的 Seerr 网址。</string>
     <string name="seerr_error_url_scheme_required">Seerr 地址必须以 http:// 或 https:// 开头</string>
     <string name="seerr_error_url_invalid">请输入有效的 Seerr 网址。</string>
-    <string name="seerr_error_media_server_url_missing">您的媒体服务器 URL 丢失。请先登录 JellyCine。</string>
+    <string name="seerr_error_media_server_url_missing">您的媒体服务器 URL 丢失。请先登录 Vela。</string>
     <string name="seerr_error_media_server_url_invalid">您的媒体服务器 URL 无效。</string>
     <string name="seerr_error_not_connected">Seerr 未连接。</string>
     <string name="seerr_error_current_user_parse">无法解析当前 Seerr 用户。</string>

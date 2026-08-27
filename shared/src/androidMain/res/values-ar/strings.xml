@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">جيلي سين</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">جاري التحميل…</string>
     <string name="error">خطأ</string>
@@ -341,7 +341,7 @@
     <string name="downloads_settings_selected_folder">المجلد المحدد</string>
     <string name="downloads_settings_change_folder">تغيير المجلد</string>
     <string name="downloads_settings_use_default">استخدم الإعداد الافتراضي</string>
-    <string name="downloads_settings_legacy_permission_hint">يطلب Android 8/9 الوصول إلى الملفات قبل أن تتمكن JellyCine من الكتابة إلى مجلد التنزيلات العام.</string>
+    <string name="downloads_settings_legacy_permission_hint">يطلب Android 8/9 الوصول إلى الملفات قبل أن تتمكن Vela من الكتابة إلى مجلد التنزيلات العام.</string>
     <string name="downloads_queue_options">خيارات قائمة الانتظار</string>
     <string name="downloads_series_fallback">سلسلة</string>
     <string name="downloads_season_number">الموسم %1$d</string>
@@ -557,12 +557,12 @@
     <string name="about_section_project">قانوني</string>
     <string name="about_section_connect">قم بالاتصال</string>
     <string name="about_privacy_policy">سياسة الخصوصية</string>
-    <string name="about_privacy_policy_subtitle">اقرأ كيف تتعامل JellyCine مع بيانات التشغيل والخصوصية</string>
+    <string name="about_privacy_policy_subtitle">اقرأ كيف تتعامل Vela مع بيانات التشغيل والخصوصية</string>
     <string name="about_open_source_license">الترخيص</string>
     <string name="about_open_source_license_subtitle">رخصة غنو العمومية v3.0</string>
     <string name="about_source_code">كود المصدر</string>
     <string name="about_rate_app">السعر على جوجل بلاي</string>
-    <string name="about_rate_app_subtitle">اترك تقييمًا أو مراجعة لمساعدة المزيد من الأشخاص في العثور على JellyCine</string>
+    <string name="about_rate_app_subtitle">اترك تقييمًا أو مراجعة لمساعدة المزيد من الأشخاص في العثور على Vela</string>
     <string name="about_contact_developer">اتصل بالمطور</string>
     <string name="about_contact_developer_subtitle">إرسال التعليقات أو تقارير الأخطاء أو أسئلة الخصوصية عبر البريد الإلكتروني</string>
     <string name="about_feedback_subject">ملاحظات جيلي سين</string>

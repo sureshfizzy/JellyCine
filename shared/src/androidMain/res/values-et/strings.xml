@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Laadimine…</string>
     <string name="error">Viga</string>
@@ -325,7 +325,7 @@
     <string name="downloads_settings_selected_folder">Valitud kaust</string>
     <string name="downloads_settings_change_folder">Muuda kausta</string>
     <string name="downloads_settings_use_default">Kasutage vaikimisi</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 küsib failidele juurdepääsu enne, kui JellyCine saab avalikku allalaadimiskausta kirjutada.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 küsib failidele juurdepääsu enne, kui Vela saab avalikku allalaadimiskausta kirjutada.</string>
     <string name="downloads_queue_options">Järjekorra valikud</string>
     <string name="downloads_series_fallback">Seeria</string>
     <string name="downloads_season_number">Hooaeg %1$d</string>
@@ -505,15 +505,15 @@
     <string name="about_section_project">Juriidiline</string>
     <string name="about_section_connect">Ühenda</string>
     <string name="about_privacy_policy">Privaatsuspoliitika</string>
-    <string name="about_privacy_policy_subtitle">Lugege, kuidas JellyCine käsitleb taasesitusandmeid ja privaatsust</string>
+    <string name="about_privacy_policy_subtitle">Lugege, kuidas Vela käsitleb taasesitusandmeid ja privaatsust</string>
     <string name="about_open_source_license">Litsents</string>
     <string name="about_open_source_license_subtitle">GNU üldine avalik litsents v3.0</string>
     <string name="about_source_code">Lähtekood</string>
     <string name="about_rate_app">Hinda Google Plays</string>
-    <string name="about_rate_app_subtitle">Jäta hinnang või arvustus, et aidata rohkematel inimestel JellyCine\'i leida</string>
+    <string name="about_rate_app_subtitle">Jäta hinnang või arvustus, et aidata rohkematel inimestel Vela\'i leida</string>
     <string name="about_contact_developer">Võtke ühendust arendajaga</string>
     <string name="about_contact_developer_subtitle">Saatke e-posti teel tagasisidet, veateated või privaatsusküsimusi</string>
-    <string name="about_feedback_subject">JellyCine Tagasiside</string>
+    <string name="about_feedback_subject">Vela Tagasiside</string>
     <string name="about_buy_me_a_coffee">Osta mulle kohvi</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

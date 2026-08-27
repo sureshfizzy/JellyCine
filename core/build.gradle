@@ -15,7 +15,7 @@ if (discordAar.exists()) {
 }
 
 android {
-    namespace = 'com.jellycine.core'
+    namespace = 'com.vela.core'
     compileSdk = 37
     ndkVersion = "27.0.12077973"
 

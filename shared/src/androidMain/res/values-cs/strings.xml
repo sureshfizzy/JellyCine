@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Načítání…</string>
     <string name="error">Chyba</string>
@@ -333,7 +333,7 @@
     <string name="downloads_settings_selected_folder">Vybraná složka</string>
     <string name="downloads_settings_change_folder">Změnit složku</string>
     <string name="downloads_settings_use_default">Použít výchozí</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 požádá o přístup k souborům, než může JellyCine zapsat do veřejné složky Stahování.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 požádá o přístup k souborům, než může Vela zapsat do veřejné složky Stahování.</string>
     <string name="downloads_queue_options">Možnosti fronty</string>
     <string name="downloads_series_fallback">Série</string>
     <string name="downloads_season_number">Sezóna %1$d</string>
@@ -531,15 +531,15 @@
     <string name="about_section_project">Právní</string>
     <string name="about_section_connect">Připojit</string>
     <string name="about_privacy_policy">Zásady ochrany osobních údajů</string>
-    <string name="about_privacy_policy_subtitle">Přečtěte si, jak společnost JellyCine zpracovává data přehrávání a soukromí</string>
+    <string name="about_privacy_policy_subtitle">Přečtěte si, jak společnost Vela zpracovává data přehrávání a soukromí</string>
     <string name="about_open_source_license">Licence</string>
     <string name="about_open_source_license_subtitle">Obecná veřejná licence GNU v3.0</string>
     <string name="about_source_code">Zdrojový kód</string>
     <string name="about_rate_app">Ohodnoťte na Google Play</string>
-    <string name="about_rate_app_subtitle">Zanechte hodnocení nebo recenzi, abyste pomohli více lidem najít JellyCine</string>
+    <string name="about_rate_app_subtitle">Zanechte hodnocení nebo recenzi, abyste pomohli více lidem najít Vela</string>
     <string name="about_contact_developer">Kontaktovat vývojáře</string>
     <string name="about_contact_developer_subtitle">Posílejte zpětnou vazbu, hlášení chyb nebo otázky týkající se ochrany osobních údajů e-mailem</string>
-    <string name="about_feedback_subject">JellyCine Zpětná vazba</string>
+    <string name="about_feedback_subject">Vela Zpětná vazba</string>
     <string name="about_buy_me_a_coffee">Kupte mi kávu</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

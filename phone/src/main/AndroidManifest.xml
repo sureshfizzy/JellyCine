@@ -25,7 +25,7 @@
         android:maxSdkVersion="28" />
 
     <application
-        android:name=".JellyCineApplication"
+        android:name=".VelaApplication"
         android:allowBackup="true"
         android:largeHeap="true"
         android:enableOnBackInvokedCallback="true"
@@ -36,13 +36,13 @@
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.JellyCine"
+        android:theme="@style/Theme.Vela"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.jellycine.app.cast.JellyCineCastOptionsProvider" />
+            android:value="com.vela.app.cast.VelaCastOptionsProvider" />
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
@@ -54,9 +54,9 @@
         </service>
         
         <activity
-            android:name=".ui.activity.JellyCineActivity"
+            android:name=".ui.activity.VelaActivity"
             android:exported="true"
-            android:theme="@style/Theme.JellyCine.Splash"
+            android:theme="@style/Theme.Vela.Splash"
             android:launchMode="singleTop"
             android:resizeableActivity="true"
             android:supportsPictureInPicture="true"
@@ -97,7 +97,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="jellycine"
+                    android:scheme="vela"
                     android:host="discord"
                     android:path="/callback" />
             </intent-filter>

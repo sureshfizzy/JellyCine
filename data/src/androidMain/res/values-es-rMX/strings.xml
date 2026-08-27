@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Por favor, introduzca su URL de Seerr.</string>
     <string name="seerr_error_url_scheme_required">La URL de Seerr debe comenzar con http://o https://</string>
     <string name="seerr_error_url_invalid">Escriba una dirección URL de Seerr válida.</string>
-    <string name="seerr_error_media_server_url_missing">Falta la dirección URL del servidor multimedia. Inicia sesión primero en JellyCine.</string>
+    <string name="seerr_error_media_server_url_missing">Falta la dirección URL del servidor multimedia. Inicia sesión primero en Vela.</string>
     <string name="seerr_error_media_server_url_invalid">La dirección URL del servidor multimedia no es válida.</string>
     <string name="seerr_error_not_connected">Seerr no está conectada.</string>
     <string name="seerr_error_current_user_parse">No se pudo analizar el usuario actual de Seerr.</string>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Vela brand mark</title>
+  <desc id="desc">A sail and wave framing a forward play symbol.</desc>
+  <defs>
+    <linearGradient id="vela-gradient" x1="96" y1="390" x2="414" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1565C0"/>
+      <stop offset="0.55" stop-color="#1E88E5"/>
+      <stop offset="1" stop-color="#64B5F6"/>
+    </linearGradient>
+    <linearGradient id="vela-accent" x1="186" y1="382" x2="392" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C4DFF"/>
+      <stop offset="1" stop-color="#64F3FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 帆、播放键和波浪共享同一轮廓语言，确保缩小后仍能一眼识别。 -->
+  <path fill="url(#vela-gradient)" d="M93 377C126 265 184 164 290 86c-54 89-76 173-61 252-45-18-88-5-136 39Z"/>
+  <path fill="url(#vela-accent)" d="M242 165c0-14 15-23 27-16l154 91c12 7 12 25 0 32l-154 91c-12 7-27-2-27-16V165Z"/>
+  <path fill="url(#vela-gradient)" d="M102 392c84-36 157-26 224 6 31 15 64 17 98 6-45 37-94 47-148 27-58-21-111-25-174-2 31-24 64-35 101-36-34-9-67-10-101-1Z"/>
+  <path fill="#EAFBFF" fill-opacity="0.72" d="M258 179v154l131-77-131-77Z"/>
+</svg>

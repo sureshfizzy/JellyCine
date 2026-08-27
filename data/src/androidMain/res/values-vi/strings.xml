@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Vui lòng nhập URL Seerr của bạn.</string>
     <string name="seerr_error_url_scheme_required">URL Seerr phải bắt đầu bằng http://hoặc https://</string>
     <string name="seerr_error_url_invalid">Vui lòng nhập URL Seerr hợp lệ.</string>
-    <string name="seerr_error_media_server_url_missing">URL máy chủ phương tiện của bạn bị thiếu. Đăng nhập vào JellyCine trước.</string>
+    <string name="seerr_error_media_server_url_missing">URL máy chủ phương tiện của bạn bị thiếu. Đăng nhập vào Vela trước.</string>
     <string name="seerr_error_media_server_url_invalid">URL máy chủ phương tiện của bạn không hợp lệ.</string>
     <string name="seerr_error_not_connected">Seerr không kết nối.</string>
     <string name="seerr_error_current_user_parse">Không thể phân tích cú pháp người dùng Seerr hiện tại.</string>

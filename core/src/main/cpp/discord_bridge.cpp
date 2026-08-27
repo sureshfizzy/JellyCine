@@ -79,7 +79,7 @@ static void callbackLoop() {
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
-Java_com_jellycine_player_discord_DiscordRpcManager_nativeInitialize(
+Java_com_vela_player_discord_DiscordRpcManager_nativeInitialize(
         JNIEnv *env, jobject thiz, jstring application_id, jstring access_token) {
 
     if (g_client != nullptr) {
@@ -137,7 +137,7 @@ Java_com_jellycine_player_discord_DiscordRpcManager_nativeInitialize(
 }
 
 JNIEXPORT void JNICALL
-Java_com_jellycine_player_discord_DiscordRpcManager_nativeUpdatePresence(
+Java_com_vela_player_discord_DiscordRpcManager_nativeUpdatePresence(
         JNIEnv *env, jobject thiz,
         jstring details, jstring state,
         jstring large_image_key, jstring large_image_text,
@@ -177,7 +177,7 @@ Java_com_jellycine_player_discord_DiscordRpcManager_nativeUpdatePresence(
 }
 
 JNIEXPORT void JNICALL
-Java_com_jellycine_player_discord_DiscordRpcManager_nativeClearPresence(
+Java_com_vela_player_discord_DiscordRpcManager_nativeClearPresence(
         JNIEnv *env, jobject thiz) {
 
     {
@@ -191,7 +191,7 @@ Java_com_jellycine_player_discord_DiscordRpcManager_nativeClearPresence(
 }
 
 JNIEXPORT void JNICALL
-Java_com_jellycine_player_discord_DiscordRpcManager_nativeShutdown(
+Java_com_vela_player_discord_DiscordRpcManager_nativeShutdown(
         JNIEnv *env, jobject thiz) {
 
     if (g_client == nullptr) return;

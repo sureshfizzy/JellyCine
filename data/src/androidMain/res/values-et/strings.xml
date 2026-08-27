@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">Sisestage oma Seerri URL.</string>
     <string name="seerr_error_url_scheme_required">Seerri URL peab algama tähega http://või https://</string>
     <string name="seerr_error_url_invalid">Sisestage kehtiv Seerri URL.</string>
-    <string name="seerr_error_media_server_url_missing">Teie meediumiserveri URL puudub. Logige kõigepealt sisse JellyCine\'i.</string>
+    <string name="seerr_error_media_server_url_missing">Teie meediumiserveri URL puudub. Logige kõigepealt sisse Vela\'i.</string>
     <string name="seerr_error_media_server_url_invalid">Teie meediumiserveri URL on vale.</string>
     <string name="seerr_error_not_connected">Seerr ei ole ühendatud.</string>
     <string name="seerr_error_current_user_parse">Praegust Seerri kasutajat ei õnnestunud analüüsida.</string>

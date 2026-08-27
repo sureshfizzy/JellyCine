@@ -6,7 +6,7 @@
     <string name="seerr_error_current_user_load">Impossible de charger l\'utilisateur Seerr actuel.</string>
     <string name="seerr_error_request_options_load">Impossible de charger les options de requête Seerr.</string>
     <string name="seerr_error_person_details_parse">Impossible d\'analyser les informations personnelles de Seerr.</string>
-    <string name="seerr_error_media_server_url_missing">L\'URL de votre serveur multimédia est manquante. Connectez-vous d\'abord à JellyCine.</string>
+    <string name="seerr_error_media_server_url_missing">L\'URL de votre serveur multimédia est manquante. Connectez-vous d\'abord à Vela.</string>
     <string name="seerr_error_title_id_missing">L\'identifiant du titre du serveur est manquant.</string>
     <string name="seerr_error_url_invalid">Entrez une URL Seerr valide.</string>
     <string name="seerr_error_unreachable">Impossible d\'atteindre Seerr pour le moment.</string>

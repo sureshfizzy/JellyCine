@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Jelly Cine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Caricamento…</string>
     <string name="error">Errore</string>
@@ -329,7 +329,7 @@
     <string name="downloads_settings_selected_folder">Cartella selezionata</string>
     <string name="downloads_settings_change_folder">Cambia cartella</string>
     <string name="downloads_settings_use_default">Usa l\'impostazione predefinita</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 richiede l\'accesso ai file prima che JellyCine possa scrivere nella cartella Download pubblica.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 richiede l\'accesso ai file prima che Vela possa scrivere nella cartella Download pubblica.</string>
     <string name="downloads_queue_options">Opzioni di coda</string>
     <string name="downloads_series_fallback">Serie</string>
     <string name="downloads_season_number">Stagione %1$d</string>
@@ -518,15 +518,15 @@
     <string name="about_section_project">Legale</string>
     <string name="about_section_connect">Connetti</string>
     <string name="about_privacy_policy">Informativa sulla privacy</string>
-    <string name="about_privacy_policy_subtitle">Scopri come JellyCine gestisce i dati di riproduzione e la privacy</string>
+    <string name="about_privacy_policy_subtitle">Scopri come Vela gestisce i dati di riproduzione e la privacy</string>
     <string name="about_open_source_license">Licenza</string>
     <string name="about_open_source_license_subtitle">Licenza pubblica generica GNU v3.0</string>
     <string name="about_source_code">Codice sorgente</string>
     <string name="about_rate_app">Valuta su Google Play</string>
-    <string name="about_rate_app_subtitle">Lascia una valutazione o una recensione per aiutare più persone a trovare JellyCine</string>
+    <string name="about_rate_app_subtitle">Lascia una valutazione o una recensione per aiutare più persone a trovare Vela</string>
     <string name="about_contact_developer">Contatta lo sviluppatore</string>
     <string name="about_contact_developer_subtitle">Invia feedback, segnalazioni di bug o domande sulla privacy via e-mail</string>
-    <string name="about_feedback_subject">JellyCine Risposta</string>
+    <string name="about_feedback_subject">Vela Risposta</string>
     <string name="about_buy_me_a_coffee">Offrimi un caffè</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

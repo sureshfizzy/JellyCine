@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Đang tải…</string>
     <string name="error">Lỗi</string>
@@ -321,7 +321,7 @@
     <string name="downloads_settings_selected_folder">Thư mục đã chọn</string>
     <string name="downloads_settings_change_folder">Thay đổi thư mục</string>
     <string name="downloads_settings_use_default">Sử dụng mặc định</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 yêu cầu quyền truy cập tệp trước khi JellyCine có thể ghi vào thư mục Tải xuống công khai.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 yêu cầu quyền truy cập tệp trước khi Vela có thể ghi vào thư mục Tải xuống công khai.</string>
     <string name="downloads_queue_options">Tùy chọn hàng đợi</string>
     <string name="downloads_series_fallback">Sê-ri</string>
     <string name="downloads_season_number">Mùa %1$d</string>
@@ -492,15 +492,15 @@
     <string name="about_section_project">Pháp lý</string>
     <string name="about_section_connect">Kết nối</string>
     <string name="about_privacy_policy">Chính sách bảo mật</string>
-    <string name="about_privacy_policy_subtitle">Đọc cách JellyCine xử lý dữ liệu phát lại và quyền riêng tư</string>
+    <string name="about_privacy_policy_subtitle">Đọc cách Vela xử lý dữ liệu phát lại và quyền riêng tư</string>
     <string name="about_open_source_license">Giấy phép</string>
     <string name="about_open_source_license_subtitle">Giấy phép công cộng chung GNU v3.0</string>
     <string name="about_source_code">Mã nguồn</string>
     <string name="about_rate_app">Đánh giá trên Google Play</string>
-    <string name="about_rate_app_subtitle">Để lại đánh giá hoặc đánh giá để giúp nhiều người tìm thấy JellyCine</string>
+    <string name="about_rate_app_subtitle">Để lại đánh giá hoặc đánh giá để giúp nhiều người tìm thấy Vela</string>
     <string name="about_contact_developer">Liên hệ với nhà phát triển</string>
     <string name="about_contact_developer_subtitle">Gửi phản hồi, báo cáo lỗi hoặc câu hỏi về quyền riêng tư qua email</string>
-    <string name="about_feedback_subject">Phản hồi của JellyCine</string>
+    <string name="about_feedback_subject">Phản hồi của Vela</string>
     <string name="about_buy_me_a_coffee">Mua cho tôi một ly cà phê</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->

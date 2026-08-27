@@ -99,7 +99,7 @@
     <string name="seerr_error_url_required">กรุณาป้อน URL Seerr ของคุณ</string>
     <string name="seerr_error_url_scheme_required">URL ของ Seerr ต้องเริ่มต้นด้วย http://หรือ https://</string>
     <string name="seerr_error_url_invalid">กรุณาป้อน URL ของ Seerr ที่ถูกต้อง</string>
-    <string name="seerr_error_media_server_url_missing">URL ของเซิร์ฟเวอร์สื่อของคุณหายไปลงชื่อเข้าใช้ JellyCine ก่อน</string>
+    <string name="seerr_error_media_server_url_missing">URL ของเซิร์ฟเวอร์สื่อของคุณหายไปลงชื่อเข้าใช้ Vela ก่อน</string>
     <string name="seerr_error_media_server_url_invalid">URL ของเซิร์ฟเวอร์สื่อของคุณไม่ถูกต้อง</string>
     <string name="seerr_error_not_connected">Seerr ไม่ได้เชื่อมต่อ</string>
     <string name="seerr_error_current_user_parse">ไม่สามารถวิเคราะห์ผู้ใช้ Seerr ปัจจุบันได้</string>

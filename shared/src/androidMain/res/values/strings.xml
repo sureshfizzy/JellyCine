@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">JellyCine</string>
+    <string name="app_name">Vela</string>
     
     <!-- General -->
     <string name="loading">Loading…</string>
@@ -431,7 +431,7 @@
     <string name="downloads_settings_selected_folder">Selected folder</string>
     <string name="downloads_settings_change_folder">Change folder</string>
     <string name="downloads_settings_use_default">Use default</string>
-    <string name="downloads_settings_legacy_permission_hint">Android 8/9 asks for file access before JellyCine can write to the public Downloads folder.</string>
+    <string name="downloads_settings_legacy_permission_hint">Android 8/9 asks for file access before Vela can write to the public Downloads folder.</string>
     <string name="downloads_queue_options">Queue options</string>
     <string name="downloads_series_fallback">Series</string>
     <string name="downloads_season_number">Season %1$d</string>
@@ -563,7 +563,7 @@
     <string name="settings_video_codecs">Video Codecs</string>
     <string name="settings_account">Account</string>
     <string name="settings_sign_out_subtitle">Sign out of your account</string>
-    <string name="settings_server_label">Server</string>
+    <string name="settings_server_label">Servers</string>
     <string name="settings_switch_server">Switch Server</string>
     <string name="settings_add_user">Add User</string>
     <string name="settings_administrator">Administrator</string>
@@ -597,7 +597,7 @@
     <string name="settings_server_address">Server address</string>
     <string name="settings_server_protocol">Protocol</string>
     <string name="settings_server_port">Port</string>
-    <string name="settings_server_path">Path (optional)</string>
+    <string name="settings_server_path">Path (optional, leave empty if unused)</string>
     <string name="settings_server_path_hint">Leave empty if unused</string>
     <string name="settings_server_connect">Connect</string>
     <string name="settings_server_protocol_https">HTTPS</string>
@@ -621,19 +621,20 @@
 
     <!-- About -->
     <string name="about_title">About</string>
+    <string name="about_author">ZeroDevi1</string>
     <string name="about_version_chip">Version %1$s</string>
     <string name="about_section_project">Legal</string>
     <string name="about_section_connect">Connect</string>
     <string name="about_privacy_policy">Privacy Policy</string>
-    <string name="about_privacy_policy_subtitle">Read how JellyCine handles playback data and privacy</string>
+    <string name="about_privacy_policy_subtitle">Read how Vela handles playback data and privacy</string>
     <string name="about_open_source_license">License</string>
     <string name="about_open_source_license_subtitle">GNU General Public License v3.0</string>
     <string name="about_source_code">Source Code</string>
     <string name="about_rate_app">Rate on Google Play</string>
-    <string name="about_rate_app_subtitle">Leave a rating or review to help more people find JellyCine</string>
+    <string name="about_rate_app_subtitle">Leave a rating or review to help more people find Vela</string>
     <string name="about_contact_developer">Contact Developer</string>
     <string name="about_contact_developer_subtitle">Send feedback, bug reports, or privacy questions by email</string>
-    <string name="about_feedback_subject">JellyCine Feedback</string>
+    <string name="about_feedback_subject">Vela Feedback</string>
     <string name="about_buy_me_a_coffee">Buy Me a Coffee</string>
     <string name="about_patreon">Patreon</string>
 
@@ -727,6 +728,44 @@
     <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>
     <string name="detail_similar_item_unknown">Unknown</string>
     <string name="detail_continue_playback">Continue playback</string>
+    <string name="detail_continue_play_at">Continue %1$s</string>
+    <string name="detail_action_cast">Cast</string>
+    <string name="detail_more_from_season">More from Season %1$d</string>
+    <string name="detail_more_from_season_named">More from %1$s</string>
+    <string name="detail_season_fallback">Season</string>
+    <string name="detail_open_season">Open season</string>
+    <string name="detail_jump_episode">Jump to episode</string>
+    <string name="detail_jump_episode_hint">Episode number or title</string>
+    <string name="detail_jump_episode_empty">No matching episodes</string>
+    <string name="detail_jump_confirm">Jump</string>
+    <string name="detail_episode_range">%1$d–%2$d</string>
+    <string name="detail_episodes">Episodes</string>
+    <string name="detail_chapters">Chapters</string>
+    <string name="detail_chapter_fallback">Chapter %1$d</string>
+    <string name="detail_external_links">External links</string>
+    <string name="detail_media_info">Media info</string>
+    <string name="detail_media_video">Video</string>
+    <string name="detail_media_audio">Audio</string>
+    <string name="detail_media_type">Type</string>
+    <string name="detail_media_index">Index</string>
+    <string name="detail_media_display_title">Display title</string>
+    <string name="detail_media_language">Language</string>
+    <string name="detail_media_codec">Codec</string>
+    <string name="detail_media_bitrate">Bitrate</string>
+    <string name="detail_media_range">Dynamic range</string>
+    <string name="detail_media_bit_depth">Bit depth</string>
+    <string name="detail_media_pixel_format">Pixel format</string>
+    <string name="detail_media_width">Width</string>
+    <string name="detail_media_height">Height</string>
+    <string name="detail_media_aspect">Aspect ratio</string>
+    <string name="detail_media_framerate">Frame rate</string>
+    <string name="detail_media_default">Default</string>
+    <string name="detail_media_external">External</string>
+    <string name="detail_audio_fallback">Audio</string>
+    <string name="detail_subtitle_fallback">Subtitles</string>
+    <string name="detail_overflow">More</string>
+    <string name="detail_runtime_hms">%1$dh %2$dm %3$ds</string>
+    <string name="detail_runtime_ms">%1$dm %2$ds</string>
     <string name="detail_play_trailer">Play trailer</string>
     <string name="detail_unfavorite">Unfavorite</string>
     <string name="detail_video_fallback">Video</string>

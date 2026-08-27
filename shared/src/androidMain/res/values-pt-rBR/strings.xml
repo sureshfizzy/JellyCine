@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Gelicina</string>
+    <string name="app_name">Vela</string>
     <!-- General -->
     <string name="loading">Carregando…</string>
     <string name="error">Erro</string>
@@ -329,7 +329,7 @@
     <string name="downloads_settings_selected_folder">Pasta selecionada</string>
     <string name="downloads_settings_change_folder">Alterar pasta</string>
     <string name="downloads_settings_use_default">Use o padrão</string>
-    <string name="downloads_settings_legacy_permission_hint">O Android 8/9 solicita acesso ao arquivo antes que o JellyCine possa gravar na pasta pública de downloads.</string>
+    <string name="downloads_settings_legacy_permission_hint">O Android 8/9 solicita acesso ao arquivo antes que o Vela possa gravar na pasta pública de downloads.</string>
     <string name="downloads_queue_options">Opções de fila</string>
     <string name="downloads_series_fallback">Série</string>
     <string name="downloads_season_number">Temporada %1$d</string>
@@ -518,15 +518,15 @@
     <string name="about_section_project">Legal</string>
     <string name="about_section_connect">Conectar</string>
     <string name="about_privacy_policy">Política de privacidade</string>
-    <string name="about_privacy_policy_subtitle">Leia como o JellyCine lida com dados de reprodução e privacidade</string>
+    <string name="about_privacy_policy_subtitle">Leia como o Vela lida com dados de reprodução e privacidade</string>
     <string name="about_open_source_license">Licença</string>
     <string name="about_open_source_license_subtitle">Licença Pública Geral GNU v3.0</string>
     <string name="about_source_code">Código-fonte</string>
     <string name="about_rate_app">Avalie no Google Play</string>
-    <string name="about_rate_app_subtitle">Deixe uma avaliação ou comentário para ajudar mais pessoas a encontrar JellyCine</string>
+    <string name="about_rate_app_subtitle">Deixe uma avaliação ou comentário para ajudar mais pessoas a encontrar Vela</string>
     <string name="about_contact_developer">Contate o desenvolvedor</string>
     <string name="about_contact_developer_subtitle">Envie feedback, relatórios de erros ou perguntas sobre privacidade por e-mail</string>
-    <string name="about_feedback_subject">Feedback sobre Jellycine</string>
+    <string name="about_feedback_subject">Feedback sobre Vela</string>
     <string name="about_buy_me_a_coffee">Compre um café para mim</string>
     <string name="about_patreon">Patreon</string>
     <!-- Interface Settings -->
