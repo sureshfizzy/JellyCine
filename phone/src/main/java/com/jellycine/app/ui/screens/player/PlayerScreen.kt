@@ -62,6 +62,7 @@ data class PlayerUiState(
     val brightnessLevel: Float? = null,
     val seekPosition: String? = null,
     val seekSide: SeekSide = SeekSide.CENTER,
+    val seekFeedbackId: Long = 0L,
     val swipeSeekPositionMs: Long? = null,
     val holdSpeedLabel: String? = null,
     val videoScale: Float = 1f,
@@ -662,6 +663,14 @@ fun PlayerScreen(
             onScreenshot = { viewModel.captureScreenshot() },
             onBackgroundClick = {
                 uiState = uiState.copy(controlsVisible = false)
+            },
+            onSeekFeedback = { label, side ->
+                // 事件序号保证连续点击同一方向时也会重新开始提示的淡出计时。
+                uiState = uiState.copy(
+                    seekPosition = label,
+                    seekSide = side,
+                    seekFeedbackId = uiState.seekFeedbackId + 1L
+                )
             },
             onPositionChanged = { position ->
                 uiState = uiState.copy(currentPosition = position)

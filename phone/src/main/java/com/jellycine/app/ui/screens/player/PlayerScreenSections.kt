@@ -302,7 +302,10 @@ internal fun PlayerScreenEffects(
         }
     }
 
-    LaunchedEffect(uiStateProvider().seekPosition) {
+    LaunchedEffect(
+        uiStateProvider().seekPosition,
+        uiStateProvider().seekFeedbackId
+    ) {
         if (uiStateProvider().seekPosition != null) {
             delay(GESTURE_INDICATOR_HIDE_DELAY)
             onUiStateChange(uiStateProvider().copy(seekPosition = null))
@@ -374,6 +377,7 @@ internal fun BoxScope.PlayerOverlayHost(
     onShowChapters: () -> Unit = {},
     onScreenshot: () -> Unit = {},
     onBackgroundClick: () -> Unit = {},
+    onSeekFeedback: (String, SeekSide) -> Unit = { _, _ -> },
     onPositionChanged: (Long) -> Unit = {}
 ): Unit {
     var nextEpisodeButtonProgress by remember(
@@ -491,11 +495,13 @@ internal fun BoxScope.PlayerOverlayHost(
                 resetAutoHideTimer()
                 viewModel.seekBackward()
                 onPositionChanged(viewModel.getCurrentPosition())
+                onSeekFeedback("-${seekBackwardSeconds}s", SeekSide.LEFT)
             },
             onSeekForward = {
                 resetAutoHideTimer()
                 viewModel.seekForward()
                 onPositionChanged(viewModel.getCurrentPosition())
+                onSeekFeedback("+${seekForwardSeconds}s", SeekSide.RIGHT)
             },
             canPlayPreviousEpisode = canWatchPreviousEpisode,
             canPlayNextEpisode = canWatchNextEpisode,

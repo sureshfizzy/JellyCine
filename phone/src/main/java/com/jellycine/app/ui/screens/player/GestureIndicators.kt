@@ -247,32 +247,14 @@ private fun SeekIndicator(
     position: String,
     modifier: Modifier = Modifier
 ) {
-    // No background - transparent like volume/brightness indicators
-    Row(
-        modifier = modifier.padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Show different icon based on seek direction
-        val icon = if (position.startsWith("+")) {
-            Icons.Filled.FastForward
-        } else {
-            Icons.Filled.FastRewind
-        }
-
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(32.dp)
-        )
-        Text(
-            text = position,
-            color = Color.White,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
+    // 方向由左右位置表达，保持文字提示克制，避免与中央播放控件争夺视觉焦点。
+    Text(
+        text = position,
+        color = Color.White.copy(alpha = 0.86f),
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = modifier.padding(16.dp)
+    )
 }
 
 @Composable
