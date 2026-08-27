@@ -12,11 +12,22 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-def signingValue = { String key, String envKey ->
+def signingValue = { String key, String... envKeys ->
     def prop = keystoreProperties.getProperty(key)
     if (prop != null && !prop.trim().isEmpty()) return prop.trim()
-    def env = System.getenv(envKey)
-    return (env != null && !env.trim().isEmpty()) ? env.trim() : null
+    for (String envKey : envKeys) {
+        def env = System.getenv(envKey)
+        if (env != null && !env.trim().isEmpty()) return env.trim()
+    }
+    return null
+}
+
+def resolveStoreFile = { String storeFilePath ->
+    def candidate = new File(storeFilePath)
+    if (candidate.isAbsolute()) return candidate
+    def fromRoot = rootProject.file(storeFilePath)
+    if (fromRoot.exists()) return fromRoot
+    return file(storeFilePath)
 }
 
 android {
@@ -38,13 +49,13 @@ android {
 
     signingConfigs {
         release {
-            def storeFilePath = signingValue("storeFile", "JELLYCINE_STORE_FILE") ?: "vela-release.keystore"
-            def storePasswordValue = signingValue("storePassword", "JELLYCINE_STORE_PASSWORD")
-            def keyAliasValue = signingValue("keyAlias", "JELLYCINE_KEY_ALIAS")
-            def keyPasswordValue = signingValue("keyPassword", "JELLYCINE_KEY_PASSWORD")
+            def storeFilePath = signingValue("storeFile", "VELA_STORE_FILE", "JELLYCINE_STORE_FILE") ?: "vela-release.keystore"
+            def storePasswordValue = signingValue("storePassword", "VELA_STORE_PASSWORD", "JELLYCINE_STORE_PASSWORD")
+            def keyAliasValue = signingValue("keyAlias", "VELA_KEY_ALIAS", "JELLYCINE_KEY_ALIAS") ?: "vela"
+            def keyPasswordValue = signingValue("keyPassword", "VELA_KEY_PASSWORD", "JELLYCINE_KEY_PASSWORD")
 
             if (storePasswordValue != null && keyAliasValue != null && keyPasswordValue != null) {
-                storeFile file(storeFilePath)
+                storeFile resolveStoreFile(storeFilePath)
                 storePassword storePasswordValue
                 keyAlias keyAliasValue
                 keyPassword keyPasswordValue
