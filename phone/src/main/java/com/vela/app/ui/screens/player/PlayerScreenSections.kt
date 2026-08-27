@@ -450,6 +450,14 @@ internal fun BoxScope.PlayerOverlayHost(
                 onScrubbingChange(scrubbing)
                 resetAutoHideTimer()
             },
+            scrubPreviewFrame = viewModel.scrubPreviewFrame,
+            onScrubPreviewPositionChange = { positionMs ->
+                if (positionMs == null) {
+                    viewModel.clearScrubPreview()
+                } else {
+                    viewModel.requestScrubPreview(positionMs)
+                }
+            },
             spatializationResult = playerState.spatializationResult,
             isSpatialAudioEnabled = playerState.isSpatialAudioEnabled,
             isHdrEnabled = playerState.isHdrEnabled,

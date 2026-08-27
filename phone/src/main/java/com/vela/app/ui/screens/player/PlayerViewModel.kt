@@ -1,6 +1,8 @@
 package com.vela.app.ui.screens.player
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -44,11 +46,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.vela.app.download.DownloadRepository
 import com.vela.app.download.DownloadRepositoryProvider
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -64,6 +68,18 @@ class PlayerViewModel @Inject constructor(
         private const val MPV_FALLBACK_FIRST_FRAME_TIMEOUT_MS = 2_500L
     }
 
+    private data class ScrubPreviewSource(
+        val context: Context,
+        val uri: Uri,
+        val requestHeaders: Map<String, String>
+    )
+
+    private data class ScrubPreviewRequest(
+        val source: ScrubPreviewSource,
+        val positionMs: Long,
+        val version: Long
+    )
+
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
     private val _preferredStreamIndexes = MutableStateFlow(PreferredStreamIndexes())
@@ -74,6 +90,8 @@ class PlayerViewModel @Inject constructor(
     var exoPlayer: ExoPlayer? by mutableStateOf(null)
         private set
     var mpvPlayer: MpvPlayerController? by mutableStateOf(null)
+        private set
+    var scrubPreviewFrame: Bitmap? by mutableStateOf(null)
         private set
     private var activePlayerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE
 
@@ -111,6 +129,58 @@ class PlayerViewModel @Inject constructor(
     private var playbackSpeed = 1f
     private var speedBeforeHold = 1f
     private var lastHardwareDecoding = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
+    private val scrubPreviewRequests = Channel<ScrubPreviewRequest>(Channel.CONFLATED)
+    private val scrubPreviewRetrieverLock = Any()
+    private var scrubPreviewSource: ScrubPreviewSource? = null
+    private var scrubPreviewRetriever: MediaMetadataRetriever? = null
+    private var scrubPreviewRetrieverSource: ScrubPreviewSource? = null
+    private var scrubPreviewVersion = 0L
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            for (request in scrubPreviewRequests) {
+                val frame = runCatching {
+                    synchronized(scrubPreviewRetrieverLock) {
+                        if (request.source !== scrubPreviewSource) {
+                            return@synchronized null
+                        }
+                        val retriever = scrubPreviewRetriever
+                            ?.takeIf { scrubPreviewRetrieverSource === request.source }
+                            ?: MediaMetadataRetriever().also { newRetriever ->
+                                when (request.source.uri.scheme?.lowercase(Locale.ROOT)) {
+                                    "http", "https" -> newRetriever.setDataSource(
+                                        request.source.uri.toString(),
+                                        request.source.requestHeaders
+                                    )
+                                    else -> newRetriever.setDataSource(
+                                        request.source.context,
+                                        request.source.uri
+                                    )
+                                }
+                                scrubPreviewRetriever?.release()
+                                scrubPreviewRetriever = newRetriever
+                                scrubPreviewRetrieverSource = request.source
+                            }
+                        retriever.getScaledFrameAtTime(
+                            request.positionMs.coerceAtLeast(0L) * 1_000L,
+                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                            SCRUB_PREVIEW_WIDTH_PX,
+                            SCRUB_PREVIEW_HEIGHT_PX
+                        )
+                    }
+                }.getOrNull()
+
+                withContext(Dispatchers.Main.immediate) {
+                    if (
+                        request.version == scrubPreviewVersion &&
+                        request.source === scrubPreviewSource
+                    ) {
+                        scrubPreviewFrame = frame
+                    }
+                }
+            }
+        }
+    }
 
     private fun isMpvPlayback(): Boolean {
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
@@ -425,6 +495,11 @@ class PlayerViewModel @Inject constructor(
                     }
                     streamingMediaItem
                 }
+                configureScrubPreviewSource(
+                    context = context,
+                    uri = mediaItem.localConfiguration?.uri,
+                    requestHeaders = playbackRequest?.requestHeaders.orEmpty()
+                )
 
                 playbackSession = PlaybackSessionContext(
                     mediaId = mediaId,
@@ -586,6 +661,11 @@ class PlayerViewModel @Inject constructor(
 
                 val playbackStream = RemoteTrailerUrl.resolve(remoteUrl)
                 if (remotePlaybackRequestKey != mediaId) return@launch
+                configureScrubPreviewSource(
+                    context = context,
+                    uri = Uri.parse(playbackStream.url),
+                    requestHeaders = emptyMap()
+                )
                 fun mediaSource(url: String, mimeType: String?) =
                     PlayerUtils.createStreamingMediaSource(
                         context = context,
@@ -1075,7 +1155,56 @@ class PlayerViewModel @Inject constructor(
         _playerState.value = _playerState.value.copy(showControls = !_playerState.value.showControls)
     }
 
+    private fun configureScrubPreviewSource(
+        context: Context,
+        uri: Uri?,
+        requestHeaders: Map<String, String>
+    ) {
+        scrubPreviewVersion++
+        scrubPreviewFrame = null
+        synchronized(scrubPreviewRetrieverLock) {
+            scrubPreviewRetriever?.release()
+            scrubPreviewRetriever = null
+            scrubPreviewRetrieverSource = null
+            scrubPreviewSource = uri?.let {
+                ScrubPreviewSource(
+                    context = context.applicationContext,
+                    uri = it,
+                    requestHeaders = requestHeaders
+                )
+            }
+        }
+    }
+
+    fun requestScrubPreview(positionMs: Long) {
+        val source = scrubPreviewSource ?: return
+        val version = ++scrubPreviewVersion
+        scrubPreviewRequests.trySend(
+            ScrubPreviewRequest(
+                source = source,
+                positionMs = positionMs,
+                version = version
+            )
+        )
+    }
+
+    fun clearScrubPreview() {
+        scrubPreviewVersion++
+        scrubPreviewFrame = null
+    }
+
+    private fun releaseScrubPreview() {
+        clearScrubPreview()
+        synchronized(scrubPreviewRetrieverLock) {
+            scrubPreviewSource = null
+            scrubPreviewRetriever?.release()
+            scrubPreviewRetriever = null
+            scrubPreviewRetrieverSource = null
+        }
+    }
+
     fun releasePlayer() {
+        releaseScrubPreview()
         persistPosition()
         playbackReporter.reportPlaybackStopped()
         cancelNextEpisodePrefetch()
@@ -1622,6 +1751,7 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         releasePlayer()
+        scrubPreviewRequests.close()
     }
 
     fun getHdrFormatInfo(): String {
@@ -1650,3 +1780,6 @@ class PlayerViewModel @Inject constructor(
     }
 
 }
+
+private const val SCRUB_PREVIEW_WIDTH_PX = 320
+private const val SCRUB_PREVIEW_HEIGHT_PX = 180

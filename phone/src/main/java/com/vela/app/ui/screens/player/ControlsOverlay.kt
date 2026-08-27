@@ -1,6 +1,7 @@
 package com.vela.app.ui.screens.player
 
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.os.SystemClock
 import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
@@ -28,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.StrokeCap
@@ -56,6 +58,9 @@ import com.vela.player.core.PlayerConstants.PROGRESS_BAR_HIT_HEIGHT_DP
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private val ScrubPreviewWidth = 160.dp
+private val ScrubPreviewHeight = 90.dp
 
 @Composable
 fun ControlsOverlay(
@@ -94,6 +99,8 @@ fun ControlsOverlay(
     onPlayPreviousEpisode: () -> Unit = {},
     onPlayNextEpisode: () -> Unit = {},
     onScrubStateChange: (Boolean) -> Unit = {},
+    scrubPreviewFrame: Bitmap? = null,
+    onScrubPreviewPositionChange: (Long?) -> Unit = {},
     onLiveSeek: (Float) -> Unit = {},
     onEnterPip: () -> Unit = {},
     onToggleHardwareDecoding: () -> Unit = {},
@@ -149,6 +156,7 @@ fun ControlsOverlay(
             currentPosition = currentPosition,
             duration = duration,
             displayedPosition = displayedPosition,
+            scrubPreviewFrame = scrubPreviewFrame,
             chapterMarkers = chapterMarkers,
             isLocked = isLocked,
             showPlaybackSettingsButton = showPlaybackSettingsButton,
@@ -156,9 +164,14 @@ fun ControlsOverlay(
             onPlayPause = onPlayPause,
             onSeek = onSeek,
             onLiveSeek = onLiveSeek,
-            onScrubProgressChange = {
-                scrubPreviewProgress = it
-                onScrubStateChange(it != null)
+            onScrubProgressChange = { progress ->
+                scrubPreviewProgress = progress
+                onScrubPreviewPositionChange(
+                    progress
+                        ?.takeIf { duration > 0L }
+                        ?.let { (duration * it).toLong() }
+                )
+                onScrubStateChange(progress != null)
             },
             onToggleLock = onToggleLock,
             onShowMediaInfo = onShowMediaInfo,
@@ -199,6 +212,7 @@ private fun PortraitPlayerOverlay(
     currentPosition: Long,
     duration: Long,
     displayedPosition: Long,
+    scrubPreviewFrame: Bitmap?,
     chapterMarkers: List<ChapterMarker>,
     isLocked: Boolean,
     showPlaybackSettingsButton: Boolean,
@@ -627,6 +641,7 @@ private fun PortraitPlayerOverlay(
                             progress = progress,
                             duration = duration,
                             chapterMarkers = chapterMarkers,
+                            previewFrame = scrubPreviewFrame,
                             onSeek = onSeek,
                             onLiveSeek = onLiveSeek,
                             onScrubProgressChange = onScrubProgressChange,
@@ -662,6 +677,7 @@ private fun PortraitPlayerOverlay(
                                 progress = progress,
                                 duration = duration,
                                 chapterMarkers = chapterMarkers,
+                                previewFrame = scrubPreviewFrame,
                                 onSeek = onSeek,
                                 onLiveSeek = onLiveSeek,
                                 onScrubProgressChange = onScrubProgressChange,
@@ -726,6 +742,7 @@ private fun SeekBar(
     progress: Float,
     duration: Long,
     chapterMarkers: List<ChapterMarker>,
+    previewFrame: Bitmap?,
     onSeek: (Float) -> Unit,
     onLiveSeek: (Float) -> Unit = {},
     onScrubProgressChange: (Float?) -> Unit,
@@ -744,7 +761,10 @@ private fun SeekBar(
         targetValue = if (dragActive) 0.52f else 0.36f,
         label = "seekThumbRadius"
     )
-    val bubbleYOffsetPx = with(density) { (-42).dp.roundToPx() }
+    val previewWidthPx = with(density) { ScrubPreviewWidth.roundToPx() }
+    val previewYOffsetPx = with(density) {
+        (if (previewFrame != null) (-128).dp else (-42).dp).roundToPx()
+    }
 
     LaunchedEffect(progress) {
         if (!dragActive) {
@@ -872,7 +892,11 @@ private fun SeekBar(
                 .zIndex(1f)
                 .offset {
                     val thumbCenterX = (widthPx * renderedProgress).roundToInt()
-                    IntOffset(thumbCenterX - 32.dp.roundToPx(), bubbleYOffsetPx)
+                    val maxPreviewX = (widthPx - previewWidthPx).coerceAtLeast(0)
+                    IntOffset(
+                        x = (thumbCenterX - previewWidthPx / 2).coerceIn(0, maxPreviewX),
+                        y = previewYOffsetPx
+                    )
                 },
             enter = fadeIn(),
             exit = fadeOut()
@@ -882,15 +906,28 @@ private fun SeekBar(
                 shape = RoundedCornerShape(14.dp),
                 tonalElevation = 4.dp,
                 shadowElevation = 10.dp,
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                modifier = Modifier.width(ScrubPreviewWidth)
             ) {
-                Text(
-                    text = formatTime((duration * renderedProgress).toLong()),
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    previewFrame?.let { frame ->
+                        Image(
+                            bitmap = frame.asImageBitmap(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(ScrubPreviewHeight)
+                        )
+                    }
+                    Text(
+                        text = formatTime((duration * renderedProgress).toLong()),
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
             }
         }
     }
@@ -1249,6 +1286,7 @@ fun SeekBarPreview() {
             ChapterMarker(positionMs = 4800000L, label = "Chapter 3"),
             ChapterMarker(positionMs = 6300000L, label = "Credits")
         ),
+        previewFrame = null,
         onSeek = { },
         onScrubProgressChange = { },
         modifier = Modifier.padding(16.dp)
