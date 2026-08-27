@@ -184,6 +184,7 @@ fun ControlsOverlay(
             onPlayNextEpisode = onPlayNextEpisode,
             onUserInteraction = onUserInteraction,
             onBackgroundClick = onBackgroundClick,
+            onScreenshot = onScreenshot,
             isScrubbing = scrubPreviewProgress != null,
             landscape = !isPortrait,
             modifier = modifier
@@ -578,8 +579,9 @@ private fun PortraitPlayerOverlay(
                         onClick = onUserInteraction
                     )
                     .padding(
-                        start = if (landscape) landscapeSideGutter + PlayerChromeInset else PlayerChromeInset,
-                        end = if (landscape) landscapeSideGutter + PlayerChromeInset else PlayerChromeInset,
+                        // 横屏底部控制区按整块屏幕占位，不能跟随 16:9 视频画幅向内收缩。
+                        start = PlayerChromeInset,
+                        end = PlayerChromeInset,
                         bottom = PlayerChromeBottomGap
                     )
             ) {
@@ -625,35 +627,12 @@ private fun PortraitPlayerOverlay(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 if (!landscape) {
-                    SeekBar(
-                        progress = progress,
-                        duration = duration,
-                        chapterMarkers = chapterMarkers,
-                        onSeek = onSeek,
-                        onLiveSeek = onLiveSeek,
-                        onScrubProgressChange = onScrubProgressChange,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
                     PlayerGlass(
-                        modifier = Modifier.height(PlayerGlassButtonSize),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(PlayerGlassButtonSize),
                         shape = RoundedCornerShape(999.dp)
                     ) {
-                        Text(
-                            text = "${formatTime(displayedPosition)}  ·  ${formatTime(if (duration > 0) duration else 0L)}",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 14.dp)
-                        )
-                    }
-                    if (landscape) {
                         SeekBar(
                             progress = progress,
                             duration = duration,
@@ -661,53 +640,71 @@ private fun PortraitPlayerOverlay(
                             onSeek = onSeek,
                             onLiveSeek = onLiveSeek,
                             onScrubProgressChange = onScrubProgressChange,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp)
                         )
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
-                    PlayerGlass(
-                        modifier = Modifier.height(PlayerGlassButtonSize),
-                        shape = RoundedCornerShape(999.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+                PlayerGlass(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PlayerGlassButtonSize),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 14.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            PlayerChromeIconButton(onClick = onShowAudioTrackSelection) {
+                        Text(
+                            text = "${formatTime(displayedPosition)}  ·  ${formatTime(if (duration > 0) duration else 0L)}",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                        if (landscape) {
+                            SeekBar(
+                                progress = progress,
+                                duration = duration,
+                                chapterMarkers = chapterMarkers,
+                                onSeek = onSeek,
+                                onLiveSeek = onLiveSeek,
+                                onScrubProgressChange = onScrubProgressChange,
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                        if (showPlaybackSettingsButton) {
+                            PlayerChromeIconButton(onClick = onShowPlaybackSettings) {
                                 Icon(
-                                    imageVector = Icons.Outlined.GraphicEq,
-                                    contentDescription = stringResource(R.string.player_dialog_audio_title),
+                                    imageVector = Icons.Outlined.Tune,
+                                    contentDescription = stringResource(R.string.player_settings_streaming_quality),
                                     tint = iconTint,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
-                            if (showPlaybackSettingsButton) {
-                                PlayerChromeIconButton(onClick = onShowPlaybackSettings) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Tune,
-                                        contentDescription = stringResource(R.string.player_settings_streaming_quality),
-                                        tint = iconTint,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            PlayerChromeIconButton(onClick = onShowAudioTrackSelection) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MusicNote,
-                                    contentDescription = stringResource(R.string.player_dialog_audio_title),
-                                    tint = iconTint,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            PlayerChromeIconButton(onClick = onShowSubtitleTrackSelection) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ClosedCaption,
-                                    contentDescription = stringResource(R.string.player_dialog_subtitles_title),
-                                    tint = iconTint,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        }
+                        PlayerChromeIconButton(onClick = onShowAudioTrackSelection) {
+                            Icon(
+                                imageVector = Icons.Outlined.MusicNote,
+                                contentDescription = stringResource(R.string.player_dialog_audio_title),
+                                tint = iconTint,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        PlayerChromeIconButton(onClick = onShowSubtitleTrackSelection) {
+                            Icon(
+                                imageVector = Icons.Outlined.ClosedCaption,
+                                contentDescription = stringResource(R.string.player_dialog_subtitles_title),
+                                tint = iconTint,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }

@@ -142,7 +142,8 @@ data class QueryConfig(
 )
 
 class QueryManager(private val scope: CoroutineScope) {
-    private val queries = mutableMapOf<String, QueryState<*>>()
+    // 让 Compose 直接观察查询状态，数据未变化时不再高频轮询主线程。
+    private val queries = mutableStateMapOf<String, QueryState<*>>()
     private val jobs = mutableMapOf<String, Job>()
 
     @Suppress("UNCHECKED_CAST")
@@ -270,26 +271,15 @@ fun <T> useQuery(
     fetcher: suspend () -> T
 ): QueryState<T> {
     val queryManager = LocalQueryManager.current
-    var state by remember(key, queryManager) { mutableStateOf(queryManager.getQuery<T>(key)) }
+    val state = queryManager.getQuery<T>(key)
     var hasInitiated by remember(key, queryManager) { mutableStateOf(false) }
 
-    LaunchedEffect(key, config.enabled, queryManager) {
+    LaunchedEffect(key, config, queryManager, state.isStale) {
         if (!config.enabled) return@LaunchedEffect
 
         hasInitiated = true
-        state = queryManager.executeQuery(key, config, fetcher)
-
-        while (true) {
-            delay(24)
-
-            var currentState = queryManager.getQuery<T>(key)
-            if (currentState.isStale && !currentState.isLoading) {
-                currentState = queryManager.executeQuery(key, config, fetcher)
-            }
-
-            if (currentState != state) {
-                state = currentState
-            }
+        if (state.data == null || (state.isStale && !state.isLoading)) {
+            queryManager.executeQuery(key, config, fetcher)
         }
     }
 

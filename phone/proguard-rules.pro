@@ -28,3 +28,7 @@
 
 # Google Cast
 -keep class com.jellycine.app.cast.JellyCineCastOptionsProvider { *; }
+
+# libplayer.so 会按固定 JNI 名称查找该桥接类及回调；R8 无法感知 native 到 JVM 的调用，
+# 因此必须完整保留这个边界。
+-keep class is.xyz.mpv.MPVLib { *; }

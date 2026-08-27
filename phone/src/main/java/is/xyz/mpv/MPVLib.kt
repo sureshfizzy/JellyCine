@@ -3,8 +3,10 @@ package `is`.xyz.mpv
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.Surface
+import androidx.annotation.Keep
 
 @Suppress("unused")
+@Keep
 object MPVLib {
     init {
         val libs = arrayOf("mpv", "player")
@@ -41,7 +43,6 @@ object MPVLib {
     external fun observeProperty(property: String, format: Int)
 
     @JvmStatic
-    @androidx.annotation.Keep
     fun logMessage(prefix: String, level: Int, text: String) {
         Unit
     }

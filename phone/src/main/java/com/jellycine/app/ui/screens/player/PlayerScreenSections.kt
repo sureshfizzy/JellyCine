@@ -67,7 +67,8 @@ import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 
-private const val PLAYER_POSITION_UPDATE_MS = 250L
+private const val PLAYER_POSITION_UPDATE_ACTIVE_MS = 250L
+private const val PLAYER_POSITION_UPDATE_IDLE_MS = 750L
 
 private fun trimImageMemoryCacheForPlayback(context: Context) {
     runCatching {
@@ -246,7 +247,14 @@ internal fun PlayerScreenEffects(
                     )
                 )
             }
-            delay(PLAYER_POSITION_UPDATE_MS)
+            // 控件显示时保持进度灵敏；隐藏后降低整屏重组频率，跳过片段判断仍保持亚秒级响应。
+            delay(
+                if (uiState.controlsVisible || playerState.isLocked) {
+                    PLAYER_POSITION_UPDATE_ACTIVE_MS
+                } else {
+                    PLAYER_POSITION_UPDATE_IDLE_MS
+                }
+            )
         }
     }
 

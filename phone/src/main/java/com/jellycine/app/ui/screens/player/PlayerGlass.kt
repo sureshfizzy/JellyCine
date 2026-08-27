@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -28,12 +27,12 @@ internal val PlayerGlassButtonSize = 44.dp
 internal val PlayerGlassSeekSize = 48.dp
 internal val PlayerGlassPlaySize = 68.dp
 
-private val GlassFill = Color(0x8A121214)
+private val GlassFill = Color(0xCC18181A)
 private val GlassBorder = Color.White.copy(alpha = 0.16f)
 private val GlassSheen = Brush.linearGradient(
     colors = listOf(
-        Color.White.copy(alpha = 0.32f),
-        Color.White.copy(alpha = 0.10f),
+        Color.White.copy(alpha = 0.14f),
+        Color.White.copy(alpha = 0.04f),
         Color.Transparent
     )
 )
@@ -54,7 +53,7 @@ internal fun PlayerGlass(
         Box(
             Modifier
                 .matchParentSize()
-                .blur(20.dp)
+                // 静态高光保留玻璃层次，同时避免每个控件逐帧执行独立 blur 离屏渲染。
                 .background(GlassSheen)
         )
         Box(

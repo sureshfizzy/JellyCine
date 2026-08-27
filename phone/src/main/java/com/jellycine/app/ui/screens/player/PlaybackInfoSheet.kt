@@ -1,7 +1,5 @@
 package com.jellycine.app.ui.screens.player
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,9 +40,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +73,6 @@ import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.rememberImageUrl
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.launch
 
 private val PlaybackInfoPanelColor = Color(0xFF161618)
 private val PlaybackInfoOverviewColor = Color.White.copy(alpha = 0.62f)
@@ -93,42 +92,38 @@ fun PlaybackInfoSheet(
     onEpisodeSelected: (String) -> Unit
 ) {
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
     val dismissThresholdPx = with(density) { 88.dp.toPx() }
-    val offsetY = remember { Animatable(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
     val scrollState = rememberScrollState()
 
     fun settleDismiss(velocityY: Float = 0f) {
-        val shouldDismiss = offsetY.value > dismissThresholdPx ||
-            velocityY > 1800f ||
-            offsetY.value < -dismissThresholdPx ||
-            velocityY < -1800f
+        val shouldDismiss = offsetY > dismissThresholdPx || velocityY > 1800f
         if (shouldDismiss) {
             onDismiss()
         } else {
-            scope.launch { offsetY.animateTo(0f, tween(180)) }
+            offsetY = 0f
         }
     }
 
     val nestedScroll = remember(dismissThresholdPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.Drag) return Offset.Zero
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
                 val delta = available.y
                 if (delta > 0f && scrollState.value == 0) {
-                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
+                    offsetY = (offsetY + delta).coerceAtLeast(0f)
                     return Offset(0f, delta)
                 }
-                if (delta < 0f && offsetY.value > 0f) {
-                    val consumed = delta.coerceAtLeast(-offsetY.value)
-                    scope.launch { offsetY.snapTo(offsetY.value + consumed) }
+                if (delta < 0f && offsetY > 0f) {
+                    val consumed = delta.coerceAtLeast(-offsetY)
+                    offsetY += consumed
                     return Offset(0f, consumed)
                 }
                 return Offset.Zero
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (offsetY.value != 0f || (scrollState.value == 0 && abs(available.y) > 1800f)) {
+                if (offsetY != 0f || (scrollState.value == 0 && abs(available.y) > 1800f)) {
                     settleDismiss(available.y)
                     return available
                 }
@@ -138,18 +133,17 @@ fun PlaybackInfoSheet(
     }
 
     val panelModifier = Modifier
-        .offset { IntOffset(0, offsetY.value.roundToInt()) }
-        .background(PlaybackInfoPanelColor)
+        .offset { IntOffset(0, offsetY.roundToInt()) }
         .nestedScroll(nestedScroll)
 
     if (isPortrait) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
+                    .fillMaxSize()
                     .clickable(onClick = onDismiss)
             )
+            // 竖屏保持视频居中，信息卡仅作为覆盖层，不再挤占视频的布局空间。
             PlaybackInfoPanel(
                 item = item,
                 title = title,
@@ -159,12 +153,21 @@ fun PlaybackInfoSheet(
                 scrollState = scrollState,
                 onEpisodeSelected = onEpisodeSelected,
                 onHandleDrag = { delta ->
-                    scope.launch { offsetY.snapTo(offsetY.value + delta) }
+                    offsetY = (offsetY + delta).coerceAtLeast(0f)
                 },
                 onHandleDragEnd = { settleDismiss() },
                 modifier = panelModifier
-                    .weight(1f)
+                    .align(Alignment.Center)
+                    .padding(horizontal = 12.dp)
                     .fillMaxWidth()
+                    .widthIn(max = 560.dp)
+                    .heightIn(
+                        min = 320.dp,
+                        max = maxHeight * 0.58f
+                    )
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(PlaybackInfoPanelColor),
+                applyBottomInset = false
             )
         }
     } else {
@@ -192,46 +195,46 @@ private fun LandscapePlaybackInfo(
     onEpisodeSelected: (String) -> Unit
 ) {
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
     val collapseThresholdPx = with(density) { 96.dp.toPx() }
-    val dismissThresholdPx = with(density) { 72.dp.toPx() }
+    // 摘要栏本身较矮，关闭阈值需小于可用拖动距离，避免手指抵达屏幕底部仍无法关闭。
+    val dismissThresholdPx = with(density) { 40.dp.toPx() }
     var collapsed by remember { mutableStateOf(false) }
-    val offsetY = remember { Animatable(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     fun settle(velocityY: Float = 0f) {
         if (collapsed) {
-            if (offsetY.value > dismissThresholdPx || velocityY > 1400f) {
+            if (offsetY > dismissThresholdPx || velocityY > 900f) {
                 onDismiss()
                 return
             }
-            if (velocityY < -900f || offsetY.value < -48f) {
+            if (velocityY < -900f || offsetY < -48f) {
                 collapsed = false
-                scope.launch { offsetY.snapTo(0f) }
+                offsetY = 0f
                 return
             }
-            scope.launch { offsetY.animateTo(0f, tween(180)) }
+            offsetY = 0f
             return
         }
-        if (offsetY.value > collapseThresholdPx || velocityY > 1400f) {
+        if (offsetY > collapseThresholdPx || velocityY > 1400f) {
             collapsed = true
-            scope.launch { offsetY.snapTo(0f) }
+            offsetY = 0f
             return
         }
-        scope.launch { offsetY.animateTo(0f, tween(180)) }
+        offsetY = 0f
     }
 
     val nestedScroll = remember(collapseThresholdPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.Drag) return Offset.Zero
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
                 val delta = available.y
                 if (delta > 0f && scrollState.value == 0) {
-                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
+                    offsetY = (offsetY + delta).coerceAtLeast(0f)
                     return Offset(0f, delta)
                 }
-                if (delta < 0f && offsetY.value > 0f) {
-                    val consumed = delta.coerceAtLeast(-offsetY.value)
-                    scope.launch { offsetY.snapTo(offsetY.value + consumed) }
+                if (delta < 0f && offsetY > 0f) {
+                    val consumed = delta.coerceAtLeast(-offsetY)
+                    offsetY += consumed
                     return Offset(0f, consumed)
                 }
                 return Offset.Zero
@@ -239,7 +242,7 @@ private fun LandscapePlaybackInfo(
 
             override suspend fun onPreFling(available: Velocity): Velocity {
                 if (collapsed) return Velocity.Zero
-                if (offsetY.value != 0f || (scrollState.value == 0 && abs(available.y) > 1400f)) {
+                if (offsetY != 0f || (scrollState.value == 0 && abs(available.y) > 1400f)) {
                     settle(available.y)
                     return available
                 }
@@ -270,21 +273,20 @@ private fun LandscapePlaybackInfo(
                 posterUrl = posterUrl,
                 onClick = {
                     collapsed = false
-                    scope.launch { offsetY.snapTo(0f) }
+                    offsetY = 0f
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 48.dp, end = 48.dp, bottom = 28.dp)
-                    .offset { IntOffset(0, offsetY.value.roundToInt()) }
-                    .clip(RoundedCornerShape(22.dp))
+                    .padding(horizontal = 48.dp)
+                    .offset { IntOffset(0, offsetY.roundToInt()) }
+                    .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                     .background(PlaybackInfoPanelColor)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onVerticalDrag = { _, dragAmount ->
-                                scope.launch {
-                                    offsetY.snapTo(offsetY.value + dragAmount)
-                                }
+                                // 同步记录位移，抬手结算时不会再读到上一帧的旧值。
+                                offsetY += dragAmount
                             },
                             onDragEnd = { settle() },
                             onDragCancel = { settle() }
@@ -301,16 +303,16 @@ private fun LandscapePlaybackInfo(
                 scrollState = scrollState,
                 onEpisodeSelected = onEpisodeSelected,
                 onHandleDrag = { delta ->
-                    scope.launch { offsetY.snapTo((offsetY.value + delta).coerceAtLeast(0f)) }
+                    offsetY = (offsetY + delta).coerceAtLeast(0f)
                 },
                 onHandleDragEnd = { settle() },
                 modifier = Modifier
                     .align(Alignment.Center)
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-                    .padding(start = 48.dp, top = 28.dp, end = 48.dp, bottom = 24.dp)
-                    .offset { IntOffset(0, offsetY.value.roundToInt()) }
-                    .clip(RoundedCornerShape(22.dp))
+                    .padding(start = 48.dp, top = 28.dp, end = 48.dp)
+                    .offset { IntOffset(0, offsetY.roundToInt()) }
+                    .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                     .background(PlaybackInfoPanelColor)
                     .nestedScroll(nestedScroll)
             )
@@ -390,6 +392,7 @@ private fun PlaybackInfoPanel(
     onEpisodeSelected: (String) -> Unit,
     onHandleDrag: (Float) -> Unit,
     onHandleDragEnd: () -> Unit,
+    applyBottomInset: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var resolvedPeople by remember(item?.id) {
@@ -463,7 +466,7 @@ private fun PlaybackInfoPanel(
 
     Column(
         modifier = modifier
-            .navigationBarsPadding()
+            .then(if (applyBottomInset) Modifier.navigationBarsPadding() else Modifier)
             .verticalScroll(scrollState)
             .padding(bottom = 20.dp)
     ) {

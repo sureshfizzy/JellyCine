@@ -452,11 +452,8 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
             .focusable(),
-        contentAlignment = if (isPortraitPlayback && showPlaybackInfoSheet) {
-            Alignment.TopCenter
-        } else {
-            Alignment.Center
-        }
+        // 元数据始终作为悬浮覆盖层；切换横竖屏时视频画面保持在播放器中央。
+        contentAlignment = Alignment.Center
     ) {
         key(isPortraitPlayback) {
         VideoSurface(
