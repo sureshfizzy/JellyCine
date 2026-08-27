@@ -175,6 +175,10 @@ For community discussions and support, see [Discussions](https://github.com/Zero
 
 See [PRIVACY](PRIVACY) for the current privacy policy.
 
+## Origin and Acknowledgements
+
+Vela is based on the original [JellyCine](https://github.com/sureshfizzy/JellyCine) project by [sureshfizzy](https://github.com/sureshfizzy). We are grateful to the original author and contributors for the foundation on which this project continues to develop.
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0](LICENSE).

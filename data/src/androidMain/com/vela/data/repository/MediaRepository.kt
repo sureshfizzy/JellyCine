@@ -166,6 +166,13 @@ class MediaRepository(private val context: Context) {
         )
     }
 
+    private fun activePreferStrmOriginalPath(): Boolean {
+        val snapshot = AuthRepositoryProvider.getInstance(context).getActiveSessionSnapshot()
+        return snapshot.savedServers
+            .firstOrNull { savedServer -> savedServer.id == snapshot.activeServerId }
+            ?.preferStrmOriginalPath == true
+    }
+
     private suspend fun getSessionConfig(): SessionConfig? {
         val preferences = dataStore.data.first()
         val serverUrl = preferences[SERVER_URL_KEY] ?: return null
@@ -1914,7 +1921,8 @@ class MediaRepository(private val context: Context) {
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
                 audioTranscodeMode = audioTranscodeMode,
-                includeAccessToken = includeAccessToken
+                includeAccessToken = includeAccessToken,
+                preferStrmOriginalPath = activePreferStrmOriginalPath()
             )
         )
     }
@@ -1956,7 +1964,8 @@ class MediaRepository(private val context: Context) {
                 maxStreamingHeight = maxStreamingHeight,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
-                audioTranscodeMode = audioTranscodeMode
+                audioTranscodeMode = audioTranscodeMode,
+                preferStrmOriginalPath = activePreferStrmOriginalPath()
             )
         )
     }

@@ -1,7 +1,7 @@
 package com.vela.app.ui.screens.dashboard.settings
 
 import android.app.Application
-import android.net.Uri
+import java.net.URI
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vela.app.ui.screens.dashboard.home.CachedData
@@ -29,10 +29,12 @@ data class ServersUiState(
     val isSwitching: Boolean = false,
     val isRemoving: Boolean = false,
     val isConnecting: Boolean = false,
+    val isLineBusy: Boolean = false,
+    val isSavingConfig: Boolean = false,
     val connectError: String? = null,
     val actionError: String? = null
 ) {
-    val isBusy: Boolean get() = isSwitching || isRemoving || isConnecting
+    val isBusy: Boolean get() = isSwitching || isRemoving || isConnecting || isLineBusy || isSavingConfig
 }
 
 class ServersViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,6 +78,7 @@ class ServersViewModel(application: Application) : AndroidViewModel(application)
         path: String,
         username: String,
         password: String,
+        note: String,
         onSuccess: () -> Unit
     ) {
         if (_uiState.value.isBusy) return
@@ -103,7 +106,8 @@ class ServersViewModel(application: Application) : AndroidViewModel(application)
                 authRepository.authenticateUser(
                     serverUrl = serverUrl,
                     username = trimmedUsername,
-                    password = password
+                    password = password,
+                    note = note
                 )
             } catch (error: CancellationException) {
                 throw error
@@ -197,6 +201,114 @@ class ServersViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun saveServerConfig(
+        serverId: String,
+        note: String,
+        preferStrmOriginalPath: Boolean,
+        host: String,
+        https: Boolean,
+        port: String,
+        path: String,
+        onSuccess: () -> Unit
+    ) {
+        if (serverId.isBlank() || _uiState.value.isBusy) return
+        val serverUrl = composeServerUrl(
+            host = host,
+            https = https,
+            port = port,
+            path = path
+        )
+        _uiState.update { it.copy(isSavingConfig = true, actionError = null) }
+        viewModelScope.launch {
+            val result = try {
+                authRepository.updateSavedServerConfig(
+                    serverId = serverId,
+                    note = note,
+                    preferStrmOriginalPath = preferStrmOriginalPath,
+                    serverUrl = serverUrl
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+            result.fold(
+                onSuccess = {
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    _uiState.update { it.copy(isSavingConfig = false) }
+                    onSuccess()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isSavingConfig = false,
+                            actionError = error.message
+                        )
+                    }
+                }
+            )
+        }
+    }
+
+    fun addServerLine(serverId: String, url: String, name: String) {
+        mutateServerLine(serverId) {
+            authRepository.addServerLine(serverId, url, name)
+        }
+    }
+
+    fun switchServerLine(serverId: String, lineId: String, onSwitched: () -> Unit = {}) {
+        mutateServerLine(serverId, onSwitched) {
+            authRepository.switchServerLine(serverId, lineId)
+        }
+    }
+
+    fun removeServerLine(serverId: String, lineId: String) {
+        mutateServerLine(serverId) {
+            authRepository.removeServerLine(serverId, lineId)
+        }
+    }
+
+    fun autoSelectServerLine(serverId: String) {
+        mutateServerLine(serverId) {
+            authRepository.autoSelectServerLine(serverId)
+        }
+    }
+
+    private fun mutateServerLine(
+        serverId: String,
+        onSuccess: () -> Unit = {},
+        block: suspend () -> Result<AuthRepository.SavedServer>
+    ) {
+        if (serverId.isBlank() || _uiState.value.isBusy) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLineBusy = true, actionError = null) }
+            val result = try {
+                block()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
+            result.fold(
+                onSuccess = {
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    _uiState.update { it.copy(isLineBusy = false) }
+                    onSuccess()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLineBusy = false,
+                            actionError = error.message
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     private suspend fun probeReachability(servers: List<AuthRepository.SavedServer>) {
         if (servers.isEmpty()) {
             _uiState.update { it.copy(reachableIds = emptySet()) }
@@ -264,6 +376,15 @@ internal fun composeServerUrl(
     return "$scheme://$hostOnly$portSuffix$pathSuffix"
 }
 
+internal fun parseServerUrl(url: String): ServerAddressDraft {
+    return parseServerAddressInput(
+        raw = url,
+        currentHttps = false,
+        currentPort = defaultPort(false),
+        currentPath = ""
+    )
+}
+
 internal fun parseServerAddressInput(
     raw: String,
     currentHttps: Boolean,
@@ -282,16 +403,16 @@ internal fun parseServerAddressInput(
             val scheme = if (currentHttps) "https" else "http"
             "$scheme://$trimmed"
         }
-        val uri = Uri.parse(withScheme)
-        val https = uri.scheme.equals("https", ignoreCase = true)
-        val host = uri.host.orEmpty().ifBlank {
+        val uri = runCatching { URI(withScheme) }.getOrNull()
+        val https = uri?.scheme.equals("https", ignoreCase = true)
+        val host = uri?.host.orEmpty().ifBlank {
             trimmed.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore(':')
         }
         val port = when {
-            uri.port > 0 -> uri.port.toString()
+            uri != null && uri.port > 0 -> uri.port.toString()
             else -> defaultPort(https)
         }
-        val path = uri.path.orEmpty().trimEnd('/').takeIf { it.isNotBlank() && it != "/" }.orEmpty()
+        val path = uri?.path.orEmpty().trimEnd('/').takeIf { it.isNotBlank() && it != "/" }.orEmpty()
         return ServerAddressDraft(host = host, https = https, port = port, path = path)
     }
 

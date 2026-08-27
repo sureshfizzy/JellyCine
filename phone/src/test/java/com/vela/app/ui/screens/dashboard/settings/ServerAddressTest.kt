@@ -34,4 +34,22 @@ class ServerAddressTest {
         assertEquals("443", defaultPort(true))
         assertEquals("8096", defaultPort(false))
     }
+
+    @Test
+    fun parseBareHostDefaultsToHttp8096() {
+        val draft = parseServerUrl("192.168.0.21")
+        assertEquals("192.168.0.21", draft.host)
+        assertEquals(false, draft.https)
+        assertEquals("8096", draft.port)
+        assertEquals("", draft.path)
+    }
+
+    @Test
+    fun parseHttpsKeepsExplicitPort() {
+        val draft = parseServerUrl("https://nas.example:443/emby")
+        assertEquals("nas.example", draft.host)
+        assertEquals(true, draft.https)
+        assertEquals("443", draft.port)
+        assertEquals("/emby", draft.path)
+    }
 }

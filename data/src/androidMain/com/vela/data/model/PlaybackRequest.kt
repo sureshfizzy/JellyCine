@@ -42,7 +42,8 @@ internal data class PlaybackStreamOptions(
     val audioStreamIndex: Int? = null,
     val subtitleStreamIndex: Int? = null,
     val audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
-    val includeAccessToken: Boolean = false
+    val includeAccessToken: Boolean = false,
+    val preferStrmOriginalPath: Boolean = false
 )
 
 internal object PlaybackUrlBuilder {
@@ -89,6 +90,7 @@ internal object PlaybackUrlBuilder {
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<PlaybackRequest> {
+        strmOriginalPlaybackRequest(playbackInfo, options)?.let { return Result.success(it) }
         return buildStreamingUrl(
             context = context,
             authContext = authContext,
@@ -114,12 +116,29 @@ internal object PlaybackUrlBuilder {
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<String> {
+        strmOriginalPlaybackRequest(playbackInfo, options)?.let { request ->
+            return Result.success(request.url)
+        }
         return buildStreamingUrl(
             context = context,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
             options = options.copy(includeAccessToken = true)
+        )
+    }
+
+
+    private fun strmOriginalPlaybackRequest(
+        playbackInfo: PlaybackInfoResponse,
+        options: PlaybackStreamOptions
+    ): PlaybackRequest? {
+        if (!options.preferStrmOriginalPath) return null
+        val mediaSource = playbackInfo.mediaSources?.firstOrNull() ?: return null
+        val originalUrl = mediaSource.strmOriginalPlaybackUrl() ?: return null
+        return PlaybackRequest(
+            url = originalUrl,
+            requestHeaders = mediaSource.requiredHttpHeaders.orEmpty()
         )
     }
 

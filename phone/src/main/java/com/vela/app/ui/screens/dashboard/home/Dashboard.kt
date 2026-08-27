@@ -63,6 +63,7 @@ import com.vela.app.ui.screens.auth.ServerSwitchViewModel
 import com.vela.app.ui.screens.auth.ProfileImageLoader
 import com.vela.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.vela.app.ui.screens.dashboard.settings.DownloadsScreen
+import com.vela.app.ui.screens.dashboard.settings.ServerLineSwitchButton
 import com.vela.player.preferences.PlayerPreferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -1222,7 +1223,9 @@ fun Dashboard(
         }
     }
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
-    val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
+    val currentServerName = activeSavedServer?.displayName()
+        ?: sessionSnapshot.serverName
+        ?: persistedHomeSnapshot?.serverName
     val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
     val currentServerType = sessionSnapshot.serverType
     val currentProfileImageUrl = activeSavedServer?.profileImageUrl ?: persistedHomeSnapshot?.profileImageUrl
@@ -1800,7 +1803,20 @@ fun Dashboard(
                             userName = HeaderUserName,
                             userImageUrl = noCarouselProfileImageUrl,
                             onProfileClick = { showAccountOverview = true },
-                            onServerClick = onNavigateToServers
+                            onServerClick = onNavigateToServers,
+                            lines = activeSavedServer?.resolvedLines().orEmpty(),
+                            activeLineId = activeSavedServer?.activeLine()?.id,
+                            onSwitchLine = { lineId ->
+                                val serverId = activeSavedServer?.id
+                                if (!serverId.isNullOrBlank()) {
+                                    scope.launch {
+                                        authRepository.switchServerLine(serverId, lineId).onSuccess {
+                                            mediaRepository.clearPersistedHomeSnapshot()
+                                            CachedData.clearAllCache()
+                                        }
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -2050,7 +2066,10 @@ private fun TopHeader(
     userName: String?,
     userImageUrl: String?,
     onProfileClick: (() -> Unit)? = null,
-    onServerClick: (() -> Unit)? = null
+    onServerClick: (() -> Unit)? = null,
+    lines: List<com.vela.data.repository.AuthRepository.ServerLine> = emptyList(),
+    activeLineId: String? = null,
+    onSwitchLine: (String) -> Unit = {}
 ) {
     BrandHeader(
         serverName = serverName,
@@ -2061,7 +2080,10 @@ private fun TopHeader(
         userImageUrl = userImageUrl,
         userServerTypeRaw = serverTypeRaw,
         onProfileClick = onProfileClick,
-        onServerClick = onServerClick
+        onServerClick = onServerClick,
+        lines = lines,
+        activeLineId = activeLineId,
+        onSwitchLine = onSwitchLine
     )
 }
 
@@ -2074,7 +2096,10 @@ private fun BrandHeader(
     userImageUrl: String? = null,
     userServerTypeRaw: String? = null,
     onProfileClick: (() -> Unit)? = null,
-    onServerClick: (() -> Unit)? = null
+    onServerClick: (() -> Unit)? = null,
+    lines: List<com.vela.data.repository.AuthRepository.ServerLine> = emptyList(),
+    activeLineId: String? = null,
+    onSwitchLine: (String) -> Unit = {}
 ) {
     val displayServerName = serverName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.dashboard_server_fallback)
     val headerChipShape = RoundedCornerShape(22.dp)
@@ -2217,6 +2242,11 @@ private fun BrandHeader(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                ServerLineSwitchButton(
+                    lines = lines,
+                    activeLineId = activeLineId,
+                    onSwitchLine = onSwitchLine
+                )
                 ScreenCastButton(
                     onConnectedClick = { openCastPlayback() },
                     size = 34.dp

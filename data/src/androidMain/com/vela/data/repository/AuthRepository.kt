@@ -131,7 +131,11 @@ class AuthRepository(private val context: Context) {
         @SerialName("activeLineId")
         val activeLineId: String? = null,
         @SerialName("serverInstanceId")
-        val serverInstanceId: String? = null
+        val serverInstanceId: String? = null,
+        @SerialName("note")
+        val note: String? = null,
+        @SerialName("preferStrmOriginalPath")
+        val preferStrmOriginalPath: Boolean = false
     ) {
         fun resolvedLines(): List<ServerLine> {
             if (lines.isNotEmpty()) {
@@ -152,6 +156,10 @@ class AuthRepository(private val context: Context) {
             return all.firstOrNull { line -> line.id == activeLineId }
                 ?: all.firstOrNull { line -> sameServerUrl(line.url, serverUrl) }
                 ?: all.firstOrNull()
+        }
+
+        fun displayName(): String {
+            return note?.trim()?.takeIf { it.isNotBlank() } ?: serverName
         }
 
         fun groupingKey(): String {
@@ -185,7 +193,11 @@ class AuthRepository(private val context: Context) {
         @SerialName("activeLineId")
         val activeLineId: String? = null,
         @SerialName("serverInstanceId")
-        val serverInstanceId: String? = null
+        val serverInstanceId: String? = null,
+        @SerialName("note")
+        val note: String? = null,
+        @SerialName("preferStrmOriginalPath")
+        val preferStrmOriginalPath: Boolean = false
     )
 
     data class ActiveSessionSnapshot(
@@ -265,7 +277,8 @@ class AuthRepository(private val context: Context) {
                 lines = incoming.lines.ifEmpty { match.lines },
                 activeLineId = incoming.activeLineId ?: match.activeLineId,
                 serverInstanceId = incoming.serverInstanceId ?: match.serverInstanceId,
-                profileImageUrl = incoming.profileImageUrl ?: match.profileImageUrl
+                profileImageUrl = incoming.profileImageUrl ?: match.profileImageUrl,
+                note = incoming.note ?: match.note
             )
         }
         return (existing.filterNot { it.id == merged.id } + merged)
@@ -310,7 +323,9 @@ class AuthRepository(private val context: Context) {
             lastUsedAt = existingSavedServer?.lastUsedAt ?: System.currentTimeMillis(),
             lines = existingSavedServer?.lines.orEmpty(),
             activeLineId = existingSavedServer?.activeLineId,
-            serverInstanceId = existingSavedServer?.serverInstanceId
+            serverInstanceId = existingSavedServer?.serverInstanceId,
+            note = existingSavedServer?.note,
+            preferStrmOriginalPath = existingSavedServer?.preferStrmOriginalPath == true
         )
     }
 
@@ -680,6 +695,81 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    suspend fun updateSavedServerConfig(
+        serverId: String,
+        note: String?,
+        preferStrmOriginalPath: Boolean,
+        serverUrl: String? = null
+    ): Result<SavedServer> {
+        if (serverId.isBlank()) {
+            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
+        }
+
+        return try {
+            legacyStorageMigrated()
+            val preferences = dataStore.data.first()
+            val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
+            val target = existingServers.firstOrNull { it.id == serverId }
+                ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
+            val trimmedNote = note?.trim()?.takeIf { it.isNotBlank() }
+            var nextLines = target.resolvedLines()
+            var nextActiveLineId = target.activeLineId
+            var nextUrl = target.serverUrl
+
+            if (!serverUrl.isNullOrBlank()) {
+                val canonical = canonicalServerUrl(serverUrl)
+                if (!sameServerUrl(canonical, target.serverUrl)) {
+                    val existingLine = nextLines.firstOrNull { line -> sameServerUrl(line.url, canonical) }
+                    if (existingLine != null) {
+                        probeServerEndpoint(existingLine.url).getOrElse { error ->
+                            return Result.failure(error)
+                        }
+                        nextUrl = canonicalServerUrl(existingLine.url)
+                        nextActiveLineId = existingLine.id
+                    } else {
+                        val endpoint = probeServerEndpoint(canonical).getOrElse { error ->
+                            return Result.failure(error)
+                        }
+                        val instanceId = endpoint.serverInfo.id?.takeIf { it.isNotBlank() }
+                        if (
+                            !target.serverInstanceId.isNullOrBlank() &&
+                            !instanceId.isNullOrBlank() &&
+                            target.serverInstanceId != instanceId
+                        ) {
+                            return Result.failure(Exception(string(R.string.auth_error_server_line_mismatch)))
+                        }
+                        val lineUrl = canonicalServerUrl(endpoint.baseUrl)
+                        val active = nextLines.firstOrNull { line -> line.id == target.activeLineId }
+                            ?: nextLines.firstOrNull()
+                            ?: return Result.failure(Exception(string(R.string.auth_error_server_line_not_found)))
+                        nextLines = nextLines.map { line ->
+                            if (line.id == active.id) line.copy(url = lineUrl) else line
+                        }
+                        nextUrl = lineUrl
+                        nextActiveLineId = active.id
+                    }
+                }
+            }
+
+            val updated = target.copy(
+                serverUrl = nextUrl,
+                lines = nextLines,
+                activeLineId = nextActiveLineId,
+                note = trimmedNote,
+                preferStrmOriginalPath = preferStrmOriginalPath,
+                lastUsedAt = System.currentTimeMillis()
+            )
+            persistSavedServer(
+                updated,
+                activate = target.id == currentServerId(preferences) ||
+                    preferences[ACTIVE_SERVER_ID_KEY] == target.id
+            )
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateSavedServerProfileImage(
         serverId: String,
         profileImageUrl: String?
@@ -799,7 +889,8 @@ class AuthRepository(private val context: Context) {
     suspend fun authenticateUser(
         serverUrl: String,
         username: String,
-        password: String
+        password: String,
+        note: String? = null
     ): Result<AuthenticationResult> {
         return try {
             legacyStorageMigrated()
@@ -851,7 +942,8 @@ class AuthRepository(private val context: Context) {
                     existingServers = savedServers(preferences[SAVED_SERVERS_KEY]),
                     endpoint = endpoint,
                     userId = authResult.user.id,
-                    username = username
+                    username = username,
+                    note = note
                 )
 
                 secureSessionStore.putToken(savedServer.id, authResult.accessToken)
@@ -1069,7 +1161,9 @@ class AuthRepository(private val context: Context) {
             lastUsedAt = lastUsedAt,
             lines = lines,
             activeLineId = activeLineId,
-            serverInstanceId = serverInstanceId
+            serverInstanceId = serverInstanceId,
+            note = note,
+            preferStrmOriginalPath = preferStrmOriginalPath
         )
     }
 
@@ -1101,7 +1195,8 @@ class AuthRepository(private val context: Context) {
         existingServers: List<SavedServer>,
         endpoint: ServerEndpoint,
         userId: String,
-        username: String
+        username: String,
+        note: String? = null
     ): SavedServer {
         val instanceId = endpoint.serverInfo.id?.takeIf { it.isNotBlank() }
         val baseUrl = canonicalServerUrl(endpoint.baseUrl)
@@ -1131,7 +1226,9 @@ class AuthRepository(private val context: Context) {
             lastUsedAt = System.currentTimeMillis(),
             lines = mergedLines,
             activeLineId = active.id,
-            serverInstanceId = instanceId ?: matched?.serverInstanceId
+            serverInstanceId = instanceId ?: matched?.serverInstanceId,
+            note = note?.trim()?.takeIf { it.isNotBlank() } ?: matched?.note,
+            preferStrmOriginalPath = matched?.preferStrmOriginalPath == true
         )
     }
 

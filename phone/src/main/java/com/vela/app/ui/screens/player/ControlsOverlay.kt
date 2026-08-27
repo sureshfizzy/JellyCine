@@ -246,15 +246,8 @@ private fun PortraitPlayerOverlay(
     val headline = seasonEpisodeLabel?.takeIf { it.isNotBlank() } ?: title
     val iconTint = Color.White
     val disabledTint = Color.White.copy(alpha = 0.35f)
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-    val screenHeight = configuration.screenHeightDp.dp
-    val fittedVideoWidth = screenHeight * 16f / 9f
-    val landscapeSideGutter = if (landscape) {
-        ((screenWidth - fittedVideoWidth) / 2f).coerceAtLeast(0.dp)
-    } else {
-        0.dp
-    }
+    val chromeEdgeInset = if (landscape) 8.dp else PlayerChromeInset
+
 
     Box(
         modifier = modifier.fillMaxSize()
@@ -273,12 +266,8 @@ private fun PortraitPlayerOverlay(
                         )
                     )
                     .padding(
-                        start = PlayerChromeInset,
-                        end = if (landscape) {
-                            landscapeSideGutter + PlayerChromeInset
-                        } else {
-                            PlayerChromeInset
-                        },
+                        start = chromeEdgeInset,
+                        end = chromeEdgeInset,
                         top = PlayerChromeTopGap
                     )
                     .align(Alignment.TopCenter)
@@ -433,7 +422,7 @@ private fun PortraitPlayerOverlay(
                     .padding(
                         top = PlayerGlassButtonSize + PlayerChromeTopGap + 6.dp,
                         start = if (landscape) 0.dp else PlayerChromeInset + PlayerGlassButtonSize + 10.dp,
-                        end = if (landscape) landscapeSideGutter + PlayerChromeInset else 0.dp
+                        end = if (landscape) chromeEdgeInset else 0.dp
                     )
             )
         }
@@ -457,13 +446,13 @@ private fun PortraitPlayerOverlay(
                     .then(
                         if (landscape) {
                             Modifier.windowInsetsPadding(
-                                WindowInsets.safeDrawing.only(WindowInsetsSides.Start)
+                                WindowInsets.displayCutout.only(WindowInsetsSides.Start)
                             )
                         } else {
                             Modifier
                         }
                     )
-                    .padding(start = PlayerChromeInset)
+                    .padding(start = chromeEdgeInset)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Lock,
@@ -479,8 +468,8 @@ private fun PortraitPlayerOverlay(
                 Column(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
-                        .padding(start = PlayerChromeInset),
+                        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
+                        .padding(start = chromeEdgeInset),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PlayerGlassIconButton(onClick = onScreenshot) {
@@ -516,8 +505,8 @@ private fun PortraitPlayerOverlay(
                     vertical = true,
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
-                        .padding(end = PlayerChromeInset)
+                        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End))
+                        .padding(end = chromeEdgeInset)
                 )
             } else {
                 Row(
@@ -564,11 +553,13 @@ private fun PortraitPlayerOverlay(
                     .align(Alignment.BottomCenter)
                     .then(
                         if (landscape) {
-                            Modifier.windowInsetsPadding(
-                                WindowInsets.safeDrawing.only(
-                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+                            Modifier
+                                .windowInsetsPadding(
+                                    WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)
                                 )
-                            )
+                                .windowInsetsPadding(
+                                    WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+                                )
                         } else {
                             Modifier.navigationBarsPadding()
                         }
@@ -579,9 +570,8 @@ private fun PortraitPlayerOverlay(
                         onClick = onUserInteraction
                     )
                     .padding(
-                        // 横屏底部控制区按整块屏幕占位，不能跟随 16:9 视频画幅向内收缩。
-                        start = PlayerChromeInset,
-                        end = PlayerChromeInset,
+                        start = chromeEdgeInset,
+                        end = chromeEdgeInset,
                         bottom = PlayerChromeBottomGap
                     )
             ) {

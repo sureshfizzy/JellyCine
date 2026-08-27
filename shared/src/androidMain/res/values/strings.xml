@@ -604,6 +604,17 @@
     <string name="settings_server_protocol_http">HTTP</string>
     <string name="settings_servers_empty">No saved servers yet. Tap + to add one.</string>
     <string name="settings_server_menu">Server options</string>
+    <string name="settings_server_note">Note</string>
+    <string name="settings_server_note_placeholder">Optional display name</string>
+    <string name="settings_server_login">Sign-in</string>
+    <string name="settings_server_host">Host</string>
+    <string name="settings_server_https">https</string>
+    <string name="settings_server_config">Server settings</string>
+    <string name="settings_switch_line">Switch line</string>
+    <string name="settings_server_backup_lines">Backup lines</string>
+    <string name="settings_server_advanced">Advanced</string>
+    <string name="settings_server_strm_original">Prefer original STRM path</string>
+    <string name="settings_server_strm_original_subtitle">Leave this off unless you know what it does.</string>
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">About</string>
     <plurals name="settings_saved_users_count">

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Router
@@ -24,6 +27,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -294,6 +299,81 @@ private fun AddServerLineDialog(
                     Text(stringResource(R.string.save))
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun ServerLineSwitchButton(
+    lines: List<AuthRepository.ServerLine>,
+    activeLineId: String?,
+    enabled: Boolean = true,
+    onSwitchLine: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (lines.size <= 1) return
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        IconButton(
+            enabled = enabled,
+            onClick = { expanded = true }
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Bolt,
+                contentDescription = stringResource(R.string.settings_switch_line),
+                tint = Color.White
+            )
+        }
+        ServerLineSwitchMenu(
+            lines = lines,
+            activeLineId = activeLineId,
+            expanded = expanded,
+            onDismiss = { expanded = false },
+            onSwitchLine = { lineId ->
+                expanded = false
+                onSwitchLine(lineId)
+            }
+        )
+    }
+}
+
+@Composable
+internal fun ServerLineSwitchMenu(
+    lines: List<AuthRepository.ServerLine>,
+    activeLineId: String?,
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onSwitchLine: (String) -> Unit
+) {
+    val lanLabel = stringResource(R.string.settings_server_line_lan)
+    val wanLabel = stringResource(R.string.settings_server_line_wan)
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss
+    ) {
+        Text(
+            text = stringResource(R.string.settings_switch_line),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        lines.forEach { line ->
+            val label = line.name.trim().ifBlank {
+                if (line.isLan()) lanLabel else wanLabel
+            }
+            DropdownMenuItem(
+                text = { Text(label) },
+                trailingIcon = {
+                    if (line.id == activeLineId) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = Color(0xFF4FD06B)
+                        )
+                    }
+                },
+                onClick = { onSwitchLine(line.id) }
+            )
         }
     }
 }

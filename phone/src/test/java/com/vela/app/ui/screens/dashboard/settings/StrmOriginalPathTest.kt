@@ -1,0 +1,54 @@
+package com.vela.app.ui.screens.dashboard.settings
+
+import com.vela.data.model.MediaSource
+import com.vela.data.model.isStrmSource
+import com.vela.data.model.strmOriginalPlaybackUrl
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class StrmOriginalPathTest {
+
+    @Test
+    fun strmHttpPathIsUsed() {
+        val source = MediaSource(
+            container = "strm",
+            path = "https://cdn.example/movie.mkv"
+        )
+        assertTrue(source.isStrmSource())
+        assertEquals("https://cdn.example/movie.mkv", source.strmOriginalPlaybackUrl())
+    }
+
+    @Test
+    fun strmFilePathIsIgnored() {
+        val source = MediaSource(
+            container = "strm",
+            path = "/media/library/movie.strm"
+        )
+        assertTrue(source.isStrmSource())
+        assertNull(source.strmOriginalPlaybackUrl())
+    }
+
+    @Test
+    fun localFileIsNotStrm() {
+        val source = MediaSource(
+            container = "mkv",
+            path = "/media/library/movie.mkv"
+        )
+        assertFalse(source.isStrmSource())
+        assertNull(source.strmOriginalPlaybackUrl())
+    }
+
+    @Test
+    fun strmNameWithHttpPathIsUsed() {
+        val source = MediaSource(
+            container = "mkv",
+            name = "movie.strm",
+            path = "http://192.168.0.21:5244/d/movie.mkv"
+        )
+        assertTrue(source.isStrmSource())
+        assertEquals("http://192.168.0.21:5244/d/movie.mkv", source.strmOriginalPlaybackUrl())
+    }
+}

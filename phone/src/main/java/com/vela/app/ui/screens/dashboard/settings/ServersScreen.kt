@@ -88,6 +88,7 @@ fun ServersScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddDialog by remember { mutableStateOf(false) }
     var serverPendingRemoval by remember { mutableStateOf<AuthRepository.SavedServer?>(null) }
+    var configuringServerId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.actionError) {
         val error = uiState.actionError ?: return@LaunchedEffect
@@ -163,7 +164,11 @@ fun ServersScreen(
                         onClick = {
                             viewModel.switchServer(server.id, onServerSwitched)
                         },
-                        onAddUser = { onAddUser(server.serverUrl, server.serverName) },
+                        onConfigure = { configuringServerId = server.id },
+                        onSwitchLine = { lineId ->
+                            viewModel.switchServerLine(server.id, lineId, onServerSwitched)
+                        },
+                        onAddUser = { onAddUser(server.serverUrl, server.displayName()) },
                         onRemove = {
                             if (server.id != uiState.activeServerId) {
                                 serverPendingRemoval = server
@@ -185,7 +190,7 @@ fun ServersScreen(
                     showAddDialog = false
                 }
             },
-            onConnect = { host, https, port, path, username, password ->
+            onConnect = { host, https, port, path, username, password, note ->
                 viewModel.addServer(
                     host = host,
                     https = https,
@@ -193,6 +198,7 @@ fun ServersScreen(
                     path = path,
                     username = username,
                     password = password,
+                    note = note,
                     onSuccess = {
                         showAddDialog = false
                         onServerSwitched()
@@ -215,6 +221,38 @@ fun ServersScreen(
                 viewModel.removeServer(server.id)
                 serverPendingRemoval = null
             }
+        )
+    }
+
+    val configuringServer = uiState.servers.firstOrNull { it.id == configuringServerId }
+    configuringServer?.let { server ->
+        ServerConfigScreen(
+            server = server,
+            isBusy = uiState.isBusy,
+            isSaving = uiState.isSavingConfig,
+            onDismiss = {
+                if (!uiState.isBusy) {
+                    configuringServerId = null
+                }
+            },
+            onSave = { note, preferStrmOriginalPath, host, https, port, path ->
+                viewModel.saveServerConfig(
+                    serverId = server.id,
+                    note = note,
+                    preferStrmOriginalPath = preferStrmOriginalPath,
+                    host = host,
+                    https = https,
+                    port = port,
+                    path = path,
+                    onSuccess = { configuringServerId = null }
+                )
+            },
+            onAddLine = { url, name -> viewModel.addServerLine(server.id, url, name) },
+            onSwitchLine = { lineId ->
+                viewModel.switchServerLine(server.id, lineId, onServerSwitched)
+            },
+            onRemoveLine = { lineId -> viewModel.removeServerLine(server.id, lineId) },
+            onAutoSelect = { viewModel.autoSelectServerLine(server.id) }
         )
     }
 
@@ -243,10 +281,14 @@ private fun ServerAccountRow(
     isOnline: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    onConfigure: () -> Unit,
+    onSwitchLine: (String) -> Unit,
     onAddUser: () -> Unit,
     onRemove: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var lineMenuExpanded by remember { mutableStateOf(false) }
+    val lines = server.resolvedLines()
 
     Row(
         modifier = Modifier
@@ -273,7 +315,7 @@ private fun ServerAccountRow(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = server.serverName.ifBlank { stringResource(R.string.settings_media_server) },
+                text = server.displayName().ifBlank { stringResource(R.string.settings_media_server) },
                 color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -314,6 +356,22 @@ private fun ServerAccountRow(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text(stringResource(R.string.settings_server_config)) },
+                    onClick = {
+                        menuExpanded = false
+                        onConfigure()
+                    }
+                )
+                if (lines.size > 1) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.settings_switch_line)) },
+                        onClick = {
+                            menuExpanded = false
+                            lineMenuExpanded = true
+                        }
+                    )
+                }
+                DropdownMenuItem(
                     text = { Text(stringResource(R.string.settings_add_user)) },
                     onClick = {
                         menuExpanded = false
@@ -329,11 +387,20 @@ private fun ServerAccountRow(
                     }
                 )
             }
+            ServerLineSwitchMenu(
+                lines = lines,
+                activeLineId = server.activeLine()?.id,
+                expanded = lineMenuExpanded,
+                onDismiss = { lineMenuExpanded = false },
+                onSwitchLine = { lineId ->
+                    lineMenuExpanded = false
+                    onSwitchLine(lineId)
+                }
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddServerDialog(
     isConnecting: Boolean,
@@ -345,16 +412,17 @@ private fun AddServerDialog(
         port: String,
         path: String,
         username: String,
-        password: String
+        password: String,
+        note: String
     ) -> Unit
 ) {
+    var note by remember { mutableStateOf("") }
     var host by remember { mutableStateOf("") }
-    var https by remember { mutableStateOf(true) }
-    var port by remember { mutableStateOf(defaultPort(true)) }
+    var https by remember { mutableStateOf(false) }
+    var port by remember { mutableStateOf(defaultPort(false)) }
     var path by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var protocolExpanded by remember { mutableStateOf(false) }
 
     AmoledDialogFrame(
         dismissOnRequest = !isConnecting,
@@ -374,8 +442,23 @@ private fun AddServerDialog(
             )
             Spacer(modifier = Modifier.height(18.dp))
             OutlinedTextField(
-                value = host,
-                onValueChange = { value ->
+                value = note,
+                onValueChange = { note = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.settings_server_note)) },
+                placeholder = { Text(stringResource(R.string.settings_server_note_placeholder)) },
+                singleLine = true,
+                enabled = !isConnecting,
+                colors = amoledAuthFieldColors()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ServerAddressFields(
+                host = host,
+                path = path,
+                port = port,
+                https = https,
+                enabled = !isConnecting,
+                onHostChange = { value ->
                     val parsed = parseServerAddressInput(value, https, port, path)
                     host = if (value.contains("://") || '/' in value) parsed.host else value
                     https = parsed.https
@@ -384,87 +467,14 @@ private fun AddServerDialog(
                         path = parsed.path
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.settings_server_address)) },
-                singleLine = true,
-                enabled = !isConnecting,
-                colors = amoledAuthFieldColors()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ExposedDropdownMenuBox(
-                    expanded = protocolExpanded && !isConnecting,
-                    onExpandedChange = { protocolExpanded = it && !isConnecting },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    OutlinedTextField(
-                        value = stringResource(
-                            if (https) R.string.settings_server_protocol_https
-                            else R.string.settings_server_protocol_http
-                        ),
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier
-                            .menuAnchor(
-                                type = ExposedDropdownMenuAnchorType.PrimaryNotEditable,
-                                enabled = !isConnecting
-                            )
-                            .fillMaxWidth(),
-                        label = { Text(stringResource(R.string.settings_server_protocol)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
-                        enabled = !isConnecting,
-                        colors = amoledAuthFieldColors()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = protocolExpanded,
-                        onDismissRequest = { protocolExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings_server_protocol_https)) },
-                            onClick = {
-                                if (port == defaultPort(!https) || port.isBlank()) {
-                                    port = defaultPort(true)
-                                }
-                                https = true
-                                protocolExpanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.settings_server_protocol_http)) },
-                            onClick = {
-                                if (port == defaultPort(!https) || port.isBlank()) {
-                                    port = defaultPort(false)
-                                }
-                                https = false
-                                protocolExpanded = false
-                            }
-                        )
+                onPathChange = { path = it },
+                onPortChange = { port = it.filter(Char::isDigit).take(5) },
+                onHttpsChange = { enabled ->
+                    if (port == defaultPort(https) || port.isBlank()) {
+                        port = defaultPort(enabled)
                     }
+                    https = enabled
                 }
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { value -> port = value.filter(Char::isDigit).take(5) },
-                    modifier = Modifier.weight(1f),
-                    label = { Text(stringResource(R.string.settings_server_port)) },
-                    singleLine = true,
-                    enabled = !isConnecting,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = amoledAuthFieldColors()
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = path,
-                onValueChange = { path = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.settings_server_path)) },
-                placeholder = { Text(stringResource(R.string.settings_server_path_hint)) },
-                singleLine = true,
-                enabled = !isConnecting,
-                colors = amoledAuthFieldColors()
             )
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedTextField(
@@ -510,10 +520,13 @@ private fun AddServerDialog(
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        onConnect(host, https, port, path, username, password)
+                        onConnect(host, https, port, path, username, password, note)
                     },
                     enabled = !isConnecting && host.isNotBlank() && username.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB8C7FF), contentColor = Color(0xFF1B2550))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFB8C7FF),
+                        contentColor = Color(0xFF1B2550)
+                    )
                 ) {
                     if (isConnecting) {
                         CircularProgressIndicator(

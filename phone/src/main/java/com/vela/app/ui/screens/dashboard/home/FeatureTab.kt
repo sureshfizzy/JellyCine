@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -72,6 +73,7 @@ import coil3.request.*
 import com.vela.shared.R
 import com.vela.app.ui.components.common.ScreenCastButton
 import com.vela.app.ui.screens.auth.ProfileImageLoader
+import com.vela.app.ui.screens.dashboard.settings.ServerLineSwitchButton
 import com.vela.shared.util.image.imageTagFor
 import com.vela.data.model.BaseItemDto
 import com.vela.data.model.PersistedHomeSnapshot
@@ -165,6 +167,12 @@ fun FeatureTab(
     )
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
     val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
+    val activeSavedServer = remember(sessionSnapshot.savedServers, sessionSnapshot.activeServerId) {
+        sessionSnapshot.savedServers.firstOrNull { savedServer ->
+            savedServer.id == sessionSnapshot.activeServerId
+        }
+    }
+    val switchLineScope = rememberCoroutineScope()
     var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
         mutableStateOf(currentUsername ?: persistedHomeSnapshot?.username ?: userFallback)
     }
@@ -625,6 +633,21 @@ fun FeatureTab(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    ServerLineSwitchButton(
+                        lines = activeSavedServer?.resolvedLines().orEmpty(),
+                        activeLineId = activeSavedServer?.activeLine()?.id,
+                        onSwitchLine = { lineId ->
+                            val serverId = activeSavedServer?.id
+                            if (!serverId.isNullOrBlank()) {
+                                switchLineScope.launch {
+                                    authRepository.switchServerLine(serverId, lineId).onSuccess {
+                                        mediaRepository.clearPersistedHomeSnapshot()
+                                        CachedData.clearAllCache()
+                                    }
+                                }
+                            }
+                        }
+                    )
                     ScreenCastButton(
                         onConnectedClick = onCastButtonClick,
                         size = 34.dp

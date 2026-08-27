@@ -97,6 +97,24 @@ data class MediaSource(
     val defaultSubtitleStreamIndex: Int? = null
 )
 
+fun MediaSource.strmOriginalPlaybackUrl(): String? {
+    val rawPath = path?.trim()?.takeIf { candidate ->
+        candidate.startsWith("http://", ignoreCase = true) ||
+            candidate.startsWith("https://", ignoreCase = true)
+    } ?: return null
+    if (!isStrmSource()) return null
+    return rawPath
+}
+
+fun MediaSource.isStrmSource(): Boolean {
+    val containerName = container.orEmpty()
+    val sourcePath = path.orEmpty().substringBefore('?')
+    val sourceName = name.orEmpty()
+    return containerName.equals("strm", ignoreCase = true) ||
+        sourcePath.endsWith(".strm", ignoreCase = true) ||
+        sourceName.endsWith(".strm", ignoreCase = true)
+}
+
 /**
  * Media stream information (audio/video/subtitle tracks)
  */

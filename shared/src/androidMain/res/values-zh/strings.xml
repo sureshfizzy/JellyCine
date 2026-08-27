@@ -595,6 +595,17 @@
     <string name="settings_server_protocol_http">HTTP</string>
     <string name="settings_servers_empty">还没有已保存的服务器，点 + 添加</string>
     <string name="settings_server_menu">服务器选项</string>
+    <string name="settings_server_note">备注</string>
+    <string name="settings_server_note_placeholder">可选，用于列表显示</string>
+    <string name="settings_server_login">登录信息</string>
+    <string name="settings_server_host">主机</string>
+    <string name="settings_server_https">https</string>
+    <string name="settings_server_config">服务配置</string>
+    <string name="settings_switch_line">切换线路</string>
+    <string name="settings_server_backup_lines">备用线路</string>
+    <string name="settings_server_advanced">高级设置</string>
+    <string name="settings_server_strm_original">STRM优先使用原始路径播放</string>
+    <string name="settings_server_strm_original_subtitle">如果你不清楚作用，请不要开启！</string>
     <string name="settings_auto">自动</string>
     <string name="cd_about_button">关于</string>
     <plurals name="settings_saved_users_count">
