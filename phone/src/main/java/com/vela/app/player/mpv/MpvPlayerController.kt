@@ -1,6 +1,7 @@
 package com.vela.app.player.mpv
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.view.Surface
 import com.vela.player.preferences.PlayerPreferences
 import `is`.xyz.mpv.MPVLib
@@ -22,6 +23,7 @@ class MpvPlayerController(
     }
 
     private val appContext = context.applicationContext
+    @Volatile
     private var released = false
     private var ready = false
     private var durationMs: Long = 0L
@@ -29,6 +31,7 @@ class MpvPlayerController(
     private var playWhenReady = true
     private var pendingSubtitleUrls: List<String> = emptyList()
     private var pendingSelectedSubtitleUrl: String? = null
+    private var preferFastSeek = false
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
@@ -60,11 +63,13 @@ class MpvPlayerController(
         subtitleTrackId: String?,
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
-        startPlayback: Boolean
+        startPlayback: Boolean,
+        opticalDiscPlayback: Boolean
     ) {
         if (released) return
         ready = false
         playWhenReady = startPlayback
+        preferFastSeek = opticalDiscPlayback
         val startPositionSeconds = startPositionMs
             ?.takeIf { it > 0L }
             ?.let { it / 1000.0 }
@@ -77,6 +82,10 @@ class MpvPlayerController(
             audioTrackId?.let { add("aid=$it") }
             if (selectedSubtitleUrl == null) {
                 subtitleTrackId?.let { add("sid=$it") }
+            }
+            if (opticalDiscPlayback) {
+                add("hr-seek=no")
+                add("stream-buffer-size=1MiB")
             }
         }
         val loadCommand = if (loadOptions.isEmpty()) {
@@ -166,10 +175,15 @@ class MpvPlayerController(
         MPVLib.setPropertyBoolean("pause", true)
     }
 
+    fun grabThumbnail(dimension: Int): Bitmap? {
+        if (released) return null
+        return MPVLib.grabThumbnail(dimension)
+    }
+
     fun seekTo(positionMs: Long, exact: Boolean = true) {
         if (released) return
         this.positionMs = positionMs.coerceAtLeast(0L)
-        val flags = if (exact) "absolute+exact" else "absolute"
+        val flags = if (exact && !preferFastSeek) "absolute+exact" else "absolute"
         MPVLib.command(
             arrayOf("seek", (this.positionMs / 1000.0).toString(), flags)
         )

@@ -4,9 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -77,8 +78,7 @@ class VelaActivity : ComponentActivity() {
             authCheckCompleted.set(true)
         }
 
-        // Use modern edge-to-edge approach
-        enableEdgeToEdge()
+        applyEdgeToEdgeSystemBars()
 
         setContent {
             VelaTheme {
@@ -87,12 +87,8 @@ class VelaActivity : ComponentActivity() {
                     firstComposeCommitted.set(true)
                 }
 
-                // Handle system bar colors for edge-to-edge
-                val view = LocalView.current
                 SideEffect {
-                    val window = (view.context as ComponentActivity).window
-                    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-                    WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+                    applyEdgeToEdgeSystemBars()
                 }
 
                 Surface(
@@ -114,6 +110,33 @@ class VelaActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyEdgeToEdgeSystemBars()
+        window.decorView.post(::applyEdgeToEdgeSystemBars)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyEdgeToEdgeSystemBars()
+        }
+    }
+
+    private fun applyEdgeToEdgeSystemBars() {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
         }
     }
 

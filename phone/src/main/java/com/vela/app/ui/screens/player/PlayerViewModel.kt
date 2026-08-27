@@ -77,7 +77,8 @@ class PlayerViewModel @Inject constructor(
     private data class ScrubPreviewRequest(
         val source: ScrubPreviewSource,
         val positionMs: Long,
-        val version: Long
+        val version: Long,
+        val useMpvFrame: Boolean
     )
 
     private val _playerState = MutableStateFlow(PlayerState())
@@ -140,33 +141,42 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             for (request in scrubPreviewRequests) {
                 val frame = runCatching {
-                    synchronized(scrubPreviewRetrieverLock) {
-                        if (request.source !== scrubPreviewSource) {
-                            return@synchronized null
+                    if (request.useMpvFrame) {
+                        delay(MPV_SCRUB_PREVIEW_DELAY_MS)
+                        if (request.version != scrubPreviewVersion) {
+                            null
+                        } else {
+                            mpvPlayer?.grabThumbnail(SCRUB_PREVIEW_WIDTH_PX)
                         }
-                        val retriever = scrubPreviewRetriever
-                            ?.takeIf { scrubPreviewRetrieverSource === request.source }
-                            ?: MediaMetadataRetriever().also { newRetriever ->
-                                when (request.source.uri.scheme?.lowercase(Locale.ROOT)) {
-                                    "http", "https" -> newRetriever.setDataSource(
-                                        request.source.uri.toString(),
-                                        request.source.requestHeaders
-                                    )
-                                    else -> newRetriever.setDataSource(
-                                        request.source.context,
-                                        request.source.uri
-                                    )
-                                }
-                                scrubPreviewRetriever?.release()
-                                scrubPreviewRetriever = newRetriever
-                                scrubPreviewRetrieverSource = request.source
+                    } else {
+                        synchronized(scrubPreviewRetrieverLock) {
+                            if (request.source !== scrubPreviewSource) {
+                                return@synchronized null
                             }
-                        retriever.getScaledFrameAtTime(
-                            request.positionMs.coerceAtLeast(0L) * 1_000L,
-                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                            SCRUB_PREVIEW_WIDTH_PX,
-                            SCRUB_PREVIEW_HEIGHT_PX
-                        )
+                            val retriever = scrubPreviewRetriever
+                                ?.takeIf { scrubPreviewRetrieverSource === request.source }
+                                ?: MediaMetadataRetriever().also { newRetriever ->
+                                    when (request.source.uri.scheme?.lowercase(Locale.ROOT)) {
+                                        "http", "https" -> newRetriever.setDataSource(
+                                            request.source.uri.toString(),
+                                            request.source.requestHeaders
+                                        )
+                                        else -> newRetriever.setDataSource(
+                                            request.source.context,
+                                            request.source.uri
+                                        )
+                                    }
+                                    scrubPreviewRetriever?.release()
+                                    scrubPreviewRetriever = newRetriever
+                                    scrubPreviewRetrieverSource = request.source
+                                }
+                            retriever.getScaledFrameAtTime(
+                                request.positionMs.coerceAtLeast(0L) * 1_000L,
+                                MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
+                                SCRUB_PREVIEW_WIDTH_PX,
+                                SCRUB_PREVIEW_HEIGHT_PX
+                            )
+                        }
                     }
                 }.getOrNull()
 
@@ -184,6 +194,23 @@ class PlayerViewModel @Inject constructor(
 
     private fun isMpvPlayback(): Boolean {
         return activePlayerEngine == PlayerPreferences.PLAYER_ENGINE_MPV
+    }
+
+    private fun isOpticalDiscPlayback(
+        itemDetails: BaseItemDto?,
+        mediaSource: MediaSource?,
+        mediaUri: Uri?
+    ): Boolean {
+        val videoType = mediaSource?.videoType.orEmpty()
+        val container = mediaSource?.container.orEmpty()
+        return !itemDetails?.isoType.isNullOrBlank() ||
+            videoType.equals("BluRay", ignoreCase = true) ||
+            videoType.equals("Dvd", ignoreCase = true) ||
+            container.equals("iso", ignoreCase = true) ||
+            container.equals("bluray", ignoreCase = true) ||
+            container.equals("dvd", ignoreCase = true) ||
+            mediaSource?.path?.endsWith(".iso", ignoreCase = true) == true ||
+            mediaUri?.path?.endsWith(".iso", ignoreCase = true) == true
     }
 
     private fun resolveMpvHdrFormatLabel(): String {
@@ -540,6 +567,11 @@ class PlayerViewModel @Inject constructor(
                                 mpvExternalSubtitleUrls::get
                             ),
                             startPositionMs = playerStartPositionMs,
+                            opticalDiscPlayback = isOpticalDiscPlayback(
+                                itemDetails = itemDetails,
+                                mediaSource = primaryMediaSource,
+                                mediaUri = mediaItem.localConfiguration?.uri
+                            ),
                             startPlayback = startPlayback
                         )
                     }
@@ -1183,7 +1215,8 @@ class PlayerViewModel @Inject constructor(
             ScrubPreviewRequest(
                 source = source,
                 positionMs = positionMs,
-                version = version
+                version = version,
+                useMpvFrame = isMpvPlayback()
             )
         )
     }
@@ -1783,3 +1816,4 @@ class PlayerViewModel @Inject constructor(
 
 private const val SCRUB_PREVIEW_WIDTH_PX = 320
 private const val SCRUB_PREVIEW_HEIGHT_PX = 180
+private const val MPV_SCRUB_PREVIEW_DELAY_MS = 80L
