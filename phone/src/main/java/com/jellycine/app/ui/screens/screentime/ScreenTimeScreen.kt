@@ -44,9 +44,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.shared.R
 import com.jellycine.shared.ui.components.common.ShimmerEffect
@@ -118,11 +121,15 @@ fun ScreenTimeScreen(
             )
         }
     ) { innerPadding ->
+        val screenWidth = containerWidthDp()
+        val isTablet = isTabletLayout(screenWidth)
+        val horizontalPadding = if (isTablet) 32.dp else 16.dp
+
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .then(if (isTablet) Modifier.widthIn(max = 720.dp) else Modifier.fillMaxWidth())
+                .padding(horizontal = horizontalPadding),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -158,19 +165,6 @@ fun ScreenTimeScreen(
             } else if (state.stats != null) {
                 val stats = state.stats!!
 
-                item {
-                    SectionCard {
-                        DailyBreakdownChart(
-                            dailyData = stats.dailyBreakdown,
-                            selectedIndex = dayFilter,
-                            onBucketClick = { index ->
-                                dayFilter = if (dayFilter == index) null else index
-                            },
-                            onClearSelection = { dayFilter = null }
-                        )
-                    }
-                }
-
                 val peakHoursData = if (dayFilter != null) {
                     val dayItems = state.items.filter { item ->
                         val date = parseItemDate(item.userData?.lastPlayedDate ?: item.dateCreated)
@@ -179,16 +173,47 @@ fun ScreenTimeScreen(
                     computePeakHoursFromItems(dayItems)
                 } else stats.peakHours
 
-                item {
-                    SectionCard {
-                        PeakHoursChart(
-                            peakHours = peakHoursData,
-                            selectedIndex = hourFilter,
-                            onBucketClick = { index ->
-                                hourFilter = if (hourFilter == index) null else index
-                            },
-                            onClearSelection = { hourFilter = null }
-                        )
+                if (isTablet) {
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SectionCard(modifier = Modifier.weight(1f)) {
+                                DailyBreakdownChart(
+                                    dailyData = stats.dailyBreakdown,
+                                    selectedIndex = dayFilter,
+                                    onBucketClick = { index -> dayFilter = if (dayFilter == index) null else index },
+                                    onClearSelection = { dayFilter = null }
+                                )
+                            }
+                            SectionCard(modifier = Modifier.weight(1f)) {
+                                PeakHoursChart(
+                                    peakHours = peakHoursData,
+                                    selectedIndex = hourFilter,
+                                    onBucketClick = { index -> hourFilter = if (hourFilter == index) null else index },
+                                    onClearSelection = { hourFilter = null }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        SectionCard {
+                            DailyBreakdownChart(
+                                dailyData = stats.dailyBreakdown,
+                                selectedIndex = dayFilter,
+                                onBucketClick = { index -> dayFilter = if (dayFilter == index) null else index },
+                                onClearSelection = { dayFilter = null }
+                            )
+                        }
+                    }
+                    item {
+                        SectionCard {
+                            PeakHoursChart(
+                                peakHours = peakHoursData,
+                                selectedIndex = hourFilter,
+                                onBucketClick = { index -> hourFilter = if (hourFilter == index) null else index },
+                                onClearSelection = { hourFilter = null }
+                            )
+                        }
                     }
                 }
 
@@ -264,6 +289,7 @@ fun ScreenTimeScreen(
             }
 
             item { Spacer(modifier = Modifier.height(32.dp)) }
+        }
         }
     }
 }
