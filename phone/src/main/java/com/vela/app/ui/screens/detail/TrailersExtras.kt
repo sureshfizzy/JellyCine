@@ -63,7 +63,7 @@ internal fun TrailersExtrasSection(
         }
     }
 
-    if (extras.size < 2) return
+    if (extras.isEmpty()) return
 
     Column(modifier = modifier) {
         Text(

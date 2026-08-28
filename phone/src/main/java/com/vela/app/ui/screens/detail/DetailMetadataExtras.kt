@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -373,6 +374,166 @@ private fun ChapterCard(
             )
         }
     }
+}
+
+private data class DetailAlbumImage(
+    val imageType: String,
+    val imageTag: String?
+)
+
+@Composable
+internal fun PhotosSection(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
+    modifier: Modifier = Modifier
+) {
+    val itemId = item.id?.takeIf { it.isNotBlank() } ?: return
+    val images = remember(item.id, item.backdropImageTags, item.screenshotImageTags) {
+        albumImages(item)
+    }
+    if (images.isEmpty()) return
+
+    var previewIndex by remember(item.id) { mutableStateOf<Int?>(null) }
+
+    Column(modifier = modifier.padding(top = 24.dp)) {
+        Text(
+            text = stringResource(R.string.detail_photos),
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            itemsIndexed(
+                items = images,
+                key = { index, image -> "${image.imageType}_${image.imageTag}_$index" }
+            ) { index, image ->
+                PhotoCard(
+                    itemId = itemId,
+                    image = image,
+                    mediaRepository = mediaRepository,
+                    onClick = { previewIndex = index }
+                )
+            }
+        }
+    }
+
+    previewIndex?.let { index ->
+        val preview = images.getOrNull(index) ?: return@let
+        PhotoPreviewDialog(
+            itemId = itemId,
+            image = preview,
+            mediaRepository = mediaRepository,
+            onDismiss = { previewIndex = null }
+        )
+    }
+}
+
+@Composable
+private fun PhotoCard(
+    itemId: String,
+    image: DetailAlbumImage,
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageUrl = rememberImageUrl(
+        itemId = itemId,
+        imageType = image.imageType,
+        width = 560,
+        height = 315,
+        quality = 80,
+        imageTag = image.imageTag,
+        mediaRepository = mediaRepository
+    )
+    Box(
+        modifier = Modifier
+            .width(268.dp)
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            JellyfinPosterImage(
+                context = context,
+                imageUrl = imageUrl,
+                contentDescription = stringResource(R.string.detail_photos),
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+@Composable
+private fun PhotoPreviewDialog(
+    itemId: String,
+    image: DetailAlbumImage,
+    mediaRepository: MediaRepository,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageUrl = rememberImageUrl(
+        itemId = itemId,
+        imageType = image.imageType,
+        width = 1920,
+        height = 1080,
+        quality = 95,
+        imageTag = image.imageTag,
+        mediaRepository = mediaRepository
+    )
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.96f)
+                .clickable(onClick = onDismiss)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black)
+            ) {
+                if (!imageUrl.isNullOrBlank()) {
+                    JellyfinPosterImage(
+                        context = context,
+                        imageUrl = imageUrl,
+                        contentDescription = stringResource(R.string.detail_photos),
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun albumImages(item: BaseItemDto): List<DetailAlbumImage> {
+    val backdrops = item.backdropImageTags.orEmpty().mapIndexedNotNull { index, tag ->
+        tag.takeIf { it.isNotBlank() }?.let {
+            DetailAlbumImage(
+                imageType = "Backdrop/$index",
+                imageTag = it
+            )
+        }
+    }
+    val screenshots = item.screenshotImageTags.orEmpty().mapIndexedNotNull { index, tag ->
+        tag.takeIf { it.isNotBlank() }?.let {
+            DetailAlbumImage(
+                imageType = "Screenshot/$index",
+                imageTag = it
+            )
+        }
+    }
+    return backdrops + screenshots
 }
 
 @Composable

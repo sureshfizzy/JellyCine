@@ -1348,6 +1348,19 @@ fun DetailContent(
                             onPersonClick = onPersonClick
                         )
 
+                        if (item.type == "Movie") {
+                            PhotosSection(
+                                item = item,
+                                mediaRepository = mediaRepository
+                            )
+                            TrailersExtrasSection(
+                                item = item,
+                                isSeerDetail = isSeerDetail,
+                                mediaRepository = mediaRepository,
+                                onExtraClick = onRemoteTrailerClick
+                            )
+                        }
+
                         if (!isSeerDetail) {
                             ExternalLinksSection(urls = item.externalUrls.orEmpty())
                             MediaInfoSection(
@@ -1358,13 +1371,14 @@ fun DetailContent(
                             )
                         }
 
-
-                        TrailersExtrasSection(
-                            item = item,
-                            isSeerDetail = isSeerDetail,
-                            mediaRepository = mediaRepository,
-                            onExtraClick = onRemoteTrailerClick
-                        )
+                        if (item.type != "Movie") {
+                            TrailersExtrasSection(
+                                item = item,
+                                isSeerDetail = isSeerDetail,
+                                mediaRepository = mediaRepository,
+                                onExtraClick = onRemoteTrailerClick
+                            )
+                        }
 
                         Recommendations(
                             item = item,
