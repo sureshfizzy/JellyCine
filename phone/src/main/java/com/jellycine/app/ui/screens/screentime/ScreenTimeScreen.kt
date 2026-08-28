@@ -192,6 +192,15 @@ fun ScreenTimeScreen(
                     }
                 }
 
+                val hasFilter = dayFilter != null || hourFilter != null
+                val filteredTotal = if (hasFilter) timeFilteredItems.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.totalMinutes
+                val filteredShows = if (hasFilter) timeFilteredItems.filter { it.type == "Episode" }.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.showMinutes
+                val filteredMovies = if (hasFilter) timeFilteredItems.filter { it.type == "Movie" }.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.movieMinutes
+                val filteredAvg = if (hasFilter) {
+                    val days = timeFilteredItems.mapNotNull { parseItemDate(it.userData?.lastPlayedDate ?: it.dateCreated) }.distinct().size
+                    if (days > 0) filteredTotal / days else filteredTotal
+                } else stats.dailyAverageMinutes
+
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -199,14 +208,14 @@ fun ScreenTimeScreen(
                     ) {
                         StatCard(
                             label = stringResource(R.string.screen_time_total),
-                            value = formatMinutes(stats.totalMinutes),
-                            delta = formatDelta(stats.totalDelta),
+                            value = formatMinutes(filteredTotal),
+                            delta = if (hasFilter) null else formatDelta(stats.totalDelta),
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
                             label = stringResource(R.string.screen_time_daily_average),
-                            value = formatMinutes(stats.dailyAverageMinutes),
-                            delta = formatDelta(stats.dailyAverageDelta),
+                            value = formatMinutes(filteredAvg),
+                            delta = if (hasFilter) null else formatDelta(stats.dailyAverageDelta),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -219,12 +228,12 @@ fun ScreenTimeScreen(
                     ) {
                         StatCard(
                             label = stringResource(R.string.screen_time_shows),
-                            value = formatMinutes(stats.showMinutes),
+                            value = formatMinutes(filteredShows),
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
                             label = stringResource(R.string.screen_time_movies),
-                            value = formatMinutes(stats.movieMinutes),
+                            value = formatMinutes(filteredMovies),
                             modifier = Modifier.weight(1f)
                         )
                     }
