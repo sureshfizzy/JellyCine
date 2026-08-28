@@ -620,4 +620,23 @@
     <string name="detail_person_no_related_titles">Brak powiązanych tytułów.</string>
     <string name="detail_person_read_more">Czytaj więcej</string>
     <string name="detail_person_read_less">Czytaj mniej</string>
+    <string name="settings_screen_time">Czas ekranu</string>
+    <string name="settings_screen_time_subtitle">Wyświetlanie aktywności i statystyk zegarka</string>
+    <string name="screen_time_back">Wstecz</string>
+    <string name="screen_time_total">Łącznie</string>
+    <string name="screen_time_daily_average">Średnia dzienna</string>
+    <string name="screen_time_shows">Pokazy</string>
+    <string name="screen_time_movies">Filmy</string>
+    <string name="screen_time_period_week">Tydzień</string>
+    <string name="screen_time_period_month">Miesiąc</string>
+    <string name="screen_time_period_year">Rok</string>
+    <string name="screen_time_daily_breakdown">Dzienny podział</string>
+    <string name="screen_time_peak_hours">Godziny szczytu</string>
+    <string name="screen_time_previous_year">Rok poprzedni</string>
+    <string name="screen_time_next_year">W przyszłym roku</string>
+    <string name="screen_time_no_change">Bez zmian</string>
+    <string name="screen_time_morning">Rano</string>
+    <string name="screen_time_afternoon">Popołudnie</string>
+    <string name="screen_time_evening">Wieczorem</string>
+    <string name="screen_time_night">Noc</string>
 </resources>
