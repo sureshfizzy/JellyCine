@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.screentime
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -33,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -40,6 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
@@ -50,7 +55,6 @@ import com.jellycine.shared.ui.components.screentime.DailyBreakdownChart
 import com.jellycine.shared.ui.components.screentime.PeakHoursChart
 import com.jellycine.shared.ui.components.screentime.SectionCard
 import com.jellycine.shared.ui.components.screentime.StatCard
-import com.jellycine.shared.ui.components.screentime.YearNavigator
 import com.jellycine.shared.ui.components.screentime.formatDelta
 import com.jellycine.shared.ui.components.screentime.formatMinutes
 import java.time.LocalDate
@@ -101,23 +105,18 @@ fun ScreenTimeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                DateRangeSubtitle(period = state.period, year = state.year)
+                DateRangeSubtitle(
+                    period = state.period,
+                    year = state.year,
+                    onPreviousYear = { viewModel.loadScreenTime(state.period, state.year - 1) },
+                    onNextYear = { viewModel.loadScreenTime(state.period, state.year + 1) }
+                )
             }
             item {
                 PeriodSelector(
                     selected = state.period,
                     onSelect = { viewModel.loadScreenTime(it, state.year) }
                 )
-            }
-
-            if (state.period == ScreenTimePeriod.YEAR) {
-                item {
-                    YearNavigator(
-                        year = state.year,
-                        onPreviousYear = { viewModel.loadScreenTime(state.period, state.year - 1) },
-                        onNextYear = { viewModel.loadScreenTime(state.period, state.year + 1) }
-                    )
-                }
             }
 
             if (state.isLoading) {
@@ -241,21 +240,41 @@ private fun PeriodSelector(selected: ScreenTimePeriod, onSelect: (ScreenTimePeri
 }
 
 @Composable
-private fun DateRangeSubtitle(period: ScreenTimePeriod, year: Int) {
+private fun DateRangeSubtitle(
+    period: ScreenTimePeriod,
+    year: Int,
+    onPreviousYear: () -> Unit = {},
+    onNextYear: () -> Unit = {}
+) {
     val today = LocalDate.now()
     val formatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
 
     val text = when (period) {
         ScreenTimePeriod.WEEK -> "${today.minusDays(6).format(formatter)}  –  Today"
         ScreenTimePeriod.MONTH -> "${today.minusDays(29).format(formatter)}  –  Today"
-        ScreenTimePeriod.YEAR -> if (year == today.year) "$year  –  Today" else year.toString()
+        ScreenTimePeriod.YEAR -> if (year == today.year) "$year – Today" else year.toString()
     }
+    val canGoNext = period == ScreenTimePeriod.YEAR && year < today.year
 
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = Color.White.copy(alpha = 0.5f)
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth().height(24.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (period == ScreenTimePeriod.YEAR) {
+            Icon(Icons.Rounded.ChevronLeft, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp).clickable { onPreviousYear() })
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+        if (period == ScreenTimePeriod.YEAR) {
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (canGoNext) Color.White else Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp).clickable(enabled = canGoNext) { onNextYear() })
+        }
+    }
 }
 
 @Composable
