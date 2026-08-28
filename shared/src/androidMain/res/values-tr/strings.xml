@@ -594,4 +594,23 @@
     <string name="detail_person_no_related_titles">İlgili başlık yok.</string>
     <string name="detail_person_read_more">Devamını oku</string>
     <string name="detail_person_read_less">Daha az oku</string>
+    <string name="settings_screen_time">Ekran Süresi</string>
+    <string name="settings_screen_time_subtitle">Saat etkinliğinizi ve istatistiklerinizi görüntüleyin</string>
+    <string name="screen_time_back">Geri</string>
+    <string name="screen_time_total">Toplam</string>
+    <string name="screen_time_daily_average">Günlük Ortalama</string>
+    <string name="screen_time_shows">Gösteriler</string>
+    <string name="screen_time_movies">Filmler</string>
+    <string name="screen_time_period_week">Hafta</string>
+    <string name="screen_time_period_month">Ay</string>
+    <string name="screen_time_period_year">Yıl</string>
+    <string name="screen_time_daily_breakdown">Günlük Döküm</string>
+    <string name="screen_time_peak_hours">Yoğun Saatler</string>
+    <string name="screen_time_previous_year">Önceki yıl</string>
+    <string name="screen_time_next_year">Gelecek yıl</string>
+    <string name="screen_time_no_change">Değişiklik yok</string>
+    <string name="screen_time_morning">Sabah</string>
+    <string name="screen_time_afternoon">Öğleden sonra</string>
+    <string name="screen_time_evening">Akşamları</string>
+    <string name="screen_time_night">Gece</string>
 </resources>
