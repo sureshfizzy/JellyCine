@@ -1,42 +1,39 @@
 package com.vela.app.ui.screens.home
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.vela.app.ui.screens.dashboard.media.ContentType
 import com.vela.app.ui.screens.dashboard.search.FederatedViewScreen
 import com.vela.app.ui.screens.dashboard.settings.ServersScreen
 import com.vela.app.ui.screens.dashboard.settings.Settings
 import com.vela.data.model.BaseItemDto
 import com.vela.shared.R
+import com.vela.shared.ui.theme.velaMotion
 
 private enum class AppHomeTab(
     val labelRes: Int,
@@ -48,7 +45,7 @@ private enum class AppHomeTab(
 }
 
 /**
- * 应用级首页不依赖某个活动服务器，服务器管理、聚合搜索和本地设置都从这里进入。
+ * 应用级首页不依赖某个活动服务器；Scaffold 统一管理导航栏与安全区，内容页不再猜测底栏高度。
  */
 @Composable
 fun AppHomeContainer(
@@ -67,99 +64,100 @@ fun AppHomeContainer(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppHomeTab.SERVERS) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        when (selectedTab) {
-            AppHomeTab.SERVERS -> ServersScreen(
-                onServerSwitched = onServerSwitched,
-                onAddUser = onAddUser,
-                reserveHomeNavigationSpace = true
-            )
-            AppHomeTab.FEDERATED -> FederatedViewScreen(
-                onNavigateToDetail = onNavigateToDetail,
-                onNavigateToLibrary = { library ->
-                    val contentType = when (library.collectionType) {
-                        "movies" -> ContentType.MOVIES
-                        "tvshows" -> ContentType.SERIES
-                        else -> ContentType.ALL
-                    }
-                    onNavigateToViewAll(
-                        contentType.name,
-                        library.id,
-                        library.name ?: ""
-                    )
-                }
-            )
-            AppHomeTab.SETTINGS -> Settings(
-                onLogout = {
-                    selectedTab = AppHomeTab.SERVERS
-                    onLogout()
-                },
-                onNavigateToPlayerSettings = onNavigateToPlayerSettings,
-                onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
-                onNavigateToConnections = onNavigateToConnections,
-                onNavigateToServers = { selectedTab = AppHomeTab.SERVERS },
-                onNavigateToDownloads = onNavigateToDownloads,
-                onNavigateToCacheSettings = onNavigateToCacheSettings,
-                onNavigateToAbout = onNavigateToAbout,
-                onNavigateToServerInfo = onNavigateToServerInfo,
-                onNavigateToRequestedItem = onNavigateToDetail,
-                onAddServer = { selectedTab = AppHomeTab.SERVERS },
-                onAddUser = onAddUser
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        // 子页面各自拥有 top app bar；外层只分配底部导航空间，避免状态栏 inset 被消费两次。
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = {
+            AppHomeNavigationBar(
+                selectedTab = selectedTab,
+                onSelected = { selectedTab = it }
             )
         }
+    ) { contentPadding ->
+        val contentModifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
 
-        AppHomeNavigationBar(
-            selectedTab = selectedTab,
-            onSelected = { selectedTab = it },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        val motion = MaterialTheme.velaMotion
+        AnimatedContent(
+            targetState = selectedTab,
+            transitionSpec = {
+                // 一级页签使用克制的 fade-through，保持空间稳定并明确内容已切换。
+                (fadeIn(motion.defaultEffectsSpec()) +
+                    scaleIn(motion.defaultSpatialSpec(), initialScale = 0.985f))
+                    .togetherWith(fadeOut(motion.fastEffectsSpec()))
+            },
+            label = "app_home_tab"
+        ) { activeTab ->
+            when (activeTab) {
+                AppHomeTab.SERVERS -> ServersScreen(
+                    onServerSwitched = onServerSwitched,
+                    onAddUser = onAddUser,
+                    modifier = contentModifier
+                )
+                AppHomeTab.FEDERATED -> FederatedViewScreen(
+                    onNavigateToDetail = onNavigateToDetail,
+                    onNavigateToLibrary = { library ->
+                        val contentType = when (library.collectionType) {
+                            "movies" -> ContentType.MOVIES
+                            "tvshows" -> ContentType.SERIES
+                            else -> ContentType.ALL
+                        }
+                        onNavigateToViewAll(contentType.name, library.id, library.name.orEmpty())
+                    },
+                    modifier = contentModifier
+                )
+                AppHomeTab.SETTINGS -> Settings(
+                    onLogout = {
+                        selectedTab = AppHomeTab.SERVERS
+                        onLogout()
+                    },
+                    onNavigateToPlayerSettings = onNavigateToPlayerSettings,
+                    onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
+                    onNavigateToConnections = onNavigateToConnections,
+                    onNavigateToServers = { selectedTab = AppHomeTab.SERVERS },
+                    onNavigateToDownloads = onNavigateToDownloads,
+                    onNavigateToCacheSettings = onNavigateToCacheSettings,
+                    onNavigateToAbout = onNavigateToAbout,
+                    onNavigateToServerInfo = onNavigateToServerInfo,
+                    onNavigateToRequestedItem = onNavigateToDetail,
+                    onAddServer = { selectedTab = AppHomeTab.SERVERS },
+                    onAddUser = onAddUser,
+                    modifier = contentModifier
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun AppHomeNavigationBar(
     selectedTab: AppHomeTab,
-    onSelected: (AppHomeTab) -> Unit,
-    modifier: Modifier = Modifier
+    onSelected: (AppHomeTab) -> Unit
 ) {
-    Surface(
-        modifier = modifier
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .widthIn(max = 400.dp)
-            .fillMaxWidth()
-            .height(68.dp),
-        shape = RoundedCornerShape(34.dp),
-        color = Color(0xE6222329),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
-        shadowElevation = 14.dp
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            AppHomeTab.entries.forEach { tab ->
-                NavigationBarItem(
-                    selected = selectedTab == tab,
-                    onClick = { onSelected(tab) },
-                    icon = {
-                        Icon(
-                            imageVector = tab.icon,
-                            contentDescription = stringResource(tab.labelRes)
-                        )
-                    },
-                    label = { Text(stringResource(tab.labelRes)) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFE1E4FF),
-                        selectedTextColor = Color(0xFFE1E4FF),
-                        indicatorColor = Color(0xFF39436D),
-                        unselectedIconColor = Color.White.copy(alpha = 0.72f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.72f)
-                    ),
-                    modifier = Modifier.weight(1f)
+        AppHomeTab.entries.forEach { tab ->
+            NavigationBarItem(
+                selected = selectedTab == tab,
+                onClick = { onSelected(tab) },
+                icon = {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = stringResource(tab.labelRes)
+                    )
+                },
+                label = { Text(stringResource(tab.labelRes)) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
+            )
         }
     }
 }

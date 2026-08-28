@@ -2,12 +2,7 @@ package com.vela.app.ui.screens.auth
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -54,7 +49,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,8 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vela.shared.R
 import com.vela.app.ui.components.common.amoledAuthFieldColors
-import com.vela.shared.ui.theme.JellyBlue
-import com.vela.shared.ui.theme.JellyRed
+import com.vela.shared.ui.theme.velaMotion
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -304,43 +297,23 @@ private fun AnimatedBrandHero(
     subtitle: String,
     modifier: Modifier = Modifier
 ) {
-    val logoMotion = rememberInfiniteTransition(label = "logo_motion")
-    val driftX by logoMotion.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logo_drift_x"
+    var isPresented by remember { mutableStateOf(false) }
+    val motion = MaterialTheme.velaMotion
+    val logoAlpha by animateFloatAsState(
+        targetValue = if (isPresented) 1f else 0f,
+        animationSpec = motion.slowEffectsSpec(),
+        label = "brand_logo_alpha"
     )
-    val driftY by logoMotion.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logo_drift_y"
+    val logoScale by animateFloatAsState(
+        targetValue = if (isPresented) 1f else 0.92f,
+        animationSpec = motion.defaultSpatialSpec(),
+        label = "brand_logo_scale"
     )
-    val tilt by logoMotion.animateFloat(
-        initialValue = -1.5f,
-        targetValue = 1.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3600, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logo_tilt"
-    )
-    val pulse by logoMotion.animateFloat(
-        initialValue = 0.985f,
-        targetValue = 1.015f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logo_pulse"
-    )
+
+    LaunchedEffect(Unit) {
+        // 品牌动效只在进入页面时播放一次，避免持续漂移分散表单操作注意力。
+        isPresented = true
+    }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -356,11 +329,10 @@ private fun AnimatedBrandHero(
             modifier = Modifier
                 .size(132.dp)
                 .graphicsLayer {
-                    translationX = driftX
-                    translationY = driftY
-                    rotationZ = tilt
-                }
-                .scale(pulse),
+                    alpha = logoAlpha
+                    scaleX = logoScale
+                    scaleY = logoScale
+                },
             contentScale = ContentScale.Fit
         )
 
@@ -490,6 +462,7 @@ private fun ConnectionForm(
 ) {
     val serverUrlBringIntoView = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
+    val motion = MaterialTheme.velaMotion
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
@@ -533,12 +506,12 @@ private fun ConnectionForm(
 
             AnimatedVisibility(
                 visible = errorMessage != null,
-                enter = androidx.compose.animation.fadeIn(animationSpec = tween(240)),
-                exit = androidx.compose.animation.fadeOut(animationSpec = tween(180))
+                enter = androidx.compose.animation.fadeIn(motion.defaultEffectsSpec()),
+                exit = androidx.compose.animation.fadeOut(motion.fastEffectsSpec())
             ) {
                 Text(
                     text = errorMessage ?: "",
-                    color = JellyRed,
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -551,10 +524,8 @@ private fun ConnectionForm(
                     .height(50.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = JellyBlue,
-                    contentColor = Color.White,
-                    disabledContainerColor = Color(0xFF1E1E1E),
-                    disabledContentColor = Color.White.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 if (isLoading) {
@@ -590,6 +561,7 @@ private fun LoginForm(
     var isPasswordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val isBusy = isLoading || isQuickConnectLoading
+    val motion = MaterialTheme.velaMotion
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -671,12 +643,12 @@ private fun LoginForm(
 
             AnimatedVisibility(
                 visible = errorMessage != null,
-                enter = androidx.compose.animation.fadeIn(animationSpec = tween(240)),
-                exit = androidx.compose.animation.fadeOut(animationSpec = tween(180))
+                enter = androidx.compose.animation.fadeIn(motion.defaultEffectsSpec()),
+                exit = androidx.compose.animation.fadeOut(motion.fastEffectsSpec())
             ) {
                 Text(
                     text = errorMessage ?: "",
-                    color = JellyRed,
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -689,10 +661,8 @@ private fun LoginForm(
                     .height(50.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = JellyBlue,
-                    contentColor = Color.White,
-                    disabledContainerColor = Color(0xFF1E1E1E),
-                    disabledContentColor = Color.White.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 if (isLoading) {

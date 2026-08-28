@@ -69,10 +69,6 @@ import com.vela.data.repository.FederatedMediaItem
 import com.vela.shared.R
 import kotlinx.coroutines.launch
 
-private val SearchPageBackground = Color(0xFF0D0D11)
-private val SearchCardBackground = Color(0xFF19191F)
-private val SearchAccent = Color(0xFFB9C3FF)
-
 @Composable
 fun FederatedSearchScreen(
     onNavigateToDetail: (BaseItemDto) -> Unit,
@@ -103,7 +99,7 @@ fun FederatedSearchScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(SearchPageBackground)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             FederatedSearchHeader(
@@ -137,7 +133,7 @@ fun FederatedSearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SearchAccent)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
                 visibleItems.isEmpty() -> FederatedSearchMessage(
                     stringResource(R.string.federated_search_empty)
@@ -170,12 +166,12 @@ fun FederatedSearchScreen(
                     )
                 },
                 colors = AssistChipDefaults.assistChipColors(
-                    containerColor = Color(0xFF3A271B),
-                    labelColor = Color(0xFFFFC48C)
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 94.dp)
+                    .padding(start = 16.dp, bottom = 16.dp)
             )
         }
 
@@ -183,17 +179,17 @@ fun FederatedSearchScreen(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 92.dp)
+                .padding(bottom = 16.dp)
         )
 
         if (uiState.openingServerId != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.42f)),
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = SearchAccent)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -221,12 +217,12 @@ private fun FederatedSearchHeader(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = stringResource(R.string.cd_back_button),
-                    tint = Color.White.copy(alpha = 0.84f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 text = stringResource(R.string.federated_search_title),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
@@ -235,7 +231,7 @@ private fun FederatedSearchHeader(
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = stringResource(R.string.search),
-                    tint = Color.White.copy(alpha = 0.84f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -246,7 +242,7 @@ private fun FederatedSearchHeader(
             placeholder = {
                 Text(
                     text = stringResource(R.string.federated_search_hint),
-                    color = Color.White.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             leadingIcon = {
@@ -268,18 +264,18 @@ private fun FederatedSearchHeader(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFF1B1B22),
-                unfocusedContainerColor = Color(0xFF1B1B22),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                focusedLeadingIconColor = SearchAccent,
-                unfocusedLeadingIconColor = Color.White.copy(alpha = 0.62f),
-                focusedTrailingIconColor = Color.White.copy(alpha = 0.72f),
-                unfocusedTrailingIconColor = Color.White.copy(alpha = 0.72f)
+                focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                focusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                unfocusedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
             ),
-            shape = RoundedCornerShape(18.dp),
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -355,10 +351,10 @@ private fun FederatedFilterChip(
             )
         },
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = Color.White.copy(alpha = 0.08f),
-            labelColor = Color.White.copy(alpha = 0.72f),
-            selectedContainerColor = SearchAccent,
-            selectedLabelColor = Color(0xFF171A2B)
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
         ),
         border = null
     )
@@ -375,7 +371,7 @@ private fun FederatedResultGrid(
     }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 112.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier.fillMaxSize()
@@ -388,7 +384,7 @@ private fun FederatedResultGrid(
                 ) {
                     Text(
                         text = serverItems.first().serverName,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
@@ -418,8 +414,8 @@ private fun FederatedResultCard(result: FederatedMediaItem, onClick: () -> Unit)
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(14.dp))
-                .background(SearchCardBackground),
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center
         ) {
             if (result.imageUrl != null) {
@@ -433,13 +429,13 @@ private fun FederatedResultCard(result: FederatedMediaItem, onClick: () -> Unit)
                 Icon(
                     imageVector = Icons.Rounded.Movie,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.52f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp)
                 )
             }
             Text(
                 text = result.serverName,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.inverseOnSurface,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -456,7 +452,7 @@ private fun FederatedResultCard(result: FederatedMediaItem, onClick: () -> Unit)
         }
         Text(
             text = item.name ?: stringResource(R.string.search_result_unknown_title),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             maxLines = 1,
@@ -467,7 +463,7 @@ private fun FederatedResultCard(result: FederatedMediaItem, onClick: () -> Unit)
         if (subtitle.isNotEmpty()) {
             Text(
                 text = subtitle,
-                color = Color.White.copy(alpha = 0.64f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -481,7 +477,7 @@ private fun FederatedSearchMessage(message: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text = message,
-            color = Color.White.copy(alpha = 0.62f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(horizontal = 32.dp)
         )

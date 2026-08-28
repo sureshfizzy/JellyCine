@@ -107,13 +107,18 @@ import com.vela.data.repository.MediaRepositoryProvider
 import com.vela.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.vela.shared.ui.theme.velaMotion
 
-private fun DashboardEnterTransition(): EnterTransition {
-    return fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing))
+private fun dashboardEnterTransition(
+    effectsSpec: FiniteAnimationSpec<Float>
+): EnterTransition {
+    return fadeIn(animationSpec = effectsSpec)
 }
 
-private fun DashboardExitTransition(): ExitTransition {
-    return fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing))
+private fun dashboardExitTransition(
+    effectsSpec: FiniteAnimationSpec<Float>
+): ExitTransition {
+    return fadeOut(animationSpec = effectsSpec)
 }
 
 sealed class DashboardDestination(
@@ -174,6 +179,9 @@ fun DashboardContainer(
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
     val navController = rememberNavController()
+    val motion = MaterialTheme.velaMotion
+    val tabEnterEffectsSpec = motion.defaultEffectsSpec<Float>()
+    val tabExitEffectsSpec = motion.fastEffectsSpec<Float>()
     val homeScrollState = rememberLazyListState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -201,11 +209,6 @@ fun DashboardContainer(
     val mobileLikeBarWidth = (min(configuration.screenWidthDp, configuration.screenHeightDp) - 32)
         .dp
         .coerceIn(320.dp, 390.dp)
-    val barOuterHorizontalPadding = if (shouldUseMobileBarWidth) 0.dp else 16.dp
-    val barInnerHorizontalPadding = if (shouldUseMobileBarWidth) 10.dp else 16.dp
-    val navGroupSpacing = if (shouldUseMobileBarWidth) 12.dp else 20.dp
-    val innerItemOffset = if (shouldUseMobileBarWidth) 16.dp else 22.dp
-    val outerItemOffset = if (shouldUseMobileBarWidth) 0.dp else 10.dp
     val navigationBarInsetPx = WindowInsets.navigationBars.getBottom(density).toFloat()
     val bottomBarHideDistancePx = with(density) { (bottomBarHeight + 36.dp).toPx() } + navigationBarInsetPx
     val hideThresholdPx = with(density) { 22.dp.toPx() }
@@ -218,7 +221,7 @@ fun DashboardContainer(
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (!isNetworkAvailable) return Offset.Zero
-                if (source != NestedScrollSource.Drag) return Offset.Zero
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
 
                 val deltaY = available.y
                 if (deltaY == 0f) return Offset.Zero
@@ -272,10 +275,7 @@ fun DashboardContainer(
     )
     val bottomBarTranslationPx by bottomBarTransition.animateFloat(
         transitionSpec = {
-            tween(
-                durationMillis = if (targetState) 440 else 320,
-                easing = FastOutSlowInEasing
-            )
+            if (targetState) motion.defaultSpatialSpec() else motion.fastSpatialSpec()
         },
         label = "bottom_bar_translation"
     ) { visible ->
@@ -283,10 +283,7 @@ fun DashboardContainer(
     }
     val bottomBarAlpha by bottomBarTransition.animateFloat(
         transitionSpec = {
-            tween(
-                durationMillis = if (targetState) 420 else 260,
-                easing = LinearOutSlowInEasing
-            )
+            if (targetState) motion.defaultEffectsSpec() else motion.fastEffectsSpec()
         },
         label = "bottom_bar_alpha"
     ) { visible ->
@@ -308,13 +305,6 @@ fun DashboardContainer(
             DashboardDestination.Settings
         )
     }
-    val isOfflineTwoTabMode = !isNetworkAvailable && sideDestinations.size == 2
-    val offlineItemSlotWidth = 72.dp
-    val offlineItemSpacing = 18.dp
-    val offlineRowHorizontalPadding = 12.dp
-    val offlineBarWidth = (offlineRowHorizontalPadding * 2) +
-        (offlineItemSlotWidth * sideDestinations.size) +
-        (offlineItemSpacing * (sideDestinations.size - 1).coerceAtLeast(0))
     val offlineAllowedRoutes = remember {
         setOf(
             DashboardDestination.Home.route,
@@ -436,7 +426,7 @@ fun DashboardContainer(
                 showUserSwitchDialog = false
                 val serverUrl = accountActiveServer?.serverUrl
                 if (serverUrl != null) {
-                    onAddUser(serverUrl, accountActiveServer?.serverName)
+                    onAddUser(serverUrl, accountActiveServer.serverName)
                 }
             },
             onRequestRemoveUser = {},
@@ -453,7 +443,7 @@ fun DashboardContainer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Box(
             modifier = Modifier.fillMaxSize()
@@ -481,8 +471,8 @@ fun DashboardContainer(
             ) {
                 composable(
                     DashboardDestination.Home.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
+                    enterTransition = { dashboardEnterTransition(tabEnterEffectsSpec) },
+                    exitTransition = { dashboardExitTransition(tabExitEffectsSpec) }
                 ) {
                     // Track when Home tab becomes active
                     val isHomeActive = currentRoute == DashboardDestination.Home.route
@@ -503,8 +493,8 @@ fun DashboardContainer(
                 }
                 composable(
                     DashboardDestination.MyMedia.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
+                    enterTransition = { dashboardEnterTransition(tabEnterEffectsSpec) },
+                    exitTransition = { dashboardExitTransition(tabExitEffectsSpec) }
                 ) {
                     ContentWrapper {
                         if (useMyMediaTabEnabled) {
@@ -527,8 +517,8 @@ fun DashboardContainer(
                 }
                 composable(
                     DashboardDestination.Search.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
+                    enterTransition = { dashboardEnterTransition(tabEnterEffectsSpec) },
+                    exitTransition = { dashboardExitTransition(tabExitEffectsSpec) }
                 ) {
                     ContentWrapper {
                         SearchContainer(
@@ -541,8 +531,8 @@ fun DashboardContainer(
                 }
                 composable(
                     DashboardDestination.Favorites.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
+                    enterTransition = { dashboardEnterTransition(tabEnterEffectsSpec) },
+                    exitTransition = { dashboardExitTransition(tabExitEffectsSpec) }
                 ) {
                     ContentWrapper {
                         Favorites(
@@ -556,8 +546,8 @@ fun DashboardContainer(
                 }
                 composable(
                     DashboardDestination.Settings.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
+                    enterTransition = { dashboardEnterTransition(tabEnterEffectsSpec) },
+                    exitTransition = { dashboardExitTransition(tabExitEffectsSpec) }
                 ) {
                     ContentWrapper {
                         Settings(
@@ -578,440 +568,65 @@ fun DashboardContainer(
                 }
             }
 
-            // Curved Bottom Navigation
-            Box(
+            val navigationDestinations = if (isNetworkAvailable) {
+                listOf(
+                    DashboardDestination.Home,
+                    DashboardDestination.MyMedia,
+                    DashboardDestination.Search,
+                    DashboardDestination.Favorites,
+                    DashboardDestination.Settings
+                )
+            } else {
+                sideDestinations
+            }
+            NavigationBar(
+                // 标准 M3 导航栏统一选中态、语义和系统栏 inset；不再维护自绘凹槽与独立触摸逻辑。
                 modifier = Modifier
-                    .then(
-                        if (isOfflineTwoTabMode) {
-                            Modifier.width(offlineBarWidth)
-                        } else if (shouldUseMobileBarWidth) {
-                            Modifier.width(mobileLikeBarWidth)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        }
-                    )
                     .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(
-                        horizontal = if (isOfflineTwoTabMode) 0.dp else barOuterHorizontalPadding,
-                        vertical = 10.dp
-                    )
+                    .then(if (shouldUseMobileBarWidth) Modifier.width(mobileLikeBarWidth) else Modifier.fillMaxWidth())
                     .graphicsLayer {
                         translationY = bottomBarTranslationPx
                         alpha = bottomBarAlpha
-                        clip = false
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    }
+                    },
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(bottomBarHeight)
-                        .shadow(
-                            elevation = 18.dp,
-                            shape = RoundedCornerShape(30.dp),
-                            clip = false
+                navigationDestinations.forEach { destination ->
+                    val isSelected = currentRoute == destination.route
+                    val title = if (destination == DashboardDestination.MyMedia) {
+                        stringResource(
+                            if (useMyMediaTabEnabled) R.string.my_media else R.string.dashboard_discover
                         )
-                        .graphicsLayer(
-                            transformOrigin = TransformOrigin(0.5f, 1f),
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        )
-                        .drawBehind {
-                            if (isOfflineTwoTabMode) {
-                                drawSimpleNavigationBar(
-                                    width = size.width,
-                                    height = size.height
-                                )
-                            } else {
-                                draw3DCurvedNavigationBar(
-                                    width = size.width,
-                                    height = size.height
-                                )
-                            }
-                        }
-                )
-
-                // Navigation items container
-                if (isNetworkAvailable) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(bottomBarHeight)
-                            .padding(horizontal = barInnerHorizontalPadding),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Left side items
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            sideDestinations.take(2).forEach { destination ->
-                                val isSelected = currentRoute == destination.route
-                                NavigationItem(
-                                    modifier = when (destination.route) {
-                                        DashboardDestination.MyMedia.route -> Modifier.offset(x = -innerItemOffset)
-                                        else -> Modifier.offset(x = -outerItemOffset)
-                                    },
-                                    destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
-                                    isSelected = isSelected,
-                                    onClick = { navigateToDestination(destination) }
-                                )
-                            }
-                        }
-
-                        // Right side items
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(navGroupSpacing),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            sideDestinations.drop(2).forEach { destination ->
-                                val isSelected = currentRoute == destination.route
-                                NavigationItem(
-                                    modifier = when (destination.route) {
-                                        DashboardDestination.Favorites.route -> Modifier.offset(x = innerItemOffset)
-                                        else -> Modifier.offset(x = outerItemOffset)
-                                    },
-                                    destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
-                                    isSelected = isSelected,
-                                    onClick = { navigateToDestination(destination) }
-                                )
-                            }
-                        }
+                    } else {
+                        stringResource(destination.titleRes)
                     }
+                    val selectedIcon = if (
+                        destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled
+                    ) Icons.Filled.Explore else destination.selectedIcon
+                    val unselectedIcon = if (
+                        destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled
+                    ) Icons.Outlined.Explore else destination.unselectedIcon
 
-                    // Center search button positioned in the curve
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter)
-                            .offset(y = (-22).dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        FloatingSearchButton(
-                            isSelected = currentRoute == DashboardDestination.Search.route,
-                            onClick = { navigateToDestination(DashboardDestination.Search) }
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(bottomBarHeight)
-                            .padding(horizontal = offlineRowHorizontalPadding),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        sideDestinations.forEachIndexed { index, destination ->
-                            val isSelected = currentRoute == destination.route
-                            NavigationItem(
-                                modifier = Modifier.width(offlineItemSlotWidth),
-                                destination = destination,
-                                title = if (destination == DashboardDestination.MyMedia) {
-                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                } else {
-                                    stringResource(destination.titleRes)
-                                },
-                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
-                                isSelected = isSelected,
-                                itemWidth = 56.dp,
-                                onClick = { navigateToDestination(destination) }
+                    NavigationBarItem(
+                        selected = isSelected,
+                        onClick = { navigateToDestination(destination) },
+                        icon = {
+                            Icon(
+                                imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                contentDescription = title
                             )
-                            if (index < sideDestinations.lastIndex) {
-                                Spacer(modifier = Modifier.width(offlineItemSpacing))
-                            }
-                        }
-                    }
+                        },
+                        label = { Text(title, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
                 }
             }
         }
-    }
-}
-
-// Function to draw curved navigation bar with dynamic effects
-private fun DrawScope.draw3DCurvedNavigationBar(
-    width: Float,
-    height: Float
-) {
-    val centerWidth = width / 2f
-    val topCornerRadius = 24.dp.toPx()
-    val bottomCornerRadius = 26.dp.toPx()
-
-    // Use dimensions that are proportional to the FAB size for a good fit
-    val fabRadius = 28.dp.toPx()
-    val curveDepth = fabRadius + (fabRadius / 3f)
-    val targetCurveWidth = (fabRadius * 2) + (fabRadius * 1.5f)
-    val sideInset = topCornerRadius + 6.dp.toPx()
-    val targetHalfWidth = targetCurveWidth / 2f
-    fun snapX(value: Float): Float = round(value * 2f) / 2f
-    val notchCenterX = snapX(centerWidth)
-    val availableHalfWidth = min(
-        notchCenterX - sideInset,
-        (width - sideInset) - notchCenterX
-    ).coerceAtLeast(0f)
-    val curveHalfWidth = min(targetHalfWidth, availableHalfWidth)
-    var curveStartX = snapX(notchCenterX - curveHalfWidth)
-    var curveEndX = snapX(notchCenterX + (notchCenterX - curveStartX))
-    val maxRightX = width - sideInset
-    if (curveEndX > maxRightX) {
-        curveEndX = maxRightX
-        curveStartX = snapX(notchCenterX - (curveEndX - notchCenterX))
-    }
-    val adjustedCurveWidth = curveEndX - curveStartX
-
-    // Build left control points first, then reflect for perfect symmetry.
-    val controlPoint1X = snapX(curveStartX + adjustedCurveWidth * 0.12f)
-    val controlPoint2X = snapX(notchCenterX - adjustedCurveWidth * 0.35f)
-    val controlPoint3X = snapX(notchCenterX + (notchCenterX - controlPoint2X))
-    val controlPoint4X = snapX(notchCenterX + (notchCenterX - controlPoint1X))
-    
-    val backgroundPath = Path().apply {
-        moveTo(0f, topCornerRadius)
-        quadraticTo(0f, 0f, topCornerRadius, 0f)
-        lineTo(curveStartX, 0f)
-
-        cubicTo(
-            x1 = controlPoint1X, y1 = 0f,
-            x2 = controlPoint2X, y2 = curveDepth,
-            x3 = notchCenterX, y3 = curveDepth
-        )
-        
-        cubicTo(
-            x1 = controlPoint3X, y1 = curveDepth,
-            x2 = controlPoint4X, y2 = 0f,
-            x3 = curveEndX, y3 = 0f
-        )
-        
-        lineTo(width - topCornerRadius, 0f)
-        quadraticTo(width, 0f, width, topCornerRadius)
-        lineTo(width, height - bottomCornerRadius)
-        quadraticTo(width, height, width - bottomCornerRadius, height)
-        lineTo(bottomCornerRadius, height)
-        quadraticTo(0f, height, 0f, height - bottomCornerRadius)
-        close()
-    }
-
-    // AMOLED Black background with subtle depth
-    drawPath(
-        path = backgroundPath,
-        color = Color.Black
-    )
-
-    drawPath(
-        path = backgroundPath,
-        color = Color.White.copy(alpha = 0.05f),
-        style = Stroke(width = 1.dp.toPx())
-    )
-
-    val notchGlowPath = Path().apply {
-        moveTo(curveStartX, 0f)
-        cubicTo(
-            x1 = controlPoint1X, y1 = 0f,
-            x2 = controlPoint2X, y2 = curveDepth,
-            x3 = notchCenterX, y3 = curveDepth
-        )
-        cubicTo(
-            x1 = controlPoint3X, y1 = curveDepth,
-            x2 = controlPoint4X, y2 = 0f,
-            x3 = curveEndX, y3 = 0f
-        )
-    }
-
-    val glowCenterColor = Color(0xFFBEE8FF)
-    val glowBrush = Brush.horizontalGradient(
-        colors = listOf(
-            Color.Transparent,
-            glowCenterColor.copy(alpha = 0.14f),
-            Color.Transparent
-        ),
-        startX = curveStartX,
-        endX = curveEndX
-    )
-    val glowCoreBrush = Brush.horizontalGradient(
-        colors = listOf(
-            Color.Transparent,
-            glowCenterColor.copy(alpha = 0.28f),
-            Color.Transparent
-        ),
-        startX = curveStartX,
-        endX = curveEndX
-    )
-
-    drawPath(
-        path = notchGlowPath,
-        brush = glowBrush,
-        style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
-    )
-    drawPath(
-        path = notchGlowPath,
-        brush = glowCoreBrush,
-        style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round)
-    )
-}
-
-private fun DrawScope.drawSimpleNavigationBar(
-    width: Float,
-    height: Float
-) {
-    val corner = 26.dp.toPx()
-    drawRoundRect(
-        color = Color.Black,
-        size = androidx.compose.ui.geometry.Size(width, height),
-        cornerRadius = CornerRadius(corner, corner)
-    )
-    drawRoundRect(
-        color = Color.White.copy(alpha = 0.05f),
-        size = androidx.compose.ui.geometry.Size(width, height),
-        cornerRadius = CornerRadius(corner, corner),
-        style = Stroke(width = 1.dp.toPx())
-    )
-}
-
-@Composable
-private fun FloatingSearchButton(
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val haptic = LocalHapticFeedback.current
-
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.05f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
-        )
-    )
-
-    val elevation by animateDpAsState(
-        targetValue = if (isSelected) 16.dp else 8.dp,
-        animationSpec = tween(300)
-    )
-    
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f),
-        animationSpec = tween(300)
-    )
-
-    Box(
-        modifier = Modifier
-            .size(56.dp)
-            .graphicsLayer(
-                scaleX = scale,
-                scaleY = scale,
-                transformOrigin = TransformOrigin.Center
-            )
-            .shadow(
-                elevation = elevation,
-                shape = CircleShape,
-                clip = false
-            )
-            .background(
-                color = backgroundColor,
-                shape = CircleShape
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick()
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = if (isSelected) Icons.Filled.Search else Icons.Outlined.Search,
-            contentDescription = stringResource(R.string.search),
-            tint = Color.Black,
-            modifier = Modifier.size(24.dp)
-        )
-    }
-}
-
-@Composable
-private fun NavigationItem(
-    modifier: Modifier = Modifier,
-    destination: DashboardDestination,
-    title: String,
-    selectedIcon: ImageVector,
-    unselectedIcon: ImageVector,
-    isSelected: Boolean,
-    itemWidth: Dp = 44.dp,
-    onClick: () -> Unit
-) {
-    val haptic = LocalHapticFeedback.current
-    val iconTint by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.76f),
-        animationSpec = tween(durationMillis = 220),
-        label = "nav_icon_tint"
-    )
-    val labelAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0.55f,
-        animationSpec = tween(durationMillis = 220),
-        label = "nav_label_alpha"
-    )
-    val textTint by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.76f),
-        animationSpec = tween(durationMillis = 220),
-        label = "nav_text_tint"
-    )
-
-    Column(
-        modifier = modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                }
-            )
-            .height(64.dp)
-            .padding(horizontal = 8.dp)
-            .width(itemWidth),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
-    ) {
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent
-        ) {
-            Box(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isSelected) selectedIcon else unselectedIcon,
-                    contentDescription = title,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
-
-        Text(
-            text = title,
-            color = textTint,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.alpha(labelAlpha)
-        )
     }
 }
 
@@ -1022,7 +637,7 @@ private fun ContentWrapper(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         content()
     }

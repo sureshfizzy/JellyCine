@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.vela.shared.ui.theme.JellyBlue
 
 @Composable
 fun AmoledDialogFrame(
@@ -51,7 +51,7 @@ fun AmoledDialogFrame(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.76f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.72f))
                 .clickable(
                     enabled = dismissOnRequest,
                     indication = null,
@@ -74,8 +74,8 @@ fun AmoledDialogFrame(
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    Color(0x2211B6FF),
-                                    Color(0x1400E5FF),
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
                                     Color.Transparent
                                 )
                             ),
@@ -90,9 +90,9 @@ fun AmoledDialogFrame(
                             indication = null,
                             interactionSource = sheetInteractionSource
                         ) {},
-                    shape = RoundedCornerShape(30.dp),
-                    color = Color(0xFF020202),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Box(
                         modifier = Modifier
@@ -100,8 +100,8 @@ fun AmoledDialogFrame(
                             .background(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        Color(0xFF090909),
-                                        Color(0xFF020202)
+                                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        MaterialTheme.colorScheme.surfaceContainerLow
                                     )
                                 )
                             )
@@ -119,17 +119,17 @@ fun AmoledDialogFrame(
 fun amoledAuthFieldColors(
     hasLeadingIcon: Boolean = false
 ) = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedLabelColor = JellyBlue,
-    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-    focusedBorderColor = JellyBlue,
-    unfocusedBorderColor = Color.White.copy(alpha = 0.26f),
-    focusedLeadingIconColor = if (hasLeadingIcon) JellyBlue else Color.Unspecified,
-    unfocusedLeadingIconColor = if (hasLeadingIcon) Color.White.copy(alpha = 0.65f) else Color.Unspecified,
-    cursorColor = JellyBlue,
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+    focusedLeadingIconColor = if (hasLeadingIcon) MaterialTheme.colorScheme.primary else Color.Unspecified,
+    unfocusedLeadingIconColor = if (hasLeadingIcon) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
+    cursorColor = MaterialTheme.colorScheme.primary,
     selectionColors = TextSelectionColors(
-        handleColor = JellyBlue,
-        backgroundColor = JellyBlue.copy(alpha = 0.28f)
+        handleColor = MaterialTheme.colorScheme.primary,
+        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
     )
 )

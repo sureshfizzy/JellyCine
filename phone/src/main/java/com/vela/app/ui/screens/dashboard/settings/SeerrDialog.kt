@@ -55,8 +55,8 @@ import androidx.compose.ui.unit.dp
 import com.vela.shared.R
 import com.vela.app.ui.components.common.AmoledDialogFrame
 import com.vela.app.ui.components.common.amoledAuthFieldColors
-import com.vela.shared.ui.theme.JellyBlue
-import com.vela.shared.ui.theme.JellyRed
+import com.vela.shared.ui.theme.VelaBlue
+import com.vela.shared.ui.theme.VelaRed
 
 @Composable
 internal fun SeerrConnectionDialog(
@@ -183,7 +183,7 @@ internal fun SeerrConnectionDialog(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = connectionState.message,
-                        color = JellyRed,
+                        color = VelaRed,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -199,7 +199,7 @@ internal fun SeerrConnectionDialog(
                         .height(50.dp),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = JellyBlue,
+                        containerColor = VelaBlue,
                         contentColor = Color.White,
                         disabledContainerColor = Color(0xFF1E1E1E),
                         disabledContentColor = Color.White.copy(alpha = 0.4f)
@@ -265,7 +265,7 @@ private fun DisconnectSeerrDialogContent(
             .height(50.dp),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = JellyRed,
+            containerColor = VelaRed,
             contentColor = Color.White,
             disabledContainerColor = Color(0xFF1E1E1E),
             disabledContentColor = Color.White.copy(alpha = 0.4f)

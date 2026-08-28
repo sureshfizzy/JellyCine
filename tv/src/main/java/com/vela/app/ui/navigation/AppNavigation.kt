@@ -7,11 +7,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.navigation.NavType
@@ -27,15 +26,21 @@ import com.vela.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.vela.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
 import com.vela.app.ui.screens.player.PlayerScreen
 import com.vela.auth.AuthStateManager
+import com.vela.shared.ui.theme.velaMotion
+import androidx.compose.material3.MaterialTheme
 import androidx.media3.common.util.UnstableApi
 
-// Pure Animation helpers - no sliding, only fade with content transforms
-private fun textTransition(duration: Int = 400): EnterTransition {
-    return fadeIn(animationSpec = tween(duration, easing = FastOutSlowInEasing))
+// TV 页面只使用轻微缩放与淡入，保留遥控器焦点变化作为主要空间反馈。
+private fun contentEnterTransition(
+    effectsSpec: FiniteAnimationSpec<Float>,
+    spatialSpec: FiniteAnimationSpec<Float>
+): EnterTransition {
+    return fadeIn(animationSpec = effectsSpec) +
+        scaleIn(animationSpec = spatialSpec, initialScale = 0.985f)
 }
 
-private fun textExitTransition(duration: Int = 300): ExitTransition {
-    return fadeOut(animationSpec = tween(duration, easing = LinearOutSlowInEasing))
+private fun contentExitTransition(effectsSpec: FiniteAnimationSpec<Float>): ExitTransition {
+    return fadeOut(animationSpec = effectsSpec)
 }
 
 @UnstableApi
@@ -44,6 +49,10 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val authStateManager = remember { AuthStateManager.getInstance(context) }
+    val motion = MaterialTheme.velaMotion
+    val enterEffectsSpec = motion.defaultEffectsSpec<Float>()
+    val enterSpatialSpec = motion.defaultSpatialSpec<Float>()
+    val exitEffectsSpec = motion.fastEffectsSpec<Float>()
 
     var startDestination by remember { mutableStateOf<String?>(null) }
     
@@ -61,12 +70,12 @@ fun AppNavigation() {
     ) {
             composable(
                 "splash",
-                enterTransition = { textTransition(500) },
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
                 exitTransition = {
                     if (targetState.destination.route == "server_connection") {
                         ExitTransition.None
                     } else {
-                        textExitTransition(400)
+                        contentExitTransition(exitEffectsSpec)
                     }
                 }
             ) {
@@ -92,14 +101,14 @@ fun AppNavigation() {
                     if (initialState.destination.route == "dashboard") {
                         EnterTransition.None
                     } else {
-                        textTransition(500)
+                        contentEnterTransition(enterEffectsSpec, enterSpatialSpec)
                     }
                 },
                 exitTransition = {
                     if (targetState.destination.route == "server_connection") {
                         ExitTransition.None
                     } else {
-                        textExitTransition(400)
+                        contentExitTransition(exitEffectsSpec)
                     }
                 }
             ) {
@@ -128,10 +137,10 @@ fun AppNavigation() {
                     ) {
                         EnterTransition.None
                     } else {
-                        textTransition(500)
+                        contentEnterTransition(enterEffectsSpec, enterSpatialSpec)
                     }
                 },
-                exitTransition = { textExitTransition(400) }
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 AuthScreen(
                     onAuthSuccess = {
@@ -155,8 +164,8 @@ fun AppNavigation() {
                         defaultValue = null
                     }
                 ),
-                enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val encodedServerUrl = backStackEntry.arguments?.getString("serverUrl").orEmpty()
                 val serverUrl = runCatching {
@@ -185,12 +194,12 @@ fun AppNavigation() {
 
             composable(
                 "dashboard",
-                enterTransition = { textTransition(400) },
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
                 exitTransition = {
                     if (targetState.destination.route == "auth") {
                         ExitTransition.None
                     } else {
-                        textExitTransition(300)
+                        contentExitTransition(exitEffectsSpec)
                     }
                 }
             ) {
@@ -261,8 +270,8 @@ fun AppNavigation() {
             composable(
                 "player/{itemId}",
                 arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
-                enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
 
@@ -287,8 +296,8 @@ fun AppNavigation() {
                         defaultValue = false
                     }
                 ),
-                enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val itemId = backStackEntry.arguments?.getString("itemId")
                 val forceMergeVersions = backStackEntry.arguments?.getBoolean("mergeVersions") ?: false
@@ -321,8 +330,8 @@ fun AppNavigation() {
             composable(
                 "episode/{episodeId}",
                 arguments = listOf(navArgument("episodeId") { type = NavType.StringType }),
-                enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val episodeId = backStackEntry.arguments?.getString("episodeId")
 
@@ -353,8 +362,8 @@ fun AppNavigation() {
             composable(
                 "person/{personId}",
                 arguments = listOf(navArgument("personId") { type = NavType.StringType }),
-                enterTransition = { textTransition(500) },
-                exitTransition = { textExitTransition(400) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val personId = backStackEntry.arguments?.getString("personId")
 
@@ -394,8 +403,8 @@ fun AppNavigation() {
                         defaultValue = null
                     }
                 ),
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) { backStackEntry ->
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")
@@ -429,8 +438,8 @@ fun AppNavigation() {
 
             composable(
                 "player_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 PlayerSettingsScreen(
                     onBackPressed = {
@@ -444,8 +453,8 @@ fun AppNavigation() {
 
             composable(
                 "subtitle_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 SubtitleSettingsScreen(
                     onBackPressed = {
@@ -456,8 +465,8 @@ fun AppNavigation() {
 
             composable(
                 "interface_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 InterfaceSettingsScreen(
                     onBackPressed = {
@@ -468,8 +477,8 @@ fun AppNavigation() {
 
             composable(
                 "cache_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 CacheSettingsScreen(
                     onBackPressed = {
@@ -480,8 +489,8 @@ fun AppNavigation() {
 
             composable(
                 "about",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
+                exitTransition = { contentExitTransition(exitEffectsSpec) }
             ) {
                 AboutScreen(
                     onBackPressed = {

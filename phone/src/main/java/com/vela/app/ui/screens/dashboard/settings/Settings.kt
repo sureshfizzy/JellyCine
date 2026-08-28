@@ -59,7 +59,8 @@ fun Settings(
     onNavigateToServerInfo: () -> Unit = {},
     onNavigateToRequestedItem: (BaseItemDto) -> Unit = {},
     onAddServer: () -> Unit = {},
-    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
+    onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
@@ -96,19 +97,16 @@ fun Settings(
     }
 
     Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Column(
-                modifier = Modifier
-                    .statusBarsPadding()
-                    .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.settings),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
-            }
+            )
         }
     ) { innerPadding ->
         LazyColumn(
@@ -116,7 +114,7 @@ fun Settings(
                 .fillMaxSize()
                 .padding(innerPadding),
             state = listState,
-            contentPadding = PaddingValues(bottom = 96.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item { SectionLabel(stringResource(R.string.settings_general)) }
             item {
@@ -367,7 +365,7 @@ private fun UserProfileSection(
             Text(
                 text = user?.name ?: username,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = listOfNotNull(
@@ -375,14 +373,14 @@ private fun UserProfileSection(
                     if (isAdministrator == true) stringResource(R.string.settings_administrator) else null
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         IconButton(onClick = onServerClick) {
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = stringResource(R.string.settings_switch_server),
-                tint = Color.White.copy(alpha = 0.35f)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -611,16 +609,13 @@ private fun ActionTile(
     }
 }
 
-private val HillsSectionColor = Color(0xFF8B93B8)
-private val HillsIconColor = Color(0xFFD0D4E4)
-
 @Composable
 private fun SectionLabel(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = HillsSectionColor,
-        modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp)
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 20.dp, bottom = 8.dp)
     )
 }
 
@@ -628,8 +623,16 @@ private fun SectionLabel(title: String) {
 private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        content()
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            content()
+        }
     }
 }
 
@@ -640,10 +643,11 @@ private fun SettingsItem(
     subtitle: String,
     isLoading: Boolean = false,
     isDestructive: Boolean = false,
-    accentColor: Color = HillsIconColor,
+    accentColor: Color? = null,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
+    val resolvedAccentColor = accentColor ?: MaterialTheme.colorScheme.primary
     val clickableModifier = if (onClick != null) {
         Modifier.clickable {
             if (!isLoading) onClick()
@@ -660,7 +664,7 @@ private fun SettingsItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) MaterialTheme.colorScheme.error else HillsIconColor,
+            tint = if (isDestructive) MaterialTheme.colorScheme.error else resolvedAccentColor,
             modifier = Modifier.size(22.dp)
         )
 
@@ -680,7 +684,7 @@ private fun SettingsItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -690,7 +694,7 @@ private fun SettingsItem(
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp,
-                    color = accentColor
+                    color = resolvedAccentColor
                 )
             }
             trailing != null -> trailing()
@@ -698,7 +702,7 @@ private fun SettingsItem(
                 Icon(
                     imageVector = Icons.Rounded.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -728,9 +732,6 @@ private fun NetworkSettingsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.Black,
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
         title = { Text(stringResource(R.string.settings_network)) },
         text = {
             Column {
@@ -739,13 +740,13 @@ private fun NetworkSettingsDialog(
                     value = "$requestTimeoutMs ms",
                     onClick = { onSelectField(NetworkTimeoutField.REQUEST) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 NetworkDialogItem(
                     title = stringResource(R.string.settings_connection_timeout),
                     value = "$connectionTimeoutMs ms",
                     onClick = { onSelectField(NetworkTimeoutField.CONNECTION) }
                 )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.14f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 NetworkDialogItem(
                     title = stringResource(R.string.settings_socket_timeout),
                     value = "$socketTimeoutMs ms",
@@ -755,7 +756,7 @@ private fun NetworkSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_close), color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_close))
             }
         }
     )
@@ -778,18 +779,18 @@ private fun NetworkDialogItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.72f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Icon(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.72f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -809,9 +810,6 @@ private fun TimeoutValueDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.Black,
-        titleContentColor = Color.White,
-        textContentColor = Color.White,
         title = { Text(stringResource(field.titleRes)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -823,19 +821,7 @@ private fun TimeoutValueDialog(
                     label = { Text(stringResource(R.string.settings_milliseconds)) },
                     singleLine = true,
                     isError = hasValidationError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedLabelColor = Color.White.copy(alpha = 0.9f),
-                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                        focusedBorderColor = Color(0xFF22D3EE),
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.35f),
-                        cursorColor = Color(0xFF22D3EE),
-                        errorBorderColor = Color(0xFFFF6B6B),
-                        errorLabelColor = Color(0xFFFF6B6B),
-                        errorCursorColor = Color(0xFFFF6B6B)
-                    )
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
                 Text(
                     text = stringResource(
@@ -844,13 +830,13 @@ private fun TimeoutValueDialog(
                         NetworkPreferences.MAX_TIMEOUT_MS
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (hasValidationError) {
                     Text(
                         text = stringResource(R.string.settings_enter_valid_milliseconds),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFFF6B6B)
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -860,12 +846,12 @@ private fun TimeoutValueDialog(
                 enabled = isValid,
                 onClick = { parsedValue?.let(onSave) }
             ) {
-                Text(stringResource(R.string.settings_apply), color = Color(0xFF22D3EE))
+                Text(stringResource(R.string.settings_apply))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(R.string.cancel))
             }
         }
     )

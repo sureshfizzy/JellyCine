@@ -44,6 +44,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,16 +72,15 @@ import com.vela.app.ui.screens.auth.RemoveServerConfirmDialog
 import com.vela.data.repository.AuthRepository
 import com.vela.shared.R
 
-private val ServerCardColor = Color(0xFF16181D)
 private val OnlineDotColor = Color(0xFF4FD06B)
-private val OfflineDotColor = Color.White.copy(alpha = 0.28f)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServersScreen(
     onServerSwitched: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> },
-    reserveHomeNavigationSpace: Boolean = false
+    reserveHomeNavigationSpace: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val viewModel: ServersViewModel = viewModel {
@@ -97,30 +98,24 @@ fun ServersScreen(
         viewModel.clearActionError()
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
     Scaffold(
-        containerColor = Color.Black,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_server_label),
-                    color = Color.White,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_server_label)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
-            }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                containerColor = Color(0xFFB8C7FF),
-                contentColor = Color(0xFF1B2550),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.padding(bottom = if (reserveHomeNavigationSpace) 76.dp else 0.dp)
             ) {
                 Icon(
@@ -140,7 +135,7 @@ fun ServersScreen(
             ) {
                 Text(
                     text = stringResource(R.string.settings_servers_empty),
-                    color = Color.White.copy(alpha = 0.62f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -262,12 +257,12 @@ fun ServersScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f))
                 .clickable(enabled = true, onClick = {}),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
-                color = Color(0xFFB8C7FF),
+                color = MaterialTheme.colorScheme.primary,
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(28.dp)
             )
@@ -295,8 +290,11 @@ private fun ServerAccountRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(ServerCardColor)
+            .clip(MaterialTheme.shapes.large)
+            .background(
+                if (isActive) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh
+            )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -305,7 +303,7 @@ private fun ServerAccountRow(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center
         ) {
             ProfileImageLoader(
@@ -318,7 +316,7 @@ private fun ServerAccountRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = server.displayName().ifBlank { stringResource(R.string.settings_media_server) },
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -330,12 +328,15 @@ private fun ServerAccountRow(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (isOnline || isActive) OnlineDotColor else OfflineDotColor)
+                        .background(
+                            if (isOnline || isActive) OnlineDotColor
+                            else MaterialTheme.colorScheme.outline
+                        )
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = server.username,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -350,7 +351,7 @@ private fun ServerAccountRow(
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
                     contentDescription = stringResource(R.string.settings_server_menu),
-                    tint = Color.White.copy(alpha = 0.55f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             DropdownMenu(
@@ -439,7 +440,7 @@ private fun AddServerDialog(
             Text(
                 text = stringResource(R.string.settings_add_server_dialog_title),
                 style = MaterialTheme.typography.titleLarge,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(18.dp))
@@ -503,7 +504,7 @@ private fun AddServerDialog(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = errorMessage,
-                    color = Color(0xFFFF8A80),
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -517,7 +518,7 @@ private fun AddServerDialog(
                     enabled = !isConnecting,
                     onClick = onDismiss
                 ) {
-                    Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
+                    Text(stringResource(R.string.cancel))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Button(
@@ -526,15 +527,15 @@ private fun AddServerDialog(
                     },
                     enabled = !isConnecting && host.isNotBlank() && username.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFB8C7FF),
-                        contentColor = Color(0xFF1B2550)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 ) {
                     if (isConnecting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = Color(0xFF1B2550)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     } else {
                         Text(stringResource(R.string.settings_server_connect))

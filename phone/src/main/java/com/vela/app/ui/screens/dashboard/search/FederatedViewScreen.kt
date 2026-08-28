@@ -66,9 +66,6 @@ import com.vela.data.repository.FederatedMediaItem
 import com.vela.shared.R
 import kotlinx.coroutines.launch
 
-private val FederatedBackground = Color(0xFF0D0D11)
-private val FederatedAccent = Color(0xFFB9C3FF)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FederatedViewScreen(
@@ -104,7 +101,7 @@ fun FederatedViewScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(FederatedBackground)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             FederatedViewHeader(
@@ -121,7 +118,7 @@ fun FederatedViewScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = FederatedAccent)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
                 is FederatedContentUiState.Ready -> FederatedHomeContent(
                     tab = uiState.selectedTab,
@@ -150,12 +147,12 @@ fun FederatedViewScreen(
                     Text(stringResource(R.string.federated_search_partial_failure, failures.size))
                 },
                 colors = AssistChipDefaults.assistChipColors(
-                    containerColor = Color(0xFF3A271B),
-                    labelColor = Color(0xFFFFC48C)
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 16.dp, bottom = 94.dp)
+                    .padding(start = 16.dp, bottom = 16.dp)
             )
         }
 
@@ -163,17 +160,17 @@ fun FederatedViewScreen(
             hostState = snackbarHostState,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 92.dp)
+                .padding(bottom = 16.dp)
         )
 
         if (uiState.openingServerId != null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.42f)),
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = FederatedAccent)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -202,7 +199,7 @@ private fun FederatedViewHeader(
     ) {
         Text(
             text = stringResource(R.string.federated_search_title),
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
@@ -211,14 +208,14 @@ private fun FederatedViewHeader(
             Icon(
                 imageVector = Icons.Rounded.Search,
                 contentDescription = stringResource(R.string.search),
-                tint = Color.White.copy(alpha = 0.84f)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         IconButton(onClick = onConfigure) {
             Icon(
                 imageVector = Icons.Rounded.Tune,
                 contentDescription = stringResource(R.string.federated_continue_settings),
-                tint = Color.White.copy(alpha = 0.84f)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -245,7 +242,7 @@ private fun FederatedTabRow(
             ) {
                 Text(
                     text = tab.label(),
-                    color = if (selected) FederatedAccent else Color.White.copy(alpha = 0.78f),
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                 )
@@ -255,7 +252,7 @@ private fun FederatedTabRow(
                         .width(48.dp)
                         .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(if (selected) FederatedAccent else Color.Transparent)
+                        .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
                 )
             }
         }
@@ -283,7 +280,7 @@ private fun FederatedHomeContent(
                     FederatedHomeTab.FAVORITES -> stringResource(R.string.federated_favorites_empty)
                     FederatedHomeTab.LIBRARIES -> stringResource(R.string.federated_libraries_empty)
                 },
-                color = Color.White.copy(alpha = 0.62f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
         }
@@ -293,7 +290,7 @@ private fun FederatedHomeContent(
     val groups = remember(items) { items.groupBy { it.serverId }.values.toList() }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 112.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
@@ -305,7 +302,7 @@ private fun FederatedHomeContent(
             ) {
                 Text(
                     text = serverItems.first().serverName,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 10.dp, bottom = 2.dp)
@@ -343,7 +340,7 @@ private fun FederatedHomeCard(
                 .fillMaxWidth()
                 .aspectRatio(if (tab == FederatedHomeTab.LIBRARIES) 1.55f else 16f / 9f)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF19191F)),
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center
         ) {
             if (result.imageUrl != null) {
@@ -357,7 +354,7 @@ private fun FederatedHomeCard(
                 Icon(
                     imageVector = Icons.Rounded.Movie,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.48f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -372,13 +369,13 @@ private fun FederatedHomeCard(
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
                         .height(4.dp)
-                        .background(Color.White.copy(alpha = 0.3f))
+                        .background(MaterialTheme.colorScheme.outlineVariant)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progress)
                             .height(4.dp)
-                            .background(FederatedAccent)
+                            .background(MaterialTheme.colorScheme.primary)
                     )
                 }
             }
@@ -389,7 +386,7 @@ private fun FederatedHomeCard(
             } else {
                 item.name ?: stringResource(R.string.search_result_unknown_title)
             },
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -415,7 +412,7 @@ private fun FederatedHomeCard(
         if (subtitle.isNotEmpty()) {
             Text(
                 text = subtitle,
-                color = Color.White.copy(alpha = 0.62f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -435,8 +432,8 @@ private fun ContinueWatchingServerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color(0xFF17171C),
-        contentColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Column(
             modifier = Modifier
@@ -450,7 +447,7 @@ private fun ContinueWatchingServerSheet(
             )
             Text(
                 text = stringResource(R.string.federated_continue_settings_description),
-                color = Color.White.copy(alpha = 0.64f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
             )
             LazyColumn(contentPadding = PaddingValues(bottom = 28.dp)) {
@@ -466,7 +463,7 @@ private fun ContinueWatchingServerSheet(
                     ) {
                         Text(
                             text = server.name,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis

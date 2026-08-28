@@ -13,7 +13,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vela.shared.ui.theme.JellyBlue
 
 @Composable
 fun DownloadOnlyButton(
@@ -27,12 +26,12 @@ fun DownloadOnlyButton(
         onClick = if (!isDownloading) onClick else { {} },
         modifier = modifier.height(56.dp),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = if (isDownloading) Color.Black.copy(alpha = 0.7f) else Color.Black,
+            contentColor = MaterialTheme.colorScheme.primary,
             containerColor = Color.Transparent
         ),
         border = BorderStroke(
             2.dp, 
-            if (isDownloading) JellyBlue.copy(alpha = 0.7f) else JellyBlue.copy(alpha = 0.8f)
+            MaterialTheme.colorScheme.primary.copy(alpha = if (isDownloading) 0.7f else 0.8f)
         ),
         shape = RoundedCornerShape(16.dp),
         enabled = !isDownloading
