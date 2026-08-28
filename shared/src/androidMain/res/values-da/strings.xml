@@ -594,4 +594,23 @@
     <string name="detail_person_no_related_titles">Ingen relaterede titler tilgængelige.</string>
     <string name="detail_person_read_more">Læs mere</string>
     <string name="detail_person_read_less">Læs mindre</string>
+    <string name="settings_screen_time">Skærmtid</string>
+    <string name="settings_screen_time_subtitle">Se din ureaktivitet og statistik</string>
+    <string name="screen_time_back">Tilbage</string>
+    <string name="screen_time_total">I alt</string>
+    <string name="screen_time_daily_average">Dagligt gennemsnit</string>
+    <string name="screen_time_shows">viser</string>
+    <string name="screen_time_movies">Film</string>
+    <string name="screen_time_period_week">Uge</string>
+    <string name="screen_time_period_month">Måned</string>
+    <string name="screen_time_period_year">År</string>
+    <string name="screen_time_daily_breakdown">Daglig opdeling</string>
+    <string name="screen_time_peak_hours">Spidsbelastningstider</string>
+    <string name="screen_time_previous_year">Forrige år</string>
+    <string name="screen_time_next_year">Næste år</string>
+    <string name="screen_time_no_change">Ingen ændring</string>
+    <string name="screen_time_morning">Morgen</string>
+    <string name="screen_time_afternoon">Eftermiddag</string>
+    <string name="screen_time_evening">Aften</string>
+    <string name="screen_time_night">Nat</string>
 </resources>
