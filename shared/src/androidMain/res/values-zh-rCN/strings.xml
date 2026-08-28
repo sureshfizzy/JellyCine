@@ -581,4 +581,23 @@
     <string name="detail_person_no_related_titles">没有相关标题可用。</string>
     <string name="detail_person_read_more">阅读更多</string>
     <string name="detail_person_read_less">少读</string>
+    <string name="settings_screen_time">屏幕时间</string>
+    <string name="settings_screen_time_subtitle">查看您的手表活动和统计数据</string>
+    <string name="screen_time_back">返回</string>
+    <string name="screen_time_total">总计</string>
+    <string name="screen_time_daily_average">每日平均值</string>
+    <string name="screen_time_shows">节目</string>
+    <string name="screen_time_movies">电影</string>
+    <string name="screen_time_period_week">一周</string>
+    <string name="screen_time_period_month">月</string>
+    <string name="screen_time_period_year">年</string>
+    <string name="screen_time_daily_breakdown">每日细目</string>
+    <string name="screen_time_peak_hours">高峰时段</string>
+    <string name="screen_time_previous_year">前一年</string>
+    <string name="screen_time_next_year">明年</string>
+    <string name="screen_time_no_change">没有变化</string>
+    <string name="screen_time_morning">早上</string>
+    <string name="screen_time_afternoon">下午</string>
+    <string name="screen_time_evening">晚上</string>
+    <string name="screen_time_night">晚上</string>
 </resources>
