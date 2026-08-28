@@ -594,4 +594,23 @@
     <string name="detail_person_no_related_titles">Seotud pealkirju pole saadaval.</string>
     <string name="detail_person_read_more">Loe lähemalt</string>
     <string name="detail_person_read_less">Loe vähem</string>
+    <string name="settings_screen_time">Ekraani aeg</string>
+    <string name="settings_screen_time_subtitle">Vaata oma vaatamise aktiivsust ja statistikat</string>
+    <string name="screen_time_back">Tagasi</string>
+    <string name="screen_time_total">Kokku</string>
+    <string name="screen_time_daily_average">Päeva keskmine</string>
+    <string name="screen_time_shows">Näitused</string>
+    <string name="screen_time_movies">Filmid</string>
+    <string name="screen_time_period_week">Nädal</string>
+    <string name="screen_time_period_month">Kuu</string>
+    <string name="screen_time_period_year">Aasta</string>
+    <string name="screen_time_daily_breakdown">Igapäevane jaotus</string>
+    <string name="screen_time_peak_hours">Tipptunnid</string>
+    <string name="screen_time_previous_year">Eelmine aasta</string>
+    <string name="screen_time_next_year">Järgmisel aastal</string>
+    <string name="screen_time_no_change">Muudatusi pole</string>
+    <string name="screen_time_morning">Hommik</string>
+    <string name="screen_time_afternoon">pärastlõunal</string>
+    <string name="screen_time_evening">Õhtu</string>
+    <string name="screen_time_night">Öö</string>
 </resources>
