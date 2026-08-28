@@ -137,18 +137,19 @@ fun ScreenTimeScreen(
                     period = state.period,
                     year = state.year,
                     monthOffset = state.monthOffset,
+                    weekOffset = state.weekOffset,
                     onPrevious = {
                         when (state.period) {
+                            ScreenTimePeriod.WEEK -> viewModel.loadScreenTime(state.period, state.year, weekOffset = state.weekOffset - 1)
                             ScreenTimePeriod.MONTH -> viewModel.loadScreenTime(state.period, state.year, state.monthOffset - 1)
                             ScreenTimePeriod.YEAR -> viewModel.loadScreenTime(state.period, state.year - 1)
-                            else -> {}
                         }
                     },
                     onNext = {
                         when (state.period) {
+                            ScreenTimePeriod.WEEK -> viewModel.loadScreenTime(state.period, state.year, weekOffset = state.weekOffset + 1)
                             ScreenTimePeriod.MONTH -> viewModel.loadScreenTime(state.period, state.year, state.monthOffset + 1)
                             ScreenTimePeriod.YEAR -> viewModel.loadScreenTime(state.period, state.year + 1)
-                            else -> {}
                         }
                     }
                 )
@@ -335,6 +336,7 @@ private fun DateRangeSubtitle(
     period: ScreenTimePeriod,
     year: Int,
     monthOffset: Int = 0,
+    weekOffset: Int = 0,
     onPrevious: () -> Unit = {},
     onNext: () -> Unit = {}
 ) {
@@ -342,7 +344,11 @@ private fun DateRangeSubtitle(
     val formatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
 
     val text = when (period) {
-        ScreenTimePeriod.WEEK -> "${today.minusDays(6).format(formatter)}  –  Today"
+        ScreenTimePeriod.WEEK -> {
+            val end = today.plusWeeks(weekOffset.toLong())
+            val start = end.minusDays(6)
+            "${start.format(formatter)}  –  ${if (weekOffset == 0) "Today" else end.format(formatter)}"
+        }
         ScreenTimePeriod.MONTH -> {
             val target = today.plusMonths(monthOffset.toLong())
             val start = target.withDayOfMonth(1)
@@ -351,11 +357,10 @@ private fun DateRangeSubtitle(
         }
         ScreenTimePeriod.YEAR -> if (year == today.year) "$year – Today" else year.toString()
     }
-    val showNav = period == ScreenTimePeriod.YEAR || period == ScreenTimePeriod.MONTH
     val canGoNext = when (period) {
-        ScreenTimePeriod.YEAR -> year < today.year
+        ScreenTimePeriod.WEEK -> weekOffset < 0
         ScreenTimePeriod.MONTH -> monthOffset < 0
-        else -> false
+        ScreenTimePeriod.YEAR -> year < today.year
     }
 
     Row(
@@ -363,9 +368,7 @@ private fun DateRangeSubtitle(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (showNav) {
-            Icon(Icons.Rounded.ChevronLeft, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp).clickable { onPrevious() })
-        }
+        Icon(Icons.Rounded.ChevronLeft, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp).clickable { onPrevious() })
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
@@ -373,9 +376,7 @@ private fun DateRangeSubtitle(
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
-        if (showNav) {
-            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (canGoNext) Color.White else Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp).clickable(enabled = canGoNext) { onNext() })
-        }
+        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (canGoNext) Color.White else Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp).clickable(enabled = canGoNext) { onNext() })
     }
 }
 
