@@ -581,4 +581,23 @@
     <string name="detail_person_no_related_titles">관련 타이틀이 없습니다.</string>
     <string name="detail_person_read_more">더 읽어보기</string>
     <string name="detail_person_read_less">덜 읽으세요</string>
+    <string name="settings_screen_time">스크린 타임</string>
+    <string name="settings_screen_time_subtitle">시계 활동 및 통계 보기</string>
+    <string name="screen_time_back">뒤로</string>
+    <string name="screen_time_total">합계</string>
+    <string name="screen_time_daily_average">일일 평균</string>
+    <string name="screen_time_shows">쇼</string>
+    <string name="screen_time_movies">영화</string>
+    <string name="screen_time_period_week">주</string>
+    <string name="screen_time_period_month">월</string>
+    <string name="screen_time_period_year">연도</string>
+    <string name="screen_time_daily_breakdown">일일 분석</string>
+    <string name="screen_time_peak_hours">피크 아워</string>
+    <string name="screen_time_previous_year">이전 연도</string>
+    <string name="screen_time_next_year">다음 해</string>
+    <string name="screen_time_no_change">변경 없음</string>
+    <string name="screen_time_morning">모닝</string>
+    <string name="screen_time_afternoon">대낮</string>
+    <string name="screen_time_evening">이브닝</string>
+    <string name="screen_time_night">야간</string>
 </resources>
