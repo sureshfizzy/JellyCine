@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -440,6 +441,18 @@ fun PlayerScreen(
     }
 
     val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+    val videoAspectRatio = remember(
+        playerState.availableVideoTracks,
+        playerState.isLoading,
+        playerState.mediaTitle
+    ) {
+        val fromTracks = playerState.availableVideoTracks.firstOrNull { track ->
+            track.width > 0 && track.height > 0
+        }?.let { track ->
+            track.width.toFloat() / track.height.toFloat()
+        }
+        fromTracks ?: viewModel.getSourceVideoAspectRatio() ?: (16f / 9f)
+    }
     var hideVideoForRotation by remember { mutableStateOf(false) }
     var seenPortraitPlayback by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(isPortraitPlayback) {
@@ -450,14 +463,19 @@ fun PlayerScreen(
         delay(180)
         hideVideoForRotation = false
     }
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .focusable(),
-        // 元数据始终作为悬浮覆盖层；切换横竖屏时视频画面保持在播放器中央。
+        // 按片源比例铺满较短边：竖屏铺满宽度，横屏铺满高度，上下或两侧留黑边。
         contentAlignment = Alignment.Center
     ) {
+        val videoSurfaceModifier = videoContainModifier(
+            videoAspectRatio = videoAspectRatio,
+            containerWidth = maxWidth,
+            containerHeight = maxHeight
+        )
         key(isPortraitPlayback) {
         VideoSurface(
             player = viewModel.exoPlayer,
@@ -520,15 +538,7 @@ fun PlayerScreen(
             },
             onSurfaceReady = { hideVideoForRotation = false },
             snapTransform = hideVideoForRotation,
-            modifier = if (isPortraitPlayback) {
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-            } else {
-                Modifier
-                    .fillMaxHeight()
-                    .aspectRatio(16f / 9f)
-            }
+            modifier = videoSurfaceModifier
         )
         }
 
@@ -663,7 +673,6 @@ fun PlayerScreen(
             },
             onEnterPip = { enterPlayerPip(context as Activity) },
             onShowChapters = { showChaptersSheet = true },
-            onScreenshot = { viewModel.captureScreenshot() },
             onBackgroundClick = {
                 uiState = uiState.copy(controlsVisible = false)
             },
@@ -738,6 +747,28 @@ fun PlayerScreen(
                 }
             )
         }
+    }
+}
+
+private fun videoContainModifier(
+    videoAspectRatio: Float,
+    containerWidth: Dp,
+    containerHeight: Dp
+): Modifier {
+    val ratio = videoAspectRatio.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
+    val containerAspect = if (containerHeight.value > 0f) {
+        containerWidth / containerHeight
+    } else {
+        16f / 9f
+    }
+    return if (ratio >= containerAspect) {
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(ratio)
+    } else {
+        Modifier
+            .fillMaxHeight()
+            .aspectRatio(ratio)
     }
 }
 

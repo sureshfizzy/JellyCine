@@ -21,11 +21,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 internal val PlayerChromeInset = 18.dp
+internal val PlayerChromeEndInset = 8.dp
 internal val PlayerChromeTopGap = 8.dp
 internal val PlayerChromeBottomGap = 12.dp
-internal val PlayerGlassButtonSize = 44.dp
-internal val PlayerGlassSeekSize = 48.dp
-internal val PlayerGlassPlaySize = 68.dp
+internal val PlayerGlassButtonSize = 52.dp
+internal val PlayerGlassSeekSize = 56.dp
+internal val PlayerGlassPlaySize = 80.dp
+internal val PlayerChromeIconSize = 48.dp
 
 private val GlassFill = Color(0xCC18181A)
 private val GlassBorder = Color.White.copy(alpha = 0.16f)
@@ -97,7 +99,7 @@ internal fun PlayerGlassIconButton(
 @Composable
 internal fun PlayerChromeIconButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier.size(40.dp),
+    modifier: Modifier = Modifier.size(PlayerChromeIconSize),
     enabled: Boolean = true,
     content: @Composable () -> Unit
 ) {

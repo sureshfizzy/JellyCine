@@ -299,6 +299,27 @@ internal object PlayerMetadata {
             .maxOrNull()
     }
 
+    fun getSourceVideoAspectRatio(mediaStreams: List<MediaStream>?): Float? {
+        val stream = mediaStreams.orEmpty().firstOrNull { candidate ->
+            candidate.type.equals("Video", ignoreCase = true)
+        } ?: return null
+        val width = stream.width ?: 0
+        val height = stream.height ?: 0
+        if (width > 0 && height > 0) {
+            return width.toFloat() / height.toFloat()
+        }
+        return parseDisplayAspectRatio(stream.aspectRatio)
+    }
+
+    private fun parseDisplayAspectRatio(raw: String?): Float? {
+        val parts = raw?.split(':') ?: return null
+        if (parts.size != 2) return null
+        val width = parts[0].trim().toFloatOrNull() ?: return null
+        val height = parts[1].trim().toFloatOrNull() ?: return null
+        if (width <= 0f || height <= 0f) return null
+        return width / height
+    }
+
     private fun getDisplayVideoCodecName(codec: String): String {
         return when (codec.uppercase()) {
             "H264", "AVC", "AVC1" -> "H.264"

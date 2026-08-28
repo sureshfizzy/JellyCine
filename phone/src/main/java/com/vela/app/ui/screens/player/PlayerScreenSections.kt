@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -386,7 +385,6 @@ internal fun BoxScope.PlayerOverlayHost(
     onTitleClick: () -> Unit = {},
     onEnterPip: () -> Unit = {},
     onShowChapters: () -> Unit = {},
-    onScreenshot: () -> Unit = {},
     onBackgroundClick: () -> Unit = {},
     onSeekFeedback: (String, SeekSide) -> Unit = { _, _ -> },
     onPositionChanged: (Long) -> Unit = {}
@@ -538,10 +536,6 @@ internal fun BoxScope.PlayerOverlayHost(
                 resetAutoHideTimer()
                 onEnterPip()
             },
-            onScreenshot = {
-                resetAutoHideTimer()
-                onScreenshot()
-            },
             onToggleHardwareDecoding = {
                 resetAutoHideTimer()
                 viewModel.toggleHardwareDecoding()
@@ -559,48 +553,18 @@ internal fun BoxScope.PlayerOverlayHost(
                 PlayerPreferences.MPV_HARDWARE_DECODING_NONE,
             onUserInteraction = resetAutoHideTimer,
             onBackgroundClick = onBackgroundClick,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-
-    AnimatedVisibility(
-        visible = activeSkippableSegment != null &&
-            activeSkippableSegment.type != SkippableSegmentType.CREDITS &&
-            uiState.controlsVisible,
-        enter = fadeIn(),
-        exit = fadeOut(),
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(end = 24.dp, bottom = 28.dp)
-    ) {
-        FilledTonalButton(
-            onClick = {
+            skipActionLabel = when (activeSkippableSegment?.type) {
+                SkippableSegmentType.RECAP -> stringResource(R.string.player_skip_recap)
+                SkippableSegmentType.PREVIEW -> stringResource(R.string.player_skip_preview)
+                SkippableSegmentType.INTRO -> stringResource(R.string.player_skip_intro)
+                else -> null
+            },
+            onSkipAction = {
                 resetAutoHideTimer()
                 activeSkippableSegment?.seekToMs?.let(viewModel::seekTo)
             },
-            shape = RoundedCornerShape(999.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = Color.Black.copy(alpha = 0.52f),
-                contentColor = Color.White
-            ),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-            elevation = ButtonDefaults.filledTonalButtonElevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 1.dp
-            ),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
-        ) {
-            Text(
-                text = stringResource(
-                    when (activeSkippableSegment?.type) {
-                        SkippableSegmentType.RECAP -> R.string.player_skip_recap
-                        SkippableSegmentType.PREVIEW -> R.string.player_skip_preview
-                        else -> R.string.player_skip_intro
-                    }
-                ),
-                fontSize = 14.sp
-            )
-        }
+            modifier = Modifier.fillMaxSize()
+        )
     }
 
     AnimatedVisibility(

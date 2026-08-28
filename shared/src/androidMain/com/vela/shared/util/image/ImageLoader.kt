@@ -96,14 +96,15 @@ fun JellyfinPosterImage(
     alignment: Alignment = Alignment.Center,
     context: Context,
     onLoadingStateChange: (Boolean) -> Unit = {},
-    onErrorStateChange: (Boolean) -> Unit = {}
+    onErrorStateChange: (Boolean) -> Unit = {},
+    onIntrinsicSizeChange: (Float, Float) -> Unit = { _, _ -> }
 ) {
     var imageState by remember(imageUrl) { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
     WarmImageUrl(imageUrl = imageUrl, allowRgb565 = true)
 
     // Notify parent about loading and error state changes
     LaunchedEffect(imageState) {
-        when (imageState) {
+        when (val state = imageState) {
             is AsyncImagePainter.State.Loading -> {
                 onLoadingStateChange(true)
                 onErrorStateChange(false)
@@ -111,6 +112,10 @@ fun JellyfinPosterImage(
             is AsyncImagePainter.State.Success -> {
                 onLoadingStateChange(false)
                 onErrorStateChange(false)
+                val size = state.painter.intrinsicSize
+                if (size.width > 0f && size.height > 0f) {
+                    onIntrinsicSizeChange(size.width, size.height)
+                }
             }
             is AsyncImagePainter.State.Error -> {
                 onLoadingStateChange(false)

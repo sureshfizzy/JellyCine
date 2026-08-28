@@ -1812,6 +1812,10 @@ class PlayerViewModel @Inject constructor(
         return PlayerMetadata.getSourceVideoHeight(apiMediaStreams)
     }
 
+    fun getSourceVideoAspectRatio(): Float? {
+        return PlayerMetadata.getSourceVideoAspectRatio(apiMediaStreams)
+    }
+
 }
 
 private const val SCRUB_PREVIEW_WIDTH_PX = 320

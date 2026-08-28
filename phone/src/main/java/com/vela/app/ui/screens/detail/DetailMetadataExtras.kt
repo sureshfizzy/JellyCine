@@ -443,16 +443,17 @@ private fun PhotoCard(
     val imageUrl = rememberImageUrl(
         itemId = itemId,
         imageType = image.imageType,
-        width = 560,
-        height = 315,
+        width = 800,
+        height = null,
         quality = 80,
         imageTag = image.imageTag,
         mediaRepository = mediaRepository
     )
+    var aspectRatio by remember(image.imageType, image.imageTag) { mutableStateOf(16f / 9f) }
     Box(
         modifier = Modifier
             .width(268.dp)
-            .aspectRatio(16f / 9f)
+            .aspectRatio(aspectRatio)
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF2A2A2A))
             .clickable(onClick = onClick)
@@ -462,8 +463,11 @@ private fun PhotoCard(
                 context = context,
                 imageUrl = imageUrl,
                 contentDescription = stringResource(R.string.detail_photos),
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.FillWidth,
+                onIntrinsicSizeChange = { width, height ->
+                    aspectRatioFromSize(width, height)?.let { aspectRatio = it }
+                }
             )
         }
     }
@@ -481,11 +485,12 @@ private fun PhotoPreviewDialog(
         itemId = itemId,
         imageType = image.imageType,
         width = 1920,
-        height = 1080,
+        height = null,
         quality = 95,
         imageTag = image.imageTag,
         mediaRepository = mediaRepository
     )
+    var aspectRatio by remember(image.imageType, image.imageTag) { mutableStateOf(16f / 9f) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -498,7 +503,7 @@ private fun PhotoPreviewDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
+                    .aspectRatio(aspectRatio)
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.Black)
             ) {
@@ -507,13 +512,22 @@ private fun PhotoPreviewDialog(
                         context = context,
                         imageUrl = imageUrl,
                         contentDescription = stringResource(R.string.detail_photos),
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        modifier = Modifier.fillMaxWidth(),
+                        contentScale = ContentScale.FillWidth,
+                        onIntrinsicSizeChange = { width, height ->
+                            aspectRatioFromSize(width, height)?.let { aspectRatio = it }
+                        }
                     )
                 }
             }
         }
     }
+}
+
+private fun aspectRatioFromSize(width: Float, height: Float): Float? {
+    if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) return null
+    val ratio = width / height
+    return ratio.takeIf { it.isFinite() && it > 0f }
 }
 
 private fun albumImages(item: BaseItemDto): List<DetailAlbumImage> {

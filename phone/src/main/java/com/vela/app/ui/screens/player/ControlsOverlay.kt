@@ -110,7 +110,8 @@ fun ControlsOverlay(
     hardwareDecodingEnabled: Boolean = true,
     onUserInteraction: () -> Unit = {},
     onBackgroundClick: () -> Unit = {},
-    onScreenshot: () -> Unit = {}
+    skipActionLabel: String? = null,
+    onSkipAction: () -> Unit = {}
 ) {
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val context = LocalContext.current
@@ -199,9 +200,10 @@ fun ControlsOverlay(
             onPlayNextEpisode = onPlayNextEpisode,
             onUserInteraction = onUserInteraction,
             onBackgroundClick = onBackgroundClick,
-            onScreenshot = onScreenshot,
             isScrubbing = scrubPreviewProgress != null,
             landscape = !isPortrait,
+            skipActionLabel = skipActionLabel,
+            onSkipAction = onSkipAction,
             modifier = modifier
         )
 }
@@ -248,9 +250,10 @@ private fun PortraitPlayerOverlay(
     onPlayNextEpisode: () -> Unit = {},
     onUserInteraction: () -> Unit = {},
     onBackgroundClick: () -> Unit = {},
-    onScreenshot: () -> Unit = {},
     isScrubbing: Boolean = false,
     landscape: Boolean = false,
+    skipActionLabel: String? = null,
+    onSkipAction: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showOverflow by remember { mutableStateOf(false) }
@@ -284,7 +287,7 @@ private fun PortraitPlayerOverlay(
                     )
                     .padding(
                         start = chromeEdgeInset,
-                        end = chromeEdgeInset,
+                        end = PlayerChromeEndInset,
                         top = PlayerChromeTopGap
                     )
                     .align(Alignment.TopCenter)
@@ -294,18 +297,14 @@ private fun PortraitPlayerOverlay(
                         onClick = onUserInteraction
                     ),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = if (landscape) {
-                    Arrangement.SpaceBetween
-                } else {
-                    Arrangement.spacedBy(10.dp)
-                }
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 PlayerGlassIconButton(onClick = onBackClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(R.string.cd_back_button),
                         tint = iconTint,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
                 PlayerGlass(
@@ -314,13 +313,13 @@ private fun PortraitPlayerOverlay(
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         PlayerChromeIconButton(
                             onClick = onToggleHardwareDecoding,
                             modifier = Modifier
-                                .height(40.dp)
+                                .height(PlayerChromeIconSize)
                                 .widthIn(min = 48.dp)
                         ) {
                             Text(
@@ -334,12 +333,20 @@ private fun PortraitPlayerOverlay(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                        PlayerChromeIconButton(onClick = onToggleOrientation) {
+                            Icon(
+                                imageVector = Icons.Outlined.ScreenRotation,
+                                contentDescription = stringResource(R.string.player_cd_toggle_orientation),
+                                tint = iconTint,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
                         PlayerChromeIconButton(onClick = onEnterPip) {
                             Icon(
                                 imageVector = Icons.Outlined.PictureInPictureAlt,
                                 contentDescription = stringResource(R.string.player_pip),
                                 tint = iconTint,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                         PlayerChromeIconButton(onClick = onCycleAspectRatio) {
@@ -347,101 +354,62 @@ private fun PortraitPlayerOverlay(
                                 imageVector = Icons.Outlined.AspectRatio,
                                 contentDescription = stringResource(R.string.player_settings_start_maximized),
                                 tint = iconTint,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
-                        if (!landscape) {
-                            PlayerChromeIconButton(onClick = onScreenshot) {
-                                Icon(
-                                    imageVector = Icons.Outlined.PhotoCamera,
-                                    contentDescription = stringResource(R.string.player_screenshot),
-                                    tint = iconTint,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                        PlayerChromeIconButton(onClick = onShowChapters) {
+                        PlayerChromeIconButton(onClick = { showOverflow = !showOverflow }) {
                             Icon(
-                                imageVector = Icons.Outlined.Bookmarks,
-                                contentDescription = stringResource(R.string.player_chapters),
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = stringResource(R.string.player_more),
                                 tint = iconTint,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(26.dp)
                             )
-                        }
-                        PlayerChromeIconButton(onClick = onToggleOrientation) {
-                            Icon(
-                                imageVector = Icons.Outlined.ScreenRotation,
-                                contentDescription = stringResource(R.string.player_cd_toggle_orientation),
-                                tint = iconTint,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Box {
-                            PlayerChromeIconButton(onClick = { showOverflow = true }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MoreHoriz,
-                                    contentDescription = stringResource(R.string.player_more),
-                                    tint = iconTint,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showOverflow,
-                                onDismissRequest = { showOverflow = false },
-                                shape = RoundedCornerShape(16.dp),
-                                containerColor = Color(0xE61C1C1E),
-                                tonalElevation = 0.dp,
-                                shadowElevation = 8.dp
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            stringResource(R.string.player_media_info),
-                                            color = Color.White
-                                        )
-                                    },
-                                    onClick = {
-                                        showOverflow = false
-                                        onShowMediaInfo()
-                                    }
-                                )
-                                if (showPlaybackSettingsButton) {
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                stringResource(R.string.player_settings_streaming_quality),
-                                                color = Color.White
-                                            )
-                                        },
-                                        onClick = {
-                                            showOverflow = false
-                                            onShowPlaybackSettings()
-                                        }
-                                    )
-                                }
-                            }
                         }
                     }
                 }
             }
-            OverlayPlaybackStats(
-                modifier = Modifier
-                    .align(if (landscape) Alignment.TopEnd else Alignment.TopStart)
-                    .windowInsetsPadding(
-                        WindowInsets.displayCutout.only(
-                            WindowInsetsSides.Top + if (landscape) {
-                                WindowInsetsSides.End
-                            } else {
-                                WindowInsetsSides.Start
-                            }
+            if (!showOverflow) {
+                OverlayPlaybackStats(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .windowInsetsPadding(
+                            WindowInsets.displayCutout.only(
+                                WindowInsetsSides.Top + WindowInsetsSides.End
+                            )
                         )
-                    )
-                    .padding(
-                        top = PlayerGlassButtonSize + PlayerChromeTopGap + 6.dp,
-                        start = if (landscape) 0.dp else PlayerChromeInset + PlayerGlassButtonSize + 10.dp,
-                        end = if (landscape) chromeEdgeInset else 0.dp
-                    )
-            )
+                        .padding(
+                            top = PlayerGlassButtonSize + PlayerChromeTopGap + 6.dp,
+                            end = PlayerChromeEndInset
+                        )
+                )
+            }
+            if (showOverflow) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showOverflow = false }
+                        )
+                )
+                PlayerOverflowMenu(
+                    onChapters = onShowChapters,
+                    onMediaInfo = onShowMediaInfo,
+                    onDismiss = { showOverflow = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .windowInsetsPadding(
+                            WindowInsets.displayCutout.only(
+                                WindowInsetsSides.Top + WindowInsetsSides.End
+                            )
+                        )
+                        .padding(
+                            top = PlayerGlassButtonSize + PlayerChromeTopGap + 4.dp,
+                            end = PlayerChromeEndInset
+                        )
+                )
+            }
         }
 
         if (isScrubbing && duration > 0L) {
@@ -475,36 +443,26 @@ private fun PortraitPlayerOverlay(
                     imageVector = Icons.Filled.Lock,
                     contentDescription = stringResource(R.string.player_unlock),
                     tint = iconTint,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
 
         if (!isLocked) {
             if (landscape) {
-                Column(
+                PlayerGlassIconButton(
+                    onClick = onToggleLock,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
-                        .padding(start = chromeEdgeInset),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(start = chromeEdgeInset)
                 ) {
-                    PlayerGlassIconButton(onClick = onScreenshot) {
-                        Icon(
-                            imageVector = Icons.Outlined.PhotoCamera,
-                            contentDescription = stringResource(R.string.player_screenshot),
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    PlayerGlassIconButton(onClick = onToggleLock) {
-                        Icon(
-                            imageVector = Icons.Outlined.LockOpen,
-                            contentDescription = stringResource(R.string.player_lock),
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Outlined.LockOpen,
+                        contentDescription = stringResource(R.string.player_lock),
+                        tint = iconTint,
+                        modifier = Modifier.size(26.dp)
+                    )
                 }
                 OverlayTransportButtons(
                     isPlaying = isPlaying,
@@ -544,7 +502,7 @@ private fun PortraitPlayerOverlay(
                             imageVector = Icons.Outlined.LockOpen,
                             contentDescription = stringResource(R.string.player_lock),
                             tint = iconTint,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     OverlayTransportButtons(
@@ -594,30 +552,30 @@ private fun PortraitPlayerOverlay(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     PlayerGlassIconButton(
                         onClick = onPlayPreviousEpisode,
                         enabled = canPlayPreviousEpisode,
-                        size = 40.dp
+                        size = 48.dp
                     ) {
                         Icon(
                             imageVector = Icons.Filled.SkipPrevious,
                             contentDescription = stringResource(R.string.player_previous_episode),
                             tint = if (canPlayPreviousEpisode) iconTint else disabledTint,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     PlayerGlassIconButton(
                         onClick = onPlayNextEpisode,
                         enabled = canPlayNextEpisode,
-                        size = 40.dp
+                        size = 48.dp
                     ) {
                         Icon(
                             imageVector = Icons.Filled.SkipNext,
                             contentDescription = stringResource(R.string.player_next_episode),
                             tint = if (canPlayNextEpisode) iconTint else disabledTint,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     Text(
@@ -631,6 +589,24 @@ private fun PortraitPlayerOverlay(
                             .weight(1f)
                             .clickable(onClick = onTitleClick)
                     )
+                    val skipLabel = skipActionLabel
+                    if (!skipLabel.isNullOrBlank()) {
+                        PlayerGlass(
+                            modifier = Modifier.height(40.dp),
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text(
+                                text = skipLabel,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                modifier = Modifier
+                                    .clickable(onClick = onSkipAction)
+                                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 if (!landscape) {
@@ -665,9 +641,9 @@ private fun PortraitPlayerOverlay(
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 14.dp, end = 4.dp),
+                            .padding(start = 16.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
                             text = "${formatTime(displayedPosition)}  ·  ${formatTime(if (duration > 0) duration else 0L)}",
@@ -697,7 +673,7 @@ private fun PortraitPlayerOverlay(
                                     imageVector = Icons.Outlined.Tune,
                                     contentDescription = stringResource(R.string.player_settings_streaming_quality),
                                     tint = iconTint,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
@@ -706,7 +682,7 @@ private fun PortraitPlayerOverlay(
                                 imageVector = Icons.Outlined.MusicNote,
                                 contentDescription = stringResource(R.string.player_dialog_audio_title),
                                 tint = iconTint,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                         PlayerChromeIconButton(onClick = onShowSubtitleTrackSelection) {
@@ -714,7 +690,7 @@ private fun PortraitPlayerOverlay(
                                 imageVector = Icons.Outlined.ClosedCaption,
                                 contentDescription = stringResource(R.string.player_dialog_subtitles_title),
                                 tint = iconTint,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
@@ -984,6 +960,59 @@ private fun HardwarePlusButton(
 
 
 @Composable
+private fun PlayerOverflowMenu(
+    onChapters: () -> Unit,
+    onMediaInfo: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PlayerGlass(
+        modifier = modifier
+            .widthIn(min = 176.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {}
+            ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+            PlayerOverflowMenuItem(
+                text = stringResource(R.string.player_chapters),
+                onClick = {
+                    onDismiss()
+                    onChapters()
+                }
+            )
+            PlayerOverflowMenuItem(
+                text = stringResource(R.string.player_media_info),
+                onClick = {
+                    onDismiss()
+                    onMediaInfo()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerOverflowMenuItem(
+    text: String,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        color = Color.White,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp)
+    )
+}
+
+@Composable
 private fun OverlayPlaybackStats(
     modifier: Modifier = Modifier
 ) {
@@ -1030,7 +1059,7 @@ private fun OverlayTransportButtons(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        horizontalArrangement = Arrangement.spacedBy(22.dp)
     ) {
         PlayerGlassIconButton(
             onClick = onSeekBackward,
@@ -1043,7 +1072,7 @@ private fun OverlayTransportButtons(
                     seekBackwardSeconds
                 ),
                 tint = iconTint,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(30.dp)
             )
         }
         PlayerGlassIconButton(
@@ -1062,7 +1091,7 @@ private fun OverlayTransportButtons(
                     stringResource(R.string.play)
                 },
                 tint = iconTint,
-                modifier = Modifier.size(if (isPlaying) 32.dp else 38.dp)
+                modifier = Modifier.size(if (isPlaying) 36.dp else 44.dp)
             )
         }
         PlayerGlassIconButton(
@@ -1077,7 +1106,7 @@ private fun OverlayTransportButtons(
                 ),
                 tint = iconTint,
                 modifier = Modifier
-                    .size(26.dp)
+                    .size(30.dp)
                     .graphicsLayer {
                         if (seekForwardSeconds != 5 &&
                             seekForwardSeconds != 10 &&
@@ -1101,26 +1130,26 @@ private fun OverlaySpeedControl(
     val decreaseButton = @Composable {
         PlayerChromeIconButton(
             onClick = { onNudgeSpeed(-0.25f) },
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(40.dp)
         ) {
             Icon(
                 imageVector = Icons.Filled.Remove,
                 contentDescription = stringResource(R.string.player_speed_decrease),
                 tint = Color.White,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }
     val increaseButton = @Composable {
         PlayerChromeIconButton(
             onClick = { onNudgeSpeed(0.25f) },
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(40.dp)
         ) {
             Icon(
                 imageVector = Icons.Filled.Add,
                 contentDescription = stringResource(R.string.player_speed_increase),
                 tint = Color.White,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -1134,14 +1163,14 @@ private fun OverlaySpeedControl(
     }
 
     PlayerGlass(
-        modifier = modifier.then(if (vertical) Modifier.width(48.dp) else Modifier),
+        modifier = modifier.then(if (vertical) Modifier.width(56.dp) else Modifier),
         shape = RoundedCornerShape(999.dp)
     ) {
         if (vertical) {
             Column(
-                modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
+                modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 decreaseButton()
                 speedLabel()
