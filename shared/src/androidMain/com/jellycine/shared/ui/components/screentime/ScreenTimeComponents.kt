@@ -20,9 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jellycine.shared.R
 import java.time.LocalDate
 
 private val CardBackground = Color(0xFF1A1A1A)
@@ -49,7 +51,7 @@ fun YearNavigator(
         IconButton(onClick = onPreviousYear) {
             Icon(
                 imageVector = Icons.Rounded.ChevronLeft,
-                contentDescription = "Previous year",
+                contentDescription = stringResource(R.string.screen_time_previous_year),
                 tint = Color.White
             )
         }
@@ -63,7 +65,7 @@ fun YearNavigator(
         IconButton(onClick = onNextYear, enabled = canGoNext) {
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = "Next year",
+                contentDescription = stringResource(R.string.screen_time_next_year),
                 tint = if (canGoNext) Color.White else Color.White.copy(alpha = 0.2f)
             )
         }
@@ -105,14 +107,16 @@ fun StatCard(
 
 @Composable
 fun DeltaIndicator(delta: String) {
+    val noChangeLabel = stringResource(R.string.screen_time_no_change)
+    val isNoChange = delta == NO_CHANGE_SENTINEL
     val isPositive = delta.startsWith("+")
     val color = when {
-        delta == "No change" -> SubtextColor
+        isNoChange -> SubtextColor
         isPositive -> PositiveColor
         else -> NegativeColor
     }
     Text(
-        text = delta,
+        text = if (isNoChange) noChangeLabel else delta,
         style = MaterialTheme.typography.labelMedium,
         color = color,
         fontWeight = FontWeight.Medium
@@ -146,8 +150,10 @@ fun formatMinutes(minutes: Long): String {
     }
 }
 
+private const val NO_CHANGE_SENTINEL = "__no_change__"
+
 fun formatDelta(deltaMinutes: Long): String {
-    if (deltaMinutes == 0L) return "No change"
+    if (deltaMinutes == 0L) return NO_CHANGE_SENTINEL
     val prefix = if (deltaMinutes > 0) "+" else ""
     return "$prefix${formatMinutes(kotlin.math.abs(deltaMinutes))}"
 }

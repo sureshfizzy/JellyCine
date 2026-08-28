@@ -152,22 +152,22 @@ fun Settings(
             item {
                 SettingsSection {
                     SettingsItem(
-                        icon = Icons.Rounded.Link,
-                        title = stringResource(R.string.settings_connections),
-                        subtitle = stringResource(R.string.settings_connections_subtitle),
-                        accentColor = Color(0xFF8B5CF6),
-                        onClick = onNavigateToConnections
+                        icon = Icons.Rounded.Timer,
+                        title = stringResource(R.string.settings_screen_time),
+                        subtitle = stringResource(R.string.settings_screen_time_subtitle),
+                        accentColor = Color(0xFF22D3EE),
+                        onClick = onNavigateToScreenTime
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
                     SettingsItem(
-                        icon = Icons.Rounded.Timer,
-                        title = "Screen Time",
-                        subtitle = "View your watch activity and stats",
-                        accentColor = Color(0xFF22D3EE),
-                        onClick = onNavigateToScreenTime
+                        icon = Icons.Rounded.Link,
+                        title = stringResource(R.string.settings_connections),
+                        subtitle = stringResource(R.string.settings_connections_subtitle),
+                        accentColor = Color(0xFF8B5CF6),
+                        onClick = onNavigateToConnections
                     )
                 }
             }

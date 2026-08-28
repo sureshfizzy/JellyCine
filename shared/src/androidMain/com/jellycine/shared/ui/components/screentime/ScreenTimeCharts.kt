@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.DailyWatchTime
 import com.jellycine.data.model.PeakHourBucket
+import com.jellycine.shared.R
 import java.time.LocalDate
 import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
@@ -46,7 +48,7 @@ fun DailyBreakdownChart(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Daily Breakdown",
+            text = stringResource(R.string.screen_time_daily_breakdown),
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             modifier = Modifier.padding(bottom = 16.dp)
@@ -130,21 +132,21 @@ private fun aggregateBuckets(dailyData: List<DailyWatchTime>): List<ChartBucket>
             }
         }
         days <= 31 -> {
-            // Group by week for month view
-            dailyData.chunked(7).mapIndexed { index, week ->
-                val totalMinutes = week.sumOf { it.minutes }
-                val startDate = LocalDate.ofEpochDay(week.first().dateEpochDay)
-                val label = "${startDate.dayOfMonth}/${startDate.monthValue}"
-                ChartBucket(label, totalMinutes)
+            dailyData.groupBy { data ->
+                val date = LocalDate.ofEpochDay(data.dateEpochDay)
+                val weekField = java.time.temporal.WeekFields.of(Locale.getDefault()).weekOfMonth()
+                date.get(weekField)
+            }.toSortedMap().entries.mapIndexed { index, (_, weekDays) ->
+                val totalMinutes = weekDays.sumOf { it.minutes }
+                ChartBucket("W${index + 1}", totalMinutes)
             }
         }
         else -> {
-            // Group by month for year view
             dailyData.groupBy { data ->
                 val date = LocalDate.ofEpochDay(data.dateEpochDay)
                 date.month
-            }.map { (month, days) ->
-                val totalMinutes = days.sumOf { it.minutes }
+            }.entries.sortedBy { it.key }.map { (month, monthDays) ->
+                val totalMinutes = monthDays.sumOf { it.minutes }
                 val label = month.getDisplayName(DateTextStyle.SHORT, Locale.getDefault())
                 ChartBucket(label, totalMinutes)
             }
@@ -164,20 +166,27 @@ fun PeakHoursChart(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "Peak Hours",
+            text = stringResource(R.string.screen_time_peak_hours),
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             modifier = Modifier.padding(bottom = 4.dp)
         )
 
         peakHours.forEach { bucket ->
+            val localizedLabel = when (bucket.label) {
+                "Morning" -> stringResource(R.string.screen_time_morning)
+                "Afternoon" -> stringResource(R.string.screen_time_afternoon)
+                "Evening" -> stringResource(R.string.screen_time_evening)
+                "Night" -> stringResource(R.string.screen_time_night)
+                else -> bucket.label
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = bucket.label,
+                    text = localizedLabel,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White,
                     fontWeight = FontWeight.Medium,

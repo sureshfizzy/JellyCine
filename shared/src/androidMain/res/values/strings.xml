@@ -559,6 +559,27 @@
     <string name="interface_seerr_networks">Seerr Networks</string>
     <string name="interface_seerr_networks_subtitle">Show the Networks section on the Home screen.</string>
 
+    <!-- Screen Time -->
+    <string name="settings_screen_time">Screen Time</string>
+    <string name="settings_screen_time_subtitle">View your watch activity and stats</string>
+    <string name="screen_time_back">Back</string>
+    <string name="screen_time_total">Total</string>
+    <string name="screen_time_daily_average">Daily Average</string>
+    <string name="screen_time_shows">Shows</string>
+    <string name="screen_time_movies">Movies</string>
+    <string name="screen_time_period_week">Week</string>
+    <string name="screen_time_period_month">Month</string>
+    <string name="screen_time_period_year">Year</string>
+    <string name="screen_time_daily_breakdown">Daily Breakdown</string>
+    <string name="screen_time_peak_hours">Peak Hours</string>
+    <string name="screen_time_previous_year">Previous year</string>
+    <string name="screen_time_next_year">Next year</string>
+    <string name="screen_time_no_change">No change</string>
+    <string name="screen_time_morning">Morning</string>
+    <string name="screen_time_afternoon">Afternoon</string>
+    <string name="screen_time_evening">Evening</string>
+    <string name="screen_time_night">Night</string>
+
     <!-- Connections Settings -->
     <string name="settings_connections">Connections</string>
     <string name="settings_connections_subtitle">Seerr, Discord</string>
