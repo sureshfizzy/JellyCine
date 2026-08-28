@@ -428,6 +428,9 @@ fun AppNavigation() {
                         },
                         onItemClick = { selectedItemId ->
                             navController.navigate("detail/$selectedItemId")
+                        },
+                        onPlayItem = { itemId ->
+                            navController.navigate("player/$itemId")
                         }
                     )
                 } else {

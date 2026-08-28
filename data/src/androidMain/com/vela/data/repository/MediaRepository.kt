@@ -680,7 +680,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getItemsForPerson(
         personId: String,
-        limit: Int = 120
+        limit: Int = 500
     ): Result<List<BaseItemDto>> {
         return getUserItems(
             personIds = personId,
@@ -689,7 +689,7 @@ class MediaRepository(private val context: Context) {
             sortBy = "SortName",
             sortOrder = "Ascending",
             limit = limit,
-            fields = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+            fields = "Genres,CommunityRating,CriticRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,DateCreated,PremiereDate,OfficialRating,RunTimeTicks,MediaSources,SortName"
         ).map { result ->
             result.items
                 .orEmpty()

@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
+    val bufferedPosition: Long = 0L,
     val isPlaying: Boolean = false,
     val volumeLevel: Float? = null,
     val brightnessLevel: Float? = null,

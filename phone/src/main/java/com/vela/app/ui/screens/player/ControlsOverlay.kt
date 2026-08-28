@@ -71,6 +71,7 @@ fun ControlsOverlay(
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
+    bufferedPosition: Long = 0L,
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -156,6 +157,7 @@ fun ControlsOverlay(
             isPlaying = isPlaying,
             currentPosition = currentPosition,
             duration = duration,
+            bufferedPosition = bufferedPosition,
             displayedPosition = displayedPosition,
             scrubPreviewFrame = scrubPreviewFrame,
             chapterMarkers = chapterMarkers,
@@ -215,6 +217,7 @@ private fun PortraitPlayerOverlay(
     isPlaying: Boolean,
     currentPosition: Long,
     duration: Long,
+    bufferedPosition: Long = 0L,
     displayedPosition: Long,
     scrubPreviewFrame: Bitmap?,
     chapterMarkers: List<ChapterMarker>,
@@ -259,6 +262,11 @@ private fun PortraitPlayerOverlay(
     var showOverflow by remember { mutableStateOf(false) }
     val progress = if (duration > 0 && currentPosition >= 0) {
         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val bufferedProgress = if (duration > 0 && bufferedPosition > 0) {
+        (bufferedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
     }
@@ -618,6 +626,7 @@ private fun PortraitPlayerOverlay(
                     ) {
                         SeekBar(
                             progress = progress,
+                            bufferedProgress = bufferedProgress,
                             duration = duration,
                             chapterMarkers = chapterMarkers,
                             previewFrame = scrubPreviewFrame,
@@ -655,6 +664,7 @@ private fun PortraitPlayerOverlay(
                         if (landscape) {
                             SeekBar(
                                 progress = progress,
+                                bufferedProgress = bufferedProgress,
                                 duration = duration,
                                 chapterMarkers = chapterMarkers,
                                 previewFrame = scrubPreviewFrame,
@@ -728,6 +738,7 @@ private fun SeekBar(
     onLiveSeek: (Float) -> Unit = {},
     onScrubProgressChange: (Float?) -> Unit,
     onScrubPreviewProgressChange: (Float?) -> Unit,
+    bufferedProgress: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     var scrubProgress by remember { mutableFloatStateOf(progress.coerceIn(0f, 1f)) }
@@ -823,12 +834,24 @@ private fun SeekBar(
             var progressX: Float? = null
 
             drawLine(
-                color = Color.White.copy(alpha = 0.35f),
+                color = Color.White.copy(alpha = 0.22f),
                 start = trackStart,
                 end = trackEnd,
                 strokeWidth = trackHeight,
                 cap = StrokeCap.Round
             )
+
+            val renderedBuffered = bufferedProgress.coerceIn(0f, 1f)
+            if (renderedBuffered > renderedProgress) {
+                val bufferedX = trackStart.x + (trackEnd.x - trackStart.x) * renderedBuffered
+                drawLine(
+                    color = Color.White.copy(alpha = 0.52f),
+                    start = trackStart,
+                    end = Offset(bufferedX, yOffset),
+                    strokeWidth = trackHeight,
+                    cap = StrokeCap.Round
+                )
+            }
 
             if (renderedProgress > 0f) {
                 progressX = trackStart.x + (trackEnd.x - trackStart.x) * renderedProgress

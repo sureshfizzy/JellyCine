@@ -809,4 +809,23 @@
     <string name="detail_person_no_related_titles">No related titles available.</string>
     <string name="detail_person_read_more">Read more</string>
     <string name="detail_person_read_less">Read less</string>
+    <string name="person_works_episodes">Episodes</string>
+    <string name="person_works_items">%d items</string>
+    <string name="person_works_filter">Filter</string>
+    <string name="person_works_play_status">Playback status</string>
+    <string name="person_works_any">Any</string>
+    <string name="person_works_played">Played</string>
+    <string name="person_works_unplayed">Unplayed</string>
+    <string name="person_works_type">Type</string>
+    <string name="person_works_year">Year</string>
+    <string name="person_works_shuffle">Shuffle play</string>
+    <string name="person_works_poster_layout">Poster layout</string>
+    <string name="person_works_sort_title">Title</string>
+    <string name="person_works_sort_community">Community rating</string>
+    <string name="person_works_sort_year">Production year</string>
+    <string name="person_works_sort_premiere">Premiere date</string>
+    <string name="person_works_sort_official">Official rating</string>
+    <string name="person_works_sort_bitrate">Bitrate</string>
+    <string name="person_works_sort_size">Size</string>
+    <string name="person_works_empty">No titles match the current filters.</string>
 </resources>

@@ -1,15 +1,20 @@
 package com.vela.app.ui.screens.detail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -51,6 +56,7 @@ import com.vela.data.model.BaseItemDto
 import com.vela.data.repository.MediaRepository
 import com.vela.shared.R
 import com.vela.shared.util.image.JellyfinPosterImage
+import com.vela.shared.util.image.imageTagFor
 import com.vela.shared.util.image.rememberImageUrl
 import kotlinx.coroutines.launch
 
@@ -76,11 +82,13 @@ internal fun DetailOverflowSheet(
     val posterUrl = rememberImageUrl(
         itemId = item.id,
         imageType = "Primary",
-        width = 320,
-        height = 180,
-        quality = 80,
+        width = 240,
+        height = null,
+        quality = 85,
+        imageTag = item.imageTagFor("Primary"),
         mediaRepository = mediaRepository
     )
+    var posterAspect by remember(posterUrl) { mutableStateOf(2f / 3f) }
     val title = if (item.type.equals("Episode", true)) {
         item.seriesName?.takeIf { it.isNotBlank() } ?: item.name.orEmpty()
     } else {
@@ -107,16 +115,38 @@ internal fun DetailOverflowSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                JellyfinPosterImage(
-                    context = context,
-                    imageUrl = posterUrl,
-                    contentDescription = title,
+                val previewAspect = posterAspect.coerceIn(0.45f, 2.4f)
+                Box(
                     modifier = Modifier
-                        .width(72.dp)
-                        .height(42.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop
-                )
+                        .then(
+                            if (previewAspect < 1f) {
+                                Modifier
+                                    .height(78.dp)
+                                    .aspectRatio(previewAspect, matchHeightConstraintsFirst = true)
+                            } else {
+                                Modifier
+                                    .widthIn(max = 120.dp)
+                                    .height(48.dp)
+                                    .aspectRatio(previewAspect, matchHeightConstraintsFirst = true)
+                            }
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF2A2A2A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    JellyfinPosterImage(
+                        context = context,
+                        imageUrl = posterUrl,
+                        contentDescription = title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                        onIntrinsicSizeChange = { width, height ->
+                            if (width > 0f && height > 0f) {
+                                posterAspect = width / height
+                            }
+                        }
+                    )
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(

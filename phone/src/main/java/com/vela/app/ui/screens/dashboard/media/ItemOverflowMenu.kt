@@ -1,16 +1,21 @@
 package com.vela.app.ui.screens.dashboard.media
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -61,11 +66,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vela.app.download.DownloadRepositoryProvider
-import com.vela.app.ui.screens.dashboard.home.ImageLoader
 import com.vela.data.model.BaseItemDto
 import com.vela.data.repository.MediaRepository
 import com.vela.player.preferences.TranscodeProfile
 import com.vela.shared.R
+import com.vela.shared.util.image.JellyfinPosterImage
+import com.vela.shared.util.image.imageTagFor
+import com.vela.shared.util.image.rememberImageUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,6 +107,16 @@ fun ItemOverflowSheet(
         item.type.equals("Episode", true) ||
         item.type.equals("Series", true) ||
         item.type.equals("Trailer", true)
+    val posterUrl = rememberImageUrl(
+        itemId = item.id,
+        imageType = "Primary",
+        width = 240,
+        height = null,
+        quality = 85,
+        imageTag = item.imageTagFor("Primary"),
+        mediaRepository = mediaRepository
+    )
+    var posterAspect by remember(posterUrl) { mutableStateOf(2f / 3f) }
 
     fun runAction(block: suspend () -> Result<*>) {
         if (busy) return
@@ -132,21 +149,38 @@ fun ItemOverflowSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                ImageLoader(
-                    itemId = item.id,
-                    seriesId = item.seriesId,
-                    contentDescription = item.name,
+                val previewAspect = posterAspect.coerceIn(0.45f, 2.4f)
+                Box(
                     modifier = Modifier
-                        .size(width = 52.dp, height = 78.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentScale = ContentScale.Crop,
-                    cornerRadius = 8,
-                    crossfadeMillis = 0,
-                    mediaRepository = mediaRepository,
-                    imageMetadata = item,
-                    itemType = item.type,
-                    hasImageEnhancers = false
-                )
+                        .then(
+                            if (previewAspect < 1f) {
+                                Modifier
+                                    .height(78.dp)
+                                    .aspectRatio(previewAspect, matchHeightConstraintsFirst = true)
+                            } else {
+                                Modifier
+                                    .widthIn(max = 120.dp)
+                                    .height(48.dp)
+                                    .aspectRatio(previewAspect, matchHeightConstraintsFirst = true)
+                            }
+                        )
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF2A2A2A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    JellyfinPosterImage(
+                        imageUrl = posterUrl,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                        context = context,
+                        onIntrinsicSizeChange = { width, height ->
+                            if (width > 0f && height > 0f) {
+                                posterAspect = width / height
+                            }
+                        }
+                    )
+                }
                 Spacer(modifier = Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(

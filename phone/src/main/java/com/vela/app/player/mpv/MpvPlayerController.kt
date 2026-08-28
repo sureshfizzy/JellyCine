@@ -28,6 +28,7 @@ class MpvPlayerController(
     private var ready = false
     private var durationMs: Long = 0L
     private var positionMs: Long = 0L
+    private var cacheAheadMs: Long = 0L
     private var playWhenReady = true
     private var pendingSubtitleUrls: List<String> = emptyList()
     private var pendingSelectedSubtitleUrl: String? = null
@@ -45,6 +46,9 @@ class MpvPlayerController(
     val duration: Long
         get() = durationMs
 
+    val bufferedPosition: Long
+        get() = (positionMs + cacheAheadMs).coerceAtLeast(positionMs)
+
     init {
         MPVLib.create(appContext)
         configureMpv()
@@ -52,6 +56,7 @@ class MpvPlayerController(
         MPVLib.addObserver(this)
         MPVLib.observeProperty("time-pos", MpvFormat.MPV_FORMAT_DOUBLE)
         MPVLib.observeProperty("duration", MpvFormat.MPV_FORMAT_DOUBLE)
+        MPVLib.observeProperty("demuxer-cache-duration", MpvFormat.MPV_FORMAT_DOUBLE)
         MPVLib.observeProperty("paused-for-cache", MpvFormat.MPV_FORMAT_FLAG)
         MPVLib.observeProperty("eof-reached", MpvFormat.MPV_FORMAT_FLAG)
     }
@@ -244,6 +249,7 @@ class MpvPlayerController(
         when (property) {
             "time-pos" -> positionMs = (value * 1000.0).toLong().coerceAtLeast(0L)
             "duration" -> durationMs = (value * 1000.0).toLong().coerceAtLeast(0L)
+            "demuxer-cache-duration" -> cacheAheadMs = (value * 1000.0).toLong().coerceAtLeast(0L)
         }
     }
 

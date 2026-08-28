@@ -1,6 +1,7 @@
 package com.vela.app.ui.screens.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -32,7 +34,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -68,7 +73,6 @@ import com.vela.data.model.BaseItemPerson
 import com.vela.data.repository.MediaRepository
 import com.vela.player.core.ChapterMarker
 import com.vela.shared.R
-import com.vela.shared.ui.components.common.CastSection
 import com.vela.shared.util.image.JellyfinPosterImage
 import com.vela.shared.util.image.rememberImageUrl
 import kotlin.math.abs
@@ -436,23 +440,11 @@ private fun PlaybackInfoPanel(
         ).getOrNull().orEmpty()
     }
 
-    val actors = remember(resolvedPeople) {
-        resolvedPeople.filter { it.type.equals("Actor", ignoreCase = true) }
-    }
-    val directors = remember(resolvedPeople) {
-        resolvedPeople.filter { person ->
-            person.type.equals("Director", ignoreCase = true) ||
-                person.role.equals("Director", ignoreCase = true)
-        }
-    }
-    val peopleItem = remember(item, resolvedPeople) {
-        item?.copy(people = actors.ifEmpty { resolvedPeople })
-    }
     val posterUrl = rememberImageUrl(
         itemId = item?.id,
         imageType = "Primary",
         width = 480,
-        height = 270,
+        height = null,
         quality = 80,
         mediaRepository = mediaRepository
     )
@@ -539,18 +531,14 @@ private fun PlaybackInfoPanel(
             }
         }
 
-        if (peopleItem != null && actors.isNotEmpty()) {
-            CastSection(
-                item = peopleItem,
-                mediaRepository = mediaRepository,
-                title = stringResource(R.string.player_info_cast),
-                modifier = Modifier.padding(horizontal = 18.dp)
-            )
+        val people = remember(resolvedPeople) {
+            playbackPeople(resolvedPeople)
         }
-        if (directors.isNotEmpty()) {
-            PlaybackDirectorRow(
-                directors = directors,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        if (people.isNotEmpty()) {
+            PlaybackPeopleSection(
+                people = people,
+                mediaRepository = mediaRepository,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
     }
@@ -567,19 +555,38 @@ private fun PlaybackInfoHeader(
     val episodeTitle = playbackEpisodeTitle(item, title)
     val seriesName = item?.seriesName?.takeIf { it.isNotBlank() }
     val dateLabel = formatPlaybackPremiereDate(item?.premiereDate)
+    val ratingLabel = item?.officialRating?.takeIf { it.isNotBlank() }
+    val tagLine = remember(item?.tags, item?.genres) {
+        val tags = item?.tags.orEmpty().mapNotNull { it.takeIf { tag -> tag.isNotBlank() } }
+        val genres = item?.genres.orEmpty().mapNotNull { it.takeIf { genre -> genre.isNotBlank() } }
+        (tags.ifEmpty { genres }).joinToString(" / ")
+    }
+    var posterAspect by remember(posterUrl) { mutableStateOf(2f / 3f) }
+    val posterIsPortrait = posterAspect < 1f
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
-                .width(148.dp)
-                .height(84.dp)
+                .then(
+                    if (posterIsPortrait) {
+                        Modifier
+                            .height(136.dp)
+                            .aspectRatio(posterAspect, matchHeightConstraintsFirst = true)
+                    } else {
+                        Modifier
+                            .widthIn(max = 108.dp)
+                            .aspectRatio(posterAspect)
+                    }
+                )
                 .clip(PlaybackInfoEpisodeShape)
-                .background(Color(0xFF2A2A2A))
+                .background(Color(0xFF2A2A2A)),
+            contentAlignment = Alignment.Center
         ) {
             if (!posterUrl.isNullOrBlank()) {
                 JellyfinPosterImage(
@@ -587,16 +594,15 @@ private fun PlaybackInfoHeader(
                     imageUrl = posterUrl,
                     contentDescription = episodeTitle,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Fit,
+                    onIntrinsicSizeChange = { width, height ->
+                        aspectRatioFromSize(width, height)?.let { posterAspect = it }
+                    }
                 )
             }
         }
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .align(Alignment.Top)
-        ) {
+        Column(modifier = Modifier.weight(1f)) {
             if (showSeriesName && !seriesName.isNullOrBlank()) {
                 Text(
                     text = seriesName,
@@ -611,7 +617,7 @@ private fun PlaybackInfoHeader(
             Text(
                 text = episodeTitle,
                 color = Color.White,
-                fontSize = if (showSeriesName) 16.sp else 18.sp,
+                fontSize = if (showSeriesName) 16.sp else 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -620,12 +626,164 @@ private fun PlaybackInfoHeader(
                 Text(
                     text = dateLabel,
                     color = PlaybackInfoMetaColor,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            if (ratingLabel != null) {
+                Text(
+                    text = ratingLabel,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+            if (tagLine.isNotBlank()) {
+                Text(
+                    text = tagLine,
+                    color = PlaybackInfoMetaColor,
+                    fontSize = 12.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
         }
     }
+}
+
+@Composable
+private fun PlaybackPeopleSection(
+    people: List<BaseItemPerson>,
+    mediaRepository: MediaRepository,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.detail_cast_and_crew),
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 10.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 18.dp)
+        ) {
+            itemsIndexed(
+                items = people,
+                key = { index, person ->
+                    "${person.id ?: "${person.name}-${person.role}-${person.type}"}_$index"
+                }
+            ) { _, person ->
+                PlaybackPersonCard(
+                    person = person,
+                    mediaRepository = mediaRepository
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackPersonCard(
+    person: BaseItemPerson,
+    mediaRepository: MediaRepository
+) {
+    val context = LocalContext.current
+    val fetchedUrl = rememberImageUrl(
+        itemId = person.id,
+        imageType = "Primary",
+        width = 240,
+        height = null,
+        quality = 80,
+        imageTag = person.primaryImageTag,
+        mediaRepository = mediaRepository
+    )
+    val imageUrl = person.imageUrl?.takeIf { it.isNotBlank() } ?: fetchedUrl
+    var photoAspect by remember(person.id, imageUrl) { mutableStateOf(2f / 3f) }
+    val roleLabel = playbackPersonRole(person)
+    val caption = listOfNotNull(
+        person.name?.takeIf { it.isNotBlank() },
+        roleLabel
+    ).joinToString(" / ")
+
+    Column(modifier = Modifier.width(86.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(photoAspect.coerceIn(0.5f, 1.2f))
+                .clip(PlaybackInfoEpisodeShape)
+                .background(Color(0xFF2A2A2A)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!imageUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    context = context,
+                    imageUrl = imageUrl,
+                    contentDescription = person.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                    onIntrinsicSizeChange = { width, height ->
+                        aspectRatioFromSize(width, height)?.let { photoAspect = it }
+                    }
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = person.name,
+                    tint = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+        if (caption.isNotBlank()) {
+            Text(
+                text = caption,
+                color = Color.White.copy(alpha = 0.86f),
+                fontSize = 11.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun playbackPersonRole(person: BaseItemPerson): String? {
+    val role = person.role?.takeIf { it.isNotBlank() }
+    return when {
+        person.type.equals("Director", ignoreCase = true) ||
+            role.equals("Director", ignoreCase = true) -> {
+            stringResource(R.string.player_info_director)
+        }
+        person.type.equals("Actor", ignoreCase = true) -> {
+            role.takeUnless { it.equals("Actor", ignoreCase = true) }
+                ?: stringResource(R.string.player_info_cast)
+        }
+        !role.isNullOrBlank() -> role
+        !person.type.isNullOrBlank() -> person.type
+        else -> null
+    }
+}
+
+private fun playbackPeople(people: List<BaseItemPerson>): List<BaseItemPerson> {
+    val clean = people.filter { !it.name.isNullOrBlank() }
+    if (clean.isEmpty()) return emptyList()
+    val actors = clean.filter { it.type.equals("Actor", ignoreCase = true) }
+    val crew = clean.filterNot { it.type.equals("Actor", ignoreCase = true) }
+    return (actors + crew).distinctBy { it.id ?: "${it.name}-${it.role}-${it.type}" }
+}
+
+private fun aspectRatioFromSize(width: Float, height: Float): Float? {
+    if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) return null
+    return (width / height).takeIf { it.isFinite() && it > 0f }
 }
 
 @Composable
@@ -690,31 +848,6 @@ private fun PlaybackEpisodeCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun PlaybackDirectorRow(
-    directors: List<BaseItemPerson>,
-    modifier: Modifier = Modifier
-) {
-    val names = directors.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } }
-        .distinct()
-        .joinToString("、")
-    if (names.isBlank()) return
-    Row(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.player_info_director),
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = names,
-            color = Color.White.copy(alpha = 0.78f),
-            fontSize = 13.sp
         )
     }
 }

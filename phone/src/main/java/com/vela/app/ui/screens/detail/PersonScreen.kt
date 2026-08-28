@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,13 +59,15 @@ import com.vela.app.ui.components.common.SeerTitlesRow
 import com.vela.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 @UnstableApi
 @Composable
 fun PersonScreenContainer(
     personId: String,
     onBackPressed: () -> Unit = {},
-    onItemClick: (String) -> Unit = {}
+    onItemClick: (String) -> Unit = {},
+    onPlayItem: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -79,6 +82,8 @@ fun PersonScreenContainer(
     var seerrRelatedTitles by remember(personId) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
     var isLoading by remember(personId) { mutableStateOf(true) }
     var hasError by remember(personId) { mutableStateOf(false) }
+    var expandedWorks by remember(personId) { mutableStateOf<List<BaseItemDto>?>(null) }
+    val playScope = rememberCoroutineScope()
 
     LaunchedEffect(personId, activeServerId) {
         isLoading = true
@@ -132,18 +137,47 @@ fun PersonScreenContainer(
         }
     }
 
-    BackHandler(onBack = onBackPressed)
+    BackHandler {
+        if (expandedWorks != null) {
+            expandedWorks = null
+        } else {
+            onBackPressed()
+        }
+    }
 
-    PersonScreen(
-        person = person,
-        relatedTitles = relatedTitles,
-        seerrRelatedTitles = seerrRelatedTitles,
-        isLoading = isLoading,
-        hasError = hasError,
-        mediaRepository = mediaRepository,
-        onBackPressed = onBackPressed,
-        onItemClick = onItemClick
-    )
+    val expanded = expandedWorks
+    if (expanded != null) {
+        PersonWorksScreen(
+            title = person?.name.orEmpty().ifBlank {
+                stringResource(R.string.detail_person_unknown)
+            },
+            items = expanded,
+            mediaRepository = mediaRepository,
+            onBackPressed = { expandedWorks = null },
+            onItemClick = onItemClick,
+            onPlayClick = { item ->
+                playScope.launch {
+                    val playableId = mediaRepository.resolvePlayableItemId(item).getOrNull()
+                        ?: item.id
+                    if (!playableId.isNullOrBlank()) {
+                        onPlayItem(playableId)
+                    }
+                }
+            }
+        )
+    } else {
+        PersonScreen(
+            person = person,
+            relatedTitles = relatedTitles,
+            seerrRelatedTitles = seerrRelatedTitles,
+            isLoading = isLoading,
+            hasError = hasError,
+            mediaRepository = mediaRepository,
+            onBackPressed = onBackPressed,
+            onItemClick = onItemClick,
+            onExpandWorks = { expandedWorks = it }
+        )
+    }
 }
 
 @Composable
@@ -155,7 +189,8 @@ private fun PersonScreen(
     hasError: Boolean,
     mediaRepository: MediaRepository,
     onBackPressed: () -> Unit,
-    onItemClick: (String) -> Unit
+    onItemClick: (String) -> Unit,
+    onExpandWorks: (List<BaseItemDto>) -> Unit
 ) {
     val movies = remember(relatedTitles) {
         relatedTitles
@@ -172,11 +207,14 @@ private fun PersonScreen(
             .filter { it.type?.equals("Episode", ignoreCase = true) == true }
             .sortedByDescending { it.productionYear ?: Int.MIN_VALUE }
     }
-    val mediaSections = remember(movies, shows, episodes) {
+    val moviesTitle = stringResource(R.string.movies)
+    val showsTitle = stringResource(R.string.tv_shows)
+    val episodesTitle = stringResource(R.string.person_works_episodes)
+    val mediaSections = remember(movies, shows, episodes, moviesTitle, showsTitle, episodesTitle) {
         listOf(
-            "Movies" to movies,
-            "TV Shows" to shows,
-            "Episodes" to episodes
+            moviesTitle to movies,
+            showsTitle to shows,
+            episodesTitle to episodes
         ).filter { (_, items) -> items.isNotEmpty() }
     }
 
@@ -247,7 +285,17 @@ private fun PersonScreen(
                     title = title,
                     items = items,
                     mediaRepository = mediaRepository,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    onExpand = { onExpandWorks(items) }
+                )
+            }
+        }
+
+        person?.externalUrls.orEmpty().takeIf { it.isNotEmpty() }?.let { urls ->
+            item {
+                ExternalLinksSection(
+                    urls = urls,
+                    modifier = Modifier.padding(horizontal = 14.dp)
                 )
             }
         }
@@ -477,18 +525,22 @@ private fun RelatedTitlesSection(
     title: String,
     items: List<BaseItemDto>,
     mediaRepository: MediaRepository,
-    onItemClick: (String) -> Unit
+    onItemClick: (String) -> Unit,
+    onExpand: () -> Unit
 ) {
     Column(
         modifier = Modifier.padding(top = 14.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Text(
-            text = title,
+            text = "$title >",
             color = Color.White,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 14.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onExpand)
+                .padding(horizontal = 14.dp, vertical = 4.dp)
         )
 
         LazyRow(
