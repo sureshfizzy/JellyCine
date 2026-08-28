@@ -144,12 +144,12 @@
     <string name="dashboard_discover_load_error">Impossibile creare il tuo feed</string>
     <plurals name="my_media_libraries_available">
         <item quantity="one">libreria %d disponibile</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Librerie %d disponibili</item>
     </plurals>
     <plurals name="my_media_items_count">
         <item quantity="one">%d elemento</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d articoli</item>
     </plurals>
     <!-- Player Settings -->
@@ -298,7 +298,7 @@
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
         <item quantity="one">%d ep</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d eps</item>
     </plurals>
     <!-- Downloads -->
@@ -317,7 +317,7 @@
     <string name="downloads_settings_concurrent_downloads_summary">Limita il numero di file scaricati contemporaneamente.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
         <item quantity="one">%d scarica</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d download</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Archiviazione in-app</string>
@@ -351,17 +351,17 @@
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
         <item quantity="one">Scaricamento dell\'elemento %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Scaricamento di elementi %d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
         <item quantity="one">Elemento %d in coda</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Elementi %d in coda</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
         <item quantity="one">Elemento %d in pausa</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Elementi %d in pausa</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
@@ -369,17 +369,17 @@
     <string name="downloads_group_downloading">Scaricamento di %1$d di %2$d</string>
     <plurals name="downloads_episodes_count">
         <item quantity="one">%d Episodio</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d Episodi</item>
     </plurals>
     <plurals name="downloads_group_queued">
         <item quantity="one">Episodio %d in coda</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Episodi %d in coda</item>
     </plurals>
     <plurals name="downloads_group_paused">
         <item quantity="one">Episodio %d in pausa</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">Episodi %d in pausa</item>
     </plurals>
     <!-- Settings -->
@@ -499,17 +499,17 @@
     <string name="cd_about_button">Informazioni su</string>
     <plurals name="settings_saved_users_count">
         <item quantity="one">utente %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">utenti %d</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
         <item quantity="one">%d richiesta</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d richiesta</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
         <item quantity="one">%d stagione</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d stagioni</item>
     </plurals>
     <!-- About -->
@@ -607,4 +607,23 @@
     <string name="detail_person_no_related_titles">Nessun titolo correlato disponibile.</string>
     <string name="detail_person_read_more">Leggi di più</string>
     <string name="detail_person_read_less">Leggi meno</string>
+    <string name="settings_screen_time">Tempo sullo schermo</string>
+    <string name="settings_screen_time_subtitle">Visualizza l\'attività e le statistiche del tuo orologio</string>
+    <string name="screen_time_back">Indietro</string>
+    <string name="screen_time_total">Totale</string>
+    <string name="screen_time_daily_average">Media giornaliera</string>
+    <string name="screen_time_shows">spettacoli</string>
+    <string name="screen_time_movies">film</string>
+    <string name="screen_time_period_week">Settimana</string>
+    <string name="screen_time_period_month">Mese</string>
+    <string name="screen_time_period_year">Anno</string>
+    <string name="screen_time_daily_breakdown">Ripartizione giornaliera</string>
+    <string name="screen_time_peak_hours">Ore di punta</string>
+    <string name="screen_time_previous_year">Anno precedente</string>
+    <string name="screen_time_next_year">L\'anno prossimo</string>
+    <string name="screen_time_no_change">Nessuna modifica</string>
+    <string name="screen_time_morning">Mattina</string>
+    <string name="screen_time_afternoon">Pomeriggio</string>
+    <string name="screen_time_evening">Sera</string>
+    <string name="screen_time_night">Notte</string>
 </resources>
