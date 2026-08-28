@@ -581,4 +581,23 @@
     <string name="detail_person_no_related_titles">ไม่มีชื่อที่เกี่ยวข้อง</string>
     <string name="detail_person_read_more">อ่านเพิ่มเติม</string>
     <string name="detail_person_read_less">อ่านน้อยลง</string>
+    <string name="settings_screen_time">เวลาหน้าจอ</string>
+    <string name="settings_screen_time_subtitle">ดูกิจกรรมและสถิติของนาฬิกาของคุณ</string>
+    <string name="screen_time_back">ย้อนกลับ</string>
+    <string name="screen_time_total">ทั้งหมด</string>
+    <string name="screen_time_daily_average">ค่าเฉลี่ยรายวัน</string>
+    <string name="screen_time_shows">การแสดง</string>
+    <string name="screen_time_movies">ภาพยนตร์</string>
+    <string name="screen_time_period_week">สัปดาห์</string>
+    <string name="screen_time_period_month">เดือน</string>
+    <string name="screen_time_period_year">ปี</string>
+    <string name="screen_time_daily_breakdown">รายละเอียดรายวัน</string>
+    <string name="screen_time_peak_hours">ชั่วโมงยอดนิยม</string>
+    <string name="screen_time_previous_year">ปีที่แล้ว</string>
+    <string name="screen_time_next_year">ปีหน้า</string>
+    <string name="screen_time_no_change">ไม่มีการเปลี่ยนแปลง</string>
+    <string name="screen_time_morning">ตอนเช้า</string>
+    <string name="screen_time_afternoon">ช่วงบ่าย</string>
+    <string name="screen_time_evening">ตอนเย็น</string>
+    <string name="screen_time_night">กลางคืน</string>
 </resources>
