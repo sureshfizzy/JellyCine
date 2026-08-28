@@ -594,4 +594,23 @@
     <string name="detail_person_no_related_titles">Keine verwandten Titel verfügbar.</string>
     <string name="detail_person_read_more">Lesen Sie mehr</string>
     <string name="detail_person_read_less">Weniger lesen</string>
+    <string name="settings_screen_time">Bildschirmzeit</string>
+    <string name="settings_screen_time_subtitle">Sieh dir deine Uhraktivitäten und Statistiken an</string>
+    <string name="screen_time_back">Zurück</string>
+    <string name="screen_time_total">Insgesamt</string>
+    <string name="screen_time_daily_average">Täglicher Durchschnitt</string>
+    <string name="screen_time_shows">Zeigt</string>
+    <string name="screen_time_movies">Filme</string>
+    <string name="screen_time_period_week">Woche</string>
+    <string name="screen_time_period_month">Monat</string>
+    <string name="screen_time_period_year">Jahr</string>
+    <string name="screen_time_daily_breakdown">Täglicher Zusammenbruch</string>
+    <string name="screen_time_peak_hours">Spitzenzeiten</string>
+    <string name="screen_time_previous_year">Voriges Jahr</string>
+    <string name="screen_time_next_year">Nächstes Jahr</string>
+    <string name="screen_time_no_change">Keine Änderung</string>
+    <string name="screen_time_morning">Morgen</string>
+    <string name="screen_time_afternoon">Nachmittag</string>
+    <string name="screen_time_evening">Abend</string>
+    <string name="screen_time_night">Nacht</string>
 </resources>
