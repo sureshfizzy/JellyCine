@@ -143,13 +143,13 @@
     <string name="dashboard_discover_empty_message">Запустите фильм или серию, и этот экран превратится в центр рекомендаций.</string>
     <string name="dashboard_discover_load_error">Не удалось создать ленту</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Доступны библиотеки %d</item>
         <item quantity="many">Доступны библиотеки %d</item>
         <item quantity="other">Доступны библиотеки %d</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d предметы</item>
         <item quantity="many">%d предметы</item>
         <item quantity="other">%d предметы</item>
@@ -299,7 +299,7 @@
     <string name="favorites_episode_code_fallback">Эпизод</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">[XXX] в секунду</item>
         <item quantity="many">[XXX] в секунду</item>
         <item quantity="other">[XXX] в секунду</item>
@@ -319,7 +319,7 @@
     <string name="downloads_settings_concurrent_downloads">Одновременные загрузки</string>
     <string name="downloads_settings_concurrent_downloads_summary">Ограничьте количество файлов, загружаемых одновременно.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d загрузок</item>
         <item quantity="many">%d загрузок</item>
         <item quantity="other">%d загрузок</item>
@@ -354,19 +354,19 @@
     <string name="downloads_notification_size_total">(%1$.0f МБ/ %2$.0f МБ)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f МБ)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Загрузка элементов %d</item>
         <item quantity="many">Загрузка элементов %d</item>
         <item quantity="other">Загрузка элементов %d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Предметы в очереди %d</item>
         <item quantity="many">Предметы в очереди %d</item>
         <item quantity="other">Предметы в очереди %d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Приостановленные элементы %d</item>
         <item quantity="many">Приостановленные элементы %d</item>
         <item quantity="other">Приостановленные элементы %d</item>
@@ -375,19 +375,19 @@
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Загрузка %1$d или %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d Эпизоды</item>
         <item quantity="many">%d Эпизоды</item>
         <item quantity="other">%d Эпизоды</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Эпизоды %d в очереди</item>
         <item quantity="many">Эпизоды %d в очереди</item>
         <item quantity="other">Эпизоды %d в очереди</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Приостановленные эпизоды %d</item>
         <item quantity="many">Приостановленные эпизоды %d</item>
         <item quantity="other">Приостановленные эпизоды %d</item>
@@ -508,19 +508,19 @@
     <string name="settings_auto">авто</string>
     <string name="cd_about_button">О нас</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d пользователей</item>
         <item quantity="many">%d пользователей</item>
         <item quantity="other">%d пользователей</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d запрос</item>
         <item quantity="many">%d запрос</item>
         <item quantity="other">%d запрос</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d сезоны</item>
         <item quantity="many">%d сезоны</item>
         <item quantity="other">%d сезоны</item>
@@ -620,4 +620,23 @@
     <string name="detail_person_no_related_titles">Нет похожих заголовков.</string>
     <string name="detail_person_read_more">Прочитайте больше</string>
     <string name="detail_person_read_less">Читайте меньше</string>
+    <string name="settings_screen_time">Экранное время</string>
+    <string name="settings_screen_time_subtitle">Просматривайте активность и статистику часов</string>
+    <string name="screen_time_back">Назад</string>
+    <string name="screen_time_total">Всего</string>
+    <string name="screen_time_daily_average">Среднее значение за день</string>
+    <string name="screen_time_shows">Шоу</string>
+    <string name="screen_time_movies">Фильмы</string>
+    <string name="screen_time_period_week">Неделя</string>
+    <string name="screen_time_period_month">Месяц</string>
+    <string name="screen_time_period_year">Год</string>
+    <string name="screen_time_daily_breakdown">Ежедневная разбивка</string>
+    <string name="screen_time_peak_hours">Часы пик</string>
+    <string name="screen_time_previous_year">Прошлый год</string>
+    <string name="screen_time_next_year">В следующем году</string>
+    <string name="screen_time_no_change">Без изменений</string>
+    <string name="screen_time_morning">Утро</string>
+    <string name="screen_time_afternoon">После обеда</string>
+    <string name="screen_time_evening">Вечер</string>
+    <string name="screen_time_night">Ночь</string>
 </resources>
