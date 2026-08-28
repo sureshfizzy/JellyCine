@@ -143,13 +143,13 @@
     <string name="dashboard_discover_empty_message">Почніть фільм або епізод, і цей екран перетвориться на ваш центр рекомендацій.</string>
     <string name="dashboard_discover_load_error">Не вдається створити свій канал</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Доступні бібліотеки %d</item>
         <item quantity="many">Доступні бібліотеки %d</item>
         <item quantity="other">Доступні бібліотеки %d</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d предметів</item>
         <item quantity="many">%d предметів</item>
         <item quantity="other">%d предметів</item>
@@ -299,7 +299,7 @@
     <string name="favorites_episode_code_fallback">Епізод</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d EPS</item>
         <item quantity="many">%d EPS</item>
         <item quantity="other">%d EPS</item>
@@ -319,7 +319,7 @@
     <string name="downloads_settings_concurrent_downloads">Одночасне завантаження</string>
     <string name="downloads_settings_concurrent_downloads_summary">Обмежте кількість файлів, які завантажуються одночасно.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d завантаження</item>
         <item quantity="many">%d завантаження</item>
         <item quantity="other">%d завантаження</item>
@@ -354,19 +354,19 @@
     <string name="downloads_notification_size_total">([Х1Х] МБ/ [Х11Х] МБ)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f МБ)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Завантаження елементів %d</item>
         <item quantity="many">Завантаження елементів %d</item>
         <item quantity="other">Завантаження елементів %d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Об\'єкти в черзі %d</item>
         <item quantity="many">Об\'єкти в черзі %d</item>
         <item quantity="other">Об\'єкти в черзі %d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Призупинені %d елементи</item>
         <item quantity="many">Призупинені %d елементи</item>
         <item quantity="other">Призупинені %d елементи</item>
@@ -375,19 +375,19 @@
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Завантаження %1$d або %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d Епізоди</item>
         <item quantity="many">%d Епізоди</item>
         <item quantity="other">%d Епізоди</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Епізоди в черзі %d</item>
         <item quantity="many">Епізоди в черзі %d</item>
         <item quantity="other">Епізоди в черзі %d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">Призупинені епізоди %d</item>
         <item quantity="many">Призупинені епізоди %d</item>
         <item quantity="other">Призупинені епізоди %d</item>
@@ -508,19 +508,19 @@
     <string name="settings_auto">Авто</string>
     <string name="cd_about_button">Про</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d користувачів</item>
         <item quantity="many">%d користувачів</item>
         <item quantity="other">%d користувачів</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d запит</item>
         <item quantity="many">%d запит</item>
         <item quantity="other">%d запит</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one"></item>
+        <item quantity="one"/>
         <item quantity="few">%d сезони</item>
         <item quantity="many">%d сезони</item>
         <item quantity="other">%d сезони</item>
@@ -620,4 +620,23 @@
     <string name="detail_person_no_related_titles">Немає відповідних назв.</string>
     <string name="detail_person_read_more">Читати далі</string>
     <string name="detail_person_read_less">Читати менше</string>
+    <string name="settings_screen_time">Час екрану</string>
+    <string name="settings_screen_time_subtitle">Перегляд активності та статистики годинника</string>
+    <string name="screen_time_back">Назад</string>
+    <string name="screen_time_total">Разом</string>
+    <string name="screen_time_daily_average">Середньоденний</string>
+    <string name="screen_time_shows">Шоу</string>
+    <string name="screen_time_movies">Фільми</string>
+    <string name="screen_time_period_week">Тиждень</string>
+    <string name="screen_time_period_month">місяць</string>
+    <string name="screen_time_period_year">Рік</string>
+    <string name="screen_time_daily_breakdown">Щоденна розбивка</string>
+    <string name="screen_time_peak_hours">Години пік</string>
+    <string name="screen_time_previous_year">Попередній рік</string>
+    <string name="screen_time_next_year">Наступного року</string>
+    <string name="screen_time_no_change">Без змін</string>
+    <string name="screen_time_morning">ранок</string>
+    <string name="screen_time_afternoon">Полудень</string>
+    <string name="screen_time_evening">Вечір</string>
+    <string name="screen_time_night">Ніч</string>
 </resources>
