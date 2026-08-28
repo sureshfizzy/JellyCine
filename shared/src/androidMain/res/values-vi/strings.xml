@@ -581,4 +581,23 @@
     <string name="detail_person_no_related_titles">Không có tiêu đề liên quan có sẵn.</string>
     <string name="detail_person_read_more">Đọc thêm</string>
     <string name="detail_person_read_less">Đọc ít hơn</string>
+    <string name="settings_screen_time">Thời gian sử dụng màn hình</string>
+    <string name="settings_screen_time_subtitle">Xem hoạt động đồng hồ và số liệu thống kê</string>
+    <string name="screen_time_back">Trở lại</string>
+    <string name="screen_time_total">Tổng</string>
+    <string name="screen_time_daily_average">Trung bình hàng ngày</string>
+    <string name="screen_time_shows">Các chương trình</string>
+    <string name="screen_time_movies">Phim</string>
+    <string name="screen_time_period_week">Tuần</string>
+    <string name="screen_time_period_month">Tháng</string>
+    <string name="screen_time_period_year">Năm</string>
+    <string name="screen_time_daily_breakdown">Phân tích hàng ngày</string>
+    <string name="screen_time_peak_hours">Giờ cao điểm</string>
+    <string name="screen_time_previous_year">Năm trước</string>
+    <string name="screen_time_next_year">Năm sau</string>
+    <string name="screen_time_no_change">Không thay đổi</string>
+    <string name="screen_time_morning">Buổi sáng</string>
+    <string name="screen_time_afternoon">Buổi chiều</string>
+    <string name="screen_time_evening">Buổi tối</string>
+    <string name="screen_time_night">Đêm</string>
 </resources>
