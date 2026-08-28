@@ -20,6 +20,17 @@ class ScreenTimeViewModel(context: Context) : ViewModel() {
 
     private val mediaRepository = MediaRepositoryProvider.getInstance(context)
 
+    suspend fun getItemImageUrl(itemId: String, seriesId: String? = null, type: String? = null): String? {
+        val targetId = if (type.equals("Episode", ignoreCase = true) && !seriesId.isNullOrBlank()) seriesId else itemId
+        return mediaRepository.getImageUrlString(
+            itemId = targetId,
+            imageType = "Primary",
+            width = 200,
+            quality = 85,
+            enableImageEnhancers = false
+        )
+    }
+
     private val _screenTimeState = MutableStateFlow(ScreenTimeUiState())
     val screenTimeState: StateFlow<ScreenTimeUiState> = _screenTimeState.asStateFlow()
 
@@ -53,6 +64,7 @@ class ScreenTimeViewModel(context: Context) : ViewModel() {
             }
             _screenTimeState.value = _screenTimeState.value.copy(
                 stats = stats,
+                items = currentItems,
                 isLoading = false
             )
         }
