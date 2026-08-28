@@ -581,4 +581,23 @@
     <string name="detail_person_no_related_titles">関連タイトルはありません。</string>
     <string name="detail_person_read_more">もっと読む</string>
     <string name="detail_person_read_less">もっと読む</string>
+    <string name="settings_screen_time">スクリーンタイム</string>
+    <string name="settings_screen_time_subtitle">ウォッチのアクティビティと統計を表示する</string>
+    <string name="screen_time_back">戻る</string>
+    <string name="screen_time_total">合計</string>
+    <string name="screen_time_daily_average">日次平均</string>
+    <string name="screen_time_shows">番組</string>
+    <string name="screen_time_movies">映画</string>
+    <string name="screen_time_period_week">ウィーク</string>
+    <string name="screen_time_period_month">月</string>
+    <string name="screen_time_period_year">年</string>
+    <string name="screen_time_daily_breakdown">日次内訳</string>
+    <string name="screen_time_peak_hours">ピーク時間</string>
+    <string name="screen_time_previous_year">前年</string>
+    <string name="screen_time_next_year">来年</string>
+    <string name="screen_time_no_change">変更なし</string>
+    <string name="screen_time_morning">モーニング</string>
+    <string name="screen_time_afternoon">午後</string>
+    <string name="screen_time_evening">イブニング</string>
+    <string name="screen_time_night">ナイト</string>
 </resources>
