@@ -38,13 +38,18 @@ class ScreenTimeViewModel(context: Context) : ViewModel() {
         loadScreenTime()
     }
 
-    fun loadScreenTime(period: ScreenTimePeriod = ScreenTimePeriod.WEEK, year: Int = LocalDate.now().year) {
-        _screenTimeState.value = ScreenTimeUiState(period = period, year = year, isLoading = true)
+    fun loadScreenTime(period: ScreenTimePeriod = ScreenTimePeriod.WEEK, year: Int = LocalDate.now().year, monthOffset: Int = 0) {
+        _screenTimeState.value = ScreenTimeUiState(period = period, year = year, monthOffset = monthOffset, isLoading = true)
         viewModelScope.launch {
             val today = LocalDate.now()
             val (startDate, endDate) = when (period) {
                 ScreenTimePeriod.WEEK -> today.minusDays(6) to today
-                ScreenTimePeriod.MONTH -> today.minusDays(29) to today
+                ScreenTimePeriod.MONTH -> {
+                    val targetMonth = today.plusMonths(monthOffset.toLong())
+                    val start = targetMonth.withDayOfMonth(1)
+                    val end = if (monthOffset == 0) today else targetMonth.withDayOfMonth(targetMonth.lengthOfMonth())
+                    start to end
+                }
                 ScreenTimePeriod.YEAR -> {
                     val start = LocalDate.of(year, 1, 1)
                     val end = if (year == today.year) today else LocalDate.of(year, 12, 31)

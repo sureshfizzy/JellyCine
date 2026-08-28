@@ -11,6 +11,7 @@ enum class ScreenTimePeriod {
 data class ScreenTimeUiState(
     val period: ScreenTimePeriod = ScreenTimePeriod.WEEK,
     val year: Int = LocalDate.now().year,
+    val monthOffset: Int = 0,
     val stats: ScreenTimeStats? = null,
     val items: List<BaseItemDto> = emptyList(),
     val isLoading: Boolean = true,
