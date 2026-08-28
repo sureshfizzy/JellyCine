@@ -126,11 +126,11 @@
     <string name="federated_search_partial_failure">%1$d server(s) failed</string>
     <string name="federated_search_switch_failed">Unable to switch to the result server</string>
     <string name="federated_libraries_tab">Libraries</string>
-    <string name="federated_continue_settings">Continue watching servers</string>
-    <string name="federated_continue_settings_description">Choose which signed-in servers contribute to Continue Watching.</string>
+    <string name="federated_server_filter">Servers</string>
+    <string name="federated_server_filter_description">Choose which signed-in servers contribute to Continue Watching, Favorites, and Libraries.</string>
     <string name="federated_continue_empty">Nothing to continue watching on the included servers</string>
-    <string name="federated_favorites_empty">No favorites found across the signed-in servers</string>
-    <string name="federated_libraries_empty">No media libraries found across the signed-in servers</string>
+    <string name="federated_favorites_empty">No favorites found on the included servers</string>
+    <string name="federated_libraries_empty">No media libraries found on the included servers</string>
     <string name="suggestions_empty">No suggestions available</string>
     <string name="suggestions_type_movie">Movie</string>
     <string name="suggestions_type_tv_series">TV Series</string>
@@ -373,6 +373,7 @@
     <string name="library_sort_play_count">Play count</string>
     <string name="library_sort_filename">Name</string>
     <string name="library_sort_size">Size</string>
+    <string name="library_sort_random">Random</string>
     <string name="library_rec_director">Directed by %1$s</string>
     <string name="library_rec_actor">Starring %1$s</string>
     <string name="library_rec_liked">Because you like %1$s</string>

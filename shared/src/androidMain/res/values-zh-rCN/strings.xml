@@ -127,11 +127,11 @@
     <string name="federated_search_partial_failure">%1$d 台服务器搜索失败</string>
     <string name="federated_search_switch_failed">无法切换到结果所在服务器</string>
     <string name="federated_libraries_tab">媒体库</string>
-    <string name="federated_continue_settings">继续观看服务器</string>
-    <string name="federated_continue_settings_description">选择哪些已登录服务器参与聚合继续观看。</string>
+    <string name="federated_server_filter">聚合服务器</string>
+    <string name="federated_server_filter_description">选择哪些已登录服务器参与继续观看、收藏和媒体库。</string>
     <string name="federated_continue_empty">已启用的服务器中没有继续观看内容</string>
-    <string name="federated_favorites_empty">所有已登录服务器中都没有收藏内容</string>
-    <string name="federated_libraries_empty">所有已登录服务器中都没有媒体库</string>
+    <string name="federated_favorites_empty">已启用的服务器中没有收藏内容</string>
+    <string name="federated_libraries_empty">已启用的服务器中没有媒体库</string>
     <string name="suggestions_empty">没有可用的建议</string>
     <string name="suggestions_type_movie">电影</string>
     <string name="suggestions_type_tv_series">电视连续剧</string>
@@ -372,6 +372,7 @@
     <string name="library_sort_play_count">播放次数</string>
     <string name="library_sort_filename">文件名</string>
     <string name="library_sort_size">文件尺寸</string>
+    <string name="library_sort_random">随机排序</string>
     <string name="library_rec_director">由 %1$s 执导</string>
     <string name="library_rec_actor">主演 %1$s</string>
     <string name="library_rec_liked">因为你喜欢 %1$s</string>

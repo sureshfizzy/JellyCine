@@ -104,11 +104,10 @@ class FederatedMediaRepository(context: Context) {
 
     suspend fun loadContent(
         section: FederatedContentSection,
-        excludedContinueWatchingServerIds: Set<String> = emptySet()
+        excludedServerIds: Set<String> = emptySet()
     ): FederatedMediaResponse = coroutineScope {
         val servers = authenticatedServers().filter { server ->
-            section != FederatedContentSection.CONTINUE_WATCHING ||
-                server.id !in excludedContinueWatchingServerIds
+            server.id !in excludedServerIds
         }
         val semaphore = Semaphore(MAX_CONCURRENT_SERVERS)
         val outcomes = servers.map { server ->

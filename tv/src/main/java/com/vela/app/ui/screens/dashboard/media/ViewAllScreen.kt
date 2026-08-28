@@ -844,7 +844,8 @@ private fun SortBottomSheet(
                 SortOption("ProductionYear", "Descending"),
                 SortOption("ProductionYear", "Ascending"),
                 SortOption("CommunityRating", "Descending"),
-                SortOption("CommunityRating", "Ascending")
+                SortOption("CommunityRating", "Ascending"),
+                SortOption("Random", "Ascending")
             )
 
             FlowRow(
@@ -956,6 +957,8 @@ private fun sortOptionLabelRes(sortBy: String, sortOrder: String): Int {
         "ProductionYear" to "Ascending" -> R.string.view_all_sort_year_oldest
         "CommunityRating" to "Descending" -> R.string.view_all_sort_rating_high
         "CommunityRating" to "Ascending" -> R.string.view_all_sort_rating_low
+        "Random" to "Ascending",
+        "Random" to "Descending" -> R.string.library_sort_random
         else -> R.string.view_all_sort_recently_added
     }
 }

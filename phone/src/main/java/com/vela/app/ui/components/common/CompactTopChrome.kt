@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -58,7 +59,7 @@ private fun compactProgress(
 fun rememberCompactProgress(
     state: LazyListState,
     compactDistance: Dp
-): Float {
+): State<Float> {
     val density = LocalDensity.current
     val compactDistancePx = with(density) { compactDistance.toPx() }
     return remember(state, compactDistancePx) {
@@ -69,14 +70,14 @@ fun rememberCompactProgress(
                 compactDistancePx = compactDistancePx
             )
         }
-    }.value
+    }
 }
 
 @Composable
 fun rememberCompactProgress(
     state: LazyGridState,
     compactDistance: Dp
-): Float {
+): State<Float> {
     val density = LocalDensity.current
     val compactDistancePx = with(density) { compactDistance.toPx() }
     return remember(state, compactDistancePx) {
@@ -87,7 +88,7 @@ fun rememberCompactProgress(
                 compactDistancePx = compactDistancePx
             )
         }
-    }.value
+    }
 }
 
 private fun compactChromeProgress(progress: Float): Float =
@@ -203,7 +204,7 @@ fun CompactTopChip(
 fun CompactTopLogo(
     imageUrl: String,
     contentDescription: String?,
-    progress: Float,
+    progress: State<Float>,
     isTablet: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -221,7 +222,7 @@ fun CompactTopLogo(
         modifier = modifier
             .statusBarsPadding()
             .padding(start = 16.dp, top = 10.dp),
-        progress = progress,
+        progress = progress.value,
         width = width,
         height = height,
         shape = shape,
@@ -257,7 +258,7 @@ fun CompactTopLogo(
 @Composable
 fun CompactTopText(
     text: String,
-    progress: Float,
+    progress: State<Float>,
     isTablet: Boolean,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
@@ -279,7 +280,7 @@ fun CompactTopText(
 
     CompactTopChip(
         modifier = chipModifier,
-        progress = progress,
+        progress = progress.value,
         width = null,
         height = if (isTablet) 48.dp else 36.dp,
         shape = RoundedCornerShape(999.dp),

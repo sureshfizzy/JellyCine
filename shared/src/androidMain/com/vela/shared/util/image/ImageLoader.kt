@@ -20,8 +20,6 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.*
 import android.content.Context
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -138,10 +136,7 @@ fun JellyfinPosterImage(
             .error(null)
             .build(),
         contentDescription = contentDescription,
-        modifier = modifier.graphicsLayer {
-            compositingStrategy = CompositingStrategy.Offscreen
-            renderEffect = null
-        },
+        modifier = modifier,
         contentScale = contentScale,
         alignment = alignment,
         onState = { state ->

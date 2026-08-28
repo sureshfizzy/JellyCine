@@ -74,6 +74,8 @@ import com.vela.data.model.SeerrRequestState
 import com.vela.data.model.SeerrCatalog
 import com.vela.app.ui.components.common.SeerrTopBadges
 import com.vela.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -124,6 +126,7 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val disablePosterEnhancers = DisableEmbyPosterEnhancers()
     val seerrLogoUrl = remember(contentType, parentId) {
         when (contentType) {
             ContentType.SEERR_STUDIO -> SeerrCatalog.popularStudios()
@@ -228,7 +231,6 @@ fun ViewAllScreen(
         state = gridState,
         compactDistance = if (isTablet) 132.dp else 92.dp
     )
-    val compactHeader = if (usesCompactHeader) compactHeaderProgress else 0f
 
     // Load initial data
     LaunchedEffect(contentType, parentId, genreId) {
@@ -249,27 +251,28 @@ fun ViewAllScreen(
         }
     }
 
-    LaunchedEffect(
-        gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index,
-        items.size
-    ) {
-        val lastVisibleIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-        val loadMore = when {
-            items.isEmpty() -> true
-            else -> lastVisibleIndex >= displayItems.size - 5
-        }
-
-        if (loadMore && uiState.hasMorePages && !uiState.isLoading) {
-            viewModel.loadMoreItems(contentType, parentId, genreId)
-        }
+    LaunchedEffect(displayItems.size, uiState.hasMorePages, uiState.isLoading, contentType, parentId, genreId) {
+        if (!uiState.hasMorePages || uiState.isLoading) return@LaunchedEffect
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+            .distinctUntilChanged()
+            .collect { lastVisibleIndex ->
+                if (lastVisibleIndex >= displayItems.size - 5) {
+                    viewModel.loadMoreItems(contentType, parentId, genreId)
+                }
+            }
     }
 
-    LaunchedEffect(displayItems, gridState.firstVisibleItemIndex) {
-        val from = gridState.firstVisibleItemIndex.coerceAtLeast(0)
-        val window = displayItems.drop(from).take(18)
-        if (window.isNotEmpty()) {
-            ImagePreloader.preloadCriticalImages(window, mediaRepository, context)
-        }
+    LaunchedEffect(displayItems, mediaRepository, context) {
+        snapshotFlow { gridState.firstVisibleItemIndex }
+            .map { index -> index / 9 }
+            .distinctUntilChanged()
+            .collect { bucket ->
+                val from = (bucket * 9).coerceAtLeast(0)
+                val window = displayItems.drop(from).take(18)
+                if (window.isNotEmpty()) {
+                    ImagePreloader.preloadCriticalImages(window, mediaRepository, context)
+                }
+            }
     }
 
     LaunchedEffect(uiState.actionMessage) {
@@ -296,7 +299,7 @@ fun ViewAllScreen(
     @Composable
     fun HeaderContent(
         modifier: Modifier = Modifier,
-        compactProgress: Float = 0f
+        compactProgress: State<Float>? = null
     ) {
         Column(modifier = modifier.fillMaxWidth()) {
             if (!isSeerrCatalog || seerrLogoUrl == null) {
@@ -332,7 +335,7 @@ fun ViewAllScreen(
                             .height(if (isTablet) 132.dp else 92.dp)
                             .padding(horizontal = if (isTablet) 128.dp else 52.dp)
                             .clip(RoundedCornerShape(if (isTablet) 18.dp else 14.dp))
-                            .compactHeaderLogo(compactProgress),
+                            .compactHeaderLogo(compactProgress?.value ?: 0f),
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
@@ -416,7 +419,7 @@ fun ViewAllScreen(
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .padding(bottom = 2.dp),
-                                    compactProgress = compactHeader
+                                    compactProgress = compactHeaderProgress
                                 )
                             }
 
@@ -473,7 +476,7 @@ fun ViewAllScreen(
                                     modifier = Modifier
                                         .statusBarsPadding()
                                         .padding(horizontal = horizontalPadding),
-                                    compactProgress = 0f
+                                    compactProgress = null
                                 )
                             }
                             Box(
@@ -518,7 +521,7 @@ fun ViewAllScreen(
                                         modifier = Modifier
                                             .statusBarsPadding()
                                             .padding(bottom = 2.dp),
-                                        compactProgress = compactHeader
+                                        compactProgress = compactHeaderProgress
                                     )
                                 }
 
@@ -556,6 +559,7 @@ fun ViewAllScreen(
                                                     LibraryItemCard(
                                                         item = item,
                                                         mediaRepository = mediaRepository,
+                                                        disableImageEnhancers = disablePosterEnhancers,
                                                         onClick = { handleItemClick(item) },
                                                         onLongClick = { overflowItem = item }
                                                     )
@@ -566,7 +570,8 @@ fun ViewAllScreen(
                                 } else {
                                     items(
                                         items = displayItems,
-                                        key = ::viewAllItemKey
+                                        key = ::viewAllItemKey,
+                                        contentType = { "poster" }
                                     ) { item ->
                                         if (isWatchedEpisodeViewAll) {
                                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -585,6 +590,7 @@ fun ViewAllScreen(
                                                 isTablet = isTablet,
                                                 mediaRepository = mediaRepository,
                                                 watchedViewAll = isWatchedViewAll,
+                                                disablePosterEnhancers = disablePosterEnhancers,
                                                 onClick = { handleItemClick(item) },
                                                 onLongClick = { overflowItem = item }
                                             )
@@ -663,7 +669,7 @@ fun ViewAllScreen(
             CompactTopLogo(
                 imageUrl = seerrLogoUrl,
                 contentDescription = resolvedTitle,
-                progress = compactHeader,
+                progress = compactHeaderProgress,
                 isTablet = isTablet,
                 onClick = {
                     coroutineScope.launch {
@@ -679,7 +685,7 @@ fun ViewAllScreen(
         if (isLibraryCatalog || isGenreCatalog) {
             CompactTopText(
                 text = resolvedTitle,
-                progress = compactHeader,
+                progress = compactHeaderProgress,
                 isTablet = isTablet,
                 onClick = {
                     coroutineScope.launch {
@@ -696,7 +702,7 @@ fun ViewAllScreen(
         if (usesCompactHeader && headerCountText != null) {
             CompactTopText(
                 text = headerCountText,
-                progress = compactHeader,
+                progress = compactHeaderProgress,
                 isTablet = isTablet,
                 alignEnd = true,
                 fontSize = if (isTablet) 13.sp else 11.sp,
@@ -780,10 +786,10 @@ internal fun PosterCard(
     mediaRepository: MediaRepository,
     watchedViewAll: Boolean = false,
     showSeerrBadge: Boolean = true,
+    disablePosterEnhancers: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null
 ) {
-    val disablePosterEnhancers = DisableEmbyPosterEnhancers()
     val isSeerrSource = item.id?.startsWith("seerr:") == true
     val displayName = if (item.type == "Episode" && !item.seriesName.isNullOrBlank()) {
         item.seriesName!!
@@ -1040,10 +1046,12 @@ private fun SortBottomSheet(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .clickable {
-                            val nextOrder = if (selected) {
-                                if (currentSortOrder == "Descending") "Ascending" else "Descending"
-                            } else {
-                                field.defaultOrder
+                            val nextOrder = when {
+                                !field.supportsOrder -> field.defaultOrder
+                                selected -> {
+                                    if (currentSortOrder == "Descending") "Ascending" else "Descending"
+                                }
+                                else -> field.defaultOrder
                             }
                             onSortSelected(field.sortBy, nextOrder)
                         }
@@ -1068,7 +1076,7 @@ private fun SortBottomSheet(
                             .weight(1f)
                             .padding(horizontal = 12.dp)
                     )
-                    if (selected) {
+                    if (selected && field.supportsOrder) {
                         Icon(
                             imageVector = if (currentSortOrder == "Descending") {
                                 Icons.Filled.KeyboardArrowDown

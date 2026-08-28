@@ -114,7 +114,6 @@ import coil3.imageLoader
 import coil3.request.*
 import coil3.size.Precision
 import com.vela.shared.util.image.imageTagFor
-import com.vela.shared.util.image.WarmImageUrl
 import com.vela.shared.playback.UserDataRefreshSignals
 import java.util.concurrent.ConcurrentHashMap
 
@@ -886,7 +885,6 @@ fun ImageLoader(
         mutableStateOf(!initialUrl.isNullOrBlank())
     }
     val context = LocalContext.current
-    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = allowRgb565)
 
     LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         if (actualItemId != null) {
@@ -1727,7 +1725,7 @@ fun Dashboard(
                 items = orderedItems,
                 mediaRepository = mediaRepository,
                 context = context,
-                maxItems = orderedItems.size
+                maxItems = 24
             )
         }
 

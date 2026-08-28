@@ -176,10 +176,10 @@ fun FederatedViewScreen(
     }
 
     if (showContinueSettings) {
-        ContinueWatchingServerSheet(
+        FederatedServerFilterSheet(
             servers = uiState.servers,
-            excludedServerIds = uiState.excludedContinueWatchingServerIds,
-            onIncludedChange = viewModel::setContinueWatchingServerIncluded,
+            excludedServerIds = uiState.excludedServerIds,
+            onIncludedChange = viewModel::setServerIncluded,
             onDismiss = { showContinueSettings = false }
         )
     }
@@ -214,7 +214,7 @@ private fun FederatedViewHeader(
         IconButton(onClick = onConfigure) {
             Icon(
                 imageVector = Icons.Rounded.Tune,
-                contentDescription = stringResource(R.string.federated_continue_settings),
+                contentDescription = stringResource(R.string.federated_server_filter),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -423,7 +423,7 @@ private fun FederatedHomeCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ContinueWatchingServerSheet(
+private fun FederatedServerFilterSheet(
     servers: List<com.vela.data.repository.FederatedServer>,
     excludedServerIds: Set<String>,
     onIncludedChange: (String, Boolean) -> Unit,
@@ -441,12 +441,12 @@ private fun ContinueWatchingServerSheet(
                 .padding(horizontal = 20.dp)
         ) {
             Text(
-                text = stringResource(R.string.federated_continue_settings),
+                text = stringResource(R.string.federated_server_filter),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = stringResource(R.string.federated_continue_settings_description),
+                text = stringResource(R.string.federated_server_filter_description),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
             )

@@ -898,7 +898,6 @@ fun ImageLoader(
         mutableStateOf(!initialUrl.isNullOrBlank())
     }
     val context = LocalContext.current
-    WarmImageUrl(imageUrl = imageUrl, allowRgb565 = allowRgb565)
 
     LaunchedEffect(actualItemId, currentImageType, hasImageEnhancers, selectedImageTag) {
         if (actualItemId != null) {
@@ -1724,7 +1723,7 @@ fun Dashboard(
                 items = orderedItems,
                 mediaRepository = mediaRepository,
                 context = context,
-                maxItems = orderedItems.size
+                maxItems = 24
             )
         }
 

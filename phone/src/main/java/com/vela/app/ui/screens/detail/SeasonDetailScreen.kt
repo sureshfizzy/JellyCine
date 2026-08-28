@@ -342,7 +342,7 @@ fun SeasonDetailScreen(
                                         contentDescription = seasonName,
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .compactHeaderLogo(logoCompactProgress),
+                                            .compactHeaderLogo(logoCompactProgress.value),
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart,
                                         onErrorStateChange = { hasError ->

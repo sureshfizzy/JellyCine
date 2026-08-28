@@ -770,7 +770,7 @@ fun DetailContent(
                                             .fillMaxWidth(0.94f)
                                             .height(layout.logoContainerHeight)
                                             .align(Alignment.CenterStart)
-                                            .compactHeaderLogo(detailLogoCompactProgress),
+                                            .compactHeaderLogo(detailLogoCompactProgress.value),
                                         context = context,
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart,
@@ -1547,7 +1547,7 @@ fun DetailContent(
 
 @Composable
 private fun DetailActionsOverlay(
-    progress: Float,
+    progress: State<Float>,
     isWatched: Boolean,
     isFavorite: Boolean,
     onWatchedClick: () -> Unit,
@@ -1559,7 +1559,7 @@ private fun DetailActionsOverlay(
         modifier = modifier
             .statusBarsPadding()
             .padding(top = 10.dp, end = 14.dp),
-        progress = progress,
+        progress = progress.value,
         height = 40.dp,
         shape = RoundedCornerShape(20.dp),
         containerColor = Color.Black.copy(alpha = 0.42f)

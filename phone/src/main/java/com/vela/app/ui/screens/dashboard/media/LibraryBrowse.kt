@@ -15,7 +15,8 @@ enum class LibraryBrowseTab {
 data class LibrarySortField(
     val sortBy: String,
     val defaultOrder: String,
-    @StringRes val labelRes: Int
+    @StringRes val labelRes: Int,
+    val supportsOrder: Boolean = true
 )
 
 data class LibraryRecommendationSection(
@@ -99,7 +100,8 @@ fun librarySortFields(): List<LibrarySortField> = listOf(
     LibrarySortField("Runtime", "Descending", R.string.library_sort_runtime),
     LibrarySortField("PlayCount", "Descending", R.string.library_sort_play_count),
     LibrarySortField("SortName", "Ascending", R.string.library_sort_filename),
-    LibrarySortField("Size", "Descending", R.string.library_sort_size)
+    LibrarySortField("Size", "Descending", R.string.library_sort_size),
+    LibrarySortField("Random", "Ascending", R.string.library_sort_random, supportsOrder = false)
 )
 
 @StringRes

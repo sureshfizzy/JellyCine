@@ -38,7 +38,7 @@ sealed interface FederatedContentUiState {
 data class FederatedHomeUiState(
     val servers: List<FederatedServer> = emptyList(),
     val selectedTab: FederatedHomeTab = FederatedHomeTab.CONTINUE_WATCHING,
-    val excludedContinueWatchingServerIds: Set<String> = emptySet(),
+    val excludedServerIds: Set<String> = emptySet(),
     val content: FederatedContentUiState = FederatedContentUiState.Loading,
     val openingServerId: String? = null,
     val actionError: String? = null
@@ -59,16 +59,14 @@ class FederatedHomeViewModel(application: Application) : AndroidViewModel(applic
 
     init {
         viewModelScope.launch {
-            preferences.excludedContinueWatchingServerIds
+            preferences.excludedServerIds
                 .distinctUntilChanged()
                 .collect { excludedIds ->
-                    val changed = excludedIds != _uiState.value.excludedContinueWatchingServerIds
-                    _uiState.update { it.copy(excludedContinueWatchingServerIds = excludedIds) }
+                    val changed = excludedIds != _uiState.value.excludedServerIds
+                    _uiState.update { it.copy(excludedServerIds = excludedIds) }
                     if (changed) {
-                        contentCache.remove(FederatedHomeTab.CONTINUE_WATCHING)
-                        if (_uiState.value.selectedTab == FederatedHomeTab.CONTINUE_WATCHING) {
-                            loadSelected(force = true)
-                        }
+                        contentCache.clear()
+                        loadSelected(force = true)
                     }
                 }
         }
@@ -107,9 +105,9 @@ class FederatedHomeViewModel(application: Application) : AndroidViewModel(applic
         loadSelected(force = true)
     }
 
-    fun setContinueWatchingServerIncluded(serverId: String, included: Boolean) {
+    fun setServerIncluded(serverId: String, included: Boolean) {
         viewModelScope.launch {
-            preferences.setContinueWatchingServerIncluded(serverId, included)
+            preferences.setServerIncluded(serverId, included)
         }
     }
 
@@ -158,8 +156,7 @@ class FederatedHomeViewModel(application: Application) : AndroidViewModel(applic
             }
             val response = repository.loadContent(
                 section = section,
-                excludedContinueWatchingServerIds =
-                    _uiState.value.excludedContinueWatchingServerIds
+                excludedServerIds = _uiState.value.excludedServerIds
             )
             if (_uiState.value.selectedTab != tab) return@launch
             val ready = FederatedContentUiState.Ready(response.items, response.failures)

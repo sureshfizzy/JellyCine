@@ -13,15 +13,15 @@ import kotlinx.coroutines.flow.map
 class FederatedViewPreferences(context: Context) {
     private val dataStore = DataStoreProvider.getDataStore(context.applicationContext)
 
-    val excludedContinueWatchingServerIds: Flow<Set<String>> = dataStore.data.map { preferences ->
-        preferences[EXCLUDED_CONTINUE_WATCHING_SERVERS].orEmpty()
+    val excludedServerIds: Flow<Set<String>> = dataStore.data.map { preferences ->
+        preferences[EXCLUDED_SERVERS].orEmpty()
     }
 
-    suspend fun setContinueWatchingServerIncluded(serverId: String, included: Boolean) {
+    suspend fun setServerIncluded(serverId: String, included: Boolean) {
         if (serverId.isBlank()) return
         dataStore.edit { preferences ->
-            val excludedIds = preferences[EXCLUDED_CONTINUE_WATCHING_SERVERS].orEmpty()
-            preferences[EXCLUDED_CONTINUE_WATCHING_SERVERS] = if (included) {
+            val excludedIds = preferences[EXCLUDED_SERVERS].orEmpty()
+            preferences[EXCLUDED_SERVERS] = if (included) {
                 excludedIds - serverId
             } else {
                 excludedIds + serverId
@@ -30,7 +30,7 @@ class FederatedViewPreferences(context: Context) {
     }
 
     private companion object {
-        val EXCLUDED_CONTINUE_WATCHING_SERVERS =
+        val EXCLUDED_SERVERS =
             stringSetPreferencesKey("federated_continue_excluded_servers_v1")
     }
 }
