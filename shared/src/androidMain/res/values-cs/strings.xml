@@ -620,4 +620,23 @@
     <string name="detail_person_no_related_titles">Nejsou k dispozici žádné související tituly.</string>
     <string name="detail_person_read_more">Čtěte více</string>
     <string name="detail_person_read_less">Číst méně</string>
+    <string name="settings_screen_time">Čas obrazovky</string>
+    <string name="settings_screen_time_subtitle">Zobrazení sledovací aktivity a statistik</string>
+    <string name="screen_time_back">Zpět</string>
+    <string name="screen_time_total">Celkem</string>
+    <string name="screen_time_daily_average">Denní průměr</string>
+    <string name="screen_time_shows">Pořady</string>
+    <string name="screen_time_movies">Kino</string>
+    <string name="screen_time_period_week">Týden</string>
+    <string name="screen_time_period_month">Měsíc</string>
+    <string name="screen_time_period_year">Rok</string>
+    <string name="screen_time_daily_breakdown">Denní rozpis</string>
+    <string name="screen_time_peak_hours">Špičkové hodiny</string>
+    <string name="screen_time_previous_year">Předchozí rok</string>
+    <string name="screen_time_next_year">Příští rok</string>
+    <string name="screen_time_no_change">Žádná změna</string>
+    <string name="screen_time_morning">Ráno</string>
+    <string name="screen_time_afternoon">Odpoledne</string>
+    <string name="screen_time_evening">Večer</string>
+    <string name="screen_time_night">Noc</string>
 </resources>
