@@ -29,6 +29,7 @@ suspend fun loadScreenTimeItems(
 
     val allItems = result.items.orEmpty()
         .filter { it.id != null && it.type in setOf("Movie", "Episode") && it.userData?.played == true }
+        .filter { item -> !isBriefReopen(item) }
         .distinctBy { item -> dedupKey(item) ?: item.id }
 
     return allItems.filter { item ->
@@ -150,6 +151,11 @@ private fun parseZoned(dateStr: String?): java.time.ZonedDateTime? {
             } catch (_: Exception) { null }
         }
     }
+}
+
+private fun isBriefReopen(item: BaseItemDto): Boolean {
+    val position = item.userData?.playbackPositionTicks ?: return false
+    return position > 0L
 }
 
 private fun parseLocalDate(dateStr: String?): LocalDate? {
