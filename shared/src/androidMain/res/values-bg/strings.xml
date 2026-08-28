@@ -594,4 +594,23 @@
     <string name="detail_person_no_related_titles">Няма налични свързани заглавия.</string>
     <string name="detail_person_read_more">Прочети повече</string>
     <string name="detail_person_read_less">Прочетете по-малко</string>
+    <string name="settings_screen_time">Време на екрана</string>
+    <string name="settings_screen_time_subtitle">Преглед на активността и статистиката на часовника</string>
+    <string name="screen_time_back">Назад</string>
+    <string name="screen_time_total">Общо</string>
+    <string name="screen_time_daily_average">Дневна средна стойност</string>
+    <string name="screen_time_shows">Шоута</string>
+    <string name="screen_time_movies">Филми</string>
+    <string name="screen_time_period_week">Седмица</string>
+    <string name="screen_time_period_month">Месец</string>
+    <string name="screen_time_period_year">Година</string>
+    <string name="screen_time_daily_breakdown">Ежедневна разбивка</string>
+    <string name="screen_time_peak_hours">Пикови часове</string>
+    <string name="screen_time_previous_year">Предишна година</string>
+    <string name="screen_time_next_year">Следващата година</string>
+    <string name="screen_time_no_change">Без промяна</string>
+    <string name="screen_time_morning">Сутринта</string>
+    <string name="screen_time_afternoon">Следобед</string>
+    <string name="screen_time_evening">Вечерта</string>
+    <string name="screen_time_night">Нощ</string>
 </resources>
