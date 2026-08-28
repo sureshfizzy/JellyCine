@@ -300,7 +300,7 @@ class SettingsViewModel(
         if (_uiState.value.isLineBusy) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
-            authRepository.switchServerLine(serverId, lineId).fold(
+            authRepository.switchServerLine(serverId, lineId, force = true).fold(
                 onSuccess = {
                     mediaRepository.clearPersistedHomeSnapshot()
                     CachedData.clearAllCache()
@@ -336,6 +336,24 @@ class SettingsViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
             authRepository.autoSelectServerLine(serverId).fold(
+                onSuccess = {
+                    mediaRepository.clearPersistedHomeSnapshot()
+                    CachedData.clearAllCache()
+                    _uiState.value = _uiState.value.copy(isLineBusy = false)
+                },
+                onFailure = { error ->
+                    _uiState.value = _uiState.value.copy(isLineBusy = false, error = error.message)
+                }
+            )
+        }
+    }
+
+    fun setAutoRouteEnabled(enabled: Boolean) {
+        val serverId = _uiState.value.activeServerId ?: return
+        if (_uiState.value.isLineBusy) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLineBusy = true, error = null)
+            authRepository.setAutoRouteEnabled(serverId, enabled).fold(
                 onSuccess = {
                     mediaRepository.clearPersistedHomeSnapshot()
                     CachedData.clearAllCache()

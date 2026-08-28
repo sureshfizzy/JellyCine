@@ -290,7 +290,8 @@ fun Settings(
             onAddLine = { url, name -> viewModel.addServerLine(url, name) },
             onSwitchLine = viewModel::switchServerLine,
             onRemoveLine = viewModel::removeServerLine,
-            onAutoSelect = viewModel::autoSelectServerLine
+            onAutoSelect = viewModel::autoSelectServerLine,
+            onSetAutoRoute = viewModel::setAutoRouteEnabled
         )
     }
 

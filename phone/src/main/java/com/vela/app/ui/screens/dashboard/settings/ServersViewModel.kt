@@ -259,7 +259,7 @@ class ServersViewModel(application: Application) : AndroidViewModel(application)
 
     fun switchServerLine(serverId: String, lineId: String, onSwitched: () -> Unit = {}) {
         mutateServerLine(serverId, onSwitched) {
-            authRepository.switchServerLine(serverId, lineId)
+            authRepository.switchServerLine(serverId, lineId, force = true)
         }
     }
 
@@ -272,6 +272,12 @@ class ServersViewModel(application: Application) : AndroidViewModel(application)
     fun autoSelectServerLine(serverId: String) {
         mutateServerLine(serverId) {
             authRepository.autoSelectServerLine(serverId)
+        }
+    }
+
+    fun setAutoRouteEnabled(serverId: String, enabled: Boolean) {
+        mutateServerLine(serverId) {
+            authRepository.setAutoRouteEnabled(serverId, enabled)
         }
     }
 

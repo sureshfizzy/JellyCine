@@ -34,6 +34,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,7 +62,8 @@ internal fun ServerLinesSection(
     onAddLine: (url: String, name: String) -> Unit,
     onSwitchLine: (String) -> Unit,
     onRemoveLine: (String) -> Unit,
-    onAutoSelect: () -> Unit
+    onAutoSelect: () -> Unit,
+    onSetAutoRoute: (Boolean) -> Unit
 ) {
     val lines = server?.resolvedLines().orEmpty()
     val activeLine = server?.activeLine()
@@ -88,6 +91,36 @@ internal fun ServerLinesSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_server_line_auto_route),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_server_line_auto_route_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = server?.autoRouteEnabled != false,
+                    onCheckedChange = onSetAutoRoute,
+                    enabled = !isBusy && server != null && lines.size > 1,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF4FD06B),
+                        checkedBorderColor = Color(0xFF4FD06B)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             if (lines.isEmpty()) {
                 Text(

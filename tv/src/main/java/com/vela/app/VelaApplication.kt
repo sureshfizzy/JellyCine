@@ -7,6 +7,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import com.vela.app.locale.AppLanguageManager
 import com.vela.app.util.logging.CrashHandler
+import com.vela.data.repository.AuthRepositoryProvider
 import com.vela.shared.util.image.ImageLoaderConfig
 import dagger.hilt.android.HiltAndroidApp
 
@@ -23,6 +24,7 @@ class VelaApplication : Application(), SingletonImageLoader.Factory {
 
         // Initialize crash handler for better crash log collection
         CrashHandler.initialize(this)
+        AuthRepositoryProvider.getInstance(this)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {

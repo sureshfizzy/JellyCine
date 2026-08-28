@@ -30,9 +30,15 @@ import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 object NetworkModule {
 
@@ -42,6 +48,23 @@ object NetworkModule {
     private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy { "vela-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
+    private val suppressLineFailover = AtomicInteger(0)
+
+    @Volatile
+    private var lineFailureReporter: ((String) -> Unit)? = null
+
+    fun setLineFailureReporter(reporter: ((String) -> Unit)?) {
+        lineFailureReporter = reporter
+    }
+
+    suspend fun <T> withoutLineFailover(block: suspend () -> T): T {
+        suppressLineFailover.incrementAndGet()
+        try {
+            return block()
+        } finally {
+            suppressLineFailover.decrementAndGet()
+        }
+    }
 
     fun getClientDeviceId(): String = deviceId
 
@@ -63,6 +86,58 @@ object NetworkModule {
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) &&
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
     }
+
+    fun currentNetworkAccess(context: Context): NetworkAccess {
+        val connectivityManager =
+            context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = connectivityManager.activeNetwork ?: return NetworkAccess.OFFLINE
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            ?: return NetworkAccess.OFFLINE
+        return when {
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> {
+                NetworkAccess.LAN_CAPABLE
+            }
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) -> {
+                NetworkAccess.WAN
+            }
+            else -> NetworkAccess.OFFLINE
+        }
+    }
+
+    fun observeNetworkAccess(context: Context): Flow<NetworkAccess> = callbackFlow {
+        val appContext = context.applicationContext
+        val connectivityManager =
+            appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        fun emitAccess() {
+            trySend(currentNetworkAccess(appContext))
+        }
+
+        emitAccess()
+
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = emitAccess()
+            override fun onLost(network: Network) = emitAccess()
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) = emitAccess()
+            override fun onUnavailable() = emitAccess()
+        }
+
+        val request = NetworkRequest.Builder().build()
+        runCatching {
+            connectivityManager.registerNetworkCallback(request, callback)
+        }.onFailure {
+            emitAccess()
+        }
+
+        awaitClose {
+            runCatching { connectivityManager.unregisterNetworkCallback(callback) }
+        }
+    }.distinctUntilChanged()
 
     fun observeNetworkAvailability(context: Context): Flow<Boolean> = callbackFlow {
         val appContext = context.applicationContext
@@ -301,6 +376,7 @@ object NetworkModule {
         builder.addInterceptor(authInterceptor)
         builder.addNetworkInterceptor(cacheInterceptor)
         builder.addInterceptor(timingInterceptor)
+        builder.addInterceptor(lineFailureInterceptor())
 
         return builder.build()
     }
@@ -321,6 +397,31 @@ object NetworkModule {
                 json(VelaJson)
             }
         }
+    }
+
+    private fun lineFailureInterceptor(): Interceptor {
+        return Interceptor { chain ->
+            try {
+                chain.proceed(chain.request())
+            } catch (error: IOException) {
+                if (shouldReportLineFailure(chain, error)) {
+                    lineFailureReporter?.invoke(chain.request().url.toString())
+                }
+                throw error
+            }
+        }
+    }
+
+    private fun shouldReportLineFailure(
+        chain: Interceptor.Chain,
+        error: IOException
+    ): Boolean {
+        if (suppressLineFailover.get() != 0) return false
+        if (chain.call().isCanceled()) return false
+        return error is SocketTimeoutException ||
+            error is ConnectException ||
+            error is UnknownHostException ||
+            error is NoRouteToHostException
     }
 
     private fun defaultTimeoutConfig(): NetworkTimeoutConfig {

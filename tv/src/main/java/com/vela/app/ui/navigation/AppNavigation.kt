@@ -1,5 +1,6 @@
 package com.vela.app.ui.navigation
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -16,6 +17,11 @@ import androidx.compose.animation.ExitTransition
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.vela.app.ui.screens.dashboard.DashboardContainer
+import com.vela.app.ui.screens.dashboard.home.CachedData
+import com.vela.data.network.ServerLineSwitchReason
+import com.vela.data.repository.AuthRepositoryProvider
+import com.vela.data.repository.MediaRepositoryProvider
+import com.vela.shared.R
 import com.vela.app.ui.screens.auth.AuthScreen
 import com.vela.app.ui.screens.detail.DetailScreenContainer
 import com.vela.app.ui.screens.detail.PersonScreenContainer
@@ -48,11 +54,34 @@ private fun contentExitTransition(effectsSpec: FiniteAnimationSpec<Float>): Exit
 fun AppNavigation() {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember(context) { MediaRepositoryProvider.getInstance(context) }
     val authStateManager = remember { AuthStateManager.getInstance(context) }
     val motion = MaterialTheme.velaMotion
     val enterEffectsSpec = motion.defaultEffectsSpec<Float>()
     val enterSpatialSpec = motion.defaultSpatialSpec<Float>()
     val exitEffectsSpec = motion.fastEffectsSpec<Float>()
+
+    LaunchedEffect(authRepository) {
+        authRepository.lineSwitchEvents.collect { event ->
+            mediaRepository.clearPersistedHomeSnapshot()
+            CachedData.clearAllCache()
+            val lineName = event.customName.ifBlank {
+                context.getString(
+                    if (event.isLan) R.string.settings_server_line_lan else R.string.settings_server_line_wan
+                )
+            }
+            val message = context.getString(
+                if (event.reason == ServerLineSwitchReason.FAILOVER) {
+                    R.string.settings_server_line_switched_failover
+                } else {
+                    R.string.settings_server_line_switched_network
+                },
+                lineName
+            )
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     var startDestination by remember { mutableStateOf<String?>(null) }
     

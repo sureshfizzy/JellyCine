@@ -693,6 +693,10 @@
     <string name="settings_server_line_lan">内网</string>
     <string name="settings_server_line_wan">外网</string>
     <string name="settings_server_line_primary">主线路</string>
+    <string name="settings_server_line_auto_route">自动路由</string>
+    <string name="settings_server_line_auto_route_subtitle">Wi‑Fi 优先内网，蜂窝走外网。点选线路可固定使用。</string>
+    <string name="settings_server_line_switched_network">已切换到%1$s</string>
+    <string name="settings_server_line_switched_failover">当前线路失败，已切换到%1$s</string>
     <string name="search_failed">搜索失败</string>
     <string name="admin_panel">管理面板</string>
     <string name="admin_update_available">有可用更新</string>

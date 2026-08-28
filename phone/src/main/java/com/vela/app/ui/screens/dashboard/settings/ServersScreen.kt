@@ -249,7 +249,8 @@ fun ServersScreen(
                 viewModel.switchServerLine(server.id, lineId, onServerSwitched)
             },
             onRemoveLine = { lineId -> viewModel.removeServerLine(server.id, lineId) },
-            onAutoSelect = { viewModel.autoSelectServerLine(server.id) }
+            onAutoSelect = { viewModel.autoSelectServerLine(server.id) },
+            onSetAutoRoute = { enabled -> viewModel.setAutoRouteEnabled(server.id, enabled) }
         )
     }
 

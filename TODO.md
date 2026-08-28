@@ -215,19 +215,20 @@ Hills 字段：加入日期、标题、公众评分、影评人评分、出品�
 
 现状：`SavedServer.lines` + 手动 `addServerLine` / `switchServerLine`。无 Wi‑Fi / 蜂窝自动选线。
 
-- [ ] Wi‑Fi：优先 `isLan()` 线路，探活成功再用
-- [ ] 蜂窝 / 非局域网：走 WAN
-- [ ] 当前线路超时 / 失败：切备用，toast 一次
-- [ ] 设置里可关自动路由、可强制某条
-- [ ] 切线只换 base URL，token 仍按 `SavedServer.id`
+- [x] Wi‑Fi：优先 `isLan()` 线路，探活成功再用
+- [x] 蜂窝 / 非局域网：走 WAN
+- [x] 当前线路超时 / 失败：切备用，toast 一次
+- [x] 设置里可关自动路由、可强制某条
+- [x] 切线只换 base URL，token 仍按 `SavedServer.id`
 
 不做全局负载均衡。
 
 ### 锚点
 
 - `data/.../model/SavedServer.kt`
-- `data/.../repository/AuthRepository.kt`（`addServerLine` / `switchServerLine`）
-- `data/.../network/NetworkModule.kt`（已有连通性回调，无选线）
+- `data/.../repository/AuthRepository.kt`（`addServerLine` / `switchServerLine` / `setAutoRouteEnabled`）
+- `data/.../network/ServerLineRouting.kt`
+- `data/.../network/NetworkModule.kt`（Wi‑Fi / 蜂窝观察与线路失败回调）
 
 ---
 

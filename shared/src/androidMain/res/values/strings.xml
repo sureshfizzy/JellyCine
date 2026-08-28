@@ -706,6 +706,10 @@
     <string name="settings_server_line_lan">LAN</string>
     <string name="settings_server_line_wan">WAN</string>
     <string name="settings_server_line_primary">Primary</string>
+    <string name="settings_server_line_auto_route">Auto routing</string>
+    <string name="settings_server_line_auto_route_subtitle">Prefer LAN on Wi‑Fi, WAN on cellular. Tap a line to pin it.</string>
+    <string name="settings_server_line_switched_network">Switched to %1$s</string>
+    <string name="settings_server_line_switched_failover">Current line failed, switched to %1$s</string>
     <string name="search_failed">Search failed</string>
     <string name="admin_panel">Admin Panel</string>
     <string name="admin_update_available">Update available</string>

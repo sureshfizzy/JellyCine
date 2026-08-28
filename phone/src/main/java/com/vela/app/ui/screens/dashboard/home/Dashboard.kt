@@ -1808,7 +1808,7 @@ fun Dashboard(
                                 val serverId = activeSavedServer?.id
                                 if (!serverId.isNullOrBlank()) {
                                     scope.launch {
-                                        authRepository.switchServerLine(serverId, lineId).onSuccess {
+                                        authRepository.switchServerLine(serverId, lineId, force = true).onSuccess {
                                             mediaRepository.clearPersistedHomeSnapshot()
                                             CachedData.clearAllCache()
                                         }

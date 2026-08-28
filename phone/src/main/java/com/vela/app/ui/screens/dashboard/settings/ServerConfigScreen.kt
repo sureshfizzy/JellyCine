@@ -65,7 +65,8 @@ internal fun ServerConfigScreen(
     onAddLine: (url: String, name: String) -> Unit,
     onSwitchLine: (String) -> Unit,
     onRemoveLine: (String) -> Unit,
-    onAutoSelect: () -> Unit
+    onAutoSelect: () -> Unit,
+    onSetAutoRoute: (Boolean) -> Unit
 ) {
     val initialAddress = remember(server.id, server.serverUrl) {
         parseServerUrl(server.serverUrl)
@@ -221,7 +222,8 @@ internal fun ServerConfigScreen(
                     onAddLine = onAddLine,
                     onSwitchLine = onSwitchLine,
                     onRemoveLine = onRemoveLine,
-                    onAutoSelect = onAutoSelect
+                    onAutoSelect = onAutoSelect,
+                    onSetAutoRoute = onSetAutoRoute
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 AdvancedStrmSection(

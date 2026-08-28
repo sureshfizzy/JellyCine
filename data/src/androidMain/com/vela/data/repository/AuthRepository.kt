@@ -15,35 +15,51 @@ import com.vela.data.model.QuickConnectResult
 import com.vela.data.model.ServerInfo
 import com.vela.data.network.ServerEndpoint
 import com.vela.data.network.ServerType
+import com.vela.data.network.NetworkAccess
+import com.vela.data.network.NetworkModule
+import com.vela.data.network.RoutableLine
+import com.vela.data.network.ServerLineSwitchEvent
+import com.vela.data.network.ServerLineSwitchReason
+import com.vela.data.network.VelaJson
 import com.vela.data.network.canonicalServerUrl
 import com.vela.data.network.canonicalServerUrlKey
+import com.vela.data.network.hostFromUrl
+import com.vela.data.network.isLanHost
+import com.vela.data.network.pickPreferredReachableLine
+import com.vela.data.network.preferLan
+import com.vela.data.network.requestMatchesServerUrl
 import com.vela.data.network.sameServerUrl
-import com.vela.data.network.NetworkModule
 import com.vela.data.preferences.NetworkPreferences
 import com.vela.data.preferences.NetworkTimeoutConfig
 import com.vela.data.security.AuthSessionIds
 import com.vela.data.security.LEGACY_ACCESS_TOKEN_KEY
 import com.vela.data.security.SecureSessionStore
-import com.vela.data.network.VelaJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 class AuthRepository(private val context: Context) {
 
@@ -52,8 +68,11 @@ class AuthRepository(private val context: Context) {
     private val secureSessionStore = SecureSessionStore(context)
     private val seerrRepository = SeerrRepository(context)
     private val legacyMigrationMutex = Mutex()
+    private val lineRoutingMutex = Mutex()
+    private val lastFailoverAtByServer = ConcurrentHashMap<String, Long>()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val lineSwitchEventsFlow = MutableSharedFlow<ServerLineSwitchEvent>(extraBufferCapacity = 1)
 
     @Volatile
     private var cachedSnapshot: ActiveSessionSnapshot? = null
@@ -61,10 +80,13 @@ class AuthRepository(private val context: Context) {
     @Volatile
     private var migrationExecuted = false
 
+    val lineSwitchEvents: SharedFlow<ServerLineSwitchEvent> = lineSwitchEventsFlow.asSharedFlow()
+
     init {
         observeActiveSession()
             .onEach { cachedSnapshot = it }
             .launchIn(scope)
+        startAutoRouting()
     }
 
     companion object {
@@ -78,19 +100,11 @@ class AuthRepository(private val context: Context) {
         private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
         private const val PRIMARY_LINE_ID = "primary"
         private const val LINE_PROBE_TIMEOUT_MS = 4_000L
+        private const val NETWORK_ROUTE_DEBOUNCE_MS = 1_000L
+        private const val FAILOVER_COOLDOWN_MS = 15_000L
         private const val LINE_NAME_LAN = "LAN"
         private const val LINE_NAME_WAN = "WAN"
         private const val LINE_NAME_PRIMARY = "Primary"
-        private fun isLanHost(host: String): Boolean {
-            val value = host.trim().lowercase()
-            if (value == "localhost" || value.endsWith(".local") || value.endsWith(".lan")) return true
-            if (value.startsWith("192.168.") || value.startsWith("10.")) return true
-            if (value.startsWith("172.")) {
-                val second = value.split('.').getOrNull(1)?.toIntOrNull() ?: return false
-                return second in 16..31
-            }
-            return false
-        }
     }
 
     @Serializable
@@ -102,10 +116,7 @@ class AuthRepository(private val context: Context) {
         @SerialName("url")
         val url: String
     ) {
-        fun isLan(): Boolean {
-            val host = runCatching { android.net.Uri.parse(url).host }.getOrNull().orEmpty()
-            return isLanHost(host)
-        }
+        fun isLan(): Boolean = isLanHost(hostFromUrl(url))
     }
 
     @Serializable
@@ -135,7 +146,9 @@ class AuthRepository(private val context: Context) {
         @SerialName("note")
         val note: String? = null,
         @SerialName("preferStrmOriginalPath")
-        val preferStrmOriginalPath: Boolean = false
+        val preferStrmOriginalPath: Boolean = false,
+        @SerialName("autoRouteEnabled")
+        val autoRouteEnabled: Boolean = true
     ) {
         fun resolvedLines(): List<ServerLine> {
             if (lines.isNotEmpty()) {
@@ -197,7 +210,9 @@ class AuthRepository(private val context: Context) {
         @SerialName("note")
         val note: String? = null,
         @SerialName("preferStrmOriginalPath")
-        val preferStrmOriginalPath: Boolean = false
+        val preferStrmOriginalPath: Boolean = false,
+        @SerialName("autoRouteEnabled")
+        val autoRouteEnabled: Boolean = true
     )
 
     data class ActiveSessionSnapshot(
@@ -325,7 +340,8 @@ class AuthRepository(private val context: Context) {
             activeLineId = existingSavedServer?.activeLineId,
             serverInstanceId = existingSavedServer?.serverInstanceId,
             note = existingSavedServer?.note,
-            preferStrmOriginalPath = existingSavedServer?.preferStrmOriginalPath == true
+            preferStrmOriginalPath = existingSavedServer?.preferStrmOriginalPath == true,
+            autoRouteEnabled = existingSavedServer?.autoRouteEnabled != false
         )
     }
 
@@ -471,7 +487,20 @@ class AuthRepository(private val context: Context) {
                     switchedServer.userId.isNotBlank()
             }
 
-            Result.success(switchedServer)
+            val routedServer = if (
+                switchedServer.autoRouteEnabled &&
+                switchedServer.resolvedLines().size > 1
+            ) {
+                autoRouteServer(
+                    serverId = switchedServer.id,
+                    access = NetworkModule.currentNetworkAccess(context),
+                    reason = ServerLineSwitchReason.NETWORK,
+                    notify = true
+                ).getOrDefault(switchedServer)
+            } else {
+                switchedServer
+            }
+            Result.success(routedServer)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -578,7 +607,9 @@ class AuthRepository(private val context: Context) {
 
     suspend fun switchServerLine(
         serverId: String,
-        lineId: String
+        lineId: String,
+        force: Boolean = false,
+        probe: Boolean = true
     ): Result<SavedServer> {
         if (serverId.isBlank()) {
             return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
@@ -598,14 +629,22 @@ class AuthRepository(private val context: Context) {
             }
             val line = target.resolvedLines().firstOrNull { it.id == lineId }
                 ?: return Result.failure(Exception(string(R.string.auth_error_server_line_not_found)))
-            probeServerEndpoint(line.url).getOrElse { error ->
-                return Result.failure(error)
+            val alreadyActive = target.activeLine()?.id == line.id &&
+                sameServerUrl(target.serverUrl, line.url)
+            if (alreadyActive && (!force || !target.autoRouteEnabled)) {
+                return Result.success(target)
+            }
+            if (!alreadyActive && probe) {
+                probeServerEndpoint(line.url).getOrElse { error ->
+                    return Result.failure(error)
+                }
             }
             val updated = target.copy(
                 serverUrl = canonicalServerUrl(line.url),
                 lines = target.resolvedLines(),
                 activeLineId = line.id,
-                lastUsedAt = System.currentTimeMillis()
+                autoRouteEnabled = if (force) false else target.autoRouteEnabled,
+                lastUsedAt = if (force) System.currentTimeMillis() else target.lastUsedAt
             )
             persistSavedServer(updated, activate = target.id == currentServerId(preferences) ||
                 preferences[ACTIVE_SERVER_ID_KEY] == target.id)
@@ -658,38 +697,40 @@ class AuthRepository(private val context: Context) {
     }
 
     suspend fun autoSelectServerLine(serverId: String): Result<SavedServer> {
+        return autoRouteServer(
+            serverId = serverId,
+            access = NetworkModule.currentNetworkAccess(context),
+            reason = ServerLineSwitchReason.NETWORK,
+            notify = false
+        )
+    }
+
+    suspend fun setAutoRouteEnabled(serverId: String, enabled: Boolean): Result<SavedServer> {
         if (serverId.isBlank()) {
             return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
         }
-
         return try {
             legacyStorageMigrated()
             val preferences = dataStore.data.first()
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
             val target = existingServers.firstOrNull { it.id == serverId }
                 ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
-            val lines = target.resolvedLines()
-            if (lines.isEmpty()) {
-                return Result.failure(Exception(string(R.string.auth_error_server_line_not_found)))
+            val updated = target.copy(autoRouteEnabled = enabled)
+            persistSavedServer(
+                updated,
+                activate = target.id == currentServerId(preferences) ||
+                    preferences[ACTIVE_SERVER_ID_KEY] == target.id
+            )
+            if (enabled) {
+                autoRouteServer(
+                    serverId = serverId,
+                    access = NetworkModule.currentNetworkAccess(context),
+                    reason = ServerLineSwitchReason.NETWORK,
+                    notify = true
+                )
+            } else {
+                Result.success(updated)
             }
-
-            val reachable = coroutineScope {
-                lines.map { line ->
-                    async {
-                        val startedAt = System.nanoTime()
-                        val ok = withTimeoutOrNull(LINE_PROBE_TIMEOUT_MS) {
-                            probeServerEndpoint(line.url).isSuccess
-                        } == true
-                        Triple(line, ok, System.nanoTime() - startedAt)
-                    }
-                }.awaitAll()
-            }
-                .filter { it.second }
-                .sortedBy { it.third }
-
-            val selected = reachable.firstOrNull()?.first
-                ?: return Result.failure(Exception(string(R.string.auth_error_server_line_none_reachable)))
-            switchServerLine(serverId, selected.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -1163,7 +1204,8 @@ class AuthRepository(private val context: Context) {
             activeLineId = activeLineId,
             serverInstanceId = serverInstanceId,
             note = note,
-            preferStrmOriginalPath = preferStrmOriginalPath
+            preferStrmOriginalPath = preferStrmOriginalPath,
+            autoRouteEnabled = autoRouteEnabled
         )
     }
 
@@ -1228,7 +1270,8 @@ class AuthRepository(private val context: Context) {
             activeLineId = active.id,
             serverInstanceId = instanceId ?: matched?.serverInstanceId,
             note = note?.trim()?.takeIf { it.isNotBlank() } ?: matched?.note,
-            preferStrmOriginalPath = matched?.preferStrmOriginalPath == true
+            preferStrmOriginalPath = matched?.preferStrmOriginalPath == true,
+            autoRouteEnabled = matched?.autoRouteEnabled != false
         )
     }
 
@@ -1294,7 +1337,7 @@ class AuthRepository(private val context: Context) {
     }
 
     private fun defaultLineName(url: String, index: Int): String {
-        val host = runCatching { android.net.Uri.parse(url).host }.getOrNull().orEmpty()
+        val host = hostFromUrl(url)
         return when {
             isLanHost(host) -> LINE_NAME_LAN
             host.isNotBlank() -> LINE_NAME_WAN
@@ -1302,6 +1345,147 @@ class AuthRepository(private val context: Context) {
         }
     }
 
+    private fun startAutoRouting() {
+        NetworkModule.setLineFailureReporter { requestUrl ->
+            scope.launch {
+                failoverOnLineFailure(requestUrl)
+            }
+        }
+        NetworkModule.observeNetworkAccess(context)
+            .distinctUntilChanged()
+            .debounce(NETWORK_ROUTE_DEBOUNCE_MS)
+            .onEach { access ->
+                if (access == NetworkAccess.OFFLINE) return@onEach
+                autoRouteEligibleServers(access)
+            }
+            .launchIn(scope)
+    }
+
+    private suspend fun autoRouteEligibleServers(access: NetworkAccess) {
+        legacyStorageMigrated()
+        val preferences = dataStore.data.first()
+        val servers = savedServers(preferences[SAVED_SERVERS_KEY]).filter { server ->
+            server.autoRouteEnabled && server.resolvedLines().size > 1
+        }
+        servers.forEach { server ->
+            autoRouteServer(
+                serverId = server.id,
+                access = access,
+                reason = ServerLineSwitchReason.NETWORK,
+                notify = true
+            )
+        }
+    }
+
+    private suspend fun autoRouteServer(
+        serverId: String,
+        access: NetworkAccess,
+        reason: ServerLineSwitchReason,
+        notify: Boolean,
+        excludeLineId: String? = null
+    ): Result<SavedServer> {
+        if (serverId.isBlank()) {
+            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
+        }
+        if (access == NetworkAccess.OFFLINE) {
+            return Result.failure(Exception(string(R.string.auth_error_cannot_reach_server)))
+        }
+
+        return try {
+            lineRoutingMutex.withLock {
+                legacyStorageMigrated()
+                val preferences = dataStore.data.first()
+                val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
+                val target = existingServers.firstOrNull { it.id == serverId }
+                    ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
+                val lines = target.resolvedLines()
+                if (lines.isEmpty()) {
+                    return Result.failure(Exception(string(R.string.auth_error_server_line_not_found)))
+                }
+                val candidates = if (excludeLineId.isNullOrBlank()) {
+                    lines
+                } else {
+                    lines.filterNot { it.id == excludeLineId }
+                }
+                if (candidates.isEmpty()) {
+                    return Result.failure(Exception(string(R.string.auth_error_server_line_none_reachable)))
+                }
+
+                val reachableIds = probeReachableLineIds(candidates)
+                val selected = pickPreferredReachableLine(
+                    lines = candidates.map { line ->
+                        RoutableLine(id = line.id, isLan = line.isLan())
+                    },
+                    reachableIds = reachableIds,
+                    preferLan = preferLan(access),
+                    currentId = target.activeLine()?.id
+                ) ?: return Result.failure(Exception(string(R.string.auth_error_server_line_none_reachable)))
+
+                val currentId = target.activeLine()?.id
+                if (selected.id == currentId && sameServerUrl(target.serverUrl, candidates.first { it.id == selected.id }.url)) {
+                    return Result.success(target)
+                }
+
+                val switched = switchServerLine(
+                    serverId = serverId,
+                    lineId = selected.id,
+                    force = false,
+                    probe = false
+                )
+                if (notify && switched.isSuccess) {
+                    val line = candidates.first { it.id == selected.id }
+                    lineSwitchEventsFlow.tryEmit(
+                        ServerLineSwitchEvent(
+                            serverId = serverId,
+                            customName = line.name.trim(),
+                            isLan = line.isLan(),
+                            reason = reason
+                        )
+                    )
+                }
+                switched
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun failoverOnLineFailure(requestUrl: String) {
+        val snapshot = getActiveSessionSnapshot()
+        val target = snapshot.savedServers.firstOrNull { server ->
+            server.autoRouteEnabled &&
+                server.resolvedLines().size > 1 &&
+                requestMatchesServerUrl(requestUrl, server.serverUrl)
+        } ?: return
+
+        val now = System.currentTimeMillis()
+        val lastFailoverAt = lastFailoverAtByServer[target.id] ?: 0L
+        if (now - lastFailoverAt < FAILOVER_COOLDOWN_MS) return
+        lastFailoverAtByServer[target.id] = now
+
+        autoRouteServer(
+            serverId = target.id,
+            access = NetworkModule.currentNetworkAccess(context),
+            reason = ServerLineSwitchReason.FAILOVER,
+            notify = true,
+            excludeLineId = target.activeLine()?.id
+        )
+    }
+
+    private suspend fun probeReachableLineIds(lines: List<ServerLine>): Set<String> {
+        return NetworkModule.withoutLineFailover {
+            coroutineScope {
+                lines.map { line ->
+                    async {
+                        val ok = withTimeoutOrNull(LINE_PROBE_TIMEOUT_MS) {
+                            probeServerEndpoint(line.url).isSuccess
+                        } == true
+                        line.id.takeIf { ok }
+                    }
+                }.awaitAll()
+            }.filterNotNull().toSet()
+        }
+    }
 
     private suspend fun probeServerEndpoint(serverUrl: String): Result<ServerEndpoint> {
         val current = networkPreferences.getTimeoutConfig()
@@ -1310,19 +1494,21 @@ class AuthRepository(private val context: Context) {
             connectionTimeoutMs = minOf(current.connectionTimeoutMs, 3_000),
             socketTimeoutMs = minOf(current.socketTimeoutMs, 4_000)
         )
-        return NetworkModule.serverEndpoint(
-            context = context,
-            serverUrl = serverUrl,
-            storageDir = context.filesDir,
-            timeoutConfig = probeTimeout
-        ).fold(
-            onSuccess = { Result.success(it) },
-            onFailure = { error ->
-                Result.failure(
-                    Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved))
-                )
-            }
-        )
+        return NetworkModule.withoutLineFailover {
+            NetworkModule.serverEndpoint(
+                context = context,
+                serverUrl = serverUrl,
+                storageDir = context.filesDir,
+                timeoutConfig = probeTimeout
+            ).fold(
+                onSuccess = { Result.success(it) },
+                onFailure = { error ->
+                    Result.failure(
+                        Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved))
+                    )
+                }
+            )
+        }
     }
 
 
