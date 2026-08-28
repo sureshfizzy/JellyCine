@@ -1,18 +1,26 @@
 package com.jellycine.shared.ui.components.screentime
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -40,24 +48,59 @@ private data class ChartBucket(val label: String, val minutes: Long)
 @Composable
 fun DailyBreakdownChart(
     dailyData: List<DailyWatchTime>,
+    selectedIndex: Int? = null,
+    onBucketClick: ((bucketIndex: Int) -> Unit)? = null,
+    onClearSelection: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
     val buckets = aggregateBuckets(dailyData)
     val maxMinutes = buckets.maxOfOrNull { it.minutes } ?: 1L
 
+    val barStartX = remember { mutableFloatStateOf(0f) }
+    val barWidthPx = remember { mutableFloatStateOf(0f) }
+    val barSpacingPx = remember { mutableFloatStateOf(0f) }
+    val barCountState = remember { mutableIntStateOf(0) }
+
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.screen_time_daily_breakdown),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.screen_time_daily_breakdown),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            if (selectedIndex != null && onClearSelection != null) {
+                Text(
+                    text = "✕",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.clickable { onClearSelection() }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
 
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
+                .then(
+                    if (onBucketClick != null) Modifier.pointerInput(buckets.size) {
+                        detectTapGestures { offset ->
+                            val count = barCountState.intValue
+                            if (count == 0) return@detectTapGestures
+                            val bw = barWidthPx.floatValue
+                            val bs = barSpacingPx.floatValue
+                            val sx = barStartX.floatValue
+                            val tappedIndex = ((offset.x - sx) / (bw + bs)).toInt()
+                            if (tappedIndex in 0 until count) onBucketClick(tappedIndex)
+                        }
+                    } else Modifier
+                )
         ) {
             val barCount = buckets.size
             if (barCount == 0) return@Canvas
@@ -71,6 +114,11 @@ fun DailyBreakdownChart(
             val totalBarsWidth = barWidth * barCount + totalSpacing
             val startX = (size.width - totalBarsWidth) / 2
 
+            barStartX.floatValue = startX
+            barWidthPx.floatValue = barWidth
+            barSpacingPx.floatValue = barSpacing
+            barCountState.intValue = barCount
+
             buckets.forEachIndexed { index, bucket ->
                 val x = startX + index * (barWidth + barSpacing)
                 val barHeight = if (maxMinutes > 0)
@@ -79,8 +127,10 @@ fun DailyBreakdownChart(
 
                 if (barHeight > 0) {
                     val barY = topLabelHeight + chartHeight - barHeight
+                    val isSelected = selectedIndex == null || selectedIndex == index
+                    val barColor = if (bucket.minutes == maxMinutes) BarColor else BarColorDark
                     drawRoundRect(
-                        color = if (bucket.minutes == maxMinutes) BarColor else BarColorDark,
+                        color = if (isSelected) barColor else barColor.copy(alpha = 0.25f),
                         topLeft = Offset(x, barY),
                         size = Size(barWidth, barHeight),
                         cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
@@ -157,6 +207,9 @@ private fun aggregateBuckets(dailyData: List<DailyWatchTime>): List<ChartBucket>
 @Composable
 fun PeakHoursChart(
     peakHours: List<PeakHourBucket>,
+    selectedIndex: Int? = null,
+    onBucketClick: ((bucketIndex: Int) -> Unit)? = null,
+    onClearSelection: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val maxCount = peakHours.maxOfOrNull { it.count } ?: 1
@@ -165,14 +218,27 @@ fun PeakHoursChart(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(R.string.screen_time_peak_hours),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.screen_time_peak_hours),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            if (selectedIndex != null && onClearSelection != null) {
+                Text(
+                    text = "✕",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.clickable { onClearSelection() }
+                )
+            }
+        }
 
-        peakHours.forEach { bucket ->
+        peakHours.forEachIndexed { index, bucket ->
             val localizedLabel = when (bucket.label) {
                 "Morning" -> stringResource(R.string.screen_time_morning)
                 "Afternoon" -> stringResource(R.string.screen_time_afternoon)
@@ -180,8 +246,11 @@ fun PeakHoursChart(
                 "Night" -> stringResource(R.string.screen_time_night)
                 else -> bucket.label
             }
+            val isActive = selectedIndex == null || selectedIndex == index
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (onBucketClick != null) Modifier.clickable { onBucketClick(index) } else Modifier)
+                    .then(if (!isActive) Modifier.alpha(0.3f) else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
