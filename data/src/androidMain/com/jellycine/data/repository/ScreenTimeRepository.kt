@@ -23,7 +23,8 @@ suspend fun loadScreenTimeItems(
         sortBy = "DatePlayed",
         sortOrder = "Descending",
         filters = "IsPlayed",
-        fields = "SeriesName,SeriesId,IndexNumber,ParentIndexNumber,RunTimeTicks,UserData,DateCreated,ProviderIds"
+        fields = "SeriesName,SeriesId,IndexNumber,ParentIndexNumber,RunTimeTicks,UserData,UserDataLastPlayedDate,DateCreated,ProviderIds",
+        enableUserData = true
     ).getOrNull() ?: return emptyList()
 
     val allItems = result.items.orEmpty()
@@ -135,32 +136,26 @@ private fun resolveItemHour(item: BaseItemDto): Int? {
         ?: parseHour(item.dateCreated)
 }
 
-private fun parseInstant(dateStr: String?): Instant? {
+private fun parseZoned(dateStr: String?): java.time.ZonedDateTime? {
     if (dateStr.isNullOrBlank()) return null
+    val zone = ZoneId.systemDefault()
     return try {
-        Instant.parse(dateStr)
+        Instant.parse(dateStr).atZone(zone)
     } catch (_: Exception) {
         try {
-            DateTimeFormatter.ISO_DATE_TIME.parse(dateStr, Instant::from)
+            java.time.ZonedDateTime.parse(dateStr, DateTimeFormatter.ISO_DATE_TIME)
         } catch (_: Exception) {
             try {
-                val hasTz = dateStr.contains('Z') || dateStr.contains('+') ||
-                    (dateStr.length > 19 && dateStr.substring(19).contains('-'))
-                val withZ = if (!hasTz) "${dateStr}Z" else dateStr
-                Instant.parse(withZ)
-            } catch (_: Exception) {
-                null
-            }
+                java.time.LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(zone)
+            } catch (_: Exception) { null }
         }
     }
 }
 
 private fun parseLocalDate(dateStr: String?): LocalDate? {
-    val instant = parseInstant(dateStr) ?: return null
-    return instant.atZone(ZoneId.systemDefault()).toLocalDate()
+    return parseZoned(dateStr)?.toLocalDate()
 }
 
 private fun parseHour(dateStr: String?): Int? {
-    val instant = parseInstant(dateStr) ?: return null
-    return instant.atZone(ZoneId.systemDefault()).hour
+    return parseZoned(dateStr)?.hour
 }

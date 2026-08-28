@@ -87,7 +87,8 @@ internal class MediaServerApiClient(
         startIndex: Int?,
         filters: String?,
         anyProviderIdEquals: String?,
-        fields: String?
+        fields: String?,
+        enableUserData: Boolean?
     ): ApiResponse<QueryResult<BaseItemDto>> = get(
         endpoint = "Users/$userId/Items",
         queryParameters = listOf(
@@ -103,7 +104,8 @@ internal class MediaServerApiClient(
             "startIndex" to startIndex,
             "filters" to filters,
             "AnyProviderIdEquals" to anyProviderIdEquals,
-            "fields" to fields
+            "fields" to fields,
+            "EnableUserData" to enableUserData
         )
     )
 

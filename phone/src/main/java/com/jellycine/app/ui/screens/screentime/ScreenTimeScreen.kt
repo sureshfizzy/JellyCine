@@ -369,8 +369,8 @@ private fun LoadingShimmer() {
 @Composable
 private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
     val runtime = item.runTimeTicks?.let { it / 600_000_000L } ?: 0L
-    val watchedDate = remember(item.userData?.lastPlayedDate, item.dateCreated) {
-        parseWatchedDate(item.userData?.lastPlayedDate ?: item.dateCreated)
+    val watchedDate = remember(item.userData?.lastPlayedDate) {
+        parseWatchedDate(item.userData?.lastPlayedDate)
     }
 
     var posterUrl by remember(item.id) { mutableStateOf<String?>(null) }
@@ -416,12 +416,28 @@ private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
 
 private val hourRanges = listOf(6..11, 12..17, 18..23, 0..5)
 
-private fun parseZoned(dateStr: String?) = dateStr?.takeIf { it.isNotBlank() }?.let {
-    try { java.time.Instant.parse(it).atZone(java.time.ZoneId.systemDefault()) } catch (_: Exception) { null }
+private fun parseZoned(dateStr: String?): java.time.ZonedDateTime? {
+    if (dateStr.isNullOrBlank()) return null
+    val zone = java.time.ZoneId.systemDefault()
+    return try {
+        java.time.Instant.parse(dateStr).atZone(zone)
+    } catch (_: Exception) {
+        try {
+            java.time.ZonedDateTime.parse(dateStr, DateTimeFormatter.ISO_DATE_TIME)
+        } catch (_: Exception) {
+            try {
+                java.time.LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(zone)
+            } catch (_: Exception) { null }
+        }
+    }
 }
 
-private fun parseWatchedDate(dateStr: String?) =
-    parseZoned(dateStr)?.toLocalDate()?.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))
+private fun parseWatchedDate(dateStr: String?): String? {
+    val zdt = parseZoned(dateStr) ?: return null
+    val date = zdt.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))
+    val time = zdt.format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+    return "$date, $time"
+}
 
 private fun parseItemDate(dateStr: String?) = parseZoned(dateStr)?.toLocalDate()
 

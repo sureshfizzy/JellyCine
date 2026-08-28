@@ -53,7 +53,8 @@ interface MediaServerApi {
         startIndex: Int? = null,
         filters: String? = null,
         anyProviderIdEquals: String? = null,
-        fields: String? = null
+        fields: String? = null,
+        enableUserData: Boolean? = null
     ): ApiResponse<QueryResult<BaseItemDto>>
 
     suspend fun getSuggestions(
