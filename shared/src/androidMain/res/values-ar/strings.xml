@@ -147,7 +147,7 @@
         <item quantity="one">مكتبة %d متوفرة</item>
         <item quantity="two">%d المكتبات المتاحة</item>
         <item quantity="few">%d المكتبات المتاحة</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d المكتبات المتاحة</item>
     </plurals>
     <plurals name="my_media_items_count">
@@ -155,7 +155,7 @@
         <item quantity="one">%d عنصر</item>
         <item quantity="two">%d العناصر</item>
         <item quantity="few">%d العناصر</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d العناصر</item>
     </plurals>
     <!-- Player Settings -->
@@ -307,7 +307,7 @@
         <item quantity="one">%d حلقة</item>
         <item quantity="two">%d الحلقات</item>
         <item quantity="few">%d الحلقات</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d الحلقات</item>
     </plurals>
     <!-- Downloads -->
@@ -329,7 +329,7 @@
         <item quantity="one">تنزيل %d</item>
         <item quantity="two">تنزيلات %d</item>
         <item quantity="few">تنزيلات %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">تنزيلات %d</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">مساحة تخزين داخل التطبيق</string>
@@ -366,7 +366,7 @@
         <item quantity="one">تنزيل عنصر %d</item>
         <item quantity="two">تنزيل عناصر %d</item>
         <item quantity="few">تنزيل عناصر %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">تنزيل عناصر %d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
@@ -374,7 +374,7 @@
         <item quantity="one">عنصر %d في قائمة الانتظار</item>
         <item quantity="two">أصناف %d في قائمة الانتظار</item>
         <item quantity="few">أصناف %d في قائمة الانتظار</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">أصناف %d في قائمة الانتظار</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
@@ -382,7 +382,7 @@
         <item quantity="one">عنصر %d تم إيقافه مؤقتًا</item>
         <item quantity="two">عناصر %d متوقفة مؤقتًا</item>
         <item quantity="few">عناصر %d متوقفة مؤقتًا</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">عناصر %d متوقفة مؤقتًا</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
@@ -393,7 +393,7 @@
         <item quantity="one">%d حلقة</item>
         <item quantity="two">%d الحلقات</item>
         <item quantity="few">%d الحلقات</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d الحلقات</item>
     </plurals>
     <plurals name="downloads_group_queued">
@@ -401,7 +401,7 @@
         <item quantity="one">حلقة في قائمة الانتظار %d</item>
         <item quantity="two">حلقات في قائمة الانتظار %d</item>
         <item quantity="few">حلقات في قائمة الانتظار %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">حلقات في قائمة الانتظار %d</item>
     </plurals>
     <plurals name="downloads_group_paused">
@@ -409,7 +409,7 @@
         <item quantity="one">حلقة %d متوقفة مؤقتًا</item>
         <item quantity="two">حلقات %d متوقفة مؤقتًا</item>
         <item quantity="few">حلقات %d متوقفة مؤقتًا</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">حلقات %d متوقفة مؤقتًا</item>
     </plurals>
     <!-- Settings -->
@@ -532,7 +532,7 @@
         <item quantity="one">مستخدم %d</item>
         <item quantity="two">%d المستخدمون</item>
         <item quantity="few">%d المستخدمون</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d المستخدمون</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
@@ -540,7 +540,7 @@
         <item quantity="one">%d مطلوب</item>
         <item quantity="two">%d مطلوب</item>
         <item quantity="few">%d مطلوب</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">%d مطلوب</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
@@ -548,7 +548,7 @@
         <item quantity="one">موسم %d</item>
         <item quantity="two">مواسم %d</item>
         <item quantity="few">مواسم %d</item>
-        <item quantity="many"></item>
+        <item quantity="many"/>
         <item quantity="other">مواسم %d</item>
     </plurals>
     <!-- About -->
@@ -646,4 +646,23 @@
     <string name="detail_person_no_related_titles">لا توجد عناوين ذات صلة متاحة.</string>
     <string name="detail_person_read_more">اقرأ المزيد</string>
     <string name="detail_person_read_less">اقرأ أقل</string>
+    <string name="settings_screen_time">مدة استخدام الشاشة</string>
+    <string name="settings_screen_time_subtitle">عرض نشاط الساعة والإحصائيات</string>
+    <string name="screen_time_back">إلى الخلف</string>
+    <string name="screen_time_total">المجموع</string>
+    <string name="screen_time_daily_average">المتوسط اليومي</string>
+    <string name="screen_time_shows">عروض</string>
+    <string name="screen_time_movies">أفلام</string>
+    <string name="screen_time_period_week">الأسبوع</string>
+    <string name="screen_time_period_month">الشهر</string>
+    <string name="screen_time_period_year">عام</string>
+    <string name="screen_time_daily_breakdown">تفصيل يومي</string>
+    <string name="screen_time_peak_hours">ساعات الذروة</string>
+    <string name="screen_time_previous_year">العام السابق</string>
+    <string name="screen_time_next_year">العام المقبل</string>
+    <string name="screen_time_no_change">بدون تغيير</string>
+    <string name="screen_time_morning">صباح</string>
+    <string name="screen_time_afternoon">بعد الظهر</string>
+    <string name="screen_time_evening">المساء</string>
+    <string name="screen_time_night">ليلة</string>
 </resources>
