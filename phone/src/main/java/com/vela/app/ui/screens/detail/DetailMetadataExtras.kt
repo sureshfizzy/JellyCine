@@ -2,7 +2,10 @@ package com.vela.app.ui.screens.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -422,10 +426,10 @@ internal fun PhotosSection(
     }
 
     previewIndex?.let { index ->
-        val preview = images.getOrNull(index) ?: return@let
         PhotoPreviewDialog(
             itemId = itemId,
-            image = preview,
+            images = images,
+            initialIndex = index,
             mediaRepository = mediaRepository,
             onDismiss = { previewIndex = null }
         )
@@ -443,17 +447,16 @@ private fun PhotoCard(
     val imageUrl = rememberImageUrl(
         itemId = itemId,
         imageType = image.imageType,
-        width = 800,
-        height = null,
+        width = 560,
+        height = 315,
         quality = 80,
         imageTag = image.imageTag,
         mediaRepository = mediaRepository
     )
-    var aspectRatio by remember(image.imageType, image.imageTag) { mutableStateOf(16f / 9f) }
     Box(
         modifier = Modifier
             .width(268.dp)
-            .aspectRatio(aspectRatio)
+            .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF2A2A2A))
             .clickable(onClick = onClick)
@@ -463,11 +466,8 @@ private fun PhotoCard(
                 context = context,
                 imageUrl = imageUrl,
                 contentDescription = stringResource(R.string.detail_photos),
-                modifier = Modifier.fillMaxWidth(),
-                contentScale = ContentScale.FillWidth,
-                onIntrinsicSizeChange = { width, height ->
-                    aspectRatioFromSize(width, height)?.let { aspectRatio = it }
-                }
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
         }
     }
@@ -476,58 +476,90 @@ private fun PhotoCard(
 @Composable
 private fun PhotoPreviewDialog(
     itemId: String,
-    image: DetailAlbumImage,
+    images: List<DetailAlbumImage>,
+    initialIndex: Int,
     mediaRepository: MediaRepository,
     onDismiss: () -> Unit
 ) {
+    if (images.isEmpty()) return
     val context = LocalContext.current
-    val imageUrl = rememberImageUrl(
-        itemId = itemId,
-        imageType = image.imageType,
-        width = 1920,
-        height = null,
-        quality = 95,
-        imageTag = image.imageTag,
-        mediaRepository = mediaRepository
+    val pagerState = rememberPagerState(
+        initialPage = initialIndex.coerceIn(0, images.lastIndex),
+        pageCount = { images.size }
     )
-    var aspectRatio by remember(image.imageType, image.imageTag) { mutableStateOf(16f / 9f) }
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.96f)
-                .clickable(onClick = onDismiss)
+                .fillMaxSize()
+                .background(Color.Black)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(aspectRatio)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.Black)
-            ) {
-                if (!imageUrl.isNullOrBlank()) {
-                    JellyfinPosterImage(
-                        context = context,
-                        imageUrl = imageUrl,
-                        contentDescription = stringResource(R.string.detail_photos),
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.FillWidth,
-                        onIntrinsicSizeChange = { width, height ->
-                            aspectRatioFromSize(width, height)?.let { aspectRatio = it }
-                        }
-                    )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val image = images[page]
+                val imageUrl = rememberImageUrl(
+                    itemId = itemId,
+                    imageType = image.imageType,
+                    width = 1920,
+                    height = null,
+                    quality = 95,
+                    imageTag = image.imageTag,
+                    mediaRepository = mediaRepository
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDismiss
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!imageUrl.isNullOrBlank()) {
+                        JellyfinPosterImage(
+                            context = context,
+                            imageUrl = imageUrl,
+                            contentDescription = stringResource(R.string.detail_photos),
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+            }
+            if (images.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(images.size) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == pagerState.currentPage) 7.dp else 6.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (index == pagerState.currentPage) {
+                                        Color.White
+                                    } else {
+                                        Color.White.copy(alpha = 0.35f)
+                                    }
+                                )
+                        )
+                    }
                 }
             }
         }
     }
-}
-
-private fun aspectRatioFromSize(width: Float, height: Float): Float? {
-    if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) return null
-    val ratio = width / height
-    return ratio.takeIf { it.isFinite() && it > 0f }
 }
 
 private fun albumImages(item: BaseItemDto): List<DetailAlbumImage> {

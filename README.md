@@ -1,184 +1,170 @@
 <p align="center">
-  <img src="phone/src/main/assets/vela_logo.png" alt="Vela" width="200">
+  <img src="docs/icon.png" alt="Vela" width="160">
 </p>
 
 <h1 align="center">Vela</h1>
 
 <p align="center">
-   A Jetpack Compose based client for <strong>Jellyfin</strong> and <strong>Emby</strong> — designed for phone, TV, and beyond.
+  面向 <strong>Jellyfin</strong> 与 <strong>Emby</strong> 的 Jetpack Compose 客户端，覆盖手机、电视，并在继续向更多平台扩展。
 </p>
 
 <p align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.vela.app">
-    <img src="https://img.shields.io/badge/Google_Play-Download-34A853?style=for-the-badge&logo=google-play&logoColor=white" alt="Google Play">
-  </a>
   <a href="https://github.com/ZeroDevi1/Vela/releases">
-    <img src="https://img.shields.io/badge/GitHub-APK_Download-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Releases">
+    <img src="https://img.shields.io/github/v/release/ZeroDevi1/Vela?style=for-the-badge&logo=github&logoColor=white&label=GitHub%20Release" alt="GitHub Release">
   </a>
-</p>
-
-<p align="center">
-  <a href="https://www.buymeacoffee.com/ZeroDevi1">
-    <img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
-  </a>
-  <a href="https://www.patreon.com/c/sureshs/membership">
-    <img src="https://img.shields.io/badge/Patreon-FF424D?style=for-the-badge&logo=patreon&logoColor=white" alt="Patreon">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge" alt="GPLv3">
   </a>
 </p>
 
 ---
 
-## Features
+## 功能
 
-### Playback
+### 播放
 
-- **MPV-based player** with HDR10/HDR10+/Dolby Vision support and HDR format badges
-- Audio passthrough (TrueHD, DTS-HD, Atmos) when supported by device/output
-- Spatial audio passthrough on compatible devices
-- Media3 ExoPlayer fallback when MPV cannot render
-- Jellyfin FFmpeg extension integration for broad codec coverage
-- In-player quality selection, audio transcoding controls, and configurable player cache
-- Gesture controls (seek, volume, brightness), lock mode, and start-maximized preference
-- Skip Intro button when IntroDB/TheIntroDB markers are available
-- Subtitle styling controls with improved track handling
-- Google Cast with inline remote playback controls
+- 以 **MPV** 为主播放器，支持 HDR10 / HDR10+ / Dolby Vision，并显示 HDR 格式标记
+- 设备与输出支持时，可直通 TrueHD、DTS-HD、Atmos
+- 兼容设备上支持空间音频直通
+- MPV 无法渲染时回退到 Media3 ExoPlayer
+- 接入 Jellyfin FFmpeg 扩展，覆盖更多编码
+- 播放内可选画质、音频转码策略，并可配置播放缓存
+- 手势控制（进度、音量、亮度）、锁定模式、启动即最大化
+- 存在 IntroDB / TheIntroDB 标记时可跳过片头
+- 字幕样式与轨道处理
+- Google Cast，以及界面内的远程播放控制
 
-### Discovery
+### 发现
 
-- **In-app Trailers** with autoplay in feature carousel (capped to 720p on phones)
-- Trailers & Extras section on detail screens
-- **For You** personalized recommendations with watched feed
-- Awards category powered by Wikidata
-- Immersive search with suggestions, live results, and categorized output
-- Favorites tab with compact header and view-all navigation
+- 首页焦点轮播支持 **应用内预告片** 自动播放（手机端最高 720p）
+- 详情页提供预告片与花絮
+- **为你推荐** 个性化推荐，以及已观看动态
+- 基于 Wikidata 的奖项分类
+- 沉浸式搜索：联想、实时结果、分类展示
+- 收藏页，支持紧凑页头与查看全部
 
-### Seerr Integration
+### Seerr
 
-- Discovery, search, recommendations, and detail pages
-- Request badges, request limits, and title requests
-- Trailer support for Seerr detail items
+- 发现、搜索、推荐与详情
+- 请求标记、请求额度与标题请求
+- Seerr 详情页支持预告片
 
-### Downloads
+### 下载
 
-- Offline downloads with queue, pause/resume/cancel, and persistent state recovery
-- **Transcoded download support** with quality picker
-- Audio track selection in download quality picker
-- Season and series download with storage estimation
-- Offline-aware navigation — falls back to downloaded content when network is unavailable
+- 离线下载：队列、暂停 / 继续 / 取消，以及持久化恢复
+- **转码下载**，带画质选择
+- 下载画质选择器中可选音轨
+- 季与剧集批量下载，并估算占用空间
+- 网络不可用时，导航会回退到已下载内容
 
-### TV
+### 电视
 
-- Redesigned TV UI with D-pad navigation and remote control support
-- Cinematic full-bleed detail screen overlay
-- Immersive backdrop for suggestions
-- Keyboard overlay search with carousel results
-- Feature hero card with card expand and backdrop crossfade
+- 面向电视重做的界面，支持方向键与遥控器
+- 电影感全幅详情页叠层
+- 推荐区域沉浸式背景
+- 键盘叠层搜索，结果以轮播呈现
+- 焦点英雄卡片可展开，背景交叉淡入淡出
 
-### Multi-Server & Connections
+### 多服务器与连接
 
-- Jellyfin and Emby support with automatic endpoint resolution
-- Merge-version support with local version selection (no server-side changes required)
-- **Discord Rich Presence** via official Social SDK with connection management
-- **Admin Panel** with live server info, sessions, and activity log
+- 同时支持 Jellyfin 与 Emby，并自动解析访问地址
+- 合并版本：在本地选择版本，无需改服务器
+- **Discord Rich Presence**（官方 Social SDK）及连接管理
+- **管理面板**：实时服务器信息、会话与活动日志
 
-### Platforms
+### 平台
 
-| Platform | Status |
-|----------|--------|
-| Android Phone | Stable |
-| Android TV | Stable |
-| iOS | In Development |
-
----
-
-## Screenshots
-
-<div align="center">
-  <img src="docs/screenshots/home.jpg" alt="Home" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/details.jpg" alt="Details" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/search-immersive.jpg" alt="Search" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-</div>
-
-<div align="center">
-  <img src="docs/screenshots/viewall.jpg" alt="View All" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/settings.jpg" alt="Settings" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-  <img src="docs/screenshots/searchscreen.jpg" alt="Search Results" width="30%" style="max-width:200px;min-width:100px;margin:5px" />
-</div>
+| 平台 | 状态 |
+|------|------|
+| Android 手机 | 稳定 |
+| Android 电视 | 稳定 |
+| iOS | 开发中 |
 
 ---
 
-## Tech Stack
+## 截图
 
-| Layer | Technology |
-|-------|-----------|
-| Language | Kotlin 2.3, Coroutines, Flow |
+| 首页 | 详情 | 搜索 |
+|:---:|:---:|:---:|
+| ![首页](docs/screenshots/phone-home.jpg) | ![详情](docs/screenshots/phone-details.jpg) | ![搜索](docs/screenshots/phone-search.jpg) |
+
+| 媒体库 | 设置 | 搜索结果 |
+|:---:|:---:|:---:|
+| ![媒体库](docs/screenshots/phone-library.jpg) | ![设置](docs/screenshots/phone-settings.jpg) | ![搜索结果](docs/screenshots/phone-search-results.jpg) |
+
+---
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 语言 | Kotlin 2.3、Coroutines、Flow |
 | UI | Jetpack Compose + Material 3 |
-| DI | Hilt + KSP |
-| Networking | Ktor Client + OkHttp 5 |
-| Images | Coil 3 |
-| Player | MPV (primary), Media3 ExoPlayer (fallback) |
-| Multiplatform | Kotlin Multiplatform (Android + iOS) |
+| 依赖注入 | Hilt + KSP |
+| 网络 | Ktor Client + OkHttp 5 |
+| 图片 | Coil 3 |
+| 播放器 | MPV（主）、Media3 ExoPlayer（回退） |
+| 多平台 | Kotlin Multiplatform（Android + iOS） |
 
-## Project Structure
+## 目录结构
 
 ```
-phone/   — Phone app module (Compose UI, navigation, player, settings)
-tv/      — TV app module (leanback/DPAD, sidebar rail, TV-specific flows)
-data/    — APIs, repositories, models; multiplatform networking
-core/    — Shared player, preferences, and utilities
-shared/  — Shared UI components and image infrastructure
+phone/    手机端（Compose 界面、导航、播放器、设置）
+tv/       电视端（DPAD、侧栏、电视流程）
+data/     API、仓库、模型；多平台网络层
+core/     共享播放器、偏好设置与工具
+shared/   共享 UI 组件与图片基础设施
+iosApp/   iOS 壳工程（开发中）
 ```
+
+品牌资源在 [`branding/vela/`](branding/vela/)，README 使用的图标来自该目录的重绘成品。
 
 ---
 
-## Getting Started
+## 开始使用
 
-### Prerequisites
+### 环境
 
-- Android Studio (latest stable)
+- Android Studio（建议最新稳定版）
 - JDK 17
-- Android SDK API 36
+- Android SDK（`compileSdk` 37，`targetSdk` 36，`minSdk` 27）
 
-### Build
+### 构建
 
 ```bash
-# Phone
+# 手机
 ./gradlew :phone:assembleDebug
 
-# TV
+# 电视
 ./gradlew :tv:assembleDebug
 ```
 
-APK naming: `vela-{debug|release}-<version>.apk`
+本地签名安装（需已连接设备）：
+
+```bash
+./scripts/install-release.sh
+```
+
+APK 命名：`vela-{phone|tv}-{debug|release}-<version>[-<abi>].apk`
+
+预编译包见 [GitHub Releases](https://github.com/ZeroDevi1/Vela/releases)。
 
 ---
 
-## Translating
+## 参与贡献
 
-<a href="https://weblate.vela.org/engage/vela/">
-<img src="https://weblate.vela.org/widget/vela/multi-auto.svg" alt="Translation status" />
-</a>
-
-Help translate Vela into your language on [Weblate](https://weblate.vela.org/engage/vela/).
+欢迎提交 Issue 与 Pull Request。较大的功能建议先开 Issue，对齐范围后再动手。
 
 ---
 
-## Contributing
+## 隐私
 
-Issues and pull requests are welcome. For large feature work, open an issue first to align on scope.
+隐私说明见 [PRIVACY](PRIVACY)。
 
-For community discussions and support, see [Discussions](https://github.com/ZeroDevi1/Vela/discussions).
+## 起源与致谢
 
----
+本仓库在 [JellyCine](https://github.com/sureshfizzy/JellyCine) 的基础上继续修改与开发，原作者为 [sureshfizzy](https://github.com/sureshfizzy)。感谢原项目作者与各位贡献者打下的基础。
 
-## Privacy
+## 许可证
 
-See [PRIVACY](PRIVACY) for the current privacy policy.
-
-## Origin and Acknowledgements
-
-Vela is based on the original [JellyCine](https://github.com/sureshfizzy/JellyCine) project by [sureshfizzy](https://github.com/sureshfizzy). We are grateful to the original author and contributors for the foundation on which this project continues to develop.
-
-## License
-
-This project is licensed under the [GNU General Public License v3.0](LICENSE).
+本项目采用 [GNU General Public License v3.0](LICENSE)。
