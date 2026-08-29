@@ -525,10 +525,22 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    private fun BaseItemDto.mergeVersionKey(): String {
+        val tmdb = providerIds?.entries
+            ?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value
+        val imdb = providerIds?.entries
+            ?.firstOrNull { it.key.equals("Imdb", ignoreCase = true) }?.value
+        return when {
+            !tmdb.isNullOrBlank() -> "tmdb:${type.orEmpty()}:$tmdb"
+            !imdb.isNullOrBlank() -> "imdb:${type.orEmpty()}:$imdb"
+            else -> id ?: name?.lowercase()?.trim() ?: hashCode().toString()
+        }
+    }
+
     suspend fun getSimilarItems(
         itemId: String,
         limit: Int = 12,
-        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData"
+        fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData,ProviderIds"
     ): Result<List<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
@@ -543,7 +555,11 @@ class MediaRepository(private val context: Context) {
 
             if (response.isSuccessful && response.body() != null) {
                 val queryResult = response.body()!!
-                Result.success(queryResult.items.orEmpty().filter { it.id != itemId })
+                Result.success(
+                    queryResult.items.orEmpty()
+                        .filter { it.id != itemId }
+                        .distinctBy { it.mergeVersionKey() }
+                )
             } else {
                 Result.failure(Exception(string(R.string.media_error_fetch_similar_items_failed, response.code(), response.message())))
             }
@@ -681,12 +697,12 @@ class MediaRepository(private val context: Context) {
             sortBy = "SortName",
             sortOrder = "Ascending",
             limit = limit,
-            fields = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData"
+            fields = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,ProviderIds"
         ).map { result ->
             result.items
                 .orEmpty()
                 .filter { it.id != null && !it.name.isNullOrBlank() }
-                .distinctBy { it.id }
+                .distinctBy { it.mergeVersionKey() }
         }
     }
 
@@ -1938,7 +1954,7 @@ class MediaRepository(private val context: Context) {
                 includeItemTypes = includeItemTypes,
                 recursive = true,
                 limit = limit,
-                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,ProviderIds"
             )
 
             // If searchTerm doesn't work, try nameStartsWith
@@ -1949,13 +1965,13 @@ class MediaRepository(private val context: Context) {
                     includeItemTypes = includeItemTypes,
                     recursive = true,
                     limit = limit,
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
+                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,ProviderIds"
                 )
             }
 
             if (response.isSuccessful && response.body() != null) {
                 val queryResult = response.body()!!
-                val items = queryResult.items ?: emptyList()
+                val items = (queryResult.items ?: emptyList()).distinctBy { it.mergeVersionKey() }
                 Result.success(items)
             } else {
                 Result.failure(Exception(string(R.string.media_error_search_items_failed, response.code(), response.message())))
@@ -1992,7 +2008,7 @@ class MediaRepository(private val context: Context) {
         val items = results
             .filterNotNull()
             .flatten()
-            .distinctBy { item -> item.id ?: "${item.type}:${item.name}" }
+            .distinctBy { item -> item.mergeVersionKey() }
 
         if (items.isEmpty() && results.all { it == null }) {
             Result.failure(Exception(string(R.string.media_error_search_items_failed, 0, "Search timed out")))

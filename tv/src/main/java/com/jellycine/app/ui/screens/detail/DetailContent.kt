@@ -841,6 +841,16 @@ fun DetailContent(
                         contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        if (isEpisode && !item.people.isNullOrEmpty()) {
+                            item(key = "episode_cast") {
+                                BoxSetCastRow(
+                                    people = item.people!!.filter { !it.name.isNullOrBlank() },
+                                    mediaRepository = mediaRepository,
+                                    onPersonClick = onPersonClick
+                                )
+                            }
+                        }
+
                         if (isEpisode && moreFromSeasonEpisodes.isNotEmpty()) {
                             item(key = "more_from_season") {
                                 MoreFromSeasonSection(
@@ -874,7 +884,7 @@ fun DetailContent(
                             }
                         }
 
-                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet") {
+                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet" && item.type != "Series" && !isEpisode) {
                             item(key = "cast") {
                                 BoxSetCastRow(
                                     people = item.people!!.filter { !it.name.isNullOrBlank() },

@@ -229,7 +229,7 @@ fun AppNavigation() {
                     },
                     onNavigateToDetail = { item ->
                         item.id?.let { itemId ->
-                            navController.navigate("detail/$itemId")
+                            navController.navigate("detail/$itemId?mergeVersions=true")
                         }
                     },
                     onNavigateToMergedDetail = { item ->
@@ -299,7 +299,7 @@ fun AppNavigation() {
                         forceMergeVersions = forceMergeVersions,
                         onNavigateToDetail = { selectedItemId ->
                             if (selectedItemId != itemId) {
-                                navController.navigate("detail/$selectedItemId")
+                                navController.navigate("detail/$selectedItemId?mergeVersions=true")
                             }
                         },
                         onNavigateToPerson = { personId ->
@@ -331,7 +331,7 @@ fun AppNavigation() {
                         itemId = episodeId,
                         onNavigateToDetail = { selectedItemId ->
                             if (selectedItemId != episodeId) {
-                                navController.navigate("detail/$selectedItemId")
+                                navController.navigate("detail/$selectedItemId?mergeVersions=true")
                             }
                         },
                         onNavigateToPerson = { personId ->
@@ -365,7 +365,7 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
                         onItemClick = { selectedItemId ->
-                            navController.navigate("detail/$selectedItemId")
+                            navController.navigate("detail/$selectedItemId?mergeVersions=true")
                         }
                     )
                 } else {

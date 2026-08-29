@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -192,30 +193,37 @@ private fun SimilarTitleCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
-            fontSize = 12.sp,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 14.sp
-        )
-
-        val subtitle = item.productionYear?.toString()
-            ?: item.type?.takeIf { it.isNotBlank() }
-
-        if (!subtitle.isNullOrBlank()) {
+        Column(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                text = subtitle,
-                fontSize = 10.sp,
-                color = Color.White.copy(alpha = 0.62f),
+                text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 1.dp)
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
+
+            val subtitle = item.productionYear?.toString()
+                ?: item.type?.takeIf { it.isNotBlank() }
+
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -301,34 +309,41 @@ private fun SeerrRecommendationCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = item.title,
-            fontSize = 12.sp,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 14.sp
-        )
-
-        val mediaTypeLabel = when {
-            item.mediaType.equals("movie", ignoreCase = true) -> stringResource(R.string.suggestions_type_movie)
-            item.mediaType.equals("tv", ignoreCase = true) -> stringResource(R.string.suggestions_type_tv_series)
-            else -> item.mediaType
-        }
-        val subtitle = item.productionYear?.toString() ?: mediaTypeLabel
-
-        if (subtitle.isNotBlank()) {
+        Column(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                text = subtitle,
-                fontSize = 10.sp,
-                color = Color.White.copy(alpha = 0.62f),
+                text = item.title,
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 1.dp)
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
+
+            val mediaTypeLabel = when {
+                item.mediaType.equals("movie", ignoreCase = true) -> stringResource(R.string.suggestions_type_movie)
+                item.mediaType.equals("tv", ignoreCase = true) -> stringResource(R.string.suggestions_type_tv_series)
+                else -> item.mediaType
+            }
+            val subtitle = item.productionYear?.toString() ?: mediaTypeLabel
+
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    color = Color.White.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

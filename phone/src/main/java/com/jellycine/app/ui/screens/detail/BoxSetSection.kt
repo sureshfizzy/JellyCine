@@ -260,13 +260,14 @@ internal fun BoxSetCastRow(
     modifier: Modifier = Modifier
 ) {
     if (people.isEmpty()) return
+    val uniquePeople = remember(people) { people.distinctBy { it.id ?: it.name.orEmpty() } }
 
     LazyRow(
         modifier = modifier.padding(top = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(end = 16.dp)
     ) {
-        items(people.take(20), key = { it.id ?: it.name.orEmpty() }) { person ->
+        items(uniquePeople.take(20), key = { it.id ?: it.name.orEmpty() }) { person ->
             var imageUrl by remember(person.id) { mutableStateOf<String?>(null) }
             LaunchedEffect(person.id) {
                 val personId = person.id ?: return@LaunchedEffect

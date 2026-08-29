@@ -469,7 +469,13 @@ internal fun seerrDirectorItemsState(
                     val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull()
                         ?: return@launch
                     val localItemId = localItem.id ?: return@launch
-                    if (directorTitles.any { it.id == localItemId }) {
+                    val localTmdb = localItem.providerIds?.entries
+                        ?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value
+                    if (directorTitles.any { existing ->
+                        existing.id == localItemId ||
+                        (!localTmdb.isNullOrBlank() && existing.providerIds?.entries
+                            ?.firstOrNull { it.key.equals("Tmdb", ignoreCase = true) }?.value == localTmdb)
+                    }) {
                         seerrDirectorTitles =
                             seerrDirectorTitles.filterNot { it.tmdbId == seerrTitle.tmdbId }
                         return@launch

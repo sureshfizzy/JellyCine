@@ -1182,6 +1182,14 @@ fun DetailContent(
                             )
                         }
 
+                        if ((item.type == "Series" || isEpisode) && !item.people.isNullOrEmpty()) {
+                            BoxSetCastRow(
+                                people = item.people!!.filter { !it.name.isNullOrBlank() },
+                                mediaRepository = mediaRepository,
+                                onPersonClick = onPersonClick
+                            )
+                        }
+
                         if (isEpisode) {
                             MoreFromSeasonSection(
                                 episodes = moreFromSeasonEpisodes,
@@ -1308,7 +1316,7 @@ fun DetailContent(
                             }
                         }
 
-                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet") {
+                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet" && item.type != "Series" && !isEpisode) {
                             BoxSetCastRow(
                                 people = item.people!!.filter { !it.name.isNullOrBlank() },
                                 mediaRepository = mediaRepository,

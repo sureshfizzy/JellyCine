@@ -165,7 +165,7 @@ fun DashboardContainer(
                     exitTransition = { dashboardExitTransition() }
                 ) {
                     SearchContainer(
-                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToDetail = onNavigateToMergedDetail,
                         onCancel = { navigateToDestination(DashboardDestination.Home) }
                     )
                 }

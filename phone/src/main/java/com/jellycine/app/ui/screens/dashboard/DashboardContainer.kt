@@ -531,7 +531,7 @@ fun DashboardContainer(
                 ) {
                     ContentWrapper {
                         SearchContainer(
-                            onNavigateToDetail = onNavigateToDetail,
+                            onNavigateToDetail = onNavigateToMergedDetail,
                             onCancel = {
                                 navigateToDestination(DashboardDestination.Home)
                             }
