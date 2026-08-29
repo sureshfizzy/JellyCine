@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.detail
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,9 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,14 +41,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecUtils
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.util.image.primaryImageTagOrNull
 import kotlinx.coroutines.flow.first
 
 @Composable
@@ -233,6 +240,78 @@ private fun BoxSetMovieCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun BoxSetCastRow(
+    people: List<BaseItemPerson>,
+    mediaRepository: MediaRepository,
+    onPersonClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (people.isEmpty()) return
+
+    LazyRow(
+        modifier = modifier.padding(top = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(end = 48.dp)
+    ) {
+        items(people.take(20), key = { it.id ?: it.name.orEmpty() }) { person ->
+            var imageUrl by remember(person.id) { mutableStateOf<String?>(null) }
+            LaunchedEffect(person.id) {
+                val personId = person.id ?: return@LaunchedEffect
+                imageUrl = mediaRepository.getImageUrl(
+                    itemId = personId,
+                    imageType = "Primary",
+                    width = 160,
+                    height = 160,
+                    quality = 85,
+                    imageTag = person.primaryImageTagOrNull()
+                ).first()
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(72.dp)
+                    .clickable { person.id?.let(onPersonClick) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2A2A2A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUrl != null) {
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = person.name,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = person.name ?: "",
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 13.sp,
+                    modifier = Modifier.padding(top = 5.dp)
+                )
             }
         }
     }

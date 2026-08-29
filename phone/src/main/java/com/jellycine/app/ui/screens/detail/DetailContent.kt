@@ -555,7 +555,7 @@ fun DetailContent(
             parentId = boxSetId,
             sortBy = "SortName",
             sortOrder = "Ascending",
-            fields = "CommunityRating,ProductionYear,OfficialRating,Overview,Genres"
+            fields = "CommunityRating,ProductionYear,OfficialRating,Overview,Genres,People"
         )
         boxSetItems = result.getOrNull()?.items.orEmpty()
     }
@@ -1189,6 +1189,21 @@ fun DetailContent(
                                 title = moreFromSeasonTitle,
                                 onEpisodeClick = onSimilarItemClick
                             )
+                        }
+
+                        if (item.type == "BoxSet" && boxSetItems.isNotEmpty()) {
+                            val boxSetCast = remember(boxSetItems) {
+                                boxSetItems.flatMap { it.people.orEmpty() }
+                                    .filter { it.type == "Actor" && !it.id.isNullOrBlank() }
+                                    .distinctBy { it.id }
+                            }
+                            if (boxSetCast.isNotEmpty()) {
+                                BoxSetCastRow(
+                                    people = boxSetCast,
+                                    mediaRepository = mediaRepository,
+                                    onPersonClick = onPersonClick
+                                )
+                            }
                         }
 
                         if (item.type == "BoxSet" && boxSetItems.isNotEmpty()) {

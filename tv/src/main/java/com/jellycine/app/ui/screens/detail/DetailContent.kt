@@ -322,7 +322,7 @@ fun DetailContent(
             includeItemTypes = "Movie",
             sortBy = "SortName",
             sortOrder = "Ascending",
-            fields = "Genres,CommunityRating,ProductionYear,Overview,UserData",
+            fields = "Genres,CommunityRating,ProductionYear,Overview,UserData,People",
             recursive = true
         )
         boxSetItems = result.getOrNull()?.items.orEmpty()
@@ -851,6 +851,18 @@ fun DetailContent(
                         }
 
                         if (item.type == "BoxSet" && boxSetItems.isNotEmpty()) {
+                            val boxSetCast = boxSetItems.flatMap { it.people.orEmpty() }
+                                .filter { it.type == "Actor" && !it.id.isNullOrBlank() }
+                                .distinctBy { it.id }
+                            if (boxSetCast.isNotEmpty()) {
+                                item(key = "boxset_cast") {
+                                    BoxSetCastRow(
+                                        people = boxSetCast,
+                                        mediaRepository = mediaRepository,
+                                        onPersonClick = onPersonClick
+                                    )
+                                }
+                            }
                             item(key = "boxset_items") {
                                 BoxSetItemsSection(
                                     items = boxSetItems,
