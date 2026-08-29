@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.animation.*
+import androidx.compose.animation.core.spring
 import coil3.compose.AsyncImage
 import coil3.request.*
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -577,8 +578,15 @@ fun ViewAllScreen(
         }
 
         if (!isSeerrCatalog && !isWatchedEpisodeViewAll && !isAward) {
+            val expanded by remember {
+                derivedStateOf { gridState.firstVisibleItemIndex == 0 }
+            }
+            val hasActiveFilters = uiState.selectedGenres.isNotEmpty() ||
+                uiState.sortBy != "DateCreated" || uiState.sortOrder != "Descending"
             SortFAB(
                 onClick = { showSortSheet = true },
+                expanded = expanded,
+                hasActiveFilters = hasActiveFilters,
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
@@ -854,26 +862,67 @@ internal fun SkeletonPosterCard() {
 @Composable
 private fun SortFAB(
     onClick: () -> Unit,
+    expanded: Boolean = true,
+    hasActiveFilters: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    FloatingActionButton(
-        onClick = onClick,
+    Box(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(end = 24.dp, bottom = 24.dp)
-            .size(64.dp),
-        containerColor = Color(0xFF1A1A1A),
-        contentColor = Color.White,
-        elevation = FloatingActionButtonDefaults.elevation(
-            defaultElevation = 8.dp,
-            pressedElevation = 12.dp
-        )
+            .padding(end = 18.dp, bottom = 18.dp)
     ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.Sort,
-            contentDescription = stringResource(R.string.view_all_sort),
-            modifier = Modifier.size(28.dp)
-        )
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF1A1A1A),
+            contentColor = Color.White,
+            border = androidx.compose.foundation.BorderStroke(
+                0.6.dp,
+                Color.White.copy(alpha = 0.15f)
+            ),
+            shadowElevation = 10.dp,
+            tonalElevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.8f,
+                            stiffness = 400f
+                        )
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = stringResource(R.string.view_all_sort),
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.White.copy(alpha = 0.9f)
+                    )
+                    if (hasActiveFilters) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 3.dp, y = (-2).dp)
+                                .size(7.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF0080FF))
+                        )
+                    }
+                }
+                if (expanded) {
+                    Text(
+                        text = "Sort",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                }
+            }
+        }
     }
 }
 
