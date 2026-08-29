@@ -181,6 +181,7 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    var boxSetItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var localVersions by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val directors = remember(item.people) {
         item.people?.filter { person ->
@@ -309,6 +310,22 @@ fun DetailContent(
                 )
             )
             .withUserDataRefresh(userDataRefreshEvent)
+    }
+
+    LaunchedEffect(item.id, item.type) {
+        if (item.type != "BoxSet" || item.id.isNullOrBlank()) {
+            boxSetItems = emptyList()
+            return@LaunchedEffect
+        }
+        val result = mediaRepository.getUserItems(
+            parentId = item.id!!,
+            includeItemTypes = "Movie",
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            fields = "Genres,CommunityRating,ProductionYear,Overview,UserData",
+            recursive = true
+        )
+        boxSetItems = result.getOrNull()?.items.orEmpty()
     }
 
     LaunchedEffect(item.id, item.type, shouldMergeVersions) {
@@ -829,6 +846,16 @@ fun DetailContent(
                                     mediaRepository = mediaRepository,
                                     title = moreFromSeasonTitle,
                                     onEpisodeClick = onSimilarItemClick
+                                )
+                            }
+                        }
+
+                        if (item.type == "BoxSet" && boxSetItems.isNotEmpty()) {
+                            item(key = "boxset_items") {
+                                BoxSetItemsSection(
+                                    items = boxSetItems,
+                                    mediaRepository = mediaRepository,
+                                    onItemClick = onSimilarItemClick
                                 )
                             }
                         }

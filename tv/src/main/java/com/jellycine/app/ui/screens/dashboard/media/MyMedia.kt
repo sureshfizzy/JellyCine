@@ -71,7 +71,6 @@ fun MyMedia(
                             val validViews = queryResult.items?.filter {
                                 it.id != null &&
                                 !it.name.isNullOrBlank() &&
-                                it.collectionType != "boxsets" &&
                                 it.collectionType != "playlists" &&
                                 it.collectionType != "folders" &&
                                 (it.type == "CollectionFolder" || it.type == "Folder")

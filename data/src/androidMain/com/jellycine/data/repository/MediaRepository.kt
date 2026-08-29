@@ -824,11 +824,10 @@ class MediaRepository(private val context: Context) {
                         val collectionType = library.collectionType
                         libraryId != null &&
                             !libraryName.isNullOrBlank() &&
-                            collectionType != "boxsets" &&
                             collectionType != "playlists" &&
                             collectionType != "folders" &&
                             (type == "CollectionFolder" || type == "Folder") &&
-                            (collectionType == "movies" || collectionType == "tvshows" || collectionType == null)
+                            (collectionType == "movies" || collectionType == "tvshows" || collectionType == "boxsets" || collectionType == null)
                     }
                     .distinctBy { it.id }
                     .let { sequence ->
@@ -853,6 +852,7 @@ class MediaRepository(private val context: Context) {
                             val includeItemTypes = when (library.collectionType) {
                                 "movies" -> "Movie"
                                 "tvshows" -> "Episode,Series"
+                                "boxsets" -> "BoxSet"
                                 else -> "Movie,Series,Episode"
                             }
 

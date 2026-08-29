@@ -298,6 +298,7 @@ fun DetailContent(
     var moreFromSeasonEpisodes by remember(item.id, item.seriesId, item.seasonId) {
         mutableStateOf<List<BaseItemDto>>(emptyList())
     }
+    var boxSetItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var localVersions by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val seerrRequestState = seerrRequestState(
         item = item,
@@ -542,6 +543,21 @@ fun DetailContent(
                 )
             )
             .withUserDataRefresh(userDataRefreshEvent)
+    }
+
+    LaunchedEffect(item.id, item.type) {
+        if (item.type != "BoxSet") {
+            boxSetItems = emptyList()
+            return@LaunchedEffect
+        }
+        val boxSetId = item.id?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val result = mediaRepository.getUserItems(
+            parentId = boxSetId,
+            sortBy = "SortName",
+            sortOrder = "Ascending",
+            fields = "CommunityRating,ProductionYear,OfficialRating,Overview,Genres"
+        )
+        boxSetItems = result.getOrNull()?.items.orEmpty()
     }
 
     LaunchedEffect(item.id, item.type, isSeerDetail, shouldMergeVersions) {
@@ -1067,7 +1083,7 @@ fun DetailContent(
                             onSubtitleOptionSelected = onSubtitleOptionSelected
                         )
 
-                        if (item.type != "Series" && !isSeerDetail) {
+                        if (item.type != "Series" && item.type != "BoxSet" && !isSeerDetail) {
                             ActionSection(
                                 screenWidthDp = screenWidthDp,
                                 useTabletLayout = useTabletBackdropLayout,
@@ -1172,6 +1188,14 @@ fun DetailContent(
                                 mediaRepository = mediaRepository,
                                 title = moreFromSeasonTitle,
                                 onEpisodeClick = onSimilarItemClick
+                            )
+                        }
+
+                        if (item.type == "BoxSet" && boxSetItems.isNotEmpty()) {
+                            BoxSetItemsSection(
+                                items = boxSetItems,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onSimilarItemClick
                             )
                         }
 

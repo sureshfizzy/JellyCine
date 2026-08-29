@@ -85,7 +85,7 @@ class ViewAllViewModel @Inject constructor(
                         } else mediaRepository.getUserItems(
                             parentId = parentId,
                             genres = selectedGenres,
-                            includeItemTypes = "Movie",
+                            includeItemTypes = "Movie,BoxSet",
                             sortBy = _uiState.value.sortBy,
                             sortOrder = _uiState.value.sortOrder,
                             limit = pageSize,

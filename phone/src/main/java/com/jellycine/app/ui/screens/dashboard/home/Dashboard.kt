@@ -1572,7 +1572,6 @@ fun Dashboard(
                             val collectionType = library.collectionType
                             libraryId != null &&
                                 !libraryName.isNullOrBlank() &&
-                                collectionType != "boxsets" &&
                                 collectionType != "playlists" &&
                                 collectionType != "folders" &&
                                 (type == "CollectionFolder" || type == "Folder")
