@@ -201,6 +201,14 @@ private fun AboutHeader(
             color = AboutSecondaryText
         )
 
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = stringResource(R.string.about_based_on_vela),
+            style = MaterialTheme.typography.bodySmall,
+            color = AboutSecondaryText.copy(alpha = 0.78f)
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Surface(

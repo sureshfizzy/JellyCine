@@ -10,6 +10,8 @@ import android.provider.Settings
 import android.util.Rational
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -127,6 +129,8 @@ fun PlayerScreen(
     // Dialog states
     var showAudioTrackDialog by remember { mutableStateOf(false) }
     var showSubtitleTrackDialog by remember { mutableStateOf(false) }
+    var showSubtitleStyleSheet by remember { mutableStateOf(false) }
+    var showSubtitleDelaySheet by remember { mutableStateOf(false) }
     var showStreamingQualityDialog by remember { mutableStateOf(false) }
     var showAudioTranscodingDialog by remember { mutableStateOf(false) }
     var pendingStreamingQualitySelection by remember { mutableStateOf<String?>(null) }
@@ -153,6 +157,11 @@ fun PlayerScreen(
     // System managers
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val playerPreferences = remember { PlayerPreferences(context) }
+    val localSubtitlePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(viewModel::addLocalSubtitle)
+    }
     val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
     val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
 
@@ -659,6 +668,11 @@ fun PlayerScreen(
             },
             onShowAudioTrackDialog = { showAudioTrackDialog = true },
             onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true },
+            onAddLocalSubtitle = {
+                localSubtitlePicker.launch(arrayOf("*/*"))
+            },
+            onShowSubtitleStyle = { showSubtitleStyleSheet = true },
+            onShowSubtitleDelay = { showSubtitleDelaySheet = true },
             onToggleOrientation = {
                 playbackOrientation = if (
                     playbackOrientation == PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE
@@ -723,6 +737,21 @@ fun PlayerScreen(
             },
             onDismissMediaInfo = { showMediaInfo = false }
         )
+
+        if (showSubtitleStyleSheet) {
+            SubtitleStyleSheet(
+                playerPreferences = playerPreferences,
+                onChanged = { viewModel.refreshSubtitleAppearance() },
+                onDismiss = { showSubtitleStyleSheet = false }
+            )
+        }
+        if (showSubtitleDelaySheet) {
+            SubtitleDelaySheet(
+                playerPreferences = playerPreferences,
+                onChanged = { viewModel.refreshSubtitleAppearance() },
+                onDismiss = { showSubtitleDelaySheet = false }
+            )
+        }
 
         if (showPlaybackInfoSheet) {
             PlaybackInfoSheet(

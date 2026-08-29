@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -295,16 +296,16 @@ object ImagePreloader {
     private val imageUrlCache = ConcurrentHashMap<String, String>()
     private val preferredImageTypeCache = ConcurrentHashMap<String, String>()
     private val lastRenderedImageUrlCache = ConcurrentHashMap<String, String>()
-    private val prefetchSemaphore = Semaphore(12)
-    private const val posterWidth = 240
-    private const val posterHeight = 360
-    private const val posterQuality = 80
-    private const val continueWatchingWidth = 640
-    private const val continueWatchingHeight = 360
-    private const val continueWatchingQuality = 92
-    private const val libraryLandscapeWidth = 640
-    private const val libraryLandscapeHeight = 360
-    private const val libraryLandscapeQuality = 92
+    private val prefetchSemaphore = Semaphore(8)
+    private const val posterWidth = 200
+    private const val posterHeight = 300
+    private const val posterQuality = 70
+    private const val continueWatchingWidth = 480
+    private const val continueWatchingHeight = 270
+    private const val continueWatchingQuality = 80
+    private const val libraryLandscapeWidth = 480
+    private const val libraryLandscapeHeight = 270
+    private const val libraryLandscapeQuality = 80
 
     private fun imageCacheKey(
         itemId: String,
@@ -826,15 +827,15 @@ fun ImageLoader(
 
     val (width, height, quality) = remember(currentImageType) {
         when (currentImageType) {
-            "Thumb", "Backdrop" -> Triple(640, 360, 92)
+            "Thumb", "Backdrop" -> Triple(480, 270, 80)
             "Primary" -> {
                 if (imageType == "Thumb" || imageType == "Backdrop") {
-                    Triple(640, 360, 92)
+                    Triple(480, 270, 80)
                 } else {
-                    Triple(240, 360, 80)
+                    Triple(200, 300, 70)
                 }
             }
-            else -> Triple(240, 360, 80)
+            else -> Triple(200, 300, 70)
         }
     }
     val selectedImageTag = remember(imageMetadata, actualItemId, currentImageType, imageTag) {
@@ -1148,6 +1149,7 @@ fun Dashboard(
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf(HomeCategory.HOME) }
     var showAccountOverview by rememberSaveable { mutableStateOf(false) }
+    var showManageLibraries by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
     val mediaRepository = remember { com.vela.data.repository.MediaRepositoryProvider.getInstance(context) }
@@ -2014,6 +2016,10 @@ fun Dashboard(
             serverTypeRaw = currentServerType,
             canChangeUser = usersForCurrentServer.isNotEmpty(),
             onDismiss = { showAccountOverview = false },
+            onManageLibraries = {
+                showAccountOverview = false
+                showManageLibraries = true
+            },
             onChangeUser = {
                 showAccountOverview = false
                 serverSwitchDialogsState.openUsers(currentServerName, usersForCurrentServer)
@@ -2025,6 +2031,20 @@ fun Dashboard(
                     mediaRepository.clearPersistedHomeSnapshot()
                     CachedData.clearAllCache()
                     onLogout()
+                }
+            }
+        )
+    }
+
+    if (showManageLibraries) {
+        ManageLibrariesSheet(
+            onDismiss = { showManageLibraries = false },
+            onLibrariesChanged = {
+                queryManager.invalidateQuery("home_library_burst")
+                queryManager.invalidateQuery("home_my_media_libraries")
+                persistedHomeSnapshot = null
+                scope.launch {
+                    mediaRepository.clearPersistedHomeSnapshot()
                 }
             }
         )
@@ -2291,6 +2311,7 @@ internal fun AccountOverview(
     serverTypeRaw: String?,
     canChangeUser: Boolean,
     onDismiss: () -> Unit,
+    onManageLibraries: () -> Unit,
     onChangeUser: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -2360,6 +2381,18 @@ internal fun AccountOverview(
                 tint = Color(0xFF22D3EE),
                 enabled = canChangeUser,
                 onClick = onChangeUser
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 34.dp),
+                color = Color.White.copy(alpha = 0.08f)
+            )
+
+            AccountActionRow(
+                icon = Icons.Rounded.VideoLibrary,
+                label = stringResource(R.string.library_manage_title),
+                tint = Color(0xFF5AA9FA),
+                onClick = onManageLibraries
             )
 
             HorizontalDivider(

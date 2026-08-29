@@ -3,6 +3,8 @@ package com.vela.app.player.mpv
 import android.content.Context
 import android.graphics.Bitmap
 import android.view.Surface
+import androidx.media3.common.util.UnstableApi
+import com.vela.player.core.PlayerUtils
 import com.vela.player.preferences.PlayerPreferences
 import `is`.xyz.mpv.MPVLib
 import `is`.xyz.mpv.MPVLib.MpvEvent
@@ -99,6 +101,7 @@ class MpvPlayerController(
             arrayOf("loadfile", url, "replace", "-1", loadOptions.joinToString(","))
         }
         MPVLib.command(loadCommand)
+        applyCachePolicy(asOptions = false)
     }
 
     fun setListener(listener: Listener) {
@@ -141,8 +144,10 @@ class MpvPlayerController(
 
     fun applySubtitlePreferences() {
         if (released) return
-        MPVLib.setOptionString("sub-ass-override", "strip")
+        MPVLib.setOptionString("sub-ass-override", "scale")
+        MPVLib.setPropertyString("sub-ass-override", "scale")
         MPVLib.setOptionString("sub-scale", subtitleScale(playerPreferences.getSubtitleTextSize()))
+        MPVLib.setPropertyString("sub-scale", subtitleScale(playerPreferences.getSubtitleTextSize()))
         MPVLib.setOptionString(
             "sub-color",
             mpvColor(
@@ -154,9 +159,12 @@ class MpvPlayerController(
             "sub-back-color",
             mpvBackgroundColor(playerPreferences.getSubtitleBackgroundColor())
         )
-        MPVLib.setOptionString(
-            "sub-pos",
-            (100 - playerPreferences.getSubtitlePosition().coerceIn(0, 50)).toString()
+        val subPos = (100 - playerPreferences.getSubtitlePosition().coerceIn(0, 50)).toString()
+        MPVLib.setOptionString("sub-pos", subPos)
+        MPVLib.setPropertyString("sub-pos", subPos)
+        MPVLib.setPropertyDouble(
+            "sub-delay",
+            playerPreferences.getSubtitleDelayMs() / 1000.0
         )
         applySubtitleEdge(playerPreferences.getSubtitleEdgeType())
     }
@@ -192,6 +200,9 @@ class MpvPlayerController(
         MPVLib.command(
             arrayOf("seek", (this.positionMs / 1000.0).toString(), flags)
         )
+        if (playWhenReady) {
+            MPVLib.setPropertyBoolean("pause", false)
+        }
     }
 
     fun setHardwareDecoding(mode: String) {
@@ -291,8 +302,6 @@ class MpvPlayerController(
     }
 
     private fun configureMpv() {
-        val cacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds().toString()
-        val cacheSizeMb = playerPreferences.getPlayerCacheSizeMb()
         val shaderCacheDir = appContext.cacheDir.resolve("mpv-shaders")
         shaderCacheDir.mkdirs()
 
@@ -341,7 +350,7 @@ class MpvPlayerController(
         MPVLib.setOptionString("tls-verify", "no")
         MPVLib.setOptionString("keep-open", "no")
         MPVLib.setOptionString("cache", "yes")
-        MPVLib.setOptionString("cache-secs", cacheTimeSeconds)
+        applyCachePolicy(asOptions = true)
         MPVLib.setOptionString("index", "default")
         MPVLib.setOptionString("hr-seek", "yes")
         MPVLib.setOptionString("demuxer", "+lavf")
@@ -350,13 +359,39 @@ class MpvPlayerController(
         MPVLib.setOptionString("demuxer-lavf-probe-info", "nostreams")
         MPVLib.setOptionString("demuxer-lavf-probesize", "64KiB")
         MPVLib.setOptionString("demuxer-lavf-analyzeduration", "1")
-        MPVLib.setOptionString("demuxer-readahead-secs", cacheTimeSeconds)
-        MPVLib.setOptionString("demuxer-max-bytes", "${cacheSizeMb}MiB")
-        MPVLib.setOptionString("demuxer-max-back-bytes", "${cacheSizeMb / 2}MiB")
+        MPVLib.setOptionString("sub-ass", "yes")
+        MPVLib.setOptionString("embeddedfonts", "yes")
+        MPVLib.setOptionString("sub-ass-vsfilter-aspect-compat", "yes")
         MPVLib.setOptionString("sub-scale-with-window", "yes")
         MPVLib.setOptionString("sub-use-margins", "no")
         MPVLib.setOptionString("ytdl", "no")
         applySubtitlePreferences()
+    }
+
+    @OptIn(UnstableApi::class)
+    fun refreshCachePolicy() {
+        if (!released) {
+            applyCachePolicy(asOptions = false)
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun applyCachePolicy(asOptions: Boolean) {
+        val budget = PlayerUtils.playbackCacheBudget(appContext, playerPreferences)
+        val cacheTimeSeconds = budget.cacheTimeSeconds.toString()
+        val cacheSize = "${budget.cacheSizeMb}MiB"
+        val backCacheSize = "${(budget.cacheSizeMb / 2).coerceAtLeast(32)}MiB"
+        if (asOptions) {
+            MPVLib.setOptionString("cache-secs", cacheTimeSeconds)
+            MPVLib.setOptionString("demuxer-readahead-secs", cacheTimeSeconds)
+            MPVLib.setOptionString("demuxer-max-bytes", cacheSize)
+            MPVLib.setOptionString("demuxer-max-back-bytes", backCacheSize)
+        } else {
+            MPVLib.setPropertyString("cache-secs", cacheTimeSeconds)
+            MPVLib.setPropertyString("demuxer-readahead-secs", cacheTimeSeconds)
+            MPVLib.setPropertyString("demuxer-max-bytes", cacheSize)
+            MPVLib.setPropertyString("demuxer-max-back-bytes", backCacheSize)
+        }
     }
 
     private fun subtitleScale(size: String): String {

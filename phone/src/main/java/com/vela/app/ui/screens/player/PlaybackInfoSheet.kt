@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +64,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -441,11 +443,12 @@ private fun PlaybackInfoPanel(
     }
 
     val posterUrl = rememberImageUrl(
-        itemId = item?.id,
+        itemId = playbackPosterItemId(item),
         imageType = "Primary",
-        width = 480,
-        height = null,
+        width = 240,
+        height = 360,
         quality = 80,
+        imageTag = playbackPosterImageTag(item),
         mediaRepository = mediaRepository
     )
     val episodeListState = rememberLazyListState()
@@ -556,13 +559,14 @@ private fun PlaybackInfoHeader(
     val seriesName = item?.seriesName?.takeIf { it.isNotBlank() }
     val dateLabel = formatPlaybackPremiereDate(item?.premiereDate)
     val ratingLabel = item?.officialRating?.takeIf { it.isNotBlank() }
+    val communityRatingLabel = item?.communityRating
+        ?.takeIf { it > 0f }
+        ?.let { String.format("%.1f", it) }
     val tagLine = remember(item?.tags, item?.genres) {
         val tags = item?.tags.orEmpty().mapNotNull { it.takeIf { tag -> tag.isNotBlank() } }
         val genres = item?.genres.orEmpty().mapNotNull { it.takeIf { genre -> genre.isNotBlank() } }
         (tags.ifEmpty { genres }).joinToString(" / ")
     }
-    var posterAspect by remember(posterUrl) { mutableStateOf(2f / 3f) }
-    val posterIsPortrait = posterAspect < 1f
 
     Row(
         modifier = Modifier
@@ -573,17 +577,8 @@ private fun PlaybackInfoHeader(
     ) {
         Box(
             modifier = Modifier
-                .then(
-                    if (posterIsPortrait) {
-                        Modifier
-                            .height(136.dp)
-                            .aspectRatio(posterAspect, matchHeightConstraintsFirst = true)
-                    } else {
-                        Modifier
-                            .widthIn(max = 108.dp)
-                            .aspectRatio(posterAspect)
-                    }
-                )
+                .width(92.dp)
+                .aspectRatio(2f / 3f)
                 .clip(PlaybackInfoEpisodeShape)
                 .background(Color(0xFF2A2A2A)),
             contentAlignment = Alignment.Center
@@ -594,10 +589,7 @@ private fun PlaybackInfoHeader(
                     imageUrl = posterUrl,
                     contentDescription = episodeTitle,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                    onIntrinsicSizeChange = { width, height ->
-                        aspectRatioFromSize(width, height)?.let { posterAspect = it }
-                    }
+                    contentScale = ContentScale.Crop
                 )
             }
         }
@@ -622,26 +614,46 @@ private fun PlaybackInfoHeader(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            if (dateLabel != null) {
-                Text(
-                    text = dateLabel,
-                    color = PlaybackInfoMetaColor,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            if (ratingLabel != null) {
-                Text(
-                    text = ratingLabel,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .padding(top = 8.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+            if (communityRatingLabel != null || dateLabel != null || ratingLabel != null) {
+                Row(
+                    modifier = Modifier.padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (communityRatingLabel != null) {
+                        Icon(
+                            imageVector = Icons.Rounded.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFFF5A5A),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = communityRatingLabel,
+                            color = Color.White.copy(alpha = 0.92f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (dateLabel != null) {
+                        Text(
+                            text = dateLabel,
+                            color = PlaybackInfoMetaColor,
+                            fontSize = 13.sp
+                        )
+                    }
+                    if (ratingLabel != null) {
+                        Text(
+                            text = ratingLabel,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(5.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
             if (tagLine.isNotBlank()) {
                 Text(
@@ -706,18 +718,17 @@ private fun PlaybackPersonCard(
         mediaRepository = mediaRepository
     )
     val imageUrl = person.imageUrl?.takeIf { it.isNotBlank() } ?: fetchedUrl
-    var photoAspect by remember(person.id, imageUrl) { mutableStateOf(2f / 3f) }
     val roleLabel = playbackPersonRole(person)
-    val caption = listOfNotNull(
-        person.name?.takeIf { it.isNotBlank() },
-        roleLabel
-    ).joinToString(" / ")
+    val personName = person.name?.takeIf { it.isNotBlank() }
 
-    Column(modifier = Modifier.width(86.dp)) {
+    Column(
+        modifier = Modifier.width(86.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(photoAspect.coerceIn(0.5f, 1.2f))
+                .aspectRatio(2f / 3f)
                 .clip(PlaybackInfoEpisodeShape)
                 .background(Color(0xFF2A2A2A)),
             contentAlignment = Alignment.Center
@@ -728,10 +739,7 @@ private fun PlaybackPersonCard(
                     imageUrl = imageUrl,
                     contentDescription = person.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                    onIntrinsicSizeChange = { width, height ->
-                        aspectRatioFromSize(width, height)?.let { photoAspect = it }
-                    }
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Icon(
@@ -742,14 +750,27 @@ private fun PlaybackPersonCard(
                 )
             }
         }
-        if (caption.isNotBlank()) {
+        if (!personName.isNullOrBlank()) {
             Text(
-                text = caption,
-                color = Color.White.copy(alpha = 0.86f),
+                text = personName,
+                color = Color.White.copy(alpha = 0.92f),
                 fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+        if (!roleLabel.isNullOrBlank()) {
+            Text(
+                text = roleLabel,
+                color = Color.White.copy(alpha = 0.52f),
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }
@@ -771,6 +792,24 @@ private fun playbackPersonRole(person: BaseItemPerson): String? {
         !person.type.isNullOrBlank() -> person.type
         else -> null
     }
+}
+
+private fun playbackPosterItemId(item: BaseItemDto?): String? {
+    val media = item ?: return null
+    if (media.type.equals("Episode", ignoreCase = true)) {
+        return media.parentPrimaryImageItemId?.takeIf { it.isNotBlank() }
+            ?: media.seriesId?.takeIf { it.isNotBlank() }
+            ?: media.id
+    }
+    return media.id
+}
+
+private fun playbackPosterImageTag(item: BaseItemDto?): String? {
+    val media = item ?: return null
+    if (media.type.equals("Episode", ignoreCase = true)) {
+        return media.parentPrimaryImageTag ?: media.seriesPrimaryImageTag
+    }
+    return media.imageTags?.get("Primary")
 }
 
 private fun playbackPeople(people: List<BaseItemPerson>): List<BaseItemPerson> {

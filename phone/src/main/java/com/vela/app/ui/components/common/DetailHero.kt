@@ -55,19 +55,26 @@ private val detailHeroBottomFadeGradient = arrayOf(
 )
 
 private val tabletDetailHeroOverlayGradient = arrayOf(
-    0.0f to Color.Black.copy(alpha = 0.12f),
-    0.24f to Color.Black.copy(alpha = 0.18f),
-    0.58f to Color.Black.copy(alpha = 0.30f),
-    0.84f to Color.Black.copy(alpha = 0.52f),
-    1.0f to Color.Black.copy(alpha = 0.74f)
+    0.0f to Color.Black.copy(alpha = 0.28f),
+    0.22f to Color.Black.copy(alpha = 0.22f),
+    0.52f to Color.Black.copy(alpha = 0.38f),
+    0.78f to Color.Black.copy(alpha = 0.58f),
+    1.0f to Color.Black.copy(alpha = 0.82f)
 )
 
 private val tabletDetailHeroBottomFadeGradient = arrayOf(
     0.0f to Color.Transparent,
-    0.18f to Color.Black.copy(alpha = 0.14f),
-    0.46f to Color.Black.copy(alpha = 0.32f),
-    0.74f to Color.Black.copy(alpha = 0.56f),
-    1.0f to Color.Black.copy(alpha = 0.82f)
+    0.14f to Color.Black.copy(alpha = 0.18f),
+    0.38f to Color.Black.copy(alpha = 0.40f),
+    0.68f to Color.Black.copy(alpha = 0.68f),
+    1.0f to Color.Black.copy(alpha = 0.92f)
+)
+
+private val tabletDetailHeroSideScrim = arrayOf(
+    0.0f to Color.Black.copy(alpha = 0.58f),
+    0.38f to Color.Black.copy(alpha = 0.22f),
+    0.68f to Color.Black.copy(alpha = 0.06f),
+    1.0f to Color.Transparent
 )
 
 private fun overlayStartPos(startFraction: Float): Array<Pair<Float, Color>> {
@@ -92,7 +99,7 @@ private fun detailBackdropHeroStyleSpec(style: DetailBackdropHeroStyle): DetailB
         )
         DetailBackdropHeroStyle.TabletBackdrop -> DetailBackdropHeroStyleSpec(
             imageAlignment = BiasAlignment(0f, 0.06f),
-            bottomFadeHeight = 220.dp,
+            bottomFadeHeight = 280.dp,
             overlayGradient = tabletDetailHeroOverlayGradient,
             bottomFadeGradient = tabletDetailHeroBottomFadeGradient
         )
@@ -158,6 +165,18 @@ fun DetailBackdropHero(
                     )
                 )
         )
+
+        if (style == DetailBackdropHeroStyle.TabletBackdrop) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colorStops = tabletDetailHeroSideScrim
+                        )
+                    )
+            )
+        }
 
         Box(
             modifier = Modifier

@@ -29,6 +29,7 @@ import com.vela.data.model.MediaSource
 import com.vela.data.model.MediaStream
 import com.vela.data.model.PlaybackRequest
 import com.vela.data.repository.MediaRepository
+import com.vela.data.network.NetworkModule
 import com.vela.detail.CodecCapabilityManager
 import com.vela.player.audio.SpatializerHelper
 import com.vela.player.core.PlaybackMarkerUtils
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -124,6 +126,7 @@ class PlayerViewModel @Inject constructor(
     private var nextEpisodePrefetchJob: Job? = null
     private var nextEpisodePrefetchSignature: String? = null
     private var mpvWatchdogJob: Job? = null
+    private var cachePolicyJob: Job? = null
     private var hasRenderedFirstFrame = false
     private var mpvExternalSubtitleUrls: Map<Int, String> = emptyMap()
     private var remotePlaybackRequestKey: String? = null
@@ -575,6 +578,7 @@ class PlayerViewModel @Inject constructor(
                             startPlayback = startPlayback
                         )
                     }
+                    observePlaybackCachePolicy(context)
                 } else {
                     exoPlayer = PlayerUtils.createPlayer(
                         context = context
@@ -720,12 +724,16 @@ class PlayerViewModel @Inject constructor(
 
                 exoPlayer = PlayerUtils.createPlayer(
                     context = context,
-                    bufferOverride = PlayerUtils.PlaybackBufferOverride(
-                        minBufferMs = 30_000,
-                        maxBufferMs = 180_000,
-                        bufferForPlaybackMs = 2_500,
-                        bufferForPlaybackAfterRebufferMs = 5_000
-                    )
+                    bufferOverride = if (PlayerUtils.isUnmeteredNetwork(context)) {
+                        null
+                    } else {
+                        PlayerUtils.PlaybackBufferOverride(
+                            minBufferMs = 30_000,
+                            maxBufferMs = 180_000,
+                            bufferForPlaybackMs = 2_500,
+                            bufferForPlaybackAfterRebufferMs = 5_000
+                        )
+                    }
                 )
                 exoPlayer?.apply {
                     addListener(playerListener)
@@ -846,6 +854,17 @@ class PlayerViewModel @Inject constructor(
         mpvWatchdogJob = null
     }
 
+    private fun observePlaybackCachePolicy(context: Context) {
+        cachePolicyJob?.cancel()
+        cachePolicyJob = viewModelScope.launch {
+            NetworkModule.observeNetworkAccess(context)
+                .distinctUntilChanged()
+                .collect {
+                    mpvPlayer?.refreshCachePolicy()
+                }
+        }
+    }
+
     private fun currentMediaHasVideo(): Boolean =
         apiMediaStreams.isNullOrEmpty() || apiMediaStreams.orEmpty().any { stream ->
             stream.type.equals("Video", ignoreCase = true)
@@ -878,6 +897,10 @@ class PlayerViewModel @Inject constructor(
         exoPlayer?.seekTo(position)
         mpvPlayer?.seekTo(position, exact)
         _playerState.value = _playerState.value.copy(currentPosition = position)
+        if (_playerState.value.playWhenReady) {
+            mpvPlayer?.play()
+            exoPlayer?.play()
+        }
     }
 
     fun play() {
@@ -1257,6 +1280,8 @@ class PlayerViewModel @Inject constructor(
         communityPlaybackSegmentsJob = null
         spatialAudioAnalysisJob?.cancel()
         spatialAudioAnalysisJob = null
+        cachePolicyJob?.cancel()
+        cachePolicyJob = null
         cancelMpvWatchdog()
         exoPlayer?.apply {
             removeListener(playerListener)
@@ -1672,6 +1697,52 @@ class PlayerViewModel @Inject constructor(
             context.getString(com.vela.shared.R.string.player_screenshot_saved),
             android.widget.Toast.LENGTH_SHORT
         ).show()
+    }
+
+    fun refreshSubtitleAppearance() {
+        mpvPlayer?.applySubtitlePreferences()
+    }
+
+    fun addLocalSubtitle(uri: android.net.Uri) {
+        val context = playerContext ?: return
+        val controller = mpvPlayer
+        if (controller == null) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(com.vela.shared.R.string.player_subtitle_local_mpv_only),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val copied = runCatching {
+                val extension = uri.lastPathSegment
+                    ?.substringAfterLast('.', missingDelimiterValue = "ass")
+                    ?.lowercase()
+                    ?.takeIf { it in setOf("ass", "ssa", "srt", "vtt", "sub") }
+                    ?: "ass"
+                val dir = java.io.File(context.cacheDir, "subtitles").apply { mkdirs() }
+                val dest = java.io.File(dir, "local-${System.currentTimeMillis()}.$extension")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("open")
+                dest
+            }.getOrNull()
+            withContext(Dispatchers.Main) {
+                if (copied == null) {
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(com.vela.shared.R.string.player_subtitle_local_failed),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@withContext
+                }
+                controller.selectSubtitleTrack(
+                    trackId = "local",
+                    externalUrl = copied.absolutePath
+                )
+            }
+        }
     }
 
 

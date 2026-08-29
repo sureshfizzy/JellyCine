@@ -19,6 +19,8 @@ import com.vela.data.model.AdminSessionInfo
 import com.vela.data.model.ServerInfo
 import com.vela.data.model.SystemInfoFull
 import com.vela.data.model.UserDto
+import com.vela.data.model.UserConfiguration
+import com.vela.data.model.DisplayPreferencesDto
 import com.vela.data.network.ApiHeaders
 import com.vela.data.network.ApiResponse
 import io.ktor.client.HttpClient
@@ -128,8 +130,13 @@ internal class MediaServerApiClient(
         )
     )
 
-    override suspend fun getUserViews(userId: String): ApiResponse<QueryResult<BaseItemDto>> =
-        get("Users/$userId/Views")
+    override suspend fun getUserViews(
+        userId: String,
+        includeHidden: Boolean?
+    ): ApiResponse<QueryResult<BaseItemDto>> = get(
+        endpoint = "Users/$userId/Views",
+        queryParameters = listOf("IncludeHidden" to includeHidden)
+    )
 
     override suspend fun getMovieRecommendations(
         userId: String,
@@ -203,6 +210,40 @@ internal class MediaServerApiClient(
 
     override suspend fun getUserById(userId: String): ApiResponse<UserDto> =
         get("Users/$userId")
+
+    override suspend fun updateUserConfiguration(
+        userId: String,
+        configuration: UserConfiguration
+    ): ApiResponse<Unit> = post(
+        endpoint = "Users/$userId/Configuration",
+        requestBody = configuration
+    )
+
+    override suspend fun getDisplayPreferences(
+        displayPreferencesId: String,
+        userId: String,
+        client: String
+    ): ApiResponse<DisplayPreferencesDto> = get(
+        endpoint = "DisplayPreferences/$displayPreferencesId",
+        queryParameters = listOf(
+            "userId" to userId,
+            "client" to client
+        )
+    )
+
+    override suspend fun updateDisplayPreferences(
+        displayPreferencesId: String,
+        userId: String,
+        client: String,
+        preferences: DisplayPreferencesDto
+    ): ApiResponse<Unit> = post(
+        endpoint = "DisplayPreferences/$displayPreferencesId",
+        requestBody = preferences,
+        queryParameters = listOf(
+            "userId" to userId,
+            "client" to client
+        )
+    )
 
     override suspend fun getItemById(
         userId: String,

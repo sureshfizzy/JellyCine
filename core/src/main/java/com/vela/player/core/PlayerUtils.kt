@@ -2,6 +2,8 @@ package com.vela.player.core
 
 import android.app.ActivityManager
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -26,7 +28,11 @@ import com.vela.player.preferences.PlayerPreferences
 @UnstableApi
 object PlayerUtils {
     private const val MEBIBYTE = 1024 * 1024
-    private const val MAX_PLAYBACK_BUFFER_MS = 120_000
+    private const val MAX_PLAYBACK_BUFFER_MS = 900_000
+    private const val WIFI_MAX_PLAYBACK_BUFFER_MS = 3_600_000
+    private const val WIFI_CACHE_TIME_SECONDS = 3_600
+    private const val WIFI_CACHE_SIZE_MB = 512
+    private const val WIFI_LOW_RAM_CACHE_SIZE_MB = 256
     private const val ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS = 30_000
     private const val ASYNC_MIN_PLAYBACK_BUFFER_MS = 15_000
     private const val BATTERY_MAX_PLAYBACK_BUFFER_MS = 30_000
@@ -83,7 +89,14 @@ object PlayerUtils {
             val playerBuilder = ExoPlayer.Builder(context)
                 .setRenderersFactory(renderersFactory) // Use custom factory with fallback support
                 .setTrackSelector(trackSelector)
-                .setLoadControl(createLoadControl(context, playerPreferences, bufferOverride))
+                .setLoadControl(
+                    createLoadControl(
+                        context = context,
+                        playerPreferences = playerPreferences,
+                        bufferOverride = bufferOverride,
+                        unconstrainedCache = isUnmeteredNetwork(context)
+                    )
+                )
                 .setAudioAttributes(audioAttributes, true)
                 .setHandleAudioBecomingNoisy(true)
                 .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -108,6 +121,45 @@ object PlayerUtils {
         val bufferForPlaybackMs: Int,
         val bufferForPlaybackAfterRebufferMs: Int
     )
+
+    data class PlaybackCacheBudget(
+        val cacheTimeSeconds: Int,
+        val cacheSizeMb: Int,
+        val unconstrained: Boolean
+    )
+
+    fun isUnmeteredNetwork(context: Context): Boolean {
+        val connectivityManager = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+        val activeNetwork = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+    }
+
+    fun playbackCacheBudget(
+        context: Context,
+        playerPreferences: PlayerPreferences = PlayerPreferences(context)
+    ): PlaybackCacheBudget {
+        if (isUnmeteredNetwork(context)) {
+            val cacheSizeMb = if (context.isLowRamDevice()) {
+                WIFI_LOW_RAM_CACHE_SIZE_MB
+            } else {
+                WIFI_CACHE_SIZE_MB
+            }
+            return PlaybackCacheBudget(
+                cacheTimeSeconds = WIFI_CACHE_TIME_SECONDS,
+                cacheSizeMb = cacheSizeMb,
+                unconstrained = true
+            )
+        }
+        return PlaybackCacheBudget(
+            cacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
+            cacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
+            unconstrained = false
+        )
+    }
     
     /**
      * Apply battery optimization settings to the player
@@ -162,7 +214,8 @@ object PlayerUtils {
     private fun createLoadControl(
         context: Context,
         playerPreferences: PlayerPreferences,
-        bufferOverride: PlaybackBufferOverride? = null
+        bufferOverride: PlaybackBufferOverride? = null,
+        unconstrainedCache: Boolean = false
     ): DefaultLoadControl {
         val requestedCacheTimeMs = playerPreferences.getPlayerCacheTimeSeconds() * 1000
         val batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
@@ -170,12 +223,16 @@ object PlayerUtils {
             playerPreferences.isAsyncMediaCodecEnabled()
         val lowRamDevice = context.isLowRamDevice()
         val maxPlaybackBufferMs = when {
+            unconstrainedCache -> WIFI_MAX_PLAYBACK_BUFFER_MS
             batteryOptimizationEnabled -> BATTERY_MAX_PLAYBACK_BUFFER_MS
             asyncMediaCodecEnabled && lowRamDevice -> ASYNC_LOW_RAM_MAX_PLAYBACK_BUFFER_MS
             else -> MAX_PLAYBACK_BUFFER_MS
         }
-        val maxBufferMs = bufferOverride?.maxBufferMs
-            ?: minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
+        val maxBufferMs = when {
+            unconstrainedCache -> WIFI_MAX_PLAYBACK_BUFFER_MS
+            bufferOverride != null -> bufferOverride.maxBufferMs
+            else -> minOf(requestedCacheTimeMs, maxPlaybackBufferMs)
+        }
         val minPlaybackBufferMs = when {
             batteryOptimizationEnabled -> BATTERY_MIN_PLAYBACK_BUFFER_MS
             asyncMediaCodecEnabled -> ASYNC_MIN_PLAYBACK_BUFFER_MS
@@ -204,7 +261,8 @@ object PlayerUtils {
 
         Log.d(
             "PlayerUtils",
-            "Load control: requested=${requestedCacheTimeMs}ms async=$asyncMediaCodecEnabled " +
+            "Load control: requested=${requestedCacheTimeMs}ms unconstrained=$unconstrainedCache " +
+                "async=$asyncMediaCodecEnabled " +
                 "lowRam=$lowRamDevice battery=$batteryOptimizationEnabled min=${minBufferMs}ms " +
                 "max=${maxBufferMs}ms start=${playbackBufferMs}ms " +
                 "rebuffer=${rebufferPlaybackMs}ms targetBytes=$targetBufferBytes"

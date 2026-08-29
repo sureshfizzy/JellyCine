@@ -295,6 +295,15 @@
     <string name="player_dialog_audio_summary">Select preferred playback track</string>
     <string name="player_dialog_subtitles_title">Subtitles</string>
     <string name="player_dialog_subtitles_summary">Select subtitle track</string>
+    <string name="player_subtitle_add_local">Add local subtitles</string>
+    <string name="player_subtitle_scale_position">Subtitle scale &amp; position</string>
+    <string name="player_subtitle_time_offset">Subtitle time offset</string>
+    <string name="player_subtitle_scale">Scale</string>
+    <string name="player_subtitle_position">Position</string>
+    <string name="player_subtitle_delay_value">Offset: %.2fs</string>
+    <string name="player_subtitle_delay_reset">Reset</string>
+    <string name="player_subtitle_local_mpv_only">Local subtitles are available in MPV</string>
+    <string name="player_subtitle_local_failed">Could not add local subtitles</string>
     <string name="player_dialog_tracks_count">tracks</string>
     <string name="player_dialog_streaming_quality_title">Streaming Quality</string>
     <string name="player_dialog_streaming_quality_summary">Choose the video quality cap</string>
@@ -352,6 +361,7 @@
     <string name="view_all_sort_rating_high">Rating (High)</string>
     <string name="view_all_sort_rating_low">Rating (Low)</string>
     <string name="library_tab_items">Movies</string>
+    <string name="library_tab_all">All</string>
     <string name="library_tab_shows">Shows</string>
     <string name="library_tab_recommended">Suggested</string>
     <string name="library_tab_trailers">Trailers</string>
@@ -374,6 +384,15 @@
     <string name="library_sort_filename">Name</string>
     <string name="library_sort_size">Size</string>
     <string name="library_sort_random">Random</string>
+    <string name="library_sort_date_updated">Date updated</string>
+    <string name="library_sort_community">Public rating</string>
+    <string name="library_sort_title">Title</string>
+    <string name="library_sort_bitrate">Bitrate</string>
+    <string name="library_sort_more">More</string>
+    <string name="library_manage_title">Manage libraries</string>
+    <string name="library_manage_subtitle">Choose which libraries appear on Home and in My Media.</string>
+    <string name="library_manage_loading">Loading libraries…</string>
+    <string name="library_toolbar_count">%d items</string>
     <string name="library_rec_director">Directed by %1$s</string>
     <string name="library_rec_actor">Starring %1$s</string>
     <string name="library_rec_liked">Because you like %1$s</string>
@@ -648,6 +667,7 @@
     <!-- About -->
     <string name="about_title">About</string>
     <string name="about_author">ZeroDevi1</string>
+    <string name="about_based_on_vela">Based on Vela</string>
     <string name="about_version_chip">Version %1$s</string>
     <string name="about_section_project">Legal</string>
     <string name="about_section_connect">Connect</string>

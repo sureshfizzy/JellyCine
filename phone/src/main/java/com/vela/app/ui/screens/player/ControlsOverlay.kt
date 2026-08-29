@@ -88,6 +88,9 @@ fun ControlsOverlay(
     onShowPlaybackSettings: () -> Unit = {},
     onShowAudioTrackSelection: () -> Unit = {},
     onShowSubtitleTrackSelection: () -> Unit = {},
+    onAddLocalSubtitle: () -> Unit = {},
+    onShowSubtitleStyle: () -> Unit = {},
+    onShowSubtitleDelay: () -> Unit = {},
     onCycleAspectRatio: () -> Unit = {},
     onToggleOrientation: () -> Unit = {},
     onTitleClick: () -> Unit = {},
@@ -183,6 +186,9 @@ fun ControlsOverlay(
             onShowPlaybackSettings = onShowPlaybackSettings,
             onShowAudioTrackSelection = onShowAudioTrackSelection,
             onShowSubtitleTrackSelection = onShowSubtitleTrackSelection,
+            onAddLocalSubtitle = onAddLocalSubtitle,
+            onShowSubtitleStyle = onShowSubtitleStyle,
+            onShowSubtitleDelay = onShowSubtitleDelay,
             onCycleAspectRatio = onCycleAspectRatio,
             onToggleOrientation = onToggleOrientation,
             onTitleClick = onTitleClick,
@@ -234,6 +240,9 @@ private fun PortraitPlayerOverlay(
     onShowPlaybackSettings: () -> Unit,
     onShowAudioTrackSelection: () -> Unit,
     onShowSubtitleTrackSelection: () -> Unit,
+    onAddLocalSubtitle: () -> Unit,
+    onShowSubtitleStyle: () -> Unit,
+    onShowSubtitleDelay: () -> Unit,
     onCycleAspectRatio: () -> Unit,
     onToggleOrientation: () -> Unit,
     onTitleClick: () -> Unit = {},
@@ -260,6 +269,8 @@ private fun PortraitPlayerOverlay(
     modifier: Modifier = Modifier
 ) {
     var showOverflow by remember { mutableStateOf(false) }
+    var showSubtitleMenu by remember { mutableStateOf(false) }
+    val playerHud = rememberPlayerHudStats()
     val progress = if (duration > 0 && currentPosition >= 0) {
         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -378,6 +389,9 @@ private fun PortraitPlayerOverlay(
             }
             if (!showOverflow) {
                 OverlayPlaybackStats(
+                    batteryPercent = playerHud.batteryPercent,
+                    clock = playerHud.clock,
+                    speedLabel = playerHud.speedLabel,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .windowInsetsPadding(
@@ -518,6 +532,7 @@ private fun PortraitPlayerOverlay(
                         seekBackwardSeconds = seekBackwardSeconds,
                         seekForwardSeconds = seekForwardSeconds,
                         iconTint = iconTint,
+                        networkSpeed = playerHud.speedLabel,
                         onSeekBackward = onSeekBackward,
                         onPlayPause = onPlayPause,
                         onSeekForward = onSeekForward
@@ -695,13 +710,82 @@ private fun PortraitPlayerOverlay(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        PlayerChromeIconButton(onClick = onShowSubtitleTrackSelection) {
-                            Icon(
-                                imageVector = Icons.Outlined.ClosedCaption,
-                                contentDescription = stringResource(R.string.player_dialog_subtitles_title),
-                                tint = iconTint,
-                                modifier = Modifier.size(24.dp)
-                            )
+                        Box {
+                            PlayerChromeIconButton(
+                                onClick = onShowSubtitleTrackSelection,
+                                onLongClick = { showSubtitleMenu = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ClosedCaption,
+                                    contentDescription = stringResource(R.string.player_dialog_subtitles_title),
+                                    tint = iconTint,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showSubtitleMenu,
+                                onDismissRequest = { showSubtitleMenu = false },
+                                containerColor = Color(0xE61C1C1E),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.player_subtitle_add_local),
+                                            color = Color.White
+                                        )
+                                    },
+                                    onClick = {
+                                        showSubtitleMenu = false
+                                        onAddLocalSubtitle()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Add,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.player_subtitle_scale_position),
+                                            color = Color.White
+                                        )
+                                    },
+                                    onClick = {
+                                        showSubtitleMenu = false
+                                        onShowSubtitleStyle()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.OpenWith,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.player_subtitle_time_offset),
+                                            color = Color.White
+                                        )
+                                    },
+                                    onClick = {
+                                        showSubtitleMenu = false
+                                        onShowSubtitleDelay()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Schedule,
+                                            contentDescription = null,
+                                            tint = Color.White
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -779,8 +863,11 @@ private fun SeekBar(
                         scrubProgress = newProgress
                         lastLiveSeekAt = SystemClock.uptimeMillis()
                         onScrubProgressChange(scrubProgress)
-                        // MPV 只能截取当前解码帧，因此预览请求必须紧跟同一位置的 live seek。
-                        onLiveSeek(scrubProgress)
+                        // 向前 live seek 会落到更早的关键帧，点选目标位置会被带回去。
+                        // 只在向后或已缓冲范围内预览；最终位置一律在 UP 时 exact seek。
+                        if (canLiveSeek(newProgress, progress, bufferedProgress)) {
+                            onLiveSeek(scrubProgress)
+                        }
                         onScrubPreviewProgressChange(scrubProgress)
                         true
                     }
@@ -788,11 +875,14 @@ private fun SeekBar(
                         scrubProgress = newProgress
                         onScrubProgressChange(scrubProgress)
                         val now = SystemClock.uptimeMillis()
-                        if (now - lastLiveSeekAt >= 80L) {
+                        if (
+                            canLiveSeek(newProgress, progress, bufferedProgress) &&
+                            now - lastLiveSeekAt >= 80L
+                        ) {
                             lastLiveSeekAt = now
                             onLiveSeek(scrubProgress)
-                            onScrubPreviewProgressChange(scrubProgress)
                         }
+                        onScrubPreviewProgressChange(scrubProgress)
                         true
                     }
                     MotionEvent.ACTION_UP -> {
@@ -943,6 +1033,15 @@ private fun SeekBar(
     }
 }
 
+private fun canLiveSeek(
+    targetProgress: Float,
+    currentProgress: Float,
+    bufferedProgress: Float
+): Boolean {
+    return targetProgress <= currentProgress + 0.0005f ||
+        targetProgress <= bufferedProgress + 0.0005f
+}
+
 private fun formatTime(timeMs: Long): String {
     val totalSeconds = timeMs / 1000
     val hours = totalSeconds / 3600
@@ -1037,35 +1136,96 @@ private fun PlayerOverflowMenuItem(
 
 @Composable
 private fun OverlayPlaybackStats(
+    batteryPercent: Int,
+    clock: String,
+    speedLabel: String,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val batteryPercent = remember {
-        val manager = context.getSystemService(android.content.Context.BATTERY_SERVICE)
-            as? android.os.BatteryManager
-        manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-    }
-    var clock by remember {
-        mutableStateOf(
-            java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                .format(java.util.Date())
+    val batteryText = if (batteryPercent >= 0) "${batteryPercent}%" else "--%"
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.BatteryStd,
+            contentDescription = null,
+            tint = Color(0xFF7CFF6B),
+            modifier = Modifier.size(14.dp)
+        )
+        Text(
+            text = batteryText,
+            color = Color.White.copy(alpha = 0.88f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = clock,
+            color = Color.White.copy(alpha = 0.82f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = speedLabel,
+            color = Color.White.copy(alpha = 0.82f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
         )
     }
+}
+
+@Composable
+private fun rememberPlayerHudStats(): PlayerHudStats {
+    val context = LocalContext.current
+    var batteryPercent by remember {
+        mutableIntStateOf(readBatteryPercent(context))
+    }
+    var clock by remember {
+        mutableStateOf(currentClockText())
+    }
+    var speedLabel by remember { mutableStateOf("0.00 MB/s") }
     LaunchedEffect(Unit) {
+        var lastRx = android.net.TrafficStats.getTotalRxBytes()
+        var lastTime = android.os.SystemClock.elapsedRealtime()
         while (true) {
-            clock = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
-                .format(java.util.Date())
             kotlinx.coroutines.delay(1_000)
+            clock = currentClockText()
+            batteryPercent = readBatteryPercent(context)
+            val now = android.os.SystemClock.elapsedRealtime()
+            val rx = android.net.TrafficStats.getTotalRxBytes()
+            val elapsed = (now - lastTime).coerceAtLeast(1L)
+            speedLabel = if (rx >= 0L && lastRx >= 0L) {
+                val bytesPerSec = (rx - lastRx).coerceAtLeast(0L) * 1000.0 / elapsed
+                String.format(java.util.Locale.US, "%.2f MB/s", bytesPerSec / (1024.0 * 1024.0))
+            } else {
+                "-- MB/s"
+            }
+            lastRx = rx
+            lastTime = now
         }
     }
-    val batteryText = if (batteryPercent >= 0) "${batteryPercent}%" else "--%"
-    Text(
-        text = "$batteryText  $clock",
-        color = Color.White.copy(alpha = 0.82f),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = modifier
+    return PlayerHudStats(
+        batteryPercent = batteryPercent,
+        clock = clock,
+        speedLabel = speedLabel
     )
+}
+
+private data class PlayerHudStats(
+    val batteryPercent: Int,
+    val clock: String,
+    val speedLabel: String
+)
+
+private fun currentClockText(): String {
+    return java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+        .format(java.util.Date())
+}
+
+private fun readBatteryPercent(context: android.content.Context): Int {
+    val manager = context.getSystemService(android.content.Context.BATTERY_SERVICE)
+        as? android.os.BatteryManager
+    return manager?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
 }
 
 @Composable
@@ -1074,6 +1234,7 @@ private fun OverlayTransportButtons(
     seekBackwardSeconds: Int,
     seekForwardSeconds: Int,
     iconTint: Color,
+    networkSpeed: String = "",
     onSeekBackward: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekForward: () -> Unit,
@@ -1098,24 +1259,35 @@ private fun OverlayTransportButtons(
                 modifier = Modifier.size(30.dp)
             )
         }
-        PlayerGlassIconButton(
-            onClick = onPlayPause,
-            size = PlayerGlassPlaySize
-        ) {
-            Icon(
-                imageVector = if (isPlaying) {
-                    Icons.Filled.Pause
-                } else {
-                    Icons.Rounded.PlayArrow
-                },
-                contentDescription = if (isPlaying) {
-                    stringResource(R.string.pause)
-                } else {
-                    stringResource(R.string.play)
-                },
-                tint = iconTint,
-                modifier = Modifier.size(if (isPlaying) 36.dp else 44.dp)
-            )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PlayerGlassIconButton(
+                onClick = onPlayPause,
+                size = PlayerGlassPlaySize
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) {
+                        Icons.Filled.Pause
+                    } else {
+                        Icons.Rounded.PlayArrow
+                    },
+                    contentDescription = if (isPlaying) {
+                        stringResource(R.string.pause)
+                    } else {
+                        stringResource(R.string.play)
+                    },
+                    tint = iconTint,
+                    modifier = Modifier.size(if (isPlaying) 36.dp else 44.dp)
+                )
+            }
+            if (networkSpeed.isNotBlank()) {
+                Text(
+                    text = networkSpeed,
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
         }
         PlayerGlassIconButton(
             onClick = onSeekForward,

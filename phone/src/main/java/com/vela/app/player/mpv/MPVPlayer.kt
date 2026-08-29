@@ -127,9 +127,10 @@ object MPVPlayer {
                         requestHeaders["X-Emby-Authorization"]?.startsWith("Emby", ignoreCase = true) == true
             
                     val codec = when (stream.codec?.lowercase()) {
-                        "subrip", "srt" -> if (isEmby) "vtt" else "subrip" 
+                        "ass", "ssa" -> stream.codec.orEmpty().lowercase()
+                        "subrip", "srt" -> if (isEmby) "vtt" else "srt"
                         "webvtt", "vtt" -> "vtt"
-                        else -> if (isEmby) "vtt" else "subrip"
+                        else -> if (isEmby) "vtt" else "srt"
                     }
 
                     deliveryUrl = if (isEmby) {

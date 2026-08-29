@@ -3,6 +3,8 @@ package com.vela.app.ui.screens.player
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -96,19 +98,22 @@ internal fun PlayerGlassIconButton(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun PlayerChromeIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.size(PlayerChromeIconSize),
     enabled: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     Box(
-        modifier = modifier.clickable(
+        modifier = modifier.combinedClickable(
             enabled = enabled,
             interactionSource = remember { MutableInteractionSource() },
             indication = ripple(bounded = true, color = Color.White),
-            onClick = onClick
+            onClick = onClick,
+            onLongClick = onLongClick
         ),
         contentAlignment = Alignment.Center
     ) {

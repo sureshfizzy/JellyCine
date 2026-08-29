@@ -57,6 +57,7 @@ import com.vela.app.ui.screens.auth.ServerSwitchViewModel
 import com.vela.app.ui.screens.auth.UserSwitchDialog
 import com.vela.app.ui.screens.dashboard.home.AccountOverview
 import com.vela.app.ui.screens.dashboard.home.Dashboard
+import com.vela.app.ui.screens.dashboard.home.ManageLibrariesSheet
 import com.vela.app.ui.screens.dashboard.settings.Settings
 import com.vela.app.ui.screens.dashboard.media.ContentType
 import com.vela.app.ui.screens.dashboard.media.MyMedia
@@ -366,6 +367,7 @@ fun DashboardContainer(
     }
 
     var showAccountSheet by remember { mutableStateOf(false) }
+    var showManageLibraries by remember { mutableStateOf(false) }
     var showUserSwitchDialog by remember { mutableStateOf(false) }
     val accountSessionSnapshot by authRepository.observeActiveSession()
         .collectAsStateWithLifecycle(initialValue = authRepository.getActiveSessionSnapshot())
@@ -400,6 +402,10 @@ fun DashboardContainer(
             serverTypeRaw = accountSessionSnapshot.serverType,
             canChangeUser = accountUsersForServer.isNotEmpty(),
             onDismiss = { showAccountSheet = false },
+            onManageLibraries = {
+                showAccountSheet = false
+                showManageLibraries = true
+            },
             onChangeUser = {
                 showAccountSheet = false
                 showUserSwitchDialog = true
@@ -409,6 +415,17 @@ fun DashboardContainer(
                 scope.launch {
                     authRepository.logout()
                     onLogout()
+                }
+            }
+        )
+    }
+
+    if (showManageLibraries) {
+        ManageLibrariesSheet(
+            onDismiss = { showManageLibraries = false },
+            onLibrariesChanged = {
+                scope.launch {
+                    mediaRepository.clearPersistedHomeSnapshot()
                 }
             }
         )

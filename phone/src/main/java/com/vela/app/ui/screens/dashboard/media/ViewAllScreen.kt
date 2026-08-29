@@ -27,6 +27,9 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.animation.*
 import coil3.compose.AsyncImage
 import coil3.request.*
@@ -34,6 +37,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -105,21 +109,22 @@ fun ViewAllScreen(
     val isFavoritesViewAll = parentId == FAVORITES_VIEW_ALL_PARENT_ID
     val isWatchedEpisodeViewAll = (isWatchedViewAll || isFavoritesViewAll) && contentType == ContentType.EPISODES
     val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward
+    var landscapePosters by rememberSaveable { mutableStateOf(false) }
 
-    val gridCells = remember(screenWidthDp) {
-        if (screenWidthDp >= 1200.dp) {
-            GridCells.Adaptive(minSize = 160.dp)
-        } else if (screenWidthDp >= 600.dp) {
-            GridCells.Adaptive(minSize = 140.dp)
-        } else {
-            GridCells.Fixed(3)
+    val gridCells = remember(screenWidthDp, landscapePosters, isWatchedEpisodeViewAll) {
+        when {
+            isWatchedEpisodeViewAll -> {
+                if (isTablet) GridCells.Adaptive(minSize = 200.dp) else GridCells.Fixed(2)
+            }
+            landscapePosters -> {
+                if (isTablet) GridCells.Adaptive(minSize = 240.dp) else GridCells.Fixed(2)
+            }
+            screenWidthDp >= 1200.dp -> GridCells.Adaptive(minSize = 160.dp)
+            screenWidthDp >= 600.dp -> GridCells.Adaptive(minSize = 140.dp)
+            else -> GridCells.Fixed(3)
         }
     }
-    val viewAllGridCells = if (isWatchedEpisodeViewAll) {
-        if (isTablet) GridCells.Adaptive(minSize = 200.dp) else GridCells.Fixed(2)
-    } else {
-        gridCells
-    }
+    val viewAllGridCells = gridCells
 
     val horizontalPadding = if (isTablet) 24.dp else 16.dp
     val verticalSpacing = if (isTablet) 20.dp else 16.dp
@@ -241,7 +246,7 @@ fun ViewAllScreen(
         if (userDataRefreshEvent == null || !contentType.includesSeriesItems()) {
             return@LaunchedEffect
         }
-        viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)
+        viewModel.refreshIfPopulated(contentType, parentId, genreId)
     }
 
     LaunchedEffect(filterSignature) {
@@ -368,6 +373,35 @@ fun ViewAllScreen(
                         viewModel.setBrowseTab(tab, contentType, parentId, genreId)
                     }
                 )
+                if (uiState.browseTab.supportsSort()) {
+                    LibraryChromeBar(
+                        itemCount = headerTotalCount,
+                        sortBy = uiState.sortBy,
+                        sortOrder = uiState.sortOrder,
+                        landscapePosters = landscapePosters,
+                        filtersActive = uiState.selectedGenres.isNotEmpty(),
+                        shuffleEnabled = displayItems.any { item ->
+                            item.id != null && (
+                                item.type.equals("Movie", ignoreCase = true) ||
+                                    item.type.equals("Episode", ignoreCase = true) ||
+                                    item.type.equals("Series", ignoreCase = true)
+                                )
+                        },
+                        onShuffleClick = {
+                            val playable = displayItems.filter { item ->
+                                item.id != null && (
+                                    item.type.equals("Movie", ignoreCase = true) ||
+                                        item.type.equals("Episode", ignoreCase = true) ||
+                                        item.type.equals("Series", ignoreCase = true)
+                                    )
+                            }
+                            playable.randomOrNull()?.id?.let(onPlayFromBeginning)
+                        },
+                        onToggleLayout = { landscapePosters = !landscapePosters },
+                        onFilterClick = { showSortSheet = true },
+                        onSortClick = { showSortSheet = true }
+                    )
+                }
             }
         }
     }
@@ -397,7 +431,11 @@ fun ViewAllScreen(
                 }
             }
 
-            Box(
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = {
+                    viewModel.loadItems(contentType, parentId, refresh = true, genreId = genreId)
+                },
                 modifier = Modifier.fillMaxSize()
             ) {
                 when {
@@ -715,7 +753,8 @@ fun ViewAllScreen(
             !isWatchedEpisodeViewAll &&
             !isAward &&
             (!showLibraryChrome || uiState.browseTab.supportsSort())
-        if (showSort) {
+        val showSortChip = showLibraryChrome && uiState.browseTab.supportsSort()
+        if (showSort && !showSortChip) {
             SortFAB(
                 onClick = { showSortSheet = true },
                 modifier = Modifier.align(Alignment.BottomEnd)
@@ -1040,6 +1079,17 @@ private fun SortBottomSheet(
             }
 
             librarySortFields().forEach { field ->
+                if (!field.primary && librarySortFields().any { it.primary } &&
+                    field == librarySortFields().first { !it.primary }
+                ) {
+                    Text(
+                        text = stringResource(R.string.library_sort_more),
+                        color = Color.White.copy(alpha = 0.48f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
+                }
                 val selected = currentSortBy == field.sortBy
                 Row(
                     modifier = Modifier
@@ -1170,6 +1220,93 @@ private fun ContentType.includesSeriesItems(): Boolean {
     return this == ContentType.SERIES ||
         this == ContentType.TVSHOWS_GENRE ||
         this == ContentType.ALL
+}
+
+@Composable
+private fun LibraryChromeBar(
+    itemCount: Int,
+    sortBy: String,
+    sortOrder: String,
+    landscapePosters: Boolean,
+    filtersActive: Boolean,
+    shuffleEnabled: Boolean,
+    onShuffleClick: () -> Unit,
+    onToggleLayout: () -> Unit,
+    onFilterClick: () -> Unit,
+    onSortClick: () -> Unit
+) {
+    val field = librarySortFields().firstOrNull { it.sortBy == sortBy }
+    val label = field?.let { stringResource(it.labelRes) } ?: sortBy
+    val suffix = when {
+        field?.supportsOrder == false -> ""
+        sortOrder == "Ascending" -> " ↑"
+        else -> " ↓"
+    }
+    val iconTint = Color.White.copy(alpha = 0.88f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.library_toolbar_count, itemCount.coerceAtLeast(0)),
+            color = Color.White.copy(alpha = 0.78f),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
+        IconButton(
+            onClick = onShuffleClick,
+            enabled = shuffleEnabled,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Shuffle,
+                contentDescription = stringResource(R.string.person_works_shuffle),
+                tint = if (shuffleEnabled) iconTint else iconTint.copy(alpha = 0.35f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        IconButton(onClick = onToggleLayout, modifier = Modifier.size(36.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.GridView,
+                contentDescription = stringResource(R.string.person_works_poster_layout),
+                tint = if (landscapePosters) Color(0xFF5AA9FA) else iconTint,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        IconButton(onClick = onFilterClick, modifier = Modifier.size(36.dp)) {
+            Icon(
+                imageVector = Icons.Rounded.FilterAlt,
+                contentDescription = stringResource(R.string.person_works_filter),
+                tint = if (filtersActive) Color(0xFF5AA9FA) else iconTint,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onSortClick)
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Sort,
+                contentDescription = stringResource(R.string.view_all_sort),
+                tint = iconTint,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = label + suffix,
+                color = Color.White.copy(alpha = 0.92f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+        }
+    }
 }
 
 @Composable

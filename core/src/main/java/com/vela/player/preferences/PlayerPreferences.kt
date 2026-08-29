@@ -58,6 +58,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SUBTITLE_TEXT_OPACITY_PERCENT = "subtitle_text_opacity_percent"
         private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
         private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
+        private const val KEY_SUBTITLE_DELAY_MS = "subtitle_delay_ms"
         private const val KEY_STREAMING_QUALITY = "streaming_quality"
         private const val KEY_AUDIO_TRANSCODE_MODE = "audio_transcode_mode"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
@@ -118,11 +119,14 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
+        const val MIN_SUBTITLE_DELAY_MS = -10_000
+        const val MAX_SUBTITLE_DELAY_MS = 10_000
+        const val SUBTITLE_DELAY_STEP_MS = 100
         const val DEFAULT_PLAYER_CACHE_SIZE_MB = 200
         const val MAX_PLAYER_CACHE_SIZE_MB = 500
         const val MIN_PLAYER_CACHE_SIZE_MB = 50
         const val PLAYER_CACHE_SIZE_STEP_MB = 50
-        const val DEFAULT_PLAYER_CACHE_TIME_SECONDS = 120
+        const val DEFAULT_PLAYER_CACHE_TIME_SECONDS = 180
         const val MAX_PLAYER_CACHE_TIME_SECONDS = 900
         const val MIN_PLAYER_CACHE_TIME_SECONDS = 30
         const val PLAYER_CACHE_TIME_STEP_SECONDS = 30
@@ -216,7 +220,7 @@ class PlayerPreferences(context: Context) {
         )
 
         const val DEFAULT_MPV_SMOOTH_MOTION = false
-        const val DEFAULT_MPV_DEBAND = true
+        const val DEFAULT_MPV_DEBAND = false
         const val DEFAULT_MPV_DYNAMIC_PEAK = true
         const val DEFAULT_MPV_HDR_TO_SDR_TONEMAPPING = false
         const val MPV_TARGET_PRIM_AUTO = "auto"
@@ -876,6 +880,20 @@ class PlayerPreferences(context: Context) {
     fun setSubtitleTopEdgePositionPercent(percent: Int) {
         prefs.edit()
             .putInt(KEY_SUBTITLE_TOP_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
+            .apply()
+    }
+
+    fun getSubtitleDelayMs(): Int {
+        return prefs.getInt(KEY_SUBTITLE_DELAY_MS, 0)
+            .coerceIn(MIN_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
+    }
+
+    fun setSubtitleDelayMs(delayMs: Int) {
+        prefs.edit()
+            .putInt(
+                KEY_SUBTITLE_DELAY_MS,
+                delayMs.coerceIn(MIN_SUBTITLE_DELAY_MS, MAX_SUBTITLE_DELAY_MS)
+            )
             .apply()
     }
 

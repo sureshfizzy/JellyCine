@@ -146,7 +146,7 @@ class AuthRepository(private val context: Context) {
         @SerialName("note")
         val note: String? = null,
         @SerialName("preferStrmOriginalPath")
-        val preferStrmOriginalPath: Boolean = false,
+        val preferStrmOriginalPath: Boolean = true,
         @SerialName("autoRouteEnabled")
         val autoRouteEnabled: Boolean = true
     ) {
@@ -210,7 +210,7 @@ class AuthRepository(private val context: Context) {
         @SerialName("note")
         val note: String? = null,
         @SerialName("preferStrmOriginalPath")
-        val preferStrmOriginalPath: Boolean = false,
+        val preferStrmOriginalPath: Boolean = true,
         @SerialName("autoRouteEnabled")
         val autoRouteEnabled: Boolean = true
     )
@@ -340,7 +340,7 @@ class AuthRepository(private val context: Context) {
             activeLineId = existingSavedServer?.activeLineId,
             serverInstanceId = existingSavedServer?.serverInstanceId,
             note = existingSavedServer?.note,
-            preferStrmOriginalPath = existingSavedServer?.preferStrmOriginalPath == true,
+            preferStrmOriginalPath = existingSavedServer?.preferStrmOriginalPath ?: true,
             autoRouteEnabled = existingSavedServer?.autoRouteEnabled != false
         )
     }
@@ -1270,7 +1270,7 @@ class AuthRepository(private val context: Context) {
             activeLineId = active.id,
             serverInstanceId = instanceId ?: matched?.serverInstanceId,
             note = note?.trim()?.takeIf { it.isNotBlank() } ?: matched?.note,
-            preferStrmOriginalPath = matched?.preferStrmOriginalPath == true,
+            preferStrmOriginalPath = matched?.preferStrmOriginalPath ?: true,
             autoRouteEnabled = matched?.autoRouteEnabled != false
         )
     }

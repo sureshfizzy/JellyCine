@@ -387,6 +387,9 @@ internal fun BoxScope.PlayerOverlayHost(
     onShowAudioTranscodingDialog: () -> Unit,
     onShowAudioTrackDialog: () -> Unit,
     onShowSubtitleTrackDialog: () -> Unit,
+    onAddLocalSubtitle: () -> Unit = {},
+    onShowSubtitleStyle: () -> Unit = {},
+    onShowSubtitleDelay: () -> Unit = {},
     onToggleOrientation: () -> Unit = {},
     onTitleClick: () -> Unit = {},
     onEnterPip: () -> Unit = {},
@@ -502,6 +505,18 @@ internal fun BoxScope.PlayerOverlayHost(
             onShowSubtitleTrackSelection = {
                 resetAutoHideTimer()
                 onShowSubtitleTrackDialog()
+            },
+            onAddLocalSubtitle = {
+                resetAutoHideTimer()
+                onAddLocalSubtitle()
+            },
+            onShowSubtitleStyle = {
+                resetAutoHideTimer()
+                onShowSubtitleStyle()
+            },
+            onShowSubtitleDelay = {
+                resetAutoHideTimer()
+                onShowSubtitleDelay()
             },
             onCycleAspectRatio = {
                 resetAutoHideTimer()

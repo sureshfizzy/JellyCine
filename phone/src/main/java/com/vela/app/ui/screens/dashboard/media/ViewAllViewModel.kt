@@ -16,6 +16,7 @@ import com.vela.shared.playback.UserDataRefreshSignals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +47,9 @@ class ViewAllViewModel @Inject constructor(
     private var hasMorePages = true
     private var currentRequestKey: String? = null
     private var loadJob: Job? = null
+    private var ensureJob: Job? = null
+    @Volatile
+    private var loadGeneration = 0
     private var folderStack: List<LibraryFolderNav> = emptyList()
     private var drilledGenre: LibraryGenreNav? = null
 
@@ -62,14 +66,30 @@ class ViewAllViewModel @Inject constructor(
         genreId: String? = null
     ) {
         val requestKey = requestKey(contentType, parentId, genreId)
-        if (currentRequestKey == requestKey && (_items.value.isNotEmpty() || _uiState.value.recommendationSections.isNotEmpty())) {
+        val alreadyLoaded = currentRequestKey == requestKey &&
+            (_items.value.isNotEmpty() || _uiState.value.recommendationSections.isNotEmpty())
+        if (alreadyLoaded || (currentRequestKey == requestKey && ensureJob?.isActive == true)) {
             return
         }
-        viewModelScope.launch {
+        currentRequestKey = requestKey
+        ensureJob?.cancel()
+        ensureJob = viewModelScope.launch {
             val isAdmin = withContext(Dispatchers.IO) {
                 repository().getCurrentUser().getOrNull()?.policy?.isAdministrator == true
             }
             _uiState.value = _uiState.value.copy(isAdministrator = isAdmin)
+            loadLibrarySortPreferences(parentId)
+            loadItems(contentType, parentId, refresh = true, genreId = genreId)
+        }
+    }
+
+    fun refreshIfPopulated(
+        contentType: ContentType,
+        parentId: String? = null,
+        genreId: String? = null
+    ) {
+        if (_items.value.isEmpty() && _uiState.value.recommendationSections.isEmpty()) {
+            return
         }
         loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
@@ -167,8 +187,14 @@ class ViewAllViewModel @Inject constructor(
         if (!hasMorePages && !refresh) return
 
         loadJob?.cancel()
+        val generation = ++loadGeneration
         loadJob = viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val showRefresh = refresh && _items.value.isNotEmpty()
+            _uiState.value = _uiState.value.copy(
+                isLoading = !showRefresh,
+                isRefreshing = showRefresh,
+                error = null
+            )
 
             try {
                 val repo = repository()
@@ -182,7 +208,7 @@ class ViewAllViewModel @Inject constructor(
                     val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
                     val isFavoritesRequest = parentId == FAVORITES_VIEW_ALL_PARENT_ID
                     val browseTab = _uiState.value.browseTab
-                    val result = loadQuery(
+                    var result = loadQuery(
                         repo = repo,
                         contentType = contentType,
                         parentId = parentId,
@@ -192,6 +218,27 @@ class ViewAllViewModel @Inject constructor(
                         isFavoritesRequest = isFavoritesRequest,
                         browseTab = browseTab
                     )
+                    if (
+                        result.isFailure &&
+                        isUnsupportedLibrarySort(result.exceptionOrNull()) &&
+                        _uiState.value.sortBy != "DateCreated" &&
+                        browseTab.supportsSort()
+                    ) {
+                        _uiState.value = _uiState.value.copy(
+                            sortBy = "DateCreated",
+                            sortOrder = "Descending"
+                        )
+                        result = loadQuery(
+                            repo = repo,
+                            contentType = contentType,
+                            parentId = parentId,
+                            selectedGenres = selectedGenres,
+                            selectedGenreIds = selectedGenreIds,
+                            isWatchedRequest = isWatchedRequest,
+                            isFavoritesRequest = isFavoritesRequest,
+                            browseTab = browseTab
+                        )
+                    }
 
                     result.fold(
                         onSuccess = { queryResult ->
@@ -216,6 +263,7 @@ class ViewAllViewModel @Inject constructor(
                                 (currentPage + 1) * pageSize < totalItems
 
                             withContext(Dispatchers.Main) {
+                                if (generation != loadGeneration) return@withContext
                                 if (refresh) {
                                     _items.value = newItems
                                 } else {
@@ -224,24 +272,32 @@ class ViewAllViewModel @Inject constructor(
                                 currentPage++
                                 _uiState.value = _uiState.value.copy(
                                     isLoading = false,
+                                    isRefreshing = false,
                                     totalItems = totalItems,
                                     hasMorePages = hasMorePages
                                 )
                             }
                         },
                         onFailure = { exception ->
+                            if (exception.isCancellation()) throw exception
                             withContext(Dispatchers.Main) {
+                                if (generation != loadGeneration) return@withContext
                                 _uiState.value = _uiState.value.copy(
                                     isLoading = false,
+                                    isRefreshing = false,
                                     error = exception.message ?: "Unknown error occurred"
                                 )
                             }
                         }
                     )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (generation != loadGeneration) return@launch
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isRefreshing = false,
                     error = e.message ?: "Unknown error occurred"
                 )
             }
@@ -430,8 +486,37 @@ class ViewAllViewModel @Inject constructor(
         loadItems(contentType, parentId, refresh = false, genreId = genreId)
     }
 
+    private suspend fun loadLibrarySortPreferences(parentId: String?) {
+        val libraryId = parentId?.takeIf {
+            it.isNotBlank() &&
+                it != WATCHED_VIEW_ALL_PARENT_ID &&
+                it != FAVORITES_VIEW_ALL_PARENT_ID
+        } ?: return
+        val prefs = withContext(Dispatchers.IO) {
+            repository().getLibrarySortPreferences(libraryId).getOrNull()
+        } ?: return
+        val sortBy = matchedLibrarySortBy(prefs.sortBy) ?: return
+        _uiState.value = _uiState.value.copy(
+            sortBy = sortBy,
+            sortOrder = librarySortOrder(prefs.sortOrder, _uiState.value.sortOrder)
+        )
+    }
+
     fun setSort(sortBy: String, sortOrder: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         _uiState.value = _uiState.value.copy(sortBy = sortBy, sortOrder = sortOrder)
+        viewModelScope.launch {
+            parentId
+                ?.takeIf { it.isNotBlank() && it != WATCHED_VIEW_ALL_PARENT_ID && it != FAVORITES_VIEW_ALL_PARENT_ID }
+                ?.let { libraryId ->
+                    withContext(Dispatchers.IO) {
+                        repository().saveLibrarySortPreferences(
+                            parentId = libraryId,
+                            sortBy = sortBy,
+                            sortOrder = sortOrder
+                        )
+                    }
+                }
+        }
         loadItems(contentType, parentId, refresh = true, genreId = genreId)
     }
 
@@ -502,6 +587,22 @@ class ViewAllViewModel @Inject constructor(
             _uiState.value.sortOrder
         ).joinToString("|")
     }
+
+    private fun isUnsupportedLibrarySort(error: Throwable?): Boolean {
+        val message = error?.message.orEmpty()
+        return message.contains(": 500") ||
+            message.endsWith("500") ||
+            message.contains(" 500")
+    }
+
+    private fun Throwable.isCancellation(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (current is CancellationException) return true
+            current = current.cause
+        }
+        return false
+    }
 }
 
 data class ViewAllUiState(
@@ -512,6 +613,7 @@ data class ViewAllUiState(
     val selectedGenres: Set<String> = emptySet(),
     val totalItems: Int = 0,
     val hasMorePages: Boolean = true,
+    val isRefreshing: Boolean = false,
     val browseTab: LibraryBrowseTab = LibraryBrowseTab.ITEMS,
     val folderTitle: String? = null,
     val canGoBackInFolder: Boolean = false,

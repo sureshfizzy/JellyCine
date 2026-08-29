@@ -108,6 +108,7 @@ private fun subtitleConfiguration(
             requestHeaders["X-Emby-Authorization"]?.startsWith("Emby", ignoreCase = true) == true
             
         val codec = when (subtitleStream.codec?.lowercase()) {
+            "ass", "ssa" -> subtitleStream.codec.orEmpty().lowercase()
             "subrip", "srt" -> "srt"
             "webvtt", "vtt" -> "vtt"
             else -> if (isEmby) "vtt" else "srt"

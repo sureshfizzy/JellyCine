@@ -16,7 +16,8 @@ data class LibrarySortField(
     val sortBy: String,
     val defaultOrder: String,
     @StringRes val labelRes: Int,
-    val supportsOrder: Boolean = true
+    val supportsOrder: Boolean = true,
+    val primary: Boolean = true
 )
 
 data class LibraryRecommendationSection(
@@ -65,11 +66,7 @@ fun libraryBrowseTabs(contentType: ContentType): List<LibraryBrowseTab> {
 @StringRes
 fun LibraryBrowseTab.labelRes(contentType: ContentType): Int {
     return when (this) {
-        LibraryBrowseTab.ITEMS -> if (contentType == ContentType.SERIES) {
-            R.string.library_tab_shows
-        } else {
-            R.string.library_tab_items
-        }
+        LibraryBrowseTab.ITEMS -> R.string.library_tab_all
         LibraryBrowseTab.RECOMMENDED -> R.string.library_tab_recommended
         LibraryBrowseTab.TRAILERS -> R.string.library_tab_trailers
         LibraryBrowseTab.GENRES -> R.string.library_tab_genres
@@ -86,23 +83,44 @@ fun LibraryBrowseTab.supportsSort(): Boolean {
 }
 
 fun librarySortFields(): List<LibrarySortField> = listOf(
-    LibrarySortField("CommunityRating", "Descending", R.string.library_sort_imdb),
-    LibrarySortField("Resolution", "Descending", R.string.library_sort_resolution),
+    LibrarySortField("DateLastContentAdded", "Descending", R.string.library_sort_date_updated),
     LibrarySortField("DateCreated", "Descending", R.string.library_sort_date_added),
+    LibrarySortField("CommunityRating", "Descending", R.string.library_sort_community),
+    LibrarySortField("SortName", "Ascending", R.string.library_sort_title),
     LibrarySortField("PremiereDate", "Descending", R.string.library_sort_premiere),
-    LibrarySortField("Container", "Ascending", R.string.library_sort_container),
     LibrarySortField("OfficialRating", "Ascending", R.string.library_sort_official_rating),
-    LibrarySortField("People", "Ascending", R.string.library_sort_director),
-    LibrarySortField("VideoFrameRate", "Descending", R.string.library_sort_framerate),
     LibrarySortField("ProductionYear", "Descending", R.string.library_sort_year),
     LibrarySortField("CriticRating", "Descending", R.string.library_sort_critic),
     LibrarySortField("DatePlayed", "Descending", R.string.library_sort_date_played),
     LibrarySortField("Runtime", "Descending", R.string.library_sort_runtime),
-    LibrarySortField("PlayCount", "Descending", R.string.library_sort_play_count),
-    LibrarySortField("SortName", "Ascending", R.string.library_sort_filename),
+    LibrarySortField("Bitrate", "Descending", R.string.library_sort_bitrate),
     LibrarySortField("Size", "Descending", R.string.library_sort_size),
-    LibrarySortField("Random", "Ascending", R.string.library_sort_random, supportsOrder = false)
+    LibrarySortField("Random", "Ascending", R.string.library_sort_random, supportsOrder = false),
+    LibrarySortField("Resolution", "Descending", R.string.library_sort_resolution, primary = false),
+    LibrarySortField("Container", "Ascending", R.string.library_sort_container, primary = false),
+    LibrarySortField("VideoFrameRate", "Descending", R.string.library_sort_framerate, primary = false),
+    LibrarySortField("People", "Ascending", R.string.library_sort_director, primary = false),
+    LibrarySortField("PlayCount", "Descending", R.string.library_sort_play_count, primary = false)
 )
+
+fun matchedLibrarySortBy(raw: String?): String? {
+    val candidate = raw
+        ?.split(',')
+        ?.map { it.trim() }
+        ?.firstOrNull { it.isNotBlank() }
+        ?: return null
+    return librarySortFields().firstOrNull { field ->
+        field.sortBy.equals(candidate, ignoreCase = true)
+    }?.sortBy
+}
+
+fun librarySortOrder(raw: String?, fallback: String = "Descending"): String {
+    return when {
+        raw.equals("Ascending", ignoreCase = true) -> "Ascending"
+        raw.equals("Descending", ignoreCase = true) -> "Descending"
+        else -> fallback
+    }
+}
 
 @StringRes
 fun recommendationTitleRes(recommendationType: String?): Int {

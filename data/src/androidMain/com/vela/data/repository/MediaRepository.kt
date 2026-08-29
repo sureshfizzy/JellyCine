@@ -29,6 +29,8 @@ import com.vela.data.model.AdminSessionInfo
 import com.vela.data.model.SeerrItemIds
 import com.vela.data.model.SystemInfoFull
 import com.vela.data.model.UserDto
+import com.vela.data.model.UserConfiguration
+import com.vela.data.model.DisplayPreferencesDto
 import com.vela.data.model.toSearchQueries
 import com.vela.data.network.HttpStatusException
 import com.vela.data.network.VelaJson
@@ -73,6 +75,7 @@ class MediaRepository(private val context: Context) {
         private val USER_ID_KEY = stringPreferencesKey("user_id")
         private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
         private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
+        private const val DISPLAY_PREFERENCES_CLIENT = "emby"
     }
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
@@ -170,7 +173,8 @@ class MediaRepository(private val context: Context) {
         val snapshot = AuthRepositoryProvider.getInstance(context).getActiveSessionSnapshot()
         return snapshot.savedServers
             .firstOrNull { savedServer -> savedServer.id == snapshot.activeServerId }
-            ?.preferStrmOriginalPath == true
+            ?.preferStrmOriginalPath
+            ?: true
     }
 
     private suspend fun getSessionConfig(): SessionConfig? {
@@ -941,21 +945,135 @@ class MediaRepository(private val context: Context) {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
             val response = session.api.getUserViews(session.userId)
-
             if (response.isSuccessful && response.body() != null) {
                 val queryResult = response.body()!!
-                val orderedViewIds = getCurrentUser()
-                    .getOrNull()
-                    ?.configuration
-                    ?.orderedViews
+                val user = getCurrentUser().getOrNull()
+                val orderedViewIds = user?.configuration?.orderedViews
+                val excludedIds = user?.configuration?.myMediaExcludes.orEmpty().toSet()
+                val views = queryResult.items
+                    ?.orderedViews(orderedViewIds)
+                    ?.filter { view -> view.id !in excludedIds }
 
+                Result.success(queryResult.copy(items = views))
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getManageableUserViews(): Result<List<BaseItemDto>> {
+        return try {
+            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val response = session.api.getUserViews(session.userId, includeHidden = true)
+            if (response.isSuccessful && response.body() != null) {
+                val orderedViewIds = getCurrentUser().getOrNull()?.configuration?.orderedViews
                 Result.success(
-                    queryResult.copy(
-                        items = queryResult.items?.orderedViews(orderedViewIds)
-                    )
+                    response.body()!!
+                        .items
+                        .orEmpty()
+                        .filter { library ->
+                            val type = library.type
+                            val collectionType = library.collectionType
+                            !library.id.isNullOrBlank() &&
+                                !library.name.isNullOrBlank() &&
+                                collectionType != "boxsets" &&
+                                collectionType != "playlists" &&
+                                collectionType != "folders" &&
+                                (type == "CollectionFolder" || type == "Folder")
+                        }
+                        .orderedViews(orderedViewIds)
                 )
             } else {
                 Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getLibrarySortPreferences(parentId: String): Result<DisplayPreferencesDto> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val displayPreferencesId = parentId.takeIf { it.isNotBlank() } ?: return Result.failure(
+                Exception(string(R.string.data_error_api_not_available))
+            )
+            val response = api.getDisplayPreferences(
+                displayPreferencesId = displayPreferencesId,
+                userId = userId,
+                client = DISPLAY_PREFERENCES_CLIENT
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_info_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun saveLibrarySortPreferences(
+        parentId: String,
+        sortBy: String,
+        sortOrder: String
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val displayPreferencesId = parentId.takeIf { it.isNotBlank() } ?: return Result.failure(
+                Exception(string(R.string.data_error_api_not_available))
+            )
+            val current = api.getDisplayPreferences(
+                displayPreferencesId = displayPreferencesId,
+                userId = userId,
+                client = DISPLAY_PREFERENCES_CLIENT
+            ).body()
+            val response = api.updateDisplayPreferences(
+                displayPreferencesId = displayPreferencesId,
+                userId = userId,
+                client = DISPLAY_PREFERENCES_CLIENT,
+                preferences = (current ?: DisplayPreferencesDto()).copy(
+                    id = current?.id ?: displayPreferencesId,
+                    sortBy = sortBy,
+                    sortOrder = sortOrder,
+                    client = DISPLAY_PREFERENCES_CLIENT
+                )
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_info_failed, response.code())))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun setLibraryHidden(libraryId: String, hidden: Boolean): Result<Unit> {
+        val targetId = libraryId.takeIf { it.isNotBlank() }
+            ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val current = getCurrentUser().getOrNull()?.configuration
+                ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val excludes = current.myMediaExcludes.orEmpty().toMutableSet()
+            if (hidden) {
+                excludes.add(targetId)
+            } else {
+                excludes.remove(targetId)
+            }
+            val response = api.updateUserConfiguration(
+                userId = userId,
+                configuration = current.copy(myMediaExcludes = excludes.toList())
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(string(R.string.media_error_fetch_user_info_failed, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)

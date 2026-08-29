@@ -294,6 +294,15 @@
     <string name="player_dialog_audio_summary">选择首选的播放曲目</string>
     <string name="player_dialog_subtitles_title">字幕</string>
     <string name="player_dialog_subtitles_summary">选择字幕曲目</string>
+    <string name="player_subtitle_add_local">添加本地字幕</string>
+    <string name="player_subtitle_scale_position">字幕缩放 &amp; 位置</string>
+    <string name="player_subtitle_time_offset">字幕时间偏移</string>
+    <string name="player_subtitle_scale">缩放</string>
+    <string name="player_subtitle_position">位置</string>
+    <string name="player_subtitle_delay_value">偏移：%.2f 秒</string>
+    <string name="player_subtitle_delay_reset">重置</string>
+    <string name="player_subtitle_local_mpv_only">本地字幕仅支持 MPV</string>
+    <string name="player_subtitle_local_failed">无法添加本地字幕</string>
     <string name="player_dialog_tracks_count">轨道</string>
     <string name="player_dialog_streaming_quality_title">串流画质</string>
     <string name="player_dialog_streaming_quality_summary">选择视频码率上限</string>
@@ -351,6 +360,7 @@
     <string name="view_all_sort_rating_high">评分（高）</string>
     <string name="view_all_sort_rating_low">评级（低）</string>
     <string name="library_tab_items">影片</string>
+    <string name="library_tab_all">全部</string>
     <string name="library_tab_shows">节目</string>
     <string name="library_tab_recommended">推荐</string>
     <string name="library_tab_trailers">预告片</string>
@@ -373,6 +383,15 @@
     <string name="library_sort_filename">文件名</string>
     <string name="library_sort_size">文件尺寸</string>
     <string name="library_sort_random">随机排序</string>
+    <string name="library_sort_date_updated">更新日期</string>
+    <string name="library_sort_community">公众评分</string>
+    <string name="library_sort_title">标题</string>
+    <string name="library_sort_bitrate">码率</string>
+    <string name="library_sort_more">更多</string>
+    <string name="library_manage_title">管理媒体库</string>
+    <string name="library_manage_subtitle">选择哪些媒体库显示在首页和「我的媒体」中。</string>
+    <string name="library_manage_loading">正在加载媒体库…</string>
+    <string name="library_toolbar_count">%d 项</string>
     <string name="library_rec_director">由 %1$s 执导</string>
     <string name="library_rec_actor">主演 %1$s</string>
     <string name="library_rec_liked">因为你喜欢 %1$s</string>
@@ -635,6 +654,7 @@
 
     <!-- About -->
     <string name="about_title">关于</string>
+    <string name="about_based_on_vela">Based on Vela</string>
     <string name="about_version_chip">版本 %1$s</string>
     <string name="about_section_project">合法</string>
     <string name="about_section_connect">连接</string>

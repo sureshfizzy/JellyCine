@@ -18,6 +18,8 @@ import com.vela.data.model.ItemIdResult
 import com.vela.data.model.ServerInfo
 import com.vela.data.model.SystemInfoFull
 import com.vela.data.model.UserDto
+import com.vela.data.model.UserConfiguration
+import com.vela.data.model.DisplayPreferencesDto
 import com.vela.data.network.ApiResponse
 
 interface MediaServerApi {
@@ -67,7 +69,10 @@ interface MediaServerApi {
         fields: String? = null
     ): ApiResponse<QueryResult<BaseItemDto>>
 
-    suspend fun getUserViews(userId: String): ApiResponse<QueryResult<BaseItemDto>>
+    suspend fun getUserViews(
+        userId: String,
+        includeHidden: Boolean? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
 
     suspend fun getMovieRecommendations(
         userId: String,
@@ -104,6 +109,24 @@ interface MediaServerApi {
     ): ApiResponse<QueryResult<BaseItemDto>>
 
     suspend fun getUserById(userId: String): ApiResponse<UserDto>
+
+    suspend fun updateUserConfiguration(
+        userId: String,
+        configuration: UserConfiguration
+    ): ApiResponse<Unit>
+
+    suspend fun getDisplayPreferences(
+        displayPreferencesId: String,
+        userId: String,
+        client: String
+    ): ApiResponse<DisplayPreferencesDto>
+
+    suspend fun updateDisplayPreferences(
+        displayPreferencesId: String,
+        userId: String,
+        client: String,
+        preferences: DisplayPreferencesDto
+    ): ApiResponse<Unit>
 
     suspend fun getItemById(
         userId: String,

@@ -43,7 +43,7 @@ internal data class PlaybackStreamOptions(
     val subtitleStreamIndex: Int? = null,
     val audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
     val includeAccessToken: Boolean = false,
-    val preferStrmOriginalPath: Boolean = false
+    val preferStrmOriginalPath: Boolean = true
 )
 
 internal object PlaybackUrlBuilder {
@@ -239,7 +239,8 @@ internal object PlaybackUrlBuilder {
                 serverUrl = authContext.serverUrl,
                 itemId = itemId,
                 queryParams = streamQueryParams,
-                useStaticStream = mediaSource.supportsDirectPlay == true
+                useStaticStream = mediaSource.supportsDirectPlay == true ||
+                    mediaSource.isStrmSource()
             )
 
             Result.success(streamingUrl)
