@@ -796,12 +796,14 @@ fun DetailContent(
                         contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item(key = "cast") {
-                            CastCrewSection(
-                                item = item,
-                                mediaRepository = mediaRepository,
-                                onPersonClick = onPersonClick
-                            )
+                        if (!item.people.isNullOrEmpty()) {
+                            item(key = "cast") {
+                                BoxSetCastRow(
+                                    people = item.people!!.filter { !it.name.isNullOrBlank() },
+                                    mediaRepository = mediaRepository,
+                                    onPersonClick = onPersonClick
+                                )
+                            }
                         }
 
                         item(key = "recs") {
@@ -872,12 +874,14 @@ fun DetailContent(
                             }
                         }
 
-                        item(key = "cast") {
-                            CastCrewSection(
-                                item = item,
-                                mediaRepository = mediaRepository,
-                                onPersonClick = onPersonClick
-                            )
+                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet") {
+                            item(key = "cast") {
+                                BoxSetCastRow(
+                                    people = item.people!!.filter { !it.name.isNullOrBlank() },
+                                    mediaRepository = mediaRepository,
+                                    onPersonClick = onPersonClick
+                                )
+                            }
                         }
 
                         item(key = "recs") {

@@ -276,12 +276,12 @@ internal fun BoxSetCastRow(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .width(72.dp)
+                    .width(80.dp)
                     .clickable { person.id?.let(onPersonClick) }
             ) {
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(72.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF2A2A2A)),
                     contentAlignment = Alignment.Center
@@ -310,7 +310,9 @@ internal fun BoxSetCastRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     lineHeight = 13.sp,
-                    modifier = Modifier.padding(top = 5.dp)
+                    modifier = Modifier
+                        .padding(top = 5.dp)
+                        .height(26.dp)
                 )
             }
         }

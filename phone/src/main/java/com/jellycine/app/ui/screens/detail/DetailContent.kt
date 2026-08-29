@@ -1308,11 +1308,13 @@ fun DetailContent(
                             }
                         }
 
-                        CastCrewSection(
-                            item = item,
-                            mediaRepository = mediaRepository,
-                            onPersonClick = onPersonClick
-                        )
+                        if (!item.people.isNullOrEmpty() && item.type != "BoxSet") {
+                            BoxSetCastRow(
+                                people = item.people!!.filter { !it.name.isNullOrBlank() },
+                                mediaRepository = mediaRepository,
+                                onPersonClick = onPersonClick
+                            )
+                        }
 
                         TrailersExtrasSection(
                             item = item,

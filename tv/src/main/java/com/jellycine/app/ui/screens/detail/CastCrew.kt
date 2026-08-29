@@ -12,10 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.ui.components.common.CastSection
 
 @Composable
 internal fun DirectorCreditRow(
@@ -55,19 +52,4 @@ internal fun DirectorCreditRow(
             }
         }
     }
-}
-
-@Composable
-internal fun CastCrewSection(
-    item: BaseItemDto,
-    mediaRepository: MediaRepository,
-    onPersonClick: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    CastSection(
-        item = item,
-        mediaRepository = mediaRepository,
-        modifier = modifier,
-        onPersonClick = onPersonClick
-    )
 }
