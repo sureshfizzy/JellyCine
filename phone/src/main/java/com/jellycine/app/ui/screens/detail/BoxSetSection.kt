@@ -284,7 +284,12 @@ internal fun BoxSetCastRow(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .width(72.dp)
-                    .clickable { person.id?.let(onPersonClick) }
+                    .clickable {
+                        person.id?.let { id ->
+                            PersonImageCache.put(id, imageUrl)
+                            onPersonClick(id)
+                        }
+                    }
             ) {
                 Box(
                     modifier = Modifier

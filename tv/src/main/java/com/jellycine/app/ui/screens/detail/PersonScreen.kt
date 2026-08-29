@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -152,17 +151,7 @@ private fun PersonScreen(
 
         item {
             if (isLoading && person == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF22D3EE),
-                        strokeWidth = 2.5.dp
-                    )
-                }
+                PersonShimmer()
             } else if (hasError) {
                 Text(
                     text = stringResource(R.string.detail_person_load_failed),
@@ -557,34 +546,91 @@ private fun PersonTitleCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = item.name ?: "Unknown",
-            color = Color.White,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        )
-
-        if (!subtitle.isNullOrBlank()) {
+        Column(
+            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                text = subtitle,
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 10.sp,
+                text = item.name ?: "Unknown",
+                color = Color.White,
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, start = 4.dp, end = 4.dp)
+                modifier = Modifier.fillMaxWidth()
             )
+
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonShimmer() {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp)) {
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth().height(14.dp),
+                cornerRadius = 6f
+            )
+            Spacer(Modifier.height(6.dp))
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth(0.8f).height(14.dp),
+                cornerRadius = 6f
+            )
+            Spacer(Modifier.height(6.dp))
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth(0.5f).height(14.dp),
+                cornerRadius = 6f
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        ShimmerEffect(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .width(100.dp)
+                .height(18.dp),
+            cornerRadius = 6f
+        )
+        Spacer(Modifier.height(12.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp),
+            userScrollEnabled = false
+        ) {
+            items(6) {
+                Column(modifier = Modifier.width(128.dp)) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(186.dp),
+                        cornerRadius = 12f
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(13.dp)
+                            .align(Alignment.CenterHorizontally),
+                        cornerRadius = 5f
+                    )
+                }
+            }
         }
     }
 }

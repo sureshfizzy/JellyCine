@@ -6,30 +6,26 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -41,8 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.PosterCountBadge
-import com.jellycine.shared.ui.components.common.ShimmerEffect
 import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.rememberImageUrl
@@ -56,8 +50,26 @@ import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.SeerTitlesRow
 import com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
+import com.jellycine.app.ui.components.common.CompactTopText
+import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.shared.ui.components.common.PosterCountBadge
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+
+object PersonImageCache {
+    private var cachedUrl: String? = null
+    private var cachedId: String? = null
+
+    fun put(personId: String, imageUrl: String?) {
+        cachedId = personId
+        cachedUrl = imageUrl
+    }
+
+    fun get(personId: String): String? {
+        return if (cachedId == personId) cachedUrl else null
+    }
+}
 
 @UnstableApi
 @Composable
@@ -67,6 +79,7 @@ fun PersonScreenContainer(
     onItemClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val cachedImageUrl = remember(personId) { PersonImageCache.get(personId) }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val seerrRepository = remember(context) { SeerrRepository(context) }
@@ -140,6 +153,7 @@ fun PersonScreenContainer(
         seerrRelatedTitles = seerrRelatedTitles,
         isLoading = isLoading,
         hasError = hasError,
+        initialImageUrl = cachedImageUrl,
         mediaRepository = mediaRepository,
         onBackPressed = onBackPressed,
         onItemClick = onItemClick
@@ -153,6 +167,7 @@ private fun PersonScreen(
     seerrRelatedTitles: List<SeerrRecommendationTitle>,
     isLoading: Boolean,
     hasError: Boolean,
+    initialImageUrl: String?,
     mediaRepository: MediaRepository,
     onBackPressed: () -> Unit,
     onItemClick: (String) -> Unit
@@ -180,70 +195,77 @@ private fun PersonScreen(
         ).filter { (_, items) -> items.isNotEmpty() }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-        contentPadding = PaddingValues(bottom = 20.dp)
-    ) {
-        item {
-            PersonHero(
-                person = person,
-                mediaRepository = mediaRepository,
-                isLoading = isLoading,
-                onBackPressed = onBackPressed
-            )
-        }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val compactProgress = rememberCompactProgress(
+        state = listState,
+        compactDistance = 160.dp
+    )
 
-        item {
-            if (isLoading && person == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF22D3EE),
-                        strokeWidth = 2.5.dp
-                    )
-                }
-            } else if (hasError) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            item {
+                PersonHeader(
+                    person = person,
+                    mediaRepository = mediaRepository,
+                    isLoading = isLoading,
+                    initialImageUrl = initialImageUrl,
+                    compactProgress = compactProgress
+                )
+            }
+
+        if (isLoading && person == null) {
+            item { PersonShimmer() }
+        } else if (hasError) {
+            item {
                 Text(
                     text = stringResource(R.string.detail_person_load_failed),
-                    color = Color.White.copy(alpha = 0.84f),
+                    color = Color.White.copy(alpha = 0.7f),
                     fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 18.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
                 )
             }
         }
 
         person?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
             item {
-                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp)) {
+                var expanded by remember(overview) { mutableStateOf(false) }
+                val cleanOverview = remember(overview) { overview.replace("\r\n", "\n").trim() }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
                     Text(
-                        text = stringResource(R.string.detail_person_about),
-                        color = Color.White,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold
+                        text = cleanOverview,
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        maxLines = if (expanded) Int.MAX_VALUE else 3,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Surface(
-                        color = Color(0xFF161A22),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        ExpandableOverviewText(
-                            overview = overview,
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
+                    Text(
+                        text = if (expanded) "Read less" else "Read more",
+                        color = Color(0xFF89ECFF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .clickable { expanded = !expanded }
+                    )
                 }
             }
         }
 
         mediaSections.forEach { (title, items) ->
             item {
-                RelatedTitlesSection(
+                FilmographySection(
                     title = title,
                     items = items,
                     mediaRepository = mediaRepository,
@@ -255,13 +277,13 @@ private fun PersonScreen(
         if (seerrRelatedTitles.isNotEmpty()) {
             item {
                 SeerTitlesRow(
-                    title = "Directed Titles",
+                    title = "Directed",
                     items = seerrRelatedTitles,
                     onItemClick = onItemClick,
-                    topPadding = 14.dp,
-                    verticalSpacing = 9.dp,
-                    horizontalPadding = 14.dp,
-                    titleFontSize = 19.sp
+                    topPadding = 24.dp,
+                    verticalSpacing = 10.dp,
+                    horizontalPadding = 20.dp,
+                    titleFontSize = 18.sp
                 )
             }
         }
@@ -270,243 +292,134 @@ private fun PersonScreen(
             item {
                 Text(
                     text = stringResource(R.string.detail_person_no_related_titles),
-                    color = Color.White.copy(alpha = 0.75f),
+                    color = Color.White.copy(alpha = 0.5f),
                     fontSize = 14.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 18.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ExpandableOverviewText(
-    overview: String,
-    modifier: Modifier = Modifier
-) {
-    val normalizedOverview = remember(overview) { overview.replace("\r\n", "\n").trim() }
-    val paragraphs = remember(normalizedOverview) {
-        normalizedOverview
-            .split(Regex("\\n+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-    }
-    val firstParagraph = paragraphs.firstOrNull().orEmpty()
-    val remainingParagraphs = remember(paragraphs) {
-        if (paragraphs.size > 1) paragraphs.drop(1).joinToString("\n\n") else ""
-    }
-    var expanded by remember(normalizedOverview) { mutableStateOf(false) }
-
-    val visibleText = if (expanded && remainingParagraphs.isNotBlank()) {
-        "$firstParagraph\n\n$remainingParagraphs"
-    } else {
-        firstParagraph
-    }
-
-    Column(modifier = modifier) {
-        Text(
-            text = visibleText,
-            color = Color.White.copy(alpha = 0.92f),
-            fontSize = 14.sp,
-            lineHeight = 22.sp
-        )
-
-        if (remainingParagraphs.isNotBlank()) {
-            TextButton(
-                onClick = { expanded = !expanded },
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.padding(top = 6.dp)
-            ) {
-                Text(
-                    text = if (expanded) {
-                        stringResource(R.string.detail_person_read_less)
-                    } else {
-                        stringResource(R.string.detail_person_read_more)
-                    },
-                    color = Color(0xFF89ECFF),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
         }
-    }
-}
-
-@Composable
-private fun PersonHero(
-    person: BaseItemDto?,
-    mediaRepository: MediaRepository,
-    isLoading: Boolean,
-    onBackPressed: () -> Unit
-) {
-    val context = LocalContext.current
-    val personId = person?.id
-    val personImageUrl = if (!person?.imageUrl.isNullOrBlank()) {
-        person?.imageUrl
-    } else if (personId.isNullOrBlank()) {
-        null
-    } else {
-        rememberImageUrl(
-            itemId = personId,
-            imageType = "Primary",
-            width = 900,
-            height = 1350,
-            quality = 95,
-            imageTag = person?.imageTagFor("Primary"),
-            mediaRepository = mediaRepository
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(390.dp)
-            .clipToBounds()
-    ) {
-        if (!personImageUrl.isNullOrBlank()) {
-            JellyfinPosterImage(
-                imageUrl = personImageUrl,
-                contentDescription = person?.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                context = context
-            )
-        } else {
-            ShimmerEffect(modifier = Modifier.fillMaxSize(), cornerRadius = 0f)
-        }
-
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.22f),
-                            Color.Black.copy(alpha = 0.62f),
-                            Color.Black.copy(alpha = 0.92f),
-                            Color.Black
-                        )
-                    )
-                )
-        )
 
         BackButton(
             onClick = onBackPressed,
             modifier = Modifier.align(Alignment.TopStart)
         )
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Card(
-                modifier = Modifier
-                    .width(126.dp)
-                    .height(184.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1E29))
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!personImageUrl.isNullOrBlank()) {
-                        JellyfinPosterImage(
-                            imageUrl = personImageUrl,
-                            contentDescription = person?.name,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            context = context
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.Person,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(40.dp)
-                        )
+        person?.name?.let { name ->
+            CompactTopText(
+                text = name,
+                progress = compactProgress,
+                isTablet = false,
+                onClick = {
+                    coroutineScope.launch {
+                        listState.animateScrollToItem(0)
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
+                },
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(bottom = 6.dp)
-            ) {
-                Text(
-                    text = person?.name ?: if (isLoading) {
-                        stringResource(R.string.detail_person_loading)
-                    } else {
-                        stringResource(R.string.detail_person_unknown)
-                    },
-                    color = Color.White,
-                    fontSize = 29.sp,
-                    lineHeight = 33.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Color(0xFF22D3EE).copy(alpha = 0.23f)
-                ) {
-                    Text(
-                        text = stringResource(R.string.detail_cast_and_crew),
-                        color = Color(0xFF89ECFF),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
-            }
+                    .align(Alignment.TopStart)
+                    .padding(start = 48.dp)
+            )
         }
     }
 }
 
 @Composable
-private fun RelatedTitlesSection(
+private fun PersonHeader(
+    person: BaseItemDto?,
+    mediaRepository: MediaRepository,
+    isLoading: Boolean,
+    initialImageUrl: String? = null,
+    compactProgress: Float = 0f
+) {
+    val context = LocalContext.current
+    val personId = person?.id
+    val personImageUrl = when {
+        !initialImageUrl.isNullOrBlank() -> initialImageUrl
+        !person?.imageUrl.isNullOrBlank() -> person?.imageUrl
+        personId.isNullOrBlank() -> null
+        else -> rememberImageUrl(
+            itemId = personId,
+            imageType = "Primary",
+            width = 480,
+            height = 480,
+            quality = 90,
+            imageTag = person?.imageTagFor("Primary"),
+            mediaRepository = mediaRepository
+        )
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(top = 56.dp, bottom = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(140.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1A1A1A)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!personImageUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    imageUrl = personImageUrl,
+                    contentDescription = person?.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    context = context
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.size(56.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        val nameAlpha = (1f - compactProgress * 2f).coerceIn(0f, 1f)
+        Text(
+            text = person?.name ?: if (isLoading) "" else stringResource(R.string.detail_person_unknown),
+            color = Color.White.copy(alpha = nameAlpha),
+            fontSize = 26.sp,
+            lineHeight = 30.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun FilmographySection(
     title: String,
     items: List<BaseItemDto>,
     mediaRepository: MediaRepository,
     onItemClick: (String) -> Unit
 ) {
-    Column(
-        modifier = Modifier.padding(top = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
-    ) {
+    Column(modifier = Modifier.padding(top = 24.dp)) {
         Text(
             text = title,
             color = Color.White,
-            fontSize = 19.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 14.dp)
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
         )
 
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(horizontal = 14.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp)
         ) {
-            itemsIndexed(
-                items = items,
-                key = { index, item ->
-                    "${item.id ?: "${item.name}-${item.type}-${item.productionYear}"}_$index"
-                }
-            ) { _, item ->
-                PersonTitleCard(
+            items(items, key = { it.id ?: "${it.name}-${it.productionYear}" }) { item ->
+                FilmographyCard(
                     item = item,
                     mediaRepository = mediaRepository,
-                    onClick = {
-                        item.id?.let(onItemClick)
-                    }
+                    onClick = { item.id?.let(onItemClick) }
                 )
             }
         }
@@ -514,7 +427,7 @@ private fun RelatedTitlesSection(
 }
 
 @Composable
-private fun PersonTitleCard(
+private fun FilmographyCard(
     item: BaseItemDto,
     mediaRepository: MediaRepository,
     onClick: () -> Unit
@@ -524,133 +437,166 @@ private fun PersonTitleCard(
         item.type?.equals("Episode", ignoreCase = true) == true && !item.seriesId.isNullOrBlank() -> item.seriesId
         else -> item.id
     }
-    val imageUrl = if (imageItemId.isNullOrBlank()) {
-        null
-    } else {
-        rememberImageUrl(
-            itemId = imageItemId,
-            imageType = "Primary",
-            width = 320,
-            height = 480,
-            quality = 90,
-            imageTag = item.imageTagFor(
-                imageType = "Primary",
-                targetItemId = imageItemId
-            ),
-            mediaRepository = mediaRepository
-        )
-    }
+    val imageUrl = if (imageItemId.isNullOrBlank()) null else rememberImageUrl(
+        itemId = imageItemId,
+        imageType = "Primary",
+        width = 320,
+        height = 480,
+        quality = 90,
+        imageTag = item.imageTagFor(imageType = "Primary", targetItemId = imageItemId),
+        mediaRepository = mediaRepository
+    )
 
     val subtitle = when {
         item.type?.equals("Episode", ignoreCase = true) == true -> {
-            val season = item.parentIndexNumber
-            val episode = item.indexNumber
-            val code = if (season != null && episode != null) "S${season}E${episode}" else null
-            listOfNotNull(item.seriesName, code).joinToString(" - ").ifBlank { null }
+            val s = item.parentIndexNumber
+            val e = item.indexNumber
+            val code = if (s != null && e != null) "S${s}E${e}" else null
+            listOfNotNull(item.seriesName, code).joinToString(" · ").ifBlank { null }
         }
         else -> item.productionYear?.toString()
-    }
-    val isSeries = item.type?.equals("Series", ignoreCase = true) == true
-    val episodeCount = item.episodeCount
-    val recursiveItemCount = item.recursiveItemCount
-    val seriesCount = when {
-        isSeries && (episodeCount ?: 0) > 0 -> episodeCount
-        isSeries && (recursiveItemCount ?: 0) > 0 -> recursiveItemCount
-        else -> null
     }
 
     Column(
         modifier = Modifier
-            .width(128.dp)
-            .clickable(
-                enabled = !item.id.isNullOrBlank(),
-                onClick = onClick
-            )
+            .width(120.dp)
+            .clickable(enabled = !item.id.isNullOrBlank(), onClick = onClick)
     ) {
-        Card(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(186.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF242734))
+                .aspectRatio(2f / 3f)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF1A1A1A))
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (!imageUrl.isNullOrBlank()) {
-                    JellyfinPosterImage(
-                        imageUrl = imageUrl,
-                        contentDescription = item.name,
-                        modifier = Modifier.fillMaxSize(),
-                        context = context,
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = if (item.type?.equals("Series", ignoreCase = true) == true) {
-                            Icons.Rounded.Tv
-                        } else {
-                            Icons.Rounded.Movie
-                        },
-                        contentDescription = item.name,
-                        tint = Color.White.copy(alpha = 0.42f),
-                        modifier = Modifier
-                            .size(34.dp)
-                            .align(Alignment.Center)
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.66f)
-                                )
-                            )
-                        )
+            if (!imageUrl.isNullOrBlank()) {
+                JellyfinPosterImage(
+                    imageUrl = imageUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier.fillMaxSize(),
+                    context = context,
+                    contentScale = ContentScale.Crop
                 )
+            }
 
-                seriesCount?.let { count ->
-                    PosterCountBadge(
-                        count = count,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 4.dp)
-                    )
-                }
+            val isSeries = item.type?.equals("Series", ignoreCase = true) == true
+            val count = when {
+                isSeries && (item.episodeCount ?: 0) > 0 -> item.episodeCount
+                isSeries && (item.recursiveItemCount ?: 0) > 0 -> item.recursiveItemCount
+                else -> null
+            }
+            count?.let {
+                PosterCountBadge(
+                    count = it,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = item.name ?: "Unknown",
-            color = Color.White,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        )
-
-        if (!subtitle.isNullOrBlank()) {
+        Column(
+            modifier = Modifier.padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                text = subtitle,
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 10.sp,
+                text = item.name ?: "Unknown",
+                color = Color.White,
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, start = 4.dp, end = 4.dp)
+                modifier = Modifier.fillMaxWidth()
             )
+
+            subtitle?.let {
+                Text(
+                    text = it,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonShimmer() {
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        ShimmerEffect(
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .height(14.dp)
+                .align(Alignment.CenterHorizontally),
+            cornerRadius = 6f
+        )
+        Spacer(Modifier.height(8.dp))
+        ShimmerEffect(
+            modifier = Modifier
+                .fillMaxWidth(0.4f)
+                .height(12.dp)
+                .align(Alignment.CenterHorizontally),
+            cornerRadius = 6f
+        )
+        Spacer(Modifier.height(24.dp))
+
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth().height(13.dp),
+                cornerRadius = 6f
+            )
+            Spacer(Modifier.height(6.dp))
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth(0.8f).height(13.dp),
+                cornerRadius = 6f
+            )
+            Spacer(Modifier.height(6.dp))
+            ShimmerEffect(
+                modifier = Modifier.fillMaxWidth(0.5f).height(13.dp),
+                cornerRadius = 6f
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        ShimmerEffect(
+            modifier = Modifier
+                .padding(start = 20.dp)
+                .width(100.dp)
+                .height(16.dp),
+            cornerRadius = 6f
+        )
+        Spacer(Modifier.height(12.dp))
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            userScrollEnabled = false
+        ) {
+            items(5) {
+                Column(modifier = Modifier.width(120.dp)) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(2f / 3f),
+                        cornerRadius = 10f
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                            .height(12.dp)
+                            .align(Alignment.CenterHorizontally),
+                        cornerRadius = 5f
+                    )
+                }
+            }
         }
     }
 }
