@@ -132,7 +132,7 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_CHAPTER_MARKERS_ENABLED = true
         const val PLAYER_ENGINE_EXO = "ExoPlayer"
         const val PLAYER_ENGINE_MPV = "MPV"
-        const val DEFAULT_PLAYER_ENGINE = PLAYER_ENGINE_EXO
+        const val DEFAULT_PLAYER_ENGINE = PLAYER_ENGINE_MPV
         val PLAYER_ENGINE_OPTIONS = listOf(PLAYER_ENGINE_EXO, PLAYER_ENGINE_MPV)
         const val MPV_HARDWARE_DECODING_NONE = "no"
         const val MPV_HARDWARE_DECODING_MEDIACODEC = "mediacodec"
