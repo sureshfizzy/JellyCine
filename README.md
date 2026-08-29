@@ -32,7 +32,9 @@
 
 ### Playback
 
-- **MPV-based player** with HDR10/HDR10+/Dolby Vision support and HDR format badges
+- **Custom MPV player** set as default engine — built from a custom fork with HDR10/HDR10+/Dolby Vision support and format badges
+- HDR passthrough with dynamic dataspace switching and headroom hints (Android 14+)
+- Configurable tone-mapping, rendering quality, and GPU filter settings
 - Audio passthrough (TrueHD, DTS-HD, Atmos) when supported by device/output
 - Spatial audio passthrough on compatible devices
 - Media3 ExoPlayer fallback when MPV cannot render
@@ -40,6 +42,7 @@
 - In-player quality selection, audio transcoding controls, and configurable player cache
 - Gesture controls (seek, volume, brightness), lock mode, and start-maximized preference
 - Skip Intro button when IntroDB/TheIntroDB markers are available
+- Track selection dialog with format badges and AMOLED styling
 - Subtitle styling controls with improved track handling
 - Google Cast with inline remote playback controls
 
@@ -74,12 +77,20 @@
 - Keyboard overlay search with carousel results
 - Feature hero card with card expand and backdrop crossfade
 
+### Screen Time
+
+- Watch activity stats with daily breakdown charts
+- Watched items list with poster images and media type filter
+- Dual chart filters for media type and time range
+- Week and month navigation for historical viewing
+- Tablet-optimized layout
+
 ### Multi-Server & Connections
 
 - Jellyfin and Emby support with automatic endpoint resolution
 - Merge-version support with local version selection (no server-side changes required)
 - **Discord Rich Presence** via official Social SDK with connection management
-- **Admin Panel** with live server info, sessions, and activity log
+- **Admin Panel** with live server info, now-playing sessions, and activity log
 
 ### Platforms
 
