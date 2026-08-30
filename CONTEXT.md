@@ -22,3 +22,23 @@ The Line currently used as `serverUrl` for API and playback.
 **STRM original path**:
 Per Saved Server preference. When on, a strm MediaSource whose Path is an http(s) URL is played at that URL instead of the server stream endpoint.
 _Avoid_: direct play, direct stream, bypass transcode
+
+**Catalog Title**:
+A movie or series identity from TMDB or Douban. It is not a library item. It may match zero or more library items via provider id.
+_Avoid_: Discover item, Seerr title, recommendation
+
+**Search Source**:
+A selectable origin for a search query: a Saved Server, TMDB, or Douban.
+_Avoid_: search engine, catalog, provider
+
+**Subscription**:
+A series the user follows for air-date reminders. Source is Bangumi or MoviePilot, not a Jellyfin favorite.
+_Avoid_: follow, watchlist, favorite
+
+**MoviePilot Connection**:
+Optional self-hosted MoviePilot URL used to aggregate subscriptions and calendars. Not a Saved Server.
+_Avoid_: media server, Seerr connection
+
+**Trakt Scrobble**:
+Sending playback start, pause, and stop to Trakt. Distinct from Jellyfin session reporting.
+_Avoid_: playback report, watch history
