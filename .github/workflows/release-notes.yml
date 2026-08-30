@@ -1,0 +1,18 @@
+name: Release notes
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check user-facing release notes
+        run: |
+          chmod +x scripts/release-notes.sh
+          ./scripts/release-notes.sh --self-test
+          ./scripts/release-notes.sh --check

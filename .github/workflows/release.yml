@@ -30,6 +30,20 @@ jobs:
             exit 1
           fi
 
+      - name: Build user-facing release notes
+        id: notes
+        run: |
+          chmod +x scripts/release-notes.sh
+          ./scripts/release-notes.sh --self-test
+          ./scripts/release-notes.sh \
+            --version "${{ steps.meta.outputs.version }}" \
+            --out "$RUNNER_TEMP/release-body.md"
+          echo "body_path=$RUNNER_TEMP/release-body.md" >> "$GITHUB_OUTPUT"
+          echo "Release title: Vela v${{ steps.meta.outputs.version }}"
+          echo "----- release body -----"
+          cat "$RUNNER_TEMP/release-body.md"
+          echo "------------------------"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -126,8 +140,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
+          name: Vela v${{ steps.meta.outputs.version }}
+          body_path: ${{ runner.temp }}/release-body.md
           target_commitish: ${{ github.sha }}
-          generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
             phone/build/outputs/apk/release/*.apk

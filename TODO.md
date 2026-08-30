@@ -42,6 +42,7 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 ### 现状
 
 - `.github/workflows/release.yml`：`:phone:assembleRelease` / `:tv:assembleRelease` 成功后 `softprops/action-gh-release` 创建 Release，附 phone / tv APK
+- Release 正文来自 `docs/release-notes.md` 对应版本章节（简介 + 要点），标题 `Vela v{version}`，不用 GitHub 自动 changelog
 - tag 与 `appVersionName` 不一致直接 fail；缺 `VELA_STORE_FILE_BASE64` / `VELA_STORE_PASSWORD` / `VELA_KEY_PASSWORD` 时列出缺项并拒绝 unsigned
 - 构建后 `apksigner verify`，未签名不发 Release
 - 版本在根 `build.gradle`：`appVersionName` / `appVersionCode`（当前 `1.0.1` / `2`）
@@ -51,7 +52,7 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 
 - [x] tag `v1.0.0` 时校验 tag 与 `appVersionName` 一致，不一致直接 fail（避免发错号）
 - [x] 构建成功后 `softprops/action-gh-release`（或 `gh release create`）创建 Release
-- [x] 附上 phone / tv 的 release APK；`generate_release_notes: true`
+- [x] 附上 phone / tv 的 release APK；正文用 `docs/release-notes.md`，不用自动 changelog
 - [x] 无签名 secrets 时失败并写清楚缺哪个 secret，不要产出 unsigned 当正式包
 - [x] README 补一节：所需 secrets、本地 `./gradlew :phone:assembleRelease`、如何打 tag
 
@@ -60,6 +61,8 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 ### 锚点
 
 - `.github/workflows/release.yml`
+- `docs/release-notes.md`
+- `scripts/release-notes.sh`
 - `build.gradle`（`appVersionName` / `appVersionCode`）
 - `phone/build.gradle` / `tv/build.gradle`（output 文件名）
 
