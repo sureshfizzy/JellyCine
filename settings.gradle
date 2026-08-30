@@ -12,6 +12,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url 'https://jitpack.io' }
         mavenLocal()
+        // Discord Social SDK 不公开发布到 Maven，只能从解密后的本地 AAR 解析。
+        flatDir { dirs "$rootDir/core/libs" }
     }
 }
 

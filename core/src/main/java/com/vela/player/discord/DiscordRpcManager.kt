@@ -20,8 +20,9 @@ class DiscordRpcManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "DiscordRpcManager"
-        const val APPLICATION_ID = "1271740419083862057"
-        const val REDIRECT_URI = "https://jellycine.org/discord/callback/index.html"
+        // Vela 使用独立 Discord 应用，不能继承上游 JellyCine 的 OAuth 身份。
+        const val APPLICATION_ID = "1543628981478367322"
+        const val REDIRECT_URI = "vela://discord/callback"
         private const val OAUTH2_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
         private const val OAUTH2_TOKEN_URL = "https://discord.com/api/oauth2/token"
         private const val DISCORD_USER_URL = "https://discord.com/api/users/@me"

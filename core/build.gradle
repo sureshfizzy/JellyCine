@@ -96,7 +96,8 @@ dependencies {
 
     // Discord Social SDK is optional; CI may build without the gitignored AAR.
     if (hasDiscordSdk) {
-        implementation files('libs/discord_partner_sdk.aar')
+        // 使用模块依赖让 AGP 正确把 SDK 传递给最终 APK；Android Library 不能直接打包本地 AAR。
+        implementation(name: 'discord_partner_sdk', ext: 'aar')
     }
 
     // Encrypted SharedPreferences for Discord auth tokens
