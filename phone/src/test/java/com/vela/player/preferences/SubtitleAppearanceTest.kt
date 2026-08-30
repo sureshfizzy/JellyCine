@@ -94,18 +94,32 @@ class SubtitleAppearanceTest {
     }
 
     @Test
-    fun mpvScaleStaysVideoRelativeAcrossRotation() {
-        val userScale = 1.0f
-        assertEquals(userScale, PlayerPreferences.mpvSubScaleForWindow(userScale, 1920, 1080))
-        assertEquals(userScale, PlayerPreferences.mpvSubScaleForWindow(userScale, 1080, 1920))
+    fun landscapeScaleMapsPortrait175To125() {
+        val userScale = 1.75f
+        assertEquals(
+            userScale,
+            PlayerPreferences.mpvSubScaleForWindow(userScale, 1080, 1920),
+            0.001f
+        )
+        assertEquals(
+            1.25f,
+            PlayerPreferences.mpvSubScaleForWindow(userScale, 1920, 1080),
+            0.001f
+        )
     }
 
     @Test
     fun mpvPosHugsVideoBottomInLandscapeAndDropsBelowInPortrait() {
-        assertEquals(100, PlayerPreferences.mpvSubPosForWindow(0, 1920, 1080))
-        assertEquals(90, PlayerPreferences.mpvSubPosForWindow(10, 1920, 1080))
-        val portraitRest = PlayerPreferences.mpvSubPosForWindow(0, 1080, 1920)
-        val portraitRaised = PlayerPreferences.mpvSubPosForWindow(10, 1080, 1920)
+        val userScale = 1.75f
+        val landscapeRest = PlayerPreferences.mpvSubPosForWindow(0, 1920, 1080, userScale)
+        val landscapeAtPortraitHabit = PlayerPreferences.mpvSubPosForWindow(30, 1920, 1080, userScale)
+        val landscapeRaised = PlayerPreferences.mpvSubPosForWindow(60, 1920, 1080, userScale)
+        assertTrue(landscapeRest in 90..99)
+        assertTrue(kotlin.math.abs(landscapeAtPortraitHabit - landscapeRest) <= 2)
+        assertTrue(landscapeRaised < landscapeAtPortraitHabit)
+
+        val portraitRest = PlayerPreferences.mpvSubPosForWindow(0, 1080, 1920, userScale)
+        val portraitRaised = PlayerPreferences.mpvSubPosForWindow(10, 1080, 1920, userScale)
         val videoBottomPos = (
             (
                 PlayerPreferences.subtitleViewLetterboxInsetPx(1080, 1920) +
@@ -118,17 +132,22 @@ class SubtitleAppearanceTest {
     }
 
     @Test
-    fun exoPixelSizeScalesWithVideoHeight() {
-        val landscape = PlayerPreferences.exoTextSizeFractionForWindow(1.0f, 1920, 1080)
-        val portrait = PlayerPreferences.exoTextSizeFractionForWindow(1.0f, 1080, 1920)
+    fun exoPixelSizeKeepsPortraitScaleAndShrinksInLandscape() {
+        val userScale = 1.75f
+        val landscape = PlayerPreferences.exoTextSizeFractionForWindow(userScale, 1920, 1080)
+        val portrait = PlayerPreferences.exoTextSizeFractionForWindow(userScale, 1080, 1920)
         val landscapePx = landscape * 1080f
         val portraitPx = portrait * 1920f
-        val landscapeVideoHeight = 1080f
         val portraitVideoHeight = PlayerPreferences.fittedVideoHeightPx(1080, 1920)
         assertEquals(
-            landscapePx / landscapeVideoHeight,
-            portraitPx / portraitVideoHeight,
-            0.001f
+            PlayerPreferences.exoTextSizeFraction(userScale) * portraitVideoHeight,
+            portraitPx,
+            0.5f
+        )
+        assertEquals(
+            PlayerPreferences.exoTextSizeFraction(1.25f) * 1080f,
+            landscapePx,
+            0.5f
         )
         assertTrue(landscapePx > portraitPx)
     }
@@ -136,13 +155,37 @@ class SubtitleAppearanceTest {
     @Test
     fun exoPaddingHugsVideoBottomInLandscapeAndDropsBelowInPortrait() {
         assertEquals(0, PlayerPreferences.subtitleViewLetterboxInsetPx(1920, 1080))
-        assertEquals(0, PlayerPreferences.subtitleViewBottomPaddingPx(0, 1920, 1080))
-        assertEquals(
-            (0.10f * 1080f).roundToInt(),
-            PlayerPreferences.subtitleViewBottomPaddingPx(10, 1920, 1080)
+        val userScale = 1.75f
+        val landscapeRest = PlayerPreferences.subtitleViewBottomPaddingPx(
+            0,
+            1920,
+            1080,
+            userScale = userScale
         )
+        val landscapeAtPortraitHabit = PlayerPreferences.subtitleViewBottomPaddingPx(
+            30,
+            1920,
+            1080,
+            userScale = userScale
+        )
+        val landscapeRaised = PlayerPreferences.subtitleViewBottomPaddingPx(
+            60,
+            1920,
+            1080,
+            userScale = userScale
+        )
+        assertTrue(landscapeRest > 0)
+        assertTrue(landscapeRest < 80)
+        assertTrue(kotlin.math.abs(landscapeAtPortraitHabit - landscapeRest) <= 8)
+        assertTrue(landscapeRaised > landscapeAtPortraitHabit)
+
         val portraitInset = PlayerPreferences.subtitleViewLetterboxInsetPx(1080, 1920)
-        val portraitBottom = PlayerPreferences.subtitleViewBottomPaddingPx(0, 1080, 1920)
+        val portraitBottom = PlayerPreferences.subtitleViewBottomPaddingPx(
+            0,
+            1080,
+            1920,
+            userScale = userScale
+        )
         assertTrue(portraitBottom < portraitInset)
         assertTrue(portraitBottom >= 0)
     }
