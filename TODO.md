@@ -44,12 +44,12 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 - `.github/workflows/release.yml` 已能 `:phone:assembleRelease` / `:tv:assembleRelease`
 - 签名走 secrets：`VELA_STORE_FILE_BASE64`、`VELA_STORE_PASSWORD`、`VELA_KEY_PASSWORD`
 - 只 `actions/upload-artifact`，**不创建 Release**
-- 版本在根 `build.gradle`：`appVersionName` / `appVersionCode`（当前 `1.3.2` / `21`）
+- 版本在根 `build.gradle`：`appVersionName` / `appVersionCode`（当前 `1.0.0` / `1`）
 - APK 名：`vela-phone-release-{version}.apk`、`vela-tv-release-{version}.apk`
 
 ### 做法
 
-- [ ] tag `v1.3.3` 时校验 tag 与 `appVersionName` 一致，不一致直接 fail（避免发错号）
+- [ ] tag `v1.0.0` 时校验 tag 与 `appVersionName` 一致，不一致直接 fail（避免发错号）
 - [ ] 构建成功后 `softprops/action-gh-release`（或 `gh release create`）创建 Release
 - [ ] 附上 phone / tv 的 release APK；`generate_release_notes: true`
 - [ ] 无签名 secrets 时失败并写清楚缺哪个 secret，不要产出 unsigned 当正式包
