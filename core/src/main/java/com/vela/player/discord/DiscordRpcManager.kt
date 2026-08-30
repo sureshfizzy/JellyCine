@@ -25,6 +25,8 @@ class DiscordRpcManager private constructor(private val context: Context) {
         private const val OAUTH2_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
         private const val OAUTH2_TOKEN_URL = "https://discord.com/api/oauth2/token"
         private const val DISCORD_USER_URL = "https://discord.com/api/users/@me"
+        private const val DISCORD_SDK_INIT_CLASS = "com.discord.socialsdk.DiscordSocialSdkInit"
+        private const val DISCORD_SDK_INIT_METHOD = "setEngineActivity"
         private const val SCOPES = "identify sdk.social_layer_presence"
         private const val PREFS_NAME = "discord_auth_prefs"
         private const val KEY_ACCESS_TOKEN = "access_token"
@@ -70,7 +72,7 @@ class DiscordRpcManager private constructor(private val context: Context) {
         if (accessToken.isNullOrBlank()) return
         try {
             val activity = activityRef ?: return
-            com.discord.socialsdk.DiscordSocialSdkInit.setEngineActivity(activity)
+            initializeDiscordSdk(activity)
             System.loadLibrary("discord_bridge")
             isInitialized = nativeInitialize(APPLICATION_ID, accessToken)
         } catch (e: UnsatisfiedLinkError) {
@@ -78,6 +80,12 @@ class DiscordRpcManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Discord SDK initialization error", e)
         }
+    }
+
+    private fun initializeDiscordSdk(activity: Activity) {
+        // Discord AAR 是可选的发布依赖；反射避免无 SDK 的 CI 构建在编译期解析其类。
+        val sdkInitClass = Class.forName(DISCORD_SDK_INIT_CLASS)
+        sdkInitClass.getMethod(DISCORD_SDK_INIT_METHOD, Activity::class.java).invoke(null, activity)
     }
 
     fun isDiscordInstalled(): Boolean {
