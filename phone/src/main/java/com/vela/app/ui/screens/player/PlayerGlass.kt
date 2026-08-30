@@ -31,12 +31,12 @@ internal val PlayerGlassSeekSize = 56.dp
 internal val PlayerGlassPlaySize = 80.dp
 internal val PlayerChromeIconSize = 48.dp
 
-private val GlassFill = Color(0xCC18181A)
-private val GlassBorder = Color.White.copy(alpha = 0.16f)
+private val GlassFill = Color(0x9918181A)
+private val GlassBorder = Color.White.copy(alpha = 0.11f)
 private val GlassSheen = Brush.linearGradient(
     colors = listOf(
-        Color.White.copy(alpha = 0.14f),
-        Color.White.copy(alpha = 0.04f),
+        Color.White.copy(alpha = 0.10f),
+        Color.White.copy(alpha = 0.03f),
         Color.Transparent
     )
 )

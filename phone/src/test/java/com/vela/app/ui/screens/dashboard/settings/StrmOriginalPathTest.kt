@@ -2,7 +2,10 @@ package com.vela.app.ui.screens.dashboard.settings
 
 import com.vela.app.player.mpv.MPVPlayer
 import com.vela.data.model.MediaSource
+import com.vela.data.model.isCloudMountPath
 import com.vela.data.model.isStrmSource
+import com.vela.data.model.parseStrmPlaylistUrl
+import com.vela.data.model.shouldUseOriginalContainerDownload
 import com.vela.data.model.strmOriginalPlaybackUrl
 import com.vela.player.preferences.PlayerPreferences
 import org.junit.Assert.assertEquals
@@ -95,5 +98,46 @@ class StrmOriginalPathTest {
                 userPreference = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
             )
         )
+    }
+
+    @Test
+    fun parseStrmPlaylistSkipsCommentsAndBlanks() {
+        val content = """
+            #EXTM3U
+            # comment
+
+            https://cdn.example/movie.mkv
+            https://cdn.example/ignored.mkv
+        """.trimIndent()
+        assertEquals("https://cdn.example/movie.mkv", parseStrmPlaylistUrl(content))
+    }
+
+    @Test
+    fun parseStrmPlaylistIgnoresNonHttpLines() {
+        assertNull(parseStrmPlaylistUrl("/media/library/movie.strm"))
+        assertNull(parseStrmPlaylistUrl("# only a comment"))
+        assertNull(parseStrmPlaylistUrl(""))
+    }
+
+    @Test
+    fun cloudMountDirectPlayUsesStreamNotDownload() {
+        val source = MediaSource(
+            container = "mp4",
+            path = "/mnt/115open/Secret/well/MIDA-764.mp4",
+            supportsDirectPlay = true
+        )
+        assertTrue(isCloudMountPath(source.path.orEmpty()))
+        assertFalse(source.shouldUseOriginalContainerDownload())
+    }
+
+    @Test
+    fun localDirectPlayStillUsesOriginalContainerDownload() {
+        val source = MediaSource(
+            container = "mkv",
+            path = "/media/library/movie.mkv",
+            supportsDirectPlay = true
+        )
+        assertFalse(isCloudMountPath(source.path.orEmpty()))
+        assertTrue(source.shouldUseOriginalContainerDownload())
     }
 }

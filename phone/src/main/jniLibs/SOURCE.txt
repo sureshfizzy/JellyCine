@@ -1,0 +1,7 @@
+source=mpv-android tag=2026-08-11 apk=app-default-universal-release.apk
+abis=arm64-v8a armeabi-v7a x86 x86_64
+expected_ffmpeg_soname=LIBAVUTIL_61
+ffmpeg=9.0
+mpv-android_tag=2026-08-11
+note=Do not mix with org.jellycine.mpv AAR. Update via scripts/sync-mpv-natives.sh
+synced_at=2026-08-30T08:54:29Z

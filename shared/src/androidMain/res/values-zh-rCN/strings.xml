@@ -808,6 +808,12 @@
     <string name="detail_media_framerate">帧率</string>
     <string name="detail_media_default">默认</string>
     <string name="detail_media_external">外部</string>
+    <string name="detail_media_resolution">分辨率</string>
+    <string name="detail_media_profile">Profile</string>
+    <string name="detail_media_forced">强制</string>
+    <string name="detail_media_channels">声道</string>
+    <string name="detail_media_sample_rate">采样率</string>
+    <string name="detail_media_added">添加于: %1$s</string>
     <string name="detail_audio_fallback">音频</string>
     <string name="detail_subtitle_fallback">字幕</string>
     <string name="detail_overflow">更多</string>

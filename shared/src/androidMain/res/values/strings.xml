@@ -821,6 +821,12 @@
     <string name="detail_media_framerate">Frame rate</string>
     <string name="detail_media_default">Default</string>
     <string name="detail_media_external">External</string>
+    <string name="detail_media_resolution">Resolution</string>
+    <string name="detail_media_profile">Profile</string>
+    <string name="detail_media_forced">Forced</string>
+    <string name="detail_media_channels">Channels</string>
+    <string name="detail_media_sample_rate">Sample rate</string>
+    <string name="detail_media_added">Added: %1$s</string>
     <string name="detail_audio_fallback">Audio</string>
     <string name="detail_subtitle_fallback">Subtitles</string>
     <string name="detail_overflow">More</string>

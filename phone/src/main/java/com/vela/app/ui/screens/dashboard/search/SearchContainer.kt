@@ -135,6 +135,7 @@ private object SearchBurstImagePrefetcher {
 @Composable
 fun SearchContainer(
     onNavigateToDetail: (BaseItemDto) -> Unit = {},
+    onNavigateToSearchCategory: (SearchMediaType, String, String) -> Unit = { _, _, _ -> },
     onCancel: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel()
 ) {
@@ -167,6 +168,9 @@ fun SearchContainer(
             uiState.seerrMovieResults.isNotEmpty() ||
             uiState.seerrShowResults.isNotEmpty()
     }
+    val moviesTitle = stringResource(R.string.movies)
+    val showsTitle = stringResource(R.string.search_results_shows)
+    val episodesTitle = stringResource(R.string.search_results_episodes)
     val burstPrefetchItems = remember(
         isSearchActive,
         uiState.movieResults,
@@ -231,6 +235,17 @@ fun SearchContainer(
                     SearchResultsView(
                         uiState = uiState,
                         onItemClick = onNavigateToDetail,
+                        onCategoryClick = { type ->
+                            val query = searchQuery.trim()
+                            if (query.isNotEmpty()) {
+                                val title = when (type) {
+                                    SearchMediaType.MOVIE -> moviesTitle
+                                    SearchMediaType.SERIES -> showsTitle
+                                    SearchMediaType.EPISODE -> episodesTitle
+                                }
+                                onNavigateToSearchCategory(type, query, title)
+                            }
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {

@@ -52,6 +52,11 @@ class ViewAllViewModel @Inject constructor(
     private var loadGeneration = 0
     private var folderStack: List<LibraryFolderNav> = emptyList()
     private var drilledGenre: LibraryGenreNav? = null
+    private var activeSearchTerm: String? = null
+    private var activeTag: String? = null
+    private val sortMemory by lazy {
+        context.getSharedPreferences("vela_library_sort", Context.MODE_PRIVATE)
+    }
 
     private fun repository(): MediaRepository {
         if (!::mediaRepository.isInitialized) {
@@ -63,8 +68,12 @@ class ViewAllViewModel @Inject constructor(
     fun ensureItemsLoaded(
         contentType: ContentType,
         parentId: String? = null,
-        genreId: String? = null
+        genreId: String? = null,
+        searchTerm: String? = null,
+        tag: String? = null
     ) {
+        activeSearchTerm = searchTerm?.takeIf { it.isNotBlank() }
+        activeTag = tag?.takeIf { it.isNotBlank() }
         val requestKey = requestKey(contentType, parentId, genreId)
         val alreadyLoaded = currentRequestKey == requestKey &&
             (_items.value.isNotEmpty() || _uiState.value.recommendationSections.isNotEmpty())
@@ -388,6 +397,28 @@ class ViewAllViewModel @Inject constructor(
                 )
             }
             isFavoritesRequest -> repo.getFavoriteItems(includeItemTypes = includeTypes)
+            !activeSearchTerm.isNullOrBlank() -> repo.searchItemPage(
+                searchTerm = activeSearchTerm!!,
+                includeItemTypes = includeTypes,
+                limit = pageSize,
+                startIndex = currentPage * pageSize,
+                sortBy = _uiState.value.sortBy,
+                sortOrder = _uiState.value.sortOrder,
+                genres = selectedGenres
+            )
+            !activeTag.isNullOrBlank() -> repo.getUserItems(
+                parentId = parentId,
+                genres = selectedGenres,
+                genreIds = selectedGenreIds,
+                includeItemTypes = includeTypes,
+                sortBy = _uiState.value.sortBy,
+                sortOrder = _uiState.value.sortOrder,
+                limit = pageSize,
+                startIndex = currentPage * pageSize,
+                recursive = true,
+                tags = activeTag,
+                fields = LIBRARY_ITEM_FIELDS
+            )
             else -> repo.getUserItems(
                 parentId = parentId,
                 genres = selectedGenres,
@@ -487,6 +518,20 @@ class ViewAllViewModel @Inject constructor(
     }
 
     private suspend fun loadLibrarySortPreferences(parentId: String?) {
+        val memoryKey = librarySortMemoryKey(
+            serverId = authRepository.getActiveSessionSnapshot().activeServerId,
+            parentId = parentId,
+            searchTerm = activeSearchTerm,
+            tag = activeTag
+        )
+        val localSort = memoryKey?.let(::readLocalSort)
+        if (localSort != null) {
+            _uiState.value = _uiState.value.copy(
+                sortBy = localSort.first,
+                sortOrder = localSort.second
+            )
+            return
+        }
         val libraryId = parentId?.takeIf {
             it.isNotBlank() &&
                 it != WATCHED_VIEW_ALL_PARENT_ID &&
@@ -495,15 +540,24 @@ class ViewAllViewModel @Inject constructor(
         val prefs = withContext(Dispatchers.IO) {
             repository().getLibrarySortPreferences(libraryId).getOrNull()
         } ?: return
-        val sortBy = matchedLibrarySortBy(prefs.sortBy) ?: return
+        val sortBy = prefs.resolvedLibrarySortBy() ?: return
+        val sortOrder = prefs.resolvedLibrarySortOrder(_uiState.value.sortOrder)
         _uiState.value = _uiState.value.copy(
             sortBy = sortBy,
-            sortOrder = librarySortOrder(prefs.sortOrder, _uiState.value.sortOrder)
+            sortOrder = sortOrder
         )
+        memoryKey?.let { writeLocalSort(it, sortBy, sortOrder) }
     }
 
     fun setSort(sortBy: String, sortOrder: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
         _uiState.value = _uiState.value.copy(sortBy = sortBy, sortOrder = sortOrder)
+        val memoryKey = librarySortMemoryKey(
+            serverId = authRepository.getActiveSessionSnapshot().activeServerId,
+            parentId = parentId,
+            searchTerm = activeSearchTerm,
+            tag = activeTag
+        )
+        memoryKey?.let { writeLocalSort(it, sortBy, sortOrder) }
         viewModelScope.launch {
             parentId
                 ?.takeIf { it.isNotBlank() && it != WATCHED_VIEW_ALL_PARENT_ID && it != FAVORITES_VIEW_ALL_PARENT_ID }
@@ -518,6 +572,22 @@ class ViewAllViewModel @Inject constructor(
                 }
         }
         loadItems(contentType, parentId, refresh = true, genreId = genreId)
+    }
+
+    private fun readLocalSort(key: String): Pair<String, String>? {
+        val sortBy = matchedLibrarySortBy(sortMemory.getString("$key.sortBy", null)) ?: return null
+        val sortOrder = librarySortOrder(
+            sortMemory.getString("$key.sortOrder", null),
+            _uiState.value.sortOrder
+        )
+        return sortBy to sortOrder
+    }
+
+    private fun writeLocalSort(key: String, sortBy: String, sortOrder: String) {
+        sortMemory.edit()
+            .putString("$key.sortBy", sortBy)
+            .putString("$key.sortOrder", sortOrder)
+            .apply()
     }
 
     fun toggleGenreFilter(genre: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
@@ -580,6 +650,8 @@ class ViewAllViewModel @Inject constructor(
             contentType.name,
             parentId.orEmpty(),
             genreId.orEmpty(),
+            activeSearchTerm.orEmpty(),
+            activeTag.orEmpty(),
             _uiState.value.browseTab.name,
             folderStack.lastOrNull()?.id.orEmpty(),
             drilledGenre?.id.orEmpty(),

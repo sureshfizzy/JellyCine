@@ -13,6 +13,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,7 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -88,6 +88,10 @@ fun PlayerScreen(
     preferredSubtitleStreamIndex: Int? = null,
     startFromBeginning: Boolean = false,
     initialSeekPositionMs: Long? = null,
+    mediaSourceId: String? = null,
+    compactPlayback: Boolean = false,
+    onEnterPip: (() -> Unit)? = null,
+    onExpandFromMini: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: PlayerViewModel = hiltViewModel(),
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
@@ -263,6 +267,8 @@ fun PlayerScreen(
         onLifecycleChange = { lifecycle = it },
         onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        compactPlayback = compactPlayback && !inPip,
+        mediaSourceId = mediaSourceId,
         playerOrientation = playbackOrientation
     )
 
@@ -395,7 +401,8 @@ fun PlayerScreen(
             preferredAudioStreamIndex = preferredAudio,
             preferredSubtitleStreamIndex = preferredSubtitle,
             initialSeekPositionMs = resumePositionMs,
-            startPlayback = shouldResumePlaying
+            startPlayback = shouldResumePlaying,
+            mediaSourceId = mediaSourceId
         )
         initializedMediaId = mediaId
     }
@@ -440,8 +447,10 @@ fun PlayerScreen(
         }
     }
 
+    val miniLayout = compactPlayback && !inPip
+
     // Back handler
-    BackHandler {
+    BackHandler(enabled = !miniLayout) {
         if (showPlaybackInfoSheet) {
             showPlaybackInfoSheet = false
         } else {
@@ -451,21 +460,10 @@ fun PlayerScreen(
     }
 
     val isPortraitPlayback = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
-    val videoAspectRatio = remember(
-        playerState.availableVideoTracks,
-        playerState.isLoading,
-        playerState.mediaTitle
-    ) {
-        val fromTracks = playerState.availableVideoTracks.firstOrNull { track ->
-            track.width > 0 && track.height > 0
-        }?.let { track ->
-            track.width.toFloat() / track.height.toFloat()
-        }
-        fromTracks ?: viewModel.getSourceVideoAspectRatio() ?: (16f / 9f)
-    }
     var hideVideoForRotation by remember { mutableStateOf(false) }
     var seenPortraitPlayback by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(isPortraitPlayback) {
+    LaunchedEffect(isPortraitPlayback, miniLayout) {
+        if (miniLayout) return@LaunchedEffect
         val previous = seenPortraitPlayback
         seenPortraitPlayback = isPortraitPlayback
         if (previous == null || previous == isPortraitPlayback) return@LaunchedEffect
@@ -473,19 +471,14 @@ fun PlayerScreen(
         delay(180)
         hideVideoForRotation = false
     }
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .focusable(),
-        // 按片源比例铺满较短边：竖屏铺满宽度，横屏铺满高度，上下或两侧留黑边。
+        // Surface 铺满窗口，由播放器在内部 letterbox；字幕才能画到竖屏上下黑边。
         contentAlignment = Alignment.Center
     ) {
-        val videoSurfaceModifier = videoContainModifier(
-            videoAspectRatio = videoAspectRatio,
-            containerWidth = maxWidth,
-            containerHeight = maxHeight
-        )
         key(isPortraitPlayback) {
         VideoSurface(
             player = viewModel.exoPlayer,
@@ -549,7 +542,7 @@ fun PlayerScreen(
             onSurfaceReady = { hideVideoForRotation = false },
             snapTransform = hideVideoForRotation,
             subtitleAppearanceEpoch = viewModel.subtitleAppearanceEpoch,
-            modifier = videoSurfaceModifier
+            modifier = Modifier.fillMaxSize()
         )
         }
 
@@ -564,7 +557,8 @@ fun PlayerScreen(
         key(isPortraitPlayback) {
         PlayerGestureLayer(
             audioManager = audioManager,
-            enabled = !playerState.isLocked &&
+            enabled = !miniLayout &&
+                !playerState.isLocked &&
                 !inPip &&
                 !showPlaybackInfoSheet &&
                 !showSubtitleStyleSheet &&
@@ -634,6 +628,7 @@ fun PlayerScreen(
         )
         }
 
+        if (!miniLayout) {
         PlayerOverlayHost(
             uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip && !showPlaybackInfoSheet),
             playerState = playerState,
@@ -691,7 +686,9 @@ fun PlayerScreen(
                 showPlaybackInfoSheet = true
                 uiState = uiState.copy(controlsVisible = false)
             },
-            onEnterPip = { enterPlayerPip(context as Activity) },
+            onEnterPip = {
+                onEnterPip?.invoke() ?: enterPlayerPip(context as Activity)
+            },
             onShowChapters = { showChaptersSheet = true },
             onBackgroundClick = {
                 uiState = uiState.copy(controlsVisible = false)
@@ -708,7 +705,32 @@ fun PlayerScreen(
                 uiState = uiState.copy(currentPosition = position)
             }
         )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = onExpandFromMini)
+            )
+            IconButton(
+                onClick = {
+                    viewModel.releasePlayer()
+                    onBackPressed?.invoke()
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.player_pip),
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
+        if (!miniLayout) {
         PlayerDialogsHost(
             playerState = playerState,
             showAudioTrackDialog = showAudioTrackDialog,
@@ -782,28 +804,7 @@ fun PlayerScreen(
                 }
             )
         }
-    }
-}
-
-private fun videoContainModifier(
-    videoAspectRatio: Float,
-    containerWidth: Dp,
-    containerHeight: Dp
-): Modifier {
-    val ratio = videoAspectRatio.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
-    val containerAspect = if (containerHeight.value > 0f) {
-        containerWidth / containerHeight
-    } else {
-        16f / 9f
-    }
-    return if (ratio >= containerAspect) {
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(ratio)
-    } else {
-        Modifier
-            .fillMaxHeight()
-            .aspectRatio(ratio)
+        }
     }
 }
 

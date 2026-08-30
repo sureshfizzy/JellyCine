@@ -49,6 +49,7 @@ import com.vela.detail.CodecUtils
 import com.vela.shared.ui.components.common.activeDetailMediaSources
 import com.vela.shared.ui.components.common.buildInlineText
 import com.vela.shared.ui.components.common.buildLocalVersionEntries
+import com.vela.shared.ui.components.common.buildMediaSourceVersionEntries
 import com.vela.shared.ui.components.common.OverviewSection
 import com.vela.shared.ui.components.common.SeerrRequestButtonRow
 import com.vela.shared.ui.components.common.WatchedActionButton
@@ -95,9 +96,11 @@ fun DetailContent(
     onPlayAtPosition: (Int?, Int?, Long) -> Unit = { _, _, _ -> },
     onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredMediaSourceIdChanged: (String?) -> Unit = {},
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
+    onTagClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
     onSeriesOverviewClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
@@ -162,9 +165,19 @@ fun DetailContent(
     val activeMediaSources = remember(item.id, item.mediaSources) {
         item.activeDetailMediaSources()
     }
-    val effectiveMediaStreams = remember(item.mediaStreams, activeMediaSources) {
-        val fromSources = activeMediaSources.flatMap { it.mediaStreams.orEmpty() }
-        if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
+    var selectedMediaSourceId by remember(item.id, activeMediaSources) {
+        mutableStateOf(activeMediaSources.firstOrNull()?.id)
+    }
+    LaunchedEffect(item.id, selectedMediaSourceId) {
+        onPreferredMediaSourceIdChanged(selectedMediaSourceId)
+    }
+    val selectedMediaSource = remember(activeMediaSources, selectedMediaSourceId) {
+        activeMediaSources.firstOrNull { source -> source.id == selectedMediaSourceId }
+            ?: activeMediaSources.firstOrNull()
+    }
+    val effectiveMediaStreams = remember(item.mediaStreams, selectedMediaSource) {
+        val fromSource = selectedMediaSource?.mediaStreams.orEmpty()
+        if (fromSource.isNotEmpty()) fromSource else item.mediaStreams.orEmpty()
     }
     val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
         val currentItemId = item.id ?: return@remember null
@@ -228,6 +241,9 @@ fun DetailContent(
     val showTitleFallback = !isLoading && !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
     val genresText = remember(item.genres) {
         item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
+    val aggregationTags = remember(item.tags, item.genres, item.studios) {
+        metadataAggregationTags(item)
     }
     val descriptionTagline = remember(item.taglines) {
         item.taglines?.firstOrNull { !it.isNullOrBlank() }
@@ -592,14 +608,34 @@ fun DetailContent(
         )
     }
     val localVersionOptions = localVersionEntries.map { (label, _) -> label }
-    val videoOptions = localVersionOptions.ifEmpty { baseVideoOptions }
-    val displayedSelectedVideo = selectedVideoOption(
-        localVersionEntries = localVersionEntries,
-        currentItemId = item.id,
-        selectedVideo = selectedVideo,
-        videoOptions = videoOptions,
-        baseVideoOptions = baseVideoOptions
-    )
+    val mediaSourceVersionEntries = remember(activeMediaSources, videoFallbackLabel, smallFileSizeLabel) {
+        buildMediaSourceVersionEntries(
+            sources = activeMediaSources,
+            unnamedLabel = videoFallbackLabel,
+            smallFileSizeLabel = smallFileSizeLabel
+        )
+    }
+    val mediaSourceVersionOptions = mediaSourceVersionEntries.map { (label, _) -> label }
+    val videoOptions = when {
+        localVersionOptions.size > 1 -> localVersionOptions
+        mediaSourceVersionOptions.size > 1 -> mediaSourceVersionOptions
+        else -> baseVideoOptions
+    }
+    val displayedSelectedVideo = when {
+        mediaSourceVersionOptions.size > 1 -> {
+            mediaSourceVersionEntries
+                .firstOrNull { (_, source) -> source.id == selectedMediaSourceId }
+                ?.first
+                ?: mediaSourceVersionOptions.first()
+        }
+        else -> selectedVideoOption(
+            localVersionEntries = localVersionEntries,
+            currentItemId = item.id,
+            selectedVideo = selectedVideo,
+            videoOptions = videoOptions,
+            baseVideoOptions = baseVideoOptions
+        )
+    }
     val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
     val subtitleOptions =
         remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
@@ -618,15 +654,16 @@ fun DetailContent(
         requestOptions = seerrRequestState.requestOptions
     )
     val videoInlineMetaText = remember(
-        activeMediaSources,
+        selectedMediaSource,
         effectiveMediaStreams,
-        localVersionOptions
+        localVersionOptions,
+        mediaSourceVersionOptions
     ) {
-        if (localVersionOptions.isNotEmpty()) {
+        if (localVersionOptions.size > 1 || mediaSourceVersionOptions.size > 1) {
             null
         } else {
             buildInlineText(
-                mediaSources = activeMediaSources,
+                mediaSources = listOfNotNull(selectedMediaSource).ifEmpty { activeMediaSources },
                 streams = effectiveMediaStreams,
                 smallFileSizeLabel = smallFileSizeLabel
             )
@@ -652,8 +689,21 @@ fun DetailContent(
     val onVideoOptionSelected: (String) -> Unit = { option ->
         val selectedVersion = localVersionEntries.firstOrNull { (label, _) -> label == option }?.second
         val selectedVersionId = selectedVersion?.id
+        val selectedSource = mediaSourceVersionEntries.firstOrNull { (label, _) -> label == option }?.second
         if (selectedVersionId != null && selectedVersionId != item.id) {
             onVersionItemSelected(selectedVersionId)
+        } else if (selectedSource != null) {
+            selectedMediaSourceId = selectedSource.id
+            selectedVideo = option
+            val sourceStreams = selectedSource.mediaStreams.orEmpty()
+                .ifEmpty { item.mediaStreams.orEmpty() }
+            selectedAudio = buildAudioOptions(sourceStreams).firstOrNull().orEmpty()
+            selectedSubtitle = buildDefaultSubtitleOption(sourceStreams)
+            onPreferredMediaSourceIdChanged(selectedSource.id)
+            persistTrackSelection(
+                audioOption = selectedAudio,
+                subtitleOption = selectedSubtitle
+            )
         } else {
             selectedVideo = option
         }
@@ -923,7 +973,7 @@ fun DetailContent(
                                 )
                             }
 
-                            if (isWidescreenLayout && !genresText.isNullOrBlank()) {
+                            if (isWidescreenLayout && aggregationTags.isEmpty() && !genresText.isNullOrBlank()) {
                                 Text(
                                     text = genresText,
                                     fontSize = 14.sp,
@@ -935,7 +985,7 @@ fun DetailContent(
                         }
                         }
 
-                        if (!isWidescreenLayout && !genresText.isNullOrBlank()) {
+                        if (!isWidescreenLayout && aggregationTags.isEmpty() && !genresText.isNullOrBlank()) {
                             Text(
                                 text = genresText,
                                 fontSize = 14.sp,
@@ -1047,6 +1097,14 @@ fun DetailContent(
                             }
                         }
 
+                        if (aggregationTags.isNotEmpty()) {
+                            MetadataTagSection(
+                                tags = aggregationTags,
+                                onTagClick = onTagClick,
+                                modifier = Modifier.padding(top = 10.dp)
+                            )
+                        }
+
                         if (isWidescreenLayout && hasDescriptionContent) {
                             OverviewSection(
                                 overview = item.overview,
@@ -1090,7 +1148,10 @@ fun DetailContent(
                                 onSubtitleOptionSelected = onSubtitleOptionSelected
                             )
                         } else if (item.type != "Series" && !isSeerDetail) {
-                            val sourceTitle = mediaSourceTitle(item, activeMediaSources)
+                            val sourceTitle = mediaSourceTitle(
+                                item,
+                                listOfNotNull(selectedMediaSource).ifEmpty { activeMediaSources }
+                            )
                             val videoMeta = listOfNotNull(
                                 displayedSelectedVideo.takeIf { it.isNotBlank() && it != sourceTitle },
                                 videoInlineMetaText

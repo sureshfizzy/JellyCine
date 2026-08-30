@@ -1,6 +1,8 @@
 package com.vela.app.ui.screens.dashboard.media
 
 import androidx.annotation.StringRes
+import com.vela.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
+import com.vela.data.model.DisplayPreferencesDto
 import com.vela.shared.R
 
 enum class LibraryBrowseTab {
@@ -120,6 +122,35 @@ fun librarySortOrder(raw: String?, fallback: String = "Descending"): String {
         raw.equals("Descending", ignoreCase = true) -> "Descending"
         else -> fallback
     }
+}
+
+fun DisplayPreferencesDto.resolvedLibrarySortBy(): String? {
+    return matchedLibrarySortBy(sortBy)
+        ?: matchedLibrarySortBy(customPrefs?.get("SortBy"))
+        ?: matchedLibrarySortBy(customPrefs?.get("sortBy"))
+}
+
+fun DisplayPreferencesDto.resolvedLibrarySortOrder(fallback: String): String {
+    return librarySortOrder(
+        sortOrder ?: customPrefs?.get("SortOrder") ?: customPrefs?.get("sortOrder"),
+        fallback
+    )
+}
+
+internal fun librarySortMemoryKey(
+    serverId: String?,
+    parentId: String?,
+    searchTerm: String?,
+    tag: String?
+): String? {
+    val scope = serverId?.takeIf { it.isNotBlank() } ?: "default"
+    searchTerm?.takeIf { it.isNotBlank() }?.let { return "$scope|search:$it" }
+    tag?.takeIf { it.isNotBlank() }?.let { return "$scope|tag:$it" }
+    val libraryId = parentId?.takeIf { it.isNotBlank() } ?: return null
+    if (libraryId == WATCHED_VIEW_ALL_PARENT_ID || libraryId == FAVORITES_VIEW_ALL_PARENT_ID) {
+        return null
+    }
+    return "$scope|lib:$libraryId"
 }
 
 @StringRes

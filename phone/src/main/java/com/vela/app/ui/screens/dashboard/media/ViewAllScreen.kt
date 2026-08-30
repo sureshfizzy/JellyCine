@@ -89,6 +89,8 @@ fun ViewAllScreen(
     parentId: String? = null,
     title: String = "",
     genreId: String? = null,
+    searchTerm: String? = null,
+    tag: String? = null,
     onBackPressed: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit,
     onPlayFromBeginning: (String) -> Unit = {},
@@ -108,7 +110,8 @@ fun ViewAllScreen(
     val isWatchedViewAll = parentId == WATCHED_VIEW_ALL_PARENT_ID
     val isFavoritesViewAll = parentId == FAVORITES_VIEW_ALL_PARENT_ID
     val isWatchedEpisodeViewAll = (isWatchedViewAll || isFavoritesViewAll) && contentType == ContentType.EPISODES
-    val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward
+    val isAggregationCatalog = !searchTerm.isNullOrBlank() || !tag.isNullOrBlank()
+    val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward || isAggregationCatalog
     var imageStyleName by rememberSaveable { mutableStateOf(LibraryImageStyle.POSTER.name) }
     val imageStyle = LibraryImageStyle.fromPersisted(imageStyleName)
 
@@ -153,7 +156,7 @@ fun ViewAllScreen(
             emptyList()
         }
     }
-    val showLibraryChrome = browseTabs.isNotEmpty()
+    val showLibraryChrome = browseTabs.isNotEmpty() || isAggregationCatalog
     val successMessage = stringResource(R.string.item_action_success)
     val failedMessage = stringResource(R.string.item_action_failed)
     val gridState = rememberLazyGridState()
@@ -176,7 +179,7 @@ fun ViewAllScreen(
             uiState.selectedGenres.toList().sorted().joinToString("|")
         ).joinToString("::")
     }
-    var lastAppliedFilterSignature by rememberSaveable(contentType, parentId, genreId) {
+    var lastAppliedFilterSignature by rememberSaveable(contentType, parentId, genreId, searchTerm, tag) {
         mutableStateOf(filterSignature)
     }
     val genreIncludeItemTypes = remember(contentType, isWatchedViewAll, isFavoritesViewAll) {
@@ -192,7 +195,7 @@ fun ViewAllScreen(
             ContentType.AWARD -> null
         }
     }
-    var serverGenres by rememberSaveable(contentType, parentId, genreId) {
+    var serverGenres by rememberSaveable(contentType, parentId, genreId, searchTerm, tag) {
         mutableStateOf(emptyList<String>())
     }
     LaunchedEffect(contentType, parentId, genreId, genreIncludeItemTypes) {
@@ -241,11 +244,11 @@ fun ViewAllScreen(
     )
 
     // Load initial data
-    LaunchedEffect(contentType, parentId, genreId) {
-        viewModel.ensureItemsLoaded(contentType, parentId, genreId)
+    LaunchedEffect(contentType, parentId, genreId, searchTerm, tag) {
+        viewModel.ensureItemsLoaded(contentType, parentId, genreId, searchTerm, tag)
     }
 
-    LaunchedEffect(userDataRefreshEvent, contentType, parentId, genreId) {
+    LaunchedEffect(userDataRefreshEvent, contentType, parentId, genreId, searchTerm, tag) {
         if (userDataRefreshEvent == null || !contentType.includesSeriesItems()) {
             return@LaunchedEffect
         }
@@ -368,14 +371,16 @@ fun ViewAllScreen(
                 }
             }
             if (showLibraryChrome) {
-                LibraryBrowseTabRow(
-                    tabs = browseTabs,
-                    selected = uiState.browseTab,
-                    contentType = contentType,
-                    onSelected = { tab ->
-                        viewModel.setBrowseTab(tab, contentType, parentId, genreId)
-                    }
-                )
+                if (browseTabs.isNotEmpty()) {
+                    LibraryBrowseTabRow(
+                        tabs = browseTabs,
+                        selected = uiState.browseTab,
+                        contentType = contentType,
+                        onSelected = { tab ->
+                            viewModel.setBrowseTab(tab, contentType, parentId, genreId)
+                        }
+                    )
+                }
                 if (uiState.browseTab.supportsSort()) {
                     LibraryChromeBar(
                         itemCount = headerTotalCount,
@@ -724,7 +729,7 @@ fun ViewAllScreen(
             )
         }
 
-        if (isLibraryCatalog || isGenreCatalog) {
+        if (isLibraryCatalog || isGenreCatalog || isAggregationCatalog) {
             CompactTopText(
                 text = resolvedTitle,
                 progress = compactHeaderProgress,

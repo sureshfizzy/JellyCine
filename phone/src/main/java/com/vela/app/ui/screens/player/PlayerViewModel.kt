@@ -28,6 +28,7 @@ import com.vela.data.model.BaseItemDto
 import com.vela.data.model.MediaSource
 import com.vela.data.model.MediaStream
 import com.vela.data.model.PlaybackRequest
+import com.vela.data.model.selectedMediaSource
 import com.vela.data.repository.MediaRepository
 import com.vela.data.network.NetworkModule
 import com.vela.detail.CodecCapabilityManager
@@ -244,6 +245,8 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private var requestedMediaSourceId: String? = null
+
     fun initializePlayer(
         context: Context,
         mediaId: String,
@@ -253,7 +256,8 @@ class PlayerViewModel @Inject constructor(
         initialSeekPositionMs: Long? = null,
         startPlayback: Boolean = true,
         startFromBeginning: Boolean = false,
-        forcedPlayerEngine: String? = null
+        forcedPlayerEngine: String? = null,
+        mediaSourceId: String? = null
     ) {
         viewModelScope.launch {
             try {
@@ -279,6 +283,7 @@ class PlayerViewModel @Inject constructor(
                 playerContext = context
                 hasHandledPlaybackCompletion = false
                 remotePlaybackRequestKey = null
+                requestedMediaSourceId = mediaSourceId?.takeIf { it.isNotBlank() }
                 val playerPreferences = PlayerPreferences(context)
                 activePlayerEngine = forcedPlayerEngine ?: playerPreferences.getPlayerEngine()
                 val resolvedPreferredAudioStreamIndex = preferredAudioStreamIndex
@@ -436,7 +441,8 @@ class PlayerViewModel @Inject constructor(
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
                         // MPV 在原容器内按 sid 选轨；向服务端提交 ASS index 会触发 External/Encode 并改变时间基准。
                         subtitleStreamIndex = if (isMpvPlayback()) null else activePreferredSubtitleStreamIndex,
-                        audioTranscodeMode = audioTranscodeMode
+                        audioTranscodeMode = audioTranscodeMode,
+                        mediaSourceId = requestedMediaSourceId
                     )
                     if (playbackInfoResult.isFailure) {
                         val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
@@ -450,7 +456,7 @@ class PlayerViewModel @Inject constructor(
                         return@launch
                     }
 
-                    primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
+                    primaryMediaSource = playbackInfo.selectedMediaSource(requestedMediaSourceId)
                     
                     apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
                         itemDetails = itemDetails,
@@ -476,7 +482,8 @@ class PlayerViewModel @Inject constructor(
                         subtitleStreamIndex = activePreferredSubtitleStreamIndex,
                         audioTranscodeMode = audioTranscodeMode,
                         playbackInfo = playbackInfo,
-                        includeAccessToken = isMpvPlayback()
+                        includeAccessToken = isMpvPlayback(),
+                        mediaSourceId = requestedMediaSourceId
                     )
                     if (playbackRequestResult.isFailure) {
                         val error = playbackRequestResult.exceptionOrNull()?.message ?: "Failed to get playback request"
@@ -893,7 +900,8 @@ class PlayerViewModel @Inject constructor(
             preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
             initialSeekPositionMs = resumePositionMs,
             startPlayback = shouldResumePlaying,
-            forcedPlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
+            forcedPlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV,
+            mediaSourceId = requestedMediaSourceId
         )
         return true
     }
@@ -987,10 +995,10 @@ class PlayerViewModel @Inject constructor(
         seekTo(targetPosition)
     }
 
-    fun setPlaybackSpeed(speed: Float) {
+    fun setPlaybackSpeed(speed: Float, retunePerformance: Boolean = true) {
         playbackSpeed = speed.coerceIn(0.25f, 4f)
         exoPlayer?.setPlaybackSpeed(playbackSpeed)
-        mpvPlayer?.setSpeed(playbackSpeed.toDouble())
+        mpvPlayer?.setSpeed(playbackSpeed.toDouble(), retunePerformance = retunePerformance)
         _playerState.value = _playerState.value.copy(playbackSpeed = playbackSpeed)
     }
 
@@ -1018,11 +1026,11 @@ class PlayerViewModel @Inject constructor(
 
     fun beginHoldSpeed(speed: Float) {
         speedBeforeHold = playbackSpeed
-        setPlaybackSpeed(speed)
+        setPlaybackSpeed(speed, retunePerformance = false)
     }
 
     fun endHoldSpeed() {
-        setPlaybackSpeed(speedBeforeHold)
+        setPlaybackSpeed(speedBeforeHold, retunePerformance = false)
     }
 
     fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
@@ -1657,7 +1665,8 @@ class PlayerViewModel @Inject constructor(
             preferredAudioStreamIndex = audioStreamIndex,
             preferredSubtitleStreamIndex = subtitleStreamIndex,
             initialSeekPositionMs = resumePositionMs,
-            startPlayback = shouldResumePlaying
+            startPlayback = shouldResumePlaying,
+            mediaSourceId = requestedMediaSourceId
         )
     }
 

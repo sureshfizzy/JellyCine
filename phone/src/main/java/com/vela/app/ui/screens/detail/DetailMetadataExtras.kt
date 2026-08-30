@@ -8,6 +8,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -66,10 +68,59 @@ import com.vela.data.repository.MediaRepository
 import com.vela.shared.R
 import com.vela.shared.util.image.JellyfinPosterImage
 import com.vela.shared.util.image.rememberImageUrl
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val DetailCardColor = Color(0xFF1C1C1F)
 private val DetailMuted = Color.White.copy(alpha = 0.62f)
+private val DetailTagColor = Color(0xFF24344F)
+
+internal fun metadataAggregationTags(item: BaseItemDto): List<String> {
+    val seen = LinkedHashSet<String>()
+    item.tags.orEmpty().forEach { tag ->
+        tag.trim().takeIf { it.isNotEmpty() }?.let(seen::add)
+    }
+    item.genres.orEmpty().forEach { genre ->
+        genre.trim().takeIf { it.isNotEmpty() }?.let(seen::add)
+    }
+    item.studios.orEmpty().forEach { studio ->
+        studio.name?.trim()?.takeIf { it.isNotEmpty() }?.let(seen::add)
+    }
+    return seen.toList()
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun MetadataTagSection(
+    tags: List<String>,
+    onTagClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (tags.isEmpty()) return
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        tags.forEach { tag ->
+            Surface(
+                color = DetailTagColor,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.clickable { onTagClick(tag) }
+            ) {
+                Text(
+                    text = tag,
+                    color = Color.White.copy(alpha = 0.88f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+        }
+    }
+}
 
 @Composable
 internal fun SourceTrackSection(
@@ -633,11 +684,15 @@ internal fun MediaInfoSection(
     val source = mediaSources.firstOrNull()
     val videoStreams = streams.filter { it.type.equals("Video", true) }
     val audioStreams = streams.filter { it.type.equals("Audio", true) }
-    if (source == null && videoStreams.isEmpty() && audioStreams.isEmpty()) return
+    val subtitleStreams = streams.filter { it.type.equals("Subtitle", true) }
+    if (source == null && videoStreams.isEmpty() && audioStreams.isEmpty() && subtitleStreams.isEmpty()) return
 
     val sourceTitle = source?.name?.takeIf { it.isNotBlank() }
         ?: item.name?.takeIf { it.isNotBlank() }
+    val filePath = source?.path?.takeIf { it.isNotBlank() }
+        ?: item.path?.takeIf { it.isNotBlank() }
     val dateLabel = formatDetailPremiereDate(item.premiereDate)
+    val addedLabel = formatDetailDateTime(item.dateCreated)
     val container = source?.container?.uppercase(Locale.US)
     val sizeLabel = formatDetailFileSize(source?.size, smallFileSizeLabel)
     val runtimeLabel = formatDetailRuntimeClock(item.runTimeTicks ?: source?.runTimeTicks)
@@ -658,6 +713,14 @@ internal fun MediaInfoSection(
                 modifier = Modifier.padding(top = 10.dp)
             )
         }
+        if (!filePath.isNullOrBlank()) {
+            Text(
+                text = filePath,
+                color = DetailMuted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
         if (!dateLabel.isNullOrBlank()) {
             Text(
                 text = dateLabel,
@@ -672,6 +735,14 @@ internal fun MediaInfoSection(
         if (summary.isNotBlank()) {
             Text(
                 text = summary,
+                color = DetailMuted,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        if (!addedLabel.isNullOrBlank()) {
+            Text(
+                text = stringResource(R.string.detail_media_added, addedLabel),
                 color = DetailMuted,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 2.dp)
@@ -694,6 +765,13 @@ internal fun MediaInfoSection(
                     icon = Icons.Rounded.AudioFile,
                     heading = stringResource(R.string.detail_media_audio),
                     rows = audioStreamRows(stream)
+                )
+            }
+            itemsIndexed(subtitleStreams) { _, stream ->
+                MediaStreamCard(
+                    icon = Icons.Rounded.Subtitles,
+                    heading = stringResource(R.string.detail_subtitle_fallback),
+                    rows = subtitleStreamRows(stream)
                 )
             }
         }
@@ -757,6 +835,12 @@ private fun videoStreamRows(stream: MediaStream): List<Pair<String, String>> {
         stream.codec?.takeIf { it.isNotBlank() }?.let {
             stringResource(R.string.detail_media_codec) to it
         },
+        formatStreamResolution(stream.width, stream.height)?.let {
+            stringResource(R.string.detail_media_resolution) to it
+        },
+        stream.profile?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_profile) to it
+        },
         formatStreamBitrate(stream.bitRate)?.let {
             stringResource(R.string.detail_media_bitrate) to it
         },
@@ -795,10 +879,42 @@ private fun audioStreamRows(stream: MediaStream): List<Pair<String, String>> {
         stream.codec?.takeIf { it.isNotBlank() }?.let {
             stringResource(R.string.detail_media_codec) to it
         },
+        stream.profile?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_profile) to it
+        },
         formatStreamBitrate(stream.bitRate)?.let {
             stringResource(R.string.detail_media_bitrate) to it
         },
+        stream.channelLayout?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_channels) to it
+        } ?: stream.channels?.let {
+            stringResource(R.string.detail_media_channels) to it.toString()
+        },
+        stream.sampleRate?.let {
+            stringResource(R.string.detail_media_sample_rate) to "${it} Hz"
+        },
         stringResource(R.string.detail_media_default) to (stream.isDefault == true).toString(),
+        stringResource(R.string.detail_media_forced) to (stream.isForced == true).toString(),
+        stringResource(R.string.detail_media_external) to (stream.isExternal == true).toString()
+    )
+}
+
+@Composable
+private fun subtitleStreamRows(stream: MediaStream): List<Pair<String, String>> {
+    return listOfNotNull(
+        stringResource(R.string.detail_media_type) to (stream.type ?: "Subtitle"),
+        stream.index?.let { stringResource(R.string.detail_media_index) to it.toString() },
+        stream.displayTitle?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_display_title) to it
+        },
+        stream.language?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_language) to it
+        },
+        stream.codec?.takeIf { it.isNotBlank() }?.let {
+            stringResource(R.string.detail_media_codec) to it
+        },
+        stringResource(R.string.detail_media_default) to (stream.isDefault == true).toString(),
+        stringResource(R.string.detail_media_forced) to (stream.isForced == true).toString(),
         stringResource(R.string.detail_media_external) to (stream.isExternal == true).toString()
     )
 }
@@ -810,6 +926,26 @@ internal fun formatDetailPremiereDate(premiereDate: String?): String? {
         return "${datePart.substring(0, 4)}/${datePart.substring(5, 7)}/${datePart.substring(8, 10)}"
     }
     return raw
+}
+
+internal fun formatDetailDateTime(raw: String?): String? {
+    val value = raw?.takeIf { it.isNotBlank() } ?: return null
+    val instant = runCatching {
+        Instant.parse(value)
+    }.recoverCatching {
+        Instant.parse(value.replace(Regex("\\.\\d+"), ""))
+    }.getOrNull()
+    if (instant != null) {
+        return DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+            .withZone(ZoneId.systemDefault())
+            .format(instant)
+    }
+    return formatDetailPremiereDate(value)
+}
+
+internal fun formatStreamResolution(width: Int?, height: Int?): String? {
+    if (width == null || height == null || width <= 0 || height <= 0) return null
+    return "${width}x${height}"
 }
 
 

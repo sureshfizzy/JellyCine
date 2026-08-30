@@ -6,13 +6,7 @@ import com.vela.data.model.MediaStream
 import java.util.Locale
 
 fun BaseItemDto.activeDetailMediaSources(): List<MediaSourceInfo> {
-    val sources = mediaSources.orEmpty()
-    val currentItemId = id?.takeIf { it.isNotBlank() } ?: return sources
-    if (sources.size <= 1) return sources
-
-    return sources
-        .filter { source -> source.matchesItemId(currentItemId) }
-        .ifEmpty { sources }
+    return mediaSources.orEmpty()
 }
 
 fun buildLocalVersionEntries(
@@ -37,6 +31,24 @@ fun buildLocalVersionEntries(
         }
     )
         .zip(orderedVersions)
+}
+
+fun buildMediaSourceVersionEntries(
+    sources: List<MediaSourceInfo>,
+    unnamedLabel: String,
+    smallFileSizeLabel: String
+): List<Pair<String, MediaSourceInfo>> {
+    if (sources.size <= 1) return emptyList()
+    val rawLabels = sources.map { source ->
+        val name = source.name?.takeIf { it.isNotBlank() } ?: unnamedLabel
+        val meta = listOfNotNull(
+            source.container?.uppercase(Locale.US),
+            formatBitrate(source.bitrate?.toLong()),
+            formatFileSize(source.size, smallFileSizeLabel)
+        ).joinToString(" · ")
+        if (meta.isBlank()) name else "$name · $meta"
+    }
+    return detailOptionLabels(rawLabels).zip(sources)
 }
 
 fun selectedVideoOption(
@@ -120,12 +132,6 @@ private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourc
             source.bitrate != null ||
             source.mediaStreams.orEmpty().isNotEmpty()
     } ?: sources.firstOrNull()
-}
-
-private fun MediaSourceInfo.matchesItemId(itemId: String): Boolean {
-    val sourceId = id?.takeIf { it.isNotBlank() } ?: return false
-    return sourceId.equals(itemId, ignoreCase = true) ||
-        sourceId.equals("mediasource_$itemId", ignoreCase = true)
 }
 
 private fun formatFileSize(

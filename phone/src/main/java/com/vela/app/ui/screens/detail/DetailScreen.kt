@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -45,6 +46,7 @@ import com.vela.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.vela.app.ui.screens.player.PlayerScreen
+import com.vela.app.ui.activity.VelaActivity
 import com.vela.detail.CodecUtils
 import com.vela.shared.ui.components.common.ScreenWrapper
 import com.vela.shared.ui.components.common.ShimmerEffect
@@ -62,6 +64,7 @@ import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 
 internal val heroOverlayGradient = arrayOf(
     0.0f to Color.Transparent,
@@ -91,6 +94,11 @@ private data class SeasonDetailData(
     val initialLogoImageUrl: String?
 )
 
+private sealed interface DetailPlaybackTarget {
+    data object Detail : DetailPlaybackTarget
+    data class Trailer(val url: String, val title: String) : DetailPlaybackTarget
+}
+
 @UnstableApi
 @Composable
 fun DetailScreenContainer(
@@ -98,7 +106,8 @@ fun DetailScreenContainer(
     forceMergeVersions: Boolean = false,
     onBackPressed: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
-    onNavigateToPerson: (String) -> Unit = {}
+    onNavigateToPerson: (String) -> Unit = {},
+    onNavigateToTag: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
@@ -112,6 +121,8 @@ fun DetailScreenContainer(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
+    var playerMinimized by remember { mutableStateOf(false) }
+    var preferredMediaSourceId by rememberSaveable { mutableStateOf<String?>(null) }
     var remoteTrailerUrl by remember { mutableStateOf<String?>(null) }
     var remoteTrailerTitle by remember { mutableStateOf<String?>(null) }
     var playbackItemId by remember { mutableStateOf<String?>(null) }
@@ -171,6 +182,7 @@ fun DetailScreenContainer(
         castingDisplay = false
         remoteTrailerUrl = null
         remoteTrailerTitle = null
+        playerMinimized = false
         showPlayer = true
     }
 
@@ -305,7 +317,7 @@ fun DetailScreenContainer(
                 castingDisplay = false
             }
 
-            showPlayer -> {
+            showPlayer && !playerMinimized -> {
                 val playedItemId = playbackItemId ?: itemId
                 preferredAudioStreamIndex =
                     playerPreferences.getPreferredAudioStreamIndex(playedItemId)
@@ -313,6 +325,7 @@ fun DetailScreenContainer(
                     playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
                 trackSelectionSyncVersion += 1
                 showPlayer = false
+                playerMinimized = false
                 playbackItemId = null
                 playbackStartFromBeginning = false
                 playbackStartPositionMs = null
@@ -472,9 +485,13 @@ fun DetailScreenContainer(
                         preferredAudioStreamIndex = audioStreamIndex
                         preferredSubtitleStreamIndex = subtitleStreamIndex
                     },
+                    onPreferredMediaSourceIdChanged = { sourceId ->
+                        preferredMediaSourceId = sourceId
+                    },
                     onSimilarItemClick = onNavigateToDetail,
                     onVersionItemSelected = ::selectLocalVersion,
                     onPersonClick = onNavigateToPerson,
+                    onTagClick = onNavigateToTag,
                     onCastButtonClick = ::openCastingDisplay,
                     onSeriesOverviewClick = ::navigateToSeriesOverview,
                     onSeasonClick = ::openSeasonDetail,
@@ -596,64 +613,46 @@ fun DetailScreenContainer(
             onBackPressed()
         }
     } else {
+        val hostActivity = context as? VelaActivity
+        val inPip by (hostActivity?.pictureInPictureMode ?: remember { MutableStateFlow(false) })
+            .collectAsState()
         val activeRemoteTrailerUrl = remoteTrailerUrl
-        if (!activeRemoteTrailerUrl.isNullOrBlank()) {
-            PlayerScreen(
-                mediaId = "remote_trailer_${activeRemoteTrailerUrl.hashCode()}",
-                remoteMediaUrl = activeRemoteTrailerUrl,
-                remoteMediaTitle = remoteTrailerTitle ?: item?.name ?: episodeItem?.name ?: "Trailer",
-                onBackPressed = {
-                    remoteTrailerUrl = null
-                    remoteTrailerTitle = null
+        val miniPlayer = showPlayer && playerMinimized && !inPip
+        Box(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = when {
+                !activeRemoteTrailerUrl.isNullOrBlank() -> DetailPlaybackTarget.Trailer(
+                    url = activeRemoteTrailerUrl,
+                    title = remoteTrailerTitle ?: item?.name ?: episodeItem?.name ?: "Trailer"
+                )
+                else -> DetailPlaybackTarget.Detail
+            },
+            modifier = Modifier.fillMaxSize(),
+            contentKey = { target -> target::class },
+            transitionSpec = {
+                fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)) togetherWith
+                    fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+            },
+            label = "detail_to_player"
+        ) { target ->
+            when (target) {
+                is DetailPlaybackTarget.Trailer -> {
+                    PlayerScreen(
+                        mediaId = "remote_trailer_${target.url.hashCode()}",
+                        remoteMediaUrl = target.url,
+                        remoteMediaTitle = target.title,
+                        onBackPressed = {
+                            remoteTrailerUrl = null
+                            remoteTrailerTitle = null
+                        }
+                    )
                 }
-            )
-        } else if (showPlayer) {
-            val activePlaybackId = playbackItemId ?: itemId
-            val initialPlaybackItemDetails = when (activePlaybackId) {
-                item?.id -> item
-                episodeItem?.id -> episodeItem
-                else -> null
-            }
-            PlayerScreen(
-                mediaId = activePlaybackId,
-                initialItemDetails = initialPlaybackItemDetails,
-                preferredAudioStreamIndex = preferredAudioStreamIndex,
-                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
-                startFromBeginning = playbackStartFromBeginning,
-                initialSeekPositionMs = playbackStartPositionMs,
-                onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
-                    preferredAudioStreamIndex = audioStreamIndex
-                    preferredSubtitleStreamIndex = subtitleStreamIndex
-                },
-                onBackPressed = {
-                    val playedItemId = playbackItemId ?: itemId
-                    preferredAudioStreamIndex =
-                        playerPreferences.getPreferredAudioStreamIndex(playedItemId)
-                    preferredSubtitleStreamIndex =
-                        playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
-                    trackSelectionSyncVersion += 1
-                    showPlayer = false
-                    playbackItemId = null
-                    playbackStartFromBeginning = false
-                    playbackStartPositionMs = null
-                },
-                previousEpisodeId = availablePreviousEpisodeId,
-                onWatchPreviousEpisode = ::playEpisode,
-                nextEpisodeId = availableNextEpisodeId,
-                onWatchNextEpisode = ::playEpisode,
-                onPlaybackCompleted = { completedItemId ->
-                    scope.launch {
-                        val nextEpisodeId = mediaRepository.getNextEpisodeId(completedItemId) ?: return@launch
-                        playEpisode(nextEpisodeId)
-                    }
-                }
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-            ) {
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                    ) {
                 DetailPane(
                     activeItem = item,
                     loading = isLoading,
@@ -714,7 +713,72 @@ fun DetailScreenContainer(
                         }
                     }
                 }
+                    }
+                }
             }
+        }
+
+        if (showPlayer) {
+            val activePlaybackId = playbackItemId ?: itemId
+            val initialPlaybackItemDetails = when (activePlaybackId) {
+                item?.id -> item
+                episodeItem?.id -> episodeItem
+                else -> null
+            }
+            Box(
+                modifier = if (miniPlayer) {
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(end = 12.dp, bottom = 72.dp)
+                        .width(208.dp)
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp))
+                } else {
+                    Modifier.fillMaxSize()
+                }
+            ) {
+                PlayerScreen(
+                    mediaId = activePlaybackId,
+                    initialItemDetails = initialPlaybackItemDetails,
+                    preferredAudioStreamIndex = preferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+                    startFromBeginning = playbackStartFromBeginning,
+                    initialSeekPositionMs = playbackStartPositionMs,
+                    mediaSourceId = preferredMediaSourceId,
+                    compactPlayback = miniPlayer,
+                    onEnterPip = { playerMinimized = true },
+                    onExpandFromMini = { playerMinimized = false },
+                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                        preferredAudioStreamIndex = audioStreamIndex
+                        preferredSubtitleStreamIndex = subtitleStreamIndex
+                    },
+                    onBackPressed = {
+                        val playedItemId = playbackItemId ?: itemId
+                        preferredAudioStreamIndex =
+                            playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                        preferredSubtitleStreamIndex =
+                            playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                        trackSelectionSyncVersion += 1
+                        showPlayer = false
+                        playerMinimized = false
+                        playbackItemId = null
+                        playbackStartFromBeginning = false
+                        playbackStartPositionMs = null
+                    },
+                    previousEpisodeId = availablePreviousEpisodeId,
+                    onWatchPreviousEpisode = ::playEpisode,
+                    nextEpisodeId = availableNextEpisodeId,
+                    onWatchNextEpisode = ::playEpisode,
+                    onPlaybackCompleted = { completedItemId ->
+                        scope.launch {
+                            val nextEpisodeId = mediaRepository.getNextEpisodeId(completedItemId) ?: return@launch
+                            playEpisode(nextEpisodeId)
+                        }
+                    }
+                )
+            }
+        }
         }
 
         if (castingDisplay) {
@@ -757,9 +821,11 @@ fun DetailScreen(
     onPlayAtPosition: (Int?, Int?, Long) -> Unit = { _, _, _ -> },
     onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredMediaSourceIdChanged: (String?) -> Unit = {},
     onSimilarItemClick: (String) -> Unit = {},
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
+    onTagClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
     onSeriesOverviewClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> },
@@ -776,9 +842,11 @@ fun DetailScreen(
         onPlayAtPosition = onPlayAtPosition,
         onRemoteTrailerClick = onRemoteTrailerClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        onPreferredMediaSourceIdChanged = onPreferredMediaSourceIdChanged,
         onSimilarItemClick = onSimilarItemClick,
         onVersionItemSelected = onVersionItemSelected,
         onPersonClick = onPersonClick,
+        onTagClick = onTagClick,
         onCastButtonClick = onCastButtonClick,
         onSeriesOverviewClick = onSeriesOverviewClick,
         onSeasonClick = onSeasonClick,

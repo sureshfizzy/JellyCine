@@ -34,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -88,6 +89,8 @@ internal fun PlayerScreenEffects(
     preferredSubtitleStreamIndex: Int?,
     startFromBeginning: Boolean = false,
     initialSeekPositionMs: Long? = null,
+    mediaSourceId: String? = null,
+    compactPlayback: Boolean = false,
     viewModel: PlayerViewModel,
     onPlaybackCompleted: ((String) -> Unit)?,
     preferredStreamIndexes: PreferredStreamIndexes,
@@ -114,16 +117,18 @@ internal fun PlayerScreenEffects(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit,
     playerOrientation: String = PlayerPreferences.DEFAULT_PLAYER_ORIENTATION
 ) {
-    DisposableEffect(playerOrientation) {
+    DisposableEffect(playerOrientation, compactPlayback) {
         currentView.keepScreenOn = true
         val activity = context as? Activity
         val originalRequestedOrientation = activity?.requestedOrientation
         activity?.let { act ->
-            act.requestedOrientation = requestedOrientationFor(playerOrientation)
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            if (playerOrientation != PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT) {
-                hideSystemBars()
+            if (!compactPlayback) {
+                act.requestedOrientation = requestedOrientationFor(playerOrientation)
+                if (playerOrientation != PlayerPreferences.PLAYER_ORIENTATION_PORTRAIT) {
+                    hideSystemBars()
+                }
             }
+            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
         onDispose {
@@ -238,7 +243,8 @@ internal fun PlayerScreenEffects(
                     preferredAudioStreamIndex = preferredAudioStreamIndex,
                     preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
                     initialSeekPositionMs = initialSeekPositionMs,
-                    startFromBeginning = startFromBeginning
+                    startFromBeginning = startFromBeginning,
+                    mediaSourceId = mediaSourceId
                 )
             }
             onInitializedMediaIdChange(initializationKey)
@@ -618,7 +624,7 @@ internal fun BoxScope.PlayerOverlayHost(
                 },
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.44f),
+                    containerColor = Color.Black.copy(alpha = 0.32f),
                     contentColor = Color.White
                 ),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
@@ -653,7 +659,21 @@ internal fun BoxScope.PlayerOverlayHost(
         holdSpeedLabel = uiState.holdSpeedLabel
     )
 
-    if (playerState.isLoading) {
+    var showLoadingOverlay by remember { mutableStateOf(false) }
+    LaunchedEffect(playerState.isLoading) {
+        if (playerState.isLoading) {
+            delay(280)
+            showLoadingOverlay = true
+        } else {
+            showLoadingOverlay = false
+        }
+    }
+    AnimatedVisibility(
+        visible = showLoadingOverlay,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier.fillMaxSize()
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -682,7 +702,7 @@ private fun NextEpisodeProgressPill(
         modifier = Modifier
             .clip(pillShape)
             .drawBehind {
-                drawRect(color = Color.Black.copy(alpha = 0.44f))
+                drawRect(color = Color.Black.copy(alpha = 0.32f))
                 if (clampedProgress > 0f) {
                     drawRect(
                         color = Color.White,

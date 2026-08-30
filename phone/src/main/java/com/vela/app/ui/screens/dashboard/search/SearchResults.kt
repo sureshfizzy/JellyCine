@@ -9,10 +9,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.vela.data.model.SearchMediaType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -130,6 +134,7 @@ private fun LazyListScope.searchPosterSectionSkeleton(titleWidth: Dp) {
 fun SearchResultsView(
     uiState: SearchUiState,
     onItemClick: (BaseItemDto) -> Unit,
+    onCategoryClick: (SearchMediaType) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -140,12 +145,13 @@ fun SearchResultsView(
         // Movies Section
         if (uiState.movieResults.isNotEmpty() || uiState.seerrMovieResults.isNotEmpty()) {
             item {
-                Text(
-                    text = stringResource(R.string.movies),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                SearchSectionHeader(
+                    title = stringResource(R.string.movies),
+                    onClick = if (uiState.movieResults.isNotEmpty()) {
+                        { onCategoryClick(SearchMediaType.MOVIE) }
+                    } else {
+                        null
+                    }
                 )
             }
             
@@ -177,12 +183,13 @@ fun SearchResultsView(
         // TV Shows Section
         if (uiState.showResults.isNotEmpty() || uiState.seerrShowResults.isNotEmpty()) {
             item {
-                Text(
-                    text = stringResource(R.string.search_results_shows),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                SearchSectionHeader(
+                    title = stringResource(R.string.search_results_shows),
+                    onClick = if (uiState.showResults.isNotEmpty()) {
+                        { onCategoryClick(SearchMediaType.SERIES) }
+                    } else {
+                        null
+                    }
                 )
             }
             
@@ -214,12 +221,9 @@ fun SearchResultsView(
         // Episodes Section
         if (uiState.episodeResults.isNotEmpty()) {
             item {
-                Text(
-                    text = stringResource(R.string.search_results_episodes),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                SearchSectionHeader(
+                    title = stringResource(R.string.search_results_episodes),
+                    onClick = { onCategoryClick(SearchMediaType.EPISODE) }
                 )
             }
             
@@ -229,6 +233,42 @@ fun SearchResultsView(
                     onItemClick = { onItemClick(episode) }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchSectionHeader(
+    title: String,
+    onClick: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            )
+            .padding(bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = stringResource(R.string.dashboard_view_all),
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

@@ -1,4 +1,0 @@
-source=yamby=com.hush.yamby 2.0.5.5 split_config.arm64_v8a.apk
-abi=arm64-v8a
-expected_ffmpeg_soname=LIBAVUTIL_60
-note=Do not mix with org.jellycine.mpv AAR. Update via scripts/sync-mpv-natives.sh

@@ -22,8 +22,14 @@ import com.vela.data.model.PlaybackStreamOptions
 import com.vela.data.model.PersistedHomeSnapshot
 import com.vela.data.model.QueryResult
 import com.vela.data.model.PlaybackInfoRequest
+import com.vela.data.model.PlaybackInfoResponse
 import com.vela.data.model.RecommendationDto
+import com.vela.data.model.STRM_PLAYBACK_USER_AGENT
 import com.vela.data.model.SearchMediaType
+import com.vela.data.model.isStrmSource
+import com.vela.data.model.parseStrmPlaylistUrl
+import com.vela.data.model.selectedMediaSource
+import com.vela.data.model.strmOriginalPlaybackUrl
 import com.vela.data.model.ActivityLogResult
 import com.vela.data.model.AdminSessionInfo
 import com.vela.data.model.SeerrItemIds
@@ -48,6 +54,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -62,6 +69,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 data class EpisodeNavigationIds(
     val previousEpisodeId: String? = null,
@@ -76,6 +84,16 @@ class MediaRepository(private val context: Context) {
         private val ACTIVE_SERVER_ID_KEY = stringPreferencesKey("active_server_id")
         private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
         private const val DISPLAY_PREFERENCES_CLIENT = "emby"
+        private const val STRM_PLAYLIST_PEEK_BYTES = 8_192L
+    }
+
+    private val strmPeekClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
     }
 
     private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
@@ -429,7 +447,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
             val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
-            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,PremiereDate,SeasonName,SeasonId,RemoteTrailers,MediaStreams,MediaSources,ExternalUrls"
+            val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,PremiereDate,SeasonName,SeasonId,RemoteTrailers,MediaStreams,MediaSources,ExternalUrls,Tags,Path,DateCreated"
             val response = api.getItemById(
                 userId = userId,
                 itemId = itemId,
@@ -579,6 +597,7 @@ class MediaRepository(private val context: Context) {
         startIndex: Int? = null,
         filters: String? = null,
         anyProviderIdEquals: String? = null,
+        tags: String? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<QueryResult<BaseItemDto>> {
         return try {
@@ -599,6 +618,7 @@ class MediaRepository(private val context: Context) {
                 startIndex = startIndex,
                 filters = filters,
                 anyProviderIdEquals = anyProviderIdEquals,
+                tags = tags,
                 fields = fields
             )
 
@@ -1039,7 +1059,11 @@ class MediaRepository(private val context: Context) {
                     id = current?.id ?: displayPreferencesId,
                     sortBy = sortBy,
                     sortOrder = sortOrder,
-                    client = DISPLAY_PREFERENCES_CLIENT
+                    client = DISPLAY_PREFERENCES_CLIENT,
+                    customPrefs = (current?.customPrefs ?: emptyMap()) + mapOf(
+                        "SortBy" to sortBy,
+                        "SortOrder" to sortOrder
+                    )
                 )
             )
             if (response.isSuccessful) {
@@ -1759,7 +1783,8 @@ class MediaRepository(private val context: Context) {
         maxStreamingBitrate: Int? = null,
         audioStreamIndex: Int? = null,
         subtitleStreamIndex: Int? = null,
-        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
+        audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
+        mediaSourceId: String? = null
     ): Result<com.vela.data.model.PlaybackInfoResponse> {
         return try {
             val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
@@ -1779,7 +1804,7 @@ class MediaRepository(private val context: Context) {
             // POST 携带 DeviceProfile，是字幕交付方式与直播放能力的唯一事实源；GET 仅用于旧服务端回退。
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
-                mediaSourceId = null,
+                mediaSourceId = mediaSourceId,
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = normalizedSubtitleStreamIndex,
@@ -1984,7 +2009,8 @@ class MediaRepository(private val context: Context) {
         subtitleStreamIndex: Int? = null,
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
         playbackInfo: com.vela.data.model.PlaybackInfoResponse? = null,
-        includeAccessToken: Boolean = false
+        includeAccessToken: Boolean = false,
+        mediaSourceId: String? = null
     ): Result<PlaybackRequest> {
         val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
         val authContext = createPlaybackAuthContext(config)
@@ -1994,7 +2020,8 @@ class MediaRepository(private val context: Context) {
                 maxStreamingBitrate = maxStreamingBitrate,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
-                audioTranscodeMode = audioTranscodeMode
+                audioTranscodeMode = audioTranscodeMode,
+                mediaSourceId = mediaSourceId
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
@@ -2004,11 +2031,12 @@ class MediaRepository(private val context: Context) {
             playbackInfoResult.getOrNull()
         } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
 
+        val playbackInfo = resolveStrmPlaybackInfo(itemId, activePlaybackInfo, authContext, mediaSourceId)
         return PlaybackUrlBuilder.createLocalPlaybackRequest(
             context = context,
             authContext = authContext,
             itemId = itemId,
-            playbackInfo = activePlaybackInfo,
+            playbackInfo = playbackInfo,
             options = PlaybackStreamOptions(
                 maxStreamingBitrate = maxStreamingBitrate,
                 maxStreamingHeight = maxStreamingHeight,
@@ -2016,7 +2044,8 @@ class MediaRepository(private val context: Context) {
                 subtitleStreamIndex = subtitleStreamIndex,
                 audioTranscodeMode = audioTranscodeMode,
                 includeAccessToken = includeAccessToken,
-                preferStrmOriginalPath = activePreferStrmOriginalPath()
+                preferStrmOriginalPath = activePreferStrmOriginalPath(),
+                mediaSourceId = mediaSourceId
             )
         )
     }
@@ -2028,7 +2057,8 @@ class MediaRepository(private val context: Context) {
         audioStreamIndex: Int? = null,
         subtitleStreamIndex: Int? = null,
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
-        playbackInfo: com.vela.data.model.PlaybackInfoResponse? = null
+        playbackInfo: com.vela.data.model.PlaybackInfoResponse? = null,
+        mediaSourceId: String? = null
     ): Result<String> {
         val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
         val authContext = createPlaybackAuthContext(config)
@@ -2038,7 +2068,8 @@ class MediaRepository(private val context: Context) {
                 maxStreamingBitrate = maxStreamingBitrate,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
-                audioTranscodeMode = audioTranscodeMode
+                audioTranscodeMode = audioTranscodeMode,
+                mediaSourceId = mediaSourceId
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
@@ -2048,20 +2079,79 @@ class MediaRepository(private val context: Context) {
             playbackInfoResult.getOrNull()
         } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
 
+        val playbackInfo = resolveStrmPlaybackInfo(itemId, activePlaybackInfo, authContext, mediaSourceId)
         return PlaybackUrlBuilder.createCastStreamingUrl(
             context = context,
             authContext = authContext,
             itemId = itemId,
-            playbackInfo = activePlaybackInfo,
+            playbackInfo = playbackInfo,
             options = PlaybackStreamOptions(
                 maxStreamingBitrate = maxStreamingBitrate,
                 maxStreamingHeight = maxStreamingHeight,
                 audioStreamIndex = audioStreamIndex,
                 subtitleStreamIndex = subtitleStreamIndex,
                 audioTranscodeMode = audioTranscodeMode,
-                preferStrmOriginalPath = activePreferStrmOriginalPath()
+                preferStrmOriginalPath = activePreferStrmOriginalPath(),
+                mediaSourceId = mediaSourceId
             )
         )
+    }
+
+    private suspend fun resolveStrmPlaybackInfo(
+        itemId: String,
+        playbackInfo: PlaybackInfoResponse,
+        authContext: PlaybackAuthContext,
+        mediaSourceId: String? = null
+    ): PlaybackInfoResponse {
+        val sources = playbackInfo.mediaSources.orEmpty()
+        val source = playbackInfo.selectedMediaSource(mediaSourceId) ?: return playbackInfo
+        if (!source.isStrmSource()) return playbackInfo
+        if (source.strmOriginalPlaybackUrl() != null) return playbackInfo
+        val resolvedUrl = fetchStrmPlaylistUrl(itemId, authContext) ?: return playbackInfo
+        val rewritten = source.copy(path = resolvedUrl)
+        val rewrittenSources = sources.map { candidate ->
+            if (candidate.id == source.id) rewritten else candidate
+        }
+        return playbackInfo.copy(mediaSources = rewrittenSources)
+    }
+
+    private suspend fun fetchStrmPlaylistUrl(
+        itemId: String,
+        authContext: PlaybackAuthContext
+    ): String? {
+        val downloadUrl = buildServerUrl(
+            baseUrl = authContext.serverUrl,
+            encodedPath = "Items/$itemId/Download",
+            queryParams = listOf("api_key" to authContext.accessToken)
+        )
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val request = Request.Builder()
+                    .url(downloadUrl)
+                    .header("Range", "bytes=0-${STRM_PLAYLIST_PEEK_BYTES - 1}")
+                    .header("User-Agent", STRM_PLAYBACK_USER_AGENT)
+                    .apply {
+                        authContext.accessToken?.takeIf { it.isNotBlank() }?.let { token ->
+                            header("X-Emby-Token", token)
+                        }
+                    }
+                    .build()
+                strmPeekClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@runCatching null
+                    val contentType = response.header("Content-Type").orEmpty()
+                    if (contentType.startsWith("video/", ignoreCase = true) ||
+                        contentType.startsWith("audio/", ignoreCase = true)
+                    ) {
+                        return@runCatching null
+                    }
+                    val source = response.body?.source() ?: return@runCatching null
+                    source.request(STRM_PLAYLIST_PEEK_BYTES)
+                    val size = minOf(source.buffer.size, STRM_PLAYLIST_PEEK_BYTES)
+                    if (size <= 0L) return@runCatching null
+                    parseStrmPlaylistUrl(source.readString(size, StandardCharsets.UTF_8))
+                }
+            }.getOrNull()
+        }
     }
 
     /**
@@ -2197,24 +2287,54 @@ class MediaRepository(private val context: Context) {
     suspend fun searchItems(
         searchTerm: String,
         includeItemTypes: String? = "Movie,Series",
-        limit: Int? = 50
+        limit: Int? = 50,
+        startIndex: Int? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        genres: String? = null
     ): Result<List<BaseItemDto>> {
+        return searchItemPage(
+            searchTerm = searchTerm,
+            includeItemTypes = includeItemTypes,
+            limit = limit,
+            startIndex = startIndex,
+            sortBy = sortBy,
+            sortOrder = sortOrder,
+            genres = genres
+        ).map { it.items.orEmpty() }
+    }
+
+    suspend fun searchItemPage(
+        searchTerm: String,
+        includeItemTypes: String? = "Movie,Series",
+        limit: Int? = 50,
+        startIndex: Int? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        genres: String? = null
+    ): Result<QueryResult<BaseItemDto>> {
         return try {
             val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
             val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val searchFields =
+                "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
 
-            // Try searchTerm parameter first
             var response = api.searchItems(
                 userId = userId,
                 searchTerm = searchTerm,
                 includeItemTypes = includeItemTypes,
                 recursive = true,
                 limit = limit,
-                fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
+                startIndex = startIndex,
+                sortBy = sortBy,
+                sortOrder = sortOrder,
+                genres = genres,
+                fields = searchFields
             )
 
-            // Prefix fallback is only useful for Latin queries.
+            val firstPage = startIndex == null || startIndex == 0
             if (
+                firstPage &&
                 searchTerm.any { it in 'A'..'Z' || it in 'a'..'z' } &&
                 (!response.isSuccessful || response.body()?.items?.isEmpty() == true)
             ) {
@@ -2224,14 +2344,12 @@ class MediaRepository(private val context: Context) {
                     includeItemTypes = includeItemTypes,
                     recursive = true,
                     limit = limit,
-                    fields = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview,IndexNumber,ParentIndexNumber"
+                    fields = searchFields
                 )
             }
 
             if (response.isSuccessful && response.body() != null) {
-                val queryResult = response.body()!!
-                val items = queryResult.items ?: emptyList()
-                Result.success(items)
+                Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(string(R.string.media_error_search_items_failed, response.code(), response.message())))
             }

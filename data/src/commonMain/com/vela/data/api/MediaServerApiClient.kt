@@ -90,6 +90,7 @@ internal class MediaServerApiClient(
         startIndex: Int?,
         filters: String?,
         anyProviderIdEquals: String?,
+        tags: String?,
         fields: String?
     ): ApiResponse<QueryResult<BaseItemDto>> = get(
         endpoint = "Users/$userId/Items",
@@ -106,6 +107,7 @@ internal class MediaServerApiClient(
             "startIndex" to startIndex,
             "filters" to filters,
             "AnyProviderIdEquals" to anyProviderIdEquals,
+            "tags" to tags,
             "fields" to fields
         )
     )
@@ -426,6 +428,10 @@ internal class MediaServerApiClient(
         includeItemTypes: String?,
         recursive: Boolean,
         limit: Int?,
+        startIndex: Int?,
+        sortBy: String?,
+        sortOrder: String?,
+        genres: String?,
         fields: String?
     ): ApiResponse<QueryResult<BaseItemDto>> = get(
         endpoint = "Users/$userId/Items",
@@ -434,6 +440,10 @@ internal class MediaServerApiClient(
             "includeItemTypes" to includeItemTypes,
             "recursive" to recursive,
             "limit" to limit,
+            "startIndex" to startIndex,
+            "sortBy" to sortBy,
+            "sortOrder" to sortOrder,
+            "genres" to genres,
             "fields" to fields
         )
     )

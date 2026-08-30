@@ -97,6 +97,9 @@ data class MediaSource(
     val defaultSubtitleStreamIndex: Int? = null
 )
 
+const val STRM_PLAYBACK_USER_AGENT =
+    "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+
 fun MediaSource.strmOriginalPlaybackUrl(): String? {
     val rawPath = path?.trim()?.takeIf { candidate ->
         candidate.startsWith("http://", ignoreCase = true) ||
@@ -106,6 +109,21 @@ fun MediaSource.strmOriginalPlaybackUrl(): String? {
     return rawPath
 }
 
+fun parseStrmPlaylistUrl(content: String?): String? {
+    val text = content?.trim()?.removePrefix("\uFEFF") ?: return null
+    if (text.isEmpty()) return null
+    return text.lineSequence()
+        .map { line -> line.trim().removePrefix("\uFEFF").trim('"') }
+        .firstOrNull { line ->
+            line.isNotEmpty() &&
+                !line.startsWith("#") &&
+                (
+                    line.startsWith("http://", ignoreCase = true) ||
+                        line.startsWith("https://", ignoreCase = true)
+                    )
+        }
+}
+
 fun MediaSource.isStrmSource(): Boolean {
     val containerName = container.orEmpty()
     val sourcePath = path.orEmpty().substringBefore('?')
@@ -113,6 +131,38 @@ fun MediaSource.isStrmSource(): Boolean {
     return containerName.equals("strm", ignoreCase = true) ||
         sourcePath.endsWith(".strm", ignoreCase = true) ||
         sourceName.endsWith(".strm", ignoreCase = true)
+}
+
+fun MediaSource.shouldUseOriginalContainerDownload(): Boolean {
+    if (supportsDirectPlay != true) return false
+    if (isStrmSource()) return false
+    if (isRemote == true) return false
+    val sourcePath = path.orEmpty()
+    if (
+        sourcePath.startsWith("http://", ignoreCase = true) ||
+        sourcePath.startsWith("https://", ignoreCase = true)
+    ) {
+        return false
+    }
+    return !isCloudMountPath(sourcePath)
+}
+
+fun isCloudMountPath(path: String): Boolean {
+    val normalized = path.lowercase()
+    return normalized.contains("/115open") ||
+        normalized.contains("/mnt/115") ||
+        normalized.contains("clouddrive") ||
+        normalized.contains("/openlist") ||
+        normalized.contains("/alist/")
+}
+
+fun PlaybackInfoResponse.selectedMediaSource(mediaSourceId: String?): MediaSource? {
+    val sources = mediaSources.orEmpty()
+    if (sources.isEmpty()) return null
+    return mediaSourceId
+        ?.takeIf { it.isNotBlank() }
+        ?.let { id -> sources.firstOrNull { source -> source.id.equals(id, ignoreCase = true) } }
+        ?: sources.first()
 }
 
 /**

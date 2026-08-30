@@ -46,6 +46,7 @@ class MpvPlayerController(
     private var preferFastSeek = false
     private var pendingStartPositionMs: Long? = null
     private var pendingRemoteHttpPlayback = false
+    private var subtitleFontFamily = "sans-serif"
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
@@ -156,22 +157,27 @@ class MpvPlayerController(
 
     fun setZoomMode(enabled: Boolean) {
         if (released) return
-        if (enabled) {
-            MPVLib.setOptionString("panscan", "1")
-            MPVLib.setOptionString("sub-use-margins", "yes")
-            MPVLib.setOptionString("sub-ass-force-margins", "yes")
-        } else {
-            MPVLib.setOptionString("panscan", "0")
-            MPVLib.setOptionString("sub-use-margins", "no")
-            MPVLib.setOptionString("sub-ass-force-margins", "no")
-        }
+        setMpv("panscan", if (enabled) "1" else "0")
+        applySubtitleWindowMargins()
     }
 
     fun applySubtitlePreferences() {
         if (released) return
         setMpv("sub-visibility", "yes")
         val compatible = playerPreferences.isSubtitleAssCompatible()
+        val edgeType = playerPreferences.getSubtitleEdgeType()
+        val backgroundColor = playerPreferences.getSubtitleBackgroundColor()
         setMpv("sub-ass-override", PlayerPreferences.mpvAssOverride(compatible))
+        applySubtitleWindowMargins(compatible)
+        setMpv(
+            "sub-ass-force-style",
+            PlayerPreferences.mpvAssForceStyle(
+                fontFamily = subtitleFontFamily,
+                edgeType = edgeType,
+                backgroundColor = backgroundColor,
+                compatible = compatible
+            )
+        )
         MPVLib.setPropertyDouble(
             "sub-delay",
             playerPreferences.getSubtitleDelayMs() / 1000.0
@@ -189,6 +195,9 @@ class MpvPlayerController(
             playerPreferences.getSubtitlePosition()
         ).toString()
         setMpv("sub-pos", subPos)
+        setMpv("sub-bold", "no")
+        setMpv("sub-italic", "no")
+        setMpv("sub-blur", "0")
         setMpv(
             "sub-color",
             mpvColor(
@@ -198,9 +207,9 @@ class MpvPlayerController(
         )
         setMpv(
             "sub-back-color",
-            mpvBackgroundColor(playerPreferences.getSubtitleBackgroundColor())
+            mpvBackgroundColor(backgroundColor)
         )
-        applySubtitleEdge(playerPreferences.getSubtitleEdgeType())
+        applySubtitleEdge(edgeType)
     }
 
     fun detachSurface() {
@@ -251,9 +260,13 @@ class MpvPlayerController(
         }
     }
 
-    fun setSpeed(speed: Double) {
-        if (!released) {
-            MPVLib.setPropertyDouble("speed", speed.coerceIn(0.25, 4.0))
+    fun setSpeed(speed: Double, retunePerformance: Boolean = true) {
+        if (released) return
+        val value = speed.coerceIn(0.25, 4.0)
+        MPVLib.setPropertyDouble("speed", value)
+        // 长按预览只改 speed：切 interpolation / video-sync / framedrop 会清解码缓冲，造成一帧卡顿。
+        if (retunePerformance) {
+            applySpeedPerformance(value)
         }
     }
 
@@ -372,13 +385,13 @@ class MpvPlayerController(
 
         val upscaleFilter = playerPreferences.getMpvUpscaleFilter()
         val downscaleFilter = playerPreferences.getMpvDownscaleFilter()
-        val smoothMotion = playerPreferences.getMpvSmoothMotion()
         val deband = playerPreferences.getMpvDeband()
 
         MPVLib.setOptionString("profile", "fast")
         MPVLib.setOptionString("terminal", "no")
         MPVLib.setOptionString("msg-level", "all=no,cplayer=warn,ffmpeg=error,sub=info,demux=warn")
         MPVLib.setOptionString("vo", "null")
+        MPVLib.setOptionString("gpu-api", "opengl")
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("opengl-es", "yes")
         MPVLib.setOptionString("scale", upscaleFilter)
@@ -391,13 +404,8 @@ class MpvPlayerController(
             "hdr-compute-peak",
             if (playerPreferences.getMpvDynamicPeak()) "yes" else "no"
         )
-        if (smoothMotion) {
-            MPVLib.setOptionString("interpolation", "yes")
-            MPVLib.setOptionString("tscale", "oversample")
-            MPVLib.setOptionString("video-sync", "display-resample")
-        } else {
-            MPVLib.setOptionString("video-sync", "audio")
-        }
+        MPVLib.setOptionString("tscale", "oversample")
+        applySpeedPerformance(1.0, asOptions = true)
         MPVLib.setOptionString("ao", audioOutput)
         MPVLib.setOptionString("hwdec", hardwareDecoding)
         MPVLib.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
@@ -422,7 +430,8 @@ class MpvPlayerController(
         MPVLib.setOptionString("embeddedfonts", "yes")
         MPVLib.setOptionString("sub-ass-use-video-data", "aspect-ratio")
         MPVLib.setOptionString("sub-scale-with-window", "yes")
-        MPVLib.setOptionString("sub-use-margins", "no")
+        MPVLib.setOptionString("keepaspect", "yes")
+        applySubtitleWindowMargins()
         configureSubtitleFonts()
         MPVLib.setOptionString("ytdl", "no")
         applySubtitlePreferences()
@@ -505,12 +514,11 @@ class MpvPlayerController(
         runCatching { Os.setenv("FONTCONFIG_FILE", fontsConf.absolutePath, true) }
         MPVLib.setOptionString("sub-fonts-dir", fontsDir.path)
         MPVLib.setOptionString("osd-fonts-dir", fontsDir.path)
-        val family = fallback?.family ?: "sans-serif"
-        MPVLib.setOptionString("sub-font", family)
-        MPVLib.setOptionString("sub-ass-force-style", "FontName=$family")
+        subtitleFontFamily = fallback?.family ?: "sans-serif"
+        MPVLib.setOptionString("sub-font", subtitleFontFamily)
         Log.i(
             SUBTITLE_LOG_TAG,
-            "subtitle font family=$family file=${fallback?.file?.name ?: "none"}"
+            "subtitle font family=$subtitleFontFamily file=${fallback?.file?.name ?: "none"}"
         )
     }
 
@@ -608,27 +616,75 @@ class MpvPlayerController(
         }
     }
 
+    private fun applySubtitleWindowMargins(compatible: Boolean = playerPreferences.isSubtitleAssCompatible()) {
+        // Surface 铺满窗口后，margins 让 sub-pos 走窗口坐标，竖屏才能把字幕放到上下黑边。
+        setMpv("sub-use-margins", "yes")
+        setMpv("sub-ass-force-margins", if (compatible) "no" else "yes")
+    }
+
+    private fun applySpeedPerformance(speed: Double, asOptions: Boolean = false) {
+        val smoothMotion = playerPreferences.getMpvSmoothMotion()
+        val interpolation = MpvPlaybackTuning.interpolation(smoothMotion, speed)
+        val videoSync = MpvPlaybackTuning.videoSync(smoothMotion, speed)
+        val framedrop = MpvPlaybackTuning.framedrop(speed)
+        val skipNonRef = MpvPlaybackTuning.skipNonRefFrames(speed)
+        if (asOptions) {
+            MPVLib.setOptionString("interpolation", interpolation)
+            MPVLib.setOptionString("video-sync", videoSync)
+            MPVLib.setOptionString("framedrop", framedrop)
+            MPVLib.setOptionString("hr-seek-framedrop", "yes")
+            MPVLib.setOptionString(
+                "video-latency-hacks",
+                if (MpvPlaybackTuning.isHighSpeed(speed)) "yes" else "no"
+            )
+            MPVLib.setOptionString(
+                "vd-lavc-skipframe",
+                if (skipNonRef) "nonref" else "default"
+            )
+            MPVLib.setOptionString(
+                "vd-lavc-skiploopfilter",
+                if (skipNonRef) "nonkey" else "default"
+            )
+        } else {
+            setMpv("interpolation", interpolation)
+            setMpv("video-sync", videoSync)
+            setMpv("framedrop", framedrop)
+            setMpv(
+                "video-latency-hacks",
+                if (MpvPlaybackTuning.isHighSpeed(speed)) "yes" else "no"
+            )
+            setMpv("vd-lavc-skipframe", if (skipNonRef) "nonref" else "default")
+            setMpv("vd-lavc-skiploopfilter", if (skipNonRef) "nonkey" else "default")
+        }
+    }
+
     private fun applySubtitleEdge(edgeType: String) {
         when (edgeType) {
             PlayerPreferences.SUBTITLE_EDGE_TYPE_NONE -> {
                 setMpv("sub-border-size", "0")
                 setMpv("sub-shadow-offset", "0")
+                setMpv("sub-border-color", "#00000000")
+                setMpv("sub-shadow-color", "#00000000")
             }
             PlayerPreferences.SUBTITLE_EDGE_TYPE_OUTLINE -> {
                 setMpv("sub-border-size", "3")
                 setMpv("sub-shadow-offset", "0")
+                setMpv("sub-border-color", "#FF000000")
+                setMpv("sub-shadow-color", "#CC000000")
             }
             PlayerPreferences.SUBTITLE_EDGE_TYPE_DROP_SHADOW -> {
                 setMpv("sub-border-size", "0")
                 setMpv("sub-shadow-offset", "2")
+                setMpv("sub-border-color", "#00000000")
+                setMpv("sub-shadow-color", "#CC000000")
             }
             else -> {
                 setMpv("sub-border-size", "2")
                 setMpv("sub-shadow-offset", "0")
+                setMpv("sub-border-color", "#FF000000")
+                setMpv("sub-shadow-color", "#CC000000")
             }
         }
-        setMpv("sub-border-color", "#FF000000")
-        setMpv("sub-shadow-color", "#CC000000")
     }
 
     private fun alphaHex(opacityPercent: Int): String {

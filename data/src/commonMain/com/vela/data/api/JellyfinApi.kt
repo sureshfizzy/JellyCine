@@ -56,6 +56,7 @@ interface MediaServerApi {
         startIndex: Int? = null,
         filters: String? = null,
         anyProviderIdEquals: String? = null,
+        tags: String? = null,
         fields: String? = null
     ): ApiResponse<QueryResult<BaseItemDto>>
 
@@ -230,6 +231,10 @@ interface MediaServerApi {
         includeItemTypes: String? = "Movie,Series",
         recursive: Boolean = true,
         limit: Int? = 50,
+        startIndex: Int? = null,
+        sortBy: String? = null,
+        sortOrder: String? = null,
+        genres: String? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,Genres,CommunityRating,ProductionYear,Overview"
     ): ApiResponse<QueryResult<BaseItemDto>>
 

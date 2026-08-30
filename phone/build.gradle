@@ -106,9 +106,9 @@ android {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
         jniLibs {
-            // Yamby GLES libmpv is dynamically linked to FFmpeg 8 (LIBAVUTIL_60).
-            // org.jellycine.mpv:libmpv ships a different FFmpeg; mixing them
-            // crashes at loadLibrary("mpv") with missing av_default_item_name.
+            // mpv-android 2026-08-11 GLES libmpv is dynamically linked to FFmpeg 9
+            // (LIBAVUTIL_61). org.jellycine.mpv:libmpv ships a different FFmpeg;
+            // mixing them crashes at loadLibrary("mpv").
             pickFirsts += [
                 '**/libmpv.so',
                 '**/libplayer.so',

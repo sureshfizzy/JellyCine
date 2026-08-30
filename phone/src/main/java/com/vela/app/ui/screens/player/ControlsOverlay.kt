@@ -352,14 +352,6 @@ private fun PortraitPlayerOverlay(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        PlayerChromeIconButton(onClick = onToggleOrientation) {
-                            Icon(
-                                imageVector = Icons.Outlined.ScreenRotation,
-                                contentDescription = stringResource(R.string.player_cd_toggle_orientation),
-                                tint = iconTint,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
                         PlayerChromeIconButton(onClick = onEnterPip) {
                             Icon(
                                 imageVector = Icons.Outlined.PictureInPictureAlt,
@@ -372,6 +364,14 @@ private fun PortraitPlayerOverlay(
                             Icon(
                                 imageVector = Icons.Outlined.AspectRatio,
                                 contentDescription = stringResource(R.string.player_settings_start_maximized),
+                                tint = iconTint,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        PlayerChromeIconButton(onClick = onToggleOrientation) {
+                            Icon(
+                                imageVector = Icons.Outlined.ScreenRotation,
+                                contentDescription = stringResource(R.string.player_cd_toggle_orientation),
                                 tint = iconTint,
                                 modifier = Modifier.size(26.dp)
                             )

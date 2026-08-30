@@ -70,20 +70,28 @@ private fun NavController.openServerPicker() {
     }
 }
 
-private fun NavController.openViewAll(contentType: String, parentId: String?, title: String) {
+private fun NavController.openViewAll(
+    contentType: String,
+    parentId: String?,
+    title: String,
+    searchTerm: String? = null,
+    tag: String? = null
+) {
     val encodedTitle = java.net.URLEncoder.encode(title, "UTF-8")
-    val route = when {
-        contentType.contains("GENRE") && parentId != null -> {
-            "viewall/$contentType?genreId=$parentId&title=$encodedTitle"
+    val params = buildList {
+        when {
+            contentType.contains("GENRE") && parentId != null -> add("genreId=$parentId")
+            parentId != null -> add("parentId=$parentId")
         }
-        parentId != null -> {
-            "viewall/$contentType?parentId=$parentId&title=$encodedTitle"
+        add("title=$encodedTitle")
+        searchTerm?.takeIf { it.isNotBlank() }?.let {
+            add("searchTerm=${java.net.URLEncoder.encode(it, "UTF-8")}")
         }
-        else -> {
-            "viewall/$contentType?title=$encodedTitle"
+        tag?.takeIf { it.isNotBlank() }?.let {
+            add("tag=${java.net.URLEncoder.encode(it, "UTF-8")}")
         }
     }
-    navigate(route)
+    navigate("viewall/$contentType?${params.joinToString("&")}")
 }
 
 @UnstableApi
@@ -306,6 +314,14 @@ fun AppNavigation() {
                     onNavigateToViewAll = { contentType, parentId, title ->
                         navController.openViewAll(contentType, parentId, title)
                     },
+                    onNavigateToSearchCategory = { contentType, searchTerm, title ->
+                        navController.openViewAll(
+                            contentType = contentType,
+                            parentId = null,
+                            title = title,
+                            searchTerm = searchTerm
+                        )
+                    },
                     onNavigateToPlayer = { itemId ->
                         navController.navigate("player/$itemId")
                     }
@@ -369,6 +385,14 @@ fun AppNavigation() {
                                 navController.navigate("person/$personId")
                             }
                         },
+                        onNavigateToTag = { tag ->
+                            navController.openViewAll(
+                                contentType = "ALL",
+                                parentId = null,
+                                title = tag,
+                                tag = tag
+                            )
+                        },
                         onBackPressed = {
                             navController.popBackStack()
                         }
@@ -400,6 +424,14 @@ fun AppNavigation() {
                             if (personId != episodeId) {
                                 navController.navigate("person/$personId")
                             }
+                        },
+                        onNavigateToTag = { tag ->
+                            navController.openViewAll(
+                                contentType = "ALL",
+                                parentId = null,
+                                title = tag,
+                                tag = tag
+                            )
                         },
                         onBackPressed = {
                             navController.popBackStack()
@@ -441,7 +473,7 @@ fun AppNavigation() {
             }
 
             composable(
-                "viewall/{contentType}?parentId={parentId}&title={title}&genreId={genreId}",
+                "viewall/{contentType}?parentId={parentId}&title={title}&genreId={genreId}&searchTerm={searchTerm}&tag={tag}",
                 arguments = listOf(
                     navArgument("contentType") { type = NavType.StringType },
                     navArgument("parentId") {
@@ -457,6 +489,16 @@ fun AppNavigation() {
                         type = NavType.StringType
                         nullable = true
                         defaultValue = null
+                    },
+                    navArgument("searchTerm") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("tag") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 ),
                 enterTransition = { contentEnterTransition(enterEffectsSpec, enterSpatialSpec) },
@@ -465,6 +507,12 @@ fun AppNavigation() {
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")
                 val genreId = backStackEntry.arguments?.getString("genreId")
+                val searchTerm = backStackEntry.arguments?.getString("searchTerm")?.let {
+                    java.net.URLDecoder.decode(it, "UTF-8")
+                }?.takeIf { it.isNotBlank() }
+                val tag = backStackEntry.arguments?.getString("tag")?.let {
+                    java.net.URLDecoder.decode(it, "UTF-8")
+                }?.takeIf { it.isNotBlank() }
                 val title = backStackEntry.arguments?.getString("title")?.let {
                     java.net.URLDecoder.decode(it, "UTF-8")
                 } ?: "View All"
@@ -485,6 +533,8 @@ fun AppNavigation() {
                     contentType = contentType,
                     parentId = parentId,
                     genreId = genreId,
+                    searchTerm = searchTerm,
+                    tag = tag,
                     title = title,
                     onBackPressed = { navController.popBackStack() },
                     onItemClick = { item ->

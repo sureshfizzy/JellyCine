@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# Sync GLES libmpv natives into phone/src/main/jniLibs/arm64-v8a.
+# Sync GLES libmpv natives into phone/src/main/jniLibs/<abi>.
 #
 # Do NOT compile ffmpeg/mpv inside this Windows Gradle tree.
 # mpv-android/buildscripts only work on Linux/macOS (WSL is unsupported).
-# Latest mpv-android (2026-08-11) ships FFmpeg 9 — different SONAME than
-# the current Yamby/mpv 0.41 + LIBAVUTIL_60 set that matches colour.
+# mpv-android 2026-08-11 ships FFmpeg 9.0 (LIBAVUTIL_61) and libmpv @ f4d13e1.
 #
-# Default release tag is the last mpv-android build that still lists
-# libmpv 0.41.0. Always copy the whole .so set, never libmpv.so alone.
+# Always copy the whole .so set, never libmpv.so alone.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="$ROOT/phone/src/main/jniLibs/arm64-v8a"
-SOURCE_FILE="$DEST/SOURCE.txt"
-DEFAULT_TAG="2025-12-27"
-EXPECTED_SONAME="LIBAVUTIL_60"
-ABI="arm64-v8a"
+DEST_ROOT="$ROOT/phone/src/main/jniLibs"
+SOURCE_FILE="$DEST_ROOT/SOURCE.txt"
+DEFAULT_TAG="2026-08-11"
+EXPECTED_SONAME="LIBAVUTIL_61"
+ABIS=(arm64-v8a armeabi-v7a x86 x86_64)
 REQUIRED=(
   libmpv.so
   libplayer.so
@@ -27,7 +25,6 @@ REQUIRED=(
   libswresample.so
   libswscale.so
   libc++_shared.so
-  libass.so
 )
 
 ALLOW_ABI_BUMP=0
@@ -41,15 +38,14 @@ Usage:
   $0 from-yamby [--allow-abi-bump]
   $0 from-prefix PREFIX_LIB_DIR PLAYER_SO [--allow-abi-bump]
 
-from-release  GitHub mpv-android tag, asset app-default-arm64-v8a-release.apk
-from-apk      local mpv-android / Yamby arm64 APK or split
+from-release  GitHub mpv-android tag, asset app-default-universal-release.apk
+from-apk      local mpv-android / Yamby APK or split
 from-yamby    adb pull com.hush.yamby split_config.arm64_v8a.apk
 from-prefix   copy after a Linux mpv-android buildscripts run:
                 PREFIX_LIB_DIR = buildscripts/prefix/arm64/lib
                 PLAYER_SO      = app/build/.../libplayer.so
 
-Default tag $DEFAULT_TAG is libmpv 0.41.0 / FFmpeg 8 (LIBAVUTIL_60).
-Do not pass 2026-08-11 unless you also bump Kotlin JNI and accept FFmpeg 9.
+Default tag $DEFAULT_TAG is libmpv (mpv @ f4d13e1) / FFmpeg 9.0 ($EXPECTED_SONAME).
 EOF
 }
 
@@ -58,6 +54,17 @@ need() {
     echo "missing $1" >&2
     exit 1
   }
+}
+
+python_bin() {
+  if command -v python3 >/dev/null 2>&1; then
+    echo python3
+  elif command -v python >/dev/null 2>&1; then
+    echo python
+  else
+    echo "missing python3" >&2
+    exit 1
+  fi
 }
 
 parse_allow() {
@@ -101,7 +108,7 @@ verify_set() {
   local name
   for name in "${REQUIRED[@]}"; do
     if [ ! -s "$dir/$name" ]; then
-      echo "missing $name" >&2
+      echo "missing $name in $dir" >&2
       missing=1
     fi
   done
@@ -109,7 +116,7 @@ verify_set() {
 
   local soname
   soname="$(soname_of "$dir/libmpv.so")"
-  echo "libmpv NEEDED FFmpeg: ${soname:-unknown}"
+  echo "libmpv NEEDED FFmpeg: ${soname:-unknown} ($dir)"
   if [ -z "$soname" ]; then
     echo "could not read LIBAVUTIL_* from libmpv.so" >&2
     exit 1
@@ -119,72 +126,88 @@ verify_set() {
     exit 1
   fi
   if strings "$dir/libmpv.so" 2>/dev/null | grep -qi 'libvulkan'; then
-    echo "warning: libmpv.so references Vulkan; Hills-style Vulkan/libplacebo washed skin orange" >&2
+    echo "warning: libmpv.so references Vulkan; force gpu-api=opengl at runtime" >&2
   fi
 }
 
 install_set() {
   local src="$1"
-  local note="$2"
+  local abi="$2"
+  local dest="$DEST_ROOT/$abi"
   verify_set "$src"
-  mkdir -p "$DEST"
+  mkdir -p "$dest"
+  find "$dest" -maxdepth 1 -type f -name '*.so' -delete
   local name
   for name in "${REQUIRED[@]}"; do
-    cp -f "$src/$name" "$DEST/$name"
+    cp -f "$src/$name" "$dest/$name"
   done
-  # Extra SONAMEs (dav1d/curl/mbedtls/...) if the new libmpv dynamically needs them.
   find "$src" -maxdepth 1 -type f -name '*.so' -print0 |
     while IFS= read -r -d '' extra; do
       name="$(basename "$extra")"
-      [ -e "$DEST/$name" ] || cp -f "$extra" "$DEST/$name"
+      [ -e "$dest/$name" ] || cp -f "$extra" "$dest/$name"
     done
+  echo "installed $abi into $dest"
+}
+
+write_source() {
+  local note="$1"
+  mkdir -p "$DEST_ROOT"
   cat >"$SOURCE_FILE" <<EOF
 source=$note
-abi=$ABI
+abis=${ABIS[*]}
 expected_ffmpeg_soname=$EXPECTED_SONAME
+ffmpeg=9.0
+mpv-android_tag=$TAG
+note=Do not mix with org.jellycine.mpv AAR. Update via scripts/sync-mpv-natives.sh
 synced_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
-  echo "installed into $DEST"
+  rm -f "$DEST_ROOT/arm64-v8a/SOURCE.txt"
 }
 
 extract_apk() {
   local apk="$1"
   local out="$2"
-  python - "$apk" "$out" "$ABI" <<'PY'
+  "$(python_bin)" - "$apk" "$out" "${ABIS[@]}" <<'PY'
 import sys, zipfile, pathlib
-apk, out, abi = sys.argv[1], pathlib.Path(sys.argv[2]), sys.argv[3]
-prefix = f"lib/{abi}/"
+apk = sys.argv[1]
+out = pathlib.Path(sys.argv[2])
+abis = sys.argv[3:]
 out.mkdir(parents=True, exist_ok=True)
-copied = 0
+copied = {abi: 0 for abi in abis}
 with zipfile.ZipFile(apk) as z:
     for info in z.infolist():
         name = info.filename.replace("\\", "/")
-        if not name.startswith(prefix) or not name.endswith(".so"):
-            continue
-        dest = out / name.rsplit("/", 1)[-1]
-        dest.write_bytes(z.read(info))
-        copied += 1
-if copied == 0:
-    raise SystemExit(f"no {prefix}*.so in {apk}")
-print(f"extracted {copied} so files from {apk}")
+        for abi in abis:
+            prefix = f"lib/{abi}/"
+            if name.startswith(prefix) and name.endswith(".so"):
+                dest_dir = out / abi
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                dest = dest_dir / name.rsplit("/", 1)[-1]
+                dest.write_bytes(z.read(info))
+                copied[abi] += 1
+if not any(copied.values()):
+    raise SystemExit(f"no lib/<abi>/*.so in {apk}")
+for abi, count in copied.items():
+    if count:
+        print(f"extracted {count} so files for {abi}")
 PY
 }
 
 from_release() {
-  need python
   need curl
+  python_bin >/dev/null
   local api="https://api.github.com/repos/mpv-android/mpv-android/releases/tags/${TAG}"
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
   local apk="$tmp/mpv-android.apk"
   local url
-  url="$(python - "$api" <<'PY'
+  url="$("$(python_bin)" - "$api" <<'PY'
 import json, sys, urllib.request
 api = sys.argv[1]
 with urllib.request.urlopen(api) as resp:
     data = json.load(resp)
-want = "app-default-arm64-v8a-release.apk"
+want = "app-default-universal-release.apk"
 for asset in data.get("assets", []):
     if asset.get("name") == want:
         print(asset["browser_download_url"])
@@ -196,23 +219,43 @@ PY
   echo "downloading $url"
   curl -fL --retry 3 -o "$apk" "$url"
   extract_apk "$apk" "$tmp/libs"
-  install_set "$tmp/libs" "mpv-android tag=$TAG apk=app-default-arm64-v8a-release.apk"
+  local abi
+  for abi in "${ABIS[@]}"; do
+    [ -d "$tmp/libs/$abi" ] || {
+      echo "apk missing $abi" >&2
+      exit 1
+    }
+    install_set "$tmp/libs/$abi" "$abi"
+  done
+  write_source "mpv-android tag=$TAG apk=app-default-universal-release.apk"
 }
 
 from_apk() {
   local apk="$1"
   [ -f "$apk" ] || { echo "apk not found: $apk" >&2; exit 1; }
-  need python
+  python_bin >/dev/null
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
   extract_apk "$apk" "$tmp/libs"
-  install_set "$tmp/libs" "apk=$apk"
+  local installed=0
+  local abi
+  for abi in "${ABIS[@]}"; do
+    if [ -d "$tmp/libs/$abi" ]; then
+      install_set "$tmp/libs/$abi" "$abi"
+      installed=1
+    fi
+  done
+  [ "$installed" -eq 1 ] || {
+    echo "no matching ABI libs in $apk" >&2
+    exit 1
+  }
+  write_source "apk=$apk"
 }
 
 from_yamby() {
   need adb
-  need python
+  python_bin >/dev/null
   local tmp
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
@@ -224,7 +267,8 @@ from_yamby() {
   }
   adb pull "$path" "$tmp/yamby.apk"
   extract_apk "$tmp/yamby.apk" "$tmp/libs"
-  install_set "$tmp/libs" "yamby=com.hush.yamby split_config.arm64_v8a.apk"
+  install_set "$tmp/libs/arm64-v8a" "arm64-v8a"
+  write_source "yamby=com.hush.yamby split_config.arm64_v8a.apk"
 }
 
 from_prefix() {
@@ -237,7 +281,8 @@ from_prefix() {
   trap 'rm -rf "$tmp"' RETURN
   cp -f "$libdir"/*.so "$tmp/" 2>/dev/null || true
   cp -f "$player" "$tmp/libplayer.so"
-  install_set "$tmp" "prefix=$libdir player=$player"
+  install_set "$tmp" "arm64-v8a"
+  write_source "prefix=$libdir player=$player"
 }
 
 cmd="${1:-}"
@@ -272,6 +317,10 @@ case "$cmd" in
       echo
       echo "current $SOURCE_FILE:"
       cat "$SOURCE_FILE"
+    elif [ -f "$DEST_ROOT/arm64-v8a/SOURCE.txt" ]; then
+      echo
+      echo "current $DEST_ROOT/arm64-v8a/SOURCE.txt:"
+      cat "$DEST_ROOT/arm64-v8a/SOURCE.txt"
     fi
     ;;
   *)

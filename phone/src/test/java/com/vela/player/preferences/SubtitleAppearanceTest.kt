@@ -59,4 +59,34 @@ class SubtitleAppearanceTest {
         assertEquals("scale", PlayerPreferences.mpvAssOverride(true))
         assertEquals("force", PlayerPreferences.mpvAssOverride(false))
     }
+
+    @Test
+    fun defaultAssOverrideStripsEmbeddedBorders() {
+        assertEquals("force", PlayerPreferences.mpvAssOverride(PlayerPreferences.DEFAULT_SUBTITLE_ASS_COMPATIBLE))
+        val style = PlayerPreferences.mpvAssForceStyle(
+            fontFamily = "Noto Sans CJK SC",
+            edgeType = PlayerPreferences.DEFAULT_SUBTITLE_EDGE_TYPE,
+            backgroundColor = PlayerPreferences.DEFAULT_SUBTITLE_BACKGROUND_COLOR,
+            compatible = PlayerPreferences.DEFAULT_SUBTITLE_ASS_COMPATIBLE
+        )
+        assertTrue(style.contains("FontName=Noto Sans CJK SC"))
+        assertTrue(style.contains("Outline=0"))
+        assertTrue(style.contains("Shadow=0"))
+        assertTrue(style.contains("BorderStyle=1"))
+        assertTrue(style.contains("BackColour=&H00000000"))
+        assertTrue(style.contains("OutlineColour=&H00000000"))
+    }
+
+    @Test
+    fun assCompatibleForceStyleDoesNotOverrideEffects() {
+        assertEquals(
+            "",
+            PlayerPreferences.mpvAssForceStyle(
+                fontFamily = "Noto Sans CJK SC",
+                edgeType = PlayerPreferences.SUBTITLE_EDGE_TYPE_NONE,
+                backgroundColor = PlayerPreferences.SUBTITLE_BACKGROUND_TRANSPARENT,
+                compatible = true
+            )
+        )
+    }
 }

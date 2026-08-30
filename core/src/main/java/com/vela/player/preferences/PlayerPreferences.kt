@@ -125,7 +125,7 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
-        const val DEFAULT_SUBTITLE_ASS_COMPATIBLE = true
+        const val DEFAULT_SUBTITLE_ASS_COMPATIBLE = false
         const val MIN_SUBTITLE_DELAY_MS = -10_000
         const val MAX_SUBTITLE_DELAY_MS = 10_000
         const val SUBTITLE_DELAY_STEP_MS = 100
@@ -308,6 +308,7 @@ class PlayerPreferences(context: Context) {
         }
 
         fun mpvSubPosFromBottomPercent(percent: Int): Int {
+            // 0 → 窗口底部，100 → 窗口顶部（含竖屏 letterbox；需 sub-use-margins）。
             return (100 - percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)).coerceIn(0, 150)
         }
 
@@ -318,6 +319,56 @@ class PlayerPreferences(context: Context) {
 
         fun mpvAssOverride(compatible: Boolean): String {
             return if (compatible) "scale" else "force"
+        }
+
+        fun mpvAssForceStyle(
+            fontFamily: String,
+            edgeType: String,
+            backgroundColor: String,
+            compatible: Boolean
+        ): String {
+            val parts = mutableListOf<String>()
+            if (!compatible && fontFamily.isNotBlank()) {
+                parts += "FontName=$fontFamily"
+            }
+            if (compatible) {
+                return parts.joinToString(",")
+            }
+            when (edgeType) {
+                SUBTITLE_EDGE_TYPE_OUTLINE -> {
+                    parts += "Outline=2"
+                    parts += "Shadow=0"
+                    parts += "BorderStyle=1"
+                }
+                SUBTITLE_EDGE_TYPE_DROP_SHADOW -> {
+                    parts += "Outline=0"
+                    parts += "Shadow=2"
+                    parts += "BorderStyle=1"
+                }
+                SUBTITLE_EDGE_TYPE_NONE -> {
+                    parts += "Outline=0"
+                    parts += "Shadow=0"
+                    parts += "BorderStyle=1"
+                    parts += "OutlineColour=&H00000000"
+                }
+                else -> {
+                    parts += "Outline=1"
+                    parts += "Shadow=0"
+                    parts += "BorderStyle=1"
+                }
+            }
+            when (backgroundColor) {
+                SUBTITLE_BACKGROUND_BLACK -> {
+                    parts += "BorderStyle=3"
+                    parts += "BackColour=&HCC000000"
+                }
+                SUBTITLE_BACKGROUND_WHITE -> {
+                    parts += "BorderStyle=3"
+                    parts += "BackColour=&HCCFFFFFF"
+                }
+                else -> parts += "BackColour=&H00000000"
+            }
+            return parts.joinToString(",")
         }
     }
     

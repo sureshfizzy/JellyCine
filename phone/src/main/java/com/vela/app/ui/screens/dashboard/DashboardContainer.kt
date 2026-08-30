@@ -167,6 +167,7 @@ fun DashboardContainer(
     onNavigateToDetail: (com.vela.data.model.BaseItemDto) -> Unit = {},
     onNavigateToMergedDetail: (com.vela.data.model.BaseItemDto) -> Unit = onNavigateToDetail,
     onNavigateToViewAll: (String, String?, String) -> Unit = { _, _, _ -> },
+    onNavigateToSearchCategory: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToPlayer: (String) -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
@@ -540,6 +541,14 @@ fun DashboardContainer(
                     ContentWrapper {
                         SearchContainer(
                             onNavigateToDetail = onNavigateToDetail,
+                            onNavigateToSearchCategory = { mediaType, query, title ->
+                                val contentType = when (mediaType) {
+                                    com.vela.data.model.SearchMediaType.MOVIE -> "MOVIES"
+                                    com.vela.data.model.SearchMediaType.SERIES -> "SERIES"
+                                    com.vela.data.model.SearchMediaType.EPISODE -> "EPISODES"
+                                }
+                                onNavigateToSearchCategory(contentType, query, title)
+                            },
                             onCancel = {
                                 navigateToDestination(DashboardDestination.Home)
                             }

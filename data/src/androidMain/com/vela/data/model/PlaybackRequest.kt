@@ -56,7 +56,8 @@ internal data class PlaybackStreamOptions(
     val subtitleStreamIndex: Int? = null,
     val audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
     val includeAccessToken: Boolean = false,
-    val preferStrmOriginalPath: Boolean = true
+    val preferStrmOriginalPath: Boolean = true,
+    val mediaSourceId: String? = null
 )
 
 internal object PlaybackUrlBuilder {
@@ -147,12 +148,20 @@ internal object PlaybackUrlBuilder {
         options: PlaybackStreamOptions
     ): PlaybackRequest? {
         if (!options.preferStrmOriginalPath) return null
-        val mediaSource = playbackInfo.mediaSources?.firstOrNull() ?: return null
+        val mediaSource = playbackInfo.selectedMediaSource(options.mediaSourceId) ?: return null
         val originalUrl = mediaSource.strmOriginalPlaybackUrl() ?: return null
         return PlaybackRequest(
             url = originalUrl,
-            requestHeaders = mediaSource.requiredHttpHeaders.orEmpty()
+            requestHeaders = strmPlaybackHeaders(mediaSource)
         )
+    }
+
+    private fun strmPlaybackHeaders(mediaSource: MediaSource): Map<String, String> {
+        val headers = mediaSource.requiredHttpHeaders.orEmpty().toMutableMap()
+        if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+            headers["User-Agent"] = STRM_PLAYBACK_USER_AGENT
+        }
+        return headers
     }
 
     private fun buildPlaybackRequestHeaders(authContext: PlaybackAuthContext): Map<String, String> {
@@ -181,7 +190,7 @@ internal object PlaybackUrlBuilder {
         options: PlaybackStreamOptions
     ): Result<String> {
         return try {
-            val mediaSource = playbackInfo.mediaSources?.firstOrNull()
+            val mediaSource = playbackInfo.selectedMediaSource(options.mediaSourceId)
                 ?: return Result.failure(Exception(context.getString(R.string.data_error_no_media_source_available)))
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(options.subtitleStreamIndex)
             val selectedAudioStream = getSelectedAudioStream(
@@ -245,8 +254,9 @@ internal object PlaybackUrlBuilder {
                 }
             }
 
-            if (mediaSource.supportsDirectPlay == true && !mediaSource.isStrmSource()) {
+            if (mediaSource.shouldUseOriginalContainerDownload()) {
                 // 原文件端点保留所有内嵌轨、字体附件和 PTS；Videos/stream 可能按服务端字幕策略剥离 ASS。
+                // 115/FUSE 等挂载盘 Download 会失败，仍走 stream。
                 val originalContainerUrl = buildServerUrl(
                     baseUrl = authContext.serverUrl,
                     encodedPath = "Items/$itemId/Download"
