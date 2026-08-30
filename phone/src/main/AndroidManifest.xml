@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <!-- Media playback permissions -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -59,13 +60,22 @@
             android:theme="@style/Theme.Vela.Splash"
             android:launchMode="singleTop"
             android:resizeableActivity="true"
-            android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|colorMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.activity.PlayerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vela"
+            android:launchMode="singleTop"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|colorMode"
+            android:excludeFromRecents="false" />
 
         <!-- File Provider for sharing logs -->
         <provider
@@ -86,6 +96,11 @@
             android:name=".download.DownloadForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".playback.PlaybackMediaService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
 
         <activity

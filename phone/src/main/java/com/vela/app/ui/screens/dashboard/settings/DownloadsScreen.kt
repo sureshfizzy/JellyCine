@@ -82,7 +82,7 @@ import com.vela.data.model.TrackedDownload
 import com.vela.data.preferences.DownloadPreferences
 import com.vela.shared.R
 import com.vela.app.ui.components.common.isPausedTrackedDownload
-import com.vela.app.ui.screens.player.PlayerScreen
+import com.vela.app.ui.activity.PlayerActivity
 import com.vela.shared.util.image.JellyfinPosterImage
 import com.vela.shared.util.image.rememberImageUrl
 import com.vela.data.repository.MediaRepository
@@ -131,7 +131,6 @@ fun DownloadsScreen(
     }
 
     var selectedSeriesId by remember { mutableStateOf<String?>(null) }
-    var playbackItemId by remember { mutableStateOf<String?>(null) }
     var showDownloadSettings by remember { mutableStateOf(false) }
     var storageBehavior by remember { mutableStateOf(downloadPreferences.getStorageBehavior()) }
     var deviceDownloadsTreeUri by remember { mutableStateOf(downloadPreferences.getDeviceDownloadsTreeUri()) }
@@ -183,27 +182,17 @@ fun DownloadsScreen(
         seriesGroups.firstOrNull { it.id == selectedSeriesId }
     }
 
-    val activePlaybackId = playbackItemId
     val closeCurrentLayer: () -> Unit = {
         when {
             showDownloadSettings -> showDownloadSettings = false
-            !activePlaybackId.isNullOrBlank() -> playbackItemId = null
             selectedSeries != null -> selectedSeriesId = null
             !embedded -> onBackPressed()
         }
     }
     BackHandler(
-        enabled = showDownloadSettings || !activePlaybackId.isNullOrBlank() || selectedSeries != null || !embedded,
+        enabled = showDownloadSettings || selectedSeries != null || !embedded,
         onBack = closeCurrentLayer
     )
-
-    if (!activePlaybackId.isNullOrBlank()) {
-        PlayerScreen(
-            mediaId = activePlaybackId,
-            onBackPressed = { playbackItemId = null }
-        )
-        return
-    }
 
     val deleteDownload: (TrackedDownload) -> Unit = { entry ->
         val itemId = entry.itemId
@@ -218,7 +207,7 @@ fun DownloadsScreen(
         if (onPlayItem != null) {
             onPlayItem(itemId)
         } else {
-            playbackItemId = itemId
+            PlayerActivity.start(context, itemId)
         }
     }
     val toggleDownloadPause: (TrackedDownload) -> Unit = { entry ->

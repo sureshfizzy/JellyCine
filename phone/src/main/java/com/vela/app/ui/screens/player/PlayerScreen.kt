@@ -1,14 +1,9 @@
 package com.vela.app.ui.screens.player
 
-import android.app.Activity
-import android.app.PictureInPictureParams
 import android.content.res.Configuration
 import android.content.Context
 import android.media.AudioManager
-import android.os.Build
 import android.provider.Settings
-import android.util.Rational
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,7 +36,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.vela.shared.R
-import com.vela.app.ui.activity.VelaActivity
+import com.vela.app.ui.player.PictureInPictureHost
+import com.vela.app.ui.player.applyPlayerPipParams
+import com.vela.app.ui.player.enterPlayerPip
+import com.vela.app.ui.player.findActivity
 import com.vela.app.ui.screens.player.PlayerViewModel
 import com.vela.data.model.AudioTranscodeMode
 import com.vela.data.model.BaseItemDto
@@ -51,6 +49,7 @@ import com.vela.player.core.findActiveSkippableSegment
 import com.vela.player.discord.NowPlayingInfo
 import com.vela.player.preferences.PlayerPreferences
 import com.vela.app.discord.DiscordRpcEffect
+import com.vela.app.playback.SystemMediaSessionEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -114,7 +113,7 @@ fun PlayerScreen(
     var dismissedCreditsPrompt by remember(mediaId) { mutableStateOf(false) }
 
     val hideSystemBars: () -> Unit = {
-        (context as? Activity)?.let { act ->
+        context.findActivity()?.let { act ->
             val windowInsetsController = WindowCompat.getInsetsController(act.window, act.window.decorView)
             windowInsetsController?.apply {
                 hide(WindowInsetsCompat.Type.systemBars())
@@ -204,7 +203,8 @@ fun PlayerScreen(
     var playbackOrientation by remember {
         mutableStateOf(playerPreferences.getPlayerOrientation())
     }
-    val hostActivity = context as? VelaActivity
+    val activity = context.findActivity()
+    val hostActivity = activity as? PictureInPictureHost
     val inPip by (hostActivity?.pictureInPictureMode ?: remember { MutableStateFlow(false) })
         .collectAsState()
 
@@ -318,13 +318,47 @@ fun PlayerScreen(
     val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
     val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
 
+    SystemMediaSessionEffect(
+        mediaId = currentPlaybackId,
+        title = playerState.mediaTitle,
+        subtitle = playerState.seasonEpisodeLabel?.takeIf { it.isNotBlank() }
+            ?: initialItemDetails?.seriesName
+            ?: initialItemDetails?.name,
+        durationMs = viewModel.getDuration(),
+        playing = playerState.isPlaying || playerState.playWhenReady,
+        artworkUrl = viewModel.discordPosterUrl,
+        canSkip = canWatchNextEpisode || canWatchPreviousEpisode,
+        positionProvider = viewModel::getCurrentPosition,
+        onPlay = viewModel::play,
+        onPause = viewModel::pause,
+        onSeek = viewModel::seekTo,
+        onSkipNext = {
+            nextEpisodeId?.let(playEpisodeInPlace)
+        },
+        onSkipPrevious = {
+            previousEpisodeId?.takeIf { it.isNotBlank() }?.let { id ->
+                onWatchPreviousEpisode?.invoke(id)
+            }
+        },
+        onStop = {
+            viewModel.releasePlayer()
+            onBackPressed?.invoke()
+        }
+    )
+
+    LaunchedEffect(playerState.playWhenReady, playerState.isLocked) {
+        activity?.let { host ->
+            applyPlayerPipParams(host, playerState.playWhenReady && !playerState.isLocked)
+        }
+    }
+
     DisposableEffect(hostActivity, playerState.playWhenReady, playerState.isLocked) {
         if (hostActivity == null) {
             return@DisposableEffect onDispose { }
         }
         hostActivity.userLeaveHintHandler = {
             if (playerState.playWhenReady && !playerState.isLocked) {
-                enterPlayerPip(hostActivity)
+                activity?.let(::enterPlayerPip)
             }
         }
         onDispose {
@@ -507,7 +541,6 @@ fun PlayerScreen(
             },
             onBrightnessChange = { delta ->
                 if (!playerState.isLocked) {
-                    val activity = context as? Activity
                     activity?.let { act ->
                         val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
                         playerBrightness = newPlayerBrightness
@@ -590,7 +623,6 @@ fun PlayerScreen(
             },
             onBrightnessChange = { delta ->
                 if (!playerState.isLocked) {
-                    val activity = context as? Activity
                     activity?.let { act ->
                         val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
                         playerBrightness = newPlayerBrightness
@@ -687,7 +719,8 @@ fun PlayerScreen(
                 uiState = uiState.copy(controlsVisible = false)
             },
             onEnterPip = {
-                onEnterPip?.invoke() ?: enterPlayerPip(context as Activity)
+                activity?.let(::enterPlayerPip)
+                onEnterPip?.invoke()
             },
             onShowChapters = { showChaptersSheet = true },
             onBackgroundClick = {
@@ -805,26 +838,6 @@ fun PlayerScreen(
             )
         }
         }
-    }
-}
-
-private fun enterPlayerPip(activity: Activity) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
-        return
-    }
-    if (activity.isInPictureInPictureMode) return
-    val entered = try {
-        activity.enterPictureInPictureMode(
-            PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-        )
-    } catch (_: RuntimeException) {
-        false
-    }
-    if (!entered) {
-        Toast.makeText(activity, activity.getString(R.string.player_pip_failed), Toast.LENGTH_SHORT).show()
     }
 }
 

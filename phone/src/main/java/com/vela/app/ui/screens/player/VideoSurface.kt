@@ -191,7 +191,11 @@ private fun PlayerView.applySubtitlePreferences(playerPreferences: PlayerPrefere
         setApplyEmbeddedStyles(true)
         setApplyEmbeddedFontSizes(assCompatible)
         setFractionalTextSize(
-            PlayerPreferences.exoTextSizeFraction(playerPreferences.getSubtitleScale())
+            PlayerPreferences.exoTextSizeFractionForWindow(
+                playerPreferences.getSubtitleScale(),
+                width,
+                height
+            )
         )
         setStyle(
             CaptionStyleCompat(
@@ -208,25 +212,24 @@ private fun PlayerView.applySubtitlePreferences(playerPreferences: PlayerPrefere
         )
         if (assCompatible) {
             setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
-            if (paddingTop != 0) {
-                setPadding(paddingLeft, 0, paddingRight, paddingBottom)
+            if (paddingTop != 0 || paddingBottom != 0) {
+                setPadding(paddingLeft, 0, paddingRight, 0)
             }
-        } else {
-            setBottomPaddingFraction(
-                playerPreferences.getSubtitlePosition()
-                    .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
+        } else if (width > 0 && height > 0) {
+            val bottomPad = PlayerPreferences.subtitleViewBottomPaddingPx(
+                playerPreferences.getSubtitlePosition(),
+                width,
+                height,
+                userScale = playerPreferences.getSubtitleScale()
             )
-
-            if (height > 0) {
-                val topPaddingPx = (
-                    height * (
-                        playerPreferences.getSubtitleTopEdgePositionPercent()
-                            .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
-                        )
-                    ).roundToInt()
-                if (paddingTop != topPaddingPx) {
-                    setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
-                }
+            val topPad = PlayerPreferences.subtitleViewTopPaddingPx(
+                playerPreferences.getSubtitleTopEdgePositionPercent(),
+                width,
+                height
+            )
+            setBottomPaddingFraction(0f)
+            if (paddingTop != topPad || paddingBottom != bottomPad) {
+                setPadding(paddingLeft, topPad, paddingRight, bottomPad)
             }
         }
     }

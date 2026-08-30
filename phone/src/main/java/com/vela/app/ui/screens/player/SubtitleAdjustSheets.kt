@@ -1,5 +1,6 @@
 package com.vela.app.ui.screens.player
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -84,10 +85,12 @@ fun SubtitleStyleSheet(
                 label = stringResource(R.string.player_subtitle_position),
                 valueText = stringResource(
                     R.string.player_subtitle_position_value,
-                    position
+                    position.roundToInt()
                 ),
                 value = position,
                 valueRange = 0f..PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT.toFloat(),
+                startHint = stringResource(R.string.player_subtitle_position_bottom),
+                endHint = stringResource(R.string.player_subtitle_position_top),
                 onValueChange = { value ->
                     position = value
                     playerPreferences.setSubtitleBottomEdgePositionPercent(value.roundToInt())
@@ -210,7 +213,9 @@ private fun SubtitleValueSlider(
     valueText: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    startHint: String? = null,
+    endHint: String? = null
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -236,6 +241,23 @@ private fun SubtitleValueSlider(
             valueRange = valueRange,
             colors = subtitleSliderColors()
         )
+        if (startHint != null || endHint != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = startHint.orEmpty(),
+                    color = Color.White.copy(alpha = 0.45f),
+                    fontSize = 11.sp
+                )
+                Text(
+                    text = endHint.orEmpty(),
+                    color = Color.White.copy(alpha = 0.45f),
+                    fontSize = 11.sp
+                )
+            }
+        }
     }
 }
 

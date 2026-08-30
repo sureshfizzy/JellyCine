@@ -45,8 +45,7 @@ import com.vela.data.repository.MediaRepository
 import com.vela.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
-import com.vela.app.ui.screens.player.PlayerScreen
-import com.vela.app.ui.activity.VelaActivity
+import com.vela.app.ui.activity.PlayerActivity
 import com.vela.detail.CodecUtils
 import com.vela.shared.ui.components.common.ScreenWrapper
 import com.vela.shared.ui.components.common.ShimmerEffect
@@ -64,7 +63,6 @@ import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableStateFlow
 
 internal val heroOverlayGradient = arrayOf(
     0.0f to Color.Transparent,
@@ -94,11 +92,6 @@ private data class SeasonDetailData(
     val initialLogoImageUrl: String?
 )
 
-private sealed interface DetailPlaybackTarget {
-    data object Detail : DetailPlaybackTarget
-    data class Trailer(val url: String, val title: String) : DetailPlaybackTarget
-}
-
 @UnstableApi
 @Composable
 fun DetailScreenContainer(
@@ -120,16 +113,9 @@ fun DetailScreenContainer(
     var item by remember { mutableStateOf<BaseItemDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showPlayer by remember { mutableStateOf(false) }
-    var playerMinimized by remember { mutableStateOf(false) }
     var preferredMediaSourceId by rememberSaveable { mutableStateOf<String?>(null) }
-    var remoteTrailerUrl by remember { mutableStateOf<String?>(null) }
-    var remoteTrailerTitle by remember { mutableStateOf<String?>(null) }
-    var playbackItemId by remember { mutableStateOf<String?>(null) }
     var playbackStartFromBeginning by remember { mutableStateOf(false) }
     var playbackStartPositionMs by remember { mutableStateOf<Long?>(null) }
-    var availablePreviousEpisodeId by remember { mutableStateOf<String?>(null) }
-    var availableNextEpisodeId by remember { mutableStateOf<String?>(null) }
     var preferredAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var preferredSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     var trackSelectionSyncVersion by rememberSaveable { mutableStateOf(0) }
@@ -178,21 +164,26 @@ fun DetailScreenContainer(
     }
 
     fun localPlayer(targetItemId: String) {
-        playbackItemId = targetItemId
         castingDisplay = false
-        remoteTrailerUrl = null
-        remoteTrailerTitle = null
-        playerMinimized = false
-        showPlayer = true
+        PlayerActivity.start(
+            context = context,
+            mediaId = targetItemId,
+            startFromBeginning = playbackStartFromBeginning,
+            seekPositionMs = playbackStartPositionMs,
+            mediaSourceId = preferredMediaSourceId,
+            audioStreamIndex = preferredAudioStreamIndex,
+            subtitleStreamIndex = preferredSubtitleStreamIndex
+        )
     }
 
     fun playRemoteTrailer(trailerUrl: String, trailerTitle: String?) {
         val targetTrailerUrl = trailerUrl.takeIf { it.isNotBlank() } ?: return
-        remoteTrailerUrl = targetTrailerUrl
-        remoteTrailerTitle = trailerTitle
-        playbackItemId = null
-        castingDisplay = false
-        showPlayer = false
+        PlayerActivity.start(
+            context = context,
+            mediaId = "remote_trailer_${targetTrailerUrl.hashCode()}",
+            remoteUrl = targetTrailerUrl,
+            remoteTitle = trailerTitle
+        )
     }
 
     fun openCastingDisplay() {
@@ -289,12 +280,10 @@ fun DetailScreenContainer(
                 )
 
                 if (castResult.isSuccess) {
-                    playbackItemId = activeItemId
                     castDisplayItem = targetItem
                     castDisplayArtworkUrl = artworkUrl
                     castDisplayAudioStreamIndex = audioStreamIndex
                     castDisplaySubtitleStreamIndex = subtitleStreamIndex
-                    showPlayer = false
                     castingDisplay = true
                     castDisplayState(castItemId = activeItemId)
                 } else {
@@ -308,27 +297,8 @@ fun DetailScreenContainer(
 
     val handleBackNavigation: () -> Unit = {
         when {
-            !remoteTrailerUrl.isNullOrBlank() -> {
-                remoteTrailerUrl = null
-                remoteTrailerTitle = null
-            }
-
             castingDisplay -> {
                 castingDisplay = false
-            }
-
-            showPlayer && !playerMinimized -> {
-                val playedItemId = playbackItemId ?: itemId
-                preferredAudioStreamIndex =
-                    playerPreferences.getPreferredAudioStreamIndex(playedItemId)
-                preferredSubtitleStreamIndex =
-                    playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
-                trackSelectionSyncVersion += 1
-                showPlayer = false
-                playerMinimized = false
-                playbackItemId = null
-                playbackStartFromBeginning = false
-                playbackStartPositionMs = null
             }
 
             currentScreen == "episode" && seasonDetailData != null -> {
@@ -340,17 +310,6 @@ fun DetailScreenContainer(
             }
 
             else -> onBackPressed()
-        }
-    }
-
-    fun playEpisode(episodeId: String) {
-        playbackItemId = episodeId
-        playbackStartFromBeginning = false
-        playbackStartPositionMs = null
-        availablePreviousEpisodeId = null
-        availableNextEpisodeId = null
-        if (currentScreen == "episode") {
-            episodeDetailId = episodeId
         }
     }
 
@@ -560,19 +519,6 @@ fun DetailScreenContainer(
         }
     }
 
-    LaunchedEffect(showPlayer, playbackItemId, itemId) {
-        if (!showPlayer) {
-            availablePreviousEpisodeId = null
-            availableNextEpisodeId = null
-            return@LaunchedEffect
-        }
-
-        val activePlaybackId = playbackItemId ?: itemId
-        val episodeNavigationIds = mediaRepository.getEpisodeNavigationIds(activePlaybackId)
-        availablePreviousEpisodeId = episodeNavigationIds.previousEpisodeId
-        availableNextEpisodeId = episodeNavigationIds.nextEpisodeId
-    }
-
     LaunchedEffect(userDataRefreshEvent) {
         val refreshEvent = userDataRefreshEvent ?: return@LaunchedEffect
         val refreshedItemId = refreshEvent.itemId ?: return@LaunchedEffect
@@ -613,46 +559,12 @@ fun DetailScreenContainer(
             onBackPressed()
         }
     } else {
-        val hostActivity = context as? VelaActivity
-        val inPip by (hostActivity?.pictureInPictureMode ?: remember { MutableStateFlow(false) })
-            .collectAsState()
-        val activeRemoteTrailerUrl = remoteTrailerUrl
-        val miniPlayer = showPlayer && playerMinimized && !inPip
         Box(modifier = Modifier.fillMaxSize()) {
-        AnimatedContent(
-            targetState = when {
-                !activeRemoteTrailerUrl.isNullOrBlank() -> DetailPlaybackTarget.Trailer(
-                    url = activeRemoteTrailerUrl,
-                    title = remoteTrailerTitle ?: item?.name ?: episodeItem?.name ?: "Trailer"
-                )
-                else -> DetailPlaybackTarget.Detail
-            },
-            modifier = Modifier.fillMaxSize(),
-            contentKey = { target -> target::class },
-            transitionSpec = {
-                fadeIn(animationSpec = tween(260, easing = FastOutSlowInEasing)) togetherWith
-                    fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
-            },
-            label = "detail_to_player"
-        ) { target ->
-            when (target) {
-                is DetailPlaybackTarget.Trailer -> {
-                    PlayerScreen(
-                        mediaId = "remote_trailer_${target.url.hashCode()}",
-                        remoteMediaUrl = target.url,
-                        remoteMediaTitle = target.title,
-                        onBackPressed = {
-                            remoteTrailerUrl = null
-                            remoteTrailerTitle = null
-                        }
-                    )
-                }
-                else -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                    ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+            ) {
                 DetailPane(
                     activeItem = item,
                     loading = isLoading,
@@ -713,97 +625,32 @@ fun DetailScreenContainer(
                         }
                     }
                 }
-                    }
-                }
             }
-        }
 
-        if (showPlayer) {
-            val activePlaybackId = playbackItemId ?: itemId
-            val initialPlaybackItemDetails = when (activePlaybackId) {
-                item?.id -> item
-                episodeItem?.id -> episodeItem
-                else -> null
-            }
-            Box(
-                modifier = if (miniPlayer) {
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .navigationBarsPadding()
-                        .padding(end = 12.dp, bottom = 72.dp)
-                        .width(208.dp)
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp))
-                } else {
-                    Modifier.fillMaxSize()
-                }
-            ) {
-                PlayerScreen(
-                    mediaId = activePlaybackId,
-                    initialItemDetails = initialPlaybackItemDetails,
-                    preferredAudioStreamIndex = preferredAudioStreamIndex,
-                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
-                    startFromBeginning = playbackStartFromBeginning,
-                    initialSeekPositionMs = playbackStartPositionMs,
-                    mediaSourceId = preferredMediaSourceId,
-                    compactPlayback = miniPlayer,
-                    onEnterPip = { playerMinimized = true },
-                    onExpandFromMini = { playerMinimized = false },
-                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
-                        preferredAudioStreamIndex = audioStreamIndex
-                        preferredSubtitleStreamIndex = subtitleStreamIndex
+            if (castingDisplay) {
+                CastPlayback(
+                    castState = castPlaybackState,
+                    streams = castDisplayStreams,
+                    fallbackArtworkUrl = castDisplayArtworkUrl,
+                    selectedAudioStreamIndex = castDisplayAudioStreamIndex,
+                    selectedSubtitleStreamIndex = castDisplaySubtitleStreamIndex,
+                    isTrackSelectionUpdating = castTracks,
+                    onDismissRequest = { castingDisplay = false },
+                    onTogglePlayPause = { CastController.togglePlayPause(context) },
+                    onStopCasting = { CastController.stopPlayback(context) },
+                    onDisconnect = {
+                        CastController.disconnect(context)
+                        castingDisplay = false
                     },
-                    onBackPressed = {
-                        val playedItemId = playbackItemId ?: itemId
-                        preferredAudioStreamIndex =
-                            playerPreferences.getPreferredAudioStreamIndex(playedItemId)
-                        preferredSubtitleStreamIndex =
-                            playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
-                        trackSelectionSyncVersion += 1
-                        showPlayer = false
-                        playerMinimized = false
-                        playbackItemId = null
-                        playbackStartFromBeginning = false
-                        playbackStartPositionMs = null
-                    },
-                    previousEpisodeId = availablePreviousEpisodeId,
-                    onWatchPreviousEpisode = ::playEpisode,
-                    nextEpisodeId = availableNextEpisodeId,
-                    onWatchNextEpisode = ::playEpisode,
-                    onPlaybackCompleted = { completedItemId ->
-                        scope.launch {
-                            val nextEpisodeId = mediaRepository.getNextEpisodeId(completedItemId) ?: return@launch
-                            playEpisode(nextEpisodeId)
-                        }
+                    onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
+                    onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
+                        updateCastStreams(
+                            audioStreamIndex = audioStreamIndex,
+                            subtitleStreamIndex = subtitleStreamIndex
+                        )
                     }
                 )
             }
-        }
-        }
-
-        if (castingDisplay) {
-            CastPlayback(
-                castState = castPlaybackState,
-                streams = castDisplayStreams,
-                fallbackArtworkUrl = castDisplayArtworkUrl,
-                selectedAudioStreamIndex = castDisplayAudioStreamIndex,
-                selectedSubtitleStreamIndex = castDisplaySubtitleStreamIndex,
-                isTrackSelectionUpdating = castTracks,
-                onDismissRequest = { castingDisplay = false },
-                onTogglePlayPause = { CastController.togglePlayPause(context) },
-                onStopCasting = { CastController.stopPlayback(context) },
-                onDisconnect = {
-                    CastController.disconnect(context)
-                    castingDisplay = false
-                },
-                onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
-                onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
-                    updateCastStreams(
-                        audioStreamIndex = audioStreamIndex,
-                        subtitleStreamIndex = subtitleStreamIndex
-                    )
-                }
-            )
         }
     }
 }

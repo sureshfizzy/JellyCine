@@ -46,7 +46,9 @@ class MpvPlayerController(
     private var preferFastSeek = false
     private var pendingStartPositionMs: Long? = null
     private var pendingRemoteHttpPlayback = false
-    private var subtitleFontFamily = "sans-serif"
+    private var surfaceWidth = 0
+    private var surfaceHeight = 0
+    private var subtitleFontFamily: String = "sans-serif"
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
@@ -140,13 +142,19 @@ class MpvPlayerController(
         MPVLib.setOptionString("force-window", "yes")
         MPVLib.setOptionString("vo", videoOutput)
         if (width > 0 && height > 0) {
+            surfaceWidth = width
+            surfaceHeight = height
             MPVLib.setPropertyString("android-surface-size", "${width}x$height")
+            applySubtitleLayout()
         }
     }
 
     fun resizeSurface(width: Int, height: Int) {
         if (!released && width > 0 && height > 0) {
+            surfaceWidth = width
+            surfaceHeight = height
             MPVLib.setPropertyString("android-surface-size", "${width}x$height")
+            applySubtitleLayout()
         }
     }
 
@@ -168,7 +176,7 @@ class MpvPlayerController(
         val edgeType = playerPreferences.getSubtitleEdgeType()
         val backgroundColor = playerPreferences.getSubtitleBackgroundColor()
         setMpv("sub-ass-override", PlayerPreferences.mpvAssOverride(compatible))
-        applySubtitleWindowMargins(compatible)
+        applySubtitleWindowMargins()
         setMpv(
             "sub-ass-force-style",
             PlayerPreferences.mpvAssForceStyle(
@@ -182,19 +190,10 @@ class MpvPlayerController(
             "sub-delay",
             playerPreferences.getSubtitleDelayMs() / 1000.0
         )
-        val scale = String.format(
-            Locale.US,
-            "%.3f",
-            playerPreferences.getSubtitleScale()
-        )
-        setMpv("sub-scale", scale)
+        applySubtitleLayout()
         if (compatible) {
             return
         }
-        val subPos = PlayerPreferences.mpvSubPosFromBottomPercent(
-            playerPreferences.getSubtitlePosition()
-        ).toString()
-        setMpv("sub-pos", subPos)
         setMpv("sub-bold", "no")
         setMpv("sub-italic", "no")
         setMpv("sub-blur", "0")
@@ -429,7 +428,8 @@ class MpvPlayerController(
         MPVLib.setOptionString("sub-ass", "yes")
         MPVLib.setOptionString("embeddedfonts", "yes")
         MPVLib.setOptionString("sub-ass-use-video-data", "aspect-ratio")
-        MPVLib.setOptionString("sub-scale-with-window", "yes")
+        MPVLib.setOptionString("sub-scale-with-window", "no")
+        MPVLib.setOptionString("sub-font-size", "55")
         MPVLib.setOptionString("keepaspect", "yes")
         applySubtitleWindowMargins()
         configureSubtitleFonts()
@@ -616,10 +616,41 @@ class MpvPlayerController(
         }
     }
 
-    private fun applySubtitleWindowMargins(compatible: Boolean = playerPreferences.isSubtitleAssCompatible()) {
-        // Surface 铺满窗口后，margins 让 sub-pos 走窗口坐标，竖屏才能把字幕放到上下黑边。
-        setMpv("sub-use-margins", "yes")
-        setMpv("sub-ass-force-margins", if (compatible) "no" else "yes")
+    private fun applySubtitleLayout() {
+        if (released) return
+        val scale = PlayerPreferences.mpvSubScaleForWindow(
+            userScale = playerPreferences.getSubtitleScale(),
+            windowWidth = surfaceWidth,
+            windowHeight = surfaceHeight
+        )
+        setMpv(
+            "sub-scale",
+            String.format(Locale.US, "%.3f", scale)
+        )
+        if (playerPreferences.isSubtitleAssCompatible()) return
+        setMpv(
+            "sub-pos",
+            PlayerPreferences.mpvSubPosForWindow(
+                bottomPercent = playerPreferences.getSubtitlePosition(),
+                windowWidth = surfaceWidth,
+                windowHeight = surfaceHeight,
+                userScale = playerPreferences.getSubtitleScale()
+            ).toString()
+        )
+    }
+
+    private fun applySubtitleWindowMargins() {
+        val compatible = playerPreferences.isSubtitleAssCompatible()
+        if (compatible) {
+            setMpv("sub-use-margins", "no")
+            setMpv("sub-ass-force-margins", "no")
+        } else {
+            // 竖屏要把字幕画到视频下方的黑边；横屏无黑边时与视频底边重合。
+            setMpv("sub-use-margins", "yes")
+            setMpv("sub-ass-force-margins", "yes")
+        }
+        setMpv("sub-margin-y", "0")
+        setMpv("sub-margin-x", "0")
     }
 
     private fun applySpeedPerformance(speed: Double, asOptions: Boolean = false) {

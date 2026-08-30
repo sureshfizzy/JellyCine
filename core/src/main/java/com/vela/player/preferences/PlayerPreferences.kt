@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.vela.data.model.AudioTranscodeMode
 import com.vela.player.core.PlayerConstants.DEFAULT_BRIGHTNESS
 import com.vela.player.core.PlayerConstants.DEFAULT_VOLUME
+import kotlin.math.roundToInt
 
 /**
  * Manages player-specific preferences like brightness, volume levels, and hardware acceleration settings
@@ -123,7 +124,7 @@ class PlayerPreferences(context: Context) {
         const val DEFAULT_SUBTITLE_BACKGROUND_COLOR = SUBTITLE_BACKGROUND_TRANSPARENT
         const val DEFAULT_SUBTITLE_EDGE_TYPE = SUBTITLE_EDGE_TYPE_NONE
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
-        const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
+        const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 0
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
         const val DEFAULT_SUBTITLE_ASS_COMPATIBLE = false
         const val MIN_SUBTITLE_DELAY_MS = -10_000
@@ -308,8 +309,118 @@ class PlayerPreferences(context: Context) {
         }
 
         fun mpvSubPosFromBottomPercent(percent: Int): Int {
-            // 0 → 窗口底部，100 → 窗口顶部（含竖屏 letterbox；需 sub-use-margins）。
-            return (100 - percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)).coerceIn(0, 150)
+            // 横屏：0 → 视频底边（紧贴），100 → 视频顶部。
+            return (100 - percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)).coerceIn(0, 100)
+        }
+
+        const val DEFAULT_VIDEO_ASPECT = 16f / 9f
+        const val PORTRAIT_SUBTITLE_GAP_EM = 1.2f
+        const val MPV_SUB_FONT_SIZE = 55f
+        const val MPV_SUB_FONT_REF_HEIGHT = 720f
+
+        fun fittedVideoHeightPx(
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Float {
+            if (windowWidth <= 0 || windowHeight <= 0) return 0f
+            val aspect = videoAspect.takeIf { it > 0.1f } ?: DEFAULT_VIDEO_ASPECT
+            return minOf(windowHeight.toFloat(), windowWidth / aspect).coerceAtLeast(1f)
+        }
+
+        fun mpvEstimatedFontHeightPx(userScale: Float, videoHeight: Float): Float {
+            val scale = userScale.coerceIn(MIN_SUBTITLE_SCALE, MAX_SUBTITLE_SCALE)
+            return (MPV_SUB_FONT_SIZE / MPV_SUB_FONT_REF_HEIGHT) * scale * videoHeight.coerceAtLeast(1f)
+        }
+
+        /**
+         * mpv `sub-scale-with-window=no` 时字号相对视频。旋转后横屏画面更大，字也按同一比例变大。
+         */
+        fun mpvSubScaleForWindow(
+            userScale: Float,
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Float {
+            return userScale.coerceIn(MIN_SUBTITLE_SCALE, MAX_SUBTITLE_SCALE)
+        }
+
+        /**
+         * 横屏 0% 紧贴视频底边；竖屏 0% 落到画面下方 1.2 倍字号处（再加一行字高，整行在黑边里）。
+         * 滑条往右仍按视频高度上移。
+         */
+        fun mpvSubPosForWindow(
+            bottomPercent: Int,
+            windowWidth: Int,
+            windowHeight: Int,
+            userScale: Float = DEFAULT_SUBTITLE_SCALE,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Int {
+            val fromBottom = bottomPercent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)
+            val inset = subtitleViewLetterboxInsetPx(windowWidth, windowHeight, videoAspect)
+            if (inset <= 0) {
+                return mpvSubPosFromBottomPercent(fromBottom)
+            }
+            val videoHeight = fittedVideoHeightPx(windowWidth, windowHeight, videoAspect)
+            val fontHeight = mpvEstimatedFontHeightPx(userScale, videoHeight)
+            val videoBottomFromTop = inset + videoHeight
+            val textBottomFromTop = videoBottomFromTop + (PORTRAIT_SUBTITLE_GAP_EM + 1f) * fontHeight
+            val restPos = textBottomFromTop / windowHeight.toFloat() * 100f
+            val userShift = fromBottom / 100f * videoHeight / windowHeight.toFloat() * 100f
+            return (restPos - userShift).roundToInt().coerceIn(0, 150)
+        }
+
+        fun exoTextSizeFractionForWindow(
+            scale: Float,
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Float {
+            val base = exoTextSizeFraction(scale)
+            if (windowWidth <= 0 || windowHeight <= 0) return base
+            val videoHeight = fittedVideoHeightPx(windowWidth, windowHeight, videoAspect)
+            return (base * videoHeight / windowHeight.toFloat()).coerceIn(0.008f, 0.25f)
+        }
+
+        fun subtitleViewLetterboxInsetPx(
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Int {
+            if (windowWidth <= 0 || windowHeight <= 0) return 0
+            val videoHeight = fittedVideoHeightPx(windowWidth, windowHeight, videoAspect)
+            return ((windowHeight - videoHeight) / 2f).roundToInt().coerceAtLeast(0)
+        }
+
+        fun subtitleViewBottomPaddingPx(
+            bottomPercent: Int,
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT,
+            userScale: Float = DEFAULT_SUBTITLE_SCALE
+        ): Int {
+            val inset = subtitleViewLetterboxInsetPx(windowWidth, windowHeight, videoAspect)
+            val videoHeight = fittedVideoHeightPx(windowWidth, windowHeight, videoAspect)
+            val fromBottom = bottomPercent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT) / 100f
+            val userShift = fromBottom * videoHeight
+            if (inset <= 0) {
+                return userShift.roundToInt()
+            }
+            val fontHeight = exoTextSizeFraction(userScale) * videoHeight
+            val belowVideo = (PORTRAIT_SUBTITLE_GAP_EM + 1f) * fontHeight
+            return (inset - belowVideo + userShift).roundToInt().coerceAtLeast(0)
+        }
+
+        fun subtitleViewTopPaddingPx(
+            topPercent: Int,
+            windowWidth: Int,
+            windowHeight: Int,
+            videoAspect: Float = DEFAULT_VIDEO_ASPECT
+        ): Int {
+            val inset = subtitleViewLetterboxInsetPx(windowWidth, windowHeight, videoAspect)
+            val videoHeight = fittedVideoHeightPx(windowWidth, windowHeight, videoAspect)
+            val fromTop = topPercent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT) / 100f
+            return (inset + fromTop * videoHeight).roundToInt()
         }
 
         fun exoTextSizeFraction(scale: Float): Float {
@@ -334,6 +445,10 @@ class PlayerPreferences(context: Context) {
             if (compatible) {
                 return parts.joinToString(",")
             }
+            parts += "Alignment=2"
+            parts += "MarginV=0"
+            parts += "MarginL=0"
+            parts += "MarginR=0"
             when (edgeType) {
                 SUBTITLE_EDGE_TYPE_OUTLINE -> {
                     parts += "Outline=2"

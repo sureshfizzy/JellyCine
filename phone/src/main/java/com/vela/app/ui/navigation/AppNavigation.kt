@@ -36,7 +36,7 @@ import com.vela.app.ui.screens.dashboard.settings.AboutScreen
 import com.vela.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.vela.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.vela.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
-import com.vela.app.ui.screens.player.PlayerScreen
+import com.vela.app.ui.activity.PlayerActivity
 import com.vela.app.player.mpv.MpvWarmPool
 import com.vela.shared.ui.theme.velaMotion
 import androidx.media3.common.util.UnstableApi
@@ -323,7 +323,7 @@ fun AppNavigation() {
                         )
                     },
                     onNavigateToPlayer = { itemId ->
-                        navController.navigate("player/$itemId")
+                        PlayerActivity.start(context, itemId)
                     }
                 )
             }
@@ -344,11 +344,15 @@ fun AppNavigation() {
                 val fromStart = backStackEntry.arguments?.getBoolean("fromStart") ?: false
 
                 if (!itemId.isNullOrBlank()) {
-                    PlayerScreen(
-                        mediaId = itemId,
-                        startFromBeginning = fromStart,
-                        onBackPressed = { navController.popBackStack() }
-                    )
+                    val playerContext = LocalContext.current
+                    LaunchedEffect(itemId, fromStart) {
+                        PlayerActivity.start(
+                            context = playerContext,
+                            mediaId = itemId,
+                            startFromBeginning = fromStart
+                        )
+                        navController.popBackStack()
+                    }
                 } else {
                     LaunchedEffect(Unit) {
                         navController.popBackStack()
@@ -462,7 +466,7 @@ fun AppNavigation() {
                             navController.navigate("detail/$selectedItemId")
                         },
                         onPlayItem = { itemId ->
-                            navController.navigate("player/$itemId")
+                            PlayerActivity.start(context, itemId)
                         }
                     )
                 } else {
@@ -544,7 +548,11 @@ fun AppNavigation() {
                         }
                     },
                     onPlayFromBeginning = { itemId ->
-                        navController.navigate("player/$itemId?fromStart=true")
+                        PlayerActivity.start(
+                            context = context,
+                            mediaId = itemId,
+                            startFromBeginning = true
+                        )
                     }
                 )
             }

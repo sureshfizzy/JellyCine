@@ -2,7 +2,6 @@
 
 package com.vela.app.ui.screens.player
 
-import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
@@ -65,6 +64,7 @@ import com.vela.player.core.PlayerState
 import com.vela.player.core.SkippableSegmentAction
 import com.vela.player.core.SkippableSegmentType
 import com.vela.player.preferences.PlayerPreferences
+import com.vela.app.ui.player.findActivity
 import kotlinx.coroutines.delay
 
 private const val PLAYER_POSITION_UPDATE_ACTIVE_MS = 250L
@@ -119,7 +119,7 @@ internal fun PlayerScreenEffects(
 ) {
     DisposableEffect(playerOrientation, compactPlayback) {
         currentView.keepScreenOn = true
-        val activity = context as? Activity
+        val activity = context.findActivity()
         val originalRequestedOrientation = activity?.requestedOrientation
         activity?.let { act ->
             if (!compactPlayback) {
@@ -144,7 +144,7 @@ internal fun PlayerScreenEffects(
     }
 
     DisposableEffect(useDeviceVolumeInPlayer) {
-        val activity = context as? Activity
+        val activity = context.findActivity()
         onDispose {
             if (!useDeviceVolumeInPlayer) {
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
@@ -160,7 +160,7 @@ internal fun PlayerScreenEffects(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             onLifecycleChange(event)
-            val activity = context as? Activity
+            val activity = context.findActivity()
             if (
                 event == Lifecycle.Event.ON_STOP &&
                 activity?.isInPictureInPictureMode != true &&
@@ -178,7 +178,7 @@ internal fun PlayerScreenEffects(
 
     val hdrPassthrough = remember { !PlayerPreferences(context).getMpvHdrToSdrTonemapping() }
     DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled, hdrPassthrough) {
-        val activity = context as? Activity
+        val activity = context.findActivity()
         val shouldUseHdrColorMode = viewModel.mpvPlayer != null && playerState.isHdrEnabled && hdrPassthrough
         val originalColorMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             activity?.window?.colorMode
@@ -312,7 +312,7 @@ internal fun PlayerScreenEffects(
     }
 
     LaunchedEffect(Unit) {
-        val activity = context as? Activity
+        val activity = context.findActivity()
         activity?.let { act ->
             val layoutParams = act.window.attributes
             layoutParams.screenBrightness = playerBrightness

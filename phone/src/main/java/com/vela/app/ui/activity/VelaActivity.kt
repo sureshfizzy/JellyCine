@@ -3,7 +3,6 @@ package com.vela.app.ui.activity
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -31,20 +30,12 @@ import com.vela.app.ui.splash.SplashScreen
 import com.vela.app.ui.splash.SplashViewModel
 import com.vela.auth.AuthStateManager
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
 @UnstableApi
 @AndroidEntryPoint
 class VelaActivity : ComponentActivity() {
-
-    var userLeaveHintHandler: (() -> Unit)? = null
-
-    private val pipMode = MutableStateFlow(false)
-    val pictureInPictureMode: StateFlow<Boolean> = pipMode.asStateFlow()
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -138,19 +129,6 @@ class VelaActivity : ComponentActivity() {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
         }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        userLeaveHintHandler?.invoke()
-    }
-
-    override fun onPictureInPictureModeChanged(
-        isInPictureInPictureMode: Boolean,
-        newConfig: Configuration
-    ) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        pipMode.value = isInPictureInPictureMode
     }
 
     private fun requestNotificationPermission() {

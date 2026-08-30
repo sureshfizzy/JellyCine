@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,8 +83,30 @@ fun PersonScreenContainer(
     var seerrRelatedTitles by remember(personId) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
     var isLoading by remember(personId) { mutableStateOf(true) }
     var hasError by remember(personId) { mutableStateOf(false) }
-    var expandedWorks by remember(personId) { mutableStateOf<List<BaseItemDto>?>(null) }
+    var expandedWorksType by rememberSaveable(personId) { mutableStateOf<String?>(null) }
     val playScope = rememberCoroutineScope()
+
+    val movies = remember(relatedTitles) {
+        relatedTitles
+            .filter { it.type?.equals("Movie", ignoreCase = true) == true }
+            .sortedByDescending { it.productionYear ?: Int.MIN_VALUE }
+    }
+    val shows = remember(relatedTitles) {
+        relatedTitles
+            .filter { it.type?.equals("Series", ignoreCase = true) == true }
+            .sortedByDescending { it.productionYear ?: Int.MIN_VALUE }
+    }
+    val episodes = remember(relatedTitles) {
+        relatedTitles
+            .filter { it.type?.equals("Episode", ignoreCase = true) == true }
+            .sortedByDescending { it.productionYear ?: Int.MIN_VALUE }
+    }
+    val expandedWorks = when (expandedWorksType) {
+        "Movie" -> movies
+        "Series" -> shows
+        "Episode" -> episodes
+        else -> null
+    }
 
     LaunchedEffect(personId, activeServerId) {
         isLoading = true
@@ -138,22 +161,22 @@ fun PersonScreenContainer(
     }
 
     BackHandler {
-        if (expandedWorks != null) {
-            expandedWorks = null
+        if (expandedWorksType != null) {
+            expandedWorksType = null
         } else {
             onBackPressed()
         }
     }
 
     val expanded = expandedWorks
-    if (expanded != null) {
+    if (expandedWorksType != null) {
         PersonWorksScreen(
             title = person?.name.orEmpty().ifBlank {
                 stringResource(R.string.detail_person_unknown)
             },
-            items = expanded,
+            items = expanded.orEmpty(),
             mediaRepository = mediaRepository,
-            onBackPressed = { expandedWorks = null },
+            onBackPressed = { expandedWorksType = null },
             onItemClick = onItemClick,
             onPlayClick = { item ->
                 playScope.launch {
@@ -175,7 +198,9 @@ fun PersonScreenContainer(
             mediaRepository = mediaRepository,
             onBackPressed = onBackPressed,
             onItemClick = onItemClick,
-            onExpandWorks = { expandedWorks = it }
+            onExpandWorks = { type ->
+                expandedWorksType = type.takeIf { it.isNotBlank() }
+            }
         )
     }
 }
@@ -190,7 +215,7 @@ private fun PersonScreen(
     mediaRepository: MediaRepository,
     onBackPressed: () -> Unit,
     onItemClick: (String) -> Unit,
-    onExpandWorks: (List<BaseItemDto>) -> Unit
+    onExpandWorks: (String) -> Unit
 ) {
     val movies = remember(relatedTitles) {
         relatedTitles
@@ -286,7 +311,9 @@ private fun PersonScreen(
                     items = items,
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
-                    onExpand = { onExpandWorks(items) }
+                    onExpand = {
+                        onExpandWorks(items.firstOrNull()?.type.orEmpty())
+                    }
                 )
             }
         }

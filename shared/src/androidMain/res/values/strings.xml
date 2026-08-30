@@ -195,6 +195,9 @@
     <string name="player_hw_plus">HW+</string>
     <string name="player_pip">Picture in picture</string>
     <string name="player_pip_failed">Picture-in-picture is not available on this device</string>
+    <string name="playback_notification_channel">Now playing</string>
+    <string name="playback_notification_title">Playing</string>
+    <string name="playback_notification_text">Media playback</string>
     <string name="player_screenshot">Screenshot</string>
     <string name="player_screenshot_saved">Screenshot saved</string>
     <string name="player_chapters">Chapters</string>
@@ -302,7 +305,9 @@
     <string name="player_subtitle_scale">Subtitle scale</string>
     <string name="player_subtitle_position">Subtitle position</string>
     <string name="player_subtitle_scale_factor">%1$.2f×</string>
-    <string name="player_subtitle_position_value">%1$.2f</string>
+    <string name="player_subtitle_position_value">%1$d%%</string>
+    <string name="player_subtitle_position_bottom">Bottom</string>
+    <string name="player_subtitle_position_top">Top</string>
     <string name="player_subtitle_ass_compatible">ASS compatible</string>
     <string name="player_subtitle_ass_compatible_summary">Keep ASS fonts, position, and effects. Scale still applies so text stays readable.</string>
     <string name="player_subtitle_delay_value">Offset: %.2fs</string>

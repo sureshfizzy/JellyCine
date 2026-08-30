@@ -194,6 +194,9 @@
     <string name="player_hw_plus">HW+</string>
     <string name="player_pip">小窗播放</string>
     <string name="player_pip_failed">当前设备无法进入小窗</string>
+    <string name="playback_notification_channel">正在播放</string>
+    <string name="playback_notification_title">正在播放</string>
+    <string name="playback_notification_text">媒体播放</string>
     <string name="player_screenshot">截图</string>
     <string name="player_screenshot_saved">截图已保存</string>
     <string name="player_chapters">章节</string>
@@ -301,7 +304,9 @@
     <string name="player_subtitle_scale">字幕缩放</string>
     <string name="player_subtitle_position">字幕位置</string>
     <string name="player_subtitle_scale_factor">%1$.2f×</string>
-    <string name="player_subtitle_position_value">%1$.2f</string>
+    <string name="player_subtitle_position_value">距底部 %1$d%%</string>
+    <string name="player_subtitle_position_bottom">底部</string>
+    <string name="player_subtitle_position_top">顶部</string>
     <string name="player_subtitle_ass_compatible">ASS 兼容</string>
     <string name="player_subtitle_ass_compatible_summary">保留 ASS 原有字体、位置和特效；缩放仍会生效，避免字号过小</string>
     <string name="player_subtitle_delay_value">偏移：%.2f 秒</string>
