@@ -471,79 +471,56 @@ private fun PortraitPlayerOverlay(
         }
 
         if (!isLocked) {
-            if (landscape) {
-                PlayerGlassIconButton(
-                    onClick = onToggleLock,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
-                        .padding(start = chromeEdgeInset)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.LockOpen,
-                        contentDescription = stringResource(R.string.player_lock),
-                        tint = iconTint,
-                        modifier = Modifier.size(26.dp)
+            PlayerGlassIconButton(
+                onClick = onToggleLock,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .then(
+                        if (landscape) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.displayCutout.only(WindowInsetsSides.Start)
+                            )
+                        } else {
+                            Modifier
+                        }
                     )
-                }
-                OverlayTransportButtons(
-                    isPlaying = isPlaying,
-                    seekBackwardSeconds = seekBackwardSeconds,
-                    seekForwardSeconds = seekForwardSeconds,
-                    iconTint = iconTint,
-                    onSeekBackward = onSeekBackward,
-                    onPlayPause = onPlayPause,
-                    onSeekForward = onSeekForward,
-                    modifier = Modifier.align(Alignment.Center)
+                    .padding(start = chromeEdgeInset)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.LockOpen,
+                    contentDescription = stringResource(R.string.player_lock),
+                    tint = iconTint,
+                    modifier = Modifier.size(26.dp)
                 )
-                OverlaySpeedControl(
-                    speed = playbackSpeed,
-                    onNudgeSpeed = onNudgeSpeed,
-                    vertical = true,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End))
-                        .padding(end = chromeEdgeInset)
-                )
-            } else {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .padding(horizontal = PlayerChromeInset)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onUserInteraction
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    PlayerGlassIconButton(onClick = onToggleLock) {
-                        Icon(
-                            imageVector = Icons.Outlined.LockOpen,
-                            contentDescription = stringResource(R.string.player_lock),
-                            tint = iconTint,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                    OverlayTransportButtons(
-                        isPlaying = isPlaying,
-                        seekBackwardSeconds = seekBackwardSeconds,
-                        seekForwardSeconds = seekForwardSeconds,
-                        iconTint = iconTint,
-                        networkSpeed = playerHud.speedLabel,
-                        onSeekBackward = onSeekBackward,
-                        onPlayPause = onPlayPause,
-                        onSeekForward = onSeekForward
-                    )
-                    OverlaySpeedControl(
-                        speed = playbackSpeed,
-                        onNudgeSpeed = onNudgeSpeed,
-                        vertical = true
-                    )
-                }
             }
+            OverlayTransportButtons(
+                isPlaying = isPlaying,
+                seekBackwardSeconds = seekBackwardSeconds,
+                seekForwardSeconds = seekForwardSeconds,
+                iconTint = iconTint,
+                networkSpeed = if (landscape) "" else playerHud.speedLabel,
+                onSeekBackward = onSeekBackward,
+                onPlayPause = onPlayPause,
+                onSeekForward = onSeekForward,
+                modifier = Modifier.align(Alignment.Center)
+            )
+            OverlaySpeedControl(
+                speed = playbackSpeed,
+                onNudgeSpeed = onNudgeSpeed,
+                vertical = true,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .then(
+                        if (landscape) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.displayCutout.only(WindowInsetsSides.End)
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .padding(end = chromeEdgeInset)
+            )
 
             Column(
                 modifier = Modifier
@@ -1240,26 +1217,25 @@ private fun OverlayTransportButtons(
     onSeekForward: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(22.dp)
-    ) {
-        PlayerGlassIconButton(
-            onClick = onSeekBackward,
-            size = PlayerGlassSeekSize
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(22.dp)
         ) {
-            Icon(
-                imageVector = replayIcon(seekBackwardSeconds),
-                contentDescription = stringResource(
-                    R.string.player_cd_seek_backward,
-                    seekBackwardSeconds
-                ),
-                tint = iconTint,
-                modifier = Modifier.size(30.dp)
-            )
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PlayerGlassIconButton(
+                onClick = onSeekBackward,
+                size = PlayerGlassSeekSize
+            ) {
+                Icon(
+                    imageVector = replayIcon(seekBackwardSeconds),
+                    contentDescription = stringResource(
+                        R.string.player_cd_seek_backward,
+                        seekBackwardSeconds
+                    ),
+                    tint = iconTint,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
             PlayerGlassIconButton(
                 onClick = onPlayPause,
                 size = PlayerGlassPlaySize
@@ -1279,37 +1255,39 @@ private fun OverlayTransportButtons(
                     modifier = Modifier.size(if (isPlaying) 36.dp else 44.dp)
                 )
             }
-            if (networkSpeed.isNotBlank()) {
-                Text(
-                    text = networkSpeed,
-                    color = Color.White.copy(alpha = 0.88f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 6.dp)
+            PlayerGlassIconButton(
+                onClick = onSeekForward,
+                size = PlayerGlassSeekSize
+            ) {
+                Icon(
+                    imageVector = replayforwardIcon(seekForwardSeconds),
+                    contentDescription = stringResource(
+                        R.string.player_cd_seek_forward,
+                        seekForwardSeconds
+                    ),
+                    tint = iconTint,
+                    modifier = Modifier
+                        .size(30.dp)
+                        .graphicsLayer {
+                            if (seekForwardSeconds != 5 &&
+                                seekForwardSeconds != 10 &&
+                                seekForwardSeconds != 30
+                            ) {
+                                scaleX = -1f
+                            }
+                        }
                 )
             }
         }
-        PlayerGlassIconButton(
-            onClick = onSeekForward,
-            size = PlayerGlassSeekSize
-        ) {
-            Icon(
-                imageVector = replayforwardIcon(seekForwardSeconds),
-                contentDescription = stringResource(
-                    R.string.player_cd_seek_forward,
-                    seekForwardSeconds
-                ),
-                tint = iconTint,
+        if (networkSpeed.isNotBlank()) {
+            Text(
+                text = networkSpeed,
+                color = Color.White.copy(alpha = 0.88f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
-                    .size(30.dp)
-                    .graphicsLayer {
-                        if (seekForwardSeconds != 5 &&
-                            seekForwardSeconds != 10 &&
-                            seekForwardSeconds != 30
-                        ) {
-                            scaleX = -1f
-                        }
-                    }
+                    .align(Alignment.Center)
+                    .offset(y = (PlayerGlassPlaySize / 2) + 10.dp)
             )
         }
     }

@@ -2,12 +2,32 @@ package com.vela.app.player.mpv
 
 import com.vela.data.model.MediaStream
 import com.vela.data.model.PlaybackRequest
+import com.vela.data.model.MediaSource
+import com.vela.data.model.isStrmSource
 import com.vela.player.core.AudioTrackInfo
 import com.vela.player.core.PlayerTrackState
 import com.vela.player.core.SubtitleTrackInfo
+import com.vela.player.preferences.PlayerPreferences
 import java.net.URI
 
 object MPVPlayer {
+    fun hardwareDecodingFor(
+        mediaSource: MediaSource?,
+        userPreference: String
+    ): String {
+        return if (mediaSource?.isStrmSource() == true) {
+            PlayerPreferences.MPV_HARDWARE_DECODING_NONE
+        } else {
+            userPreference
+        }
+    }
+
+    fun isRemoteHttpPlayback(mediaSource: MediaSource?): Boolean {
+        return mediaSource?.isStrmSource() == true ||
+            mediaSource?.isRemote == true ||
+            mediaSource?.path?.startsWith("http", ignoreCase = true) == true
+    }
+
     fun trackState(
         mediaStreams: List<MediaStream>?,
         selectedAudioStreamIndex: Int?,

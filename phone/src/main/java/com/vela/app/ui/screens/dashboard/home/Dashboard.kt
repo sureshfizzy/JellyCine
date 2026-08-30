@@ -818,7 +818,7 @@ fun ImageLoader(
                 currentImageType == "Primary" &&
                 preferSeriesIdForEpisodePrimary &&
                 !seriesId.isNullOrBlank() -> seriesId
-            (currentImageType == "Thumb" || currentImageType == "Backdrop") &&
+            (currentImageType == "Thumb" || currentImageType == "Backdrop" || currentImageType == "Banner") &&
                 preferSeriesIdForThumbBackdrop &&
                 !seriesId.isNullOrBlank() -> seriesId
             else -> itemId
@@ -828,9 +828,12 @@ fun ImageLoader(
     val (width, height, quality) = remember(currentImageType) {
         when (currentImageType) {
             "Thumb", "Backdrop" -> Triple(480, 270, 80)
+            "Banner" -> Triple(1000, 185, 85)
             "Primary" -> {
                 if (imageType == "Thumb" || imageType == "Backdrop") {
                     Triple(480, 270, 80)
+                } else if (imageType == "Banner") {
+                    Triple(1000, 185, 85)
                 } else {
                     Triple(200, 300, 70)
                 }

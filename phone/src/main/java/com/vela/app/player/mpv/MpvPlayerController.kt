@@ -35,6 +35,8 @@ class MpvPlayerController(
     private var pendingSubtitleUrls: List<String> = emptyList()
     private var pendingSelectedSubtitleUrl: String? = null
     private var preferFastSeek = false
+    private var pendingStartPositionMs: Long? = null
+    private var pendingRemoteHttpPlayback = false
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
@@ -71,21 +73,21 @@ class MpvPlayerController(
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
         startPlayback: Boolean,
-        opticalDiscPlayback: Boolean
+        opticalDiscPlayback: Boolean,
+        remoteHttpPlayback: Boolean = false
     ) {
         if (released) return
         ready = false
         playWhenReady = startPlayback
         preferFastSeek = opticalDiscPlayback
-        val startPositionSeconds = startPositionMs
-            ?.takeIf { it > 0L }
-            ?.let { it / 1000.0 }
+        pendingStartPositionMs = startPositionMs?.takeIf { it > 0L }
+        pendingRemoteHttpPlayback = remoteHttpPlayback
         pendingSubtitleUrls = subtitleUrls
         pendingSelectedSubtitleUrl = selectedSubtitleUrl
         MPVLib.setPropertyBoolean("pause", true)
         listener.onBuffering()
+        applyRemoteStreamOptions(remoteHttpPlayback)
         val loadOptions = buildList {
-            startPositionSeconds?.let { add("start=$it") }
             audioTrackId?.let { add("aid=$it") }
             if (selectedSubtitleUrl == null) {
                 subtitleTrackId?.let { add("sid=$it") }
@@ -288,6 +290,11 @@ class MpvPlayerController(
                 }
                 pendingSubtitleUrls = emptyList()
                 pendingSelectedSubtitleUrl = null
+                val resumePositionMs = pendingStartPositionMs
+                pendingStartPositionMs = null
+                if (resumePositionMs != null) {
+                    seekTo(resumePositionMs, exact = false)
+                }
             }
             MpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
                 ready = true
@@ -350,6 +357,7 @@ class MpvPlayerController(
         MPVLib.setOptionString("tls-verify", "no")
         MPVLib.setOptionString("keep-open", "no")
         MPVLib.setOptionString("cache", "yes")
+        MPVLib.setOptionString("force-seekable", "yes")
         applyCachePolicy(asOptions = true)
         MPVLib.setOptionString("index", "default")
         MPVLib.setOptionString("hr-seek", "yes")
@@ -372,6 +380,26 @@ class MpvPlayerController(
     fun refreshCachePolicy() {
         if (!released) {
             applyCachePolicy(asOptions = false)
+            if (pendingRemoteHttpPlayback) {
+                MPVLib.setPropertyString("cache", "yes")
+                MPVLib.setPropertyString("force-seekable", "yes")
+            }
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun applyRemoteStreamOptions(remoteHttpPlayback: Boolean) {
+        if (remoteHttpPlayback) {
+            MPVLib.setOptionString("demuxer-lavf-probesize", "5MiB")
+            MPVLib.setOptionString("demuxer-lavf-analyzeduration", "10")
+            MPVLib.setOptionString("demuxer-lavf-probe-info", "on")
+            MPVLib.setPropertyString("cache", "yes")
+            MPVLib.setPropertyString("force-seekable", "yes")
+            applyCachePolicy(asOptions = false)
+        } else {
+            MPVLib.setOptionString("demuxer-lavf-probesize", "64KiB")
+            MPVLib.setOptionString("demuxer-lavf-analyzeduration", "1")
+            MPVLib.setOptionString("demuxer-lavf-probe-info", "nostreams")
         }
     }
 

@@ -393,6 +393,10 @@
     <string name="library_manage_subtitle">Choose which libraries appear on Home and in My Media.</string>
     <string name="library_manage_loading">Loading libraries…</string>
     <string name="library_toolbar_count">%d items</string>
+    <string name="library_style_title">Style</string>
+    <string name="library_style_poster">Poster</string>
+    <string name="library_style_backdrop">Backdrop</string>
+    <string name="library_style_banner">Banner</string>
     <string name="library_rec_director">Directed by %1$s</string>
     <string name="library_rec_actor">Starring %1$s</string>
     <string name="library_rec_liked">Because you like %1$s</string>

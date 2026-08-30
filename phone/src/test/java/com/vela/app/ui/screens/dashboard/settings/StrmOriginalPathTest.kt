@@ -1,8 +1,10 @@
 package com.vela.app.ui.screens.dashboard.settings
 
+import com.vela.app.player.mpv.MPVPlayer
 import com.vela.data.model.MediaSource
 import com.vela.data.model.isStrmSource
 import com.vela.data.model.strmOriginalPlaybackUrl
+import com.vela.player.preferences.PlayerPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -50,5 +52,36 @@ class StrmOriginalPathTest {
         )
         assertTrue(source.isStrmSource())
         assertEquals("http://192.168.0.21:5244/d/movie.mkv", source.strmOriginalPlaybackUrl())
+    }
+
+    @Test
+    fun strmDefaultsToSoftwareDecoding() {
+        val source = MediaSource(
+            container = "strm",
+            path = "https://cdn.example/movie.mkv"
+        )
+        assertEquals(
+            PlayerPreferences.MPV_HARDWARE_DECODING_NONE,
+            MPVPlayer.hardwareDecodingFor(
+                mediaSource = source,
+                userPreference = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
+            )
+        )
+        assertTrue(MPVPlayer.isRemoteHttpPlayback(source))
+    }
+
+    @Test
+    fun localFileKeepsHardwareDecodingPreference() {
+        val source = MediaSource(
+            container = "mkv",
+            path = "/media/library/movie.mkv"
+        )
+        assertEquals(
+            PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
+            MPVPlayer.hardwareDecodingFor(
+                mediaSource = source,
+                userPreference = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
+            )
+        )
     }
 }

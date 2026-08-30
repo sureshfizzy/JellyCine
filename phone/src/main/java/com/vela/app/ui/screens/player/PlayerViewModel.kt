@@ -555,6 +555,11 @@ class PlayerViewModel @Inject constructor(
                     val selectedSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex
                         ?: defaultSubtitleStreamIndex
                     mpvPlayer = createMpvPlayer(context).also { player ->
+                        val strmHardwareDecoding = MPVPlayer.hardwareDecodingFor(
+                            mediaSource = primaryMediaSource,
+                            userPreference = playerPreferences.getMpvHardwareDecoding()
+                        )
+                        player.setHardwareDecoding(strmHardwareDecoding)
                         player.load(
                             url = mediaItem.localConfiguration?.uri?.toString().orEmpty(),
                             subtitleUrls = mpvExternalSubtitleUrls.values.toList(),
@@ -575,7 +580,8 @@ class PlayerViewModel @Inject constructor(
                                 mediaSource = primaryMediaSource,
                                 mediaUri = mediaItem.localConfiguration?.uri
                             ),
-                            startPlayback = startPlayback
+                            startPlayback = startPlayback,
+                            remoteHttpPlayback = MPVPlayer.isRemoteHttpPlayback(primaryMediaSource)
                         )
                     }
                     observePlaybackCachePolicy(context)
@@ -617,10 +623,14 @@ class PlayerViewModel @Inject constructor(
 
                 playbackSpeed = 1f
                 speedBeforeHold = 1f
-                val hardwareDecoding = playerPreferences.getMpvHardwareDecoding()
-                if (hardwareDecoding != PlayerPreferences.MPV_HARDWARE_DECODING_NONE) {
-                    lastHardwareDecoding = hardwareDecoding
+                val userHardwareDecoding = playerPreferences.getMpvHardwareDecoding()
+                if (userHardwareDecoding != PlayerPreferences.MPV_HARDWARE_DECODING_NONE) {
+                    lastHardwareDecoding = userHardwareDecoding
                 }
+                val hardwareDecoding = MPVPlayer.hardwareDecodingFor(
+                    mediaSource = primaryMediaSource,
+                    userPreference = userHardwareDecoding
+                )
                 _playerState.value = _playerState.value.copy(
                     isLoading = true,
                     isPlaying = false,

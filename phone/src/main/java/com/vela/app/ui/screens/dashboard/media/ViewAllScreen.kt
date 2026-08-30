@@ -109,14 +109,16 @@ fun ViewAllScreen(
     val isFavoritesViewAll = parentId == FAVORITES_VIEW_ALL_PARENT_ID
     val isWatchedEpisodeViewAll = (isWatchedViewAll || isFavoritesViewAll) && contentType == ContentType.EPISODES
     val usesCompactHeader = isSeerrCatalog || isLibraryCatalog || isGenreCatalog || isAward
-    var landscapePosters by rememberSaveable { mutableStateOf(false) }
+    var imageStyleName by rememberSaveable { mutableStateOf(LibraryImageStyle.POSTER.name) }
+    val imageStyle = LibraryImageStyle.fromPersisted(imageStyleName)
 
-    val gridCells = remember(screenWidthDp, landscapePosters, isWatchedEpisodeViewAll) {
+    val gridCells = remember(screenWidthDp, imageStyle, isWatchedEpisodeViewAll) {
         when {
             isWatchedEpisodeViewAll -> {
                 if (isTablet) GridCells.Adaptive(minSize = 200.dp) else GridCells.Fixed(2)
             }
-            landscapePosters -> {
+            imageStyle == LibraryImageStyle.BANNER -> GridCells.Fixed(1)
+            imageStyle == LibraryImageStyle.BACKDROP -> {
                 if (isTablet) GridCells.Adaptive(minSize = 240.dp) else GridCells.Fixed(2)
             }
             screenWidthDp >= 1200.dp -> GridCells.Adaptive(minSize = 160.dp)
@@ -141,6 +143,7 @@ fun ViewAllScreen(
             ?.logoUrl
     }
     var showSortSheet by remember { mutableStateOf(false) }
+    var showStyleSheet by remember { mutableStateOf(false) }
     var overflowItem by remember { mutableStateOf<BaseItemDto?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val browseTabs = remember(contentType, isLibraryCatalog, isWatchedViewAll, isFavoritesViewAll) {
@@ -378,7 +381,7 @@ fun ViewAllScreen(
                         itemCount = headerTotalCount,
                         sortBy = uiState.sortBy,
                         sortOrder = uiState.sortOrder,
-                        landscapePosters = landscapePosters,
+                        imageStyle = imageStyle,
                         filtersActive = uiState.selectedGenres.isNotEmpty(),
                         shuffleEnabled = displayItems.any { item ->
                             item.id != null && (
@@ -397,7 +400,7 @@ fun ViewAllScreen(
                             }
                             playable.randomOrNull()?.id?.let(onPlayFromBeginning)
                         },
-                        onToggleLayout = { landscapePosters = !landscapePosters },
+                        onStyleClick = { showStyleSheet = true },
                         onFilterClick = { showSortSheet = true },
                         onSortClick = { showSortSheet = true }
                     )
@@ -629,6 +632,7 @@ fun ViewAllScreen(
                                                 mediaRepository = mediaRepository,
                                                 watchedViewAll = isWatchedViewAll,
                                                 disablePosterEnhancers = disablePosterEnhancers,
+                                                imageStyle = imageStyle,
                                                 onClick = { handleItemClick(item) },
                                                 onLongClick = { overflowItem = item }
                                             )
@@ -778,6 +782,17 @@ fun ViewAllScreen(
             )
         }
 
+        if (showStyleSheet && showLibraryChrome) {
+            LibraryStyleSheet(
+                currentStyle = imageStyle,
+                onStyleSelected = { style ->
+                    imageStyleName = style.name
+                    showStyleSheet = false
+                },
+                onDismiss = { showStyleSheet = false }
+            )
+        }
+
         overflowItem?.let { item ->
             ItemOverflowSheet(
                 item = item,
@@ -826,6 +841,7 @@ internal fun PosterCard(
     watchedViewAll: Boolean = false,
     showSeerrBadge: Boolean = true,
     disablePosterEnhancers: Boolean = false,
+    imageStyle: LibraryImageStyle = LibraryImageStyle.POSTER,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null
 ) {
@@ -844,7 +860,7 @@ internal fun PosterCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f)
+                .aspectRatio(imageStyle.aspectRatio)
                 .clip(RoundedCornerShape(corner))
                 .combinedClickable(
                     onClick = onClick,
@@ -854,9 +870,13 @@ internal fun PosterCard(
             ImageLoader(
                 itemId = item.id,
                 seriesId = item.seriesId,
+                imageType = imageStyle.imageType,
+                fallbackImageType = imageStyle.fallbackImageType,
+                extraFallbackImageTypes = imageStyle.extraFallbackImageTypes,
+                preferSeriesIdForThumbBackdrop = imageStyle != LibraryImageStyle.POSTER,
                 contentDescription = displayName,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                contentScale = if (imageStyle.cropImage) ContentScale.Crop else ContentScale.Fit,
                 cornerRadius = if (isTablet) 18 else 16,
                 crossfadeMillis = 0,
                 mediaRepository = mediaRepository,
@@ -1227,11 +1247,11 @@ private fun LibraryChromeBar(
     itemCount: Int,
     sortBy: String,
     sortOrder: String,
-    landscapePosters: Boolean,
+    imageStyle: LibraryImageStyle,
     filtersActive: Boolean,
     shuffleEnabled: Boolean,
     onShuffleClick: () -> Unit,
-    onToggleLayout: () -> Unit,
+    onStyleClick: () -> Unit,
     onFilterClick: () -> Unit,
     onSortClick: () -> Unit
 ) {
@@ -1268,11 +1288,11 @@ private fun LibraryChromeBar(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        IconButton(onClick = onToggleLayout, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onStyleClick, modifier = Modifier.size(36.dp)) {
             Icon(
                 imageVector = Icons.Rounded.GridView,
-                contentDescription = stringResource(R.string.person_works_poster_layout),
-                tint = if (landscapePosters) Color(0xFF5AA9FA) else iconTint,
+                contentDescription = stringResource(R.string.library_style_title),
+                tint = if (imageStyle != LibraryImageStyle.POSTER) Color(0xFF5AA9FA) else iconTint,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -1337,6 +1357,75 @@ private fun LibraryBrowseTabRow(
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LibraryStyleSheet(
+    currentStyle: LibraryImageStyle,
+    onStyleSelected: (LibraryImageStyle) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val options = listOf(
+        LibraryImageStyle.POSTER to R.string.library_style_poster,
+        LibraryImageStyle.BACKDROP to R.string.library_style_backdrop,
+        LibraryImageStyle.BANNER to R.string.library_style_banner
+    )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color(0xFF0F0F0F),
+        scrimColor = Color.Black.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = Color.White.copy(alpha = 0.4f)
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+        ) {
+            Text(
+                text = stringResource(R.string.library_style_title),
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            options.forEach { (style, labelRes) ->
+                val selected = style == currentStyle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onStyleSelected(style) }
+                        .padding(vertical = 14.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(labelRes),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
     }

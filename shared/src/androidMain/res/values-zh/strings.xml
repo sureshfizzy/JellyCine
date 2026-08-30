@@ -392,6 +392,10 @@
     <string name="library_manage_subtitle">选择哪些媒体库显示在首页和「我的媒体」中。</string>
     <string name="library_manage_loading">正在加载媒体库…</string>
     <string name="library_toolbar_count">%d 项</string>
+    <string name="library_style_title">样式</string>
+    <string name="library_style_poster">海报</string>
+    <string name="library_style_backdrop">背景图</string>
+    <string name="library_style_banner">横幅</string>
     <string name="library_rec_director">由 %1$s 执导</string>
     <string name="library_rec_actor">主演 %1$s</string>
     <string name="library_rec_liked">因为你喜欢 %1$s</string>

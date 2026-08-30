@@ -132,14 +132,22 @@ internal fun PlayerScreenEffects(
                 act.requestedOrientation =
                     originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                if (!useDeviceVolumeInPlayer) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                }
+                WindowCompat.getInsetsController(act.window, act.window.decorView)
+                    .show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+
+    DisposableEffect(useDeviceVolumeInPlayer) {
+        val activity = context as? Activity
+        onDispose {
+            if (!useDeviceVolumeInPlayer) {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+            }
+            activity?.let { act ->
                 val layoutParams = act.window.attributes
                 layoutParams.screenBrightness = -1f
                 act.window.attributes = layoutParams
-                WindowCompat.getInsetsController(act.window, act.window.decorView)
-                    .show(WindowInsetsCompat.Type.systemBars())
             }
         }
     }
@@ -291,6 +299,12 @@ internal fun PlayerScreenEffects(
         onCurrentAudioTranscodeModeChange(playerState.currentAudioTranscodeMode)
     }
 
+    LaunchedEffect(playerVolume, playerOrientation) {
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val appliedVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, appliedVolume, 0)
+    }
+
     LaunchedEffect(Unit) {
         val activity = context as? Activity
         activity?.let { act ->
@@ -298,10 +312,6 @@ internal fun PlayerScreenEffects(
             layoutParams.screenBrightness = playerBrightness
             act.window.attributes = layoutParams
         }
-
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val initialVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, initialVolume, 0)
     }
 
     LaunchedEffect(uiStateProvider().volumeLevel) {
