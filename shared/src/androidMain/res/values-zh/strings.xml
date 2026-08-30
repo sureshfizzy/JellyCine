@@ -684,6 +684,35 @@
     <string name="about_feedback_subject">Vela 反馈</string>
     <string name="about_buy_me_a_coffee">给我买杯咖啡</string>
     <string name="about_patreon">Patreon</string>
+    <string name="about_section_update">更新</string>
+    <string name="about_check_update">检查更新</string>
+    <string name="about_check_update_subtitle">从 GitHub Release 查询最新版本</string>
+    <string name="about_check_update_checking">正在检查…</string>
+    <string name="about_update_available">发现新版本：%1$s</string>
+    <string name="about_update_latest">已是最新版本（%1$s）</string>
+    <string name="about_update_none">还没有发布 GitHub Release</string>
+    <string name="about_update_download_mirror">下载加速</string>
+    <string name="about_update_mirror_direct">GitHub 直连</string>
+    <string name="about_update_mirror_custom">自定义 CDN 前缀</string>
+    <string name="about_update_mirror_custom_hint">https://gh-proxy.com/</string>
+    <string name="about_update_mirror_custom_error">前缀必须以 https:// 开头</string>
+    <string name="about_update_flavor">类型</string>
+    <string name="about_update_flavor_phone">手机</string>
+    <string name="about_update_flavor_tv">电视</string>
+    <string name="about_update_abi">架构</string>
+    <string name="about_update_abi_universal">通用包</string>
+    <string name="about_update_abi_recommended">推荐</string>
+    <string name="about_update_download">下载</string>
+    <string name="about_update_install">安装</string>
+    <string name="about_update_cancel_download">取消下载</string>
+    <string name="about_update_notes">更新说明</string>
+    <string name="about_update_no_apk">该类型在最新 Release 中没有 APK</string>
+    <string name="about_update_permission">请允许安装未知应用，然后再点安装</string>
+    <string name="about_update_permission_action">去授权</string>
+    <string name="about_update_error">检查更新失败：%1$s</string>
+    <string name="about_update_download_failed">下载失败：%1$s</string>
+    <string name="about_update_install_failed">无法打开安装器</string>
+    <string name="about_update_current">当前版本 %1$s</string>
 
     <!-- Interface Settings -->
     <string name="interface_feature_carousel">功能旋转木马</string>

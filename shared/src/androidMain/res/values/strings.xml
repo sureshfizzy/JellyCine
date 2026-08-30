@@ -697,6 +697,35 @@
     <string name="about_feedback_subject">Vela Feedback</string>
     <string name="about_buy_me_a_coffee">Buy Me a Coffee</string>
     <string name="about_patreon">Patreon</string>
+    <string name="about_section_update">Updates</string>
+    <string name="about_check_update">Check for updates</string>
+    <string name="about_check_update_subtitle">Look up the latest GitHub Release</string>
+    <string name="about_check_update_checking">Checking…</string>
+    <string name="about_update_available">Update available: %1$s</string>
+    <string name="about_update_latest">You have the latest version (%1$s)</string>
+    <string name="about_update_none">No GitHub Release published yet</string>
+    <string name="about_update_download_mirror">Download acceleration</string>
+    <string name="about_update_mirror_direct">GitHub (no CDN)</string>
+    <string name="about_update_mirror_custom">Custom CDN prefix</string>
+    <string name="about_update_mirror_custom_hint">https://gh-proxy.com/</string>
+    <string name="about_update_mirror_custom_error">Prefix must start with https://</string>
+    <string name="about_update_flavor">Type</string>
+    <string name="about_update_flavor_phone">Phone</string>
+    <string name="about_update_flavor_tv">TV</string>
+    <string name="about_update_abi">Architecture</string>
+    <string name="about_update_abi_universal">Universal</string>
+    <string name="about_update_abi_recommended">Recommended</string>
+    <string name="about_update_download">Download</string>
+    <string name="about_update_install">Install</string>
+    <string name="about_update_cancel_download">Cancel download</string>
+    <string name="about_update_notes">Release notes</string>
+    <string name="about_update_no_apk">No APK for this type in the latest release</string>
+    <string name="about_update_permission">Allow this app to install unknown apps, then tap Install</string>
+    <string name="about_update_permission_action">Grant permission</string>
+    <string name="about_update_error">Could not check for updates: %1$s</string>
+    <string name="about_update_download_failed">Download failed: %1$s</string>
+    <string name="about_update_install_failed">Could not open the installer</string>
+    <string name="about_update_current">Installed %1$s</string>
 
     <!-- Interface Settings -->
     <string name="interface_feature_carousel">Feature Carousel</string>

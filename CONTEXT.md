@@ -42,3 +42,15 @@ _Avoid_: media server, Seerr connection
 **Trakt Scrobble**:
 Sending playback start, pause, and stop to Trakt. Distinct from Jellyfin session reporting.
 _Avoid_: playback report, watch history
+
+**App Update**:
+A GitHub Release compared against the installed version name. It is not a Play Store listing.
+_Avoid_: Play update, in-app purchase, sidecar
+
+**Update Asset**:
+A signed APK attached to an App Update, identified by flavor (phone or tv) and ABI.
+_Avoid_: package, binary, artifact
+
+**Download Mirror**:
+A URL prefix applied to GitHub API and asset URLs: origin GitHub, or a gh-proxy style CDN.
+_Avoid_: VPN, proxy server, cache

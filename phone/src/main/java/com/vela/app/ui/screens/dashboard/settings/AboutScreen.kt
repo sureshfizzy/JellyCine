@@ -1,5 +1,6 @@
 package com.vela.app.ui.screens.dashboard.settings
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -28,7 +29,9 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Policy
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.StarRate
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -42,6 +45,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,9 +59,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.vela.app.BuildConfig
+import com.vela.data.update.CUSTOM_DOWNLOAD_MIRROR_ID
 import com.vela.shared.R
+import com.vela.shared.update.AppUpdateDialogs
+import com.vela.shared.update.AppUpdateUiState
+import com.vela.shared.update.AppUpdateViewModel
 
 private const val GithubUrl = "https://github.com/ZeroDevi1/Vela"
 private const val PrivacyUrl = "https://github.com/ZeroDevi1/Vela/blob/main/PRIVACY"
@@ -80,6 +90,10 @@ fun AboutScreen(
     onBackPressed: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val updateViewModel: AppUpdateViewModel = viewModel {
+        AppUpdateViewModel(context.applicationContext as Application, BuildConfig.VERSION_NAME)
+    }
+    val updateState by updateViewModel.uiState.collectAsState()
 
     Scaffold(
         containerColor = Color.Black,
@@ -121,8 +135,28 @@ fun AboutScreen(
                 AboutHeader(
                     onGithubClick = { openUrl(context, GithubUrl) },
                     onCoffeeClick = { openUrl(context, BuyMeACoffeeUrl) },
-                    onPatreonClick = { openUrl(context, PatreonUrl) }
+                    onPatreonClick = { openUrl(context, PatreonUrl) },
+                    onVersionClick = updateViewModel::checkForUpdate
                 )
+            }
+
+            item { AboutSectionLabel(stringResource(R.string.about_section_update)) }
+            item {
+                AboutSectionCard {
+                    AboutActionRow(
+                        icon = Icons.Rounded.SystemUpdate,
+                        title = stringResource(R.string.about_check_update),
+                        subtitle = checkUpdateSubtitle(updateState),
+                        onClick = updateViewModel::checkForUpdate
+                    )
+                    HorizontalDivider(color = AboutBorderColor)
+                    AboutActionRow(
+                        icon = Icons.Rounded.Speed,
+                        title = stringResource(R.string.about_update_download_mirror),
+                        subtitle = mirrorSubtitle(updateState),
+                        onClick = updateViewModel::openMirrorPicker
+                    )
+                }
             }
 
             item { AboutSectionLabel(stringResource(R.string.about_section_project)) }
@@ -164,13 +198,16 @@ fun AboutScreen(
             }
         }
     }
+
+    AppUpdateDialogs(viewModel = updateViewModel, uiState = updateState)
 }
 
 @Composable
 private fun AboutHeader(
     onGithubClick: () -> Unit,
     onCoffeeClick: () -> Unit,
-    onPatreonClick: () -> Unit
+    onPatreonClick: () -> Unit,
+    onVersionClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -214,7 +251,8 @@ private fun AboutHeader(
         Surface(
             color = AboutAccent.copy(alpha = 0.14f),
             shape = RoundedCornerShape(999.dp),
-            border = BorderStroke(1.dp, AboutAccent.copy(alpha = 0.28f))
+            border = BorderStroke(1.dp, AboutAccent.copy(alpha = 0.28f)),
+            onClick = onVersionClick
         ) {
             Text(
                 text = stringResource(R.string.about_version_chip, BuildConfig.VERSION_NAME),
@@ -374,5 +412,30 @@ private fun composeEmail(context: Context) {
 private fun launchIntent(context: Context, intent: Intent) {
     runCatching {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+@Composable
+private fun checkUpdateSubtitle(state: AppUpdateUiState): String {
+    val error = state.checkError
+    val release = state.release
+    return when {
+        state.checking -> stringResource(R.string.about_check_update_checking)
+        error != null -> error
+        state.isNewer && release != null ->
+            stringResource(R.string.about_update_available, release.versionName)
+        release != null ->
+            stringResource(R.string.about_update_latest, release.versionName)
+        else -> stringResource(R.string.about_check_update_subtitle)
+    }
+}
+
+@Composable
+private fun mirrorSubtitle(state: AppUpdateUiState): String {
+    return when (state.mirror.id) {
+        "direct" -> stringResource(R.string.about_update_mirror_direct)
+        CUSTOM_DOWNLOAD_MIRROR_ID ->
+            state.customPrefix.trimEnd('/').ifBlank { stringResource(R.string.about_update_mirror_custom) }
+        else -> state.mirror.label
     }
 }

@@ -147,7 +147,44 @@ iosApp/   iOS 壳工程（开发中）
 
 APK 命名：`vela-{phone|tv}-{debug|release}-<version>[-<abi>].apk`
 
+本地签名 release（需 `keystore.properties` 或环境变量 `VELA_STORE_FILE` / `VELA_STORE_PASSWORD` / `VELA_KEY_PASSWORD`）：
+
+```bash
+./gradlew :phone:assembleRelease
+./gradlew :tv:assembleRelease
+```
+
+`keystore.properties` 放在仓库根目录（已 gitignore）：
+
+```
+storeFile=vela-release.keystore
+storePassword=...
+keyAlias=vela
+keyPassword=...
+```
+
 预编译包见 [GitHub Releases](https://github.com/ZeroDevi1/Vela/releases)。
+
+### 发布
+
+推送与根目录 `build.gradle` 里 `appVersionName` 一致的 `v*` tag（例如当前为 `1.0.1` 则打 `v1.0.1`），或在 Actions 里手动跑 `Release` workflow。CI 会构建已签名 phone / tv APK 并创建 GitHub Release。tag 与 `appVersionName` 不一致会直接失败，缺少签名 secret 也不会产出 unsigned 正式包。
+
+仓库 Settings → Secrets and variables → Actions 需要：
+
+| Secret | 用途 |
+|--------|------|
+| `VELA_STORE_FILE_BASE64` | release keystore 的 base64 |
+| `VELA_STORE_PASSWORD` | keystore 密码 |
+| `VELA_KEY_PASSWORD` | key 密码 |
+| `DISCORD_SDK_PASSPHRASE` | 解密 `core/libs/discord_partner_sdk.aar.gpg` |
+
+```bash
+# 先把 build.gradle 的 appVersionName / appVersionCode 改到目标版本并提交
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+应用内：关于页可检查 GitHub Release，按类型（手机/电视）和架构选择 APK，并可用 gh-proxy 等 CDN 加速下载。
 
 ---
 

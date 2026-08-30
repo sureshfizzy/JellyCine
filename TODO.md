@@ -25,7 +25,7 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 
 ## 优先级
 
-1. **P0** GitHub Action 自动构建并发布 Release
+1. **P0** GitHub Action 自动构建并发布 Release ✅
 2. **P1** 发现 tab（TMDB / 豆瓣热门 + 继续观看）
 3. **P1** 目录详情（图 3 折叠 / 图 4 展开）
 4. **P1** 多源搜索（Emby/Jellyfin + TMDB + 豆瓣）
@@ -35,25 +35,25 @@ TV：本轮以手机为准。目录、搜索、日历、Trakt 能下沉 `data` �
 
 ---
 
-## Phase 1 — GitHub Release（P0）
+## Phase 1 — GitHub Release（P0）✅
 
 目标：打 `v*` tag 或手动 `workflow_dispatch` 后，CI 产出已签名 APK，并创建 GitHub Release（带附件），而不是只上传 artifact。
 
 ### 现状
 
-- `.github/workflows/release.yml` 已能 `:phone:assembleRelease` / `:tv:assembleRelease`
-- 签名走 secrets：`VELA_STORE_FILE_BASE64`、`VELA_STORE_PASSWORD`、`VELA_KEY_PASSWORD`
-- 只 `actions/upload-artifact`，**不创建 Release**
-- 版本在根 `build.gradle`：`appVersionName` / `appVersionCode`（当前 `1.0.0` / `1`）
-- APK 名：`vela-phone-release-{version}.apk`、`vela-tv-release-{version}.apk`
+- `.github/workflows/release.yml`：`:phone:assembleRelease` / `:tv:assembleRelease` 成功后 `softprops/action-gh-release` 创建 Release，附 phone / tv APK
+- tag 与 `appVersionName` 不一致直接 fail；缺 `VELA_STORE_FILE_BASE64` / `VELA_STORE_PASSWORD` / `VELA_KEY_PASSWORD` 时列出缺项并拒绝 unsigned
+- 构建后 `apksigner verify`，未签名不发 Release
+- 版本在根 `build.gradle`：`appVersionName` / `appVersionCode`（当前 `1.0.1` / `2`）
+- APK 名：`vela-phone-release-{version}-{abi}.apk`、`vela-tv-release-{version}-{abi}.apk`
 
 ### 做法
 
-- [ ] tag `v1.0.0` 时校验 tag 与 `appVersionName` 一致，不一致直接 fail（避免发错号）
-- [ ] 构建成功后 `softprops/action-gh-release`（或 `gh release create`）创建 Release
-- [ ] 附上 phone / tv 的 release APK；`generate_release_notes: true`
-- [ ] 无签名 secrets 时失败并写清楚缺哪个 secret，不要产出 unsigned 当正式包
-- [ ] README 补一节：所需 secrets、本地 `./gradlew :phone:assembleRelease`、如何打 tag
+- [x] tag `v1.0.0` 时校验 tag 与 `appVersionName` 一致，不一致直接 fail（避免发错号）
+- [x] 构建成功后 `softprops/action-gh-release`（或 `gh release create`）创建 Release
+- [x] 附上 phone / tv 的 release APK；`generate_release_notes: true`
+- [x] 无签名 secrets 时失败并写清楚缺哪个 secret，不要产出 unsigned 当正式包
+- [x] README 补一节：所需 secrets、本地 `./gradlew :phone:assembleRelease`、如何打 tag
 
 不做：自动 bump 版本、Play 上架、改包名。
 
