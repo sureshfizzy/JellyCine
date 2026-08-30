@@ -662,7 +662,13 @@ fun PlayerScreen(
 
         if (!miniLayout) {
         PlayerOverlayHost(
-            uiState = uiState.copy(controlsVisible = uiState.controlsVisible && !inPip && !showPlaybackInfoSheet),
+            uiState = uiState.copy(
+                controlsVisible = uiState.controlsVisible &&
+                    !inPip &&
+                    !showPlaybackInfoSheet &&
+                    !showSubtitleStyleSheet &&
+                    !showSubtitleDelaySheet
+            ),
             playerState = playerState,
             currentStreamingQuality = currentStreamingQuality,
             hasPlaybackSettings = hasPlaybackSettings,
@@ -703,8 +709,14 @@ fun PlayerScreen(
             onAddLocalSubtitle = {
                 localSubtitlePicker.launch(arrayOf("*/*"))
             },
-            onShowSubtitleStyle = { showSubtitleStyleSheet = true },
-            onShowSubtitleDelay = { showSubtitleDelaySheet = true },
+            onShowSubtitleStyle = {
+                showSubtitleStyleSheet = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
+            onShowSubtitleDelay = {
+                showSubtitleDelaySheet = true
+                uiState = uiState.copy(controlsVisible = false)
+            },
             onToggleOrientation = {
                 playbackOrientation = if (
                     playbackOrientation == PlayerPreferences.PLAYER_ORIENTATION_LANDSCAPE

@@ -34,9 +34,15 @@ jobs:
         env:
           DISCORD_PARTNER_SDK_AAR_BASE64: ${{ secrets.DISCORD_PARTNER_SDK_AAR_BASE64 }}
         run: |
-          if [ -n "$DISCORD_PARTNER_SDK_AAR_BASE64" ]; then
-            mkdir -p core/libs
-            echo "$DISCORD_PARTNER_SDK_AAR_BASE64" | base64 --decode > core/libs/discord_partner_sdk.aar
+          if [ -z "$DISCORD_PARTNER_SDK_AAR_BASE64" ]; then
+            echo "DISCORD_PARTNER_SDK_AAR_BASE64 is not set; building without Discord Social SDK."
+            exit 0
+          fi
+          mkdir -p core/libs
+          echo "$DISCORD_PARTNER_SDK_AAR_BASE64" | base64 --decode > core/libs/discord_partner_sdk.aar
+          if [ ! -s core/libs/discord_partner_sdk.aar ]; then
+            echo "Decoded Discord AAR is empty. Check DISCORD_PARTNER_SDK_AAR_BASE64."
+            exit 1
           fi
 
       - name: Assemble signed release

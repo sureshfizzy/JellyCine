@@ -4,8 +4,9 @@ plugins {
 }
 
 def discordAar = file('libs/discord_partner_sdk.aar')
+def hasDiscordSdk = discordAar.exists()
 def hasDiscordPrefab = false
-if (discordAar.exists()) {
+if (hasDiscordSdk) {
     def zip = new java.util.zip.ZipFile(discordAar)
     try {
         hasDiscordPrefab = zip.entries().any { it.name.startsWith('prefab/') }
@@ -93,8 +94,10 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
     implementation 'com.github.MonseyNY:NewPipeExtractor:7ccf36f4'
 
-    // Discord Social SDK
-    implementation files('libs/discord_partner_sdk.aar')
+    // Discord Social SDK is optional; CI may build without the gitignored AAR.
+    if (hasDiscordSdk) {
+        implementation files('libs/discord_partner_sdk.aar')
+    }
 
     // Encrypted SharedPreferences for Discord auth tokens
     implementation 'androidx.security:security-crypto:1.1.0'

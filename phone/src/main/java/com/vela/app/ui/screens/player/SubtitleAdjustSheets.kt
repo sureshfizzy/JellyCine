@@ -1,13 +1,29 @@
 package com.vela.app.ui.screens.player
 
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -26,7 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,15 +54,16 @@ import com.vela.shared.R
 import kotlin.math.roundToInt
 
 private val SubtitleSheetAccent = Color(0xFF7DD3FC)
+private val SubtitlePanelColor = Color(0xE6161618)
+private val SubtitlePanelShape = RoundedCornerShape(20.dp)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubtitleStyleSheet(
     playerPreferences: PlayerPreferences,
     onChanged: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     var scale by remember {
         mutableFloatStateOf(playerPreferences.getSubtitleScale())
     }
@@ -55,19 +74,58 @@ fun SubtitleStyleSheet(
         mutableStateOf(playerPreferences.isSubtitleAssCompatible())
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = Color(0xFF121214),
-        scrimColor = Color.Black.copy(alpha = 0.18f),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
+    BackHandler(onBack = onDismiss)
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        Box(
             modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+
+        val videoHeight = minOf(
+            maxHeight,
+            maxWidth / PlayerPreferences.DEFAULT_VIDEO_ASPECT
+        )
+        val bottomLetterbox = ((maxHeight - videoHeight) / 2).coerceAtLeast(0.dp)
+        val portraitPanelMaxHeight = if (bottomLetterbox > 24.dp) {
+            bottomLetterbox - 12.dp
+        } else {
+            maxHeight * 0.42f
+        }
+        val panelModifier = if (isPortrait) {
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 28.dp)
+                .widthIn(max = 420.dp)
                 .fillMaxWidth()
+                .heightIn(max = portraitPanelMaxHeight)
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp, vertical = 4.dp)
-                .padding(bottom = 20.dp)
+                .padding(bottom = 10.dp)
+        } else {
+            Modifier
+                .align(Alignment.CenterEnd)
+                .windowInsetsPadding(
+                    WindowInsets.displayCutout.only(WindowInsetsSides.End)
+                )
+                .padding(end = 16.dp)
+                .width(280.dp)
+        }
+
+        Column(
+            modifier = panelModifier
+                .clip(SubtitlePanelShape)
+                .background(SubtitlePanelColor)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             SubtitleValueSlider(
                 label = stringResource(R.string.player_subtitle_scale),
@@ -80,7 +138,6 @@ fun SubtitleStyleSheet(
                     onChanged()
                 }
             )
-            Spacer(modifier = Modifier.height(10.dp))
             SubtitleValueSlider(
                 label = stringResource(R.string.player_subtitle_position),
                 valueText = stringResource(
@@ -89,31 +146,22 @@ fun SubtitleStyleSheet(
                 ),
                 value = position,
                 valueRange = 0f..PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT.toFloat(),
-                startHint = stringResource(R.string.player_subtitle_position_bottom),
-                endHint = stringResource(R.string.player_subtitle_position_top),
                 onValueChange = { value ->
                     position = value
                     playerPreferences.setSubtitleBottomEdgePositionPercent(value.roundToInt())
                     onChanged()
                 }
             )
-            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.player_subtitle_ass_compatible),
-                        color = Color.White.copy(alpha = 0.86f),
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = stringResource(R.string.player_subtitle_ass_compatible_summary),
-                        color = Color.White.copy(alpha = 0.55f),
-                        fontSize = 12.sp
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.player_subtitle_ass_compatible),
+                    color = Color.White.copy(alpha = 0.86f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f)
+                )
                 Switch(
                     checked = assCompatible,
                     onCheckedChange = { enabled ->
@@ -213,25 +261,23 @@ private fun SubtitleValueSlider(
     valueText: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
-    onValueChange: (Float) -> Unit,
-    startHint: String? = null,
-    endHint: String? = null
+    onValueChange: (Float) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = label,
                 color = Color.White.copy(alpha = 0.86f),
-                fontSize = 14.sp,
-                modifier = Modifier.weight(1f)
+                fontSize = 13.sp
             )
             Text(
                 text = valueText,
                 color = Color.White,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -241,23 +287,6 @@ private fun SubtitleValueSlider(
             valueRange = valueRange,
             colors = subtitleSliderColors()
         )
-        if (startHint != null || endHint != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = startHint.orEmpty(),
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = 11.sp
-                )
-                Text(
-                    text = endHint.orEmpty(),
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = 11.sp
-                )
-            }
-        }
     }
 }
 
