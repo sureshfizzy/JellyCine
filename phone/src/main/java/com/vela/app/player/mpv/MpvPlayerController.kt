@@ -76,6 +76,7 @@ class MpvPlayerController(
 
     fun load(
         url: String,
+        requestHeaders: Map<String, String>,
         subtitleUrls: List<String>,
         audioTrackId: String?,
         subtitleTrackId: String?,
@@ -97,10 +98,12 @@ class MpvPlayerController(
         MPVLib.setPropertyBoolean("pause", true)
         listener.onBuffering()
         applyRemoteStreamOptions(remoteHttpPlayback)
+        applyHttpRequestHeaders(requestHeaders)
         val needsEmbeddedSubtitleProbe =
             selectedSubtitleUrl == null && pendingSubtitleTrackId != null
         if (needsEmbeddedSubtitleProbe && !remoteHttpPlayback) {
-            MPVLib.setOptionString("demuxer-lavf-probe-info", "on")
+            // 该选项是每个媒体文件的运行时属性；只写初始化 option 不会影响本次 loadfile。
+            setMpv("demuxer-lavf-probe-info", "on")
         }
         val loadOptions = buildList {
             audioTrackId?.let { add("aid=$it") }
@@ -122,7 +125,7 @@ class MpvPlayerController(
         Log.i(
             SUBTITLE_LOG_TAG,
             "load sid=$subtitleTrackId selectedUrl=${MPVPlayer.redactPlaybackSecret(selectedSubtitleUrl)} " +
-                "external=${subtitleUrls.size} remote=$remoteHttpPlayback"
+                "external=${subtitleUrls.size} remote=$remoteHttpPlayback headers=${requestHeaders.keys.sorted()}"
         )
     }
 
@@ -405,15 +408,16 @@ class MpvPlayerController(
         applyCachePolicy(asOptions = true)
         MPVLib.setOptionString("index", "default")
         MPVLib.setOptionString("hr-seek", "yes")
-        MPVLib.setOptionString("demuxer", "+lavf")
+        // 不强制 lavf：MPV 原生 MKV demuxer 才能稳定保留内嵌 ASS、附件字体与容器 PTS。
         MPVLib.setOptionString("demuxer-mkv-probe-start-time", "no")
         MPVLib.setOptionString("demuxer-mkv-probe-video-duration", "no")
         MPVLib.setOptionString("demuxer-mkv-subtitle-preroll", "yes")
         MPVLib.setOptionString("demuxer-mkv-subtitle-preroll-secs", "60")
         MPVLib.setOptionString("demuxer-mkv-subtitle-preroll-secs-index", "60")
-        MPVLib.setOptionString("demuxer-lavf-probe-info", "nostreams")
-        MPVLib.setOptionString("demuxer-lavf-probesize", "64KiB")
-        MPVLib.setOptionString("demuxer-lavf-analyzeduration", "1")
+        // 音轨/字幕轨选择依赖完整流信息，不能用 nostreams 牺牲正确性换取少量探测速度。
+        MPVLib.setOptionString("demuxer-lavf-probe-info", "on")
+        MPVLib.setOptionString("demuxer-lavf-probesize", "5MiB")
+        MPVLib.setOptionString("demuxer-lavf-analyzeduration", "10")
         MPVLib.setOptionString("sub-ass", "yes")
         MPVLib.setOptionString("embeddedfonts", "yes")
         MPVLib.setOptionString("sub-ass-use-video-data", "aspect-ratio")
@@ -438,17 +442,23 @@ class MpvPlayerController(
     @OptIn(UnstableApi::class)
     private fun applyRemoteStreamOptions(remoteHttpPlayback: Boolean) {
         if (remoteHttpPlayback) {
-            MPVLib.setOptionString("demuxer-lavf-probesize", "5MiB")
-            MPVLib.setOptionString("demuxer-lavf-analyzeduration", "10")
-            MPVLib.setOptionString("demuxer-lavf-probe-info", "on")
+            setMpv("demuxer-lavf-probesize", "5MiB")
+            setMpv("demuxer-lavf-analyzeduration", "10")
+            setMpv("demuxer-lavf-probe-info", "on")
             MPVLib.setPropertyString("cache", "yes")
             MPVLib.setPropertyString("force-seekable", "yes")
             applyCachePolicy(asOptions = false)
         } else {
-            MPVLib.setOptionString("demuxer-lavf-probesize", "64KiB")
-            MPVLib.setOptionString("demuxer-lavf-analyzeduration", "1")
-            MPVLib.setOptionString("demuxer-lavf-probe-info", "nostreams")
+            // 服务端静态流同样是 HTTP，MKV 的字幕轨/字体附件可能超过 64KiB 探测窗口。
+            setMpv("demuxer-lavf-probesize", "5MiB")
+            setMpv("demuxer-lavf-analyzeduration", "10")
+            setMpv("demuxer-lavf-probe-info", "on")
         }
+    }
+
+    private fun applyHttpRequestHeaders(requestHeaders: Map<String, String>) {
+        // STRM 常依赖 Referer/Cookie/User-Agent；播放请求已解析这些 headers，必须继续传给 mpv。
+        setMpv("http-header-fields", MPVPlayer.httpHeaderFields(requestHeaders).orEmpty())
     }
 
     @OptIn(UnstableApi::class)
@@ -567,6 +577,7 @@ class MpvPlayerController(
             "$stage sid=${MPVLib.getPropertyString("sid")} " +
                 "vis=${MPVLib.getPropertyString("sub-visibility")} " +
                 "override=${MPVLib.getPropertyString("sub-ass-override")} " +
+                "probe=${MPVLib.getPropertyString("demuxer-lavf-probe-info")} " +
                 "font=${MPVLib.getPropertyString("sub-font")} " +
                 "text=${MPVPlayer.redactPlaybackSecret(MPVLib.getPropertyString("sub-text")?.take(80))} " +
                 "tracks=$tracks"
@@ -599,6 +610,10 @@ class MpvPlayerController(
 
     private fun applySubtitleEdge(edgeType: String) {
         when (edgeType) {
+            PlayerPreferences.SUBTITLE_EDGE_TYPE_NONE -> {
+                setMpv("sub-border-size", "0")
+                setMpv("sub-shadow-offset", "0")
+            }
             PlayerPreferences.SUBTITLE_EDGE_TYPE_OUTLINE -> {
                 setMpv("sub-border-size", "3")
                 setMpv("sub-shadow-offset", "0")

@@ -434,7 +434,8 @@ class PlayerViewModel @Inject constructor(
                         itemId = mediaId,
                         maxStreamingBitrate = maxStreamingBitrate,
                         audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = activePreferredSubtitleStreamIndex,
+                        // MPV 在原容器内按 sid 选轨；向服务端提交 ASS index 会触发 External/Encode 并改变时间基准。
+                        subtitleStreamIndex = if (isMpvPlayback()) null else activePreferredSubtitleStreamIndex,
                         audioTranscodeMode = audioTranscodeMode
                     )
                     if (playbackInfoResult.isFailure) {
@@ -592,10 +593,14 @@ class PlayerViewModel @Inject constructor(
                                                 "text=${stream.isTextSubtitleStream} " +
                                                 "supportExt=${stream.supportsExternalStream}"
                                         }
-                                }"
+                                } source=${primaryMediaSource?.container} " +
+                                "direct=${primaryMediaSource?.supportsDirectPlay}/" +
+                                "${primaryMediaSource?.supportsDirectStream} " +
+                                "requestPath=${mediaItem.localConfiguration?.uri?.path}"
                         )
                         player.load(
                             url = mediaItem.localConfiguration?.uri?.toString().orEmpty(),
+                            requestHeaders = playbackRequest?.requestHeaders.orEmpty(),
                             subtitleUrls = mpvExternalSubtitleUrls.values.toList(),
                             audioTrackId = MPVPlayer.audioTrackId(
                                 apiMediaStreams,

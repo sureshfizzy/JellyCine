@@ -110,8 +110,11 @@ internal object PlaybackDeviceProfileFactory {
 
         return buildList {
             textFormats.forEach { format ->
-                add(SubtitleProfile(format = format, method = "External"))
+                // MPV 可直接读取容器内文本轨；ASS/SSA 只声明 Embed，避免服务端优先抽取后丢失字体/时间基准。
                 add(SubtitleProfile(format = format, method = "Embed"))
+                if (format != "ass" && format != "ssa") {
+                    add(SubtitleProfile(format = format, method = "External"))
+                }
             }
             imageFormats.forEach { format ->
                 add(SubtitleProfile(format = format, method = "Embed"))

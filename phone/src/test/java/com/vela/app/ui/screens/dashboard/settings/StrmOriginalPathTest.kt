@@ -55,19 +55,31 @@ class StrmOriginalPathTest {
     }
 
     @Test
-    fun strmDefaultsToSoftwareDecoding() {
+    fun strmKeepsUserHardwareDecodingPreference() {
         val source = MediaSource(
             container = "strm",
             path = "https://cdn.example/movie.mkv"
         )
         assertEquals(
-            PlayerPreferences.MPV_HARDWARE_DECODING_NONE,
+            PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
             MPVPlayer.hardwareDecodingFor(
                 mediaSource = source,
                 userPreference = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING
             )
         )
         assertTrue(MPVPlayer.isRemoteHttpPlayback(source))
+    }
+
+    @Test
+    fun ordinaryRemoteHttpSourceIsNotMistakenForStrm() {
+        val source = MediaSource(
+            container = "mkv",
+            name = "movie.mkv",
+            path = "https://cdn.example/movie.mkv",
+            isRemote = true
+        )
+        assertFalse(source.isStrmSource())
+        assertNull(source.strmOriginalPlaybackUrl())
     }
 
     @Test

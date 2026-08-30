@@ -239,6 +239,18 @@ data class MediaStream(
 )
 
 /**
+ * 只把真正的外置字幕交给独立字幕加载器。
+ *
+ * 服务端也会给内嵌字幕提供 External delivery endpoint；若据此把内嵌 ASS 抽取成外置文件，
+ * 会丢掉容器附件字体和时间基准。旧版服务端缺少 IsExternal 时才回退到 DeliveryMethod。
+ */
+fun MediaStream.requiresExternalSubtitleLoad(): Boolean {
+    if (!type.equals("Subtitle", ignoreCase = true)) return false
+    return isExternal == true ||
+        (isExternal == null && deliveryMethod.equals("External", ignoreCase = true))
+}
+
+/**
  * Media attachment information
  */
 @Serializable

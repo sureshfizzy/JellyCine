@@ -7,6 +7,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import com.vela.data.model.MediaStream
+import com.vela.data.model.requiresExternalSubtitleLoad
 import java.net.URI
 
 private const val TAG = "PlayerMediaItemFactory"
@@ -27,11 +28,7 @@ internal fun streamingMediaItem(
     streamCacheKey(streamUri)?.let(builder::setCustomCacheKey)
 
     if (selectedSubtitleStream != null) {
-        val canDeliverExternally = selectedSubtitleStream.deliveryMethod.equals("External", ignoreCase = true) ||
-            !selectedSubtitleStream.deliveryUrl.isNullOrBlank() ||
-            selectedSubtitleStream.isExternal == true
-
-        if (canDeliverExternally) {
+        if (selectedSubtitleStream.requiresExternalSubtitleLoad()) {
             val subtitleConfiguration = subtitleConfiguration(
                 streamingUrl = streamingUrl,
                 itemId = itemId,

@@ -4,6 +4,7 @@ import com.vela.data.model.MediaStream
 import com.vela.data.model.PlaybackRequest
 import com.vela.data.model.MediaSource
 import com.vela.data.model.isStrmSource
+import com.vela.data.model.requiresExternalSubtitleLoad
 import com.vela.player.core.AudioTrackInfo
 import com.vela.player.core.PlayerTrackState
 import com.vela.player.core.SubtitleTrackInfo
@@ -29,11 +30,8 @@ object MPVPlayer {
         mediaSource: MediaSource?,
         userPreference: String
     ): String {
-        return if (mediaSource?.isStrmSource() == true) {
-            PlayerPreferences.MPV_HARDWARE_DECODING_NONE
-        } else {
-            userPreference
-        }
+        // STRM 只是地址容器，不能据此禁用硬解；4K/HDR 远程流用软解反而可能无法起播。
+        return userPreference
     }
 
     fun isRemoteHttpPlayback(mediaSource: MediaSource?): Boolean {
@@ -213,10 +211,21 @@ object MPVPlayer {
         if (!stream.type.equals("Subtitle", ignoreCase = true) || stream.index == null) {
             return false
         }
-        if (stream.isExternal == true) return true
-        if (stream.deliveryMethod.equals("External", ignoreCase = true)) return true
-        if (!stream.deliveryUrl.isNullOrBlank()) return true
-        return stream.supportsExternalStream != false && isTextSubtitle(stream)
+        return stream.requiresExternalSubtitleLoad() && isTextSubtitle(stream)
+    }
+
+    fun httpHeaderFields(requestHeaders: Map<String, String>): String? {
+        val fields = requestHeaders.mapNotNull { (rawName, rawValue) ->
+            val name = rawName.trim()
+            val value = rawValue.trim()
+            // 防止服务端返回的 header 注入额外请求行；非法项直接拒绝，不静默改写语义。
+            if (!HTTP_HEADER_NAME.matches(name) || value.isEmpty() || value.contains('\r') || value.contains('\n')) {
+                null
+            } else {
+                "$name: $value"
+            }
+        }
+        return fields.takeIf { it.isNotEmpty() }?.joinToString(",")
     }
 
     fun resolvedSubtitleStreamIndex(
@@ -259,6 +268,8 @@ object MPVPlayer {
             else -> "ass"
         }
     }
+
+    private val HTTP_HEADER_NAME = Regex("^[A-Za-z0-9!#$%&'*+.^_`|~-]+$")
 
     private fun downloadHttpSubtitle(url: String, target: File): Boolean {
         return runCatching {

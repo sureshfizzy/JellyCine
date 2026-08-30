@@ -11,7 +11,7 @@ import java.io.File
 class MpvSubtitleLoadingTest {
 
     @Test
-    fun embeddedAssIsFetchedAsExternalStream() {
+    fun embeddedAssStaysOnContainerTimeline() {
         val stream = MediaStream(
             type = "Subtitle",
             index = 2,
@@ -21,17 +21,29 @@ class MpvSubtitleLoadingTest {
             isTextSubtitleStream = true,
             supportsExternalStream = true
         )
-        assertTrue(MPVPlayer.shouldFetchExternalSubtitle(stream))
+        assertFalse(MPVPlayer.shouldFetchExternalSubtitle(stream))
         assertTrue(MPVPlayer.isTextSubtitle(stream))
     }
 
     @Test
-    fun assCodecWithoutTextFlagStillFetches() {
+    fun embeddedAssWithoutExternalFlagStaysEmbedded() {
         val stream = MediaStream(
             type = "Subtitle",
             index = 3,
             codec = "ssa",
             isExternal = false
+        )
+        assertFalse(MPVPlayer.shouldFetchExternalSubtitle(stream))
+    }
+
+    @Test
+    fun actualExternalAssIsFetched() {
+        val stream = MediaStream(
+            type = "Subtitle",
+            index = 3,
+            codec = "ass",
+            isExternal = true,
+            deliveryMethod = "External"
         )
         assertTrue(MPVPlayer.shouldFetchExternalSubtitle(stream))
     }
@@ -58,6 +70,21 @@ class MpvSubtitleLoadingTest {
             codec = "aac"
         )
         assertFalse(MPVPlayer.shouldFetchExternalSubtitle(stream))
+    }
+
+    @Test
+    fun validHttpHeadersAreForwardedWithoutRequestLineInjection() {
+        assertEquals(
+            "Referer: https://example.com,Cookie: session=abc",
+            MPVPlayer.httpHeaderFields(
+                linkedMapOf(
+                    "Referer" to "https://example.com",
+                    "Cookie" to "session=abc",
+                    "Bad Header" to "ignored",
+                    "X-Injected" to "safe\r\nX-Evil: true"
+                )
+            )
+        )
     }
 
     @Test

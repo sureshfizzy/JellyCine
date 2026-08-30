@@ -1766,41 +1766,17 @@ class MediaRepository(private val context: Context) {
             val api = session.api
             val userId = session.userId
             val serverUrl = session.baseUrl
-            val serverType = session.serverType
-            val forceTranscode = (maxStreamingBitrate ?: 0) > 0
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(subtitleStreamIndex)
-            val preferGetPlaybackInfo = (
-                serverType == ServerType.EMBY || serverType == ServerType.JELLYFIN
-            ) &&
-                !forceTranscode && audioTranscodeMode == AudioTranscodeMode.AUTO
-            val enableDirectPlay = if (forceTranscode) false else true
-            val enableDirectStream = if (forceTranscode) false else true
+            // 最大码率只是服务端决策的上限，不能因此无条件关闭直播放能力。
+            // 否则所有配置过码率上限的媒体都会变成 HLS，内嵌字幕轨和容器 PTS 随之丢失。
+            val enableDirectPlay = true
+            val enableDirectStream = true
             val enableTranscoding = true
             val deviceProfile = PlaybackDeviceProfileFactory.create(
                 maxStreamingBitrate = maxStreamingBitrate?.toLong(),
                 audioTranscodeMode = audioTranscodeMode
             )
-            if (preferGetPlaybackInfo) {
-                val getResponse = api.getPlaybackInfoGet(
-                    itemId = itemId,
-                    userId = userId,
-                    maxStreamingBitrate = maxStreamingBitrate,
-                    audioStreamIndex = audioStreamIndex,
-                    subtitleStreamIndex = normalizedSubtitleStreamIndex,
-                    enableDirectPlay = enableDirectPlay,
-                    enableDirectStream = enableDirectStream,
-                    enableTranscoding = enableTranscoding
-                )
-
-                if (getResponse.isSuccessful && getResponse.body() != null) {
-                    val responseBody = PlaybackUrlBuilder.playbackInfoUrls(
-                        serverUrl = serverUrl,
-                        playbackInfo = getResponse.body()!!
-                    )
-                    return Result.success(responseBody)
-                }
-            }
-
+            // POST 携带 DeviceProfile，是字幕交付方式与直播放能力的唯一事实源；GET 仅用于旧服务端回退。
             val playbackInfoRequest = PlaybackInfoRequest(
                 userId = userId,
                 mediaSourceId = null,

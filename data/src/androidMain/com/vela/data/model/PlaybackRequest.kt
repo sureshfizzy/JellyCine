@@ -196,8 +196,7 @@ internal object PlaybackUrlBuilder {
 
             val serverTranscodingUrl = !mediaSource.transcodingUrl.isNullOrBlank() &&
                 (
-                    hasQualityCap ||
-                        needsAudioTranscoding ||
+                    needsAudioTranscoding ||
                         (mediaSource.supportsDirectPlay != true &&
                             mediaSource.supportsDirectStream != true)
                 )
@@ -228,11 +227,15 @@ internal object PlaybackUrlBuilder {
                 }
             }
 
+            val useStaticStream = mediaSource.supportsDirectPlay == true || mediaSource.isStrmSource()
             val streamQueryParams = mutableListOf<Pair<String, String?>>()
             streamQueryParams.add("mediaSourceId" to mediaSource.id)
-            options.audioStreamIndex?.let { streamQueryParams.add("audioStreamIndex" to it.toString()) }
-            normalizeSubtitleStreamIndex(options.subtitleStreamIndex)?.let {
-                streamQueryParams.add("subtitleStreamIndex" to it.toString())
+            if (!useStaticStream) {
+                // static=true 必须返回原容器，由本地播放器选轨；服务端选轨参数可能剥离内嵌 ASS。
+                options.audioStreamIndex?.let { streamQueryParams.add("audioStreamIndex" to it.toString()) }
+                normalizeSubtitleStreamIndex(options.subtitleStreamIndex)?.let {
+                    streamQueryParams.add("subtitleStreamIndex" to it.toString())
+                }
             }
             streamQueryParams.add("PlaySessionId" to playbackInfo.playSessionId)
             streamQueryParams.add("DeviceId" to authContext.deviceId)
@@ -242,18 +245,20 @@ internal object PlaybackUrlBuilder {
                 }
             }
 
-            if (hasQualityCap) {
-                return Result.failure(
-                    Exception(context.getString(R.string.data_error_transcoding_url_unavailable, itemId))
+            if (mediaSource.supportsDirectPlay == true && !mediaSource.isStrmSource()) {
+                // 原文件端点保留所有内嵌轨、字体附件和 PTS；Videos/stream 可能按服务端字幕策略剥离 ASS。
+                val originalContainerUrl = buildServerUrl(
+                    baseUrl = authContext.serverUrl,
+                    encodedPath = "Items/$itemId/Download"
                 )
+                return Result.success(appendToken(originalContainerUrl, authContext, options))
             }
 
             val streamingUrl = buildStreamUrl(
                 serverUrl = authContext.serverUrl,
                 itemId = itemId,
                 queryParams = streamQueryParams,
-                useStaticStream = mediaSource.supportsDirectPlay == true ||
-                    mediaSource.isStrmSource()
+                useStaticStream = useStaticStream
             )
 
             Result.success(streamingUrl)
