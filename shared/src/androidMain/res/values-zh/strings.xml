@@ -279,6 +279,7 @@
     <string name="subtitle_settings_section_style">样式</string>
     <string name="subtitle_settings_section_position">位置</string>
     <string name="subtitle_settings_text_size">文字大小</string>
+    <string name="subtitle_settings_text_scale_summary">连续调节字幕大小</string>
     <string name="subtitle_settings_text_color">文字颜色</string>
     <string name="subtitle_settings_background_color">背景颜色</string>
     <string name="subtitle_settings_edge_type">边缘类型</string>
@@ -297,8 +298,12 @@
     <string name="player_subtitle_add_local">添加本地字幕</string>
     <string name="player_subtitle_scale_position">字幕缩放 &amp; 位置</string>
     <string name="player_subtitle_time_offset">字幕时间偏移</string>
-    <string name="player_subtitle_scale">缩放</string>
-    <string name="player_subtitle_position">位置</string>
+    <string name="player_subtitle_scale">字幕缩放</string>
+    <string name="player_subtitle_position">字幕位置</string>
+    <string name="player_subtitle_scale_factor">%1$.2f×</string>
+    <string name="player_subtitle_position_value">%1$.2f</string>
+    <string name="player_subtitle_ass_compatible">ASS 兼容</string>
+    <string name="player_subtitle_ass_compatible_summary">保留 ASS 原有字体、位置和特效；缩放仍会生效，避免字号过小</string>
     <string name="player_subtitle_delay_value">偏移：%.2f 秒</string>
     <string name="player_subtitle_delay_reset">重置</string>
     <string name="player_subtitle_local_mpv_only">本地字幕仅支持 MPV</string>

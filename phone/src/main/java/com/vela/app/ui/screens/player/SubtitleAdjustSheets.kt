@@ -12,12 +12,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vela.player.preferences.PlayerPreferences
 import com.vela.shared.R
+import kotlin.math.roundToInt
+
+private val SubtitleSheetAccent = Color(0xFF7DD3FC)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,76 +44,89 @@ fun SubtitleStyleSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val sizeOptions = PlayerPreferences.SUBTITLE_TEXT_SIZE_OPTIONS
-    var sizeIndex by remember {
-        mutableFloatStateOf(
-            sizeOptions.indexOf(playerPreferences.getSubtitleTextSize())
-                .coerceAtLeast(0)
-                .toFloat()
-        )
+    var scale by remember {
+        mutableFloatStateOf(playerPreferences.getSubtitleScale())
     }
     var position by remember {
         mutableFloatStateOf(playerPreferences.getSubtitlePosition().toFloat())
+    }
+    var assCompatible by remember {
+        mutableStateOf(playerPreferences.isSubtitleAssCompatible())
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Color(0xFF121214),
+        scrimColor = Color.Black.copy(alpha = 0.18f),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp, vertical = 8.dp)
-                .padding(bottom = 24.dp)
+                .padding(horizontal = 22.dp, vertical = 4.dp)
+                .padding(bottom = 20.dp)
         ) {
-            Text(
-                text = stringResource(R.string.player_subtitle_scale_position),
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = stringResource(R.string.player_subtitle_scale),
-                color = Color.White.copy(alpha = 0.72f),
-                fontSize = 13.sp
-            )
-            Slider(
-                value = sizeIndex,
+            SubtitleValueSlider(
+                label = stringResource(R.string.player_subtitle_scale),
+                valueText = stringResource(R.string.player_subtitle_scale_factor, scale),
+                value = scale,
+                valueRange = PlayerPreferences.MIN_SUBTITLE_SCALE..PlayerPreferences.MAX_SUBTITLE_SCALE,
                 onValueChange = { value ->
-                    sizeIndex = value
-                    val selected = sizeOptions.getOrNull(value.toInt()) ?: return@Slider
-                    playerPreferences.setSubtitleTextSize(selected)
+                    scale = value
+                    playerPreferences.setSubtitleScale(value)
                     onChanged()
-                },
-                valueRange = 0f..(sizeOptions.lastIndex.toFloat()),
-                steps = (sizeOptions.size - 2).coerceAtLeast(0),
-                colors = subtitleSliderColors()
+                }
             )
-            Text(
-                text = sizeOptions.getOrNull(sizeIndex.toInt()).orEmpty(),
-                color = Color.White.copy(alpha = 0.62f),
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.player_subtitle_position),
-                color = Color.White.copy(alpha = 0.72f),
-                fontSize = 13.sp
-            )
-            Slider(
+            Spacer(modifier = Modifier.height(10.dp))
+            SubtitleValueSlider(
+                label = stringResource(R.string.player_subtitle_position),
+                valueText = stringResource(
+                    R.string.player_subtitle_position_value,
+                    position
+                ),
                 value = position,
+                valueRange = 0f..PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT.toFloat(),
                 onValueChange = { value ->
                     position = value
-                    playerPreferences.setSubtitleBottomEdgePositionPercent(value.toInt())
+                    playerPreferences.setSubtitleBottomEdgePositionPercent(value.roundToInt())
                     onChanged()
-                },
-                valueRange = 0f..50f,
-                colors = subtitleSliderColors()
+                }
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.player_subtitle_ass_compatible),
+                        color = Color.White.copy(alpha = 0.86f),
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = stringResource(R.string.player_subtitle_ass_compatible_summary),
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 12.sp
+                    )
+                }
+                Switch(
+                    checked = assCompatible,
+                    onCheckedChange = { enabled ->
+                        assCompatible = enabled
+                        playerPreferences.setSubtitleAssCompatible(enabled)
+                        onChanged()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = SubtitleSheetAccent,
+                        checkedBorderColor = SubtitleSheetAccent,
+                        uncheckedThumbColor = Color.White.copy(alpha = 0.7f),
+                        uncheckedTrackColor = Color.White.copy(alpha = 0.18f)
+                    )
+                )
+            }
         }
     }
 }
@@ -128,6 +147,7 @@ fun SubtitleDelaySheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Color(0xFF121214),
+        scrimColor = Color.Black.copy(alpha = 0.18f),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
@@ -185,8 +205,43 @@ fun SubtitleDelaySheet(
 }
 
 @Composable
+private fun SubtitleValueSlider(
+    label: String,
+    valueText: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = Color.White.copy(alpha = 0.86f),
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = valueText,
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            colors = subtitleSliderColors()
+        )
+    }
+}
+
+@Composable
 private fun subtitleSliderColors() = SliderDefaults.colors(
-    thumbColor = Color.White,
-    activeTrackColor = Color.White,
+    thumbColor = SubtitleSheetAccent,
+    activeTrackColor = SubtitleSheetAccent,
     inactiveTrackColor = Color.White.copy(alpha = 0.18f)
 )

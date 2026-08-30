@@ -2,6 +2,8 @@ package com.vela.app.player.mpv
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.system.Os
+import android.util.Log
 import android.view.Surface
 import androidx.media3.common.util.UnstableApi
 import com.vela.player.core.PlayerUtils
@@ -9,6 +11,8 @@ import com.vela.player.preferences.PlayerPreferences
 import `is`.xyz.mpv.MPVLib
 import `is`.xyz.mpv.MPVLib.MpvEvent
 import `is`.xyz.mpv.MPVLib.MpvFormat
+import java.io.File
+import java.util.Locale
 
 class MpvPlayerController(
     context: Context,
@@ -17,6 +21,10 @@ class MpvPlayerController(
     private val audioOutput: String,
     listener: Listener
 ) : MPVLib.EventObserver {
+
+    companion object {
+        private const val SUBTITLE_LOG_TAG = "JellyCine-Sub"
+    }
 
     interface Listener {
         fun onBuffering()
@@ -34,6 +42,7 @@ class MpvPlayerController(
     private var playWhenReady = true
     private var pendingSubtitleUrls: List<String> = emptyList()
     private var pendingSelectedSubtitleUrl: String? = null
+    private var pendingSubtitleTrackId: String? = null
     private var preferFastSeek = false
     private var pendingStartPositionMs: Long? = null
     private var pendingRemoteHttpPlayback = false
@@ -84,9 +93,15 @@ class MpvPlayerController(
         pendingRemoteHttpPlayback = remoteHttpPlayback
         pendingSubtitleUrls = subtitleUrls
         pendingSelectedSubtitleUrl = selectedSubtitleUrl
+        pendingSubtitleTrackId = subtitleTrackId?.takeUnless { it == "no" }
         MPVLib.setPropertyBoolean("pause", true)
         listener.onBuffering()
         applyRemoteStreamOptions(remoteHttpPlayback)
+        val needsEmbeddedSubtitleProbe =
+            selectedSubtitleUrl == null && pendingSubtitleTrackId != null
+        if (needsEmbeddedSubtitleProbe && !remoteHttpPlayback) {
+            MPVLib.setOptionString("demuxer-lavf-probe-info", "on")
+        }
         val loadOptions = buildList {
             audioTrackId?.let { add("aid=$it") }
             if (selectedSubtitleUrl == null) {
@@ -104,6 +119,11 @@ class MpvPlayerController(
         }
         MPVLib.command(loadCommand)
         applyCachePolicy(asOptions = false)
+        Log.i(
+            SUBTITLE_LOG_TAG,
+            "load sid=$subtitleTrackId selectedUrl=${MPVPlayer.redactPlaybackSecret(selectedSubtitleUrl)} " +
+                "external=${subtitleUrls.size} remote=$remoteHttpPlayback"
+        )
     }
 
     fun setListener(listener: Listener) {
@@ -146,27 +166,36 @@ class MpvPlayerController(
 
     fun applySubtitlePreferences() {
         if (released) return
-        MPVLib.setOptionString("sub-ass-override", "scale")
-        MPVLib.setPropertyString("sub-ass-override", "scale")
-        MPVLib.setOptionString("sub-scale", subtitleScale(playerPreferences.getSubtitleTextSize()))
-        MPVLib.setPropertyString("sub-scale", subtitleScale(playerPreferences.getSubtitleTextSize()))
-        MPVLib.setOptionString(
+        setMpv("sub-visibility", "yes")
+        val compatible = playerPreferences.isSubtitleAssCompatible()
+        setMpv("sub-ass-override", PlayerPreferences.mpvAssOverride(compatible))
+        MPVLib.setPropertyDouble(
+            "sub-delay",
+            playerPreferences.getSubtitleDelayMs() / 1000.0
+        )
+        val scale = String.format(
+            Locale.US,
+            "%.3f",
+            playerPreferences.getSubtitleScale()
+        )
+        setMpv("sub-scale", scale)
+        if (compatible) {
+            return
+        }
+        val subPos = PlayerPreferences.mpvSubPosFromBottomPercent(
+            playerPreferences.getSubtitlePosition()
+        ).toString()
+        setMpv("sub-pos", subPos)
+        setMpv(
             "sub-color",
             mpvColor(
                 color = playerPreferences.getSubtitleTextColor(),
                 opacityPercent = playerPreferences.getSubtitleTextOpacityPercent()
             )
         )
-        MPVLib.setOptionString(
+        setMpv(
             "sub-back-color",
             mpvBackgroundColor(playerPreferences.getSubtitleBackgroundColor())
-        )
-        val subPos = (100 - playerPreferences.getSubtitlePosition().coerceIn(0, 50)).toString()
-        MPVLib.setOptionString("sub-pos", subPos)
-        MPVLib.setPropertyString("sub-pos", subPos)
-        MPVLib.setPropertyDouble(
-            "sub-delay",
-            playerPreferences.getSubtitleDelayMs() / 1000.0
         )
         applySubtitleEdge(playerPreferences.getSubtitleEdgeType())
     }
@@ -235,11 +264,14 @@ class MpvPlayerController(
         if (released) return
         if (trackId == "no") {
             MPVLib.setPropertyString("sid", "no")
-        } else if (externalUrl != null) {
-            MPVLib.command(arrayOf("sub-add", externalUrl, "select"))
+            return
+        }
+        if (externalUrl != null) {
+            addSubtitleTrack(externalUrl, "select")
         } else {
             MPVLib.setPropertyString("sid", trackId)
         }
+        applySubtitlePreferences()
     }
 
     fun release() {
@@ -283,13 +315,21 @@ class MpvPlayerController(
                 pendingSubtitleUrls
                     .filterNot { subtitleUrl -> subtitleUrl == pendingSelectedSubtitleUrl }
                     .forEach { subtitleUrl ->
-                        MPVLib.command(arrayOf("sub-add", subtitleUrl, "auto"))
+                        addSubtitleTrack(subtitleUrl, "auto")
                     }
                 pendingSelectedSubtitleUrl?.let { subtitleUrl ->
-                    MPVLib.command(arrayOf("sub-add", subtitleUrl, "select"))
+                    addSubtitleTrack(subtitleUrl, "select")
+                }
+                if (pendingSelectedSubtitleUrl == null) {
+                    pendingSubtitleTrackId?.let { trackId ->
+                        MPVLib.setPropertyString("sid", trackId)
+                    }
                 }
                 pendingSubtitleUrls = emptyList()
                 pendingSelectedSubtitleUrl = null
+                pendingSubtitleTrackId = null
+                applySubtitlePreferences()
+                logSubtitleTracks("FILE_LOADED")
                 val resumePositionMs = pendingStartPositionMs
                 pendingStartPositionMs = null
                 if (resumePositionMs != null) {
@@ -297,11 +337,15 @@ class MpvPlayerController(
                 }
             }
             MpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
+                val firstReady = !ready
                 ready = true
                 if (playWhenReady) {
                     MPVLib.setPropertyBoolean("pause", false)
                 }
                 listener.onReady()
+                if (firstReady) {
+                    logSubtitleTracks("READY")
+                }
             }
             MpvEvent.MPV_EVENT_SHUTDOWN -> Unit
             else -> Unit
@@ -330,7 +374,7 @@ class MpvPlayerController(
 
         MPVLib.setOptionString("profile", "fast")
         MPVLib.setOptionString("terminal", "no")
-        MPVLib.setOptionString("msg-level", "all=no")
+        MPVLib.setOptionString("msg-level", "all=no,cplayer=warn,ffmpeg=error,sub=info,demux=warn")
         MPVLib.setOptionString("vo", "null")
         MPVLib.setOptionString("gpu-context", "android")
         MPVLib.setOptionString("opengl-es", "yes")
@@ -364,14 +408,18 @@ class MpvPlayerController(
         MPVLib.setOptionString("demuxer", "+lavf")
         MPVLib.setOptionString("demuxer-mkv-probe-start-time", "no")
         MPVLib.setOptionString("demuxer-mkv-probe-video-duration", "no")
+        MPVLib.setOptionString("demuxer-mkv-subtitle-preroll", "yes")
+        MPVLib.setOptionString("demuxer-mkv-subtitle-preroll-secs", "60")
+        MPVLib.setOptionString("demuxer-mkv-subtitle-preroll-secs-index", "60")
         MPVLib.setOptionString("demuxer-lavf-probe-info", "nostreams")
         MPVLib.setOptionString("demuxer-lavf-probesize", "64KiB")
         MPVLib.setOptionString("demuxer-lavf-analyzeduration", "1")
         MPVLib.setOptionString("sub-ass", "yes")
         MPVLib.setOptionString("embeddedfonts", "yes")
-        MPVLib.setOptionString("sub-ass-vsfilter-aspect-compat", "yes")
+        MPVLib.setOptionString("sub-ass-use-video-data", "aspect-ratio")
         MPVLib.setOptionString("sub-scale-with-window", "yes")
         MPVLib.setOptionString("sub-use-margins", "no")
+        configureSubtitleFonts()
         MPVLib.setOptionString("ytdl", "no")
         applySubtitlePreferences()
     }
@@ -422,13 +470,112 @@ class MpvPlayerController(
         }
     }
 
-    private fun subtitleScale(size: String): String {
-        return when (size) {
-            PlayerPreferences.SUBTITLE_TEXT_SIZE_SMALL -> "0.85"
-            PlayerPreferences.SUBTITLE_TEXT_SIZE_LARGE -> "1.25"
-            PlayerPreferences.SUBTITLE_TEXT_SIZE_EXTRA_LARGE -> "1.5"
-            else -> "1.0"
+    private fun addSubtitleTrack(url: String, flags: String) {
+        MPVLib.command(arrayOf("sub-add", url, flags, "ASS"))
+    }
+
+    private fun configureSubtitleFonts() {
+        val fontsDir = appContext.filesDir.resolve("mpv-fonts").apply { mkdirs() }
+        val cacheDir = appContext.cacheDir.resolve("fontconfig").apply { mkdirs() }
+        val fallback = installFallbackSubtitleFont(fontsDir)
+        val fontsConf = appContext.filesDir.resolve("mpv/fonts.conf")
+        fontsConf.parentFile?.mkdirs()
+        fontsConf.writeText(
+            """
+            <?xml version="1.0"?>
+            <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+            <fontconfig>
+              <dir>/system/fonts</dir>
+              <dir>/product/fonts</dir>
+              <dir>${fontsDir.path}</dir>
+              <cachedir>${cacheDir.path}</cachedir>
+            </fontconfig>
+            """.trimIndent()
+        )
+        runCatching { Os.setenv("FONTCONFIG_FILE", fontsConf.absolutePath, true) }
+        MPVLib.setOptionString("sub-fonts-dir", fontsDir.path)
+        MPVLib.setOptionString("osd-fonts-dir", fontsDir.path)
+        val family = fallback?.family ?: "sans-serif"
+        MPVLib.setOptionString("sub-font", family)
+        MPVLib.setOptionString("sub-ass-force-style", "FontName=$family")
+        Log.i(
+            SUBTITLE_LOG_TAG,
+            "subtitle font family=$family file=${fallback?.file?.name ?: "none"}"
+        )
+    }
+
+    private fun installFallbackSubtitleFont(fontsDir: File): InstalledSubtitleFont? {
+        val candidates = listOf(
+            "Droid Sans Fallback" to listOf(
+                "/system/fonts/DroidSansFallback.ttf",
+                "/system/fonts/DroidSansFallbackFull.ttf"
+            ),
+            "Noto Sans CJK SC" to listOf(
+                "/system/fonts/NotoSansSC-Regular.otf",
+                "/system/fonts/NotoSansSC-Regular.ttf",
+                "/system/fonts/NotoSansCJKsc-Regular.otf",
+                "/system/fonts/NotoSansCJK-Regular.ttc",
+                "/product/fonts/NotoSansCJK-Regular.ttc"
+            ),
+            "MiSans" to listOf(
+                "/system/fonts/MiSans-Regular.ttf",
+                "/system/fonts/MiSansVF.ttf",
+                "/system/fonts/MiSans.ttf",
+                "/product/fonts/MiSansVF.ttf"
+            )
+        )
+        val match = candidates.firstNotNullOfOrNull { (family, paths) ->
+            paths.firstOrNull { path -> File(path).exists() }?.let { family to File(it) }
+        } ?: return null
+        val (family, source) = match
+        val target = File(fontsDir, source.name)
+        if (!target.exists()) {
+            val linked = runCatching {
+                Os.symlink(source.absolutePath, target.absolutePath)
+                true
+            }.getOrDefault(false)
+            if (!linked) {
+                return InstalledSubtitleFont(family, source)
+            }
         }
+        return InstalledSubtitleFont(family, if (target.exists()) target else source)
+    }
+
+    private data class InstalledSubtitleFont(
+        val family: String,
+        val file: File
+    )
+
+    private fun logSubtitleTracks(stage: String) {
+        val count = MPVLib.getPropertyInt("track-list/count") ?: 0
+        val tracks = buildList {
+            for (index in 0 until count) {
+                val type = MPVLib.getPropertyString("track-list/$index/type") ?: continue
+                if (type != "sub") continue
+                add(
+                    "id=${MPVLib.getPropertyString("track-list/$index/id")} " +
+                        "codec=${MPVLib.getPropertyString("track-list/$index/codec")} " +
+                        "lang=${MPVLib.getPropertyString("track-list/$index/lang")} " +
+                        "title=${MPVPlayer.redactPlaybackSecret(MPVLib.getPropertyString("track-list/$index/title"))} " +
+                        "selected=${MPVLib.getPropertyBoolean("track-list/$index/selected")} " +
+                        "external=${MPVLib.getPropertyBoolean("track-list/$index/external")}"
+                )
+            }
+        }
+        Log.i(
+            SUBTITLE_LOG_TAG,
+            "$stage sid=${MPVLib.getPropertyString("sid")} " +
+                "vis=${MPVLib.getPropertyString("sub-visibility")} " +
+                "override=${MPVLib.getPropertyString("sub-ass-override")} " +
+                "font=${MPVLib.getPropertyString("sub-font")} " +
+                "text=${MPVPlayer.redactPlaybackSecret(MPVLib.getPropertyString("sub-text")?.take(80))} " +
+                "tracks=$tracks"
+        )
+    }
+
+    private fun setMpv(name: String, value: String) {
+        MPVLib.setOptionString(name, value)
+        MPVLib.setPropertyString(name, value)
     }
 
     private fun mpvColor(color: String, opacityPercent: Int): String {
@@ -453,20 +600,20 @@ class MpvPlayerController(
     private fun applySubtitleEdge(edgeType: String) {
         when (edgeType) {
             PlayerPreferences.SUBTITLE_EDGE_TYPE_OUTLINE -> {
-                MPVLib.setOptionString("sub-border-size", "3")
-                MPVLib.setOptionString("sub-shadow-offset", "0")
+                setMpv("sub-border-size", "3")
+                setMpv("sub-shadow-offset", "0")
             }
             PlayerPreferences.SUBTITLE_EDGE_TYPE_DROP_SHADOW -> {
-                MPVLib.setOptionString("sub-border-size", "0")
-                MPVLib.setOptionString("sub-shadow-offset", "2")
+                setMpv("sub-border-size", "0")
+                setMpv("sub-shadow-offset", "2")
             }
             else -> {
-                MPVLib.setOptionString("sub-border-size", "0")
-                MPVLib.setOptionString("sub-shadow-offset", "0")
+                setMpv("sub-border-size", "2")
+                setMpv("sub-shadow-offset", "0")
             }
         }
-        MPVLib.setOptionString("sub-border-color", "#FF000000")
-        MPVLib.setOptionString("sub-shadow-color", "#CC000000")
+        setMpv("sub-border-color", "#FF000000")
+        setMpv("sub-shadow-color", "#CC000000")
     }
 
     private fun alphaHex(opacityPercent: Int): String {

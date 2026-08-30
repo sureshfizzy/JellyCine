@@ -280,6 +280,7 @@
     <string name="subtitle_settings_section_style">Style</string>
     <string name="subtitle_settings_section_position">Position</string>
     <string name="subtitle_settings_text_size">Text Size</string>
+    <string name="subtitle_settings_text_scale_summary">Fine-tune how large subtitles appear</string>
     <string name="subtitle_settings_text_color">Text Color</string>
     <string name="subtitle_settings_background_color">Background Color</string>
     <string name="subtitle_settings_edge_type">Edge Type</string>
@@ -298,8 +299,12 @@
     <string name="player_subtitle_add_local">Add local subtitles</string>
     <string name="player_subtitle_scale_position">Subtitle scale &amp; position</string>
     <string name="player_subtitle_time_offset">Subtitle time offset</string>
-    <string name="player_subtitle_scale">Scale</string>
-    <string name="player_subtitle_position">Position</string>
+    <string name="player_subtitle_scale">Subtitle scale</string>
+    <string name="player_subtitle_position">Subtitle position</string>
+    <string name="player_subtitle_scale_factor">%1$.2f×</string>
+    <string name="player_subtitle_position_value">%1$.2f</string>
+    <string name="player_subtitle_ass_compatible">ASS compatible</string>
+    <string name="player_subtitle_ass_compatible_summary">Keep ASS fonts, position, and effects. Scale still applies so text stays readable.</string>
     <string name="player_subtitle_delay_value">Offset: %.2fs</string>
     <string name="player_subtitle_delay_reset">Reset</string>
     <string name="player_subtitle_local_mpv_only">Local subtitles are available in MPV</string>

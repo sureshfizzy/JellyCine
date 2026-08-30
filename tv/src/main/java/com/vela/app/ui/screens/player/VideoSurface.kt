@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import androidx.media3.common.util.UnstableApi
 import kotlin.math.roundToInt
 
@@ -62,11 +63,12 @@ fun VideoSurface(
                 playerView.resizeMode = resizeMode
 
                 playerView.subtitleView?.apply {
+                    val assCompatible = playerPreferences.isSubtitleAssCompatible()
                     setApplyEmbeddedStyles(true)
-                    setApplyEmbeddedFontSizes(false)
+                    setApplyEmbeddedFontSizes(assCompatible)
 
                     setFractionalTextSize(
-                        subtitleTextSizeFraction(playerPreferences.getSubtitleTextSize())
+                        PlayerPreferences.exoTextSizeFraction(playerPreferences.getSubtitleScale())
                     )
                     setStyle(
                         CaptionStyleCompat(
@@ -81,19 +83,29 @@ fun VideoSurface(
                             null
                         )
                     )
-                    setBottomPaddingFraction(
-                        playerPreferences
-                            .getSubtitleBottomEdgePositionPercent()
-                            .coerceIn(0, 50) / 100f
-                    )
+                    if (assCompatible) {
+                        setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
+                        if (paddingTop != 0) {
+                            setPadding(paddingLeft, 0, paddingRight, paddingBottom)
+                        }
+                    } else {
+                        setBottomPaddingFraction(
+                            playerPreferences
+                                .getSubtitleBottomEdgePositionPercent()
+                                .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
+                        )
 
-                    if (playerView.height > 0) {
-                        val topPaddingPx = (
-                            playerView.height *
-                                (playerPreferences.getSubtitleTopEdgePositionPercent().coerceIn(0, 50) / 100f)
-                            ).roundToInt()
-                        if (paddingTop != topPaddingPx) {
-                            setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+                        if (playerView.height > 0) {
+                            val topPaddingPx = (
+                                playerView.height *
+                                    (
+                                        playerPreferences.getSubtitleTopEdgePositionPercent()
+                                            .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
+                                        )
+                                ).roundToInt()
+                            if (paddingTop != topPaddingPx) {
+                                setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+                            }
                         }
                     }
                 }
@@ -114,15 +126,6 @@ fun VideoSurface(
                 .clip(RoundedCornerShape(0.dp))
         )
 
-    }
-}
-
-private fun subtitleTextSizeFraction(size: String): Float {
-    return when (size) {
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_SMALL -> 0.04f
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_LARGE -> 0.065f
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_EXTRA_LARGE -> 0.08f
-        else -> 0.0533f // Normal
     }
 }
 

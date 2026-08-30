@@ -1067,15 +1067,16 @@ private fun PlayerOverflowMenu(
 ) {
     PlayerGlass(
         modifier = modifier
-            .widthIn(min = 176.dp)
+            .widthIn(min = 148.dp, max = 188.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {}
             ),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        contentAlignment = Alignment.TopStart
     ) {
-        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+        Column(modifier = Modifier.padding(vertical = 4.dp)) {
             PlayerOverflowMenuItem(
                 text = stringResource(R.string.player_chapters),
                 onClick = {

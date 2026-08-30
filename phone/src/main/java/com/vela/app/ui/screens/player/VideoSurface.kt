@@ -22,6 +22,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import androidx.media3.common.util.UnstableApi
 import com.vela.app.player.mpv.MpvPlayerController
 import kotlin.math.roundToInt
@@ -48,6 +49,7 @@ fun VideoSurface(
     onZoomChange: (Boolean) -> Unit = {},
     onSurfaceReady: () -> Unit = {},
     snapTransform: Boolean = false,
+    subtitleAppearanceEpoch: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -98,6 +100,7 @@ fun VideoSurface(
                 onZoomChange = onZoomChange,
                 onTogglePlayPause = onTogglePlayPause,
                 onSurfaceReady = onSurfaceReady,
+                subtitleAppearanceEpoch = subtitleAppearanceEpoch,
                 modifier = surfaceModifier
             )
         } else if (player != null) {
@@ -115,6 +118,7 @@ fun VideoSurface(
                 getCurrentBrightnessLevel = getCurrentBrightnessLevel,
                 onZoomChange = onZoomChange,
                 onTogglePlayPause = onTogglePlayPause,
+                subtitleAppearanceEpoch = subtitleAppearanceEpoch,
                 modifier = surfaceModifier
             )
         }
@@ -138,6 +142,7 @@ private fun ExoPlayerView(
     getCurrentBrightnessLevel: () -> Float,
     onZoomChange: (Boolean) -> Unit,
     onTogglePlayPause: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") subtitleAppearanceEpoch: Int,
     modifier: Modifier
 ) {
     val context = LocalContext.current
@@ -182,9 +187,12 @@ private fun ExoPlayerView(
 @UnstableApi
 private fun PlayerView.applySubtitlePreferences(playerPreferences: PlayerPreferences) {
     subtitleView?.apply {
+        val assCompatible = playerPreferences.isSubtitleAssCompatible()
         setApplyEmbeddedStyles(true)
-        setApplyEmbeddedFontSizes(false)
-        setFractionalTextSize(subtitleTextSizeFraction(playerPreferences.getSubtitleTextSize()))
+        setApplyEmbeddedFontSizes(assCompatible)
+        setFractionalTextSize(
+            PlayerPreferences.exoTextSizeFraction(playerPreferences.getSubtitleScale())
+        )
         setStyle(
             CaptionStyleCompat(
                 subtitleTextColorArgb(
@@ -198,27 +206,29 @@ private fun PlayerView.applySubtitlePreferences(playerPreferences: PlayerPrefere
                 null
             )
         )
-        setBottomPaddingFraction(
-            playerPreferences.getSubtitlePosition().coerceIn(0, 50) / 100f
-        )
+        if (assCompatible) {
+            setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
+            if (paddingTop != 0) {
+                setPadding(paddingLeft, 0, paddingRight, paddingBottom)
+            }
+        } else {
+            setBottomPaddingFraction(
+                playerPreferences.getSubtitlePosition()
+                    .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
+            )
 
-        if (height > 0) {
-            val topPaddingPx = (
-                height * (playerPreferences.getSubtitleTopEdgePositionPercent().coerceIn(0, 50) / 100f)
-                ).roundToInt()
-            if (paddingTop != topPaddingPx) {
-                setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+            if (height > 0) {
+                val topPaddingPx = (
+                    height * (
+                        playerPreferences.getSubtitleTopEdgePositionPercent()
+                            .coerceIn(0, PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT) / 100f
+                        )
+                    ).roundToInt()
+                if (paddingTop != topPaddingPx) {
+                    setPadding(paddingLeft, topPaddingPx, paddingRight, paddingBottom)
+                }
             }
         }
-    }
-}
-
-private fun subtitleTextSizeFraction(size: String): Float {
-    return when (size) {
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_SMALL -> 0.04f
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_LARGE -> 0.065f
-        PlayerPreferences.SUBTITLE_TEXT_SIZE_EXTRA_LARGE -> 0.08f
-        else -> 0.0533f // Normal
     }
 }
 

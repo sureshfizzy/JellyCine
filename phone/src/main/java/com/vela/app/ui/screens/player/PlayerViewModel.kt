@@ -94,6 +94,8 @@ class PlayerViewModel @Inject constructor(
         private set
     var mpvPlayer: MpvPlayerController? by mutableStateOf(null)
         private set
+    var subtitleAppearanceEpoch by mutableIntStateOf(0)
+        private set
     var scrubPreviewFrame: Bitmap? by mutableStateOf(null)
         private set
     private var activePlayerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE
@@ -498,10 +500,11 @@ class PlayerViewModel @Inject constructor(
                         fallback = sessionPlayMethod
                     )
 
-                    val activeSubtitleStreamIndex = (
-                        activePreferredSubtitleStreamIndex
-                            ?: primaryMediaSource?.defaultSubtitleStreamIndex
-                        )?.takeIf { it >= 0 }
+                    val activeSubtitleStreamIndex = MPVPlayer.resolvedSubtitleStreamIndex(
+                        preferredIndex = activePreferredSubtitleStreamIndex,
+                        mediaSourceDefaultIndex = primaryMediaSource?.defaultSubtitleStreamIndex,
+                        mediaStreams = apiMediaStreams
+                    )?.takeIf { it >= 0 }
                     
                     val activeSubtitleStream = apiMediaStreams
                         ?.firstOrNull { stream ->
@@ -548,18 +551,49 @@ class PlayerViewModel @Inject constructor(
                     itemId = mediaId,
                     mediaSourceId = sessionMediaSourceId
                 )
+                if (isMpvPlayback()) {
+                    mpvExternalSubtitleUrls = withContext(Dispatchers.IO) {
+                        MPVPlayer.materializeSubtitleFiles(
+                            cacheDir = context.cacheDir,
+                            urls = mpvExternalSubtitleUrls
+                        )
+                    }
+                }
 
                 if (isMpvPlayback()) {
                     val selectedAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex
                         ?: defaultAudioStreamIndex
-                    val selectedSubtitleStreamIndex = _preferredStreamIndexes.value.subtitleStreamIndex
-                        ?: defaultSubtitleStreamIndex
+                    val selectedSubtitleStreamIndex = MPVPlayer.resolvedSubtitleStreamIndex(
+                        preferredIndex = _preferredStreamIndexes.value.subtitleStreamIndex,
+                        mediaSourceDefaultIndex = defaultSubtitleStreamIndex,
+                        mediaStreams = apiMediaStreams
+                    )
                     mpvPlayer = createMpvPlayer(context).also { player ->
                         val strmHardwareDecoding = MPVPlayer.hardwareDecodingFor(
                             mediaSource = primaryMediaSource,
                             userPreference = playerPreferences.getMpvHardwareDecoding()
                         )
                         player.setHardwareDecoding(strmHardwareDecoding)
+                        Log.i(
+                            "JellyCine-Sub",
+                            "mpv subtitle plan index=$selectedSubtitleStreamIndex " +
+                                "sid=${MPVPlayer.subtitleTrackId(apiMediaStreams, selectedSubtitleStreamIndex)} " +
+                                "url=${
+                                    MPVPlayer.redactPlaybackSecret(
+                                        selectedSubtitleStreamIndex?.let(mpvExternalSubtitleUrls::get)
+                                    )
+                                } " +
+                                "streams=${
+                                    apiMediaStreams.orEmpty()
+                                        .filter { it.type.equals("Subtitle", ignoreCase = true) }
+                                        .joinToString { stream ->
+                                            "#${stream.index} codec=${stream.codec} " +
+                                                "ext=${stream.isExternal} method=${stream.deliveryMethod} " +
+                                                "text=${stream.isTextSubtitleStream} " +
+                                                "supportExt=${stream.supportsExternalStream}"
+                                        }
+                                }"
+                        )
                         player.load(
                             url = mediaItem.localConfiguration?.uri?.toString().orEmpty(),
                             subtitleUrls = mpvExternalSubtitleUrls.values.toList(),
@@ -1711,6 +1745,7 @@ class PlayerViewModel @Inject constructor(
 
     fun refreshSubtitleAppearance() {
         mpvPlayer?.applySubtitlePreferences()
+        subtitleAppearanceEpoch += 1
     }
 
     fun addLocalSubtitle(uri: android.net.Uri) {

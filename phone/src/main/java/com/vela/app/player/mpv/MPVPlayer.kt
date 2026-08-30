@@ -8,9 +8,23 @@ import com.vela.player.core.AudioTrackInfo
 import com.vela.player.core.PlayerTrackState
 import com.vela.player.core.SubtitleTrackInfo
 import com.vela.player.preferences.PlayerPreferences
+import java.io.File
+import java.net.HttpURLConnection
 import java.net.URI
 
 object MPVPlayer {
+    private val TEXT_SUBTITLE_CODECS = setOf(
+        "ass",
+        "ssa",
+        "srt",
+        "subrip",
+        "vtt",
+        "webvtt",
+        "sub",
+        "microdvd",
+        "sami",
+        "text"
+    )
     fun hardwareDecodingFor(
         mediaSource: MediaSource?,
         userPreference: String
@@ -136,8 +150,7 @@ object MPVPlayer {
 
         return mediaStreams
             .asSequence()
-            .filter { it.type.equals("Subtitle", ignoreCase = true) && it.index != null }
-            .filter { it.deliveryMethod.equals("External", ignoreCase = true) || it.isExternal == true }
+            .filter(::shouldFetchExternalSubtitle)
             .mapNotNull { stream ->
                 val streamIndex = stream.index ?: return@mapNotNull null
                 var deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() }
@@ -174,6 +187,107 @@ object MPVPlayer {
                 streamIndex to request.authorizeRelatedUrl(fullUrl)
             }
             .toMap()
+    }
+
+    fun materializeSubtitleFiles(
+        cacheDir: File,
+        urls: Map<Int, String>,
+        download: (String, File) -> Boolean = ::downloadHttpSubtitle
+    ): Map<Int, String> {
+        if (urls.isEmpty()) return emptyMap()
+        val subtitleDir = cacheDir.resolve("mpv-subs").apply { mkdirs() }
+        return urls.mapValues { (index, url) ->
+            if (!url.startsWith("http", ignoreCase = true)) {
+                return@mapValues url
+            }
+            val target = subtitleDir.resolve("$index.${subtitleFileExtension(url)}")
+            if (download(url, target) && target.length() > 0L) {
+                target.absolutePath
+            } else {
+                url
+            }
+        }
+    }
+
+    fun shouldFetchExternalSubtitle(stream: MediaStream): Boolean {
+        if (!stream.type.equals("Subtitle", ignoreCase = true) || stream.index == null) {
+            return false
+        }
+        if (stream.isExternal == true) return true
+        if (stream.deliveryMethod.equals("External", ignoreCase = true)) return true
+        if (!stream.deliveryUrl.isNullOrBlank()) return true
+        return stream.supportsExternalStream != false && isTextSubtitle(stream)
+    }
+
+    fun resolvedSubtitleStreamIndex(
+        preferredIndex: Int?,
+        mediaSourceDefaultIndex: Int?,
+        mediaStreams: List<MediaStream>?
+    ): Int? {
+        if (preferredIndex != null) {
+            return preferredIndex
+        }
+        mediaSourceDefaultIndex?.takeIf { it >= 0 }?.let { return it }
+        return mediaStreams
+            .orEmpty()
+            .filter { it.type.equals("Subtitle", ignoreCase = true) }
+            .sortedBy { it.index ?: Int.MAX_VALUE }
+            .firstOrNull { it.isDefault == true }
+            ?.index
+    }
+
+    fun isTextSubtitle(stream: MediaStream): Boolean {
+        if (stream.isTextSubtitleStream == true) return true
+        val codec = stream.codec?.lowercase().orEmpty()
+        return codec in TEXT_SUBTITLE_CODECS
+    }
+
+    fun redactPlaybackSecret(value: String?): String {
+        if (value.isNullOrBlank()) return "none"
+        return value.replace(
+            Regex("([?&](?:api_key|ApiKey|access_token)=)[^&\\s]+", RegexOption.IGNORE_CASE),
+            "$1***"
+        )
+    }
+
+    private fun subtitleFileExtension(url: String): String {
+        val path = url.substringBefore('?').lowercase()
+        return when {
+            path.endsWith(".ssa") -> "ssa"
+            path.endsWith(".srt") -> "srt"
+            path.endsWith(".vtt") || path.endsWith(".webvtt") -> "vtt"
+            else -> "ass"
+        }
+    }
+
+    private fun downloadHttpSubtitle(url: String, target: File): Boolean {
+        return runCatching {
+            val connection = URI.create(url).toURL().openConnection() as HttpURLConnection
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 20_000
+            connection.instanceFollowRedirects = true
+            connection.useCaches = false
+            try {
+                if (connection.responseCode !in 200..299) return false
+                connection.inputStream.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                }
+                val header = target.inputStream().use { input ->
+                    val buffer = ByteArray(64)
+                    val read = input.read(buffer)
+                    if (read <= 0) "" else String(buffer, 0, read, Charsets.UTF_8)
+                }
+                if (header.contains("<html", ignoreCase = true) ||
+                    header.contains("<!doctype", ignoreCase = true)
+                ) {
+                    target.delete()
+                    return false
+                }
+                true
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrDefault(false)
     }
 
     private fun String.toGuid(): String {

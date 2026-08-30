@@ -548,6 +548,7 @@ fun PlayerScreen(
             },
             onSurfaceReady = { hideVideoForRotation = false },
             snapTransform = hideVideoForRotation,
+            subtitleAppearanceEpoch = viewModel.subtitleAppearanceEpoch,
             modifier = videoSurfaceModifier
         )
         }
@@ -563,7 +564,11 @@ fun PlayerScreen(
         key(isPortraitPlayback) {
         PlayerGestureLayer(
             audioManager = audioManager,
-            enabled = !playerState.isLocked && !inPip && !showPlaybackInfoSheet,
+            enabled = !playerState.isLocked &&
+                !inPip &&
+                !showPlaybackInfoSheet &&
+                !showSubtitleStyleSheet &&
+                !showSubtitleDelaySheet,
             onToggleControls = {
                 resetAutoHideTimer()
                 uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)

@@ -30,6 +30,7 @@ fun MpvVideoSurface(
     onZoomChange: (Boolean) -> Unit,
     onTogglePlayPause: () -> Unit,
     onSurfaceReady: () -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") subtitleAppearanceEpoch: Int = 0,
     modifier: Modifier
 ) {
     AndroidView(

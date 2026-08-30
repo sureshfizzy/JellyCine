@@ -52,6 +52,7 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SKIP_INTRO_ENABLED = "skip_intro_enabled"
         private const val KEY_CHAPTER_MARKERS_ENABLED = "chapter_markers_enabled"
         private const val KEY_SUBTITLE_TEXT_SIZE = "subtitle_text_size"
+        private const val KEY_SUBTITLE_SCALE = "subtitle_scale"
         private const val KEY_SUBTITLE_TEXT_COLOR = "subtitle_text_color"
         private const val KEY_SUBTITLE_BACKGROUND_COLOR = "subtitle_background_color"
         private const val KEY_SUBTITLE_EDGE_TYPE = "subtitle_edge_type"
@@ -59,6 +60,8 @@ class PlayerPreferences(context: Context) {
         private const val KEY_SUBTITLE_BOTTOM_EDGE_PERCENT = "subtitle_bottom_edge_percent"
         private const val KEY_SUBTITLE_TOP_EDGE_PERCENT = "subtitle_top_edge_percent"
         private const val KEY_SUBTITLE_DELAY_MS = "subtitle_delay_ms"
+        private const val KEY_SUBTITLE_ASS_COMPATIBLE = "subtitle_ass_compatible"
+        private const val KEY_SUBTITLE_SCALE_DEFAULT_1_5 = "subtitle_scale_default_1_5"
         private const val KEY_STREAMING_QUALITY = "streaming_quality"
         private const val KEY_AUDIO_TRANSCODE_MODE = "audio_transcode_mode"
         private const val KEY_AUDIO_STREAM_INDEX_PREFIX = "audio_stream_index_"
@@ -113,12 +116,16 @@ class PlayerPreferences(context: Context) {
         )
 
         const val DEFAULT_SUBTITLE_TEXT_SIZE = SUBTITLE_TEXT_SIZE_NORMAL
+        const val MIN_SUBTITLE_SCALE = 0.5f
+        const val MAX_SUBTITLE_SCALE = 5.0f
+        const val DEFAULT_SUBTITLE_SCALE = 1.5f
         const val DEFAULT_SUBTITLE_TEXT_COLOR = SUBTITLE_TEXT_COLOR_WHITE
         const val DEFAULT_SUBTITLE_BACKGROUND_COLOR = SUBTITLE_BACKGROUND_TRANSPARENT
         const val DEFAULT_SUBTITLE_EDGE_TYPE = SUBTITLE_EDGE_TYPE_NONE
         const val DEFAULT_SUBTITLE_TEXT_OPACITY_PERCENT = 100
         const val DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT = 10
         const val DEFAULT_SUBTITLE_TOP_EDGE_PERCENT = 5
+        const val DEFAULT_SUBTITLE_ASS_COMPATIBLE = true
         const val MIN_SUBTITLE_DELAY_MS = -10_000
         const val MAX_SUBTITLE_DELAY_MS = 10_000
         const val SUBTITLE_DELAY_STEP_MS = 100
@@ -277,8 +284,41 @@ class PlayerPreferences(context: Context) {
             }
         }
 
-        private const val MAX_SUBTITLE_EDGE_PERCENT = 50
+        const val MAX_SUBTITLE_EDGE_PERCENT = 100
         private const val MAX_SUBTITLE_OPACITY_PERCENT = 100
+        private const val EXO_SUBTITLE_BASE_FRACTION = 0.0533f
+
+        fun scaleForTextSize(size: String): Float {
+            return when (size) {
+                SUBTITLE_TEXT_SIZE_SMALL -> 0.85f
+                SUBTITLE_TEXT_SIZE_NORMAL -> 1.0f
+                SUBTITLE_TEXT_SIZE_LARGE -> 1.25f
+                SUBTITLE_TEXT_SIZE_EXTRA_LARGE -> 1.5f
+                else -> DEFAULT_SUBTITLE_SCALE
+            }
+        }
+
+        fun textSizeForScale(scale: Float): String {
+            return when {
+                scale < 0.925f -> SUBTITLE_TEXT_SIZE_SMALL
+                scale < 1.125f -> SUBTITLE_TEXT_SIZE_NORMAL
+                scale < 1.375f -> SUBTITLE_TEXT_SIZE_LARGE
+                else -> SUBTITLE_TEXT_SIZE_EXTRA_LARGE
+            }
+        }
+
+        fun mpvSubPosFromBottomPercent(percent: Int): Int {
+            return (100 - percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT)).coerceIn(0, 150)
+        }
+
+        fun exoTextSizeFraction(scale: Float): Float {
+            return (EXO_SUBTITLE_BASE_FRACTION * scale.coerceIn(MIN_SUBTITLE_SCALE, MAX_SUBTITLE_SCALE))
+                .coerceIn(0.02f, 0.25f)
+        }
+
+        fun mpvAssOverride(compatible: Boolean): String {
+            return if (compatible) "scale" else "force"
+        }
     }
     
     /**
@@ -795,13 +835,59 @@ class PlayerPreferences(context: Context) {
     }
 
     fun getSubtitleTextSize(): String {
+        if (prefs.contains(KEY_SUBTITLE_SCALE)) {
+            return textSizeForScale(getSubtitleScale())
+        }
         val saved = prefs.getString(KEY_SUBTITLE_TEXT_SIZE, DEFAULT_SUBTITLE_TEXT_SIZE)
         return if (saved in SUBTITLE_TEXT_SIZE_OPTIONS) saved!! else DEFAULT_SUBTITLE_TEXT_SIZE
     }
 
     fun setSubtitleTextSize(size: String) {
         val value = if (size in SUBTITLE_TEXT_SIZE_OPTIONS) size else DEFAULT_SUBTITLE_TEXT_SIZE
-        prefs.edit().putString(KEY_SUBTITLE_TEXT_SIZE, value).apply()
+        prefs.edit()
+            .putString(KEY_SUBTITLE_TEXT_SIZE, value)
+            .putFloat(KEY_SUBTITLE_SCALE, scaleForTextSize(value))
+            .apply()
+    }
+
+    fun getSubtitleScale(): Float {
+        bumpLegacyDefaultSubtitleScale()
+        if (prefs.contains(KEY_SUBTITLE_SCALE)) {
+            return prefs.getFloat(KEY_SUBTITLE_SCALE, DEFAULT_SUBTITLE_SCALE)
+                .coerceIn(MIN_SUBTITLE_SCALE, MAX_SUBTITLE_SCALE)
+        }
+        return scaleForTextSize(getSubtitleTextSize())
+    }
+
+    private fun bumpLegacyDefaultSubtitleScale() {
+        if (prefs.getBoolean(KEY_SUBTITLE_SCALE_DEFAULT_1_5, false)) return
+        val editor = prefs.edit().putBoolean(KEY_SUBTITLE_SCALE_DEFAULT_1_5, true)
+        val storedScale = if (prefs.contains(KEY_SUBTITLE_SCALE)) {
+            prefs.getFloat(KEY_SUBTITLE_SCALE, 1.0f)
+        } else {
+            null
+        }
+        if (storedScale == null || storedScale == 1.0f) {
+            editor.putFloat(KEY_SUBTITLE_SCALE, DEFAULT_SUBTITLE_SCALE)
+            editor.putString(KEY_SUBTITLE_TEXT_SIZE, textSizeForScale(DEFAULT_SUBTITLE_SCALE))
+        }
+        editor.apply()
+    }
+
+    fun setSubtitleScale(scale: Float) {
+        val value = scale.coerceIn(MIN_SUBTITLE_SCALE, MAX_SUBTITLE_SCALE)
+        prefs.edit()
+            .putFloat(KEY_SUBTITLE_SCALE, value)
+            .putString(KEY_SUBTITLE_TEXT_SIZE, textSizeForScale(value))
+            .apply()
+    }
+
+    fun isSubtitleAssCompatible(): Boolean {
+        return prefs.getBoolean(KEY_SUBTITLE_ASS_COMPATIBLE, DEFAULT_SUBTITLE_ASS_COMPATIBLE)
+    }
+
+    fun setSubtitleAssCompatible(compatible: Boolean) {
+        prefs.edit().putBoolean(KEY_SUBTITLE_ASS_COMPATIBLE, compatible).apply()
     }
 
     fun getSubtitleTextColor(): String {

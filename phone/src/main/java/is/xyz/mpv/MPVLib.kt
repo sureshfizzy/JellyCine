@@ -2,6 +2,7 @@ package `is`.xyz.mpv
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import android.view.Surface
 import androidx.annotation.Keep
 
@@ -44,7 +45,15 @@ object MPVLib {
 
     @JvmStatic
     fun logMessage(prefix: String, level: Int, text: String) {
-        Unit
+        if (level > 40) return
+        val tag = "mpv/$prefix"
+        val message = text.trim()
+        if (message.isEmpty()) return
+        when {
+            level <= 20 -> Log.e(tag, message)
+            level <= 30 -> Log.w(tag, message)
+            else -> Log.i(tag, message)
+        }
     }
 
     private val observers = mutableListOf<EventObserver>()

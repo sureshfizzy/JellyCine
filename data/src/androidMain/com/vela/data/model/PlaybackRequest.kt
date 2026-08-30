@@ -15,12 +15,25 @@ data class PlaybackRequest(
     val requestHeaders: Map<String, String> = emptyMap()
 ) {
     fun authorizeRelatedUrl(relatedUrl: String): String {
-        val apiKey = url.apiKey() ?: return relatedUrl
         if (relatedUrl.apiKey() != null) return relatedUrl
+        val apiKey = url.apiKey() ?: tokenFromHeaders() ?: return relatedUrl
         return Uri.parse(relatedUrl).buildUpon()
             .appendQueryParameter(API_KEY_QUERY_PARAM, apiKey)
             .build()
             .toString()
+    }
+
+    private fun tokenFromHeaders(): String? {
+        val authHeader = requestHeaders["Authorization"]
+            ?: requestHeaders["X-Emby-Authorization"]
+            ?: return null
+        return when {
+            authHeader.contains("Token=\"", ignoreCase = true) ->
+                authHeader.substringAfter("Token=\"").substringBefore("\"")
+            authHeader.contains("Token ", ignoreCase = true) ->
+                authHeader.substringAfter("Token ").trim()
+            else -> null
+        }?.takeIf { it.isNotBlank() }
     }
 }
 

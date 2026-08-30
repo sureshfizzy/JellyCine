@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.DisplaySettings
@@ -64,6 +65,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -722,7 +724,12 @@ fun SubtitleSettingsScreen(
     val subtitleAccent = Color(0xFF6366F1)
     val positionAccent = Color(0xFF0EA5E9)
 
-    var textSize by remember { mutableStateOf(playerPreferences.getSubtitleTextSize()) }
+    var textScaleHundredths by remember {
+        mutableIntStateOf((playerPreferences.getSubtitleScale() * 100f).roundToInt())
+    }
+    var assCompatible by remember {
+        mutableStateOf(playerPreferences.isSubtitleAssCompatible())
+    }
     var textColor by remember { mutableStateOf(playerPreferences.getSubtitleTextColor()) }
     var backgroundColor by remember { mutableStateOf(playerPreferences.getSubtitleBackgroundColor()) }
     var edgeType by remember { mutableStateOf(playerPreferences.getSubtitleEdgeType()) }
@@ -750,22 +757,39 @@ fun SubtitleSettingsScreen(
             item { SectionLabel(stringResource(R.string.subtitle_settings_section_style)) }
             item {
                 SettingsSection {
-                    SelectionDialogSettingsItem(
-                        icon = Icons.Rounded.Tune,
-                        title = stringResource(R.string.subtitle_settings_text_size),
-                        subtitle = textSize,
-                        selectedValue = textSize,
-                        options = listOf(
-                            SelectionOption("Small", "Small", "Compact text, more screen space"),
-                            SelectionOption("Normal", "Normal", "Standard readable size", isDefault = true),
-                            SelectionOption("Large", "Large", "Bigger text, easier to read"),
-                            SelectionOption("Extra Large", "Extra Large", "Maximum readability")
-                        ),
-                        onOptionSelected = { selected ->
-                            textSize = selected
-                            playerPreferences.setSubtitleTextSize(selected)
+                    SwitchSettingsItem(
+                        icon = Icons.Rounded.ClosedCaption,
+                        title = stringResource(R.string.player_subtitle_ass_compatible),
+                        subtitle = stringResource(R.string.player_subtitle_ass_compatible_summary),
+                        checked = assCompatible,
+                        onCheckedChange = { enabled ->
+                            assCompatible = enabled
+                            playerPreferences.setSubtitleAssCompatible(enabled)
                         },
                         accentColor = subtitleAccent
+                    )
+
+                    SettingsDivider()
+                    ValueSliderSettingsItem(
+                        icon = Icons.Rounded.Tune,
+                        title = stringResource(R.string.player_subtitle_scale),
+                        subtitle = stringResource(R.string.subtitle_settings_text_scale_summary),
+                        value = textScaleHundredths,
+                        defaultValue = (PlayerPreferences.DEFAULT_SUBTITLE_SCALE * 100f).roundToInt(),
+                        minValue = (PlayerPreferences.MIN_SUBTITLE_SCALE * 100f).roundToInt(),
+                        maxValue = (PlayerPreferences.MAX_SUBTITLE_SCALE * 100f).roundToInt(),
+                        stepSize = 5,
+                        onValueChanged = { hundredths ->
+                            textScaleHundredths = hundredths
+                            playerPreferences.setSubtitleScale(hundredths / 100f)
+                        },
+                        accentColor = subtitleAccent,
+                        valueLabel = { current ->
+                            stringResource(R.string.player_subtitle_scale_factor, current / 100f)
+                        },
+                        defaultLabel = { current ->
+                            stringResource(R.string.player_subtitle_scale_factor, current / 100f)
+                        }
                     )
 
                     SettingsDivider()
@@ -852,6 +876,7 @@ fun SubtitleSettingsScreen(
                         subtitle = stringResource(R.string.subtitle_settings_bottom_edge_position_summary),
                         value = bottomEdgePercent,
                         defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_BOTTOM_EDGE_PERCENT,
+                        maxValue = PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT,
                         onValueChanged = { updated ->
                             bottomEdgePercent = updated
                             playerPreferences.setSubtitleBottomEdgePositionPercent(updated)
@@ -866,6 +891,7 @@ fun SubtitleSettingsScreen(
                         subtitle = stringResource(R.string.subtitle_settings_top_edge_position_summary),
                         value = topEdgePercent,
                         defaultValue = PlayerPreferences.DEFAULT_SUBTITLE_TOP_EDGE_PERCENT,
+                        maxValue = PlayerPreferences.MAX_SUBTITLE_EDGE_PERCENT,
                         onValueChanged = { updated ->
                             topEdgePercent = updated
                             playerPreferences.setSubtitleTopEdgePositionPercent(updated)
