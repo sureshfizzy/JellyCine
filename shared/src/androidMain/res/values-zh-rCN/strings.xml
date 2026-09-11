@@ -600,4 +600,9 @@
     <string name="screen_time_afternoon">下午</string>
     <string name="screen_time_evening">晚上</string>
     <string name="screen_time_night">晚上</string>
+    <string name="interface_theme_music">主题音乐</string>
+    <string name="interface_theme_music_subtitle">在浏览详细信息的同时播放主题曲。</string>
+    <string name="interface_theme_music_no">没有</string>
+    <string name="interface_theme_music_once">是（一次）</string>
+    <string name="interface_theme_music_endless">无尽的</string>
 </resources>
