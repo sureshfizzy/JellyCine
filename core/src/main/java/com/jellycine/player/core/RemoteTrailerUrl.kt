@@ -13,9 +13,15 @@ import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 object RemoteTrailerUrl {
+    private const val AUDIO_CACHE_TTL_MS = 30 * 60 * 1000L
+    private val audioUrlCache = ConcurrentHashMap<String, CachedAudio>()
+
+    private data class CachedAudio(val url: String, val timestampMs: Long)
+
     @Volatile
     private var extractorInitialized = false
 
@@ -25,7 +31,7 @@ object RemoteTrailerUrl {
             throw IllegalArgumentException("Remote trailer URL is empty")
         }
 
-        ensureExtractorInitialized()
+        initExtractor()
         val service = runCatching { NewPipe.getServiceByUrl(trimmedUrl) }.getOrNull()
             ?: throw IllegalStateException("Unsupported remote trailer URL")
 
@@ -42,8 +48,39 @@ object RemoteTrailerUrl {
             ?: throw IllegalStateException("Remote trailer does not expose a playable stream")
     }
 
+    suspend fun getAudioUrl(url: String): String? = withContext(Dispatchers.IO) {
+        val trimmedUrl = url.trim()
+        if (trimmedUrl.isBlank()) return@withContext null
+
+        audioUrlCache[trimmedUrl]?.let { cached ->
+            if (System.currentTimeMillis() - cached.timestampMs < AUDIO_CACHE_TTL_MS) {
+                return@withContext cached.url
+            }
+            audioUrlCache.remove(trimmedUrl)
+        }
+
+        initExtractor()
+        val service = runCatching { NewPipe.getServiceByUrl(trimmedUrl) }.getOrNull()
+            ?: return@withContext null
+        val audioStreams = runCatching {
+            service.getStreamExtractor(trimmedUrl).apply { fetchPage() }.audioStreams
+        }.getOrNull() ?: return@withContext null
+
+        val audioUrl = audioStreams
+            .orEmpty()
+            .filter { stream -> stream.isUrl() && !stream.getUrl().isNullOrBlank() }
+            .maxWithOrNull(compareBy<AudioStream> { if (it.isAacAudio()) 1 else 0 }
+                .thenBy { maxOf(it.getAverageBitrate(), it.getBitrate()).coerceAtLeast(0) })
+            ?.getUrl()
+            ?.takeIf(String::isNotBlank)
+        if (audioUrl != null) {
+            audioUrlCache[trimmedUrl] = CachedAudio(audioUrl, System.currentTimeMillis())
+        }
+        audioUrl
+    }
+
     @Synchronized
-    private fun ensureExtractorInitialized() {
+    private fun initExtractor() {
         if (extractorInitialized) return
         NewPipe.init(OkHttpExtractorDownloader())
         extractorInitialized = true

@@ -68,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import com.jellycine.player.audio.ThemeMusicController
+import com.jellycine.player.core.RemoteTrailerUrl
 import com.jellycine.shared.preferences.Preferences
 
 internal val heroOverlayGradient = arrayOf(
@@ -116,6 +117,7 @@ fun DetailScreenContainer(
     val themeMusicMode by interfacePreferences.themeMusicMode()
         .collectAsState(initial = interfacePreferences.getThemeMusicMode())
     val themeMusicController = remember { ThemeMusicController(context) }
+    var playingThemeUrls by remember { mutableStateOf<List<String>?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
     var isDetailLifecycleActive by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
@@ -161,6 +163,7 @@ fun DetailScreenContainer(
                 Lifecycle.Event.ON_STOP -> {
                     isDetailLifecycleActive = false
                     themeMusicController.stop()
+                    playingThemeUrls = null
                 }
                 else -> Unit
             }
@@ -172,11 +175,7 @@ fun DetailScreenContainer(
         }
     }
 
-    val activeThemeItemId = when (currentScreen) {
-        "season" -> seasonDetailData?.seasonId
-        "episode" -> episodeItem?.id
-        else -> item?.id
-    }
+    val activeThemeItemId = item?.let { it.seriesId?.takeIf(String::isNotBlank) ?: it.id }
     val themePlaybackBlocked = showPlayer ||
         !remoteTrailerUrl.isNullOrBlank() || castingDisplay ||
         castPlaybackState.isCastingMedia
@@ -188,15 +187,42 @@ fun DetailScreenContainer(
         themePlaybackBlocked,
         isDetailLifecycleActive
     ) {
-        themeMusicController.stop()
-        val themeItemId = activeThemeItemId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        val themeItemId = activeThemeItemId?.takeIf(String::isNotBlank)
         if (
-            themeMusicMode == Preferences.THEME_MUSIC_NO || themePlaybackBlocked ||
-            !isDetailLifecycleActive
-        ) return@LaunchedEffect
+            themeItemId == null || themeMusicMode == Preferences.THEME_MUSIC_NO ||
+            themePlaybackBlocked || !isDetailLifecycleActive
+        ) {
+            themeMusicController.stop()
+            playingThemeUrls = null
+            return@LaunchedEffect
+        }
 
-        val urls = mediaRepository.getThemeSongUrls(themeItemId).getOrDefault(emptyList())
+        var urls = mediaRepository.getThemeSongUrls(themeItemId).getOrDefault(emptyList())
         currentCoroutineContext().ensureActive()
+        if (urls.isEmpty()) {
+            val preloadedThemeItem = listOfNotNull(item, episodeItem).firstOrNull { it.id == themeItemId }
+            val youtubeThemeUrl = mediaRepository.getThemerrThemeYoutubeUrl(themeItemId, preloadedThemeItem)
+            currentCoroutineContext().ensureActive()
+            if (!youtubeThemeUrl.isNullOrBlank()) {
+                val audioUrl = runCatching { RemoteTrailerUrl.getAudioUrl(youtubeThemeUrl) }.getOrNull()
+                currentCoroutineContext().ensureActive()
+                if (!audioUrl.isNullOrBlank()) {
+                    urls = listOf(audioUrl)
+                }
+            }
+        }
+
+        if (urls.isEmpty()) {
+            themeMusicController.stop()
+            playingThemeUrls = null
+            return@LaunchedEffect
+        }
+        if (urls == playingThemeUrls) {
+            return@LaunchedEffect
+        }
+
+        themeMusicController.stop()
+        playingThemeUrls = urls
         themeMusicController.play(
             urls = urls,
             endless = themeMusicMode == Preferences.THEME_MUSIC_ENDLESS

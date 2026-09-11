@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.R
 import com.jellycine.data.api.MediaServerApi
+import com.jellycine.data.api.ThemerrDbApi
 import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
@@ -78,6 +79,10 @@ class MediaRepository(private val context: Context) {
     private val networkPreferences = NetworkPreferences(context)
     private val secureSessionStore = SecureSessionStore(context)
     private val tmdbApi by lazy { TmdbApi(createTmdbHttpClient()) }
+    private val themerrDbApi by lazy { ThemerrDbApi(createTmdbHttpClient()) }
+    private val themerrUrlCache = java.util.concurrent.ConcurrentHashMap<String, ThemerrCacheEntry>()
+
+    private data class ThemerrCacheEntry(val youtubeUrl: String?)
 
     private data class ImageAuthState(
         val serverUrl: String?
@@ -494,6 +499,42 @@ class MediaRepository(private val context: Context) {
         } catch (_: Exception) {
             Result.success(emptyList())
         }
+    }
+
+    suspend fun getThemerrThemeYoutubeUrl(
+        itemId: String,
+        preloadedItem: BaseItemDto? = null
+    ): String? = withContext(Dispatchers.IO) {
+        themerrUrlCache[itemId]?.let { cached ->
+            return@withContext cached.youtubeUrl
+        }
+        val item = preloadedItem?.takeIf { it.id == itemId }
+            ?: getItemById(itemId).getOrNull()
+            ?: return@withContext null
+        val isChildOfSeries = (item.type.equals("Episode", ignoreCase = true) ||
+            item.type.equals("Season", ignoreCase = true)) && !item.seriesId.isNullOrBlank()
+        val lookupItem = if (isChildOfSeries) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val providerIds = lookupItem.providerIds ?: return@withContext null
+        val tmdbId = providerIds.entries
+            .firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }
+            ?.value
+        val imdbId = providerIds.entries
+            .firstOrNull { (key, value) -> key.equals("imdb", ignoreCase = true) && value.isNotBlank() }
+            ?.value
+        val youtubeUrl = when {
+            lookupItem.type.equals("Series", ignoreCase = true) ->
+                tmdbId?.let { themerrDbApi.youtubeThemeUrl("tv_shows", "themoviedb", it) }
+            lookupItem.type.equals("Movie", ignoreCase = true) ->
+                tmdbId?.let { themerrDbApi.youtubeThemeUrl("movies", "themoviedb", it) }
+                    ?: imdbId?.let { themerrDbApi.youtubeThemeUrl("movies", "imdb", it) }
+            else -> null
+        }
+        themerrUrlCache[itemId] = ThemerrCacheEntry(youtubeUrl)
+        youtubeUrl
     }
 
     suspend fun getCommunityPlaybackSegments(item: BaseItemDto): Result<PlaybackSegments?> {
