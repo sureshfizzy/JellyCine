@@ -7,17 +7,35 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.VideoStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 object RemoteTrailerUrl {
     private const val AUDIO_CACHE_TTL_MS = 30 * 60 * 1000L
+    private const val MIN_THEME_DURATION_S = 20L
+    private const val MAX_THEME_DURATION_S = 600L
+    private val THEME_KEYWORDS = listOf(
+        "theme music", "theme song", "title track", "title song",
+        "background music", "soundtrack", "original score", "score suite",
+        "bgm", "ost", "score", "theme"
+    )
+    private val CREDITS_KEYWORDS = listOf(
+        "end credits", "closing credits", "end title", "end titles",
+        "closing theme", "end theme", "credits song"
+    )
+    private val EXCLUDE_KEYWORDS = listOf(
+        "trailer", "teaser", "promo", "making", "interview", "review",
+        "first look", "motion poster", "glimpse", "reaction", "explained",
+        "announcement", "sneak peek", "behind the scene", "deleted scene"
+    )
     private val audioUrlCache = ConcurrentHashMap<String, CachedAudio>()
 
     private data class CachedAudio(val url: String, val timestampMs: Long)
@@ -78,6 +96,51 @@ object RemoteTrailerUrl {
         }
         audioUrl
     }
+
+    suspend fun searchAudioUrl(query: String, requiredTitle: String): String? = withContext(Dispatchers.IO) {
+        val trimmedQuery = query.trim()
+        if (trimmedQuery.isBlank()) return@withContext null
+
+        audioUrlCache[trimmedQuery]?.let { cached ->
+            if (System.currentTimeMillis() - cached.timestampMs < AUDIO_CACHE_TTL_MS) {
+                return@withContext cached.url
+            }
+            audioUrlCache.remove(trimmedQuery)
+        }
+
+        initExtractor()
+        val requiredNorm = normalizeForMatch(requiredTitle)
+        val candidates = runCatching {
+            ServiceList.YouTube.getSearchExtractor(trimmedQuery).apply { fetchPage() }
+                .initialPage.items
+                .filterIsInstance<StreamInfoItem>()
+                .mapNotNull { candidate ->
+                    val name = candidate.name
+                    val url = candidate.url
+                    if (url.isNullOrBlank() || name.isNullOrBlank()) null
+                    else candidate to normalizeForMatch(name)
+                }
+                .filter { (_, norm) -> requiredNorm.isBlank() || norm.containsPhrase(requiredNorm) }
+                .filter { (_, norm) -> EXCLUDE_KEYWORDS.none { norm.containsPhrase(it) } }
+                .filter { (candidate, _) -> candidate.duration in MIN_THEME_DURATION_S..MAX_THEME_DURATION_S }
+        }.getOrElse { return@withContext null }
+
+        val videoUrl = (candidates.firstOrNull { (_, norm) -> THEME_KEYWORDS.any { norm.containsPhrase(it) } }
+            ?: candidates.firstOrNull { (_, norm) -> CREDITS_KEYWORDS.any { norm.containsPhrase(it) } })
+            ?.first?.url
+            ?.takeIf(String::isNotBlank)
+            ?: return@withContext null
+
+        val audioUrl = getAudioUrl(videoUrl) ?: return@withContext null
+        audioUrlCache[trimmedQuery] = CachedAudio(audioUrl, System.currentTimeMillis())
+        audioUrl
+    }
+
+    private fun normalizeForMatch(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+
+    private fun String.containsPhrase(phrase: String): Boolean =
+        phrase.isNotBlank() && " $this ".contains(" $phrase ")
 
     @Synchronized
     private fun initExtractor() {

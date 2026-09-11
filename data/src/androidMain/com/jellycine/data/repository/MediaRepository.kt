@@ -501,6 +501,43 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    private suspend fun getThemeOwner(
+        itemId: String,
+        preloadedItem: BaseItemDto?
+    ): BaseItemDto? {
+        val item = preloadedItem?.takeIf { it.id == itemId }
+            ?: getItemById(itemId).getOrNull()
+            ?: return null
+        val isChildOfSeries = (item.type.equals("Episode", ignoreCase = true) ||
+            item.type.equals("Season", ignoreCase = true)) && !item.seriesId.isNullOrBlank()
+        return if (isChildOfSeries) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+    }
+
+    data class ThemeYoutubeSearch(val query: String, val title: String)
+
+    suspend fun getThemeYoutubeSearchQuery(
+        itemId: String,
+        preloadedItem: BaseItemDto? = null
+    ): ThemeYoutubeSearch? = withContext(Dispatchers.IO) {
+        val owner = getThemeOwner(itemId, preloadedItem) ?: return@withContext null
+        val isSupported = owner.type.equals("Series", ignoreCase = true) ||
+            owner.type.equals("Movie", ignoreCase = true)
+        if (!isSupported) return@withContext null
+        val title = owner.name?.takeIf(String::isNotBlank)
+            ?: owner.originalTitle?.takeIf(String::isNotBlank)
+            ?: return@withContext null
+        val query = buildString {
+            append(title)
+            owner.productionYear?.let { append(' ').append(it) }
+            append(" theme")
+        }
+        ThemeYoutubeSearch(query, title)
+    }
+
     suspend fun getThemerrThemeYoutubeUrl(
         itemId: String,
         preloadedItem: BaseItemDto? = null
@@ -508,16 +545,7 @@ class MediaRepository(private val context: Context) {
         themerrUrlCache[itemId]?.let { cached ->
             return@withContext cached.youtubeUrl
         }
-        val item = preloadedItem?.takeIf { it.id == itemId }
-            ?: getItemById(itemId).getOrNull()
-            ?: return@withContext null
-        val isChildOfSeries = (item.type.equals("Episode", ignoreCase = true) ||
-            item.type.equals("Season", ignoreCase = true)) && !item.seriesId.isNullOrBlank()
-        val lookupItem = if (isChildOfSeries) {
-            getItemById(item.seriesId!!).getOrNull() ?: item
-        } else {
-            item
-        }
+        val lookupItem = getThemeOwner(itemId, preloadedItem) ?: return@withContext null
         val providerIds = lookupItem.providerIds ?: return@withContext null
         val tmdbId = providerIds.entries
             .firstOrNull { (key, value) -> key.equals("tmdb", ignoreCase = true) && value.isNotBlank() }

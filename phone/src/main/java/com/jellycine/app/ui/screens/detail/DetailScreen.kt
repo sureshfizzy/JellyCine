@@ -64,6 +64,8 @@ import androidx.activity.compose.BackHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -202,14 +204,22 @@ fun DetailScreenContainer(
         currentCoroutineContext().ensureActive()
         if (urls.isEmpty()) {
             val preloadedThemeItem = listOfNotNull(item, episodeItem).firstOrNull { it.id == themeItemId }
-            val youtubeThemeUrl = mediaRepository.getThemerrThemeYoutubeUrl(themeItemId, preloadedThemeItem)
-            currentCoroutineContext().ensureActive()
-            if (!youtubeThemeUrl.isNullOrBlank()) {
-                val audioUrl = runCatching { RemoteTrailerUrl.getAudioUrl(youtubeThemeUrl) }.getOrNull()
-                currentCoroutineContext().ensureActive()
-                if (!audioUrl.isNullOrBlank()) {
-                    urls = listOf(audioUrl)
+            val audioUrl = coroutineScope {
+                val searchDeferred = async {
+                    val search = mediaRepository.getThemeYoutubeSearchQuery(themeItemId, preloadedThemeItem)
+                    search?.let { runCatching { RemoteTrailerUrl.searchAudioUrl(it.query, it.title) }.getOrNull() }
                 }
+                val youtubeThemeUrl = mediaRepository.getThemerrThemeYoutubeUrl(themeItemId, preloadedThemeItem)
+                if (!youtubeThemeUrl.isNullOrBlank()) {
+                    searchDeferred.cancel()
+                    runCatching { RemoteTrailerUrl.getAudioUrl(youtubeThemeUrl) }.getOrNull()
+                } else {
+                    searchDeferred.await()
+                }
+            }
+            currentCoroutineContext().ensureActive()
+            if (!audioUrl.isNullOrBlank()) {
+                urls = listOf(audioUrl)
             }
         }
 
