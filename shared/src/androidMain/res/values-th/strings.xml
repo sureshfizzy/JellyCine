@@ -600,4 +600,9 @@
     <string name="screen_time_afternoon">ช่วงบ่าย</string>
     <string name="screen_time_evening">ตอนเย็น</string>
     <string name="screen_time_night">กลางคืน</string>
+    <string name="interface_theme_music">เพลงธีม</string>
+    <string name="interface_theme_music_subtitle">เล่นเพลงธีมขณะเรียกดูรายละเอียด</string>
+    <string name="interface_theme_music_no">ไม่</string>
+    <string name="interface_theme_music_once">ใช่ (ครั้งเดียว)</string>
+    <string name="interface_theme_music_endless">ไม่มีที่สิ้นสุด</string>
 </resources>
