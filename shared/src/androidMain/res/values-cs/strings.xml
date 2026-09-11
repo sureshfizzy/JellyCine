@@ -639,4 +639,9 @@
     <string name="screen_time_afternoon">Odpoledne</string>
     <string name="screen_time_evening">Večer</string>
     <string name="screen_time_night">Noc</string>
+    <string name="interface_theme_music">Tématická hudba</string>
+    <string name="interface_theme_music_subtitle">Přehrávejte tematické skladby při procházení podrobností.</string>
+    <string name="interface_theme_music_no">Ne</string>
+    <string name="interface_theme_music_once">Ano (jednou)</string>
+    <string name="interface_theme_music_endless">Nekonečný</string>
 </resources>
