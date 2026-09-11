@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">Следобед</string>
     <string name="screen_time_evening">Вечерта</string>
     <string name="screen_time_night">Нощ</string>
+    <string name="interface_theme_music">Тематична музика</string>
+    <string name="interface_theme_music_subtitle">Възпроизвеждане на тематични песни, докато разглеждате подробности.</string>
+    <string name="interface_theme_music_no">Не</string>
+    <string name="interface_theme_music_once">Да (еднократно)</string>
+    <string name="interface_theme_music_endless">Безкраен</string>
 </resources>
