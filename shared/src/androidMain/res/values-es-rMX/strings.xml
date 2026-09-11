@@ -626,4 +626,9 @@
     <string name="screen_time_afternoon">Tarde</string>
     <string name="screen_time_evening">Tarde</string>
     <string name="screen_time_night">Noche</string>
+    <string name="interface_theme_music">Música temática</string>
+    <string name="interface_theme_music_subtitle">Reproduzca canciones temáticas mientras navega por los detalles.</string>
+    <string name="interface_theme_music_no">No</string>
+    <string name="interface_theme_music_once">Sí (una vez)</string>
+    <string name="interface_theme_music_endless">Sin fin</string>
 </resources>
