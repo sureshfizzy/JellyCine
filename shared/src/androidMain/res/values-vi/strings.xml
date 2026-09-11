@@ -600,4 +600,9 @@
     <string name="screen_time_afternoon">Buổi chiều</string>
     <string name="screen_time_evening">Buổi tối</string>
     <string name="screen_time_night">Đêm</string>
+    <string name="interface_theme_music">Âm nhạc chủ đề</string>
+    <string name="interface_theme_music_subtitle">Phát các bài hát chủ đề trong khi duyệt chi tiết.</string>
+    <string name="interface_theme_music_no">Không</string>
+    <string name="interface_theme_music_once">Có (một lần)</string>
+    <string name="interface_theme_music_endless">Vô tận</string>
 </resources>
