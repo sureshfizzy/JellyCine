@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">pärastlõunal</string>
     <string name="screen_time_evening">Õhtu</string>
     <string name="screen_time_night">Öö</string>
+    <string name="interface_theme_music">Teemamuusika</string>
+    <string name="interface_theme_music_subtitle">Esitage teemalaulu üksikasju sirvides.</string>
+    <string name="interface_theme_music_no">Ei</string>
+    <string name="interface_theme_music_once">Jah (üks kord)</string>
+    <string name="interface_theme_music_endless">Lõputu</string>
 </resources>
