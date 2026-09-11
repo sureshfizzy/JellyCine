@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">Öğleden sonra</string>
     <string name="screen_time_evening">Akşamları</string>
     <string name="screen_time_night">Gece</string>
+    <string name="interface_theme_music">Tema Müziği</string>
+    <string name="interface_theme_music_subtitle">Ayrıntılara göz atarken tema şarkıları çalın.</string>
+    <string name="interface_theme_music_no">Hayır</string>
+    <string name="interface_theme_music_once">Evet (bir kez)</string>
+    <string name="interface_theme_music_endless">Sonsuz</string>
 </resources>
