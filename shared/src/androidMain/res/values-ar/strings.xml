@@ -665,4 +665,9 @@
     <string name="screen_time_afternoon">بعد الظهر</string>
     <string name="screen_time_evening">المساء</string>
     <string name="screen_time_night">ليلة</string>
+    <string name="interface_theme_music">موسيقى الموضوع</string>
+    <string name="interface_theme_music_subtitle">قم بتشغيل الأغاني ذات السمات أثناء تصفح التفاصيل.</string>
+    <string name="interface_theme_music_no">لا</string>
+    <string name="interface_theme_music_once">نعم (مرة واحدة)</string>
+    <string name="interface_theme_music_endless">لا نهاية لها</string>
 </resources>
