@@ -600,4 +600,9 @@
     <string name="screen_time_afternoon">午後</string>
     <string name="screen_time_evening">イブニング</string>
     <string name="screen_time_night">ナイト</string>
+    <string name="interface_theme_music">テーマミュージック</string>
+    <string name="interface_theme_music_subtitle">詳細を閲覧しながらテーマソングを再生します。</string>
+    <string name="interface_theme_music_no">いいえ</string>
+    <string name="interface_theme_music_once">はい (1 回)</string>
+    <string name="interface_theme_music_endless">エンドレス</string>
 </resources>
