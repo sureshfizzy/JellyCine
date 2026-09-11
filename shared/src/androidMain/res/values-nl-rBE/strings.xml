@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">Middag</string>
     <string name="screen_time_evening">Avond</string>
     <string name="screen_time_night">Nacht</string>
+    <string name="interface_theme_music">Themamuziek</string>
+    <string name="interface_theme_music_subtitle">Speel themaliedjes af terwijl je door de details bladert.</string>
+    <string name="interface_theme_music_no">Nee</string>
+    <string name="interface_theme_music_once">Ja (eenmalig)</string>
+    <string name="interface_theme_music_endless">Eindeloos</string>
 </resources>
