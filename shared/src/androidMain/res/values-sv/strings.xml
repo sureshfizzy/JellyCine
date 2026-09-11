@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">Eftermiddag</string>
     <string name="screen_time_evening">Kvällen</string>
     <string name="screen_time_night">Natt</string>
+    <string name="interface_theme_music">Temamusik</string>
+    <string name="interface_theme_music_subtitle">Spela temalåtar medan du bläddrar i detaljer.</string>
+    <string name="interface_theme_music_no">Nej</string>
+    <string name="interface_theme_music_once">Ja (en gång)</string>
+    <string name="interface_theme_music_endless">Oändlig</string>
 </resources>
