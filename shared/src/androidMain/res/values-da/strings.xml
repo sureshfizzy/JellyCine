@@ -613,4 +613,9 @@
     <string name="screen_time_afternoon">Eftermiddag</string>
     <string name="screen_time_evening">Aften</string>
     <string name="screen_time_night">Nat</string>
+    <string name="interface_theme_music">Temamusik</string>
+    <string name="interface_theme_music_subtitle">Afspil temasange, mens du gennemser detaljer.</string>
+    <string name="interface_theme_music_no">Nej</string>
+    <string name="interface_theme_music_once">Ja (én gang)</string>
+    <string name="interface_theme_music_endless">Endeløse</string>
 </resources>
