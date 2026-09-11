@@ -62,6 +62,7 @@ fun ControlsOverlay(
     chapterMarkers: List<ChapterMarker> = emptyList(),
     isPlaying: Boolean,
     currentPosition: Long,
+    bufferedPosition: Long = 0L,
     duration: Long,
     onBackClick: () -> Unit,
     onPlayPause: () -> Unit,
@@ -305,6 +306,9 @@ fun ControlsOverlay(
                 progress = if (duration > 0 && currentPosition >= 0) {
                     (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
                 } else 0f,
+                bufferedProgress = if (duration > 0 && bufferedPosition >= 0) {
+                    (bufferedPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                } else 0f,
                 duration = duration,
                 chapterMarkers = chapterMarkers,
                 onSeek = onSeek,
@@ -481,6 +485,7 @@ private fun TvSmallActionButton(
 @Composable
 private fun TvSeekBar(
     progress: Float,
+    bufferedProgress: Float = 0f,
     duration: Long,
     chapterMarkers: List<ChapterMarker>,
     onSeek: (Float) -> Unit,
@@ -575,15 +580,31 @@ private fun TvSeekBar(
             val markerStrokeWidth = 2.dp.toPx()
             val markerVerticalInset = 2.dp.toPx()
 
+            // Background full track
             drawLine(
-                color = if (isFocused) Color.White.copy(alpha = 0.4f)
-                else Color.White.copy(alpha = 0.25f),
+                color = if (isFocused) Color.White.copy(alpha = 0.35f)
+                else Color.White.copy(alpha = 0.20f),
                 start = trackStart,
                 end = trackEnd,
                 strokeWidth = currentTrackHeight,
                 cap = StrokeCap.Round
             )
 
+            // Buffered progress track
+            val clampedBufferedProgress = bufferedProgress.coerceIn(0f, 1f)
+            if (clampedBufferedProgress > 0f) {
+                val bufferedX = trackStart.x + (trackEnd.x - trackStart.x) * clampedBufferedProgress
+                drawLine(
+                    color = if (isFocused) Color.White.copy(alpha = 0.60f)
+                    else Color.White.copy(alpha = 0.45f),
+                    start = trackStart,
+                    end = Offset(bufferedX, yOffset),
+                    strokeWidth = currentTrackHeight,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // Played progress track
             if (renderedProgress > 0f) {
                 val progressX = trackStart.x + (trackEnd.x - trackStart.x) * renderedProgress
                 drawLine(

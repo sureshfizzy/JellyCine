@@ -30,6 +30,7 @@ data class PlayerState(
     val previewStartMs: Long? = null,
     val previewEndMs: Long? = null,
     val bufferedPercentage: Int = 0,
+    val bufferedPosition: Long = 0L,
     val volume: Float = 1.0f,
     val brightness: Float = 0.5f,
     val showControls: Boolean = true,

@@ -228,12 +228,17 @@ internal fun PlayerScreenEffects(
     LaunchedEffect(viewModel.exoPlayer, viewModel.mpvPlayer) {
         while (true) {
             val currentPosition = viewModel.getCurrentPosition()
+            val bufferedPosition = viewModel.getBufferedPosition()
             val isPlayingNow = viewModel.isPlayingNow()
             val uiState = uiStateProvider()
-            if (uiState.currentPosition != currentPosition || uiState.isPlaying != isPlayingNow) {
+            if (uiState.currentPosition != currentPosition ||
+                uiState.bufferedPosition != bufferedPosition ||
+                uiState.isPlaying != isPlayingNow
+            ) {
                 onUiStateChange(
                     uiState.copy(
                         currentPosition = currentPosition,
+                        bufferedPosition = bufferedPosition,
                         isPlaying = isPlayingNow
                     )
                 )
@@ -394,6 +399,7 @@ internal fun BoxScope.PlayerOverlayHost(
             chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
             isPlaying = playerState.playWhenReady,
             currentPosition = uiState.currentPosition,
+            bufferedPosition = uiState.bufferedPosition,
             duration = viewModel.getDuration(),
             onBackClick = {
                 viewModel.releasePlayer()

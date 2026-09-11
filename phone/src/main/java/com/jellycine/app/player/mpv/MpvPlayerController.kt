@@ -33,6 +33,7 @@ class MpvPlayerController(
     private var ready = false
     private var durationMs: Long = 0L
     private var positionMs: Long = 0L
+    private var bufferedPositionMs: Long = 0L
     private var playWhenReady = true
     private var pendingSubtitleUrls: List<String> = emptyList()
     private var pendingSelectedSubtitleUrl: String? = null
@@ -46,6 +47,23 @@ class MpvPlayerController(
     val currentPosition: Long
         get() = positionMs
 
+    val bufferedPosition: Long
+        get() {
+            if (released) return 0L
+            val cacheTime = mpv.getPropertyDouble("demuxer-cache-time")
+            if (cacheTime != null && cacheTime > 0.0) {
+                bufferedPositionMs = (cacheTime * 1000.0).toLong().coerceAtLeast(0L)
+            } else {
+                val cacheDuration = mpv.getPropertyDouble("demuxer-cache-duration")
+                if (cacheDuration != null && cacheDuration >= 0.0) {
+                    bufferedPositionMs = (positionMs + (cacheDuration * 1000.0).toLong()).coerceAtLeast(positionMs)
+                }
+            }
+            return bufferedPositionMs.coerceAtLeast(positionMs).let {
+                if (durationMs > 0L) it.coerceAtMost(durationMs) else it
+            }
+        }
+
     val duration: Long
         get() = durationMs
 
@@ -55,6 +73,8 @@ class MpvPlayerController(
         mpv.addObserver(this)
         mpv.observeProperty("time-pos", MpvFormat.MPV_FORMAT_DOUBLE)
         mpv.observeProperty("duration", MpvFormat.MPV_FORMAT_DOUBLE)
+        mpv.observeProperty("demuxer-cache-time", MpvFormat.MPV_FORMAT_DOUBLE)
+        mpv.observeProperty("demuxer-cache-duration", MpvFormat.MPV_FORMAT_DOUBLE)
         mpv.observeProperty("paused-for-cache", MpvFormat.MPV_FORMAT_FLAG)
         mpv.observeProperty("eof-reached", MpvFormat.MPV_FORMAT_FLAG)
     }
@@ -170,6 +190,7 @@ class MpvPlayerController(
     fun seekTo(positionMs: Long) {
         if (released) return
         this.positionMs = positionMs.coerceAtLeast(0L)
+        this.bufferedPositionMs = this.positionMs
         mpv.command(arrayOf("seek", (this.positionMs / 1000.0).toString(), "absolute+keyframes"))
     }
 
@@ -216,6 +237,16 @@ class MpvPlayerController(
         when (property) {
             "time-pos" -> positionMs = (value * 1000.0).toLong().coerceAtLeast(0L)
             "duration" -> durationMs = (value * 1000.0).toLong().coerceAtLeast(0L)
+            "demuxer-cache-time" -> {
+                val cacheEndMs = (value * 1000.0).toLong().coerceAtLeast(0L)
+                if (cacheEndMs > 0L) {
+                    bufferedPositionMs = cacheEndMs
+                }
+            }
+            "demuxer-cache-duration" -> {
+                val cacheDurationMs = (value * 1000.0).toLong().coerceAtLeast(0L)
+                bufferedPositionMs = (positionMs + cacheDurationMs).coerceAtLeast(positionMs)
+            }
         }
     }
 

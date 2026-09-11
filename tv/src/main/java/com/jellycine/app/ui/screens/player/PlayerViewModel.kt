@@ -459,6 +459,8 @@ class PlayerViewModel @Inject constructor(
 
     fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: 0L
 
+    fun getBufferedPosition(): Long = exoPlayer?.bufferedPosition?.coerceAtLeast(0L) ?: 0L
+
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true
 
     fun getDuration(): Long = exoPlayer?.duration?.coerceAtLeast(0L) ?: 0L

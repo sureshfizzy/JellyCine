@@ -785,6 +785,12 @@ class PlayerViewModel @Inject constructor(
 
     fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
 
+    fun getBufferedPosition(): Long = if (isMpvPlayback()) {
+        mpvPlayer?.bufferedPosition ?: 0L
+    } else {
+        exoPlayer?.bufferedPosition?.coerceAtLeast(0L) ?: 0L
+    }
+
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
 
     fun getDuration(): Long {

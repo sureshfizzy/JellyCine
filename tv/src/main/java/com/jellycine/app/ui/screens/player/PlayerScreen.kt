@@ -68,6 +68,7 @@ private fun flushImgCache(context: Context) {
 data class PlayerUiState(
     val controlsVisible: Boolean = true,
     val currentPosition: Long = 0L,
+    val bufferedPosition: Long = 0L,
     val isPlaying: Boolean = false
 )
 
@@ -188,7 +189,7 @@ fun PlayerScreen(
             if (initializedMediaId != null) {
                 viewModel.releasePlayer()
             }
-            uiState = uiState.copy(currentPosition = 0L, isPlaying = false)
+            uiState = uiState.copy(currentPosition = 0L, bufferedPosition = 0L, isPlaying = false)
             viewModel.initializePlayer(
                 context = context,
                 mediaId = mediaId,
@@ -210,10 +211,15 @@ fun PlayerScreen(
     LaunchedEffect(viewModel.exoPlayer) {
         while (true) {
             val currentPosition = viewModel.getCurrentPosition()
+            val bufferedPosition = viewModel.getBufferedPosition()
             val isPlayingNow = viewModel.isPlayingNow()
-            if (uiState.currentPosition != currentPosition || uiState.isPlaying != isPlayingNow) {
+            if (uiState.currentPosition != currentPosition ||
+                uiState.bufferedPosition != bufferedPosition ||
+                uiState.isPlaying != isPlayingNow
+            ) {
                 uiState = uiState.copy(
                     currentPosition = currentPosition,
+                    bufferedPosition = bufferedPosition,
                     isPlaying = isPlayingNow
                 )
             }
@@ -555,6 +561,7 @@ fun PlayerScreen(
                 chapterMarkers = if (chapterMarkersEnabled) playerState.chapterMarkers else emptyList(),
                 isPlaying = playerState.playWhenReady,
                 currentPosition = uiState.currentPosition,
+                bufferedPosition = uiState.bufferedPosition,
                 duration = viewModel.getDuration(),
                 onBackClick = {
                     viewModel.releasePlayer()
