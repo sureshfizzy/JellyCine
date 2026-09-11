@@ -143,6 +143,7 @@ fun DetailScreenContainer(
     var seasonDetailData by remember { mutableStateOf<SeasonDetailData?>(null) }
     var episodeDetailId by remember { mutableStateOf<String?>(null) }
     var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    var episodeHistory by remember { mutableStateOf<List<String>>(emptyList()) }
     var isEpisodeLoading by remember { mutableStateOf(false) }
     var episodeError by remember { mutableStateOf<String?>(null) }
     var castingDisplay by remember { mutableStateOf(false) }
@@ -392,6 +393,11 @@ fun DetailScreenContainer(
                 playbackItemId = null
             }
 
+            currentScreen == "episode" && episodeHistory.isNotEmpty() -> {
+                episodeDetailId = episodeHistory.last()
+                episodeHistory = episodeHistory.dropLast(1)
+            }
+
             currentScreen == "episode" && seasonDetailData != null -> {
                 currentScreen = "season"
             }
@@ -402,6 +408,17 @@ fun DetailScreenContainer(
 
             else -> onBackPressed()
         }
+    }
+
+    fun openEpisodeInline(targetEpisodeId: String) {
+        val nextId = targetEpisodeId.takeIf { it.isNotBlank() } ?: return
+        val currentId = episodeItem?.id ?: episodeDetailId
+        if (nextId == currentId) return
+        if (currentId != null) {
+            episodeHistory = episodeHistory + currentId
+        }
+        episodeDetailId = nextId
+        currentScreen = "episode"
     }
 
     fun playEpisode(episodeId: String) {
@@ -454,6 +471,7 @@ fun DetailScreenContainer(
         seasonDetailData = null
         episodeDetailId = null
         episodeItem = null
+        episodeHistory = emptyList()
     }
 
     fun navigateToSeriesOverview(seriesId: String) {
@@ -503,7 +521,8 @@ fun DetailScreenContainer(
     fun DetailPane(
         activeItem: BaseItemDto?,
         loading: Boolean,
-        fallbackItemId: String
+        fallbackItemId: String,
+        onEpisodeClick: (String) -> Unit = onNavigateToDetail
     ) {
         ScreenWrapper(isActive = true) {
             if (activeItem != null) {
@@ -527,6 +546,7 @@ fun DetailScreenContainer(
                         preferredSubtitleStreamIndex = subtitleStreamIndex
                     },
                     onSimilarItemClick = onNavigateToDetail,
+                    onEpisodeClick = onEpisodeClick,
                     onVersionItemSelected = ::selectLocalVersion,
                     onPersonClick = onNavigateToPerson,
                     onCastButtonClick = ::openCastingDisplay,
@@ -724,6 +744,7 @@ fun DetailScreenContainer(
                                 initialLogoImageUrl = seasonData.initialLogoImageUrl,
                                 onBackPressed = handleBackNavigation,
                                 onEpisodeClick = { episodeId ->
+                                    episodeHistory = emptyList()
                                     episodeDetailId = episodeId
                                     currentScreen = "episode"
                                 },
@@ -754,7 +775,8 @@ fun DetailScreenContainer(
                             episodeItem != null -> DetailPane(
                                 activeItem = episodeItem,
                                 loading = isEpisodeLoading,
-                                fallbackItemId = episodeId
+                                fallbackItemId = episodeId,
+                                onEpisodeClick = ::openEpisodeInline
                             )
 
                             else -> {
@@ -805,6 +827,7 @@ fun DetailScreen(
     onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onEpisodeClick: (String) -> Unit = onSimilarItemClick,
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
@@ -821,6 +844,7 @@ fun DetailScreen(
         onRemoteTrailerClick = onRemoteTrailerClick,
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
         onSimilarItemClick = onSimilarItemClick,
+        onEpisodeClick = onEpisodeClick,
         onVersionItemSelected = onVersionItemSelected,
         onPersonClick = onPersonClick,
         onCastButtonClick = onCastButtonClick,

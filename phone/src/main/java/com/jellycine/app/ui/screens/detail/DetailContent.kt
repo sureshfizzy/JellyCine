@@ -94,6 +94,7 @@ fun DetailContent(
     onRemoteTrailerClick: (String, String?) -> Unit = { _, _ -> },
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
     onSimilarItemClick: (String) -> Unit = {},
+    onEpisodeClick: (String) -> Unit = onSimilarItemClick,
     onVersionItemSelected: (String) -> Unit = {},
     onPersonClick: (String) -> Unit = {},
     onCastButtonClick: () -> Unit = {},
@@ -538,10 +539,14 @@ fun DetailContent(
             .sortedWith(
                 compareBy<BaseItemDto>(
                     { it.indexNumber ?: Int.MAX_VALUE },
-                    { it.name.orEmpty() },
                     { it.id.orEmpty() }
                 )
             )
+            .distinctBy { episode ->
+                episode.indexNumber?.let { number ->
+                    "${episode.parentIndexNumber ?: Int.MIN_VALUE}:$number"
+                } ?: "id:${episode.id.orEmpty()}"
+            }
             .withUserDataRefresh(userDataRefreshEvent)
     }
 
@@ -1195,7 +1200,7 @@ fun DetailContent(
                                 episodes = moreFromSeasonEpisodes,
                                 mediaRepository = mediaRepository,
                                 title = moreFromSeasonTitle,
-                                onEpisodeClick = onSimilarItemClick
+                                onEpisodeClick = onEpisodeClick
                             )
                         }
 

@@ -305,10 +305,14 @@ fun DetailContent(
             .sortedWith(
                 compareBy<BaseItemDto>(
                     { it.indexNumber ?: Int.MAX_VALUE },
-                    { it.name.orEmpty() },
                     { it.id.orEmpty() }
                 )
             )
+            .distinctBy { episode ->
+                episode.indexNumber?.let { number ->
+                    "${episode.parentIndexNumber ?: Int.MIN_VALUE}:$number"
+                } ?: "id:${episode.id.orEmpty()}"
+            }
             .withUserDataRefresh(userDataRefreshEvent)
     }
 
