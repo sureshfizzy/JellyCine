@@ -75,7 +75,7 @@ dependencies {
 
     // Remote trailer URL extraction
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
-    implementation 'com.github.MonseyNY:NewPipeExtractor:7ccf36f4'
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
 
     // Discord Social SDK
     implementation files('libs/discord_partner_sdk.aar')
