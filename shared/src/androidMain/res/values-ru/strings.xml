@@ -639,4 +639,9 @@
     <string name="screen_time_afternoon">После обеда</string>
     <string name="screen_time_evening">Вечер</string>
     <string name="screen_time_night">Ночь</string>
+    <string name="interface_theme_music">Тематическая музыка</string>
+    <string name="interface_theme_music_subtitle">Слушайте тематические песни, просматривая детали.</string>
+    <string name="interface_theme_music_no">Нет</string>
+    <string name="interface_theme_music_once">Да (один раз)</string>
+    <string name="interface_theme_music_endless">Бескрайний</string>
 </resources>
