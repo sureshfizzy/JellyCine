@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.ui.components.common.ThemeMusicSettingsItem
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 
@@ -85,6 +86,8 @@ fun InterfaceSettingsScreen(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isAutoplayTrailersEnabled()
         )
+    val themeMusicMode by preferences.themeMusicMode()
+        .collectAsStateWithLifecycle(initialValue = preferences.getThemeMusicMode())
     val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isPosterEnhancersEnabled()
@@ -163,6 +166,15 @@ fun InterfaceSettingsScreen(
                         onHeightSelected = preferences::setFeatureCarouselHeight,
                         autoplayTrailersChecked = autoplayTrailersEnabled,
                         onAutoplayTrailersCheckedChange = preferences::setFeatureCarouselAutoplayTrailersEnabled,
+                        accentColor = Color(0xFF8B5CF6)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    ThemeMusicSettingsItem(
+                        selectedMode = themeMusicMode,
+                        onModeSelected = preferences::setThemeMusicMode,
                         accentColor = Color(0xFF8B5CF6)
                     )
                     HorizontalDivider(

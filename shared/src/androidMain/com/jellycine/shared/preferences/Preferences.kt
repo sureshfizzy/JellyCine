@@ -25,10 +25,14 @@ class Preferences(context: Context) {
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
         private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
         private const val KEY_DISCORD_RPC_ENABLED = "discord_rpc_enabled"
+        private const val KEY_THEME_MUSIC_MODE = "theme_music_mode"
 
         const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
         const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
         const val FEATURE_CAROUSEL_HEIGHT_SMALL = "small"
+        const val THEME_MUSIC_NO = "no"
+        const val THEME_MUSIC_ONCE = "once"
+        const val THEME_MUSIC_ENDLESS = "endless"
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
@@ -273,6 +277,35 @@ class Preferences(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
+
+    fun getThemeMusicMode(): String {
+        return validateThemeMusicMode(
+            prefs.getString(KEY_THEME_MUSIC_MODE, THEME_MUSIC_ONCE)
+        )
+    }
+
+    fun setThemeMusicMode(mode: String) {
+        prefs.edit()
+            .putString(KEY_THEME_MUSIC_MODE, validateThemeMusicMode(mode))
+            .apply()
+    }
+
+    fun themeMusicMode(): Flow<String> = callbackFlow {
+        trySend(getThemeMusicMode())
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_THEME_MUSIC_MODE) trySend(getThemeMusicMode())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    private fun validateThemeMusicMode(mode: String?): String {
+        return when (mode) {
+            THEME_MUSIC_NO -> THEME_MUSIC_NO
+            THEME_MUSIC_ENDLESS -> THEME_MUSIC_ENDLESS
+            else -> THEME_MUSIC_ONCE
+        }
+    }
 
     private fun normalizeFeatureCarouselHeight(height: String?): String {
         return when (height) {

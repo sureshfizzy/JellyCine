@@ -543,6 +543,11 @@
     <string name="interface_feature_carousel_height_small">Small</string>
     <string name="interface_feature_carousel_autoplay_trailers">Play Trailers</string>
     <string name="interface_feature_carousel_autoplay_trailers_subtitle">Play trailers as you browse the feature carousel.</string>
+    <string name="interface_theme_music">Theme Music</string>
+    <string name="interface_theme_music_subtitle">Play theme songs while browsing details.</string>
+    <string name="interface_theme_music_no">No</string>
+    <string name="interface_theme_music_once">Yes (one time)</string>
+    <string name="interface_theme_music_endless">Endless</string>
     <string name="interface_continue_watching">Continue Watching</string>
     <string name="interface_continue_watching_subtitle">Show the Continue Watching section on the Home screen.</string>
     <string name="interface_next_up">Next Up</string>

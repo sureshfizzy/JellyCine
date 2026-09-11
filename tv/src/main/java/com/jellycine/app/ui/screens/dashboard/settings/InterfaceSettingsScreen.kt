@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.ui.components.common.ThemeMusicSettingsItem
 import com.jellycine.data.repository.AuthRepositoryProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +80,8 @@ fun InterfaceSettingsScreen(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isMergeVersionsEnabled()
         )
+    val themeMusicMode by preferences.themeMusicMode()
+        .collectAsStateWithLifecycle(initialValue = preferences.getThemeMusicMode())
 
     Scaffold(
         containerColor = Color.Black,
@@ -125,6 +128,15 @@ fun InterfaceSettingsScreen(
                         subtitle = stringResource(R.string.interface_feature_carousel_subtitle),
                         checked = featureCarouselEnabled,
                         onCheckedChange = preferences::setFeatureCarouselEnabled,
+                        accentColor = Color(0xFF8B5CF6)
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    ThemeMusicSettingsItem(
+                        selectedMode = themeMusicMode,
+                        onModeSelected = preferences::setThemeMusicMode,
                         accentColor = Color(0xFF8B5CF6)
                     )
                     HorizontalDivider(

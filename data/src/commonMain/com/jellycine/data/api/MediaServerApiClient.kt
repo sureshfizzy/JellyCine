@@ -17,6 +17,7 @@ import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.SystemInfoFull
+import com.jellycine.data.model.ThemeMediaResult
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiHeaders
 import com.jellycine.data.network.ApiResponse
@@ -212,6 +213,18 @@ internal class MediaServerApiClient(
     ): ApiResponse<BaseItemDto> = get(
         endpoint = "Users/$userId/Items/$itemId",
         queryParameters = listOf("fields" to fields)
+    )
+
+    override suspend fun getThemeMedia(
+        itemId: String,
+        userId: String,
+        inheritFromParent: Boolean
+    ): ApiResponse<ThemeMediaResult> = get(
+        endpoint = "Items/$itemId/ThemeMedia",
+        queryParameters = listOf(
+            "userId" to userId,
+            "inheritFromParent" to inheritFromParent
+        )
     )
 
     override suspend fun getSimilarItems(

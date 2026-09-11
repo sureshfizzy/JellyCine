@@ -87,7 +87,8 @@ class MediaRepository(private val context: Context) {
         val api: MediaServerApi,
         val userId: String,
         val serverType: ServerType?,
-        val baseUrl: String
+        val baseUrl: String,
+        val accessToken: String?
     )
 
     private data class SuggestionsRoute(
@@ -231,7 +232,8 @@ class MediaRepository(private val context: Context) {
                 api = api,
                 userId = config.userId,
                 serverType = config.serverType,
-                baseUrl = config.serverUrl
+                baseUrl = config.serverUrl,
+                accessToken = config.accessToken
             )
             cachedSession = session
             cachedSessionKey = newSessionKey
@@ -454,6 +456,43 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getThemeSongUrls(itemId: String): Result<List<String>> {
+        return try {
+            val session = getApiSession()
+                ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val response = session.api.getThemeMedia(
+                itemId = itemId,
+                userId = session.userId,
+                inheritFromParent = true
+            )
+            if (!response.isSuccessful) {
+                return Result.success(emptyList())
+            }
+
+            val urls = response.body()
+                ?.themeSongsResult
+                ?.items
+                .orEmpty()
+                .mapNotNull { it.id?.takeIf(String::isNotBlank) }
+                .distinct()
+                .map { themeSongId ->
+                    buildServerUrl(
+                        baseUrl = session.baseUrl,
+                        encodedPath = "Audio/$themeSongId/stream",
+                        queryParams = listOf(
+                            "static" to "true",
+                            "api_key" to session.accessToken
+                        )
+                    )
+                }
+            Result.success(urls)
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            Result.success(emptyList())
         }
     }
 

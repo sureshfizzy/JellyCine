@@ -61,7 +61,14 @@ import com.jellycine.app.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import com.jellycine.player.audio.ThemeMusicController
+import com.jellycine.shared.preferences.Preferences
 
 internal val heroOverlayGradient = arrayOf(
     0.0f to Color.Transparent,
@@ -105,6 +112,14 @@ fun DetailScreenContainer(
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
     val seerrRepository = rememberSeerrRepository(context)
     val playerPreferences = remember { PlayerPreferences(context) }
+    val interfacePreferences = remember { Preferences(context) }
+    val themeMusicMode by interfacePreferences.themeMusicMode()
+        .collectAsState(initial = interfacePreferences.getThemeMusicMode())
+    val themeMusicController = remember { ThemeMusicController(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var isDetailLifecycleActive by remember {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
 
@@ -138,6 +153,55 @@ fun DetailScreenContainer(
     val scope = rememberCoroutineScope()
     val castPlaybackState by CastController.playbackState.collectAsState()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
+
+    DisposableEffect(lifecycleOwner, themeMusicController) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> isDetailLifecycleActive = true
+                Lifecycle.Event.ON_STOP -> {
+                    isDetailLifecycleActive = false
+                    themeMusicController.stop()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            themeMusicController.release()
+        }
+    }
+
+    val activeThemeItemId = when (currentScreen) {
+        "season" -> seasonDetailData?.seasonId
+        "episode" -> episodeItem?.id
+        else -> item?.id
+    }
+    val themePlaybackBlocked = showPlayer ||
+        !remoteTrailerUrl.isNullOrBlank() || castingDisplay ||
+        castPlaybackState.isCastingMedia
+
+    LaunchedEffect(
+        activeThemeItemId,
+        activeServerId,
+        themeMusicMode,
+        themePlaybackBlocked,
+        isDetailLifecycleActive
+    ) {
+        themeMusicController.stop()
+        val themeItemId = activeThemeItemId?.takeIf(String::isNotBlank) ?: return@LaunchedEffect
+        if (
+            themeMusicMode == Preferences.THEME_MUSIC_NO || themePlaybackBlocked ||
+            !isDetailLifecycleActive
+        ) return@LaunchedEffect
+
+        val urls = mediaRepository.getThemeSongUrls(themeItemId).getOrDefault(emptyList())
+        currentCoroutineContext().ensureActive()
+        themeMusicController.play(
+            urls = urls,
+            endless = themeMusicMode == Preferences.THEME_MUSIC_ENDLESS
+        )
+    }
 
     LaunchedEffect(context) {
         CastController.ensureInitialized(context)

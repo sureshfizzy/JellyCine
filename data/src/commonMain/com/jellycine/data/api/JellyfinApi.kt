@@ -16,6 +16,7 @@ import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.AdminSessionInfo
 import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.model.SystemInfoFull
+import com.jellycine.data.model.ThemeMediaResult
 import com.jellycine.data.model.UserDto
 import com.jellycine.data.network.ApiResponse
 
@@ -110,6 +111,12 @@ interface MediaServerApi {
         itemId: String,
         fields: String? = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,UserData,Chapters"
     ): ApiResponse<BaseItemDto>
+
+    suspend fun getThemeMedia(
+        itemId: String,
+        userId: String,
+        inheritFromParent: Boolean = true
+    ): ApiResponse<ThemeMediaResult>
 
     suspend fun getSimilarItems(
         itemId: String,
