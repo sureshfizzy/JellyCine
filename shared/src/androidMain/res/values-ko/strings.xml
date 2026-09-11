@@ -600,4 +600,9 @@
     <string name="screen_time_afternoon">대낮</string>
     <string name="screen_time_evening">이브닝</string>
     <string name="screen_time_night">야간</string>
+    <string name="interface_theme_music">테마 음악</string>
+    <string name="interface_theme_music_subtitle">세부 정보를 탐색하면서 주제곡을 재생합니다.</string>
+    <string name="interface_theme_music_no">아니요</string>
+    <string name="interface_theme_music_once">예 (1회)</string>
+    <string name="interface_theme_music_endless">끝없는</string>
 </resources>
