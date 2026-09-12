@@ -15,6 +15,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 class ScreenTimeViewModel(context: Context) : ViewModel() {
 
@@ -44,9 +47,11 @@ class ScreenTimeViewModel(context: Context) : ViewModel() {
             val today = LocalDate.now()
             val (startDate, endDate) = when (period) {
                 ScreenTimePeriod.WEEK -> {
-                    val end = today.plusWeeks(weekOffset.toLong())
-                    val start = end.minusDays(6)
-                    start to if (weekOffset == 0) today else end
+                    val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+                    val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
+                    val start = currentWeekStart.plusWeeks(weekOffset.toLong())
+                    val weekEnd = start.plusDays(6)
+                    start to if (weekOffset == 0) today else weekEnd
                 }
                 ScreenTimePeriod.MONTH -> {
                     val targetMonth = today.plusMonths(monthOffset.toLong())

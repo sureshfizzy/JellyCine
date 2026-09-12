@@ -61,6 +61,9 @@ import com.jellycine.shared.ui.components.screentime.formatDelta
 import com.jellycine.shared.ui.components.screentime.formatMinutes
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
 import java.util.Locale
 
 
@@ -345,8 +348,10 @@ private fun DateRangeSubtitle(
 
     val text = when (period) {
         ScreenTimePeriod.WEEK -> {
-            val end = today.plusWeeks(weekOffset.toLong())
-            val start = end.minusDays(6)
+            val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+            val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
+            val start = currentWeekStart.plusWeeks(weekOffset.toLong())
+            val end = start.plusDays(6)
             "${start.format(formatter)}  –  ${if (weekOffset == 0) "Today" else end.format(formatter)}"
         }
         ScreenTimePeriod.MONTH -> {
@@ -362,13 +367,23 @@ private fun DateRangeSubtitle(
         ScreenTimePeriod.MONTH -> monthOffset < 0
         ScreenTimePeriod.YEAR -> year < today.year
     }
+    val canGoPrevious = when (period) {
+        ScreenTimePeriod.WEEK -> {
+            val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+            val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
+            val monthFirstWeekStart = today.withDayOfMonth(1).with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
+            val minWeekOffset = -ChronoUnit.WEEKS.between(monthFirstWeekStart, currentWeekStart)
+            weekOffset > minWeekOffset
+        }
+        else -> true
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth().height(24.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Rounded.ChevronLeft, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp).clickable { onPrevious() })
+        Icon(Icons.Rounded.ChevronLeft, contentDescription = null, tint = if (canGoPrevious) Color.White else Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp).clickable(enabled = canGoPrevious) { onPrevious() })
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
