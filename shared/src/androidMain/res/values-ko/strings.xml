@@ -605,4 +605,8 @@
     <string name="interface_theme_music_no">아니요</string>
     <string name="interface_theme_music_once">예 (1회)</string>
     <string name="interface_theme_music_endless">끝없는</string>
+    <string name="settings_logs">로그</string>
+    <string name="settings_logs_subtitle">진단 로그 공유</string>
+    <string name="logs_share">공유하기</string>
+    <string name="interface_theme_music_volume">볼륨</string>
 </resources>
