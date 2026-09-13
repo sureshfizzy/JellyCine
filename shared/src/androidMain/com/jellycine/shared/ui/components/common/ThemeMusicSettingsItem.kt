@@ -14,17 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.VolumeDown
 import androidx.compose.material.icons.rounded.VolumeUp
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,7 +34,6 @@ import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeMusicSettingsItem(
     selectedMode: String,
@@ -124,32 +119,11 @@ fun ThemeMusicSettingsItem(
                         tint = Color.White.copy(alpha = 0.72f),
                         modifier = Modifier.size(18.dp)
                     )
-                    val sliderColors = SliderDefaults.colors(
-                        thumbColor = accentColor,
-                        activeTrackColor = accentColor,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.20f)
-                    )
                     Slider(
                         value = volume,
                         onValueChange = onVolumeChanged,
-                        valueRange = 0f..1f,
-                        colors = sliderColors,
-                        thumb = {
-                            Box(
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .background(accentColor, CircleShape)
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                colors = sliderColors,
-                                modifier = Modifier.height(4.dp),
-                                thumbTrackGapSize = 0.dp,
-                                drawStopIndicator = null
-                            )
-                        },
+                        accentColor = accentColor,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.20f),
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 8.dp)

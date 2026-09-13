@@ -49,8 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -64,7 +62,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -73,6 +70,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.shared.R
+import com.jellycine.shared.ui.components.common.Slider
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 
@@ -800,8 +798,7 @@ private fun ValueSliderSettingsItem(
         Slider(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp)
-                .graphicsLayer(scaleY = 0.75f),
+                .padding(top = 8.dp),
             value = safeValue.toFloat(),
             onValueChange = { changed ->
                 val steppedValue = (
@@ -811,24 +808,8 @@ private fun ValueSliderSettingsItem(
             },
             valueRange = valueRange.first.toFloat()..valueRange.last.toFloat(),
             steps = sliderSteps,
-            colors = SliderDefaults.colors(
-                thumbColor = accentColor,
-                activeTrackColor = accentColor,
-                inactiveTrackColor = accentColor.copy(alpha = 0.25f),
-                activeTickColor = accentColor.copy(alpha = 0.4f),
-                inactiveTickColor = accentColor.copy(alpha = 0.4f)
-            ),
-            thumb = {
-                Box(
-                    modifier = Modifier
-                        .width(10.dp)
-                        .height(18.dp)
-                        .background(
-                            color = accentColor,
-                            shape = RoundedCornerShape(4.dp)
-                        )
-                )
-            }
+            accentColor = accentColor,
+            inactiveTrackColor = accentColor.copy(alpha = 0.25f)
         )
 
         Spacer(modifier = Modifier.height(6.dp))
