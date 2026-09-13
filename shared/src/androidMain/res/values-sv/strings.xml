@@ -618,4 +618,8 @@
     <string name="interface_theme_music_no">Nej</string>
     <string name="interface_theme_music_once">Ja (en gång)</string>
     <string name="interface_theme_music_endless">Oändlig</string>
+    <string name="settings_logs">Loggar</string>
+    <string name="settings_logs_subtitle">Dela diagnostiska loggar</string>
+    <string name="logs_share">Dela</string>
+    <string name="interface_theme_music_volume">Volym</string>
 </resources>
