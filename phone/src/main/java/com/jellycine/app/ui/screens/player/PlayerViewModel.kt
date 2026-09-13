@@ -76,6 +76,7 @@ class PlayerViewModel @Inject constructor(
     var mpvPlayer: MpvPlayerController? by mutableStateOf(null)
         private set
     private var activePlayerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE
+    private var bufferedHighWaterMarkMs: Long = 0L
 
     private val trackSelectionCoordinator = PlayerTrackSelection()
     private var playbackSession = PlaybackSessionContext()
@@ -432,6 +433,7 @@ class PlayerViewModel @Inject constructor(
                     mediaSourceId = sessionMediaSourceId
                 )
 
+                bufferedHighWaterMarkMs = 0L
                 if (isMpvPlayback()) {
                     val selectedAudioStreamIndex = _preferredStreamIndexes.value.audioStreamIndex
                         ?: defaultAudioStreamIndex
@@ -555,6 +557,7 @@ class PlayerViewModel @Inject constructor(
 
                 playerContext = context
                 activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_EXO
+                bufferedHighWaterMarkMs = 0L
                 hasHandledPlaybackCompletion = false
                 hasRenderedFirstFrame = false
                 currentItemDetails = null
@@ -785,10 +788,19 @@ class PlayerViewModel @Inject constructor(
 
     fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
 
-    fun getBufferedPosition(): Long = if (isMpvPlayback()) {
-        mpvPlayer?.bufferedPosition ?: 0L
-    } else {
-        exoPlayer?.bufferedPosition?.coerceAtLeast(0L) ?: 0L
+    fun getBufferedPosition(): Long {
+        val raw = if (isMpvPlayback()) {
+            mpvPlayer?.bufferedPosition ?: 0L
+        } else {
+            exoPlayer?.bufferedPosition?.coerceAtLeast(0L) ?: 0L
+        }
+        bufferedHighWaterMarkMs = maxOf(bufferedHighWaterMarkMs, raw)
+        val duration = getDuration()
+        return if (duration > 0L) {
+            bufferedHighWaterMarkMs.coerceAtMost(duration)
+        } else {
+            bufferedHighWaterMarkMs
+        }
     }
 
     fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
@@ -1047,6 +1059,7 @@ class PlayerViewModel @Inject constructor(
         apiMediaStreams = null
         defaultAudioStreamIndex = null
         defaultSubtitleStreamIndex = null
+        bufferedHighWaterMarkMs = 0L
         mpvExternalSubtitleUrls = emptyMap()
         playerContext = null
         downloadRepository = null
