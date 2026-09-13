@@ -605,4 +605,8 @@
     <string name="interface_theme_music_no">ไม่</string>
     <string name="interface_theme_music_once">ใช่ (ครั้งเดียว)</string>
     <string name="interface_theme_music_endless">ไม่มีที่สิ้นสุด</string>
+    <string name="settings_logs">บันทึก</string>
+    <string name="settings_logs_subtitle">แชร์บันทึกวินิจฉัย</string>
+    <string name="logs_share">แบ่งปัน</string>
+    <string name="interface_theme_music_volume">ปริมาณ</string>
 </resources>
