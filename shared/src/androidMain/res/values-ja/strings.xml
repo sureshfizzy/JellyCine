@@ -605,4 +605,8 @@
     <string name="interface_theme_music_no">いいえ</string>
     <string name="interface_theme_music_once">はい (1 回)</string>
     <string name="interface_theme_music_endless">エンドレス</string>
+    <string name="settings_logs">ログ</string>
+    <string name="settings_logs_subtitle">診断ログの共有</string>
+    <string name="logs_share">シェア</string>
+    <string name="interface_theme_music_volume">ボリューム</string>
 </resources>
