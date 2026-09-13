@@ -618,4 +618,8 @@
     <string name="interface_theme_music_no">Ei</string>
     <string name="interface_theme_music_once">Jah (üks kord)</string>
     <string name="interface_theme_music_endless">Lõputu</string>
+    <string name="settings_logs">Logid</string>
+    <string name="settings_logs_subtitle">Diagnostikalogide jagamine</string>
+    <string name="logs_share">Jaga</string>
+    <string name="interface_theme_music_volume">Helitugevus</string>
 </resources>
