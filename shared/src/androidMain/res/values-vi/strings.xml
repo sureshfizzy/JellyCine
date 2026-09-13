@@ -605,4 +605,8 @@
     <string name="interface_theme_music_no">Không</string>
     <string name="interface_theme_music_once">Có (một lần)</string>
     <string name="interface_theme_music_endless">Vô tận</string>
+    <string name="settings_logs">Nhật ký</string>
+    <string name="settings_logs_subtitle">Chia sẻ nhật ký chẩn đoán</string>
+    <string name="logs_share">Chia sẻ</string>
+    <string name="interface_theme_music_volume">Khối lượng</string>
 </resources>
