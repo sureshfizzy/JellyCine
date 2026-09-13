@@ -192,7 +192,7 @@ class MpvPlayerController(
         if (released) return
         this.positionMs = positionMs.coerceAtLeast(0L)
         this.bufferedPositionMs = this.positionMs
-        mpv.command(arrayOf("seek", (this.positionMs / 1000.0).toString(), "absolute+keyframes"))
+        mpv.command(arrayOf("seek", (this.positionMs / 1000.0).toString(), "absolute+exact"))
     }
 
     fun setVolume(volume: Float) {
