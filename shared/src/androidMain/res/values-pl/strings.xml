@@ -644,4 +644,8 @@
     <string name="interface_theme_music_no">Nie</string>
     <string name="interface_theme_music_once">Tak (jednorazowo)</string>
     <string name="interface_theme_music_endless">Niekończący się</string>
+    <string name="settings_logs">Dzienniki</string>
+    <string name="settings_logs_subtitle">Udostępnianie dzienników diagnostycznych</string>
+    <string name="logs_share">Udostępnij</string>
+    <string name="interface_theme_music_volume">Wolumen</string>
 </resources>
