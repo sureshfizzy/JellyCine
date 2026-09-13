@@ -644,4 +644,8 @@
     <string name="interface_theme_music_no">Нет</string>
     <string name="interface_theme_music_once">Да (один раз)</string>
     <string name="interface_theme_music_endless">Бескрайний</string>
+    <string name="settings_logs">Журналы</string>
+    <string name="settings_logs_subtitle">Делитесь диагностическими журналами</string>
+    <string name="logs_share">Поделись</string>
+    <string name="interface_theme_music_volume">Объем</string>
 </resources>
