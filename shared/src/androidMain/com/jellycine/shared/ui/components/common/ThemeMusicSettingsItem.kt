@@ -13,11 +13,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.VolumeDown
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,12 +36,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
+import kotlin.math.roundToInt
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeMusicSettingsItem(
     selectedMode: String,
     onModeSelected: (String) -> Unit,
-    accentColor: Color
+    accentColor: Color,
+    volume: Float = 1f,
+    onVolumeChanged: (Float) -> Unit = {}
 ) {
     val options = listOf(
         Preferences.THEME_MUSIC_NO to stringResource(R.string.interface_theme_music_no),
@@ -85,6 +96,69 @@ fun ThemeMusicSettingsItem(
                             .width(1.dp)
                             .fillMaxHeight()
                             .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    )
+                }
+            }
+        }
+        AnimatedVisibility(visible = selectedMode != Preferences.THEME_MUSIC_NO) {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.interface_theme_music_volume),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "${(volume * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.VolumeDown,
+                        null,
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    val sliderColors = SliderDefaults.colors(
+                        thumbColor = accentColor,
+                        activeTrackColor = accentColor,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.20f)
+                    )
+                    Slider(
+                        value = volume,
+                        onValueChange = onVolumeChanged,
+                        valueRange = 0f..1f,
+                        colors = sliderColors,
+                        thumb = {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(accentColor, CircleShape)
+                            )
+                        },
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                sliderState = sliderState,
+                                colors = sliderColors,
+                                modifier = Modifier.height(4.dp),
+                                thumbTrackGapSize = 0.dp,
+                                drawStopIndicator = null
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                    )
+                    Icon(
+                        Icons.Rounded.VolumeUp,
+                        null,
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

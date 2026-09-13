@@ -86,6 +86,8 @@ fun DetailScreenContainer(
     val interfacePreferences = remember { Preferences(context) }
     val themeMusicMode by interfacePreferences.themeMusicMode()
         .collectAsState(initial = interfacePreferences.getThemeMusicMode())
+    val themeMusicVolume by interfacePreferences.themeMusicVolume()
+        .collectAsState(initial = interfacePreferences.getThemeMusicVolume())
     val themeMusicController = remember { ThemeMusicController(context) }
     var playingThemeUrls by remember { mutableStateOf<List<String>?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -187,8 +189,13 @@ fun DetailScreenContainer(
         playingThemeUrls = urls
         themeMusicController.play(
             urls = urls,
-            endless = themeMusicMode == Preferences.THEME_MUSIC_ENDLESS
+            endless = themeMusicMode == Preferences.THEME_MUSIC_ENDLESS,
+            volume = themeMusicVolume
         )
+    }
+
+    LaunchedEffect(themeMusicVolume) {
+        themeMusicController.setVolume(themeMusicVolume)
     }
 
     fun startPlaybackForItem(

@@ -26,6 +26,7 @@ class Preferences(context: Context) {
         private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
         private const val KEY_DISCORD_RPC_ENABLED = "discord_rpc_enabled"
         private const val KEY_THEME_MUSIC_MODE = "theme_music_mode"
+        private const val KEY_THEME_MUSIC_VOLUME = "theme_music_volume"
 
         const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
         const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
@@ -33,6 +34,7 @@ class Preferences(context: Context) {
         const val THEME_MUSIC_NO = "no"
         const val THEME_MUSIC_ONCE = "once"
         const val THEME_MUSIC_ENDLESS = "endless"
+        const val DEFAULT_THEME_MUSIC_VOLUME = 0.6f
     }
 
     fun isWifiOnlyDownloadsEnabled(): Boolean {
@@ -294,6 +296,25 @@ class Preferences(context: Context) {
         trySend(getThemeMusicMode())
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_THEME_MUSIC_MODE) trySend(getThemeMusicMode())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun getThemeMusicVolume(): Float {
+        return prefs.getFloat(KEY_THEME_MUSIC_VOLUME, DEFAULT_THEME_MUSIC_VOLUME).coerceIn(0f, 1f)
+    }
+
+    fun setThemeMusicVolume(volume: Float) {
+        prefs.edit()
+            .putFloat(KEY_THEME_MUSIC_VOLUME, volume.coerceIn(0f, 1f))
+            .apply()
+    }
+
+    fun themeMusicVolume(): Flow<Float> = callbackFlow {
+        trySend(getThemeMusicVolume())
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_THEME_MUSIC_VOLUME) trySend(getThemeMusicVolume())
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }

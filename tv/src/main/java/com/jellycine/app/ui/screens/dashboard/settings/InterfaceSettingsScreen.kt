@@ -82,6 +82,8 @@ fun InterfaceSettingsScreen(
         )
     val themeMusicMode by preferences.themeMusicMode()
         .collectAsStateWithLifecycle(initialValue = preferences.getThemeMusicMode())
+    val themeMusicVolume by preferences.themeMusicVolume()
+        .collectAsStateWithLifecycle(initialValue = preferences.getThemeMusicVolume())
 
     Scaffold(
         containerColor = Color.Black,
@@ -137,7 +139,9 @@ fun InterfaceSettingsScreen(
                     ThemeMusicSettingsItem(
                         selectedMode = themeMusicMode,
                         onModeSelected = preferences::setThemeMusicMode,
-                        accentColor = Color(0xFF8B5CF6)
+                        accentColor = Color(0xFF8B5CF6),
+                        volume = themeMusicVolume,
+                        onVolumeChanged = preferences::setThemeMusicVolume
                     )
                     HorizontalDivider(
                         thickness = 1.dp,

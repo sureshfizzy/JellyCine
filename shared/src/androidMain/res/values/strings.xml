@@ -551,6 +551,7 @@
     <string name="interface_theme_music_no">No</string>
     <string name="interface_theme_music_once">Yes (one time)</string>
     <string name="interface_theme_music_endless">Endless</string>
+    <string name="interface_theme_music_volume">Volume</string>
     <string name="interface_continue_watching">Continue Watching</string>
     <string name="interface_continue_watching_subtitle">Show the Continue Watching section on the Home screen.</string>
     <string name="interface_next_up">Next Up</string>
