@@ -644,4 +644,8 @@
     <string name="interface_theme_music_no">Ні</string>
     <string name="interface_theme_music_once">Так (одноразово)</string>
     <string name="interface_theme_music_endless">Нескінченний</string>
+    <string name="settings_logs">Колоди</string>
+    <string name="settings_logs_subtitle">Спільне використання діагностичних журналів</string>
+    <string name="logs_share">Поділитися</string>
+    <string name="interface_theme_music_volume">Обсяг</string>
 </resources>
