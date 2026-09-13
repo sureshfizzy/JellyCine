@@ -618,4 +618,8 @@
     <string name="interface_theme_music_no">Hayır</string>
     <string name="interface_theme_music_once">Evet (bir kez)</string>
     <string name="interface_theme_music_endless">Sonsuz</string>
+    <string name="settings_logs">Günlükler</string>
+    <string name="settings_logs_subtitle">Tanılama günlüklerini paylaşma</string>
+    <string name="logs_share">Paylaş</string>
+    <string name="interface_theme_music_volume">Hacim</string>
 </resources>
