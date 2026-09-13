@@ -8,7 +8,15 @@ import com.jellycine.player.core.PlayerUtils
 
 @UnstableApi
 class ThemeMusicController(context: Context) {
-    private val player = PlayerUtils.createPlayer(context.applicationContext)
+    private val player = PlayerUtils.createPlayer(
+        context.applicationContext,
+        bufferOverride = PlayerUtils.PlaybackBufferOverride(
+            minBufferMs = 2_000,
+            maxBufferMs = 10_000,
+            bufferForPlaybackMs = 500,
+            bufferForPlaybackAfterRebufferMs = 1_500
+        )
+    )
 
     fun play(urls: List<String>, endless: Boolean, volume: Float = 1f) {
         stop()
