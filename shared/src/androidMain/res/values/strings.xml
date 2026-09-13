@@ -464,6 +464,9 @@
     <string name="detail_seerr_allowed_requests">You are allowed to request %1$d %2$s every %3$d days.</string>
     <string name="settings_cache">Cache</string>
     <string name="settings_cache_subtitle">Cache image and cache size</string>
+    <string name="settings_logs">Logs</string>
+    <string name="settings_logs_subtitle">Share diagnostic logs</string>
+    <string name="logs_share">Share</string>
     <string name="settings_device_info">Device Info</string>
     <string name="settings_device_model">Device Model</string>
     <string name="settings_device_model_value">%1$s %2$s</string>

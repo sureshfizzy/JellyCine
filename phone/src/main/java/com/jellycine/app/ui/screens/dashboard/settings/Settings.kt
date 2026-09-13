@@ -44,6 +44,7 @@ import com.jellycine.shared.R
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +63,7 @@ fun Settings(
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
+    val logsScope = rememberCoroutineScope()
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val serverSwitchViewModel: ServerSwitchViewModel = viewModel {
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
@@ -227,6 +229,17 @@ fun Settings(
                         subtitle = stringResource(R.string.settings_cache_subtitle),
                         accentColor = Color(0xFF22D3EE),
                         onClick = onNavigateToCacheSettings
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Rounded.Notes,
+                        title = stringResource(R.string.settings_logs),
+                        subtitle = stringResource(R.string.settings_logs_subtitle),
+                        accentColor = Color(0xFF64748B),
+                        onClick = { logsScope.launch { LogsExporter.shareAll(context) } }
                     )
                 }
             }

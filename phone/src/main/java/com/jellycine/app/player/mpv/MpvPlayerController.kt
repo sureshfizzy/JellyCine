@@ -71,6 +71,7 @@ class MpvPlayerController(
         configureMpv()
         mpv.init()
         mpv.addObserver(this)
+        mpv.addLogObserver(MpvLogBridge)
         mpv.observeProperty("time-pos", MpvFormat.MPV_FORMAT_DOUBLE)
         mpv.observeProperty("duration", MpvFormat.MPV_FORMAT_DOUBLE)
         mpv.observeProperty("demuxer-cache-time", MpvFormat.MPV_FORMAT_DOUBLE)
@@ -221,6 +222,7 @@ class MpvPlayerController(
         if (released) return
         released = true
         runCatching { mpv.removeObserver(this) }
+        runCatching { mpv.removeLogObserver(MpvLogBridge) }
         runCatching { mpv.detachSurface() }
         runCatching { mpv.destroy() }
     }
