@@ -644,4 +644,8 @@
     <string name="interface_theme_music_no">Ne</string>
     <string name="interface_theme_music_once">Ano (jednou)</string>
     <string name="interface_theme_music_endless">Nekonečný</string>
+    <string name="settings_logs">Protokoly</string>
+    <string name="settings_logs_subtitle">Sdílení diagnostických protokolů</string>
+    <string name="logs_share">Sdílet</string>
+    <string name="interface_theme_music_volume">Objem</string>
 </resources>
