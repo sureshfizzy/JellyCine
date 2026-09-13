@@ -618,4 +618,8 @@
     <string name="interface_theme_music_no">Nein</string>
     <string name="interface_theme_music_once">Ja (einmal)</string>
     <string name="interface_theme_music_endless">Endlos</string>
+    <string name="settings_logs">Logs</string>
+    <string name="settings_logs_subtitle">Diagnoseprotokolle teilen</string>
+    <string name="logs_share">Teilen</string>
+    <string name="interface_theme_music_volume">Volumen</string>
 </resources>
