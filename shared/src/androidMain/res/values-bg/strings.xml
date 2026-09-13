@@ -618,4 +618,8 @@
     <string name="interface_theme_music_no">Не</string>
     <string name="interface_theme_music_once">Да (еднократно)</string>
     <string name="interface_theme_music_endless">Безкраен</string>
+    <string name="settings_logs">Дневници</string>
+    <string name="settings_logs_subtitle">Споделяне на диагностични дневници</string>
+    <string name="logs_share">Сподели</string>
+    <string name="interface_theme_music_volume">Обем</string>
 </resources>
