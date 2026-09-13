@@ -670,4 +670,8 @@
     <string name="interface_theme_music_no">لا</string>
     <string name="interface_theme_music_once">نعم (مرة واحدة)</string>
     <string name="interface_theme_music_endless">لا نهاية لها</string>
+    <string name="settings_logs">السجلات</string>
+    <string name="settings_logs_subtitle">مشاركة سجلات التشخيص</string>
+    <string name="logs_share">شارك</string>
+    <string name="interface_theme_music_volume">مستوى الصوت</string>
 </resources>
