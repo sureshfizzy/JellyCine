@@ -18,6 +18,7 @@ import com.jellycine.data.model.MediaExtra
 import com.jellycine.data.model.PlaybackSegments
 import com.jellycine.data.model.PlaybackAuthContext
 import com.jellycine.data.model.PlaybackUrlBuilder
+import com.jellycine.data.model.TmdbReview
 import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.data.model.PlaybackStreamOptions
 import com.jellycine.data.model.PersistedHomeSnapshot
@@ -1105,6 +1106,40 @@ class MediaRepository(private val context: Context) {
             else -> return@withContext emptyList()
         }
         tmdbApi.fetchExtras(tmdbType, tmdbId)
+    }
+
+    suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {
+        val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
+            getItemById(item.seriesId!!).getOrNull() ?: item
+        } else {
+            item
+        }
+        val tmdbType = when {
+            lookupItem.type.equals("Series", ignoreCase = true) -> "tv"
+            lookupItem.type.equals("Movie", ignoreCase = true) -> "movie"
+            else -> return@withContext emptyList()
+        }
+        val tmdbId = resolveTmdbId(lookupItem, tmdbType) ?: return@withContext emptyList()
+        tmdbApi.fetchReviews(tmdbType, tmdbId)
+    }
+
+    // Prefers the Tmdb provider id, falling back to /find via the Tvdb (TV) or Imdb id.
+    private suspend fun resolveTmdbId(item: BaseItemDto, tmdbType: String): String? {
+        fun providerId(key: String): String? = item.providerIds
+            ?.entries
+            ?.firstOrNull { (k, v) -> k.equals(key, ignoreCase = true) && v.isNotBlank() }
+            ?.value
+
+        providerId("Tmdb")?.let { return it }
+        if (tmdbType == "tv") {
+            providerId("Tvdb")?.let { tvdb ->
+                tmdbApi.findTmdbId(tvdb, "tvdb_id", tmdbType)?.let { return it }
+            }
+        }
+        providerId("Imdb")?.let { imdb ->
+            tmdbApi.findTmdbId(imdb, "imdb_id", tmdbType)?.let { return it }
+        }
+        return null
     }
 
     fun getImageUrl(

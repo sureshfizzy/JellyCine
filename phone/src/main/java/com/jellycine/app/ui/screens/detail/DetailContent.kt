@@ -128,6 +128,8 @@ fun DetailContent(
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val shouldMergeVersions = forceMergeVersions || mergeVersionsEnabled
+    val showReviewsEnabled by preferences.ShowReviewsEnabled()
+        .collectAsState(initial = preferences.isShowReviewsEnabled())
     val metadataScrollState = rememberScrollState()
     val detailListState = rememberLazyListState()
     val isEpisode = item.type == "Episode"
@@ -1335,6 +1337,14 @@ fun DetailContent(
                             mediaRepository = mediaRepository,
                             onExtraClick = onRemoteTrailerClick
                         )
+
+                        if (showReviewsEnabled) {
+                            ReviewsSection(
+                                item = item,
+                                isSeerDetail = isSeerDetail,
+                                mediaRepository = mediaRepository
+                            )
+                        }
 
                         Recommendations(
                             item = item,
