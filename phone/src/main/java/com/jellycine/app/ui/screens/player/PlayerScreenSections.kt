@@ -8,6 +8,7 @@ import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.os.Build
 import android.view.View
+import android.view.Window
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -72,6 +73,23 @@ private const val PLAYER_POSITION_UPDATE_MS = 250L
 private fun trimImageMemoryCacheForPlayback(context: Context) {
     runCatching {
         SingletonImageLoader.get(context).memoryCache?.clear()
+    }
+}
+
+/**
+ * Applies [Window.setDesiredHdrHeadroom] on Android 15+ via reflection.
+ *
+ * The API only exists on API 35+, but with R8 minification a direct call gets outlined
+ * into a shared synthetic method whose unresolved reference throws NoSuchMethodError on
+ * older devices (e.g. Android 14) even when the SDK_INT branch is never taken. Invoking
+ * reflectively keeps any hard reference to the missing method out of the dex.
+ */
+private fun setDesiredHdrHeadroomCompat(window: Window, headroom: Float) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+    runCatching {
+        Window::class.java
+            .getMethod("setDesiredHdrHeadroom", Float::class.javaPrimitiveType)
+            .invoke(window, headroom)
     }
 }
 
@@ -165,9 +183,7 @@ internal fun PlayerScreenEffects(
             shouldUseHdrColorMode
         ) {
             activity.window.colorMode = ActivityInfo.COLOR_MODE_HDR
-            if (Build.VERSION.SDK_INT >= 34) {
-                activity.window.setDesiredHdrHeadroom(4.0f)
-            }
+            setDesiredHdrHeadroomCompat(activity.window, 4.0f)
         }
 
         onDispose {
@@ -177,9 +193,7 @@ internal fun PlayerScreenEffects(
                 originalColorMode != null
             ) {
                 activity.window.colorMode = originalColorMode
-                if (Build.VERSION.SDK_INT >= 34) {
-                    activity.window.setDesiredHdrHeadroom(1.0f)
-                }
+                setDesiredHdrHeadroomCompat(activity.window, 1.0f)
             }
         }
     }
