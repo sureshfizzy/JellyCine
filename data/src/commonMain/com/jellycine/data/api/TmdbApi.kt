@@ -1,8 +1,11 @@
 package com.jellycine.data.api
 
 import com.jellycine.data.model.MediaExtra
+import com.jellycine.data.model.TmdbFindResponse
 import com.jellycine.data.model.TmdbImage
 import com.jellycine.data.model.TmdbImagesResponse
+import com.jellycine.data.model.TmdbReview
+import com.jellycine.data.model.TmdbReviewsResponse
 import com.jellycine.data.model.TmdbVideosResponse
 import com.jellycine.data.model.toMediaExtras
 import com.jellycine.data.model.toRawVideos
@@ -94,6 +97,23 @@ internal class TmdbApi(
             .toRawVideos()
             .toMediaExtras()
     }.getOrDefault(emptyList())
+
+    suspend fun fetchReviews(mediaType: String, tmdbId: String): List<TmdbReview> = runCatching {
+        client.get("https://api.themoviedb.org/3/$mediaType/$tmdbId/reviews") {
+            parameter("api_key", apiKey)
+            parameter("language", "en-US")
+        }.body<TmdbReviewsResponse>().results
+    }.getOrDefault(emptyList())
+
+    // Maps an external id (IMDb/TheTVDB) to a TMDB id via /find, for items scraped without a Tmdb id.
+    suspend fun findTmdbId(externalId: String, externalSource: String, mediaType: String): String? = runCatching {
+        val response = client.get("https://api.themoviedb.org/3/find/$externalId") {
+            parameter("api_key", apiKey)
+            parameter("external_source", externalSource)
+        }.body<TmdbFindResponse>()
+        val results = if (mediaType == "tv") response.tvResults else response.movieResults
+        results.firstOrNull()?.id?.takeIf { it > 0 }?.toString()
+    }.getOrNull()
 
     private companion object {
         private const val TMDB_API_KEY = "4219e299c89411838049ab0dab19ebd5"

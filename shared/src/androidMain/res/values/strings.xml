@@ -560,6 +560,8 @@
     <string name="interface_use_my_media_tab_subtitle">Replace the Discover tab with the classic library grid.</string>
     <string name="interface_merge_versions">Merge Versions</string>
     <string name="interface_merge_versions_subtitle">Show matching local movie files on one details screen.</string>
+    <string name="interface_show_reviews">Reviews</string>
+    <string name="interface_show_reviews_subtitle">Show TMDB user reviews on movie and show details.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Disable Emby poster overlays.</string>
     <string name="interface_seerr_settings">Seerr Settings</string>
@@ -630,6 +632,9 @@
     <!-- Detail -->
     <string name="detail_cast_and_crew">Cast &amp; Crew</string>
     <string name="detail_trailers_and_extras">Trailers &amp; Extras</string>
+    <string name="detail_reviews">Reviews</string>
+    <string name="detail_reviews_rating">%1$s / 10</string>
+    <string name="detail_reviews_read_full">Read full review</string>
     <string name="detail_similar_items_title">More Like This</string>
     <string name="detail_directed_by">Directed by %1$s</string>
     <string name="detail_seerr_recommendations_title">Seerr Recommendations</string>

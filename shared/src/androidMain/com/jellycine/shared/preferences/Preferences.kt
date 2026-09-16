@@ -21,6 +21,7 @@ class Preferences(context: Context) {
         private const val KEY_NEXT_UP_ENABLED = "next_up_enabled"
         private const val KEY_USE_MY_MEDIA_TAB = "use_my_media_tab"
         private const val KEY_MERGE_VERSIONS_ENABLED = "merge_versions_enabled"
+        private const val KEY_SHOW_REVIEWS_ENABLED = "show_reviews_enabled"
         private const val KEY_SEERR_STUDIOS_ENABLED = "seerr_studios_enabled"
         private const val KEY_SEERR_NETWORKS_ENABLED = "seerr_networks_enabled"
         private const val KEY_FEATURE_CAROUSEL_AUTOPLAY_TRAILERS = "feature_carousel_autoplay_trailers"
@@ -210,6 +211,27 @@ class Preferences(context: Context) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_MERGE_VERSIONS_ENABLED) {
                 trySend(isMergeVersionsEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isShowReviewsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SHOW_REVIEWS_ENABLED, true)
+    }
+
+    fun setShowReviewsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_REVIEWS_ENABLED, enabled).apply()
+    }
+
+    fun ShowReviewsEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isShowReviewsEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_SHOW_REVIEWS_ENABLED) {
+                trySend(isShowReviewsEnabled())
             }
         }
 
