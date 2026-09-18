@@ -80,7 +80,7 @@ kotlin {
                     implementation "io.ktor:ktor-client-darwin:3.5.2"
                     implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
                     implementation "androidx.datastore:datastore-preferences-core:1.2.1"
-                    implementation "com.squareup.okio:okio:3.9.0"
+                    implementation "com.squareup.okio:okio:3.18.2"
                 }
             }
         }
