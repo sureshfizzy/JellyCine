@@ -561,10 +561,10 @@
     <string name="interface_merge_versions_subtitle">Zobrazit odpovídající místní filmové soubory na jedné obrazovce podrobností.</string>
     <string name="interface_emby_poster_overlays">Překryvy plakátů Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Zakázat překryvy plakátů Emby.</string>
-    <string name="interface_seerr_settings">Nastavení Seerr</string>
-    <string name="interface_seerr_studios">Studia Seerr</string>
+    <string name="interface_seerr_settings">Studia a sítě</string>
+    <string name="interface_seerr_studios">Studia</string>
     <string name="interface_seerr_studios_subtitle">Zobrazte sekci Studia na domovské obrazovce.</string>
-    <string name="interface_seerr_networks">Sítě Seerr</string>
+    <string name="interface_seerr_networks">Sítě</string>
     <string name="interface_seerr_networks_subtitle">Zobrazte sekci Sítě na domovské obrazovce.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Připojení</string>
@@ -648,4 +648,11 @@
     <string name="settings_logs_subtitle">Sdílení diagnostických protokolů</string>
     <string name="logs_share">Sdílet</string>
     <string name="interface_theme_music_volume">Objem</string>
+    <string name="interface_show_reviews">Recenze</string>
+    <string name="settings_force_offline">Vynutit režim offline</string>
+    <string name="settings_force_offline_subtitle">Procházejte pouze stažené soubory a přestaňte kontaktovat server</string>
+    <string name="interface_show_reviews_subtitle">Zobrazit uživatelské recenze TMDB na film a zobrazit podrobnosti.</string>
+    <string name="detail_reviews">Recenze</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Přečtěte si celou recenzi</string>
 </resources>
