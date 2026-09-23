@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Visa matchande lokala filmfiler på en detaljskärm.</string>
     <string name="interface_emby_poster_overlays">Emby affischöverlägg</string>
     <string name="interface_emby_poster_overlays_subtitle">Inaktivera Emby affischöverlägg.</string>
-    <string name="interface_seerr_settings">Seerr-inställningar</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studior &amp; Nätverk</string>
+    <string name="interface_seerr_studios">Studior</string>
     <string name="interface_seerr_studios_subtitle">Visa avsnittet Studios på startskärmen.</string>
-    <string name="interface_seerr_networks">Seerr Nätverk</string>
+    <string name="interface_seerr_networks">Nätverk</string>
     <string name="interface_seerr_networks_subtitle">Visa avsnittet Nätverk på startskärmen.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Anslutningar</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Dela diagnostiska loggar</string>
     <string name="logs_share">Dela</string>
     <string name="interface_theme_music_volume">Volym</string>
+    <string name="interface_show_reviews">Omdömen</string>
+    <string name="interface_show_reviews_subtitle">Visa TMDB-användarrecensioner på film och visa detaljer.</string>
+    <string name="detail_reviews">Omdömen</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Läs hela recensionen</string>
+    <string name="settings_force_offline">Tvinga offlineläge</string>
+    <string name="settings_force_offline_subtitle">Bläddra endast i nedladdningar och sluta kontakta servern</string>
 </resources>
