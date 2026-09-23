@@ -561,10 +561,10 @@
     <string name="interface_merge_versions_subtitle">Показувати відповідні локальні файли фільмів на одному екрані деталей.</string>
     <string name="interface_emby_poster_overlays">Накладки плакатів Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Вимкніть накладення плакатів Emby.</string>
-    <string name="interface_seerr_settings">Параметри Seerr</string>
-    <string name="interface_seerr_studios">Студії Seerr</string>
+    <string name="interface_seerr_settings">Студії та мережі</string>
+    <string name="interface_seerr_studios">Студії</string>
     <string name="interface_seerr_studios_subtitle">Покажіть розділ Студії на головному екрані.</string>
-    <string name="interface_seerr_networks">Мережі Seerr</string>
+    <string name="interface_seerr_networks">Мережі</string>
     <string name="interface_seerr_networks_subtitle">Покажіть розділ Мережі на головному екрані.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">З\'єднання</string>
@@ -648,4 +648,11 @@
     <string name="settings_logs_subtitle">Спільне використання діагностичних журналів</string>
     <string name="logs_share">Поділитися</string>
     <string name="interface_theme_music_volume">Обсяг</string>
+    <string name="interface_show_reviews">Відгуки</string>
+    <string name="interface_show_reviews_subtitle">Показуйте відгуки користувачів TMDB про фільм та подробиці шоу.</string>
+    <string name="detail_reviews">Відгуки</string>
+    <string name="detail_reviews_rating">[Х0Х]/10</string>
+    <string name="detail_reviews_read_full">Читати повний огляд</string>
+    <string name="settings_force_offline">Примусовий режим автономного режиму</string>
+    <string name="settings_force_offline_subtitle">Переглядайте лише завантаження та припиніть контакт із сервером</string>
 </resources>
