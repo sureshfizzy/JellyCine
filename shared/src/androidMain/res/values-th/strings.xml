@@ -522,10 +522,10 @@
     <string name="interface_merge_versions_subtitle">แสดงไฟล์ภาพยนตร์ท้องถิ่นที่ตรงกันบนหน้าจอรายละเอียด</string>
     <string name="interface_emby_poster_overlays">ซ้อนทับโปสเตอร์ Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">ปิดใช้งานการซ้อนทับโปสเตอร์ Emby</string>
-    <string name="interface_seerr_settings">การตั้งค่า Seerr</string>
-    <string name="interface_seerr_studios">เซียร์ สตูดิโอ</string>
+    <string name="interface_seerr_settings">สตูดิโอและเครือข่าย</string>
+    <string name="interface_seerr_studios">สตูดิโอ</string>
     <string name="interface_seerr_studios_subtitle">แสดงส่วนสตูดิโอบนหน้าจอหลัก</string>
-    <string name="interface_seerr_networks">เครือข่าย Seerr</string>
+    <string name="interface_seerr_networks">เครือข่าย</string>
     <string name="interface_seerr_networks_subtitle">แสดงส่วนเครือข่ายบนหน้าจอหลัก</string>
     <!-- Connections Settings -->
     <string name="settings_connections">การเชื่อมต่อ</string>
@@ -609,4 +609,11 @@
     <string name="settings_logs_subtitle">แชร์บันทึกวินิจฉัย</string>
     <string name="logs_share">แบ่งปัน</string>
     <string name="interface_theme_music_volume">ปริมาณ</string>
+    <string name="interface_show_reviews">รีวิว</string>
+    <string name="interface_show_reviews_subtitle">แสดงความคิดเห็นของผู้ใช้ TMDB เกี่ยวกับภาพยนตร์และรายละเอียดการแสดง</string>
+    <string name="detail_reviews">รีวิว</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="settings_force_offline">บังคับโหมดออฟไลน์</string>
+    <string name="settings_force_offline_subtitle">เรียกดูการดาวน์โหลดเท่านั้นและหยุดติดต่อเซิร์ฟเวอร์</string>
+    <string name="detail_reviews_read_full">อ่านรีวิวฉบับเต็ม</string>
 </resources>
