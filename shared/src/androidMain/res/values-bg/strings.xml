@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Показване на съвпадащи локални филмови файлове на един екран с подробности.</string>
     <string name="interface_emby_poster_overlays">Накласквания на плакати Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Деактивирайте наслагванията на плакати на Emby.</string>
-    <string name="interface_seerr_settings">Настройки на Seerr</string>
-    <string name="interface_seerr_studios">Студиа Сиер</string>
+    <string name="interface_seerr_settings">Студиа и мрежи</string>
+    <string name="interface_seerr_studios">Студиа</string>
     <string name="interface_seerr_studios_subtitle">Покажете секцията Студиа на началния екран.</string>
-    <string name="interface_seerr_networks">Мрежи на Сиер</string>
+    <string name="interface_seerr_networks">Мрежи</string>
     <string name="interface_seerr_networks_subtitle">Покажете секцията Мрежи на началния екран.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Връзки</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Споделяне на диагностични дневници</string>
     <string name="logs_share">Сподели</string>
     <string name="interface_theme_music_volume">Обем</string>
+    <string name="interface_show_reviews">Отзиви</string>
+    <string name="interface_show_reviews_subtitle">Показване на потребителски отзиви на TMDB за филми и подробности за шоуто.</string>
+    <string name="detail_reviews">Отзиви</string>
+    <string name="detail_reviews_rating">[Х0Х]/10</string>
+    <string name="detail_reviews_read_full">Прочетете пълния преглед</string>
+    <string name="settings_force_offline">Принудително офлайн режим</string>
+    <string name="settings_force_offline_subtitle">Преглеждайте само изтегляния и спрете да се свързвате със сървъра</string>
 </resources>
