@@ -548,10 +548,10 @@
     <string name="interface_merge_versions_subtitle">Mostre arquivos de filmes locais correspondentes em uma tela de detalhes.</string>
     <string name="interface_emby_poster_overlays">Sobreposições de pôsteres Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Desative as sobreposições de pôsteres do Emby.</string>
-    <string name="interface_seerr_settings">Configurações do servidor</string>
-    <string name="interface_seerr_studios">Estúdios Seerr</string>
+    <string name="interface_seerr_settings">Estúdios e redes</string>
+    <string name="interface_seerr_studios">Estúdios</string>
     <string name="interface_seerr_studios_subtitle">Mostre a seção Studios na tela inicial.</string>
-    <string name="interface_seerr_networks">Redes de servidores</string>
+    <string name="interface_seerr_networks">Redes</string>
     <string name="interface_seerr_networks_subtitle">Mostre a seção Redes na tela inicial.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Conexões</string>
@@ -635,4 +635,11 @@
     <string name="settings_logs_subtitle">Compartilhe registros de diagnóstico</string>
     <string name="logs_share">Compartilhar</string>
     <string name="interface_theme_music_volume">Volume</string>
+    <string name="interface_show_reviews">Resenhas</string>
+    <string name="interface_show_reviews_subtitle">Mostre avaliações de usuários do TMDB sobre filmes e mostre detalhes.</string>
+    <string name="detail_reviews">Resenhas</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Leia a resenha completa</string>
+    <string name="settings_force_offline">Forçar o modo off-line</string>
+    <string name="settings_force_offline_subtitle">Procure apenas downloads e pare de entrar em contato com o servidor</string>
 </resources>
