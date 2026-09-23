@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Eşleşen yerel film dosyalarını tek bir ayrıntı ekranında göster.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Kaplamaları</string>
     <string name="interface_emby_poster_overlays_subtitle">Emby poster kaplamalarını devre dışı bırakın.</string>
-    <string name="interface_seerr_settings">Seerr Ayarları</string>
-    <string name="interface_seerr_studios">Seerr Stüdyoları</string>
+    <string name="interface_seerr_settings">Stüdyolar ve Ağlar</string>
+    <string name="interface_seerr_studios">Stüdyoları</string>
     <string name="interface_seerr_studios_subtitle">Ana ekranda Stüdyolar bölümünü göster.</string>
-    <string name="interface_seerr_networks">Seerr Ağları</string>
+    <string name="interface_seerr_networks">Ağlar</string>
     <string name="interface_seerr_networks_subtitle">Ana ekranda Ağlar bölümünü göster.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Bağlantılar</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Tanılama günlüklerini paylaşma</string>
     <string name="logs_share">Paylaş</string>
     <string name="interface_theme_music_volume">Hacim</string>
+    <string name="interface_show_reviews">Yorumlar</string>
+    <string name="interface_show_reviews_subtitle">Filmde TMDB kullanıcı incelemelerini göster ve gösteri ayrıntılarını.</string>
+    <string name="detail_reviews">Yorumlar</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">İncelemenin tamamını oku</string>
+    <string name="settings_force_offline">Çevrimdışı Modu Zorla</string>
+    <string name="settings_force_offline_subtitle">Yalnızca indirmelere göz atın ve sunucuyla iletişim kurmayı bırakın</string>
 </resources>
