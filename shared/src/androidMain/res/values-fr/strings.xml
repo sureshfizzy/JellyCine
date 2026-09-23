@@ -548,10 +548,10 @@
     <string name="interface_merge_versions_subtitle">Afficher les fichiers vidéo locaux correspondants sur un seul écran de détails.</string>
     <string name="interface_emby_poster_overlays">Superpositions d\'affiches Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Désactivez les superpositions d\'affiches Emby.</string>
-    <string name="interface_seerr_settings">Paramètres du serveur</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studios et réseaux</string>
+    <string name="interface_seerr_studios">Studios</string>
     <string name="interface_seerr_studios_subtitle">Afficher la section Studios sur l\'écran d\'accueil.</string>
-    <string name="interface_seerr_networks">Réseaux de serveurs</string>
+    <string name="interface_seerr_networks">Réseaux</string>
     <string name="interface_seerr_networks_subtitle">Afficher la section Réseaux sur l\'écran d\'accueil.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Connexions</string>
@@ -635,4 +635,11 @@
     <string name="settings_logs_subtitle">Partager les journaux de diagnostic</string>
     <string name="logs_share">PARTAGEZ</string>
     <string name="interface_theme_music_volume">Volume</string>
+    <string name="interface_show_reviews">Critiques</string>
+    <string name="settings_force_offline">Forcer le mode hors ligne</string>
+    <string name="settings_force_offline_subtitle">Parcourez les téléchargements uniquement et arrêtez de contacter le serveur</string>
+    <string name="interface_show_reviews_subtitle">Afficher les avis des utilisateurs de TMDB sur les détails des films et des émissions.</string>
+    <string name="detail_reviews">Critiques</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Lire la critique complète</string>
 </resources>
