@@ -522,10 +522,10 @@
     <string name="interface_merge_versions_subtitle">在一个详细信息屏幕上显示匹配的本地电影文件。</string>
     <string name="interface_emby_poster_overlays">Emby 海报叠加层</string>
     <string name="interface_emby_poster_overlays_subtitle">禁用 Emby 海报叠加层。</string>
-    <string name="interface_seerr_settings">Seerr 设置</string>
-    <string name="interface_seerr_studios">Seerr 工作室</string>
+    <string name="interface_seerr_settings">工作室和网络</string>
+    <string name="interface_seerr_studios">工作室</string>
     <string name="interface_seerr_studios_subtitle">在主屏幕上显示工作室部分。</string>
-    <string name="interface_seerr_networks">Seerr 网络</string>
+    <string name="interface_seerr_networks">网络</string>
     <string name="interface_seerr_networks_subtitle">在主屏幕上显示 “网络” 部分。</string>
     <!-- Connections Settings -->
     <string name="settings_connections">连接</string>
@@ -609,4 +609,11 @@
     <string name="settings_logs_subtitle">共享诊断日志</string>
     <string name="logs_share">分享</string>
     <string name="interface_theme_music_volume">音量</string>
+    <string name="interface_show_reviews">点评</string>
+    <string name="interface_show_reviews_subtitle">显示电影上的 TMDB 用户评论并显示详细信息。</string>
+    <string name="detail_reviews">点评</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">阅读完整评论</string>
+    <string name="settings_force_offline">强制离线模式</string>
+    <string name="settings_force_offline_subtitle">仅浏览下载内容并停止联系服务器</string>
 </resources>
