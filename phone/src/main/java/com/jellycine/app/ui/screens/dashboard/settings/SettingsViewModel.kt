@@ -58,6 +58,7 @@ data class SettingsUiState(
     val savedServers: List<AuthRepository.SavedServer> = emptyList(),
     val activeServerId: String? = null,
     val wifiOnlyDownloads: Boolean = false,
+    val forceOffline: Boolean = false,
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
     val connectionTimeoutMs: Int = NetworkPreferences.DEFAULT_CONNECTION_TIMEOUT_MS,
     val socketTimeoutMs: Int = NetworkPreferences.DEFAULT_SOCKET_TIMEOUT_MS,
@@ -113,7 +114,8 @@ class SettingsViewModel(
 
     private fun loadPreferences() {
         _uiState.value = _uiState.value.copy(
-            wifiOnlyDownloads = preferences.isWifiOnlyDownloadsEnabled()
+            wifiOnlyDownloads = preferences.isWifiOnlyDownloadsEnabled(),
+            forceOffline = preferences.isForceOfflineEnabled()
         )
     }
 
@@ -279,6 +281,11 @@ class SettingsViewModel(
     fun setWifiOnlyDownloads(enabled: Boolean) {
         preferences.setWifiOnlyDownloadsEnabled(enabled)
         _uiState.value = _uiState.value.copy(wifiOnlyDownloads = enabled)
+    }
+
+    fun setForceOffline(enabled: Boolean) {
+        preferences.setForceOfflineEnabled(enabled)
+        _uiState.value = _uiState.value.copy(forceOffline = enabled)
     }
 
     fun setRequestTimeoutMs(milliseconds: Int) {

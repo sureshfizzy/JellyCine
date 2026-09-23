@@ -204,7 +204,25 @@ fun Settings(
                         trailing = {
                             Switch(
                                 checked = uiState.wifiOnlyDownloads,
-                                onCheckedChange = { viewModel.setWifiOnlyDownloads(it) }
+                                onCheckedChange = { viewModel.setWifiOnlyDownloads(it) },
+                                colors = accentSwitchColors(Color(0xFF0EA5E9))
+                            )
+                        }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.CloudOff,
+                        title = stringResource(R.string.settings_force_offline),
+                        subtitle = stringResource(R.string.settings_force_offline_subtitle),
+                        accentColor = Color(0xFFF97316),
+                        trailing = {
+                            Switch(
+                                checked = uiState.forceOffline,
+                                onCheckedChange = { viewModel.setForceOffline(it) },
+                                colors = accentSwitchColors(Color(0xFFF97316))
                             )
                         }
                     )
@@ -809,6 +827,16 @@ private fun ActionTile(
         }
     }
 }
+
+@Composable
+private fun accentSwitchColors(accentColor: Color) = SwitchDefaults.colors(
+    checkedThumbColor = Color.White,
+    checkedTrackColor = accentColor,
+    checkedBorderColor = accentColor,
+    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+)
 
 @Composable
 private fun SectionLabel(title: String) {

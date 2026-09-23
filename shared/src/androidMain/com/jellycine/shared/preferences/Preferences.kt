@@ -14,6 +14,7 @@ class Preferences(context: Context) {
     companion object {
         private const val PREFS_NAME = "jellycine_download_prefs"
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
+        private const val KEY_FORCE_OFFLINE = "force_offline"
         private const val KEY_FEATURE_CAROUSEL_ENABLED = "feature_carousel_enabled"
         private const val KEY_FEATURE_CAROUSEL_HEIGHT = "feature_carousel_height"
         private const val KEY_POSTER_ENHANCERS_ENABLED = "poster_enhancers_enabled"
@@ -45,6 +46,27 @@ class Preferences(context: Context) {
     fun setWifiOnlyDownloadsEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, enabled).apply()
     }
+
+    fun isForceOfflineEnabled(): Boolean {
+        return prefs.getBoolean(KEY_FORCE_OFFLINE, false)
+    }
+
+    fun setForceOfflineEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FORCE_OFFLINE, enabled).apply()
+    }
+
+    fun ForceOfflineEnabled(): Flow<Boolean> = callbackFlow {
+        trySend(isForceOfflineEnabled())
+
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_FORCE_OFFLINE) {
+                trySend(isForceOfflineEnabled())
+            }
+        }
+
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
 
     fun isFeatureCarouselEnabled(): Boolean {
         return prefs.getBoolean(KEY_FEATURE_CAROUSEL_ENABLED, true)
