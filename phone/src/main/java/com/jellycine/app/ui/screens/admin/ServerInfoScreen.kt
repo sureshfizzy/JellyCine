@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.admin
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -91,6 +92,8 @@ fun ServerInfoScreen(onBackPressed: () -> Unit = {}) {
     val context = LocalContext.current
     val viewModel: AdminPanelViewModel = viewModel { AdminPanelViewModel(context) }
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         containerColor = Color.Black,

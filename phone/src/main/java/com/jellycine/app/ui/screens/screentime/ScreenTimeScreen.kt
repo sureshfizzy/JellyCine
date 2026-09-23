@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.screentime
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -104,6 +105,8 @@ fun ScreenTimeScreen(
     val episodeCount = remember(timeFilteredItems) { timeFilteredItems.count { it.type == "Episode" } }
     if (selectedItemType == "Movie" && movieCount == 0 && episodeCount > 0) selectedItemType = "Episode"
     else if (selectedItemType == "Episode" && episodeCount == 0 && movieCount > 0) selectedItemType = "Movie"
+
+    BackHandler { onBack() }
 
     Scaffold(
         containerColor = Color.Black,

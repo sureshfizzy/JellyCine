@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -96,6 +97,8 @@ fun PlayerSettingsScreen(
     val seekingColor = Color(0xFFEF4444)
     val performanceColor = Color(0xFF22C55E)
     val cacheColor = Color(0xFF06B6D4)
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         topBar = {
@@ -630,6 +633,8 @@ fun SubtitleSettingsScreen(
     var topEdgePercent by remember {
         mutableStateOf(playerPreferences.getSubtitleTopEdgePositionPercent())
     }
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         topBar = {

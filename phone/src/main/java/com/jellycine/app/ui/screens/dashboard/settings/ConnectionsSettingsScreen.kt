@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -65,6 +66,8 @@ fun ConnectionsSettingsScreen(
     LaunchedEffect(uiState.activeServerId) {
         viewModel.reloadSeerrConnection()
     }
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         containerColor = Color.Black,

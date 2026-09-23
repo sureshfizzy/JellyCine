@@ -3,6 +3,7 @@ package com.jellycine.app.ui.screens.dashboard.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -80,6 +81,8 @@ fun AboutScreen(
     onBackPressed: () -> Unit = {}
 ) {
     val context = LocalContext.current
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         containerColor = Color.Black,

@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -119,6 +120,8 @@ fun InterfaceSettingsScreen(
         .collectAsStateWithLifecycle(
             initialValue = preferences.isSeerrNetworksEnabled()
         )
+
+    BackHandler { onBackPressed() }
 
     Scaffold(
         containerColor = Color.Black,

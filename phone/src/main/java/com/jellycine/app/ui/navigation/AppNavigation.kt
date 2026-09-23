@@ -457,8 +457,8 @@ fun AppNavigation() {
 
             composable(
                 "player_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 PlayerSettingsScreen(
                     onBackPressed = {
@@ -472,8 +472,8 @@ fun AppNavigation() {
 
             composable(
                 "subtitle_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 SubtitleSettingsScreen(
                     onBackPressed = {
@@ -484,8 +484,8 @@ fun AppNavigation() {
 
             composable(
                 "downloads",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 DownloadsScreen(
                     onBackPressed = {
@@ -496,8 +496,8 @@ fun AppNavigation() {
 
             composable(
                 "interface_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 InterfaceSettingsScreen(
                     onBackPressed = {
@@ -508,8 +508,8 @@ fun AppNavigation() {
 
             composable(
                 "connections_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 ConnectionsSettingsScreen(
                     onBackPressed = {
@@ -523,8 +523,8 @@ fun AppNavigation() {
 
             composable(
                 "cache_settings",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 CacheSettingsScreen(
                     onBackPressed = {
@@ -535,8 +535,8 @@ fun AppNavigation() {
 
             composable(
                 "about",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 AboutScreen(
                     onBackPressed = {
@@ -547,8 +547,8 @@ fun AppNavigation() {
 
             composable(
                 "server_info",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 ServerInfoScreen(
                     onBackPressed = {
@@ -559,8 +559,8 @@ fun AppNavigation() {
 
             composable(
                 "screen_time",
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) {
                 ScreenTimeScreen(
                     onBack = { navController.popBackStack() }
