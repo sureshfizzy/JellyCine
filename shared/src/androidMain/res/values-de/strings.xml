@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Zeigt passende lokale Filmdateien auf einem Detailbildschirm an.</string>
     <string name="interface_emby_poster_overlays">Emby Poster-Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Deaktiviere Emby-Poster-Overlays.</string>
-    <string name="interface_seerr_settings">Serr-Einstellungen</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studios und Netzwerke</string>
+    <string name="interface_seerr_studios">Studios</string>
     <string name="interface_seerr_studios_subtitle">Zeigen Sie den Bereich Studios auf dem Startbildschirm an.</string>
-    <string name="interface_seerr_networks">Serr-Netzwerke</string>
+    <string name="interface_seerr_networks">Netzwerke</string>
     <string name="interface_seerr_networks_subtitle">Zeigen Sie den Abschnitt Netzwerke auf dem Startbildschirm an.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Verbindungen</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Diagnoseprotokolle teilen</string>
     <string name="logs_share">Teilen</string>
     <string name="interface_theme_music_volume">Volumen</string>
+    <string name="interface_show_reviews">Bewertungen</string>
+    <string name="interface_show_reviews_subtitle">Zeigen Sie TMDB-Benutzerrezensionen zu Filmen und Showdetails an.</string>
+    <string name="settings_force_offline">Offline-Modus erzwingen</string>
+    <string name="settings_force_offline_subtitle">Nur Downloads durchsuchen und keine Verbindung zum Server mehr herstellen</string>
+    <string name="detail_reviews">Bewertungen</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Vollständige Bewertung lesen</string>
 </resources>
