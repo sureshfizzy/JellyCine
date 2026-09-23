@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Vis matchende lokale filmfiler på en detaljeskærm.</string>
     <string name="interface_emby_poster_overlays">Emby plakatoverlejringer</string>
     <string name="interface_emby_poster_overlays_subtitle">Deaktiver Emby-plakatoverlejringer.</string>
-    <string name="interface_seerr_settings">Seerr-indstillinger</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studier og netværk</string>
+    <string name="interface_seerr_studios">værksteder</string>
     <string name="interface_seerr_studios_subtitle">Vis afsnittet Studios på startskærmen.</string>
-    <string name="interface_seerr_networks">Seerr Netværk</string>
+    <string name="interface_seerr_networks">Netværk</string>
     <string name="interface_seerr_networks_subtitle">Vis afsnittet Netværk på startskærmen.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Forbindelser</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Del diagnoselogfiler</string>
     <string name="logs_share">Del</string>
     <string name="interface_theme_music_volume">Volumen</string>
+    <string name="interface_show_reviews">Anmeldelser</string>
+    <string name="interface_show_reviews_subtitle">Vis TMDB-brugeranmeldelser på film og vis detaljer.</string>
+    <string name="settings_force_offline">Tving offline-tilstand</string>
+    <string name="settings_force_offline_subtitle">Gennemse kun downloads, og stop med at kontakte serveren</string>
+    <string name="detail_reviews">Anmeldelser</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Læs hele anmeldelsen</string>
 </resources>
