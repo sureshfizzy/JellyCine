@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Toon overeenkomende lokale filmbestanden op één detailscherm.</string>
     <string name="interface_emby_poster_overlays">Emby-posteroverlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Schakel Emby-posteroverlays uit.</string>
-    <string name="interface_seerr_settings">Serer-instellingen</string>
-    <string name="interface_seerr_studios">Serr Studios</string>
+    <string name="interface_seerr_settings">Studio\'s en netwerken</string>
+    <string name="interface_seerr_studios">Studio\'s</string>
     <string name="interface_seerr_studios_subtitle">De sectie Studios op het startscherm weergeven.</string>
-    <string name="interface_seerr_networks">Serer-netwerken</string>
+    <string name="interface_seerr_networks">Netwerken</string>
     <string name="interface_seerr_networks_subtitle">De sectie Netwerken op het startscherm weergeven.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Verbindingen</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Diagnostische logboeken delen</string>
     <string name="logs_share">Delen</string>
     <string name="interface_theme_music_volume">Volume</string>
+    <string name="interface_show_reviews">Recensies</string>
+    <string name="interface_show_reviews_subtitle">Toon TMDB-gebruikersrecensies op film en toon details.</string>
+    <string name="detail_reviews">Recensies</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Lees de volledige recensie</string>
+    <string name="settings_force_offline">Forceer de offline-modus</string>
+    <string name="settings_force_offline_subtitle">Bekijk alleen downloads en stop met contact op te nemen met de server</string>
 </resources>
