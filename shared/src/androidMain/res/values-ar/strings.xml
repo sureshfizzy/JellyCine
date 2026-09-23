@@ -587,10 +587,10 @@
     <string name="interface_merge_versions_subtitle">اعرض ملفات الأفلام المحلية المطابقة على شاشة تفاصيل واحدة.</string>
     <string name="interface_emby_poster_overlays">تراكبات ملصق Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">قم بتعطيل تراكبات ملصقات Emby.</string>
-    <string name="interface_seerr_settings">إعدادات السيرفر</string>
-    <string name="interface_seerr_studios">استوديوهات سييرا</string>
+    <string name="interface_seerr_settings">استوديوهات وشبكات</string>
+    <string name="interface_seerr_studios">استوديوهات</string>
     <string name="interface_seerr_studios_subtitle">اعرض قسم الاستوديوهات على الشاشة الرئيسية.</string>
-    <string name="interface_seerr_networks">شبكات السيرفر</string>
+    <string name="interface_seerr_networks">شبكات</string>
     <string name="interface_seerr_networks_subtitle">اعرض قسم الشبكات على الشاشة الرئيسية.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">روابط</string>
@@ -674,4 +674,11 @@
     <string name="settings_logs_subtitle">مشاركة سجلات التشخيص</string>
     <string name="logs_share">شارك</string>
     <string name="interface_theme_music_volume">مستوى الصوت</string>
+    <string name="interface_show_reviews">مراجعات</string>
+    <string name="interface_show_reviews_subtitle">اعرض مراجعات مستخدمي TMDB على تفاصيل الفيلم والعرض.</string>
+    <string name="settings_force_offline">وضع القوة دون اتصال</string>
+    <string name="settings_force_offline_subtitle">تصفح التنزيلات فقط وتوقف عن الاتصال بالخادم</string>
+    <string name="detail_reviews">مراجعات</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">اقرأ المراجعة الكاملة</string>
 </resources>
