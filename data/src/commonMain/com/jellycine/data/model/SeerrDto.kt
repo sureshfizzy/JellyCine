@@ -317,8 +317,12 @@ data class SeerrRecommendationTitle(
 data class SeerrCatalogItem(
     val id: String,
     val name: String,
-    val logoUrl: String? = null
-)
+    val logoUrl: String? = null,
+    val localAliases: List<String> = emptyList()
+) {
+    val localMatchNames: List<String>
+        get() = if (localAliases.isNotEmpty()) localAliases else listOf(name)
+}
 
 enum class SeerrDiscoveryCategory {
     TRENDING,

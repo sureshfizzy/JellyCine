@@ -646,6 +646,8 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    fun versionMergeKey(item: BaseItemDto): String = item.mergeVersionKey()
+
     suspend fun getSimilarItems(
         itemId: String,
         limit: Int = 12,
@@ -690,6 +692,7 @@ class MediaRepository(private val context: Context) {
         startIndex: Int? = null,
         filters: String? = null,
         anyProviderIdEquals: String? = null,
+        studioIds: String? = null,
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview",
         enableUserData: Boolean? = null
     ): Result<QueryResult<BaseItemDto>> {
@@ -711,6 +714,7 @@ class MediaRepository(private val context: Context) {
                 startIndex = startIndex,
                 filters = filters,
                 anyProviderIdEquals = anyProviderIdEquals,
+                studioIds = studioIds,
                 fields = fields,
                 enableUserData = enableUserData
             )
@@ -723,6 +727,28 @@ class MediaRepository(private val context: Context) {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    // Resolves studio/network names to the server's studio ids.
+    suspend fun resolveStudioIds(names: List<String>): List<String> {
+        if (names.isEmpty()) return emptyList()
+        val api = getApi() ?: return emptyList()
+        val userId = getUserId()
+        val resolved = LinkedHashSet<String>()
+        for (name in names) {
+            val query = name.trim()
+            if (query.isEmpty()) continue
+            try {
+                val response = api.getStudios(userId = userId, searchTerm = query, limit = 20)
+                val studios = response.body()?.items.orEmpty()
+                studios.firstOrNull { it.name?.equals(query, ignoreCase = true) == true }
+                    ?.id
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { resolved.add(it) }
+            } catch (_: Exception) {
+            }
+        }
+        return resolved.toList()
     }
 
     suspend fun loadWatchedItems(includeItemTypes: String): Result<List<BaseItemDto>> {
