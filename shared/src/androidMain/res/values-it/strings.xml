@@ -548,10 +548,10 @@
     <string name="interface_merge_versions_subtitle">Mostra i file video locali corrispondenti su una schermata dei dettagli.</string>
     <string name="interface_emby_poster_overlays">Sovrapposizioni di poster Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Disabilita le sovrapposizioni dei poster di Emby.</string>
-    <string name="interface_seerr_settings">Impostazioni del server</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studi e reti</string>
+    <string name="interface_seerr_studios">Studios</string>
     <string name="interface_seerr_studios_subtitle">Mostra la sezione Studios nella schermata Home.</string>
-    <string name="interface_seerr_networks">Reti Seerr</string>
+    <string name="interface_seerr_networks">Reti</string>
     <string name="interface_seerr_networks_subtitle">Mostra la sezione Reti nella schermata Home.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Connessioni</string>
@@ -635,4 +635,11 @@
     <string name="settings_logs_subtitle">Condividi i log di diagnostica</string>
     <string name="logs_share">Condividi</string>
     <string name="interface_theme_music_volume">Volume</string>
+    <string name="interface_show_reviews">Recensioni</string>
+    <string name="interface_show_reviews_subtitle">Mostra le recensioni degli utenti di TMDB sul film e mostra i dettagli.</string>
+    <string name="detail_reviews">Recensioni</string>
+    <string name="settings_force_offline">Forza la modalità offline</string>
+    <string name="settings_force_offline_subtitle">Sfoglia solo i download e smetti di contattare il server</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">Leggi la recensione completa</string>
 </resources>
