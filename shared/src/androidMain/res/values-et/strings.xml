@@ -535,10 +535,10 @@
     <string name="interface_merge_versions_subtitle">Näidake ühel detailiekraanil sobivaid kohalikke filmifaile.</string>
     <string name="interface_emby_poster_overlays">Emby plakati ülekatted</string>
     <string name="interface_emby_poster_overlays_subtitle">Keela Emby plakati ülekatted.</string>
-    <string name="interface_seerr_settings">Seerri seaded</string>
-    <string name="interface_seerr_studios">Seerri stuudiod</string>
+    <string name="interface_seerr_settings">Stuudiod ja võrgud</string>
+    <string name="interface_seerr_studios">Stuudiod</string>
     <string name="interface_seerr_studios_subtitle">Kuva avaekraanil jaotis Stuudiod.</string>
-    <string name="interface_seerr_networks">Seerr võrgud</string>
+    <string name="interface_seerr_networks">Võrgud</string>
     <string name="interface_seerr_networks_subtitle">Kuva avaekraanil jaotis Võrgud.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Ühendused</string>
@@ -622,4 +622,11 @@
     <string name="settings_logs_subtitle">Diagnostikalogide jagamine</string>
     <string name="logs_share">Jaga</string>
     <string name="interface_theme_music_volume">Helitugevus</string>
+    <string name="interface_show_reviews">Arvustused</string>
+    <string name="interface_show_reviews_subtitle">Näidake TMDB kasutajate arvustusi filmi ja saate üksikasjade kohta.</string>
+    <string name="detail_reviews">Arvustused</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="settings_force_offline">Nõuda võrguühenduseta režiimi</string>
+    <string name="settings_force_offline_subtitle">Sirvige ainult allalaadimisi ja lõpetage serveriga ühenduse võtmine</string>
+    <string name="detail_reviews_read_full">Loe täielikku ülevaadet</string>
 </resources>
