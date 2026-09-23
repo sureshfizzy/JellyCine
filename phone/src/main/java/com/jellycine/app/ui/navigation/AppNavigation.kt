@@ -18,6 +18,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
+import com.jellycine.app.ui.screens.dashboard.media.isSeerrCatalog
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
@@ -446,7 +447,8 @@ fun AppNavigation() {
                     onBackPressed = { navController.popBackStack() },
                     onItemClick = { item ->
                         item.id?.let { itemId ->
-                            val mergeVersions = parentId == com.jellycine.app.ui.screens.dashboard.media.WATCHED_VIEW_ALL_PARENT_ID
+                            val mergeVersions = parentId == com.jellycine.app.ui.screens.dashboard.media.WATCHED_VIEW_ALL_PARENT_ID ||
+                                contentType.isSeerrCatalog()
                             navController.navigate("detail/$itemId${if (mergeVersions) "?mergeVersions=true" else ""}")
                         }
                     }

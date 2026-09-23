@@ -17,6 +17,8 @@ import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.QueryResult
+import com.jellycine.data.model.SeerrCatalog
+import com.jellycine.data.model.SeerrCatalogItem
 import com.jellycine.data.model.SeerrItemIds
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -88,18 +90,38 @@ class ViewAllViewModel @Inject constructor(
                     val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
                     val isFavoritesRequest = parentId == FAVORITES_VIEW_ALL_PARENT_ID
                     val result = when (contentType) {
-                        ContentType.SEERR_STUDIO -> seerrRepository.getStudios(
-                            scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
-                            studioId = parentId.orEmpty(),
-                            limit = pageSize,
-                            startIndex = currentPage * pageSize
-                        )
-                        ContentType.SEERR_NETWORK -> seerrRepository.getNetworks(
-                            scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty(),
-                            networkId = parentId.orEmpty(),
-                            limit = pageSize,
-                            startIndex = currentPage * pageSize
-                        )
+                        ContentType.SEERR_STUDIO -> {
+                            val scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty()
+                            if (isSeerrConnected(scopeId)) {
+                                seerrRepository.getStudios(
+                                    scopeId = scopeId,
+                                    studioId = parentId.orEmpty(),
+                                    limit = pageSize,
+                                    startIndex = currentPage * pageSize
+                                )
+                            } else {
+                                loadLocalCatalogItems(
+                                    SeerrCatalog.studioById(parentId.orEmpty()),
+                                    includeItemTypes = "Movie"
+                                )
+                            }
+                        }
+                        ContentType.SEERR_NETWORK -> {
+                            val scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty()
+                            if (isSeerrConnected(scopeId)) {
+                                seerrRepository.getNetworks(
+                                    scopeId = scopeId,
+                                    networkId = parentId.orEmpty(),
+                                    limit = pageSize,
+                                    startIndex = currentPage * pageSize
+                                )
+                            } else {
+                                loadLocalCatalogItems(
+                                    SeerrCatalog.networkById(parentId.orEmpty()),
+                                    includeItemTypes = "Series"
+                                )
+                            }
+                        }
                         ContentType.MOVIES -> if (isWatchedRequest) {
                             mediaRepository.loadWatchedItems("Movie")
                                 .map { QueryResult(items = it, totalRecordCount = it.size, startIndex = 0) }
@@ -206,10 +228,11 @@ class ViewAllViewModel @Inject constructor(
                                 (currentPage + 1) * pageSize < totalItems
 
                             withContext(Dispatchers.Main) {
-                                if (refresh) {
-                                    _items.value = newItems
+                                val merged = if (refresh) newItems else _items.value + newItems
+                                _items.value = if (contentType.isSeerrCatalog()) {
+                                    merged.distinctBy { mediaRepository.versionMergeKey(it) }
                                 } else {
-                                    _items.value = _items.value + newItems
+                                    merged
                                 }
                                 currentPage++
                                 _uiState.value = _uiState.value.copy(
@@ -256,6 +279,33 @@ class ViewAllViewModel @Inject constructor(
             )
         }
         return Result.success(QueryResult(items = items, totalRecordCount = items.size, startIndex = 0))
+    }
+
+    private fun isSeerrConnected(scopeId: String): Boolean =
+        seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
+
+    private suspend fun loadLocalCatalogItems(
+        catalogItem: SeerrCatalogItem?,
+        includeItemTypes: String
+    ): Result<QueryResult<BaseItemDto>> {
+        val matchNames = catalogItem?.localMatchNames.orEmpty()
+        if (matchNames.isEmpty()) {
+            return Result.success(QueryResult(items = emptyList(), totalRecordCount = 0, startIndex = 0))
+        }
+        val studioIds = mediaRepository.resolveStudioIds(matchNames)
+        if (studioIds.isEmpty()) {
+            return Result.success(QueryResult(items = emptyList(), totalRecordCount = 0, startIndex = 0))
+        }
+        return mediaRepository.getUserItems(
+            includeItemTypes = includeItemTypes,
+            studioIds = studioIds.joinToString(","),
+            recursive = true,
+            sortBy = _uiState.value.sortBy,
+            sortOrder = _uiState.value.sortOrder,
+            limit = pageSize,
+            startIndex = currentPage * pageSize,
+            fields = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating,ProductionYear,Overview,UserData,ProviderIds"
+        )
     }
 
     fun loadMoreItems(contentType: ContentType, parentId: String? = null, genreId: String? = null) {

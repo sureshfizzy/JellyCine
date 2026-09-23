@@ -26,8 +26,6 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -335,23 +333,10 @@ internal fun SeerrStatusChip(status: SeerrConnectionStatus) {
         )
     }
 
-    AssistChip(
-        onClick = {},
-        enabled = false,
-        label = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium
-            )
-        },
-        colors = AssistChipDefaults.assistChipColors(
-            disabledContainerColor = containerColor,
-            disabledLabelColor = contentColor
-        ),
-        border = AssistChipDefaults.assistChipBorder(
-            enabled = false,
-            borderColor = contentColor.copy(alpha = 0.24f)
-        )
+    ConnectionStatusBadge(
+        label = label,
+        containerColor = containerColor,
+        contentColor = contentColor
     )
 }
 

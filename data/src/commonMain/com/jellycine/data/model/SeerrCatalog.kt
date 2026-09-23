@@ -5,15 +5,19 @@ object SeerrCatalog {
 
     fun popularNetworks(): List<SeerrCatalogItem> = networks
 
+    fun studioById(id: String): SeerrCatalogItem? = studios.firstOrNull { it.id == id }
+
+    fun networkById(id: String): SeerrCatalogItem? = networks.firstOrNull { it.id == id }
+
     private val studios = listOf(
-        SeerrCatalogItem("2", "Disney", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/wdrCwmRnLFJhEoH8GSfymY85KHT.png"),
-        SeerrCatalogItem("127928", "20th Century Studios", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/h0rjX5vjW5r8yEnUBStFarjcLT4.png"),
-        SeerrCatalogItem("34", "Sony Pictures", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/GagSvqWlyPdkFHMfQ3pNq6ix9P.png"),
-        SeerrCatalogItem("174", "Warner Bros. Pictures", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/ky0xOc5OrhzkZ1N6KyUxacfQsCk.png"),
-        SeerrCatalogItem("33", "Universal", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/8lvHyhjr8oUKOOy2dKXoALWKdp0.png"),
-        SeerrCatalogItem("4", "Paramount", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/fycMZt242LVjagMByZOLUGbCvv3.png"),
+        SeerrCatalogItem("2", "Disney", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/wdrCwmRnLFJhEoH8GSfymY85KHT.png", localAliases = listOf("Walt Disney Pictures", "Walt Disney Animation Studios")),
+        SeerrCatalogItem("127928", "20th Century Studios", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/h0rjX5vjW5r8yEnUBStFarjcLT4.png", localAliases = listOf("20th Century Studios", "20th Century Fox")),
+        SeerrCatalogItem("34", "Sony Pictures", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/GagSvqWlyPdkFHMfQ3pNq6ix9P.png", localAliases = listOf("Sony Pictures", "Columbia Pictures", "Sony Pictures Releasing")),
+        SeerrCatalogItem("174", "Warner Bros. Pictures", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/ky0xOc5OrhzkZ1N6KyUxacfQsCk.png", localAliases = listOf("Warner Bros. Pictures", "Warner Bros. Entertainment")),
+        SeerrCatalogItem("33", "Universal", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/8lvHyhjr8oUKOOy2dKXoALWKdp0.png", localAliases = listOf("Universal Pictures", "Universal Studios")),
+        SeerrCatalogItem("4", "Paramount", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/fycMZt242LVjagMByZOLUGbCvv3.png", localAliases = listOf("Paramount Pictures")),
         SeerrCatalogItem("3", "Pixar", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/1TjvGVDMYsj6JBxOAkUHpPEwLf7.png"),
-        SeerrCatalogItem("521", "Dreamworks", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/kP7t6RwGz2AvvTkvnI1uteEwHet.png"),
+        SeerrCatalogItem("521", "Dreamworks", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/kP7t6RwGz2AvvTkvnI1uteEwHet.png", localAliases = listOf("DreamWorks Pictures", "DreamWorks Animation")),
         SeerrCatalogItem("420", "Marvel Studios", "file:///android_asset/logos/marvel_studios.svg"),
         SeerrCatalogItem("9993", "DC", coloredTmdbLogo("2Tc1P3Ac8M479naPp1kYT3izLS5.png", "0078F0")),
         SeerrCatalogItem("41077", "A24", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/1ZXsGaFPgrgS6ZZGS37AqD5uU12.png")
@@ -22,8 +26,8 @@ object SeerrCatalog {
     private val networks = listOf(
         SeerrCatalogItem("213", "Netflix", coloredTmdbLogo("wwemzKWzjKYJFfCeiB57q3r4Bcm.png", "E50914")),
         SeerrCatalogItem("2739", "Disney+", "file:///android_asset/logos/disney_plus.svg"),
-        SeerrCatalogItem("1024", "Prime Video", coloredTmdbLogo("ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png", "00A8E1")),
-        SeerrCatalogItem("2552", "Apple TV+", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/4KAy34EHvRM25Ih8wb82AuGU7zJ.png"),
+        SeerrCatalogItem("1024", "Prime Video", coloredTmdbLogo("ifhbNuuVnlwYy5oXA5VIb2YR8AZ.png", "00A8E1"), localAliases = listOf("Prime Video", "Amazon Prime Video")),
+        SeerrCatalogItem("2552", "Apple TV+", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/4KAy34EHvRM25Ih8wb82AuGU7zJ.png", localAliases = listOf("Apple TV+", "Apple TV")),
         SeerrCatalogItem("453", "Hulu", coloredTmdbLogo("pqUTCleNUiTLAVlelGxUgWn1ELh.png", "1CE783")),
         SeerrCatalogItem("49", "HBO", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/tuomPhY2UtuPTqqFnKMVHvSb724.png"),
         SeerrCatalogItem("4353", "Discovery+", "file:///android_asset/logos/discovery_plus.svg"),
@@ -31,7 +35,7 @@ object SeerrCatalog {
         SeerrCatalogItem("19", "FOX", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/1DSpHrWyOORkL9N2QHX7Adt31mQ.png"),
         SeerrCatalogItem("359", "Cinemax", "file:///android_asset/logos/cinemax.svg"),
         SeerrCatalogItem("174", "AMC", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/pmvRmATOCaDykE6JrVoeYxlFHw3.png"),
-        SeerrCatalogItem("67", "Showtime", coloredTmdbLogo("Allse9kbjiP6ExaQrnSpIhkurEi.png", "D0021B")),
+        SeerrCatalogItem("67", "Showtime", coloredTmdbLogo("Allse9kbjiP6ExaQrnSpIhkurEi.png", "D0021B"), localAliases = listOf("Showtime", "Showtime Networks")),
         SeerrCatalogItem("318", "Starz", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/8GJjw3HHsAJYwIWKIPBPfqMxlEa.png"),
         SeerrCatalogItem("71", "The CW", "https://image.tmdb.org/t/p/w780_filter(duotone,ffffff,bababa)/ge9hzeaU7nMtQ4PjkFlc68dGAJ9.png"),
         SeerrCatalogItem("6", "NBC", "file:///android_asset/logos/nbc.svg"),

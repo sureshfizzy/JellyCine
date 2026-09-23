@@ -500,24 +500,31 @@ private fun DiscordConnectionDialog(
 
 @Composable
 private fun DiscordStatusChip() {
-    AssistChip(
-        onClick = {},
-        enabled = false,
-        label = {
-            Text(
-                text = stringResource(R.string.settings_discord_status_connected),
-                style = MaterialTheme.typography.labelMedium
-            )
-        },
-        colors = AssistChipDefaults.assistChipColors(
-            disabledContainerColor = Color(0xFF10B981).copy(alpha = 0.14f),
-            disabledLabelColor = Color(0xFF10B981)
-        ),
-        border = AssistChipDefaults.assistChipBorder(
-            enabled = false,
-            borderColor = Color(0xFF10B981).copy(alpha = 0.24f)
-        )
+    ConnectionStatusBadge(
+        label = stringResource(R.string.settings_discord_status_connected),
+        containerColor = Color(0xFF10B981).copy(alpha = 0.14f),
+        contentColor = Color(0xFF10B981)
     )
+}
+
+@Composable
+internal fun ConnectionStatusBadge(
+    label: String,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.24f))
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
 }
 
 @Composable

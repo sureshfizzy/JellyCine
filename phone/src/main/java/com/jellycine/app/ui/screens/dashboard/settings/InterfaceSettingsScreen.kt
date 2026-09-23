@@ -60,7 +60,6 @@ import com.jellycine.shared.R
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.ui.components.common.ThemeMusicSettingsItem
 import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,11 +69,8 @@ fun InterfaceSettingsScreen(
     val context = LocalContext.current
     val preferences = remember { Preferences(context) }
     val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember { SeerrRepository(context.applicationContext) }
-    val activeServerId by authRepository.getActiveServerId().collectAsStateWithLifecycle(initialValue = null)
     val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
-    val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isFeatureCarouselEnabled()
@@ -262,33 +258,31 @@ fun InterfaceSettingsScreen(
                     }
                 }
             }
-            if (isSeerrConnected) {
-                item {
-                    SettingsLabel(
-                        text = stringResource(R.string.interface_seerr_settings)
+            item {
+                SettingsLabel(
+                    text = stringResource(R.string.interface_seerr_settings)
+                )
+                InterfaceSection {
+                    InterfaceSwitchItem(
+                        icon = Icons.Rounded.Business,
+                        title = stringResource(R.string.interface_seerr_studios),
+                        subtitle = stringResource(R.string.interface_seerr_studios_subtitle),
+                        checked = seerrStudiosEnabled,
+                        onCheckedChange = preferences::setSeerrStudiosEnabled,
+                        accentColor = Color(0xFFF97316)
                     )
-                    InterfaceSection {
-                        InterfaceSwitchItem(
-                            icon = Icons.Rounded.Business,
-                            title = stringResource(R.string.interface_seerr_studios),
-                            subtitle = stringResource(R.string.interface_seerr_studios_subtitle),
-                            checked = seerrStudiosEnabled,
-                            onCheckedChange = preferences::setSeerrStudiosEnabled,
-                            accentColor = Color(0xFFF97316)
-                        )
-                        HorizontalDivider(
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                        )
-                        InterfaceSwitchItem(
-                            icon = Icons.Rounded.Tv,
-                            title = stringResource(R.string.interface_seerr_networks),
-                            subtitle = stringResource(R.string.interface_seerr_networks_subtitle),
-                            checked = seerrNetworksEnabled,
-                            onCheckedChange = preferences::setSeerrNetworksEnabled,
-                            accentColor = Color(0xFF06B6D4)
-                        )
-                    }
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                    InterfaceSwitchItem(
+                        icon = Icons.Rounded.Tv,
+                        title = stringResource(R.string.interface_seerr_networks),
+                        subtitle = stringResource(R.string.interface_seerr_networks_subtitle),
+                        checked = seerrNetworksEnabled,
+                        onCheckedChange = preferences::setSeerrNetworksEnabled,
+                        accentColor = Color(0xFF06B6D4)
+                    )
                 }
             }
         }

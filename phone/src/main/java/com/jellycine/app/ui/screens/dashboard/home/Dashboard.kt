@@ -1625,17 +1625,15 @@ fun Dashboard(
         }
         val seerrStudios = remember { SeerrCatalog.popularStudios(limit = 12) }
         val seerrNetworks = remember { SeerrCatalog.popularNetworks() }
-        val isSeerrConnected = seerrRepository.getSavedConnectionInfo(sessionSnapshot.activeServerId)?.isVerified == true
         val SeerrStudios = if (
-            selectedCategory == HomeCategory.HOME &&
-            isSeerrConnected && seerrStudiosEnabled
+            selectedCategory == HomeCategory.HOME && seerrStudiosEnabled
         ) {
             seerrStudios
         } else {
             emptyList()
         }
         val SeerrNetworks = if (
-            selectedCategory == HomeCategory.HOME && isSeerrConnected && seerrNetworksEnabled
+            selectedCategory == HomeCategory.HOME && seerrNetworksEnabled
         ) {
             seerrNetworks
         } else {

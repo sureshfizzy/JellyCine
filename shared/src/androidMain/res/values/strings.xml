@@ -564,10 +564,10 @@
     <string name="interface_show_reviews_subtitle">Show TMDB user reviews on movie and show details.</string>
     <string name="interface_emby_poster_overlays">Emby Poster Overlays</string>
     <string name="interface_emby_poster_overlays_subtitle">Disable Emby poster overlays.</string>
-    <string name="interface_seerr_settings">Seerr Settings</string>
-    <string name="interface_seerr_studios">Seerr Studios</string>
+    <string name="interface_seerr_settings">Studios &amp; Networks</string>
+    <string name="interface_seerr_studios">Studios</string>
     <string name="interface_seerr_studios_subtitle">Show the Studios section on the Home screen.</string>
-    <string name="interface_seerr_networks">Seerr Networks</string>
+    <string name="interface_seerr_networks">Networks</string>
     <string name="interface_seerr_networks_subtitle">Show the Networks section on the Home screen.</string>
 
     <!-- Screen Time -->

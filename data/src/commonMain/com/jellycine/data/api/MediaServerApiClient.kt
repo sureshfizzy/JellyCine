@@ -88,6 +88,7 @@ internal class MediaServerApiClient(
         startIndex: Int?,
         filters: String?,
         anyProviderIdEquals: String?,
+        studioIds: String?,
         fields: String?,
         enableUserData: Boolean?
     ): ApiResponse<QueryResult<BaseItemDto>> = get(
@@ -105,8 +106,22 @@ internal class MediaServerApiClient(
             "startIndex" to startIndex,
             "filters" to filters,
             "AnyProviderIdEquals" to anyProviderIdEquals,
+            "StudioIds" to studioIds,
             "fields" to fields,
             "EnableUserData" to enableUserData
+        )
+    )
+
+    override suspend fun getStudios(
+        userId: String?,
+        searchTerm: String?,
+        limit: Int?
+    ): ApiResponse<QueryResult<BaseItemDto>> = get(
+        endpoint = "Studios",
+        queryParameters = listOf(
+            "userId" to userId,
+            "searchTerm" to searchTerm,
+            "limit" to limit
         )
     )
 

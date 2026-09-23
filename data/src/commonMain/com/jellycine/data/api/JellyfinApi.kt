@@ -54,8 +54,15 @@ interface MediaServerApi {
         startIndex: Int? = null,
         filters: String? = null,
         anyProviderIdEquals: String? = null,
+        studioIds: String? = null,
         fields: String? = null,
         enableUserData: Boolean? = null
+    ): ApiResponse<QueryResult<BaseItemDto>>
+
+    suspend fun getStudios(
+        userId: String? = null,
+        searchTerm: String? = null,
+        limit: Int? = null
     ): ApiResponse<QueryResult<BaseItemDto>>
 
     suspend fun getSuggestions(
