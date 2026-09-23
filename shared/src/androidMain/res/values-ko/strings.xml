@@ -522,10 +522,10 @@
     <string name="interface_merge_versions_subtitle">일치하는 로컬 동영상 파일을 하나의 세부 정보 화면에 표시합니다.</string>
     <string name="interface_emby_poster_overlays">엠비 포스터 오버레이</string>
     <string name="interface_emby_poster_overlays_subtitle">Emby 포스터 오버레이를 비활성화합니다.</string>
-    <string name="interface_seerr_settings">서버 설정</string>
-    <string name="interface_seerr_studios">시어 스튜디오</string>
+    <string name="interface_seerr_settings">스튜디오 및 네트워크</string>
+    <string name="interface_seerr_studios">스튜디오</string>
     <string name="interface_seerr_studios_subtitle">홈 화면에 스튜디오 섹션을 표시합니다.</string>
-    <string name="interface_seerr_networks">서버 네트워크</string>
+    <string name="interface_seerr_networks">네트웍</string>
     <string name="interface_seerr_networks_subtitle">홈 화면에 네트워크 섹션을 표시합니다.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">커넥션</string>
@@ -609,4 +609,11 @@
     <string name="settings_logs_subtitle">진단 로그 공유</string>
     <string name="logs_share">공유하기</string>
     <string name="interface_theme_music_volume">볼륨</string>
+    <string name="interface_show_reviews">리뷰</string>
+    <string name="interface_show_reviews_subtitle">영화 및 쇼 세부 정보에 대한 TMDB 사용자 리뷰를 표시합니다.</string>
+    <string name="settings_force_offline">강제 오프라인 모드</string>
+    <string name="settings_force_offline_subtitle">다운로드만 찾아보고 서버 접속은 중단하세요</string>
+    <string name="detail_reviews">리뷰</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">전체 리뷰 읽기</string>
 </resources>
