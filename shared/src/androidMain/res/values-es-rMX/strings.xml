@@ -548,10 +548,10 @@
     <string name="interface_merge_versions_subtitle">Mostrar archivos de películas locales coincidentes en una pantalla de detalles.</string>
     <string name="interface_emby_poster_overlays">Superposiciones de póster Emby</string>
     <string name="interface_emby_poster_overlays_subtitle">Desactiva las superposiciones de póster de Emby.</string>
-    <string name="interface_seerr_settings">Configuración de Seerr</string>
-    <string name="interface_seerr_studios">Estudios Seerr</string>
+    <string name="interface_seerr_settings">Estudios y Redes</string>
+    <string name="interface_seerr_studios">Estudios</string>
     <string name="interface_seerr_studios_subtitle">Mostrar la sección Estudios en la pantalla de inicio.</string>
-    <string name="interface_seerr_networks">Redes de Seerr</string>
+    <string name="interface_seerr_networks">Redes</string>
     <string name="interface_seerr_networks_subtitle">Mostrar la sección Redes en la pantalla de inicio.</string>
     <!-- Connections Settings -->
     <string name="settings_connections">Conexiones</string>
@@ -635,4 +635,11 @@
     <string name="settings_logs_subtitle">Compartir registros de diagnóstico</string>
     <string name="logs_share">Compartir</string>
     <string name="interface_theme_music_volume">Volumen</string>
+    <string name="interface_show_reviews">Opiniones</string>
+    <string name="interface_show_reviews_subtitle">Mostrar reseñas de usuarios de TMDB sobre películas y detalles del programa.</string>
+    <string name="detail_reviews">Opiniones</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="settings_force_offline">Forzar el modo fuera de línea</string>
+    <string name="settings_force_offline_subtitle">Examinar solo descargas y dejar de contactar con el servidor</string>
+    <string name="detail_reviews_read_full">Leer reseña completa</string>
 </resources>
