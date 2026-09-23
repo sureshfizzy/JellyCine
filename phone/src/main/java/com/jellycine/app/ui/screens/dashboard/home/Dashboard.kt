@@ -106,6 +106,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
@@ -1170,11 +1171,15 @@ fun Dashboard(
     }
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
-    val networkAvailabilityFlow = remember(appContext) {
-        NetworkModule.observeNetworkAvailability(appContext)
+    val networkAvailabilityFlow = remember(appContext, preferences) {
+        combine(
+            NetworkModule.observeNetworkAvailability(appContext),
+            preferences.ForceOfflineEnabled()
+        ) { available, forceOffline -> available && !forceOffline }
     }
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext)
+        initialValue = NetworkModule.isInternetAvailable(appContext) &&
+            !preferences.isForceOfflineEnabled()
     )
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(

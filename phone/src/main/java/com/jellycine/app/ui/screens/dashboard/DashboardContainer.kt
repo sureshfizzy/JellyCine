@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -182,11 +183,15 @@ fun DashboardContainer(
     val appContext = remember(context) { context.applicationContext }
     val authRepository = remember(appContext) { AuthRepositoryProvider.getInstance(appContext) }
     val seerrRepository = remember(appContext) { SeerrRepository(appContext) }
-    val networkAvailabilityFlow = remember(appContext) {
-        NetworkModule.observeNetworkAvailability(appContext)
+    val networkAvailabilityFlow = remember(appContext, preferences) {
+        combine(
+            NetworkModule.observeNetworkAvailability(appContext),
+            preferences.ForceOfflineEnabled()
+        ) { available, forceOffline -> available && !forceOffline }
     }
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext)
+        initialValue = NetworkModule.isInternetAvailable(appContext) &&
+            !preferences.isForceOfflineEnabled()
     )
     val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
         .collectAsStateWithLifecycle(
