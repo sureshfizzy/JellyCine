@@ -522,10 +522,10 @@
     <string name="interface_merge_versions_subtitle">一致するローカルムービーファイルを 1 つの詳細画面に表示します。</string>
     <string name="interface_emby_poster_overlays">Emby ポスターオーバーレイ</string>
     <string name="interface_emby_poster_overlays_subtitle">Embyポスターオーバーレイを無効にします。</string>
-    <string name="interface_seerr_settings">サーバー設定</string>
-    <string name="interface_seerr_studios">シアー・スタジオ</string>
+    <string name="interface_seerr_settings">スタジオとネットワーク</string>
+    <string name="interface_seerr_studios">スタジオ</string>
     <string name="interface_seerr_studios_subtitle">ホーム画面にスタジオセクションを表示します。</string>
-    <string name="interface_seerr_networks">下層ネットワーク</string>
+    <string name="interface_seerr_networks">[ネットワーク]</string>
     <string name="interface_seerr_networks_subtitle">ホーム画面にネットワークセクションを表示します。</string>
     <!-- Connections Settings -->
     <string name="settings_connections">接続</string>
@@ -609,4 +609,11 @@
     <string name="settings_logs_subtitle">診断ログの共有</string>
     <string name="logs_share">シェア</string>
     <string name="interface_theme_music_volume">ボリューム</string>
+    <string name="interface_show_reviews">レビュー</string>
+    <string name="interface_show_reviews_subtitle">映画にTMDBユーザーレビューを表示し、詳細を表示します。</string>
+    <string name="detail_reviews">レビュー</string>
+    <string name="detail_reviews_rating">%1$s/10</string>
+    <string name="detail_reviews_read_full">レビュー全文を読む</string>
+    <string name="settings_force_offline">強制オフラインモード</string>
+    <string name="settings_force_offline_subtitle">ダウンロードのみを閲覧し、サーバーとの通信を停止する</string>
 </resources>
