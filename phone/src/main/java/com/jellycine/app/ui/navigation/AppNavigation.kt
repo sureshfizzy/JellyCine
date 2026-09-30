@@ -417,8 +417,8 @@ fun AppNavigation() {
                         defaultValue = null
                     }
                 ),
-                enterTransition = { textTransition(450) },
-                exitTransition = { textExitTransition(350) }
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
             ) { backStackEntry ->
                 val contentTypeString = backStackEntry.arguments?.getString("contentType") ?: "ALL"
                 val parentId = backStackEntry.arguments?.getString("parentId")

@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
@@ -81,6 +82,8 @@ fun ViewAllScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val items by viewModel.items.collectAsStateWithLifecycle()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
+
+    BackHandler { onBackPressed() }
 
     val context = LocalContext.current
     val screenWidthDp = containerWidthDp()

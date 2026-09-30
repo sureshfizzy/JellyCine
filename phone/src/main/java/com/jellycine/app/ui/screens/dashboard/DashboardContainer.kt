@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -110,11 +111,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 private fun DashboardEnterTransition(): EnterTransition {
-    return fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing))
+    return fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing))
 }
 
 private fun DashboardExitTransition(): ExitTransition {
-    return fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing))
+    return fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
 }
 
 sealed class DashboardDestination(
@@ -580,6 +581,12 @@ fun DashboardContainer(
                         )
                     }
                 }
+            }
+
+            BackHandler(
+                enabled = currentRoute != null && currentRoute != DashboardDestination.Home.route
+            ) {
+                navigateToDestination(DashboardDestination.Home)
             }
 
             // Curved Bottom Navigation
