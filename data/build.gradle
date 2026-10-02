@@ -50,8 +50,8 @@ kotlin {
             kotlin.srcDirs = ['src/commonMain']
             dependencies {
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
-                implementation "io.ktor:ktor-client-core:3.5.2"
-                implementation "io.ktor:ktor-client-content-negotiation:3.5.2"
+                implementation "io.ktor:ktor-client-core:3.6.0"
+                implementation "io.ktor:ktor-client-content-negotiation:3.6.0"
                 implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
             }
         }
@@ -60,8 +60,8 @@ kotlin {
             dependencies {
                 implementation 'androidx.core:core-ktx:1.19.0'
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
-                implementation "io.ktor:ktor-client-okhttp:3.5.2"
-                implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
+                implementation "io.ktor:ktor-client-okhttp:3.6.0"
+                implementation "io.ktor:ktor-serialization-kotlinx-json:3.6.0"
                 implementation 'androidx.datastore:datastore-preferences:1.2.1'
                 implementation 'androidx.security:security-crypto:1.1.0'
             }
@@ -69,16 +69,16 @@ kotlin {
         desktopMain {
             kotlin.srcDirs = ['src/desktopMain']
             dependencies {
-                implementation "io.ktor:ktor-client-okhttp:3.5.2"
-                implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
+                implementation "io.ktor:ktor-client-okhttp:3.6.0"
+                implementation "io.ktor:ktor-serialization-kotlinx-json:3.6.0"
             }
         }
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
             iosMain {
                 kotlin.srcDirs = ['src/iosMain']
                 dependencies {
-                    implementation "io.ktor:ktor-client-darwin:3.5.2"
-                    implementation "io.ktor:ktor-serialization-kotlinx-json:3.5.2"
+                    implementation "io.ktor:ktor-client-darwin:3.6.0"
+                    implementation "io.ktor:ktor-serialization-kotlinx-json:3.6.0"
                     implementation "androidx.datastore:datastore-preferences-core:1.2.1"
                     implementation "com.squareup.okio:okio:3.18.2"
                 }
