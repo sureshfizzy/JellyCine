@@ -1239,12 +1239,6 @@ fun Dashboard(
         }
     }
 
-    var localStudioNames by remember(sessionSnapshot.activeServerId) {
-        mutableStateOf<Set<String>?>(null)
-    }
-    LaunchedEffect(sessionSnapshot.activeServerId) {
-        localStudioNames = withContext(Dispatchers.IO) { mediaRepository.getAvailableStudioNames() }
-    }
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
     val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
     val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
@@ -1598,6 +1592,20 @@ fun Dashboard(
                 onFailure = { throw it }
             )
         }
+
+        val localStudioNamesQuery = useQuery(
+            key = "home_local_studio_names",
+            config = QueryConfig(
+                staleTime = 300_000L,
+                enabled = isTabActive && selectedCategory == HomeCategory.HOME && isNetworkAvailable,
+                retryCount = 1,
+                retryDelay = 200L,
+                requestTimeoutMs = networkRequestTimeoutMs
+            )
+        ) {
+            mediaRepository.getAvailableStudioNames()
+        }
+        val localStudioNames = localStudioNamesQuery.data
 
         val persistedFeaturedItems = if (selectedCategory == HomeCategory.HOME && isNetworkAvailable) {
             persistedHomeSnapshot?.featuredHomeItems.orEmpty()
@@ -2565,10 +2573,10 @@ private fun SeerrCatalogSection(
     ) {
         Text(
             text = title,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White.copy(alpha = 0.82f),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
