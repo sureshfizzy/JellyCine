@@ -1093,6 +1093,7 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(Dispatchers.IO) {
+        if (!NetworkModule.isInternetAvailable(context)) return@withContext null
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -1114,6 +1115,7 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getTmdbExtras(item: BaseItemDto): List<MediaExtra> = withContext(Dispatchers.IO) {
+        if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -1135,6 +1137,7 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {
+        if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -2038,6 +2041,7 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getTmdbTitleDetail(tmdbId: String, mediaType: String): Result<BaseItemDto> {
+        if (!NetworkModule.isInternetAvailable(context)) return Result.failure(Exception("No internet"))
         val normalizedType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
         val detail = tmdbApi.titleDetail(normalizedType, tmdbId)
             ?: return Result.failure(Exception("Title details unavailable"))

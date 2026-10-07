@@ -10,6 +10,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +27,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -67,6 +70,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.shared.R
 import com.jellycine.shared.ui.theme.JellyBlue
 import com.jellycine.shared.ui.theme.JellyRed
+import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.repository.AuthRepositoryProvider
 
 enum class AuthStep {
@@ -92,6 +96,8 @@ fun AuthScreen(
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
     val uiState by authViewModel.uiState.collectAsState()
+    val discoveredServers by authViewModel.discoveredServers.collectAsState()
+    val isDiscovering by authViewModel.isDiscovering.collectAsState()
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
         initial = authRepository.getActiveSessionSnapshot()
@@ -237,20 +243,41 @@ fun AuthScreen(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                ConnectionForm(
-                                    serverUrl = uiState.serverUrl,
-                                    isLoading = uiState.isServerLoading,
-                                    errorMessage = uiState.serverErrorMessage,
-                                    onServerUrlChange = authViewModel::updateServerUrl,
-                                    onConnect = {
-                                        authViewModel.connectToServer { url, name ->
-                                            selectedServerUrl = url
-                                            selectedServerName = name
-                                            currentStep = AuthStep.LOGIN
-                                        }
-                                    },
-                                    modifier = Modifier.widthIn(max = 420.dp)
-                                )
+                                Column(
+                                    modifier = Modifier.widthIn(max = 420.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    ConnectionForm(
+                                        serverUrl = uiState.serverUrl,
+                                        isLoading = uiState.isServerLoading,
+                                        errorMessage = uiState.serverErrorMessage,
+                                        onServerUrlChange = authViewModel::updateServerUrl,
+                                        onConnect = {
+                                            authViewModel.connectToServer { url, name ->
+                                                selectedServerUrl = url
+                                                selectedServerName = name
+                                                currentStep = AuthStep.LOGIN
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    TvDiscoveredServersSection(
+                                        servers = discoveredServers,
+                                        isDiscovering = isDiscovering,
+                                        isLoading = uiState.isServerLoading,
+                                        onSelectServer = { server ->
+                                            authViewModel.updateServerUrl(server.address)
+                                            authViewModel.connectToServer { url, name ->
+                                                selectedServerUrl = url
+                                                selectedServerName = name
+                                                currentStep = AuthStep.LOGIN
+                                            }
+                                        },
+                                        onRescan = { authViewModel.discoverServers() },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                         AuthStep.LOGIN -> {
@@ -417,6 +444,106 @@ private fun ConnectionForm(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvDiscoveredServersSection(
+    servers: List<DiscoveredServer>,
+    isDiscovering: Boolean,
+    isLoading: Boolean,
+    onSelectServer: (DiscoveredServer) -> Unit,
+    onRescan: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.auth_discovered_servers),
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            if (isDiscovering) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = JellyBlue,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                IconButton(
+                    onClick = onRescan,
+                    enabled = !isLoading,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = stringResource(R.string.auth_discover_servers),
+                        tint = JellyBlue,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        if (isDiscovering && servers.isEmpty()) {
+            Text(
+                text = stringResource(R.string.auth_discovering),
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 14.sp
+            )
+        }
+
+        if (!isDiscovering && servers.isEmpty()) {
+            Text(
+                text = stringResource(R.string.auth_no_servers_found),
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 14.sp
+            )
+        }
+
+        servers.forEach { server ->
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isLoading) { onSelectServer(server) },
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White.copy(alpha = 0.06f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Dns,
+                        contentDescription = null,
+                        tint = JellyBlue,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = server.name,
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = server.address,
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             }
         }
     }

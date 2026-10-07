@@ -42,6 +42,7 @@ import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.NetworkStatus
 
 private fun dashboardEnterTransition(): EnterTransition {
     return fadeIn(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing))
@@ -74,12 +75,17 @@ fun DashboardContainer(
 
     val context = LocalContext.current
     val appContext = remember(context) { context.applicationContext }
-    val networkAvailabilityFlow = remember(appContext) {
+    val networkStatusFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
     }
-    val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext)
+    val networkStatus by networkStatusFlow.collectAsStateWithLifecycle(
+        initialValue = when {
+            NetworkModule.isInternetAvailable(appContext) -> NetworkStatus.Online
+            NetworkModule.hasLocalNetworkTransport(appContext) -> NetworkStatus.LocalNetwork
+            else -> NetworkStatus.Offline
+        }
     )
+    val isNetworkAvailable = networkStatus.isAvailable
     val destinations = remember(isNetworkAvailable) {
         if (isNetworkAvailable) onlineDestinations() else offlineDestinations()
     }

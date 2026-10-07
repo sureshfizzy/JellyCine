@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.dashboard.home.CachedData
+import com.jellycine.data.network.DiscoveredServer
+import com.jellycine.data.network.ServerDiscovery
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.Job
@@ -18,12 +20,22 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val authRepository = AuthRepositoryProvider.getInstance(application)
     private val mediaRepository = MediaRepositoryProvider.getInstance(application)
     private var quickConnectPollingJob: Job? = null
-    
+    private var discoveryJob: Job? = null
+
     private val _uiState = MutableStateFlow(AuthScreenUiState())
     val uiState: StateFlow<AuthScreenUiState> = _uiState.asStateFlow()
 
-    // Authentication state flow
+    private val _discoveredServers = MutableStateFlow<List<DiscoveredServer>>(emptyList())
+    val discoveredServers: StateFlow<List<DiscoveredServer>> = _discoveredServers.asStateFlow()
+
+    private val _isDiscovering = MutableStateFlow(false)
+    val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
+
     val isAuthenticated: Flow<Boolean> = authRepository.isAuthenticated
+
+    init {
+        discoverServers()
+    }
     
     fun updateServerUrl(url: String) {
         _uiState.value = _uiState.value.copy(
@@ -208,6 +220,25 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 quickConnectCode = null,
                 loginErrorMessage = string(R.string.auth_error_quick_connect_timed_out)
             )
+        }
+    }
+
+    fun discoverServers() {
+        discoveryJob?.cancel()
+        discoveryJob = viewModelScope.launch {
+            _isDiscovering.value = true
+            _discoveredServers.value = emptyList()
+            val servers = mutableListOf<DiscoveredServer>()
+            try {
+                ServerDiscovery.discoverServers(getApplication()).collect { server ->
+                    servers.add(server)
+                    _discoveredServers.value = servers.toList()
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            } finally {
+                _isDiscovering.value = false
+            }
         }
     }
 

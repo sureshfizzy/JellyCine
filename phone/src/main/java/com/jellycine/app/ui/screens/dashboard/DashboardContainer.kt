@@ -104,6 +104,7 @@ import kotlin.math.min
 import kotlin.math.round
 import com.jellycine.shared.R
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
@@ -184,16 +185,23 @@ fun DashboardContainer(
     val appContext = remember(context) { context.applicationContext }
     val authRepository = remember(appContext) { AuthRepositoryProvider.getInstance(appContext) }
     val seerrRepository = remember(appContext) { SeerrRepository(appContext) }
-    val networkAvailabilityFlow = remember(appContext, preferences) {
+    val networkStatusFlow = remember(appContext, preferences) {
         combine(
             NetworkModule.observeNetworkAvailability(appContext),
             preferences.ForceOfflineEnabled()
-        ) { available, forceOffline -> available && !forceOffline }
+        ) { status, forceOffline ->
+            if (forceOffline) NetworkStatus.Offline else status
+        }
     }
-    val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext) &&
-            !preferences.isForceOfflineEnabled()
+    val networkStatus by networkStatusFlow.collectAsStateWithLifecycle(
+        initialValue = when {
+            preferences.isForceOfflineEnabled() -> NetworkStatus.Offline
+            NetworkModule.isInternetAvailable(appContext) -> NetworkStatus.Online
+            NetworkModule.hasLocalNetworkTransport(appContext) -> NetworkStatus.LocalNetwork
+            else -> NetworkStatus.Offline
+        }
     )
+    val isNetworkAvailable = networkStatus.isAvailable
     val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
         .collectAsStateWithLifecycle(
             initialValue = preferences.isUseMyMediaTabEnabled()

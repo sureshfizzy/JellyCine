@@ -22,7 +22,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import okhttp3.Cache
 import okhttp3.ConnectionPool
@@ -39,78 +38,101 @@ object NetworkModule {
     private const val CLIENT_NAME = "JellyCine"
     private const val DEVICE_NAME = "Android"
     private const val NETWORK_LOG_TAG = "JellyCineNetwork"
-    private const val OFFLINE_DEBOUNCE_MS = 4000L
+    private const val OFFLINE_DEBOUNCE_MS = 3000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
     private val apiCache = ConcurrentHashMap<String, MediaServerApi>()
+    @Volatile
+    private var boundNetwork: Network? = null
 
     fun getClientDeviceId(): String = deviceId
 
     fun isInternetAvailable(context: Context): Boolean {
-        val connectivityManager =
-            context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val caps = getActiveCapabilities(context) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    fun isWifiConnected(context: Context): Boolean {
-        val connectivityManager =
-            context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) &&
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+    fun hasLocalNetworkTransport(context: Context): Boolean {
+        val caps = getActiveCapabilities(context) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
     }
 
-    fun observeNetworkAvailability(context: Context): Flow<Boolean> = callbackFlow {
+    private fun getActiveCapabilities(context: Context): NetworkCapabilities? {
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return null
+        return cm.getNetworkCapabilities(network)
+    }
+
+    private fun updateNetworkBinding(context: Context, status: NetworkStatus) {
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (status is NetworkStatus.LocalNetwork) {
+            val network = cm.activeNetwork
+            if (network != null && network != boundNetwork) {
+                cm.bindProcessToNetwork(network)
+                boundNetwork = network
+                Log.d(NETWORK_LOG_TAG, "Bound process to local network")
+            }
+        } else if (boundNetwork != null) {
+            cm.bindProcessToNetwork(null)
+            boundNetwork = null
+            Log.d(NETWORK_LOG_TAG, "Restored default network routing")
+        }
+    }
+
+    fun observeNetworkAvailability(
+        context: Context
+    ): Flow<NetworkStatus> = callbackFlow {
         val appContext = context.applicationContext
         val connectivityManager =
             appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        var OfflineEmission: Job? = null
+        var offlineDebounce: Job? = null
+        var lastEmitted: NetworkStatus? = null
 
-        trySend(isInternetAvailable(appContext))
+        fun currentStatus(): NetworkStatus = when {
+            isInternetAvailable(appContext) -> NetworkStatus.Online
+            hasLocalNetworkTransport(appContext) -> NetworkStatus.LocalNetwork
+            else -> NetworkStatus.Offline
+        }
 
-        fun OfflineDebounce() {
-            if (isInternetAvailable(appContext)) {
-                OfflineEmission?.cancel()
-                OfflineEmission = null
-                trySend(true)
+        fun emit(status: NetworkStatus) {
+            updateNetworkBinding(appContext, status)
+            if (status != lastEmitted) {
+                lastEmitted = status
+                trySend(status)
+            }
+        }
+
+        emit(currentStatus())
+
+        fun scheduleCheck() {
+            val status = currentStatus()
+            if (status != NetworkStatus.Offline) {
+                offlineDebounce?.cancel()
+                offlineDebounce = null
+                emit(status)
                 return
             }
 
-            if (OfflineEmission?.isActive == true) {
-                return
-            }
+            if (offlineDebounce?.isActive == true) return
 
-            OfflineEmission = launch {
+            offlineDebounce = launch {
                 delay(OFFLINE_DEBOUNCE_MS)
-                if (!isInternetAvailable(appContext)) {
-                    trySend(false)
-                }
+                emit(currentStatus())
             }
         }
 
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                OfflineDebounce()
-            }
-
-            override fun onLost(network: Network) {
-                OfflineDebounce()
-            }
-
+            override fun onAvailable(network: Network) { scheduleCheck() }
+            override fun onLost(network: Network) { scheduleCheck() }
             override fun onCapabilitiesChanged(
                 network: Network,
                 networkCapabilities: NetworkCapabilities
-            ) {
-                OfflineDebounce()
-            }
-
-            override fun onUnavailable() {
-                OfflineDebounce()
-            }
+            ) { scheduleCheck() }
+            override fun onUnavailable() { scheduleCheck() }
         }
 
         val request = NetworkRequest.Builder()
@@ -120,14 +142,14 @@ object NetworkModule {
         runCatching {
             connectivityManager.registerNetworkCallback(request, callback)
         }.onFailure {
-            trySend(isInternetAvailable(appContext))
+            trySend(currentStatus())
         }
 
         awaitClose {
-            OfflineEmission?.cancel()
+            offlineDebounce?.cancel()
             runCatching { connectivityManager.unregisterNetworkCallback(callback) }
         }
-    }.distinctUntilChanged()
+    }
 
     fun createMediaServerApi(
         baseUrl: String,
