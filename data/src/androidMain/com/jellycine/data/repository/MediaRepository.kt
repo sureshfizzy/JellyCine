@@ -729,6 +729,20 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    // Hide empty Studios/Networks tiles.
+    suspend fun getAvailableStudioNames(): Set<String> {
+        val api = getApi() ?: return emptySet()
+        val userId = getUserId()
+        return try {
+            val response = api.getStudios(userId = userId, searchTerm = null, limit = 2000)
+            response.body()?.items.orEmpty()
+                .mapNotNull { it.name?.trim()?.lowercase()?.takeIf(String::isNotEmpty) }
+                .toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+    }
+
     // Resolves studio/network names to the server's studio ids.
     suspend fun resolveStudioIds(names: List<String>): List<String> {
         if (names.isEmpty()) return emptyList()
