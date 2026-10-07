@@ -50,6 +50,7 @@ import com.jellycine.data.model.SeerrCatalog
 import com.jellycine.data.model.SeerrCatalogItem
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.network.isAuthenticationStatusFailure
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.network.trimTrailingSlash
@@ -1175,10 +1176,13 @@ fun Dashboard(
         combine(
             NetworkModule.observeNetworkAvailability(appContext),
             preferences.ForceOfflineEnabled()
-        ) { available, forceOffline -> available && !forceOffline }
+        ) { status, forceOffline ->
+            if (forceOffline) false else status.isAvailable
+        }
     }
     val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext) &&
+        initialValue = (NetworkModule.isInternetAvailable(appContext) ||
+            NetworkModule.hasLocalNetworkTransport(appContext)) &&
             !preferences.isForceOfflineEnabled()
     )
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()

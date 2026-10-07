@@ -19,6 +19,7 @@ import com.jellycine.data.download.DownloadDestination
 import com.jellycine.data.download.DownloadMessages
 import com.jellycine.data.download.DownloadStorage
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.preferences.DownloadPreferences
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
@@ -275,7 +276,7 @@ class DownloadRepository(context: Context) {
 
         pausedItems.remove(itemId)
         canceledItems.remove(itemId)
-        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
+        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.hasLocalNetworkTransport(appContext)) {
             val downloadedBytes = knownDownloadedBytes(current = current, metadata = metadata)
             val totalBytes = knownTotalBytes(current = current, metadata = metadata)
             val failureMessage = messages.wifiRequired
@@ -846,16 +847,17 @@ class DownloadRepository(context: Context) {
     private fun observeNetworkRestoration() {
         if (networkObserverJob?.isActive == true) return
         networkObserverJob = scope.launch {
-            NetworkModule.observeNetworkAvailability(appContext).collect { isAvailable ->
-                if (isAvailable) {
-                    autoResumeQueuedDownloads()
+            NetworkModule.observeNetworkAvailability(appContext)
+                .collect { status ->
+                    if (status.isAvailable) {
+                        autoResumeQueuedDownloads()
+                    }
                 }
-            }
         }
     }
 
     private suspend fun autoResumeQueuedDownloads() {
-        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.isWifiConnected(appContext)) {
+        if (preferences.isWifiOnlyDownloadsEnabled() && !NetworkModule.hasLocalNetworkTransport(appContext)) {
             return
         }
 

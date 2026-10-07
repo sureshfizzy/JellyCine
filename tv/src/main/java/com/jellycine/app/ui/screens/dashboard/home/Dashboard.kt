@@ -44,6 +44,7 @@ import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.network.NetworkModule
+import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.network.isAuthenticationStatusFailure
 import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.network.trimTrailingSlash
@@ -110,6 +111,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
@@ -1180,11 +1182,12 @@ fun Dashboard(
     }
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val networkRequestTimeoutMs = NetworkPreferences(context).getTimeoutConfig().requestTimeoutMs.toLong()
-    val networkAvailabilityFlow = remember(appContext) {
+    val networkStatusFlow = remember(appContext) {
         NetworkModule.observeNetworkAvailability(appContext)
     }
-    val isNetworkAvailable by networkAvailabilityFlow.collectAsStateWithLifecycle(
-        initialValue = NetworkModule.isInternetAvailable(appContext)
+    val isNetworkAvailable by networkStatusFlow.map { it.isAvailable }.collectAsStateWithLifecycle(
+        initialValue = NetworkModule.isInternetAvailable(appContext) ||
+            NetworkModule.hasLocalNetworkTransport(appContext)
     )
     val featureCarouselEnabled by preferences.FeatureCarouselEnabled()
         .collectAsStateWithLifecycle(

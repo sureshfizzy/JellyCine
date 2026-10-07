@@ -10,9 +10,12 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,14 +24,17 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -78,6 +84,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings as AndroidSettings
+import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.repository.AuthRepositoryProvider
 import kotlinx.coroutines.launch
 
@@ -104,6 +111,8 @@ fun AuthScreen(
         ServerSwitchViewModel(context.applicationContext as android.app.Application)
     }
     val uiState by authViewModel.uiState.collectAsState()
+    val discoveredServers by authViewModel.discoveredServers.collectAsState()
+    val isDiscovering by authViewModel.isDiscovering.collectAsState()
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
     val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
         initial = authRepository.getActiveSessionSnapshot()
@@ -119,6 +128,18 @@ fun AuthScreen(
     var selectedServerName by remember(serverName) { mutableStateOf(serverName) }
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
     val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
+
+    LaunchedEffect(Unit) {
+        discoveredServerUrl?.let { url ->
+            discoveredServerUrl = null
+            authViewModel.updateServerUrl(url)
+            authViewModel.connectToServer { connectedUrl, name ->
+                selectedServerUrl = connectedUrl
+                selectedServerName = name
+                currentStep = AuthStep.LOGIN
+            }
+        }
+    }
 
     LaunchedEffect(displaySavedServers, currentStep) {
         if (
@@ -223,6 +244,8 @@ fun AuthScreen(
                         isAwaitingSavedServers = showServerConnection,
                         isLoading = uiState.isServerLoading,
                         errorMessage = uiState.serverErrorMessage,
+                        discoveredServers = discoveredServers,
+                        isDiscovering = isDiscovering,
                         onServerUrlChange = authViewModel::updateServerUrl,
                         onConnect = {
                             authViewModel.connectToServer { url, name ->
@@ -230,7 +253,16 @@ fun AuthScreen(
                                 selectedServerName = name
                                 currentStep = AuthStep.LOGIN
                             }
-                        }
+                        },
+                        onSelectDiscoveredServer = { server ->
+                            authViewModel.updateServerUrl(server.address)
+                            authViewModel.connectToServer { url, name ->
+                                selectedServerUrl = url
+                                selectedServerName = name
+                                currentStep = AuthStep.LOGIN
+                            }
+                        },
+                        onRescanServers = { authViewModel.discoverServers() }
                     )
 
                     AuthStep.LOGIN -> LoginContent(
@@ -372,8 +404,12 @@ private fun ServerConnectionContent(
     isAwaitingSavedServers: Boolean,
     isLoading: Boolean,
     errorMessage: String?,
+    discoveredServers: List<DiscoveredServer> = emptyList(),
+    isDiscovering: Boolean = false,
     onServerUrlChange: (String) -> Unit,
-    onConnect: () -> Unit
+    onConnect: () -> Unit,
+    onSelectDiscoveredServer: (DiscoveredServer) -> Unit = {},
+    onRescanServers: () -> Unit = {}
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
@@ -414,6 +450,129 @@ private fun ServerConnectionContent(
                 onConnect = onConnect,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            DiscoveredServersSection(
+                servers = discoveredServers,
+                isDiscovering = isDiscovering,
+                isLoading = isLoading,
+                onSelectServer = onSelectDiscoveredServer,
+                onRescan = onRescanServers,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiscoveredServersSection(
+    servers: List<DiscoveredServer>,
+    isDiscovering: Boolean,
+    isLoading: Boolean,
+    onSelectServer: (DiscoveredServer) -> Unit,
+    onRescan: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.auth_discovered_servers),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                if (isDiscovering) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = JellyBlue,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    IconButton(
+                        onClick = onRescan,
+                        enabled = !isLoading,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = stringResource(R.string.auth_discover_servers),
+                            tint = JellyBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            if (isDiscovering && servers.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.auth_discovering),
+                    color = Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+
+            if (!isDiscovering && servers.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.auth_no_servers_found),
+                    color = Color.White.copy(alpha = 0.4f),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+
+            servers.forEach { server ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isLoading) { onSelectServer(server) },
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White.copy(alpha = 0.06f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Dns,
+                            contentDescription = null,
+                            tint = JellyBlue,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = server.name,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = server.address,
+                                color = Color.White.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

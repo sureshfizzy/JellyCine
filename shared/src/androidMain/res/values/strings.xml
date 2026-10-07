@@ -36,6 +36,10 @@
     <string name="auth_connection_settings">Connection Settings</string>
     <string name="auth_server_url_placeholder">http://192.168.1.100:8096</string>
     <string name="auth_connect_to_server">Connect to Server</string>
+    <string name="auth_discover_servers">Discover Servers</string>
+    <string name="auth_discovering">Scanning local network…</string>
+    <string name="auth_no_servers_found">No servers found on local network</string>
+    <string name="auth_discovered_servers">Servers on your network</string>
     <string name="auth_sign_in">Sign In</string>
     <string name="auth_show_password">Show password</string>
     <string name="auth_hide_password">Hide password</string>
