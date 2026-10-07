@@ -1238,6 +1238,13 @@ fun Dashboard(
             savedServer.id == sessionSnapshot.activeServerId
         }
     }
+
+    var localStudioNames by remember(sessionSnapshot.activeServerId) {
+        mutableStateOf<Set<String>?>(null)
+    }
+    LaunchedEffect(sessionSnapshot.activeServerId) {
+        localStudioNames = withContext(Dispatchers.IO) { mediaRepository.getAvailableStudioNames() }
+    }
     val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
     val currentServerName = sessionSnapshot.serverName ?: persistedHomeSnapshot?.serverName
     val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
@@ -1634,17 +1641,24 @@ fun Dashboard(
         }
         val seerrStudios = remember { SeerrCatalog.popularStudios(limit = 12) }
         val seerrNetworks = remember { SeerrCatalog.popularNetworks() }
+
+        fun availableInLibrary(items: List<SeerrCatalogItem>): List<SeerrCatalogItem> {
+            val names = localStudioNames ?: return emptyList()
+            return items.filter { item ->
+                item.localMatchNames.any { it.trim().lowercase() in names }
+            }
+        }
         val SeerrStudios = if (
             selectedCategory == HomeCategory.HOME && seerrStudiosEnabled
         ) {
-            seerrStudios
+            availableInLibrary(seerrStudios)
         } else {
             emptyList()
         }
         val SeerrNetworks = if (
             selectedCategory == HomeCategory.HOME && seerrNetworksEnabled
         ) {
-            seerrNetworks
+            availableInLibrary(seerrNetworks)
         } else {
             emptyList()
         }
