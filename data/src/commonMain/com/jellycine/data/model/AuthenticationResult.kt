@@ -39,26 +39,26 @@ data class User(
 @Serializable
 data class SessionInfo(
     @SerialName("Id")
-    val id: String,
-    
+    val id: String? = null,
+
     @SerialName("UserId")
-    val userId: String,
-    
+    val userId: String? = null,
+
     @SerialName("UserName")
-    val userName: String,
-    
+    val userName: String? = null,
+
     @SerialName("Client")
-    val client: String,
-    
+    val client: String? = null,
+
     @SerialName("LastActivityDate")
-    val lastActivityDate: String,
-    
+    val lastActivityDate: String? = null,
+
     @SerialName("DeviceName")
-    val deviceName: String,
-    
+    val deviceName: String? = null,
+
     @SerialName("DeviceId")
-    val deviceId: String,
-    
+    val deviceId: String? = null,
+
     @SerialName("ApplicationVersion")
-    val applicationVersion: String
+    val applicationVersion: String? = null
 )
