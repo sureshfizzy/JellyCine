@@ -129,6 +129,18 @@ fun AuthScreen(
     var selectedServerUrl by remember(serverUrl) { mutableStateOf(serverUrl.orEmpty()) }
     val canNavigateBackToServerStep = currentStep == AuthStep.LOGIN && !login
 
+    LaunchedEffect(Unit) {
+        discoveredServerUrl?.let { url ->
+            discoveredServerUrl = null
+            authViewModel.updateServerUrl(url)
+            authViewModel.connectToServer { connectedUrl, name ->
+                selectedServerUrl = connectedUrl
+                selectedServerName = name
+                currentStep = AuthStep.LOGIN
+            }
+        }
+    }
+
     LaunchedEffect(displaySavedServers, currentStep) {
         if (
             displaySavedServers &&

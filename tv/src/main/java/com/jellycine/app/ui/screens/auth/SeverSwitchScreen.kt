@@ -87,6 +87,8 @@ import com.jellycine.data.network.canonicalServerUrlKey
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 
+internal var discoveredServerUrl: String? = null
+
 private fun AuthRepository.SavedServer.isActiveServer(activeServerId: String?): Boolean {
     return id == activeServerId
 }
@@ -641,7 +643,10 @@ internal fun ServerSwitchDialog(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !isSwitching) { onAddServer() }
+                                .clickable(enabled = !isSwitching) {
+                                discoveredServerUrl = server.address
+                                onAddServer()
+                            }
                                 .padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
