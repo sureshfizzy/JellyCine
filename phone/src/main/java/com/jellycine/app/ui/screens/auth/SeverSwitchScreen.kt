@@ -489,91 +489,96 @@ internal fun ServerSwitchDialog(
                 }
             }
 
-            HorizontalDivider(
-                color = Color.White.copy(alpha = 0.14f),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
+            val allDiscoveredAlreadySaved = !isDiscovering &&
+                discoveredServers.isNotEmpty() && newDiscoveredServers.isEmpty()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.auth_discovered_servers),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White.copy(alpha = 0.72f)
+            if (!allDiscoveredAlreadySaved) {
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.14f),
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
-                if (isDiscovering) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = Color(0xFFF97316)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.auth_discovered_servers),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White.copy(alpha = 0.72f)
                     )
-                } else {
-                    IconButton(
-                        onClick = { discoveryTrigger++ },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = stringResource(R.string.auth_discover_servers),
-                            tint = Color(0xFFF97316),
-                            modifier = Modifier.size(18.dp)
+                    if (isDiscovering) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFFF97316)
                         )
-                    }
-                }
-            }
-
-            if (isDiscovering && newDiscoveredServers.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.auth_discovering),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.48f),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            } else if (newDiscoveredServers.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.auth_no_servers_found),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.48f),
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            } else {
-                newDiscoveredServers.forEach { server ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isSwitching) { onAddServer() }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Dns,
-                            contentDescription = null,
-                            tint = Color(0xFFF97316),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = server.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
-                            Text(
-                                text = server.address,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.72f)
+                    } else {
+                        IconButton(
+                            onClick = { discoveryTrigger++ },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = stringResource(R.string.auth_discover_servers),
+                                tint = Color(0xFFF97316),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.48f)
-                        )
+                    }
+                }
+
+                if (isDiscovering && newDiscoveredServers.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.auth_discovering),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.48f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else if (newDiscoveredServers.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.auth_no_servers_found),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.48f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    newDiscoveredServers.forEach { server ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !isSwitching) { onAddServer() }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Dns,
+                                contentDescription = null,
+                                tint = Color(0xFFF97316),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = server.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = server.address,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.72f)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.48f)
+                            )
+                        }
                     }
                 }
             }
