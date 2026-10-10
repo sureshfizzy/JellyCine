@@ -655,4 +655,8 @@
     <string name="detail_reviews_read_full">Прочитайте полный отзыв</string>
     <string name="settings_force_offline">Принудительный автономный режим</string>
     <string name="settings_force_offline_subtitle">Просматривайте только загрузки и перестаньте связываться с сервером</string>
+    <string name="auth_discover_servers">Откройте для себя серверы</string>
+    <string name="auth_discovering">Сканирование локальной сети…</string>
+    <string name="auth_no_servers_found">Серверы в локальной сети не найдены</string>
+    <string name="auth_discovered_servers">Серверы в вашей сети</string>
 </resources>
