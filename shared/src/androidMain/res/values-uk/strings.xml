@@ -655,4 +655,8 @@
     <string name="detail_reviews_read_full">Читати повний огляд</string>
     <string name="settings_force_offline">Примусовий режим автономного режиму</string>
     <string name="settings_force_offline_subtitle">Переглядайте лише завантаження та припиніть контакт із сервером</string>
+    <string name="auth_discover_servers">Відкрийте для себе сервери</string>
+    <string name="auth_discovering">Сканування локальної мережі…</string>
+    <string name="auth_no_servers_found">Серверів у локальній мережі не знайдено</string>
+    <string name="auth_discovered_servers">Сервери у вашій мережі</string>
 </resources>
