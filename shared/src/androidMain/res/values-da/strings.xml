@@ -629,4 +629,8 @@
     <string name="detail_reviews">Anmeldelser</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Læs hele anmeldelsen</string>
+    <string name="auth_discover_servers">Opdag servere</string>
+    <string name="auth_discovering">Scanning af lokalt netværk…</string>
+    <string name="auth_no_servers_found">Ingen servere fundet på det lokale netværk</string>
+    <string name="auth_discovered_servers">Servere på dit netværk</string>
 </resources>
