@@ -616,4 +616,8 @@
     <string name="detail_reviews_read_full">Đọc đánh giá đầy đủ</string>
     <string name="settings_force_offline">Buộc chế độ ngoại tuyến</string>
     <string name="settings_force_offline_subtitle">Chỉ duyệt các bản tải xuống và ngừng liên hệ với máy chủ</string>
+    <string name="auth_discover_servers">Khám phá máy chủ</string>
+    <string name="auth_discovering">Quét mạng cục bộ…</string>
+    <string name="auth_no_servers_found">Không tìm thấy máy chủ nào trên mạng cục bộ</string>
+    <string name="auth_discovered_servers">Máy chủ trên mạng của bạn</string>
 </resources>
