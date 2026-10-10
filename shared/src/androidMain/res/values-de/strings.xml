@@ -629,4 +629,8 @@
     <string name="detail_reviews">Bewertungen</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Vollständige Bewertung lesen</string>
+    <string name="auth_discover_servers">Entdecken Sie Server</string>
+    <string name="auth_discovering">Lokales Netzwerk wird gescannt…</string>
+    <string name="auth_no_servers_found">Keine Server im lokalen Netzwerk gefunden</string>
+    <string name="auth_discovered_servers">Server in Ihrem Netzwerk</string>
 </resources>
