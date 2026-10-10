@@ -629,4 +629,8 @@
     <string name="detail_reviews_read_full">Прочетете пълния преглед</string>
     <string name="settings_force_offline">Принудително офлайн режим</string>
     <string name="settings_force_offline_subtitle">Преглеждайте само изтегляния и спрете да се свързвате със сървъра</string>
+    <string name="auth_discover_servers">Открийте сървъри</string>
+    <string name="auth_discovering">Сканиране на локална мрежа…</string>
+    <string name="auth_no_servers_found">Не са намерени сървъри в локалната мрежа</string>
+    <string name="auth_discovered_servers">Сървъри във вашата мрежа</string>
 </resources>
