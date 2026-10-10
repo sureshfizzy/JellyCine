@@ -642,4 +642,8 @@
     <string name="settings_force_offline">Forzar el modo fuera de línea</string>
     <string name="settings_force_offline_subtitle">Examinar solo descargas y dejar de contactar con el servidor</string>
     <string name="detail_reviews_read_full">Leer reseña completa</string>
+    <string name="auth_discover_servers">Descubrir servidores</string>
+    <string name="auth_discovering">Análisis de la red local…</string>
+    <string name="auth_no_servers_found">No se encontraron servidores en la red local</string>
+    <string name="auth_discovered_servers">Servidores en su red</string>
 </resources>
