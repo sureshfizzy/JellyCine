@@ -629,4 +629,8 @@
     <string name="detail_reviews_read_full">İncelemenin tamamını oku</string>
     <string name="settings_force_offline">Çevrimdışı Modu Zorla</string>
     <string name="settings_force_offline_subtitle">Yalnızca indirmelere göz atın ve sunucuyla iletişim kurmayı bırakın</string>
+    <string name="auth_discover_servers">Sunucuları Keşfedin</string>
+    <string name="auth_discovering">Yerel ağ taranıyor…</string>
+    <string name="auth_no_servers_found">Yerel ağda sunucu bulunamadı</string>
+    <string name="auth_discovered_servers">Ağınızdaki sunucular</string>
 </resources>
