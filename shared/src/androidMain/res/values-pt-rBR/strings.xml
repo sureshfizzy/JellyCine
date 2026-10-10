@@ -642,4 +642,8 @@
     <string name="detail_reviews_read_full">Leia a resenha completa</string>
     <string name="settings_force_offline">Forçar o modo off-line</string>
     <string name="settings_force_offline_subtitle">Procure apenas downloads e pare de entrar em contato com o servidor</string>
+    <string name="auth_discover_servers">Descubra servidores</string>
+    <string name="auth_discovering">Escaneando a rede local…</string>
+    <string name="auth_no_servers_found">Nenhum servidor encontrado na rede local</string>
+    <string name="auth_discovered_servers">Servidores na sua rede</string>
 </resources>
