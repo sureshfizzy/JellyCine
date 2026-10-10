@@ -642,4 +642,8 @@
     <string name="detail_reviews">Reseñas</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Lea la reseña completa</string>
+    <string name="auth_discover_servers">Descubra los servidores</string>
+    <string name="auth_discovering">Escaneando la red local…</string>
+    <string name="auth_no_servers_found">No se encontró ningún servidor en la red local</string>
+    <string name="auth_discovered_servers">Servidores en su red</string>
 </resources>
