@@ -655,4 +655,8 @@
     <string name="detail_reviews_read_full">Przeczytaj pełną recenzję</string>
     <string name="settings_force_offline">Wymuś tryb offline</string>
     <string name="settings_force_offline_subtitle">Przeglądaj tylko pliki do pobrania i przestań kontaktować się z serwerem</string>
+    <string name="auth_discover_servers">Odkryj serwery</string>
+    <string name="auth_discovering">Skanowanie sieci lokalnej…</string>
+    <string name="auth_no_servers_found">Nie znaleziono serwerów w sieci lokalnej</string>
+    <string name="auth_discovered_servers">Serwery w Twojej sieci</string>
 </resources>
