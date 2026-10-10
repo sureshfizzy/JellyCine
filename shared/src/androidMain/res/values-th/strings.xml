@@ -616,4 +616,8 @@
     <string name="settings_force_offline">บังคับโหมดออฟไลน์</string>
     <string name="settings_force_offline_subtitle">เรียกดูการดาวน์โหลดเท่านั้นและหยุดติดต่อเซิร์ฟเวอร์</string>
     <string name="detail_reviews_read_full">อ่านรีวิวฉบับเต็ม</string>
+    <string name="auth_discover_servers">ค้นพบเซิร์ฟเวอร์</string>
+    <string name="auth_discovering">การสแกนเครือข่ายท้องถิ่น…</string>
+    <string name="auth_no_servers_found">ไม่พบเซิร์ฟเวอร์ในเครือข่ายท้องถิ่น</string>
+    <string name="auth_discovered_servers">เซิร์ฟเวอร์บนเครือข่ายของคุณ</string>
 </resources>
