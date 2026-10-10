@@ -616,4 +616,8 @@
     <string name="detail_reviews_read_full">阅读完整评论</string>
     <string name="settings_force_offline">强制离线模式</string>
     <string name="settings_force_offline_subtitle">仅浏览下载内容并停止联系服务器</string>
+    <string name="auth_discover_servers">探索服务器</string>
+    <string name="auth_discovering">正在扫描本地网络…</string>
+    <string name="auth_no_servers_found">在本地网络上找不到服务器</string>
+    <string name="auth_discovered_servers">您网络上的服务器</string>
 </resources>
