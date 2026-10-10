@@ -629,4 +629,8 @@
     <string name="detail_reviews_read_full">Läs hela recensionen</string>
     <string name="settings_force_offline">Tvinga offlineläge</string>
     <string name="settings_force_offline_subtitle">Bläddra endast i nedladdningar och sluta kontakta servern</string>
+    <string name="auth_discover_servers">Upptäck servrar</string>
+    <string name="auth_discovering">Skannar lokalt nätverk…</string>
+    <string name="auth_no_servers_found">Inga servrar hittades i det lokala nätverket</string>
+    <string name="auth_discovered_servers">Servrar i ditt nätverk</string>
 </resources>
