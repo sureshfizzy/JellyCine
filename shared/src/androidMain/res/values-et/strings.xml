@@ -629,4 +629,8 @@
     <string name="settings_force_offline">Nõuda võrguühenduseta režiimi</string>
     <string name="settings_force_offline_subtitle">Sirvige ainult allalaadimisi ja lõpetage serveriga ühenduse võtmine</string>
     <string name="detail_reviews_read_full">Loe täielikku ülevaadet</string>
+    <string name="auth_discover_servers">Avastage serverid</string>
+    <string name="auth_discovering">Kohaliku võrgu skaneerimine…</string>
+    <string name="auth_no_servers_found">Kohalikus võrgus ei leitud ühtegi serverit</string>
+    <string name="auth_discovered_servers">Serverid teie võrgus</string>
 </resources>
