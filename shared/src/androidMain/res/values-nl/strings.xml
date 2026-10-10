@@ -629,4 +629,8 @@
     <string name="detail_reviews_read_full">Lees de volledige recensie</string>
     <string name="settings_force_offline">Forceer de offline-modus</string>
     <string name="settings_force_offline_subtitle">Bekijk alleen downloads en stop met contact op te nemen met de server</string>
+    <string name="auth_discover_servers">Ontdek servers</string>
+    <string name="auth_discovering">Lokaal netwerk scannen…</string>
+    <string name="auth_no_servers_found">Geen servers gevonden op het lokale netwerk</string>
+    <string name="auth_discovered_servers">Servers op je netwerk</string>
 </resources>
