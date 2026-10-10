@@ -642,4 +642,8 @@
     <string name="settings_force_offline_subtitle">Sfoglia solo i download e smetti di contattare il server</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Leggi la recensione completa</string>
+    <string name="auth_discover_servers">Scopri i server</string>
+    <string name="auth_discovering">Scansione della rete locale…</string>
+    <string name="auth_no_servers_found">Nessun server trovato sulla rete locale</string>
+    <string name="auth_discovered_servers">Server sulla tua rete</string>
 </resources>
