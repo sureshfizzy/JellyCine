@@ -681,4 +681,8 @@
     <string name="detail_reviews">مراجعات</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">اقرأ المراجعة الكاملة</string>
+    <string name="auth_discover_servers">اكتشف السيرفرات</string>
+    <string name="auth_discovering">جاري مسح الشبكة المحلية…</string>
+    <string name="auth_no_servers_found">لم يتم العثور على خوادم على الشبكة المحلية</string>
+    <string name="auth_discovered_servers">السيرفرات على شبكتك</string>
 </resources>
