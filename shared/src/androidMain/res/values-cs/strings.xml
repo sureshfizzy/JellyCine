@@ -655,4 +655,8 @@
     <string name="detail_reviews">Recenze</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Přečtěte si celou recenzi</string>
+    <string name="auth_discover_servers">Objevte servery</string>
+    <string name="auth_discovering">Skenování místní sítě…</string>
+    <string name="auth_no_servers_found">V lokální síti nebyly nalezeny žádné servery</string>
+    <string name="auth_discovered_servers">Servery ve vaší síti</string>
 </resources>
