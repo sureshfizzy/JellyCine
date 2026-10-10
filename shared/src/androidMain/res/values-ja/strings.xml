@@ -616,4 +616,8 @@
     <string name="detail_reviews_read_full">レビュー全文を読む</string>
     <string name="settings_force_offline">強制オフラインモード</string>
     <string name="settings_force_offline_subtitle">ダウンロードのみを閲覧し、サーバーとの通信を停止する</string>
+    <string name="auth_discover_servers">サーバーを探す</string>
+    <string name="auth_discovering">ローカルネットワークをスキャン中…</string>
+    <string name="auth_no_servers_found">ローカルネットワークにサーバーが見つかりません</string>
+    <string name="auth_discovered_servers">ネットワーク上のサーバー</string>
 </resources>
