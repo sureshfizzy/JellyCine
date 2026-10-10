@@ -616,4 +616,8 @@
     <string name="detail_reviews">리뷰</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">전체 리뷰 읽기</string>
+    <string name="auth_discover_servers">서버 살펴보기</string>
+    <string name="auth_discovering">로컬 네트워크 검사 중…</string>
+    <string name="auth_no_servers_found">로컬 네트워크에서 서버를 찾을 수 없음</string>
+    <string name="auth_discovered_servers">네트워크상의 서버</string>
 </resources>
