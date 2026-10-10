@@ -642,4 +642,8 @@
     <string name="detail_reviews">Critiques</string>
     <string name="detail_reviews_rating">%1$s/10</string>
     <string name="detail_reviews_read_full">Lire la critique complète</string>
+    <string name="auth_discover_servers">Découvrez les serveurs</string>
+    <string name="auth_discovering">Numérisation du réseau local…</string>
+    <string name="auth_no_servers_found">Aucun serveur n\'a été trouvé sur le réseau local</string>
+    <string name="auth_discovered_servers">Serveurs de votre réseau</string>
 </resources>
