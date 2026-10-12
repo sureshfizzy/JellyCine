@@ -31,9 +31,10 @@ LDFLAGS := \
 	--sysroot=$(SYSROOT) \
 	-Wl,--gc-sections
 
-LIBS := -lSDL2 -lGLESv2 -lEGL -ldl -lpthread -lm
+LIBS := -lSDL2 -lSDL2_ttf -lGLESv2 -lEGL -ldl -lpthread -lm
 
-SRCS := src/main.c src/jellyfin.c src/webos.c
+SRCS := src/main.c src/jellyfin.c src/webos.c \
+	src/ui/renderer.c src/ui/text.c src/ui/screen.c src/ui/focus.c
 OBJS := $(SRCS:.c=.o)
 BIN  := $(APP_NAME)
 BUILD_DIR := build
