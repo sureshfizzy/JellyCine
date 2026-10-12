@@ -1,0 +1,4 @@
+build/
+*.o
+*.ipk
+jellycine

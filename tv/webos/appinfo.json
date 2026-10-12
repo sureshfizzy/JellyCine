@@ -1,0 +1,15 @@
+{
+    "id": "com.jellycine.webos",
+    "version": "1.0.0",
+    "vendor": "JellyCine",
+    "type": "native",
+    "main": "jellycine",
+    "title": "JellyCine",
+    "appDescription": "A native Jellyfin client for webOS",
+    "iconColor": "#6B4FA0",
+    "largeIcon": "icon.png",
+    "splashBackground": "#1A1A2E",
+    "transparent": false,
+    "handlesRelaunch": true,
+    "resolution": "1920x1080"
+}

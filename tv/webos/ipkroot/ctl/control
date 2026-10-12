@@ -1,0 +1,7 @@
+Package: com.jellycine.webos
+Version: 1.0.0
+Section: multimedia
+Priority: optional
+Architecture: arm
+Maintainer: JellyCine
+Description: Native Jellyfin client for webOS
