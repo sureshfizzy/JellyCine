@@ -1,6 +1,7 @@
 package com.jellycine.data.repository
 
 import android.content.Context
+import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -12,6 +13,7 @@ import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
+import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.MediaExtra
@@ -44,6 +46,7 @@ import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
 import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
+import com.jellycine.data.util.toGuid
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -119,6 +122,18 @@ class MediaRepository(private val context: Context) {
         val fileExtension: String?,
         val estimatedBytes: Long = 0L,
         val isTranscodeResume: Boolean = false
+    )
+
+    data class SubtitleDownloadRequest(
+        val streamIndex: Int,
+        val codec: String,
+        val language: String?,
+        val displayTitle: String?,
+        val isDefault: Boolean,
+        val isForced: Boolean,
+        val downloadUrl: String,
+        val authToken: String?,
+        val requestHeaders: Map<String, String> = emptyMap()
     )
 
     @Volatile
@@ -1903,6 +1918,110 @@ class MediaRepository(private val context: Context) {
                     isTranscodeResume = startTimeTicks != null && startTimeTicks > 0L
                 )
             )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSubtitleDownloadRequests(
+        itemId: String,
+        item: BaseItemDto? = null
+    ): Result<List<SubtitleDownloadRequest>> {
+        return try {
+            val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val serverUrl = config.serverUrl
+            val accessToken = config.accessToken
+            val isEmby = config.serverType == ServerType.EMBY
+
+            val resolvedItem = item ?: getItemById(itemId).getOrNull()
+            var streams = resolvedItem?.mediaStreams.orEmpty()
+            if (streams.none { it.type.equals("Subtitle", ignoreCase = true) }) {
+                val playbackInfo = getPlaybackInfo(itemId).getOrNull()
+                val playbackStreams = playbackInfo?.mediaSources?.firstOrNull()?.mediaStreams
+                if (!playbackStreams.isNullOrEmpty()) {
+                    streams = playbackStreams
+                }
+            }
+
+            val externalStreams = streams.filter { stream ->
+                stream.type.equals("Subtitle", ignoreCase = true) &&
+                    stream.index != null &&
+                    (stream.isExternal == true || stream.deliveryMethod.equals("External", ignoreCase = true) || !stream.deliveryUrl.isNullOrBlank())
+            }
+
+            if (externalStreams.isEmpty()) {
+                return Result.success(emptyList())
+            }
+
+            val mediaSourceId = resolvedItem?.mediaSources?.firstOrNull()?.id ?: itemId
+            val authContext = createPlaybackAuthContext(config)
+            val requests = externalStreams.mapNotNull { stream ->
+                val streamIndex = stream.index ?: return@mapNotNull null
+                val rawCodec = stream.codec?.lowercase() ?: "srt"
+                val codec = when (rawCodec) {
+                    "subrip", "srt" -> if (isEmby) "vtt" else "subrip"
+                    "webvtt", "vtt" -> "vtt"
+                    "pgs", "pgssub", "sup", "hdmv_pgs_subtitle" -> "sup"
+                    "ass", "ssa" -> "ass"
+                    "vobsub", "dvdsub", "dvd_subtitle" -> "vobsub"
+                    else -> rawCodec
+                }
+
+                var deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() }
+                if (deliveryUrl == null) {
+                    deliveryUrl = if (isEmby) {
+                        val sourceId = if (mediaSourceId.startsWith("mediasource")) mediaSourceId else "mediasource_$mediaSourceId"
+                        "emby/Videos/$itemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+                    } else {
+                        val guidItemId = itemId.toGuid()
+                        val sourceId = mediaSourceId.replace("-", "")
+                        "Videos/$guidItemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
+                    }
+                }
+
+                val fullUrl = if (deliveryUrl.startsWith("http", ignoreCase = true)) {
+                    deliveryUrl
+                } else {
+                    buildServerUrl(
+                        baseUrl = serverUrl,
+                        encodedPath = deliveryUrl
+                    )
+                }
+
+                val authorizedUrl = if (!accessToken.isNullOrBlank() && !fullUrl.contains("api_key=", ignoreCase = true)) {
+                    val uri = Uri.parse(fullUrl)
+                    uri.buildUpon().appendQueryParameter("api_key", accessToken).build().toString()
+                } else {
+                    fullUrl
+                }
+
+                val headers = mutableMapOf<String, String>()
+                if (!accessToken.isNullOrBlank()) {
+                    headers["X-Emby-Token"] = accessToken
+                    val authHeader = AuthHeaderDto.fromServerType(
+                        serverType = authContext.serverType,
+                        deviceId = authContext.deviceId,
+                        version = authContext.clientVersion,
+                        accessToken = accessToken
+                    ).asHeaderValue()
+                    headers["Authorization"] = authHeader
+                    headers["X-Emby-Authorization"] = authHeader
+                }
+
+                SubtitleDownloadRequest(
+                    streamIndex = streamIndex,
+                    codec = rawCodec,
+                    language = stream.language,
+                    displayTitle = stream.displayTitle ?: stream.title,
+                    isDefault = stream.isDefault == true,
+                    isForced = stream.isForced == true,
+                    downloadUrl = authorizedUrl,
+                    authToken = accessToken,
+                    requestHeaders = headers
+                )
+            }
+
+            Result.success(requests)
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -211,7 +211,7 @@ private fun authorizeUrl(targetUrl: String, sourceUrl: String, requestHeaders: M
 }
 
 @UnstableApi
-private fun subtitleMimeType(
+internal fun subtitleMimeType(
     subtitleStream: MediaStream,
     deliveryUrl: String
 ): String? {

@@ -87,7 +87,8 @@ data class PersistedDownloadMetadata(
     val downloadId: Long? = null,
     val fullItemJson: String? = null,
     val qualityLabel: String? = null,
-    val transcodeBitrate: Int? = null
+    val transcodeBitrate: Int? = null,
+    val subtitlePaths: Map<Int, String> = emptyMap()
 )
 
 data class TrackedDownload(

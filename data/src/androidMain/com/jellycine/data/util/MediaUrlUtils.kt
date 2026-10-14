@@ -55,3 +55,17 @@ internal fun removeQueryParameter(
 
     return builder.build().toString()
 }
+
+fun String.toGuid(): String {
+    if (this.contains("-") || this.length != 32) return this
+    return try {
+        StringBuilder(this)
+            .insert(8, "-")
+            .insert(13, "-")
+            .insert(18, "-")
+            .insert(23, "-")
+            .toString()
+    } catch (_: Exception) {
+        this
+    }
+}

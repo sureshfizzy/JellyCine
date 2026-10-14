@@ -39,6 +39,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 
@@ -121,6 +123,37 @@ class DownloadRepository(context: Context) {
         return label != TranscodeProfiles.ORIGINAL
     }
 
+    fun getOfflineSubtitlePaths(itemId: String): Map<Int, String> {
+        val metadata = metadataStore.read(itemId)
+        val persisted = metadata?.subtitlePaths.orEmpty().filter { (_, path) ->
+            storage.exists(path)
+        }
+        if (persisted.isNotEmpty()) {
+            return persisted
+        }
+        val dir = storage.getSubtitlesDirectory()
+        val files = dir.listFiles { _, name -> name.startsWith("${itemId}_") } ?: return emptyMap()
+        val result = mutableMapOf<Int, String>()
+        files.forEach { file ->
+            val parts = file.name.removePrefix("${itemId}_").split("_", ".")
+            val index = parts.firstOrNull()?.toIntOrNull()
+            if (index != null && !result.containsKey(index)) {
+                result[index] = file.absolutePath
+            }
+        }
+        return result
+    }
+
+    suspend fun ensureOfflineSubtitles(itemId: String) {
+        val metadata = metadataStore.read(itemId) ?: return
+        val currentSubtitles = getOfflineSubtitlePaths(itemId)
+        if (currentSubtitles.isNotEmpty()) return
+        val item = metadataStore.parseItem(metadata.fullItemJson, metadata.itemId)
+            ?: mediaRepository.getItemById(itemId).getOrNull()
+            ?: return
+        downloadExternalSubtitles(itemId, item)
+    }
+
     fun updatePlaybackPosition(
         itemId: String,
         positionMs: Long,
@@ -171,6 +204,12 @@ class DownloadRepository(context: Context) {
         }
 
         val filePath = metadata?.localPath ?: state?.filePath
+        metadata?.subtitlePaths?.values?.forEach { subPath ->
+            runCatching {
+                storage.deleteWithRetry(subPath)
+            }
+        }
+        storage.deleteSubtitlesForItem(itemId)
         val deleteFileResult = runCatching {
             if (!filePath.isNullOrBlank()) {
                 if (!storage.deleteWithRetry(filePath)) {
@@ -535,7 +574,17 @@ class DownloadRepository(context: Context) {
 
     private suspend fun downloadMetadataItem(item: BaseItemDto): BaseItemDto {
         val itemId = item.id ?: return item
-        return mediaRepository.getItemById(itemId).getOrNull() ?: item
+        val fetchedItem = mediaRepository.getItemById(itemId).getOrNull() ?: item
+        val playbackInfo = mediaRepository.getPlaybackInfo(itemId).getOrNull()
+        val primarySource = playbackInfo?.mediaSources?.firstOrNull()
+        val mergedStreams = com.jellycine.player.core.PlayerTrack.resolveApiMediaStreams(fetchedItem, primarySource)
+        return if (mergedStreams.isNotEmpty()) {
+            fetchedItem.copy(
+                mediaStreams = mergedStreams
+            )
+        } else {
+            fetchedItem
+        }
     }
 
     private fun downloadedBytesForItem(itemId: String): Long {
@@ -635,6 +684,7 @@ class DownloadRepository(context: Context) {
                 )
                 applyState(itemId, startState, forcePersist = true, forceRefreshTracked = true)
                 transfer.execute(itemId, requestData, destination, downloadId, initialBytes)
+                downloadExternalSubtitles(itemId, item)
             } catch (_: CancellationException) {
                 if (canceledItems.contains(itemId)) {
                     return@launch
@@ -696,6 +746,79 @@ class DownloadRepository(context: Context) {
                 drainPendingQueue()
             }
         }
+    }
+
+    private suspend fun downloadExternalSubtitles(
+        itemId: String,
+        item: BaseItemDto
+    ): Map<Int, String> {
+        val requests = mediaRepository.getSubtitleDownloadRequests(itemId, item).getOrNull().orEmpty()
+        if (requests.isEmpty()) return emptyMap()
+
+        val downloadedMap = mutableMapOf<Int, String>()
+
+        for (request in requests) {
+            if (canceledItems.contains(itemId)) break
+            val ext = when (request.codec.lowercase()) {
+                "subrip", "srt" -> "srt"
+                "webvtt", "vtt" -> "vtt"
+                "ass", "ssa" -> "ass"
+                "pgs", "pgssub", "sup", "hdmv_pgs_subtitle" -> "sup"
+                else -> "srt"
+            }
+            val targetFile = storage.getSubtitleFile(
+                itemId = itemId,
+                streamIndex = request.streamIndex,
+                language = request.language,
+                extension = ext
+            )
+
+            val needDownload = !targetFile.exists() || targetFile.length() == 0L
+            var success = !needDownload
+            if (needDownload) {
+                success = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val reqBuilder = Request.Builder().url(request.downloadUrl)
+                        request.authToken?.takeIf { it.isNotBlank() }?.let { token ->
+                            reqBuilder.header("X-Emby-Token", token)
+                        }
+                        request.requestHeaders.forEach { (k, v) ->
+                            reqBuilder.header(k, v)
+                        }
+                        httpClient.newCall(reqBuilder.build()).execute().use { response ->
+                            if (!response.isSuccessful) return@use false
+                            val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+                            response.body.byteStream().use { input ->
+                                tempFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            if (tempFile.length() > 0L) {
+                                if (targetFile.exists()) targetFile.delete()
+                                tempFile.renameTo(targetFile)
+                            } else {
+                                tempFile.delete()
+                                false
+                            }
+                        }
+                    }.getOrDefault(false)
+                }
+            }
+
+            if (success && targetFile.exists() && targetFile.length() > 0L) {
+                downloadedMap[request.streamIndex] = targetFile.absolutePath
+            }
+        }
+
+        if (downloadedMap.isNotEmpty()) {
+            val currentMeta = metadataStore.read(itemId)
+            if (currentMeta != null) {
+                val updatedPaths = currentMeta.subtitlePaths + downloadedMap
+                metadataStore.persist(currentMeta.copy(subtitlePaths = updatedPaths))
+            }
+        }
+
+        return downloadedMap
     }
 
     private fun markQueuedState(

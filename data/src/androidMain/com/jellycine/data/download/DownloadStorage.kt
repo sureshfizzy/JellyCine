@@ -218,6 +218,34 @@ class DownloadStorage(
         }
     }
 
+    fun getSubtitlesDirectory(): File {
+        val dir = appContext.getExternalFilesDir("subtitles")
+            ?: appContext.filesDir.resolve("subtitles")
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        return dir
+    }
+
+    fun getSubtitleFile(
+        itemId: String,
+        streamIndex: Int,
+        language: String?,
+        extension: String
+    ): File {
+        val dir = getSubtitlesDirectory()
+        val safeLang = language?.replace(Regex("[^a-zA-Z0-9_-]"), "")?.takeIf { it.isNotBlank() } ?: "und"
+        val safeExt = extension.trimStart('.').lowercase()
+        return File(dir, "${itemId}_${streamIndex}_${safeLang}.${safeExt}")
+    }
+
+    fun deleteSubtitlesForItem(itemId: String) {
+        val dir = getSubtitlesDirectory()
+        dir.listFiles { _, name -> name.startsWith("${itemId}_") }?.forEach { subFile ->
+            runCatching { subFile.delete() }
+        }
+    }
+
     private fun String.toContentUriOrNull(): Uri? {
         val uri = runCatching { Uri.parse(this) }.getOrNull() ?: return null
         return uri.takeIf { it.scheme == "content" }

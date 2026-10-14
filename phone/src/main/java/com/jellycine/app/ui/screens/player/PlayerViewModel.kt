@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
@@ -312,7 +313,46 @@ class PlayerViewModel @Inject constructor(
                     if (downloadRepository?.isTranscodedDownload(mediaId) == true) {
                         activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
                     }
-                    MediaItem.fromUri(downloadLocationUri(localFilePath))
+
+                    val offlineItem = offlineItemDetails ?: itemDetails
+                    apiMediaStreams = offlineItem?.let {
+                        PlayerTrack.resolveApiMediaStreams(
+                            itemDetails = it,
+                            playbackMediaSource = null
+                        )
+                    }
+                    defaultAudioStreamIndex = offlineItem?.mediaSources?.firstOrNull()?.defaultAudioStreamIndex
+                    defaultSubtitleStreamIndex = offlineItem?.mediaSources?.firstOrNull()?.defaultSubtitleStreamIndex
+
+                    val offlineSubtitles = downloadRepository?.getOfflineSubtitlePaths(mediaId).orEmpty()
+                    if (offlineSubtitles.isEmpty()) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            downloadRepository?.ensureOfflineSubtitles(mediaId)
+                        }
+                    }
+
+                    val subtitleConfigs = offlineSubtitles.mapNotNull { (streamIndex, subPath) ->
+                        val stream = apiMediaStreams?.firstOrNull { it.index == streamIndex }
+                        val uri = downloadLocationUri(subPath)
+                        val mimeType = stream?.let { subtitleMimeType(it, subPath) } ?: MimeTypes.APPLICATION_SUBRIP
+                        val isDefault = stream?.isDefault == true || (activePreferredSubtitleStreamIndex == streamIndex)
+                        MediaItem.SubtitleConfiguration.Builder(uri)
+                            .setMimeType(mimeType)
+                            .setLanguage(stream?.language)
+                            .setSelectionFlags(if (isDefault) C.SELECTION_FLAG_DEFAULT else 0)
+                            .setLabel(
+                                stream?.displayTitle
+                                    ?: stream?.title
+                                    ?: stream?.language
+                                    ?: "Subtitle $streamIndex"
+                            )
+                            .build()
+                    }
+
+                    MediaItem.Builder()
+                        .setUri(downloadLocationUri(localFilePath))
+                        .setSubtitleConfigurations(subtitleConfigs)
+                        .build()
                 } else {
                     sessionIsOfflinePlayback = false
 
@@ -426,12 +466,16 @@ class PlayerViewModel @Inject constructor(
                 )
                 playbackReporter.updateSession(playbackSession)
                 
-                mpvExternalSubtitleUrls = MPVPlayer.externalSubtitleUrls(
-                    playbackRequest = playbackRequest,
-                    mediaStreams = apiMediaStreams.orEmpty(),
-                    itemId = mediaId,
-                    mediaSourceId = sessionMediaSourceId
-                )
+                mpvExternalSubtitleUrls = if (sessionIsOfflinePlayback) {
+                    downloadRepository?.getOfflineSubtitlePaths(mediaId).orEmpty()
+                } else {
+                    MPVPlayer.externalSubtitleUrls(
+                        playbackRequest = playbackRequest,
+                        mediaStreams = apiMediaStreams.orEmpty(),
+                        itemId = mediaId,
+                        mediaSourceId = sessionMediaSourceId
+                    )
+                }
 
                 bufferedHighWaterMarkMs = 0L
                 if (isMpvPlayback()) {
