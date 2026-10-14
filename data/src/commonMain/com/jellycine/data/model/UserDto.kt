@@ -144,5 +144,11 @@ data class UserPolicy(
     val enableVideoPlaybackTranscoding: Boolean? = null,
 
     @SerialName("EnableSyncTranscoding")
-    val enableSyncTranscoding: Boolean? = null
+    val enableSyncTranscoding: Boolean? = null,
+
+    @SerialName("EnableSubtitleManagement")
+    val enableSubtitleManagement: Boolean? = null,
+
+    @SerialName("EnableSubtitleDownloading")
+    val enableSubtitleDownloading: Boolean? = null
 )

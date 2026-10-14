@@ -658,4 +658,25 @@
     <string name="detail_person_no_related_titles">No related titles available.</string>
     <string name="detail_person_read_more">Read more</string>
     <string name="detail_person_read_less">Read less</string>
+    <string name="subtitle_search_title">Search subtitles</string>
+    <string name="subtitle_search_language">Language</string>
+    <string name="subtitle_search_action">Search</string>
+    <string name="subtitle_search_empty">No subtitles found for this language.</string>
+    <string name="subtitle_search_error">Couldn\'t search subtitles. Please try again.</string>
+    <string name="subtitle_search_downloaded">Subtitle added to the server.</string>
+    <string name="subtitle_search_download_error">Couldn\'t add that subtitle. Please try another.</string>
+    <string name="subtitle_search_hash_match">Hash match</string>
+    <string name="subtitle_search_downloads">%1$d downloads</string>
+    <string name="subtitle_search_close">Close</string>
+    <string name="subtitle_search_heading">Subtitles</string>
+    <string name="subtitle_search_current">On this item</string>
+    <string name="subtitle_search_no_current">No subtitles on this item yet.</string>
+    <string name="subtitle_search_external">External</string>
+    <string name="subtitle_search_embedded">Embedded</string>
+    <string name="subtitle_search_default">Default</string>
+    <string name="subtitle_search_forced">Forced</string>
+    <string name="subtitle_search_delete">Delete subtitle</string>
+    <string name="subtitle_search_deleted">Subtitle removed.</string>
+    <string name="subtitle_search_delete_error">Couldn\'t remove that subtitle.</string>
+    <string name="subtitle_search_delete_denied">You don\'t have permission to delete subtitles.</string>
 </resources>

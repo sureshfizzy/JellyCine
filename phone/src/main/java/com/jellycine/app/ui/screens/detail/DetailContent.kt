@@ -162,9 +162,13 @@ fun DetailContent(
     val activeMediaSources = remember(item.id, item.mediaSources) {
         item.activeDetailMediaSources()
     }
-    val effectiveMediaStreams = remember(item.mediaStreams, activeMediaSources) {
-        val fromSources = activeMediaSources.flatMap { it.mediaStreams.orEmpty() }
-        if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
+
+    var refreshedMediaStreams by remember(item.id) { mutableStateOf<List<MediaStream>?>(null) }
+    val effectiveMediaStreams = remember(item.mediaStreams, activeMediaSources, refreshedMediaStreams) {
+        refreshedMediaStreams ?: run {
+            val fromSources = activeMediaSources.flatMap { it.mediaStreams.orEmpty() }
+            if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
+        }
     }
     val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
         val currentItemId = item.id ?: return@remember null
@@ -264,6 +268,13 @@ fun DetailContent(
     var showDownloadQualityPicker by remember(item.id) { mutableStateOf(false) }
     var pendingSeriesEpisodes by remember(item.id) { mutableStateOf<List<BaseItemDto>?>(null) }
     var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
+    val canManageSubtitles = remember {
+        !isSeerDetail && mediaRepository.getPersistedHomeSnapshot()?.canManageSubtitles == true
+    }
+    val subtitlePreferredLanguage = remember {
+        mediaRepository.getPersistedHomeSnapshot()?.subtitleLanguagePreference
+    }
+    var showSubtitleSearch by remember(item.id) { mutableStateOf(false) }
     var downloadActionMenu by remember(
         item.id,
         itemDownloadState.status,
@@ -1106,6 +1117,7 @@ fun DetailContent(
                                 downloadProgress = animatedDownloadProgress,
                                 isFavorite = isFavorite,
                                 hasTrailer = hasTrailer,
+                                canSearchSubtitles = canManageSubtitles,
                                 onPlayClick = {
                                     val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
                                         persistTrackSelection(
@@ -1149,7 +1161,8 @@ fun DetailContent(
                                     downloadActionMenu = false
                                     item.id?.let(downloadRepository::cancelDownload)
                                 },
-                                onFavoriteClick = ::toggleFavorite
+                                onFavoriteClick = ::toggleFavorite,
+                                onSubtitleSearchClick = { showSubtitleSearch = true }
                             )
                         }
 
@@ -1432,6 +1445,27 @@ fun DetailContent(
             downloadErrorDialogMessage = null
         }
     )
+
+    if (showSubtitleSearch) {
+        item.id?.let { subtitleItemId ->
+            SubtitleSearchDialog(
+                itemId = subtitleItemId,
+                defaultLanguage = subtitlePreferredLanguage,
+                canDelete = canManageSubtitles,
+                onSubtitlesChanged = {
+                    coroutineScope.launch {
+                        mediaRepository.getItemById(subtitleItemId).getOrNull()?.let { fresh ->
+                            val sources = fresh.activeDetailMediaSources()
+                            refreshedMediaStreams = sources
+                                .flatMap { it.mediaStreams.orEmpty() }
+                                .ifEmpty { fresh.mediaStreams.orEmpty() }
+                        }
+                    }
+                },
+                onDismiss = { showSubtitleSearch = false }
+            )
+        }
+    }
 
     if (showDownloadQualityPicker) {
         val videoStream = remember(item.id, effectiveMediaStreams) {

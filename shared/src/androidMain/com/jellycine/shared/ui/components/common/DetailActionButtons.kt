@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -427,6 +428,32 @@ fun FavoriteActionButton(
             },
             modifier = Modifier.size(20.dp),
             tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White
+        )
+    }
+}
+
+@Composable
+fun SubtitleSearchActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 46.dp
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.size(size),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color(0xFF1F1F24),
+            contentColor = Color.White
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.ClosedCaption,
+            contentDescription = stringResource(R.string.subtitle_search_title),
+            modifier = Modifier.size(20.dp),
+            tint = Color.White
         )
     }
 }

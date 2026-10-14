@@ -58,7 +58,9 @@ class HomeSnapshotStore(
         isAdministrator: Boolean? = null,
         isVideoTranscodingAllowed: Boolean? = null,
         isAudioTranscodingAllowed: Boolean? = null,
-        isSyncTranscodingAllowed: Boolean? = null
+        isSyncTranscodingAllowed: Boolean? = null,
+        canManageSubtitles: Boolean? = null,
+        subtitleLanguagePreference: String? = null
     ) {
         withContext(Dispatchers.IO) {
             homeSnapshotMutex.withLock {
@@ -84,7 +86,11 @@ class HomeSnapshotStore(
                         isAudioTranscodingAllowed = isAudioTranscodingAllowed
                             ?: sameSessionSnapshot?.isAudioTranscodingAllowed,
                         isSyncTranscodingAllowed = isSyncTranscodingAllowed
-                            ?: sameSessionSnapshot?.isSyncTranscodingAllowed
+                            ?: sameSessionSnapshot?.isSyncTranscodingAllowed,
+                        canManageSubtitles = canManageSubtitles
+                            ?: sameSessionSnapshot?.canManageSubtitles,
+                        subtitleLanguagePreference = subtitleLanguagePreference
+                            ?: sameSessionSnapshot?.subtitleLanguagePreference
                     )
                     writeSnapshotAtomically(file, next)
                 }

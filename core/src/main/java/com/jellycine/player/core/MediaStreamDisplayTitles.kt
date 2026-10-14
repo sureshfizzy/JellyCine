@@ -6,6 +6,12 @@ fun MediaStream.displayTitleOrNull(): String? {
     return displayTitle?.takeIf { it.isNotBlank() }
 }
 
+fun MediaStream.resolvedTitleOrNull(): String? {
+    return displayTitleOrNull()
+        ?: title?.takeIf { it.isNotBlank() }
+        ?: language?.takeIf { it.isNotBlank() }
+}
+
 fun mediaStreamDisplayTitles(
     streams: List<MediaStream>,
     streamType: String

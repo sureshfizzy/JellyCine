@@ -24,5 +24,7 @@ data class PersistedHomeSnapshot(
     val isAdministrator: Boolean? = null,
     val isVideoTranscodingAllowed: Boolean? = null,
     val isAudioTranscodingAllowed: Boolean? = null,
-    val isSyncTranscodingAllowed: Boolean? = null
+    val isSyncTranscodingAllowed: Boolean? = null,
+    val canManageSubtitles: Boolean? = null,
+    val subtitleLanguagePreference: String? = null
 )

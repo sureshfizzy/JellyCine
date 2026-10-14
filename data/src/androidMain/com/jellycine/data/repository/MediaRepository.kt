@@ -27,6 +27,7 @@ import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.QueryResult
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.RemoteSubtitleInfo
 import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.model.ActivityLogResult
 import com.jellycine.data.model.AdminSessionInfo
@@ -293,7 +294,9 @@ class MediaRepository(private val context: Context) {
         isAdministrator: Boolean? = null,
         isVideoTranscodingAllowed: Boolean? = null,
         isAudioTranscodingAllowed: Boolean? = null,
-        isSyncTranscodingAllowed: Boolean? = null
+        isSyncTranscodingAllowed: Boolean? = null,
+        canManageSubtitles: Boolean? = null,
+        subtitleLanguagePreference: String? = null
     ) {
         val config = getSessionConfig() ?: return
         homeSnapshotStore.persistHomeSnapshot(
@@ -310,7 +313,9 @@ class MediaRepository(private val context: Context) {
             isAdministrator = isAdministrator,
             isVideoTranscodingAllowed = isVideoTranscodingAllowed,
             isAudioTranscodingAllowed = isAudioTranscodingAllowed,
-            isSyncTranscodingAllowed = isSyncTranscodingAllowed
+            isSyncTranscodingAllowed = isSyncTranscodingAllowed,
+            canManageSubtitles = canManageSubtitles,
+            subtitleLanguagePreference = subtitleLanguagePreference
         )
     }
 
@@ -1656,6 +1661,82 @@ class MediaRepository(private val context: Context) {
         }
     }
 
+    /**
+     * Remove an external subtitle stream from an item by its stream index.
+     * Authorised server-side by the subtitle-management permission (same as search/download);
+     * the server returns 403 if the user lacks it.
+     */
+    suspend fun deleteSubtitle(itemId: String, index: Int): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.deleteSubtitle(itemId = itemId, index = index)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Subtitle delete failed: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun searchRemoteSubtitles(
+        itemId: String,
+        language: String
+    ): Result<List<RemoteSubtitleInfo>> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.searchRemoteSubtitles(itemId = itemId, language = language)
+            if (response.isSuccessful) {
+                Result.success(response.body().orEmpty())
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Subtitle search failed: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Ask the server to download the chosen remote subtitle alongside the media.
+     * Note: the server always responds 204 even on provider failure, so callers that
+     * need certainty should re-fetch the item's subtitle streams afterwards.
+     */
+    suspend fun downloadRemoteSubtitle(
+        itemId: String,
+        subtitleId: String
+    ): Result<Unit> {
+        return try {
+            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val response = api.downloadRemoteSubtitle(itemId = itemId, subtitleId = subtitleId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    HttpStatusException(
+                        statusCode = response.code(),
+                        statusMessage = response.message(),
+                        message = "Subtitle download failed: ${response.code()}"
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserProfileImageUrl(primaryImageTag: String? = null): String? {
         val config = getSessionConfig()
         val serverUrl = config?.serverUrl
@@ -2154,19 +2235,26 @@ class MediaRepository(private val context: Context) {
     }
 
     /**
-     * Get available subtitle tracks for a media item
+     * Get available subtitle tracks for a media item.
+     *
+     * Reads from the user-scoped item endpoint (Users/{userId}/Items/{itemId}) rather than
+     * PlaybackInfo: the OkHttp cache interceptor stamps non-user-scoped GETs (including
+     * PlaybackInfo) with max-age=60, which would serve stale streams right after a subtitle
+     * is added or deleted. The item endpoint is exempt from that cache, so changes show at once.
      */
     suspend fun getSubtitleTracks(itemId: String): Result<List<com.jellycine.data.model.MediaStream>> {
         return try {
-            val playbackInfoResult = getPlaybackInfo(itemId)
-            if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+            val item = getItemById(itemId).getOrNull()
+            if (item != null) {
+                val streams = item.mediaStreams?.takeIf { it.isNotEmpty() }
+                    ?: item.mediaSources?.firstOrNull()?.mediaStreams.orEmpty()
+                return Result.success(streams.filter { it.type == "Subtitle" })
             }
 
-            val playbackInfo = playbackInfoResult.getOrNull()
-            val mediaSource = playbackInfo?.mediaSources?.firstOrNull()
-            val subtitleStreams = mediaSource?.mediaStreams?.filter { it.type == "Subtitle" } ?: emptyList()
-
+            // Fallback for items whose detail endpoint omits media streams.
+            val playbackInfo = getPlaybackInfo(itemId).getOrNull()
+            val subtitleStreams = playbackInfo?.mediaSources?.firstOrNull()
+                ?.mediaStreams?.filter { it.type == "Subtitle" }.orEmpty()
             Result.success(subtitleStreams)
         } catch (e: Exception) {
             Result.failure(e)

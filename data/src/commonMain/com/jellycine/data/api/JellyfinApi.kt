@@ -10,6 +10,7 @@ import com.jellycine.data.model.PlaybackProgressRequest
 import com.jellycine.data.model.PlaybackStartRequest
 import com.jellycine.data.model.PlaybackStoppedRequest
 import com.jellycine.data.model.RecommendationDto
+import com.jellycine.data.model.RemoteSubtitleInfo
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.QueryResult
@@ -140,6 +141,21 @@ interface MediaServerApi {
     suspend fun unmarkAsFavorite(
         userId: String,
         itemId: String
+    ): ApiResponse<Unit>
+
+    suspend fun searchRemoteSubtitles(
+        itemId: String,
+        language: String
+    ): ApiResponse<List<RemoteSubtitleInfo>>
+
+    suspend fun downloadRemoteSubtitle(
+        itemId: String,
+        subtitleId: String
+    ): ApiResponse<Unit>
+
+    suspend fun deleteSubtitle(
+        itemId: String,
+        index: Int
     ): ApiResponse<Unit>
 
     suspend fun markAsPlayed(

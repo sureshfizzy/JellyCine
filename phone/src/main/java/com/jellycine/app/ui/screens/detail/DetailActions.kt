@@ -31,6 +31,7 @@ import com.jellycine.shared.ui.components.common.DetailDownloadActionState
 import com.jellycine.shared.ui.components.common.DetailPlayActionButton
 import com.jellycine.shared.ui.components.common.DetailTrailerButton
 import com.jellycine.shared.ui.components.common.FavoriteActionButton
+import com.jellycine.shared.ui.components.common.SubtitleSearchActionButton
 
 @Composable
 internal fun ActionSection(
@@ -48,6 +49,7 @@ internal fun ActionSection(
     downloadProgress: Float,
     isFavorite: Boolean,
     hasTrailer: Boolean,
+    canSearchSubtitles: Boolean,
     onPlayClick: () -> Unit,
     onTrailerClick: () -> Unit,
     onDownloadClick: () -> Unit,
@@ -55,6 +57,7 @@ internal fun ActionSection(
     onPauseResumeDownload: () -> Unit,
     onCancelDownload: () -> Unit,
     onFavoriteClick: () -> Unit,
+    onSubtitleSearchClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val iconOnlyDownload = !useTabletLayout
@@ -136,6 +139,13 @@ internal fun ActionSection(
         if (hasTrailer) {
             DetailTrailerButton(
                 onClick = onTrailerClick,
+                size = buttonHeight
+            )
+        }
+
+        if (canSearchSubtitles) {
+            SubtitleSearchActionButton(
+                onClick = onSubtitleSearchClick,
                 size = buttonHeight
             )
         }

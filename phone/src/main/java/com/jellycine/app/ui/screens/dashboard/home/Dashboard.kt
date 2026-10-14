@@ -1329,6 +1329,9 @@ fun Dashboard(
             val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding ?: user?.let { true }
             val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding ?: user?.let { true }
             val isSyncTranscodingEnabled = user?.policy?.enableSyncTranscoding ?: user?.let { true }
+            val canManageSubtitlesEnabled = user?.policy?.let {
+                it.enableSubtitleDownloading ?: it.enableSubtitleManagement
+            }
             val profileUrl = try {
                 mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
             } catch (error: CancellationException) {
@@ -1352,7 +1355,9 @@ fun Dashboard(
                 isAdministrator = user?.policy?.isAdministrator,
                 isVideoTranscodingAllowed = isVideoTranscodingEnabled,
                 isAudioTranscodingAllowed = isAudioTranscodingEnabled,
-                isSyncTranscodingAllowed = isSyncTranscodingEnabled
+                isSyncTranscodingAllowed = isSyncTranscodingEnabled,
+                canManageSubtitles = canManageSubtitlesEnabled,
+                subtitleLanguagePreference = user?.configuration?.subtitleLanguagePreference
             )
             user?.policy?.isDisabled == true
         } else {

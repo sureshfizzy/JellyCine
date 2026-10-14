@@ -5,6 +5,7 @@ import com.jellycine.data.model.ActivityLogResult
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.RemoteSubtitleInfo
 import com.jellycine.data.model.PlaybackInfoRequest
 import com.jellycine.data.model.PlaybackInfoResponse
 import com.jellycine.data.model.PlaybackProgressRequest
@@ -267,6 +268,26 @@ internal class MediaServerApiClient(
     ): ApiResponse<Unit> = execute(
         method = HttpMethod.Delete,
         endpoint = "Users/$userId/FavoriteItems/$itemId"
+    )
+
+    override suspend fun searchRemoteSubtitles(
+        itemId: String,
+        language: String
+    ): ApiResponse<List<RemoteSubtitleInfo>> = get(
+        endpoint = "Items/$itemId/RemoteSearch/Subtitles/$language"
+    )
+
+    override suspend fun downloadRemoteSubtitle(
+        itemId: String,
+        subtitleId: String
+    ): ApiResponse<Unit> = post("Items/$itemId/RemoteSearch/Subtitles/$subtitleId")
+
+    override suspend fun deleteSubtitle(
+        itemId: String,
+        index: Int
+    ): ApiResponse<Unit> = execute(
+        method = HttpMethod.Delete,
+        endpoint = "Videos/$itemId/Subtitles/$index"
     )
 
     override suspend fun markAsPlayed(
