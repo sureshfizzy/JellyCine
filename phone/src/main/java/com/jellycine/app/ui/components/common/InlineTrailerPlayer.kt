@@ -40,6 +40,8 @@ fun InlineTrailerPlayer(
     trailerUrl: String,
     isVisible: Boolean,
     modifier: Modifier = Modifier,
+    showBuiltInMute: Boolean = true,
+    mutedOverride: Boolean? = null,
     onPlaybackCompleted: () -> Unit = {},
     onError: (Throwable) -> Unit = {}
 ) {
@@ -53,7 +55,8 @@ fun InlineTrailerPlayer(
     val errorState = remember { mutableStateOf<Throwable?>(null) }
     val isPlayerReady = remember { mutableStateOf(false) }
     val hasRenderedFirstFrame = remember { mutableStateOf(false) }
-    var isMuted by rememberSaveable { mutableStateOf(false) }
+    var internalMuted by rememberSaveable { mutableStateOf(false) }
+    val isMuted = mutedOverride ?: internalMuted
     val shouldBeVisible = isVisible && hasRenderedFirstFrame.value
     val playerAlpha by animateFloatAsState(
         targetValue = if (shouldBeVisible) 1f else 0f,
@@ -205,7 +208,7 @@ fun InlineTrailerPlayer(
             modifier = Modifier.matchParentSize()
         )
 
-        if (shouldBeVisible) {
+        if (shouldBeVisible && showBuiltInMute) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -213,7 +216,7 @@ fun InlineTrailerPlayer(
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable { isMuted = !isMuted },
+                    .clickable { internalMuted = !internalMuted },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

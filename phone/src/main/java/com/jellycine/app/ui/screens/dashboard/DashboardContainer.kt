@@ -63,7 +63,7 @@ import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.media.Discover
-import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
+import com.jellycine.app.ui.screens.dashboard.media.ClipsFeedScreen
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -145,9 +145,9 @@ sealed class DashboardDestination(
     )
     object Favorites : DashboardDestination(
         "favorites",
-        R.string.favorites,
-        Icons.Filled.Favorite,
-        Icons.Outlined.FavoriteBorder
+        R.string.dashboard_discover_clips,
+        Icons.Filled.Subscriptions,
+        Icons.Outlined.Subscriptions
     )
     object Settings : DashboardDestination(
         "settings",
@@ -227,11 +227,13 @@ fun DashboardContainer(
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
     var homeScrollToTop by remember { mutableStateOf(0) }
+    val keepBottomBarVisible = remember { mutableStateOf(false) }
 
     val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (!isNetworkAvailable) return Offset.Zero
+                if (keepBottomBarVisible.value) return Offset.Zero
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
                 val deltaY = available.y
@@ -258,6 +260,7 @@ fun DashboardContainer(
 
             override suspend fun onPreFling(available: Velocity): Velocity {
                 if (!isNetworkAvailable) return Velocity.Zero
+                if (keepBottomBarVisible.value) return Velocity.Zero
                 if (available.y < -500f) {
                     isBottomBarVisible = false
                 } else if (available.y > 500f) {
@@ -272,6 +275,13 @@ fun DashboardContainer(
     LaunchedEffect(currentRoute) {
         isBottomBarVisible = true
         accumulatedScrollPx = 0f
+        keepBottomBarVisible.value = currentRoute == DashboardDestination.Favorites.route
+    }
+    LaunchedEffect(keepBottomBarVisible.value) {
+        if (keepBottomBarVisible.value) {
+            isBottomBarVisible = true
+            accumulatedScrollPx = 0f
+        }
     }
     LaunchedEffect(isNetworkAvailable) {
         if (!isNetworkAvailable) {
@@ -558,13 +568,7 @@ fun DashboardContainer(
                     exitTransition = { DashboardExitTransition() }
                 ) {
                     ContentWrapper {
-                        Favorites(
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = { contentType, parentId, title ->
-                                onNavigateToViewAll(contentType.name, parentId, title)
-                            },
-                            onProfileClick = { showAccountSheet = true }
-                        )
+                        ClipsFeedScreen(modifier = Modifier.fillMaxSize())
                     }
                 }
                 composable(
