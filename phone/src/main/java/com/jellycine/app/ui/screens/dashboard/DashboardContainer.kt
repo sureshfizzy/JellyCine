@@ -61,7 +61,6 @@ import com.jellycine.app.ui.screens.dashboard.home.AccountOverview
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
-import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.media.Discover
 import com.jellycine.app.ui.screens.dashboard.media.ClipsFeedScreen
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
@@ -134,8 +133,8 @@ sealed class DashboardDestination(
     object MyMedia : DashboardDestination(
         "my_media",
         R.string.dashboard_discover,
-        Icons.Filled.PlayArrow,
-        Icons.Outlined.PlayArrow
+        Icons.Filled.Explore,
+        Icons.Outlined.Explore
     )
     object Search : DashboardDestination(
         "search",
@@ -202,10 +201,6 @@ fun DashboardContainer(
         }
     )
     val isNetworkAvailable = networkStatus.isAvailable
-    val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
-        .collectAsStateWithLifecycle(
-            initialValue = preferences.isUseMyMediaTabEnabled()
-        )
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
@@ -530,22 +525,14 @@ fun DashboardContainer(
                     exitTransition = { DashboardExitTransition() }
                 ) {
                     ContentWrapper {
-                        if (useMyMediaTabEnabled) {
-                            MyMedia(
-                                onLibraryClick = { contentType, parentId, title ->
-                                    onNavigateToViewAll(contentType.name, parentId, title)
-                                }
-                            )
-                        } else {
-                            Discover(
-                                onItemClick = onNavigateToDetail,
-                                onWatchedItemClick = onNavigateToMergedDetail,
-                                onNavigateToViewAll = { contentType, parentId, title ->
-                                    onNavigateToViewAll(contentType.name, parentId, title)
-                                },
-                                onProfileClick = { showAccountSheet = true }
-                            )
-                        }
+                        Discover(
+                            onItemClick = onNavigateToDetail,
+                            onWatchedItemClick = onNavigateToMergedDetail,
+                            onNavigateToViewAll = { contentType, parentId, title ->
+                                onNavigateToViewAll(contentType.name, parentId, title)
+                            },
+                            onProfileClick = { showAccountSheet = true }
+                        )
                     }
                 }
                 composable(
@@ -679,13 +666,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = -outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                    title = stringResource(destination.titleRes),
+                                    selectedIcon = destination.selectedIcon,
+                                    unselectedIcon = destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -705,13 +688,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                    title = stringResource(destination.titleRes),
+                                    selectedIcon = destination.selectedIcon,
+                                    unselectedIcon = destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -746,13 +725,9 @@ fun DashboardContainer(
                             NavigationItem(
                                 modifier = Modifier.width(offlineItemSlotWidth),
                                 destination = destination,
-                                title = if (destination == DashboardDestination.MyMedia) {
-                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                } else {
-                                    stringResource(destination.titleRes)
-                                },
-                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                title = stringResource(destination.titleRes),
+                                selectedIcon = destination.selectedIcon,
+                                unselectedIcon = destination.unselectedIcon,
                                 isSelected = isSelected,
                                 itemWidth = 56.dp,
                                 onClick = { navigateToDestination(destination) }
