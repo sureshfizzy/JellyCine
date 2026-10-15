@@ -61,6 +61,7 @@ import com.jellycine.app.ui.screens.dashboard.home.AccountOverview
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
+import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.media.Discover
 import com.jellycine.app.ui.screens.dashboard.media.ClipsFeedScreen
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
@@ -201,6 +202,7 @@ fun DashboardContainer(
         }
     )
     val isNetworkAvailable = networkStatus.isAvailable
+    val isOnline = networkStatus == NetworkStatus.Online
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
@@ -267,10 +269,10 @@ fun DashboardContainer(
         }
     }
 
-    LaunchedEffect(currentRoute) {
+    LaunchedEffect(currentRoute, isOnline) {
         isBottomBarVisible = true
         accumulatedScrollPx = 0f
-        keepBottomBarVisible.value = currentRoute == DashboardDestination.Favorites.route
+        keepBottomBarVisible.value = currentRoute == DashboardDestination.Favorites.route && isOnline
     }
     LaunchedEffect(keepBottomBarVisible.value) {
         if (keepBottomBarVisible.value) {
@@ -555,7 +557,15 @@ fun DashboardContainer(
                     exitTransition = { DashboardExitTransition() }
                 ) {
                     ContentWrapper {
-                        ClipsFeedScreen(modifier = Modifier.fillMaxSize())
+                        if (isOnline) {
+                            ClipsFeedScreen(modifier = Modifier.fillMaxSize())
+                        } else {
+                            MyMedia(
+                                onLibraryClick = { contentType, parentId, title ->
+                                    onNavigateToViewAll(contentType.name, parentId, title)
+                                }
+                            )
+                        }
                     }
                 }
                 composable(
@@ -666,9 +676,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = -outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = stringResource(destination.titleRes),
-                                    selectedIcon = destination.selectedIcon,
-                                    unselectedIcon = destination.unselectedIcon,
+                                    title = if (destination == DashboardDestination.Favorites && !isOnline) stringResource(R.string.my_media) else stringResource(destination.titleRes),
+                                    selectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Filled.PlayArrow else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Outlined.PlayArrow else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -688,9 +698,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = stringResource(destination.titleRes),
-                                    selectedIcon = destination.selectedIcon,
-                                    unselectedIcon = destination.unselectedIcon,
+                                    title = if (destination == DashboardDestination.Favorites && !isOnline) stringResource(R.string.my_media) else stringResource(destination.titleRes),
+                                    selectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Filled.PlayArrow else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Outlined.PlayArrow else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
