@@ -106,9 +106,9 @@ internal class TmdbApi(
             .toMediaExtras()
     }.getOrDefault(emptyList())
 
-    suspend fun fetchTrendingClips(
+    private suspend fun fetchTrendingClipsPage(
+        page: Int,
         window: String = "week",
-        page: Int = 1,
         maxTitles: Int = 20,
         maxClipsPerTitle: Int = 2
     ): List<ClipFeedItem> = coroutineScope {
@@ -165,6 +165,21 @@ internal class TmdbApi(
             .shuffled()
     }
 
+    private val usedTrendingPages = mutableSetOf<Int>()
+
+    suspend fun fetchTrendingClips(): List<ClipFeedItem> = coroutineScope {
+        val pool = (TRENDING_PAGE_RANGE.toSet() - usedTrendingPages).ifEmpty {
+            usedTrendingPages.clear()
+            TRENDING_PAGE_RANGE.toSet()
+        }
+        val pages = pool.shuffled().take(PAGES_PER_BATCH).also { usedTrendingPages += it }
+        pages.map { async { fetchTrendingClipsPage(it) } }
+            .awaitAll()
+            .flatten()
+            .distinctBy { it.youtubeKey }
+            .shuffled()
+    }
+
     private var cachedGenreMap: Map<Int, String>? = null
 
     private suspend fun genreMap(): Map<Int, String> = coroutineScope {
@@ -212,6 +227,8 @@ internal class TmdbApi(
     private companion object {
         private const val TMDB_API_KEY = "4219e299c89411838049ab0dab19ebd5"
         private val CLIP_FEED_TYPES = setOf("trailer", "clip", "teaser")
+        private val TRENDING_PAGE_RANGE = 1..15
+        private const val PAGES_PER_BATCH = 3
 
         private fun clipTypeRank(type: String?): Int = when (type?.lowercase()) {
             "clip" -> 0

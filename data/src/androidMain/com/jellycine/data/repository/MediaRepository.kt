@@ -1170,10 +1170,10 @@ class MediaRepository(private val context: Context) {
         tmdbApi.fetchExtras(tmdbType, tmdbId)
     }
 
-    suspend fun getTrendingClips(page: Int = 1): List<com.jellycine.data.model.ClipFeedItem> =
+    suspend fun getTrendingClips(): List<com.jellycine.data.model.ClipFeedItem> =
         withContext(Dispatchers.IO) {
             if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
-            runCatching { tmdbApi.fetchTrendingClips(page = page) }.getOrDefault(emptyList())
+            runCatching { tmdbApi.fetchTrendingClips() }.getOrDefault(emptyList())
         }
 
     suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {

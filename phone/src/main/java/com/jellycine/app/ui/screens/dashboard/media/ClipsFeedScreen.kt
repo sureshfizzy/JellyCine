@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +45,7 @@ import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.data.model.ClipFeedItem
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.RemoteTrailerUrl
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,21 +67,16 @@ fun ClipsFeedScreen(
     var clips by remember { mutableStateOf<List<ClipFeedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isAppending by remember { mutableStateOf(false) }
-    var nextPage by remember { mutableStateOf(1) }
     var error by remember { mutableStateOf<String?>(null) }
-
-    suspend fun loadPage(page: Int): List<ClipFeedItem> =
-        withContext(Dispatchers.IO) { mediaRepository.getTrendingClips(page) }
 
     LaunchedEffect(Unit) {
         if (clips.isNotEmpty()) return@LaunchedEffect
         isLoading = true
-        val first = loadPage(1)
+        val first = withContext(Dispatchers.IO) { mediaRepository.getTrendingClips() }
         if (first.isEmpty()) {
             error = "Couldn't load clips. Check your connection and try again."
         } else {
             clips = first
-            nextPage = 2
         }
         isLoading = false
     }
@@ -96,11 +92,10 @@ fun ClipsFeedScreen(
             }
             if (current >= clips.size - 3 && !isAppending) {
                 isAppending = true
-                val more = loadPage(nextPage)
+                val more = withContext(Dispatchers.IO) { mediaRepository.getTrendingClips() }
                 if (more.isNotEmpty()) {
                     val existing = clips.mapTo(HashSet()) { it.youtubeKey }
                     clips = clips + more.filter { it.youtubeKey !in existing }
-                    nextPage += 1
                 }
                 isAppending = false
             }
@@ -115,7 +110,7 @@ fun ClipsFeedScreen(
     ) {
         when {
             isLoading && clips.isEmpty() -> {
-                CircularProgressIndicator(color = Color.White)
+                ClipsFeedShimmer()
             }
 
             error != null && clips.isEmpty() -> {
@@ -153,6 +148,62 @@ fun ClipsFeedScreen(
                 .statusBarsPadding()
         ) {
             topOverlay()
+        }
+    }
+}
+
+@Composable
+private fun ClipsFeedShimmer(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize()) {
+        ShimmerEffect(
+            modifier = Modifier.fillMaxSize(),
+            cornerRadius = 0f
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 118.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            ShimmerEffect(
+                modifier = Modifier.size(58.dp),
+                shape = CircleShape
+            )
+            ShimmerEffect(
+                modifier = Modifier
+                    .width(48.dp)
+                    .height(10.dp),
+                cornerRadius = 4f
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth(0.72f)
+                .padding(start = 20.dp, bottom = 118.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.75f)
+                    .height(24.dp),
+                cornerRadius = 8f
+            )
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.4f)
+                    .height(13.dp),
+                cornerRadius = 6f
+            )
+            ShimmerEffect(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .height(14.dp),
+                cornerRadius = 6f
+            )
         }
     }
 }
