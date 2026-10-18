@@ -77,6 +77,7 @@ fun ClipsFeedScreen(
             error = "Couldn't load clips. Check your connection and try again."
         } else {
             clips = first
+            first.firstOrNull()?.let { launch { RemoteTrailerUrl.prefetch(it.youtubeWatchUrl, feedMaxHeight) } }
         }
         isLoading = false
     }
@@ -125,7 +126,7 @@ fun ClipsFeedScreen(
             else -> {
                 VerticalPager(
                     state = pagerState,
-                    beyondViewportPageCount = 1,
+                    beyondViewportPageCount = 0,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val clip = clips[page]

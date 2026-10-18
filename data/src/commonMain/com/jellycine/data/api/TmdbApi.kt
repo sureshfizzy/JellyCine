@@ -108,6 +108,7 @@ internal class TmdbApi(
 
     private suspend fun fetchTrendingClipsPage(
         page: Int,
+        genreMap: Map<Int, String>,
         window: String = "week",
         maxTitles: Int = 20,
         maxClipsPerTitle: Int = 2
@@ -121,8 +122,6 @@ internal class TmdbApi(
         }.getOrDefault(emptyList())
             .filter { it.id > 0 && (it.mediaType == "movie" || it.mediaType == "tv") }
             .take(maxTitles)
-
-        val genreMap = genreMap()
 
         trending
             .map { title ->
@@ -173,7 +172,8 @@ internal class TmdbApi(
             TRENDING_PAGE_RANGE.toSet()
         }
         val pages = pool.shuffled().take(PAGES_PER_BATCH).also { usedTrendingPages += it }
-        pages.map { async { fetchTrendingClipsPage(it) } }
+        val genreMap = genreMap()
+        pages.map { async { fetchTrendingClipsPage(page = it, genreMap = genreMap) } }
             .awaitAll()
             .flatten()
             .distinctBy { it.youtubeKey }
@@ -226,15 +226,14 @@ internal class TmdbApi(
 
     private companion object {
         private const val TMDB_API_KEY = "4219e299c89411838049ab0dab19ebd5"
-        private val CLIP_FEED_TYPES = setOf("trailer", "clip", "teaser")
+        private val CLIP_FEED_TYPES = setOf("clip", "teaser")
         private val TRENDING_PAGE_RANGE = 1..15
         private const val PAGES_PER_BATCH = 3
 
         private fun clipTypeRank(type: String?): Int = when (type?.lowercase()) {
             "clip" -> 0
             "teaser" -> 1
-            "trailer" -> 2
-            else -> 3
+            else -> 2
         }
 
         private fun imageUrl(imagePath: String?, size: String): String? {
