@@ -63,7 +63,7 @@ import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
 import com.jellycine.app.ui.screens.dashboard.media.Discover
-import com.jellycine.app.ui.screens.dashboard.favorites.Favorites
+import com.jellycine.app.ui.screens.dashboard.media.ClipsFeedScreen
 import com.jellycine.app.ui.screens.dashboard.search.SearchContainer
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -134,8 +134,8 @@ sealed class DashboardDestination(
     object MyMedia : DashboardDestination(
         "my_media",
         R.string.dashboard_discover,
-        Icons.Filled.PlayArrow,
-        Icons.Outlined.PlayArrow
+        Icons.Filled.Explore,
+        Icons.Outlined.Explore
     )
     object Search : DashboardDestination(
         "search",
@@ -145,9 +145,9 @@ sealed class DashboardDestination(
     )
     object Favorites : DashboardDestination(
         "favorites",
-        R.string.favorites,
-        Icons.Filled.Favorite,
-        Icons.Outlined.FavoriteBorder
+        R.string.dashboard_discover_clips,
+        Icons.Filled.Subscriptions,
+        Icons.Outlined.Subscriptions
     )
     object Settings : DashboardDestination(
         "settings",
@@ -202,10 +202,7 @@ fun DashboardContainer(
         }
     )
     val isNetworkAvailable = networkStatus.isAvailable
-    val useMyMediaTabEnabled by preferences.UseMyMediaTabEnabled()
-        .collectAsStateWithLifecycle(
-            initialValue = preferences.isUseMyMediaTabEnabled()
-        )
+    val isOnline = networkStatus == NetworkStatus.Online
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val bottomBarHeight = 68.dp
@@ -227,11 +224,13 @@ fun DashboardContainer(
     var isBottomBarVisible by remember { mutableStateOf(true) }
     var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
     var homeScrollToTop by remember { mutableStateOf(0) }
+    val keepBottomBarVisible = remember { mutableStateOf(false) }
 
     val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (!isNetworkAvailable) return Offset.Zero
+                if (keepBottomBarVisible.value) return Offset.Zero
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
                 val deltaY = available.y
@@ -258,6 +257,7 @@ fun DashboardContainer(
 
             override suspend fun onPreFling(available: Velocity): Velocity {
                 if (!isNetworkAvailable) return Velocity.Zero
+                if (keepBottomBarVisible.value) return Velocity.Zero
                 if (available.y < -500f) {
                     isBottomBarVisible = false
                 } else if (available.y > 500f) {
@@ -269,9 +269,16 @@ fun DashboardContainer(
         }
     }
 
-    LaunchedEffect(currentRoute) {
+    LaunchedEffect(currentRoute, isOnline) {
         isBottomBarVisible = true
         accumulatedScrollPx = 0f
+        keepBottomBarVisible.value = currentRoute == DashboardDestination.Favorites.route && isOnline
+    }
+    LaunchedEffect(keepBottomBarVisible.value) {
+        if (keepBottomBarVisible.value) {
+            isBottomBarVisible = true
+            accumulatedScrollPx = 0f
+        }
     }
     LaunchedEffect(isNetworkAvailable) {
         if (!isNetworkAvailable) {
@@ -520,22 +527,14 @@ fun DashboardContainer(
                     exitTransition = { DashboardExitTransition() }
                 ) {
                     ContentWrapper {
-                        if (useMyMediaTabEnabled) {
-                            MyMedia(
-                                onLibraryClick = { contentType, parentId, title ->
-                                    onNavigateToViewAll(contentType.name, parentId, title)
-                                }
-                            )
-                        } else {
-                            Discover(
-                                onItemClick = onNavigateToDetail,
-                                onWatchedItemClick = onNavigateToMergedDetail,
-                                onNavigateToViewAll = { contentType, parentId, title ->
-                                    onNavigateToViewAll(contentType.name, parentId, title)
-                                },
-                                onProfileClick = { showAccountSheet = true }
-                            )
-                        }
+                        Discover(
+                            onItemClick = onNavigateToDetail,
+                            onWatchedItemClick = onNavigateToMergedDetail,
+                            onNavigateToViewAll = { contentType, parentId, title ->
+                                onNavigateToViewAll(contentType.name, parentId, title)
+                            },
+                            onProfileClick = { showAccountSheet = true }
+                        )
                     }
                 }
                 composable(
@@ -558,13 +557,15 @@ fun DashboardContainer(
                     exitTransition = { DashboardExitTransition() }
                 ) {
                     ContentWrapper {
-                        Favorites(
-                            onItemClick = onNavigateToDetail,
-                            onNavigateToViewAll = { contentType, parentId, title ->
-                                onNavigateToViewAll(contentType.name, parentId, title)
-                            },
-                            onProfileClick = { showAccountSheet = true }
-                        )
+                        if (isOnline) {
+                            ClipsFeedScreen(modifier = Modifier.fillMaxSize())
+                        } else {
+                            MyMedia(
+                                onLibraryClick = { contentType, parentId, title ->
+                                    onNavigateToViewAll(contentType.name, parentId, title)
+                                }
+                            )
+                        }
                     }
                 }
                 composable(
@@ -675,13 +676,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = -outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                    title = if (destination == DashboardDestination.Favorites && !isOnline) stringResource(R.string.my_media) else stringResource(destination.titleRes),
+                                    selectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Filled.PlayArrow else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Outlined.PlayArrow else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -701,13 +698,9 @@ fun DashboardContainer(
                                         else -> Modifier.offset(x = outerItemOffset)
                                     },
                                     destination = destination,
-                                    title = if (destination == DashboardDestination.MyMedia) {
-                                        if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                    } else {
-                                        stringResource(destination.titleRes)
-                                    },
-                                    selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                    unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                    title = if (destination == DashboardDestination.Favorites && !isOnline) stringResource(R.string.my_media) else stringResource(destination.titleRes),
+                                    selectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Filled.PlayArrow else destination.selectedIcon,
+                                    unselectedIcon = if (destination == DashboardDestination.Favorites && !isOnline) Icons.Outlined.PlayArrow else destination.unselectedIcon,
                                     isSelected = isSelected,
                                     onClick = { navigateToDestination(destination) }
                                 )
@@ -742,13 +735,9 @@ fun DashboardContainer(
                             NavigationItem(
                                 modifier = Modifier.width(offlineItemSlotWidth),
                                 destination = destination,
-                                title = if (destination == DashboardDestination.MyMedia) {
-                                    if (useMyMediaTabEnabled) stringResource(R.string.my_media) else stringResource(R.string.dashboard_discover)
-                                } else {
-                                    stringResource(destination.titleRes)
-                                },
-                                selectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Filled.Explore else destination.selectedIcon,
-                                unselectedIcon = if (destination == DashboardDestination.MyMedia && !useMyMediaTabEnabled) Icons.Outlined.Explore else destination.unselectedIcon,
+                                title = stringResource(destination.titleRes),
+                                selectedIcon = destination.selectedIcon,
+                                unselectedIcon = destination.unselectedIcon,
                                 isSelected = isSelected,
                                 itemWidth = 56.dp,
                                 onClick = { navigateToDestination(destination) }

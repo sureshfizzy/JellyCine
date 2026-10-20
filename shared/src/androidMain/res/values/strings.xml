@@ -150,6 +150,7 @@
     <string name="dashboard_discover_greeting">Hello %1$s,</string>
     <string name="dashboard_discover_recommendations">Recommendations</string>
     <string name="dashboard_discover_awards">Awards</string>
+    <string name="dashboard_discover_clips">Clips</string>
     <string name="dashboard_discover_empty_title">Nothing here yet</string>
     <string name="dashboard_discover_empty_message">Start a movie or episode and this screen will turn into your recommendation hub.</string>
     <string name="dashboard_discover_load_error">Unable to build your feed</string>

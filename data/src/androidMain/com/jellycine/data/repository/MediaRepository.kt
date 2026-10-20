@@ -65,6 +65,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 
 data class EpisodeNavigationIds(
@@ -1169,6 +1170,12 @@ class MediaRepository(private val context: Context) {
         }
         tmdbApi.fetchExtras(tmdbType, tmdbId)
     }
+
+    suspend fun getTrendingClips(): List<com.jellycine.data.model.ClipFeedItem> =
+        withContext(Dispatchers.IO) {
+            if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
+            runCatching { tmdbApi.fetchTrendingClips() }.getOrDefault(emptyList())
+        }
 
     suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {
         if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
@@ -2603,12 +2610,14 @@ class MediaRepository(private val context: Context) {
 
     private fun createTmdbHttpClient(): HttpClient {
         val timeouts = networkPreferences.getTimeoutConfig()
+        val dispatcher = Dispatcher().apply { maxRequestsPerHost = 32 }
         val okHttpClient = OkHttpClient.Builder()
             .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(true)
+            .dispatcher(dispatcher)
             .build()
 
         return HttpClient(OkHttp) {

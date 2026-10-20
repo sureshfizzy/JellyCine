@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 object RemoteTrailerUrl {
     private const val AUDIO_CACHE_TTL_MS = 30 * 60 * 1000L
+    private const val STREAM_CACHE_TTL_MS = 60 * 60 * 1000L
     private const val MIN_THEME_DURATION_S = 20L
     private const val MAX_THEME_DURATION_S = 600L
     private val THEME_KEYWORDS = listOf(
@@ -37,8 +38,10 @@ object RemoteTrailerUrl {
         "announcement", "sneak peek", "behind the scene", "deleted scene"
     )
     private val audioUrlCache = ConcurrentHashMap<String, CachedAudio>()
+    private val streamCache = ConcurrentHashMap<String, CachedStream>()
 
     private data class CachedAudio(val url: String, val timestampMs: Long)
+    private data class CachedStream(val stream: RemoteTrailerStream, val timestampMs: Long)
 
     @Volatile
     private var extractorInitialized = false
@@ -47,6 +50,14 @@ object RemoteTrailerUrl {
         val trimmedUrl = url.trim()
         if (trimmedUrl.isBlank()) {
             throw IllegalArgumentException("Remote trailer URL is empty")
+        }
+
+        val cacheKey = "$trimmedUrl|$maxVideoHeight"
+        streamCache[cacheKey]?.let { cached ->
+            if (System.currentTimeMillis() - cached.timestampMs < STREAM_CACHE_TTL_MS) {
+                return@withContext cached.stream
+            }
+            streamCache.remove(cacheKey)
         }
 
         initExtractor()
@@ -62,8 +73,14 @@ object RemoteTrailerUrl {
             )
         }
 
-        selectPlayableStream(streamInfo, maxVideoHeight)
+        val resolved = selectPlayableStream(streamInfo, maxVideoHeight)
             ?: throw IllegalStateException("Remote trailer does not expose a playable stream")
+        streamCache[cacheKey] = CachedStream(resolved, System.currentTimeMillis())
+        resolved
+    }
+
+    suspend fun prefetch(url: String, maxVideoHeight: Int = Int.MAX_VALUE) {
+        runCatching { resolve(url, maxVideoHeight) }
     }
 
     suspend fun getAudioUrl(url: String): String? = withContext(Dispatchers.IO) {

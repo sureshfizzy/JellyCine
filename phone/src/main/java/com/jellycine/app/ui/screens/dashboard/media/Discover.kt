@@ -48,6 +48,7 @@ import com.jellycine.app.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
 import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
+import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
 import com.jellycine.data.model.SeerrPersonRole
 import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
@@ -99,13 +100,20 @@ fun Discover(
 ) {
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
+    var favoritesSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var feed by rememberSaveable { mutableStateOf(DiscoverFeed.RECOMMENDATIONS) }
     var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
     var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
     val showWatchedTab = feed == DiscoverFeed.WATCHED
+    val showFavoritesTab = feed == DiscoverFeed.FAVORITES
     var loadingFeed by remember { mutableStateOf(true) }
     var loadingWatched by remember { mutableStateOf(true) }
-    val isLoading = (loadingFeed && sections.isEmpty()) && (loadingWatched && watchedSections.isEmpty())
+    var loadingFavorites by remember { mutableStateOf(true) }
+    val isLoading = when (feed) {
+        DiscoverFeed.WATCHED -> loadingWatched && watchedSections.isEmpty()
+        DiscoverFeed.FAVORITES -> loadingFavorites && favoritesSections.isEmpty()
+        else -> loadingFeed && sections.isEmpty()
+    }
     var error by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
@@ -117,7 +125,12 @@ fun Discover(
     val scope = rememberCoroutineScope()
     val feedListState = rememberLazyListState()
     val watchedListState = rememberLazyListState()
-    val listState = if (showWatchedTab) watchedListState else feedListState
+    val favoritesListState = rememberLazyListState()
+    val listState = when (feed) {
+        DiscoverFeed.WATCHED -> watchedListState
+        DiscoverFeed.FAVORITES -> favoritesListState
+        else -> feedListState
+    }
     val compactHeaderProgress = rememberCompactProgress(
         state = listState,
         compactDistance = 92.dp
@@ -144,6 +157,7 @@ fun Discover(
     val compactTitle = when (feed) {
         DiscoverFeed.RECOMMENDATIONS -> stringResource(R.string.dashboard_discover_recommendations)
         DiscoverFeed.WATCHED -> stringResource(R.string.watched)
+        DiscoverFeed.FAVORITES -> stringResource(R.string.favorites)
         DiscoverFeed.AWARDS -> stringResource(R.string.dashboard_discover_awards)
     }
     val watchedMoviesTitle = stringResource(R.string.movies)
@@ -222,14 +236,34 @@ fun Discover(
         refresh()
     }
 
+    LaunchedEffect(activeServerId) {
+        loadingFavorites = true
+        val items = withContext(Dispatchers.IO) {
+            mediaRepository.getFavoriteItems().getOrNull()?.items.orEmpty()
+        }
+        favoritesSections = buildList {
+            items.filter { it.type == "Movie" }.takeIf { it.isNotEmpty() }
+                ?.let { add(RecommendationSectionUi(watchedMoviesTitle, it)) }
+            items.filter { it.type == "Series" }.takeIf { it.isNotEmpty() }
+                ?.let { add(RecommendationSectionUi(watchedShowsTitle, it)) }
+            items.filter { it.type == "Episode" }.takeIf { it.isNotEmpty() }
+                ?.let { add(RecommendationSectionUi(watchedEpisodesTitle, it)) }
+        }
+        loadingFavorites = false
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        val activeSections = if (showWatchedTab) watchedSections else sections
-        val hasAnySections = sections.isNotEmpty() || watchedSections.isNotEmpty()
-        val showStaticHeader = sections.isEmpty() && watchedSections.isEmpty()
+        val activeSections = when (feed) {
+            DiscoverFeed.WATCHED -> watchedSections
+            DiscoverFeed.FAVORITES -> favoritesSections
+            else -> sections
+        }
+        val hasAnySections = activeSections.isNotEmpty()
+        val showStaticHeader = activeSections.isEmpty()
 
         Column(modifier = Modifier.fillMaxSize()) {
             if (feed == DiscoverFeed.AWARDS) {
@@ -306,7 +340,12 @@ fun Discover(
                                 )
                             }
 
-                            if (activeSections.isEmpty() && ((showWatchedTab && loadingWatched) || (!showWatchedTab && loadingFeed))) {
+                            if (activeSections.isEmpty() && (
+                                    (feed == DiscoverFeed.WATCHED && loadingWatched) ||
+                                        (feed == DiscoverFeed.FAVORITES && loadingFavorites) ||
+                                        (feed == DiscoverFeed.RECOMMENDATIONS && loadingFeed)
+                                )
+                            ) {
                                 items(3, key = { "shimmer_$it" }) {
                                     ShimmerPosterRail()
                                 }
@@ -321,13 +360,19 @@ fun Discover(
                                     watchedShowsTitle -> ContentType.SERIES
                                     else -> ContentType.EPISODES
                                 }
+                                val viewAllParentId = if (showFavoritesTab) {
+                                    FAVORITES_VIEW_ALL_PARENT_ID
+                                } else {
+                                    WATCHED_VIEW_ALL_PARENT_ID
+                                }
                                 RecommendationRail(
                                     section = section,
                                     mediaRepository = mediaRepository,
                                     disablePosterEnhancers = disablePosterEnhancers,
                                     isWatchedFeed = showWatchedTab,
+                                    showViewAll = showWatchedTab || showFavoritesTab,
                                     onViewAllClick = {
-                                        onNavigateToViewAll(viewAllContentType, WATCHED_VIEW_ALL_PARENT_ID, section.title)
+                                        onNavigateToViewAll(viewAllContentType, viewAllParentId, section.title)
                                     },
                                     onItemClick = if (showWatchedTab) onWatchedItemClick else onItemClick
                                 )
@@ -351,7 +396,7 @@ fun Discover(
             }
         }
 
-        if (feed != DiscoverFeed.AWARDS && (sections.isNotEmpty() || watchedSections.isNotEmpty())) {
+        if (feed != DiscoverFeed.AWARDS && hasAnySections) {
             CompactTopText(
                 text = compactTitle,
                 progress = compactHeaderProgress,
@@ -543,6 +588,7 @@ private fun DiscoverFeedPills(
         listOf(
             DiscoverFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_discover_recommendations),
             DiscoverFeed.WATCHED to stringResource(R.string.watched),
+            DiscoverFeed.FAVORITES to stringResource(R.string.favorites),
             DiscoverFeed.AWARDS to stringResource(R.string.dashboard_discover_awards)
         ).forEach { (tab, label) ->
             val selected = feed == tab
@@ -585,10 +631,11 @@ private fun RecommendationRail(
     mediaRepository: MediaRepository,
     disablePosterEnhancers: Boolean,
     isWatchedFeed: Boolean,
+    showViewAll: Boolean,
     onViewAllClick: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit
 ) {
-    if (!isWatchedFeed && section.items.size + section.seerItems.size <= 1) return
+    if (!showViewAll && section.items.size + section.seerItems.size <= 1) return
 
     Column(
         modifier = Modifier
@@ -610,7 +657,7 @@ private fun RecommendationRail(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            if (isWatchedFeed) {
+            if (showViewAll) {
                 IconButton(
                     onClick = onViewAllClick,
                     modifier = Modifier.size(32.dp)

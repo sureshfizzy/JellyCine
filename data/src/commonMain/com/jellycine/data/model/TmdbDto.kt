@@ -31,7 +31,42 @@ internal data class TmdbVideo(
     val name: String? = null,
     val site: String? = null,
     val type: String? = null,
-    val official: Boolean? = null
+    val official: Boolean? = null,
+    @SerialName("published_at")
+    val publishedAt: String? = null
+)
+
+@Serializable
+internal data class TmdbTrendingResponse(
+    val page: Int = 0,
+    val results: List<TmdbTrendingItem> = emptyList()
+)
+
+@Serializable
+internal data class TmdbTrendingItem(
+    val id: Long = 0,
+    @SerialName("media_type")
+    val mediaType: String? = null,
+    val title: String? = null,
+    val name: String? = null,
+    val overview: String? = null,
+    @SerialName("genre_ids")
+    val genreIds: List<Int> = emptyList(),
+    @SerialName("backdrop_path")
+    val backdropPath: String? = null,
+    @SerialName("poster_path")
+    val posterPath: String? = null
+)
+
+@Serializable
+internal data class TmdbGenreListResponse(
+    val genres: List<TmdbGenreEntry> = emptyList()
+)
+
+@Serializable
+internal data class TmdbGenreEntry(
+    val id: Int = 0,
+    val name: String? = null
 )
 
 internal fun List<TmdbVideo>.toRawVideos(): List<RawVideo> =
