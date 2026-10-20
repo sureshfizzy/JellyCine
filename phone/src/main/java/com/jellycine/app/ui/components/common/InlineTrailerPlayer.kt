@@ -39,6 +39,7 @@ import kotlinx.coroutines.*
 fun InlineTrailerPlayer(
     trailerUrl: String,
     isVisible: Boolean,
+    player: ExoPlayer? = null,
     modifier: Modifier = Modifier,
     showBuiltInMute: Boolean = true,
     mutedOverride: Boolean? = null,
@@ -49,7 +50,8 @@ fun InlineTrailerPlayer(
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
     val maxVideoHeight = if (isTablet) Int.MAX_VALUE else 720
-    val player = remember { createInlineExoPlayer(context) }
+    val ownedPlayer = if (player == null) remember { createInlineExoPlayer(context) } else null
+    val activePlayer = player ?: ownedPlayer!!
     val playbackCompleted = remember { mutableStateOf(false) }
     val isLoading = remember { mutableStateOf(true) }
     val errorState = remember { mutableStateOf<Throwable?>(null) }
@@ -66,7 +68,7 @@ fun InlineTrailerPlayer(
 
     LaunchedEffect(isMuted) {
         withContext(Dispatchers.Main) {
-            player.volume = if (isMuted) 0f else 1f
+            activePlayer.volume = if (isMuted) 0f else 1f
         }
     }
 
@@ -78,10 +80,10 @@ fun InlineTrailerPlayer(
 
         if (trailerUrl.isBlank()) {
             withContext(Dispatchers.Main) {
-                player.stop()
-                player.clearMediaItems()
-                player.playWhenReady = false
-                player.pause()
+                activePlayer.stop()
+                activePlayer.clearMediaItems()
+                activePlayer.playWhenReady = false
+                activePlayer.pause()
             }
             isLoading.value = false
             return@LaunchedEffect
@@ -105,17 +107,17 @@ fun InlineTrailerPlayer(
                         .build()
                     val videoSource = mediaSourceFactory.createMediaSource(videoItem)
                     val audioSource = mediaSourceFactory.createMediaSource(audioItem)
-                    player.setMediaSource(MergingMediaSource(videoSource, audioSource))
+                    activePlayer.setMediaSource(MergingMediaSource(videoSource, audioSource))
                 } else {
                     val mediaItem = MediaItem.Builder()
                         .setUri(resolvedStream.url)
                         .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
                         .build()
-                    player.setMediaItem(mediaItem)
+                    activePlayer.setMediaItem(mediaItem)
                 }
-                player.prepare()
-                player.playWhenReady = false
-                player.volume = if (isMuted) 0f else 1f
+                activePlayer.prepare()
+                activePlayer.playWhenReady = false
+                activePlayer.volume = if (isMuted) 0f else 1f
             }
 
             isLoading.value = false
@@ -126,16 +128,14 @@ fun InlineTrailerPlayer(
         }
     }
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(activePlayer) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_READY -> {
                         isPlayerReady.value = true
                         if (isVisible && !playbackCompleted.value && errorState.value == null) {
-                            launch(Dispatchers.Main) {
-                                player.playWhenReady = true
-                            }
+                            activePlayer.playWhenReady = true
                         }
                     }
                     Player.STATE_ENDED -> {
@@ -157,29 +157,28 @@ fun InlineTrailerPlayer(
             }
         }
 
-        player.addListener(listener)
+        activePlayer.addListener(listener)
 
-        awaitCancellation()
+        onDispose {
+            activePlayer.removeListener(listener)
+            activePlayer.playWhenReady = false
+            activePlayer.pause()
+            ownedPlayer?.release()
+        }
     }
 
     LaunchedEffect(isVisible) {
         if (isVisible && !playbackCompleted.value && errorState.value == null) {
             if (isPlayerReady.value) {
                 withContext(Dispatchers.Main) {
-                    player.playWhenReady = true
+                    activePlayer.playWhenReady = true
                 }
             }
         } else if (!isVisible) {
             withContext(Dispatchers.Main) {
-                player.playWhenReady = false
-                player.pause()
+                activePlayer.playWhenReady = false
+                activePlayer.pause()
             }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            player.release()
         }
     }
 
@@ -196,7 +195,7 @@ fun InlineTrailerPlayer(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    this.player = player
+                    this.player = activePlayer
                     alpha = 0f
                     keepScreenOn = true
                 }
@@ -230,7 +229,7 @@ fun InlineTrailerPlayer(
     }
 }
 
-private fun createInlineExoPlayer(context: Context): ExoPlayer {
+fun createInlineExoPlayer(context: Context): ExoPlayer {
     return PlayerUtils.createPlayer(
         context = context,
         bufferOverride = PlayerUtils.PlaybackBufferOverride(

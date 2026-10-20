@@ -19,6 +19,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.jellycine.app.ui.components.common.InlineTrailerPlayer
+import com.jellycine.app.ui.components.common.createInlineExoPlayer
 import com.jellycine.data.model.ClipFeedItem
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.RemoteTrailerUrl
@@ -51,6 +54,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val FEED_MAX_HEIGHT_PHONE = 720
+private const val PLAYER_POOL_SIZE = 2
 
 @Composable
 fun ClipsFeedScreen(
@@ -63,6 +67,13 @@ fun ClipsFeedScreen(
     val feedMaxHeight = if (isTablet) Int.MAX_VALUE else FEED_MAX_HEIGHT_PHONE
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val scope = rememberCoroutineScope()
+    val players = remember { List(PLAYER_POOL_SIZE) { createInlineExoPlayer(context) } }
+
+    DisposableEffect(players) {
+        onDispose {
+            players.forEach { it.release() }
+        }
+    }
 
     var clips by remember { mutableStateOf<List<ClipFeedItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -133,6 +144,7 @@ fun ClipsFeedScreen(
                     ClipPage(
                         clip = clip,
                         isActive = pagerState.currentPage == page,
+                        player = players[page % players.size],
                         onCompleted = {
                             if (page + 1 < clips.size) {
                                 scope.launch { pagerState.animateScrollToPage(page + 1) }
@@ -213,6 +225,7 @@ private fun ClipsFeedShimmer(modifier: Modifier = Modifier) {
 private fun ClipPage(
     clip: ClipFeedItem,
     isActive: Boolean,
+    player: ExoPlayer,
     onCompleted: () -> Unit
 ) {
     var expanded by remember(clip.youtubeKey) { mutableStateOf(false) }
@@ -226,6 +239,7 @@ private fun ClipPage(
         )
 
         InlineTrailerPlayer(
+            player = player,
             trailerUrl = clip.youtubeWatchUrl,
             isVisible = isActive,
             showBuiltInMute = false,
