@@ -123,7 +123,7 @@ class MediaRepository(private val context: Context) {
         val authToken: String?,
         val fileExtension: String?,
         val estimatedBytes: Long = 0L,
-        val isTranscodeResume: Boolean = false
+        val supportsByteRangeResume: Boolean = true
     )
 
     data class SubtitleDownloadRequest(
@@ -2003,7 +2003,7 @@ class MediaRepository(private val context: Context) {
                     authToken = accessToken,
                     fileExtension = container,
                     estimatedBytes = estimatedBytes,
-                    isTranscodeResume = startTimeTicks != null && startTimeTicks > 0L
+                    supportsByteRangeResume = false
                 )
             )
         } catch (e: Exception) {

@@ -252,19 +252,13 @@ class DownloadRepository(context: Context) {
 
         val isTranscoded = quality != null && quality.label != TranscodeProfiles.ORIGINAL &&
             quality.maxBitrate != null && quality.maxHeight != null
-        val existingBytes = knownDownloadedBytes(current = current, metadata = metadata)
-        val startTimeTicks = if (isTranscoded && existingBytes > 0L) {
-            val bitrate = metadata?.transcodeBitrate
-                ?: (quality!!.maxBitrate!! + 192_000)
-            (existingBytes * 8L * 10_000_000L) / bitrate.toLong()
-        } else null
         val requestData = if (isTranscoded) {
             mediaRepository.getTranscodedDownloadRequest(
                 itemId = itemId,
                 maxBitrate = quality!!.maxBitrate!!,
                 maxHeight = quality.maxHeight!!,
                 audioStreamIndex = audioStreamIndex,
-                startTimeTicks = startTimeTicks
+                startTimeTicks = null
             ).getOrElse {
                 mediaRepository.getItemDownloadRequest(itemId).getOrElse { fallbackError ->
                     val failureState = ItemDownloadState(
