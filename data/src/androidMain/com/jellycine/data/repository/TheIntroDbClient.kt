@@ -34,8 +34,8 @@ internal class TheIntroDbClient(
 
     @Serializable
     private data class TheIntroDbMediaResponse(
-        @SerialName("tmdb_id")
-        val tmdbId: Long? = null,
+        @SerialName("tvdb_id")
+        val tvdbId: Long? = null,
         val type: String? = null,
         val intro: List<TheIntroDbSegment> = emptyList(),
         val recap: List<TheIntroDbSegment> = emptyList(),
@@ -118,7 +118,7 @@ internal class TheIntroDbClient(
     }
 
     private fun fetchPlaybackSegments(requestParams: TheIntroDbLookupRequest): PlaybackSegments? {
-        val url = "https://api.theintrodb.org/v2/media?tmdb_id=${requestParams.tmdbId}&season=${requestParams.seasonNumber}&episode=${requestParams.episodeNumber}"
+        val url = "https://api.theintrodb.org/v4/media?tmdb_id=${requestParams.tmdbId}&season=${requestParams.seasonNumber}&episode=${requestParams.episodeNumber}&mapping=default"
 
         val request = Request.Builder()
             .url(url)
