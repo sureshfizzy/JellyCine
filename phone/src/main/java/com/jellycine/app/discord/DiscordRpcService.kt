@@ -144,6 +144,7 @@ class DiscordRpcService : Service() {
         private const val EXTRA_IMAGE_URL = "image_url"
 
         fun updatePresence(context: Context, info: NowPlayingInfo) {
+            if (!DiscordRpcManager.isSdkAvailable()) return
             val intent = Intent(context, DiscordRpcService::class.java).apply {
                 action = ACTION_UPDATE
                 putExtra(EXTRA_MEDIA_ID, info.mediaId)

@@ -18,6 +18,11 @@ class DiscordAuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (!DiscordRpcManager.isSdkAvailable()) {
+            finish()
+            return
+        }
+
         if (handleCallbackIfPresent(intent)) return
 
         if (savedInstanceState == null) {

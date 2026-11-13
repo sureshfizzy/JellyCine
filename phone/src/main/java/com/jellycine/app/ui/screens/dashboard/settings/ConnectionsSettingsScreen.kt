@@ -39,27 +39,41 @@ fun ConnectionsSettingsScreen(
     val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
 
-    val discordRpcManager = remember { DiscordRpcManager.getInstance(context) }
-    val isDiscordAppInstalled = remember { discordRpcManager.isDiscordInstalled() }
-    var isDiscordAuthorized by remember { mutableStateOf(discordRpcManager.isAuthorized()) }
+    val discordSdkAvailable = remember { DiscordRpcManager.isSdkAvailable() }
+    val discordRpcManager = remember(discordSdkAvailable) {
+        if (discordSdkAvailable) DiscordRpcManager.getInstance(context) else null
+    }
+    val isDiscordAppInstalled = remember(discordRpcManager) {
+        discordRpcManager?.isDiscordInstalled() == true
+    }
+    var isDiscordAuthorized by remember(discordRpcManager) {
+        mutableStateOf(discordRpcManager?.isAuthorized() == true)
+    }
     val preferences = remember { com.jellycine.shared.preferences.Preferences(context) }
     var discordRpcEnabled by remember { mutableStateOf(preferences.isDiscordRpcEnabled()) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                val wasAuthorized = isDiscordAuthorized
-                isDiscordAuthorized = discordRpcManager.isAuthorized()
-                if (!wasAuthorized && isDiscordAuthorized) {
-                    preferences.setDiscordRpcEnabled(true)
-                    discordRpcEnabled = true
+    DisposableEffect(lifecycleOwner, discordRpcManager) {
+        val manager = discordRpcManager
+        if (manager == null) {
+            onDispose { }
+        } else {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    val wasAuthorized = isDiscordAuthorized
+                    isDiscordAuthorized = manager.isAuthorized()
+                    if (!wasAuthorized && isDiscordAuthorized) {
+                        preferences.setDiscordRpcEnabled(true)
+                        discordRpcEnabled = true
+                    }
                 }
             }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val discordUsername = remember(isDiscordAuthorized) { discordRpcManager.getStoredUsername() }
+    val discordUsername = remember(isDiscordAuthorized, discordRpcManager) {
+        discordRpcManager?.getStoredUsername()
+    }
     var showSeerrDialog by remember { mutableStateOf(false) }
     var showDiscordDialog by remember { mutableStateOf(false) }
 
@@ -104,31 +118,34 @@ fun ConnectionsSettingsScreen(
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(4.dp)) }
+            val discordManager = discordRpcManager
+            if (discordManager != null) {
+                item { Spacer(modifier = Modifier.height(4.dp)) }
 
-            item { SectionLabel(stringResource(R.string.settings_discord)) }
-            item {
-                DiscordConnectionCard(
-                    isAuthorized = isDiscordAuthorized,
-                    onClick = {
-                        if (isDiscordAuthorized) {
-                            showDiscordDialog = true
-                        } else {
-                            context.startActivity(
-                                Intent(context, com.jellycine.app.discord.DiscordAuthActivity::class.java)
-                            )
-                        }
-                    }
-                )
-            }
-            if (!isDiscordAppInstalled) {
+                item { SectionLabel(stringResource(R.string.settings_discord)) }
                 item {
-                    Text(
-                        text = stringResource(R.string.settings_discord_note_app_required),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(start = 4.dp)
+                    DiscordConnectionCard(
+                        isAuthorized = isDiscordAuthorized,
+                        onClick = {
+                            if (isDiscordAuthorized) {
+                                showDiscordDialog = true
+                            } else {
+                                context.startActivity(
+                                    Intent(context, com.jellycine.app.discord.DiscordAuthActivity::class.java)
+                                )
+                            }
+                        }
                     )
+                }
+                if (!isDiscordAppInstalled) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.settings_discord_note_app_required),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -176,7 +193,8 @@ fun ConnectionsSettingsScreen(
         )
     }
 
-    if (showDiscordDialog) {
+    val discordManager = discordRpcManager
+    if (showDiscordDialog && discordManager != null) {
         DiscordConnectionDialog(
             username = discordUsername,
             rpcEnabled = discordRpcEnabled,
@@ -185,7 +203,7 @@ fun ConnectionsSettingsScreen(
                 discordRpcEnabled = enabled
             },
             onDisconnect = {
-                discordRpcManager.disconnect()
+                discordManager.disconnect()
                 preferences.setDiscordRpcEnabled(false)
                 discordRpcEnabled = false
                 isDiscordAuthorized = false

@@ -34,7 +34,7 @@ fun DiscordRpcEffect(
     val isEnabled = preferences.isDiscordRpcEnabled()
     val isAuthorized = rpcManager.isAuthorized()
 
-    if (!isEnabled || !isAuthorized || mediaId == null) return
+    if (!DiscordRpcManager.isSdkAvailable() || !isEnabled || !isAuthorized || mediaId == null) return
 
     LaunchedEffect(mediaId) {
         playerState

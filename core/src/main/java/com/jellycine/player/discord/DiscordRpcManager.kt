@@ -40,6 +40,22 @@ class DiscordRpcManager private constructor(private val context: Context) {
                 instance ?: DiscordRpcManager(context.applicationContext).also { instance = it }
             }
         }
+
+        /** True when this build was compiled with core/libs/discord_partner_sdk.aar. */
+        fun isSdkAvailable(): Boolean = sdkAvailable
+
+        private val sdkAvailable: Boolean = try {
+            Class.forName(
+                "com.discord.socialsdk.DiscordSocialSdkInit",
+                false,
+                DiscordRpcManager::class.java.classLoader
+            )
+            true
+        } catch (_: ClassNotFoundException) {
+            false
+        } catch (_: LinkageError) {
+            false
+        }
     }
 
     private var isInitialized = false
@@ -64,13 +80,13 @@ class DiscordRpcManager private constructor(private val context: Context) {
     }
 
     fun initialize() {
-        if (isInitialized) return
+        if (isInitialized || !isSdkAvailable()) return
         if (!isDiscordInstalled()) return
         val accessToken = encryptedPrefs.getString(KEY_ACCESS_TOKEN, null)
         if (accessToken.isNullOrBlank()) return
         try {
             val activity = activityRef ?: return
-            com.discord.socialsdk.DiscordSocialSdkInit.setEngineActivity(activity)
+            bindEngineActivity(activity)
             System.loadLibrary("discord_bridge")
             isInitialized = nativeInitialize(APPLICATION_ID, accessToken)
         } catch (e: UnsatisfiedLinkError) {
@@ -78,6 +94,11 @@ class DiscordRpcManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Discord SDK initialization error", e)
         }
+    }
+
+    private fun bindEngineActivity(activity: Activity) {
+        val clazz = Class.forName("com.discord.socialsdk.DiscordSocialSdkInit")
+        clazz.getMethod("setEngineActivity", Activity::class.java).invoke(null, activity)
     }
 
     fun isDiscordInstalled(): Boolean {

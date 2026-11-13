@@ -162,6 +162,49 @@ shared/  — Shared UI components and image infrastructure
 
 APK naming: `jellycine-{debug|release}-<version>.apk`
 
+### Discord Rich Presence
+
+Rich Presence shows the title you are playing on your Discord profile. It uses Discord’s Social SDK, shipped as `discord_partner_sdk.aar`.
+
+That file is not in this repository. Discord’s [Social SDK Terms](https://support-dev.discord.com/hc/en-us/articles/30225844245271) allow the SDK inside an application. They do not allow publishing the SDK binary itself.
+
+Official releases are built with the file present, so those APKs include Rich Presence. A clone does not, until you add it.
+
+If the file is missing, the app still build and run. Gradle skips the Discord native library. Settings → Connections shows Seerr only, and playback does not start Rich Presence.
+
+#### Add the SDK
+
+The download is the same SDK for every Discord application. You do not need to change JellyCine’s application id. That id already lives in `DiscordRpcManager`.
+
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and sign in.
+2. Open an application you manage. If you have none, create one and assign it to a [developer team](https://discord.com/developers/teams).
+3. In that app’s sidebar, open **Discord Social SDK → Getting Started**, fill in the form, and submit it. Downloads stay locked until this is done.
+4. Open **Discord Social SDK → Downloads**.
+5. Pick the latest version and download the Android package. The file you need is `discord_partner_sdk.aar`. If the download is a zip, take that `.aar` out of the archive.
+6. Copy it to this exact path, with this exact name:
+
+```text
+core/libs/discord_partner_sdk.aar
+```
+
+7. Sync Gradle, or rebuild from the repo root:
+
+```bash
+./gradlew :phone:assembleDebug
+```
+
+After you install that build, Discord is under **Settings → Connections**. The Discord app has to be installed on the device for the activity to show on your profile.
+
+#### Update the SDK
+
+1. Download a newer Android package from the same Downloads page.
+2. Replace `core/libs/discord_partner_sdk.aar`. Do not rename it.
+3. Clean `:core` so the previous native build is not reused, then rebuild:
+
+```bash
+./gradlew :core:clean :phone:assembleDebug
+```
+
 ---
 
 ## Translating

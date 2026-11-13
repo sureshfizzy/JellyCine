@@ -38,6 +38,7 @@ import com.jellycine.app.ui.screens.auth.ServerSwitchDialogsHost
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.player.discord.DiscordRpcManager
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRequestedItem
 import com.jellycine.shared.R
@@ -71,6 +72,7 @@ fun Settings(
     val uiState by viewModel.uiState.collectAsState()
     val serverSwitchUiState by serverSwitchViewModel.uiState.collectAsState()
     val supportedCodecs = remember(context) { getSupportedCodecsSummary(context) }
+    val discordSdkAvailable = remember { DiscordRpcManager.isSdkAvailable() }
     val listState = rememberLazyListState()
     val serverSwitchDialogsState = rememberServerSwitchDialogsState()
 
@@ -167,7 +169,13 @@ fun Settings(
                     SettingsItem(
                         icon = Icons.Rounded.Link,
                         title = stringResource(R.string.settings_connections),
-                        subtitle = stringResource(R.string.settings_connections_subtitle),
+                        subtitle = stringResource(
+                            if (discordSdkAvailable) {
+                                R.string.settings_connections_subtitle
+                            } else {
+                                R.string.settings_seerr
+                            }
+                        ),
                         accentColor = Color(0xFF8B5CF6),
                         onClick = onNavigateToConnections
                     )

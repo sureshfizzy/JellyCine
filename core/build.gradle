@@ -2,6 +2,15 @@ plugins {
     id 'com.android.library'
 }
 
+// Discord does not allow publishing this binary. See README.md.
+def discordSdkAar = file('libs/discord_partner_sdk.aar')
+def hasDiscordSdk = discordSdkAar.exists()
+if (hasDiscordSdk) {
+    logger.lifecycle("Discord Social SDK found. Rich Presence is enabled.")
+} else {
+    logger.lifecycle("Discord Social SDK missing. Rich Presence is disabled. See README.md.")
+}
+
 android {
     namespace = 'com.jellycine.core'
     compileSdk = 37
@@ -18,22 +27,26 @@ android {
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
 
-        externalNativeBuild {
-            cmake {
-                cppFlags '-std=c++20'
+        if (hasDiscordSdk) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags '-std=c++20'
+                }
             }
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path 'src/main/cpp/CMakeLists.txt'
-            version '3.22.1'
+    if (hasDiscordSdk) {
+        externalNativeBuild {
+            cmake {
+                path 'src/main/cpp/CMakeLists.txt'
+                version '3.22.1'
+            }
         }
     }
 
     buildFeatures {
-        prefab true
+        prefab = hasDiscordSdk
     }
 
     buildTypes {
@@ -77,8 +90,9 @@ dependencies {
     implementation 'com.squareup.okhttp3:okhttp:5.5.0'
     implementation 'com.github.TeamNewPipe:NewPipeExtractor:0.26.5'
 
-    // Discord Social SDK
-    implementation files('libs/discord_partner_sdk.aar')
+    if (hasDiscordSdk) {
+        implementation files(discordSdkAar)
+    }
 
     // Encrypted SharedPreferences for Discord auth tokens
     implementation 'androidx.security:security-crypto:1.1.0'
