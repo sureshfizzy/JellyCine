@@ -1173,7 +1173,6 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getTrendingClips(): List<com.jellycine.data.model.ClipFeedItem> =
         withContext(Dispatchers.IO) {
-            if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
             runCatching { tmdbApi.fetchTrendingClips() }.getOrDefault(emptyList())
         }
 
