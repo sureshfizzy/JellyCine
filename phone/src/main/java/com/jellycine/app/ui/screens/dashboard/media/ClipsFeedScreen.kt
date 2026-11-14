@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import coil3.compose.AsyncImage
 import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.createInlineExoPlayer
@@ -60,16 +61,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val FEED_MAX_HEIGHT_PHONE = 720
-private const val PLAYER_POOL_SIZE = 2
+private const val PLAYER_POOL_SIZE = 3
+private const val FIRST_BATCH_TITLES = 8
 private const val MAX_TITLES_PER_BATCH = 30
 
-private suspend fun MediaRepository.loadShorts(): List<ClipFeedItem> = coroutineScope {
+private suspend fun MediaRepository.loadShorts(maxVideoHeight: Int, titleLimit: Int = MAX_TITLES_PER_BATCH): List<ClipFeedItem> = coroutineScope {
     val gate = Semaphore(6)
     getTrendingClips()
-        .take(MAX_TITLES_PER_BATCH)
+        .take(titleLimit)
         .map { title ->
             async {
-                gate.withPermit { RemoteTrailerUrl.searchShortClipKeys(title.title) }
+                gate.withPermit { RemoteTrailerUrl.searchShortClipKeys(title.title, maxVideoHeight) }
                     .map { key -> title.copy(youtubeKey = key) }
             }
         }
@@ -106,14 +108,20 @@ fun ClipsFeedScreen(
     LaunchedEffect(Unit) {
         if (clips.isNotEmpty()) return@LaunchedEffect
         isLoading = true
-        val first = withContext(Dispatchers.IO) { mediaRepository.loadShorts() }
+        val first = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight, FIRST_BATCH_TITLES) }
         if (first.isEmpty()) {
             error = "Couldn't load clips. Check your connection and try again."
         } else {
             clips = first
-            first.firstOrNull()?.let { launch { RemoteTrailerUrl.prefetch(it.youtubeWatchUrl, feedMaxHeight) } }
         }
         isLoading = false
+        if (first.isNotEmpty()) {
+            isAppending = true
+            val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight) }
+            val existing = clips.mapTo(HashSet()) { it.youtubeKey }
+            clips = clips + more.filter { it.youtubeKey !in existing }
+            isAppending = false
+        }
     }
 
     val pagerState = rememberPagerState(pageCount = { clips.size })
@@ -127,7 +135,7 @@ fun ClipsFeedScreen(
             }
             if (current >= clips.size - 3 && !isAppending) {
                 isAppending = true
-                val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts() }
+                val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight) }
                 if (more.isNotEmpty()) {
                     val existing = clips.mapTo(HashSet()) { it.youtubeKey }
                     clips = clips + more.filter { it.youtubeKey !in existing }
@@ -164,15 +172,17 @@ fun ClipsFeedScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     val clip = clips[page]
+                    val advance = {
+                        if (page + 1 < clips.size && pagerState.currentPage == page) {
+                            scope.launch { pagerState.animateScrollToPage(page + 1) }
+                        }
+                    }
                     ClipPage(
                         clip = clip,
                         isActive = pagerState.currentPage == page,
+                        loadEnabled = abs(pagerState.currentPage - page) <= 1,
                         player = players[page % players.size],
-                        onCompleted = {
-                            if (page + 1 < clips.size) {
-                                scope.launch { pagerState.animateScrollToPage(page + 1) }
-                            }
-                        }
+                        onCompleted = advance
                     )
                 }
             }
@@ -248,6 +258,7 @@ private fun ClipsFeedShimmer(modifier: Modifier = Modifier) {
 private fun ClipPage(
     clip: ClipFeedItem,
     isActive: Boolean,
+    loadEnabled: Boolean,
     player: ExoPlayer,
     onCompleted: () -> Unit
 ) {
@@ -265,6 +276,7 @@ private fun ClipPage(
             player = player,
             trailerUrl = clip.youtubeWatchUrl,
             isVisible = isActive,
+            loadEnabled = loadEnabled,
             showBuiltInMute = false,
             modifier = Modifier.fillMaxSize(),
             onPlaybackCompleted = onCompleted

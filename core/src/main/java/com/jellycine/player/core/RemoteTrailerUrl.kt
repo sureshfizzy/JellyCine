@@ -155,25 +155,39 @@ object RemoteTrailerUrl {
         audioUrl
     }
 
-    suspend fun searchShortClipKeys(title: String, maxResults: Int = 2): List<String> = withContext(Dispatchers.IO) {
+    /** Finds up to [maxResults] short clips for [title] that are confirmed playable (stream resolves). */
+    suspend fun searchShortClipKeys(
+        title: String,
+        maxVideoHeight: Int = Int.MAX_VALUE,
+        maxResults: Int = 2
+    ): List<String> = withContext(Dispatchers.IO) {
         val titleNorm = normalizeForMatch(title)
         if (titleNorm.isBlank()) return@withContext emptyList()
         initExtractor()
-        val keys = LinkedHashSet<String>()
+        val checked = HashSet<String>()
+        val playable = ArrayList<String>()
         for (suffix in SHORT_QUERY_SUFFIXES) {
-            runCatching {
+            val candidates = runCatching {
                 ServiceList.YouTube.getSearchExtractor("$title $suffix").apply { fetchPage() }
                     .initialPage.items
                     .filterIsInstance<StreamInfoItem>()
                     .filter { it.duration in 1..MAX_SHORT_DURATION_S }
                     .filter { normalizeForMatch(it.name.orEmpty()).containsPhrase(titleNorm) }
-                    .mapNotNullTo(keys) { item ->
+                    .mapNotNull { item ->
                         item.url?.substringAfter("v=", "")?.substringBefore('&')?.takeIf { it.isNotBlank() }
                     }
+            }.getOrDefault(emptyList())
+
+            for (key in candidates) {
+                if (!checked.add(key)) continue
+                val isPlayable = runCatching {
+                    resolve("https://www.youtube.com/watch?v=$key", maxVideoHeight)
+                }.isSuccess
+                if (isPlayable) playable += key
+                if (playable.size >= maxResults) return@withContext playable
             }
-            if (keys.size >= maxResults) break
         }
-        keys.take(maxResults)
+        playable
     }
 
     private fun normalizeForMatch(value: String): String =

@@ -25,6 +25,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
@@ -39,6 +42,7 @@ import kotlinx.coroutines.*
 fun InlineTrailerPlayer(
     trailerUrl: String,
     isVisible: Boolean,
+    loadEnabled: Boolean = true,
     player: ExoPlayer? = null,
     modifier: Modifier = Modifier,
     showBuiltInMute: Boolean = true,
@@ -55,10 +59,11 @@ fun InlineTrailerPlayer(
     val playbackCompleted = remember { mutableStateOf(false) }
     val isLoading = remember { mutableStateOf(true) }
     val errorState = remember { mutableStateOf<Throwable?>(null) }
-    val isPlayerReady = remember { mutableStateOf(false) }
     val hasRenderedFirstFrame = remember { mutableStateOf(false) }
     var internalMuted by rememberSaveable { mutableStateOf(false) }
     val isMuted = mutedOverride ?: internalMuted
+    val currentIsVisible by rememberUpdatedState(isVisible)
+    val ownsPlayer = remember(trailerUrl) { mutableStateOf(activePlayer.currentMediaItem?.mediaId == trailerUrl) }
     val shouldBeVisible = isVisible && hasRenderedFirstFrame.value
     val playerAlpha by animateFloatAsState(
         targetValue = if (shouldBeVisible) 1f else 0f,
@@ -72,9 +77,17 @@ fun InlineTrailerPlayer(
         }
     }
 
-    LaunchedEffect(trailerUrl) {
+    LaunchedEffect(trailerUrl, loadEnabled) {
+        if (!loadEnabled) return@LaunchedEffect
+        if (trailerUrl.isNotBlank() && activePlayer.currentMediaItem?.mediaId == trailerUrl &&
+            activePlayer.playbackState != Player.STATE_IDLE
+        ) {
+            ownsPlayer.value = true
+            hasRenderedFirstFrame.value = activePlayer.videoSize.width > 0
+            isLoading.value = false
+            return@LaunchedEffect
+        }
         playbackCompleted.value = false
-        isPlayerReady.value = false
         errorState.value = null
         hasRenderedFirstFrame.value = false
 
@@ -95,26 +108,27 @@ fun InlineTrailerPlayer(
             val resolvedStream = RemoteTrailerUrl.resolve(trailerUrl, maxVideoHeight)
 
             withContext(Dispatchers.Main) {
+                val mediaSourceFactory = unthrottledMediaSourceFactory(context)
+                val videoItem = MediaItem.Builder()
+                    .setMediaId(trailerUrl)
+                    .setUri(resolvedStream.url)
+                    .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
+                    .build()
                 if (!resolvedStream.audioUrl.isNullOrBlank()) {
-                    val mediaSourceFactory = DefaultMediaSourceFactory(context)
-                    val videoItem = MediaItem.Builder()
-                        .setUri(resolvedStream.url)
-                        .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
-                        .build()
                     val audioItem = MediaItem.Builder()
                         .setUri(resolvedStream.audioUrl)
                         .apply { resolvedStream.audioMimeType?.let { setMimeType(it) } }
                         .build()
-                    val videoSource = mediaSourceFactory.createMediaSource(videoItem)
-                    val audioSource = mediaSourceFactory.createMediaSource(audioItem)
-                    activePlayer.setMediaSource(MergingMediaSource(videoSource, audioSource))
+                    activePlayer.setMediaSource(
+                        MergingMediaSource(
+                            mediaSourceFactory.createMediaSource(videoItem),
+                            mediaSourceFactory.createMediaSource(audioItem)
+                        )
+                    )
                 } else {
-                    val mediaItem = MediaItem.Builder()
-                        .setUri(resolvedStream.url)
-                        .apply { resolvedStream.mimeType?.let { setMimeType(it) } }
-                        .build()
-                    activePlayer.setMediaItem(mediaItem)
+                    activePlayer.setMediaSource(mediaSourceFactory.createMediaSource(videoItem))
                 }
+                ownsPlayer.value = true
                 activePlayer.prepare()
                 activePlayer.playWhenReady = false
                 activePlayer.volume = if (isMuted) 0f else 1f
@@ -130,11 +144,17 @@ fun InlineTrailerPlayer(
 
     DisposableEffect(activePlayer) {
         val listener = object : Player.Listener {
+            private fun owns() = activePlayer.currentMediaItem?.mediaId == trailerUrl
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                ownsPlayer.value = mediaItem?.mediaId == trailerUrl
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
+                if (!owns()) return
                 when (playbackState) {
                     Player.STATE_READY -> {
-                        isPlayerReady.value = true
-                        if (isVisible && !playbackCompleted.value && errorState.value == null) {
+                        if (currentIsVisible && !playbackCompleted.value && errorState.value == null) {
                             activePlayer.playWhenReady = true
                         }
                     }
@@ -148,10 +168,11 @@ fun InlineTrailerPlayer(
             }
 
             override fun onRenderedFirstFrame() {
-                hasRenderedFirstFrame.value = true
+                if (owns()) hasRenderedFirstFrame.value = true
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                if (!owns()) return
                 errorState.value = error
                 onError(error)
             }
@@ -161,15 +182,18 @@ fun InlineTrailerPlayer(
 
         onDispose {
             activePlayer.removeListener(listener)
-            activePlayer.playWhenReady = false
-            activePlayer.pause()
+            if (activePlayer.currentMediaItem?.mediaId == trailerUrl) {
+                activePlayer.playWhenReady = false
+                activePlayer.pause()
+            }
             ownedPlayer?.release()
         }
     }
 
-    LaunchedEffect(isVisible) {
+    LaunchedEffect(isVisible, ownsPlayer.value) {
+        if (!ownsPlayer.value) return@LaunchedEffect
         if (isVisible && !playbackCompleted.value && errorState.value == null) {
-            if (isPlayerReady.value) {
+            if (activePlayer.playbackState == Player.STATE_READY) {
                 withContext(Dispatchers.Main) {
                     activePlayer.playWhenReady = true
                 }
@@ -201,6 +225,7 @@ fun InlineTrailerPlayer(
                 }
             },
             update = { view ->
+                view.player = if (ownsPlayer.value) activePlayer else null
                 view.alpha = playerAlpha
                 view.keepScreenOn = isVisible && !playbackCompleted.value
             },
@@ -228,6 +253,14 @@ fun InlineTrailerPlayer(
         }
     }
 }
+
+@OptIn(UnstableApi::class)
+private fun unthrottledMediaSourceFactory(context: Context) = DefaultMediaSourceFactory(
+    DefaultDataSource.Factory(
+        context,
+        DefaultHttpDataSource.Factory().setDefaultRequestProperties(mapOf("Range" to "bytes=0-"))
+    )
+)
 
 fun createInlineExoPlayer(context: Context): ExoPlayer {
     return PlayerUtils.createPlayer(
