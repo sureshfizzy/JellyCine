@@ -381,15 +381,23 @@ fun Discover(
                         }
                     }
 
-                    error != null -> {
-                        ErrorCard(
-                            message = error.orEmpty(),
-                            onRetry = ::refresh
-                        )
-                    }
-
                     else -> {
-                        EmptyCard()
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            DiscoverFeedPills(
+                                feed = feed,
+                                onFeedChange = { feed = it }
+                            )
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (error != null) {
+                                    ErrorCard(
+                                        message = error.orEmpty(),
+                                        onRetry = ::refresh
+                                    )
+                                } else {
+                                    EmptyCard()
+                                }
+                            }
+                        }
                     }
                 }
             }
