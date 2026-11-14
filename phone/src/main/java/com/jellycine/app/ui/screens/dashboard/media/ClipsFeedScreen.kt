@@ -7,6 +7,25 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import android.content.Intent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.layout.WindowInsets
@@ -67,7 +86,6 @@ import com.jellycine.data.model.ClipFeedItem
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.RemoteTrailerUrl
-import com.jellycine.shared.ui.components.common.ShimmerEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -172,7 +190,7 @@ fun ClipsFeedScreen(
     ) {
         when {
             isLoading && clips.isEmpty() -> {
-                ClipsFeedShimmer()
+                ClipsFeedLoader()
             }
 
             error != null && clips.isEmpty() -> {
@@ -219,58 +237,94 @@ fun ClipsFeedScreen(
     }
 }
 
+private const val LOADER_STEP_MS = 2200L
+private const val LOADER_LAST_STEP_DELAY_MS = 6000L
+private val LOADING_STEPS = listOf(
+    "Finding what's trending this week",
+    "Searching for the best short clips",
+    "Checking which clips are playable",
+    "Cueing up your feed",
+    "Taking a bit longer than usual…"
+)
+
 @Composable
-private fun ClipsFeedShimmer(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize()) {
-        ShimmerEffect(
-            modifier = Modifier.fillMaxSize(),
-            cornerRadius = 0f
-        )
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 118.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            ShimmerEffect(
-                modifier = Modifier.size(58.dp),
-                shape = CircleShape
-            )
-            ShimmerEffect(
-                modifier = Modifier
-                    .width(48.dp)
-                    .height(10.dp),
-                cornerRadius = 4f
-            )
+private fun ClipsFeedLoader(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "clipsLoader")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1300, easing = LinearEasing)),
+        label = "rotation"
+    )
+    val sweep by transition.animateFloat(
+        initialValue = 70f,
+        targetValue = 250f,
+        animationSpec = infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "sweep"
+    )
+    var step by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (step < LOADING_STEPS.lastIndex) {
+            delay(if (step == LOADING_STEPS.lastIndex - 1) LOADER_LAST_STEP_DELAY_MS else LOADER_STEP_MS)
+            step++
         }
+    }
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth(0.72f)
-                .padding(start = 20.dp, bottom = 118.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ShimmerEffect(
-                modifier = Modifier
-                    .fillMaxWidth(0.75f)
-                    .height(24.dp),
-                cornerRadius = 8f
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 3.dp.toPx()
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.1f),
+                        radius = (size.minDimension - stroke) / 2f,
+                        style = Stroke(width = stroke)
+                    )
+                    rotate(rotation) {
+                        drawArc(
+                            brush = Brush.sweepGradient(listOf(Color.Transparent, Color.White)),
+                            startAngle = 0f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = Offset(stroke / 2f, stroke / 2f),
+                            size = Size(size.width - stroke, size.height - stroke),
+                            style = Stroke(width = stroke, cap = StrokeCap.Round)
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = "Loading clips",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
             )
-            ShimmerEffect(
-                modifier = Modifier
-                    .fillMaxWidth(0.4f)
-                    .height(13.dp),
-                cornerRadius = 6f
-            )
-            ShimmerEffect(
-                modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .height(14.dp),
-                cornerRadius = 6f
-            )
+            Spacer(Modifier.height(8.dp))
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = { fadeIn(tween(450)) togetherWith fadeOut(tween(300)) },
+                label = "loaderStep"
+            ) { index ->
+                Text(
+                    text = LOADING_STEPS[index],
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 32.dp)
+                )
+            }
         }
     }
 }
