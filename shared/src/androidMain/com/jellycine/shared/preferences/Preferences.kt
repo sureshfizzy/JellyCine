@@ -30,6 +30,21 @@ class Preferences(context: Context) {
         private const val KEY_THEME_MUSIC_MODE = "theme_music_mode"
         private const val KEY_THEME_MUSIC_VOLUME = "theme_music_volume"
 
+        private const val KEY_CLIPS_REMEMBER_MUTE = "clips_remember_mute"
+        private const val KEY_CLIPS_MUTED = "clips_muted"
+        private const val KEY_CLIPS_MAX_QUALITY = "clips_max_quality"
+        private const val KEY_CLIPS_WIFI_ONLY = "clips_wifi_only"
+        private const val KEY_CLIPS_CONTENT_TYPE = "clips_content_type"
+        private const val KEY_CLIPS_TRENDING_WINDOW = "clips_trending_window"
+        private const val KEY_CLIPS_EXCLUDED_GENRES = "clips_excluded_genres"
+
+        const val CLIPS_QUALITY_AUTO = 0
+        const val CLIPS_CONTENT_ALL = "all"
+        const val CLIPS_CONTENT_MOVIE = "movie"
+        const val CLIPS_CONTENT_TV = "tv"
+        const val CLIPS_WINDOW_DAY = "day"
+        const val CLIPS_WINDOW_WEEK = "week"
+
         const val FEATURE_CAROUSEL_HEIGHT_LARGE = "large"
         const val FEATURE_CAROUSEL_HEIGHT_MEDIUM = "medium"
         const val FEATURE_CAROUSEL_HEIGHT_SMALL = "small"
@@ -363,6 +378,70 @@ class Preferences(context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
+
+    private fun <T> clipsFlow(vararg keys: String, read: () -> T): Flow<T> = callbackFlow {
+        trySend(read())
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key in keys) trySend(read())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
+    fun isClipsRememberMuteEnabled(): Boolean = prefs.getBoolean(KEY_CLIPS_REMEMBER_MUTE, true)
+    fun setClipsRememberMuteEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CLIPS_REMEMBER_MUTE, enabled).apply()
+    }
+    fun clipsRememberMuteEnabled(): Flow<Boolean> =
+        clipsFlow(KEY_CLIPS_REMEMBER_MUTE) { isClipsRememberMuteEnabled() }
+
+    fun isClipsMuted(): Boolean = prefs.getBoolean(KEY_CLIPS_MUTED, false)
+    fun setClipsMuted(muted: Boolean) {
+        prefs.edit().putBoolean(KEY_CLIPS_MUTED, muted).apply()
+    }
+
+    fun getClipsMaxQuality(): Int = prefs.getInt(KEY_CLIPS_MAX_QUALITY, CLIPS_QUALITY_AUTO)
+    fun setClipsMaxQuality(height: Int) {
+        prefs.edit().putInt(KEY_CLIPS_MAX_QUALITY, height).apply()
+    }
+    fun clipsMaxQuality(): Flow<Int> = clipsFlow(KEY_CLIPS_MAX_QUALITY) { getClipsMaxQuality() }
+
+    fun isClipsWifiOnly(): Boolean = prefs.getBoolean(KEY_CLIPS_WIFI_ONLY, false)
+    fun setClipsWifiOnly(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CLIPS_WIFI_ONLY, enabled).apply()
+    }
+    fun clipsWifiOnly(): Flow<Boolean> = clipsFlow(KEY_CLIPS_WIFI_ONLY) { isClipsWifiOnly() }
+
+    fun getClipsContentType(): String =
+        when (val v = prefs.getString(KEY_CLIPS_CONTENT_TYPE, CLIPS_CONTENT_ALL)) {
+            CLIPS_CONTENT_MOVIE, CLIPS_CONTENT_TV -> v
+            else -> CLIPS_CONTENT_ALL
+        }
+    fun setClipsContentType(type: String) {
+        prefs.edit().putString(KEY_CLIPS_CONTENT_TYPE, type).apply()
+    }
+    fun clipsContentType(): Flow<String> = clipsFlow(KEY_CLIPS_CONTENT_TYPE) { getClipsContentType() }
+
+    fun getClipsTrendingWindow(): String =
+        if (prefs.getString(KEY_CLIPS_TRENDING_WINDOW, CLIPS_WINDOW_WEEK) == CLIPS_WINDOW_DAY) {
+            CLIPS_WINDOW_DAY
+        } else {
+            CLIPS_WINDOW_WEEK
+        }
+    fun setClipsTrendingWindow(window: String) {
+        prefs.edit().putString(KEY_CLIPS_TRENDING_WINDOW, window).apply()
+    }
+    fun clipsTrendingWindow(): Flow<String> =
+        clipsFlow(KEY_CLIPS_TRENDING_WINDOW) { getClipsTrendingWindow() }
+
+    fun getClipsExcludedGenres(): Set<Int> =
+        prefs.getStringSet(KEY_CLIPS_EXCLUDED_GENRES, emptySet())
+            .orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+    fun setClipsExcludedGenres(ids: Set<Int>) {
+        prefs.edit().putStringSet(KEY_CLIPS_EXCLUDED_GENRES, ids.map { it.toString() }.toSet()).apply()
+    }
+    fun clipsExcludedGenres(): Flow<Set<Int>> =
+        clipsFlow(KEY_CLIPS_EXCLUDED_GENRES) { getClipsExcludedGenres() }
 
     private fun validateThemeMusicMode(mode: String?): String {
         return when (mode) {

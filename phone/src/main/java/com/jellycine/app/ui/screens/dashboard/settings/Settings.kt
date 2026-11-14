@@ -53,6 +53,7 @@ fun Settings(
     onLogout: () -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
+    onNavigateToClipsSettings: () -> Unit = {},
     onNavigateToConnections: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
@@ -197,6 +198,17 @@ fun Settings(
                         subtitle = stringResource(R.string.settings_visual_options),
                         accentColor = Color(0xFF8B5CF6),
                         onClick = onNavigateToInterfaceSettings
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    SettingsItem(
+                        icon = Icons.Rounded.VideoLibrary,
+                        title = stringResource(R.string.settings_clips),
+                        subtitle = stringResource(R.string.settings_clips_subtitle),
+                        accentColor = Color(0xFFEC4899),
+                        onClick = onNavigateToClipsSettings
                     )
                     HorizontalDivider(
                         thickness = 1.dp,

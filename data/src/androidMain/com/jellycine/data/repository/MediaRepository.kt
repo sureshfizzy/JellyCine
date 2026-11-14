@@ -1171,9 +1171,11 @@ class MediaRepository(private val context: Context) {
         tmdbApi.fetchExtras(tmdbType, tmdbId)
     }
 
-    suspend fun getTrendingClips(): List<com.jellycine.data.model.ClipFeedItem> =
+    suspend fun getTrendingClips(
+        filters: com.jellycine.data.model.ClipFeedFilters = com.jellycine.data.model.ClipFeedFilters()
+    ): List<com.jellycine.data.model.ClipFeedItem> =
         withContext(Dispatchers.IO) {
-            runCatching { tmdbApi.fetchTrendingClips() }.getOrDefault(emptyList())
+            runCatching { tmdbApi.fetchTrendingClips(filters) }.getOrDefault(emptyList())
         }
 
     suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {

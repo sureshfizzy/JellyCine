@@ -167,6 +167,7 @@ fun DashboardContainer(
     onNavigateToPlayer: (String) -> Unit = {},
     onNavigateToPlayerSettings: () -> Unit = {},
     onNavigateToInterfaceSettings: () -> Unit = {},
+    onNavigateToClipsSettings: () -> Unit = {},
     onNavigateToConnections: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
     onNavigateToCacheSettings: () -> Unit = {},
@@ -578,6 +579,7 @@ fun DashboardContainer(
                             onLogout = onLogout,
                             onNavigateToPlayerSettings = onNavigateToPlayerSettings,
                             onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
+                            onNavigateToClipsSettings = onNavigateToClipsSettings,
                             onNavigateToConnections = onNavigateToConnections,
                             onNavigateToDownloads = onNavigateToDownloads,
                             onNavigateToCacheSettings = onNavigateToCacheSettings,
@@ -789,7 +791,7 @@ private fun DrawScope.draw3DCurvedNavigationBar(
     val controlPoint2X = snapX(notchCenterX - adjustedCurveWidth * 0.35f)
     val controlPoint3X = snapX(notchCenterX + (notchCenterX - controlPoint2X))
     val controlPoint4X = snapX(notchCenterX + (notchCenterX - controlPoint1X))
-    
+
     val backgroundPath = Path().apply {
         moveTo(0f, topCornerRadius)
         quadraticTo(0f, 0f, topCornerRadius, 0f)
@@ -800,13 +802,13 @@ private fun DrawScope.draw3DCurvedNavigationBar(
             x2 = controlPoint2X, y2 = curveDepth,
             x3 = notchCenterX, y3 = curveDepth
         )
-        
+
         cubicTo(
             x1 = controlPoint3X, y1 = curveDepth,
             x2 = controlPoint4X, y2 = 0f,
             x3 = curveEndX, y3 = 0f
         )
-        
+
         lineTo(width - topCornerRadius, 0f)
         quadraticTo(width, 0f, width, topCornerRadius)
         lineTo(width, height - bottomCornerRadius)
@@ -911,7 +913,7 @@ private fun FloatingSearchButton(
         targetValue = if (isSelected) 16.dp else 8.dp,
         animationSpec = tween(300)
     )
-    
+
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.95f),
         animationSpec = tween(300)
@@ -1049,7 +1051,7 @@ fun PosterCard(
     var isHovered by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    
+
     // Animation states
     val scale by animateFloatAsState(
         targetValue = when {
@@ -1062,7 +1064,7 @@ fun PosterCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val rotationX by animateFloatAsState(
         targetValue = when {
             isPressed -> 8f
@@ -1074,7 +1076,7 @@ fun PosterCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val rotationY by animateFloatAsState(
         targetValue = when {
             isPressed -> -3f
@@ -1086,7 +1088,7 @@ fun PosterCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val elevation by animateDpAsState(
         targetValue = when {
             isPressed -> 2.dp
@@ -1147,7 +1149,7 @@ fun ListItem(
             stiffness = Spring.StiffnessHigh
         )
     )
-    
+
     val rotationX by animateFloatAsState(
         targetValue = if (isPressed) 1f else 0f,
         animationSpec = spring(

@@ -155,3 +155,96 @@ fun AmoledSelectionDialog(
         }
     }
 }
+
+@Composable
+fun AmoledMultiSelectionDialog(
+    title: String,
+    options: List<SelectionOption>,
+    selectedValues: Set<String>,
+    accentColor: Color,
+    onSelectionChanged: (Set<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AmoledDialogFrame(
+        dismissOnRequest = true,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 340.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                options.forEach { option ->
+                    val isSelected = option.value in selectedValues
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = if (isSelected) accentColor.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.04f),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) accentColor.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable {
+                                onSelectionChanged(
+                                    if (isSelected) selectedValues - option.value else selectedValues + option.value
+                                )
+                            }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = option.label,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isSelected) accentColor else Color.White
+                            )
+                            if (option.description.isNotEmpty()) {
+                                Text(
+                                    text = option.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .background(color = accentColor, shape = CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

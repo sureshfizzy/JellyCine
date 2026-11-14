@@ -28,6 +28,7 @@ import com.jellycine.app.ui.screens.admin.ServerInfoScreen
 import com.jellycine.app.ui.screens.dashboard.settings.AboutScreen
 import com.jellycine.app.ui.screens.dashboard.settings.PlayerSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
+import com.jellycine.app.ui.screens.dashboard.settings.ClipsSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.app.ui.screens.screentime.ScreenTimeScreen
@@ -53,7 +54,7 @@ fun AppNavigation() {
     val authStateManager = remember { AuthStateManager.getInstance(context) }
 
     var startDestination by remember { mutableStateOf<String?>(null) }
-    
+
     LaunchedEffect(Unit) {
         val isAuthenticated = authStateManager.checkAuthenticationState()
         startDestination = if (isAuthenticated) "dashboard" else "auth"
@@ -217,6 +218,9 @@ fun AppNavigation() {
                     },
                     onNavigateToInterfaceSettings = {
                         navController.navigate("interface_settings")
+                    },
+                    onNavigateToClipsSettings = {
+                        navController.navigate("clips_settings")
                     },
                     onNavigateToConnections = {
                         navController.navigate("connections_settings")
@@ -500,6 +504,18 @@ fun AppNavigation() {
                 exitTransition = { textExitTransition(400) }
             ) {
                 InterfaceSettingsScreen(
+                    onBackPressed = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(
+                "clips_settings",
+                enterTransition = { textTransition(500) },
+                exitTransition = { textExitTransition(400) }
+            ) {
+                ClipsSettingsScreen(
                     onBackPressed = {
                         navController.popBackStack()
                     }

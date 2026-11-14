@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">JellyCine</string>
-    
+
     <!-- General -->
     <string name="loading">Loading…</string>
     <string name="error">Error</string>
@@ -11,7 +11,7 @@
     <string name="edit">Edit</string>
     <string name="search">Search</string>
     <string name="settings">Settings</string>
-    
+
     <!-- Server Connection -->
     <string name="server_url">Server URL</string>
     <string name="server_url_hint">https://your-jellyfin-server.com</string>
@@ -20,7 +20,7 @@
     <string name="connection_failed">Connection failed</string>
     <string name="invalid_server_url">Invalid server URL</string>
     <string name="server_not_found">Server not found</string>
-    
+
     <!-- Authentication -->
     <string name="username">Username</string>
     <string name="password">Password</string>
@@ -70,14 +70,14 @@
     <string name="auth_error_server_cannot_find">Cannot find this server. Check the URL and your network.</string>
     <string name="auth_error_server_cannot_connect">Cannot connect to the server. Check if it is online.</string>
     <string name="auth_error_server_generic">Connection failed. Please try again.</string>
-    
+
     <!-- Navigation -->
     <string name="home">Home</string>
     <string name="libraries">Libraries</string>
     <string name="favorites">Favorites</string>
     <string name="downloads">Downloads</string>
     <string name="profile">Profile</string>
-    
+
     <!-- Media -->
     <string name="movies">Movies</string>
     <string name="tv_shows">TV Shows</string>
@@ -95,7 +95,7 @@
     <string name="unwatched">Unwatched</string>
     <string name="favorite">Favorite</string>
     <string name="unfavorite">Unfavorite</string>
-    
+
     <!-- Content Descriptions -->
     <string name="cd_poster">Poster</string>
     <string name="cd_backdrop">Backdrop</string>
@@ -576,6 +576,35 @@
     <string name="interface_seerr_studios_subtitle">Show the Studios section on the Home screen.</string>
     <string name="interface_seerr_networks">Networks</string>
     <string name="interface_seerr_networks_subtitle">Show the Networks section on the Home screen.</string>
+
+    <!-- Clips settings -->
+    <string name="settings_clips">Clips</string>
+    <string name="settings_clips_subtitle">Feed content, quality and sound</string>
+    <string name="clips_section_playback">Playback</string>
+    <string name="clips_section_content">Content</string>
+    <string name="clips_remember_mute">Remember mute</string>
+    <string name="clips_remember_mute_subtitle">Keep clips muted or unmuted between sessions.</string>
+    <string name="clips_wifi_only">Wi-Fi only</string>
+    <string name="clips_wifi_only_subtitle">Don\'t load clips on mobile data.</string>
+    <string name="clips_max_quality">Maximum quality</string>
+    <string name="clips_quality_auto">Auto</string>
+    <string name="clips_content_type">Content type</string>
+    <string name="clips_content_all">Both</string>
+    <string name="clips_content_movies">Movies</string>
+    <string name="clips_content_shows">Shows</string>
+    <string name="clips_trending_window">Trending</string>
+    <string name="clips_window_today">Today</string>
+    <string name="clips_window_week">This week</string>
+    <string name="clips_exclude_genres">Hide genres</string>
+    <string name="clips_exclude_genres_subtitle">Clips from selected genres are skipped.</string>
+    <string name="clips_genre_animation">Animation</string>
+    <string name="clips_genre_comedy">Comedy</string>
+    <string name="clips_genre_documentary">Documentary</string>
+    <string name="clips_genre_family">Family</string>
+    <string name="clips_genre_horror">Horror</string>
+    <string name="clips_genre_romance">Romance</string>
+    <string name="clips_genre_reality">Reality</string>
+    <string name="clips_genre_kids">Kids</string>
 
     <!-- Screen Time -->
     <string name="settings_screen_time">Screen Time</string>

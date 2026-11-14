@@ -82,7 +82,11 @@ import kotlin.math.abs
 import coil3.compose.AsyncImage
 import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.createInlineExoPlayer
+import com.jellycine.data.model.ClipFeedFilters
 import com.jellycine.data.model.ClipFeedItem
+import com.jellycine.data.network.NetworkModule
+import com.jellycine.shared.preferences.Preferences
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.RemoteTrailerUrl
@@ -101,9 +105,13 @@ private val FLOATING_NAV_HEIGHT = 68.dp + 20.dp + 8.dp
 private const val FIRST_BATCH_TITLES = 8
 private const val MAX_TITLES_PER_BATCH = 30
 
-private suspend fun MediaRepository.loadShorts(maxVideoHeight: Int, titleLimit: Int = MAX_TITLES_PER_BATCH): List<ClipFeedItem> = coroutineScope {
+private suspend fun MediaRepository.loadShorts(
+    maxVideoHeight: Int,
+    filters: ClipFeedFilters,
+    titleLimit: Int = MAX_TITLES_PER_BATCH
+): List<ClipFeedItem> = coroutineScope {
     val gate = Semaphore(6)
-    getTrendingClips()
+    getTrendingClips(filters)
         .take(titleLimit)
         .map { title ->
             async {
@@ -125,7 +133,33 @@ fun ClipsFeedScreen(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
-    val feedMaxHeight = if (isTablet) Int.MAX_VALUE else FEED_MAX_HEIGHT_PHONE
+    val preferences = remember { Preferences(context) }
+    val maxQuality by preferences.clipsMaxQuality()
+        .collectAsStateWithLifecycle(initialValue = preferences.getClipsMaxQuality())
+    val wifiOnly by preferences.clipsWifiOnly()
+        .collectAsStateWithLifecycle(initialValue = preferences.isClipsWifiOnly())
+    val contentType by preferences.clipsContentType()
+        .collectAsStateWithLifecycle(initialValue = preferences.getClipsContentType())
+    val trendingWindow by preferences.clipsTrendingWindow()
+        .collectAsStateWithLifecycle(initialValue = preferences.getClipsTrendingWindow())
+    val language = configuration.locales[0].toLanguageTag().takeIf { it != "und" } ?: "en-US"
+    val excludedGenres by preferences.clipsExcludedGenres()
+        .collectAsStateWithLifecycle(initialValue = preferences.getClipsExcludedGenres())
+    val rememberMute by preferences.clipsRememberMuteEnabled()
+        .collectAsStateWithLifecycle(initialValue = preferences.isClipsRememberMuteEnabled())
+    val feedMaxHeight = when {
+        maxQuality > 0 -> maxQuality
+        isTablet -> Int.MAX_VALUE
+        else -> FEED_MAX_HEIGHT_PHONE
+    }
+    val filters = remember(contentType, trendingWindow, language, excludedGenres) {
+        ClipFeedFilters(
+            window = trendingWindow,
+            mediaType = contentType,
+            language = language,
+            excludedGenreIds = excludedGenres
+        )
+    }
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
     val scope = rememberCoroutineScope()
     val players = remember { List(PLAYER_POOL_SIZE) { createInlineExoPlayer(context) } }
@@ -140,12 +174,23 @@ fun ClipsFeedScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isAppending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var muted by rememberSaveable { mutableStateOf(false) }
+    var muted by rememberSaveable {
+        mutableStateOf(if (preferences.isClipsRememberMuteEnabled()) preferences.isClipsMuted() else false)
+    }
 
-    LaunchedEffect(Unit) {
-        if (clips.isNotEmpty()) return@LaunchedEffect
+    LaunchedEffect(filters, feedMaxHeight, wifiOnly) {
+        clips = emptyList()
+        error = null
+        isAppending = false
         isLoading = true
-        val first = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight, FIRST_BATCH_TITLES) }
+        if (wifiOnly && !NetworkModule.hasLocalNetworkTransport(context)) {
+            error = "Clips are set to Wi-Fi only. Connect to Wi-Fi or change this in Settings."
+            isLoading = false
+            return@LaunchedEffect
+        }
+        val first = withContext(Dispatchers.IO) {
+            mediaRepository.loadShorts(feedMaxHeight, filters, FIRST_BATCH_TITLES)
+        }
         if (first.isEmpty()) {
             error = "Couldn't load clips. Check your connection and try again."
         } else {
@@ -154,7 +199,7 @@ fun ClipsFeedScreen(
         isLoading = false
         if (first.isNotEmpty()) {
             isAppending = true
-            val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight) }
+            val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight, filters) }
             val existing = clips.mapTo(HashSet()) { it.youtubeKey }
             clips = clips + more.filter { it.youtubeKey !in existing }
             isAppending = false
@@ -163,7 +208,7 @@ fun ClipsFeedScreen(
 
     val pagerState = rememberPagerState(pageCount = { clips.size })
 
-    LaunchedEffect(pagerState, clips) {
+    LaunchedEffect(pagerState, clips, filters, feedMaxHeight) {
         snapshotFlow { pagerState.currentPage }.collect { current ->
             for (offset in 1..2) {
                 clips.getOrNull(current + offset)?.let { ahead ->
@@ -172,7 +217,7 @@ fun ClipsFeedScreen(
             }
             if (current >= clips.size - 3 && !isAppending) {
                 isAppending = true
-                val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight) }
+                val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts(feedMaxHeight, filters) }
                 if (more.isNotEmpty()) {
                     val existing = clips.mapTo(HashSet()) { it.youtubeKey }
                     clips = clips + more.filter { it.youtubeKey !in existing }
@@ -220,7 +265,10 @@ fun ClipsFeedScreen(
                         loadEnabled = abs(pagerState.currentPage - page) <= 1,
                         player = players[page % players.size],
                         muted = muted,
-                        onToggleMute = { muted = !muted },
+                        onToggleMute = {
+                            muted = !muted
+                            if (rememberMute) preferences.setClipsMuted(muted)
+                        },
                         onCompleted = advance
                     )
                 }
@@ -240,7 +288,7 @@ fun ClipsFeedScreen(
 private const val LOADER_STEP_MS = 2200L
 private const val LOADER_LAST_STEP_DELAY_MS = 6000L
 private val LOADING_STEPS = listOf(
-    "Finding what's trending this week",
+    "Finding what's trending",
     "Searching for the best short clips",
     "Checking which clips are playable",
     "Cueing up your feed",

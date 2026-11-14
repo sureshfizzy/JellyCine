@@ -22,3 +22,10 @@ data class ClipFeedItem(
     val genreLine: String
         get() = genres.take(3).joinToString(" · ")
 }
+/** Server-side filters applied when fetching the clips feed from TMDB. */
+data class ClipFeedFilters(
+    val window: String = "week",
+    val mediaType: String = "all",
+    val language: String = "en-US",
+    val excludedGenreIds: Set<Int> = emptySet()
+)

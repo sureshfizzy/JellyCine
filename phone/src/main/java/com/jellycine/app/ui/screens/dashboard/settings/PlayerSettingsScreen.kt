@@ -782,7 +782,7 @@ fun SubtitleSettingsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun topbar(
+internal fun topbar(
     title: String,
     onBackPressed: () -> Unit
 ) {
@@ -831,7 +831,7 @@ private fun SettingsSection(
 }
 
 @Composable
-private fun SettingsDivider() {
+internal fun SettingsDivider() {
     HorizontalDivider(
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -839,7 +839,7 @@ private fun SettingsDivider() {
 }
 
 @Composable
-private fun SwitchSettingsItem(
+internal fun SwitchSettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -909,7 +909,7 @@ private fun ClickableSettingsItem(
 
 
 @Composable
-private fun BaseSettingsItem(
+internal fun BaseSettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
@@ -1134,7 +1134,7 @@ private fun PercentageSliderSettingsItem(
 
 
 @Composable
-private fun SelectionDialogSettingsItem(
+internal fun SelectionDialogSettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,

@@ -1,5 +1,6 @@
 package com.jellycine.data.api
 
+import com.jellycine.data.model.ClipFeedFilters
 import com.jellycine.data.model.ClipFeedItem
 import com.jellycine.data.model.MediaExtra
 import com.jellycine.data.model.TmdbFindResponse
@@ -108,17 +109,24 @@ internal class TmdbApi(
     private suspend fun fetchTrendingClipsPage(
         page: Int,
         genreMap: Map<Int, String>,
-        window: String = "week"
+        filters: ClipFeedFilters
     ): List<ClipFeedItem> {
+        val path = when (filters.mediaType) {
+            "movie", "tv" -> filters.mediaType
+            else -> "all"
+        }
+        val window = if (filters.window == "day") "day" else "week"
         val trending = runCatching {
-            client.get("https://api.themoviedb.org/3/trending/all/$window") {
+            client.get("https://api.themoviedb.org/3/trending/$path/$window") {
                 parameter("api_key", apiKey)
                 parameter("page", page)
-                parameter("language", "en-US")
+                parameter("language", filters.language)
             }.body<TmdbTrendingResponse>().results
         }.getOrDefault(emptyList())
         return trending
+            .map { if (it.mediaType == null && path != "all") it.copy(mediaType = path) else it }
             .filter { it.id > 0 && (it.mediaType == "movie" || it.mediaType == "tv") }
+            .filter { title -> title.genreIds.none { it in filters.excludedGenreIds } }
             .mapNotNull { title ->
                 val name = title.title?.takeIf { it.isNotBlank() }
                     ?: title.name?.takeIf { it.isNotBlank() }
@@ -137,14 +145,23 @@ internal class TmdbApi(
 
     private val usedTrendingPages = mutableSetOf<Int>()
 
-    suspend fun fetchTrendingClips(): List<ClipFeedItem> = coroutineScope {
+    private var usedPagesKey: Pair<String, String>? = null
+
+    suspend fun fetchTrendingClips(
+        filters: ClipFeedFilters = ClipFeedFilters()
+    ): List<ClipFeedItem> = coroutineScope {
+        val key = filters.window to filters.mediaType
+        if (usedPagesKey != key) {
+            usedPagesKey = key
+            usedTrendingPages.clear()
+        }
         val pool = (TRENDING_PAGE_RANGE.toSet() - usedTrendingPages).ifEmpty {
             usedTrendingPages.clear()
             TRENDING_PAGE_RANGE.toSet()
         }
         val pages = pool.shuffled().take(PAGES_PER_BATCH).also { usedTrendingPages += it }
         val genreMap = genreMap()
-        pages.map { async { fetchTrendingClipsPage(page = it, genreMap = genreMap) } }
+        pages.map { async { fetchTrendingClipsPage(page = it, genreMap = genreMap, filters = filters) } }
             .awaitAll()
             .flatten()
             .distinctBy { it.tmdbId }
