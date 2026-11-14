@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 object RemoteTrailerUrl {
     private const val AUDIO_CACHE_TTL_MS = 30 * 60 * 1000L
     private const val STREAM_CACHE_TTL_MS = 60 * 60 * 1000L
+    private const val MAX_SHORT_DURATION_S = 60L
+    private val SHORT_QUERY_SUFFIXES = listOf("clip", "#shorts")
     private const val MIN_THEME_DURATION_S = 20L
     private const val MAX_THEME_DURATION_S = 600L
     private val THEME_KEYWORDS = listOf(
@@ -151,6 +153,27 @@ object RemoteTrailerUrl {
         val audioUrl = getAudioUrl(videoUrl) ?: return@withContext null
         audioUrlCache[trimmedQuery] = CachedAudio(audioUrl, System.currentTimeMillis())
         audioUrl
+    }
+
+    suspend fun searchShortClipKeys(title: String, maxResults: Int = 2): List<String> = withContext(Dispatchers.IO) {
+        val titleNorm = normalizeForMatch(title)
+        if (titleNorm.isBlank()) return@withContext emptyList()
+        initExtractor()
+        val keys = LinkedHashSet<String>()
+        for (suffix in SHORT_QUERY_SUFFIXES) {
+            runCatching {
+                ServiceList.YouTube.getSearchExtractor("$title $suffix").apply { fetchPage() }
+                    .initialPage.items
+                    .filterIsInstance<StreamInfoItem>()
+                    .filter { it.duration in 1..MAX_SHORT_DURATION_S }
+                    .filter { normalizeForMatch(it.name.orEmpty()).containsPhrase(titleNorm) }
+                    .mapNotNullTo(keys) { item ->
+                        item.url?.substringAfter("v=", "")?.substringBefore('&')?.takeIf { it.isNotBlank() }
+                    }
+            }
+            if (keys.size >= maxResults) break
+        }
+        keys.take(maxResults)
     }
 
     private fun normalizeForMatch(value: String): String =

@@ -7,14 +7,11 @@ data class ClipFeedItem(
     val tmdbId: String,
     val mediaType: String,
     val title: String,
-    val youtubeKey: String,
-    val clipName: String,
-    val clipType: String,
+    val youtubeKey: String = "",
     val backdropUrl: String? = null,
     val posterUrl: String? = null,
     val overview: String? = null,
-    val genres: List<String> = emptyList(),
-    val publishedAt: String? = null
+    val genres: List<String> = emptyList()
 ) {
     val youtubeWatchUrl: String
         get() = "https://www.youtube.com/watch?v=$youtubeKey"

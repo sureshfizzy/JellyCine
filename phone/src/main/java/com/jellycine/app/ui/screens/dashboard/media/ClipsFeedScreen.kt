@@ -46,15 +46,38 @@ import coil3.compose.AsyncImage
 import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.createInlineExoPlayer
 import com.jellycine.data.model.ClipFeedItem
+import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.player.core.RemoteTrailerUrl
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val FEED_MAX_HEIGHT_PHONE = 720
 private const val PLAYER_POOL_SIZE = 2
+private const val MAX_TITLES_PER_BATCH = 30
+
+private suspend fun MediaRepository.loadShorts(): List<ClipFeedItem> = coroutineScope {
+    val gate = Semaphore(6)
+    getTrendingClips()
+        .take(MAX_TITLES_PER_BATCH)
+        .map { title ->
+            async {
+                gate.withPermit { RemoteTrailerUrl.searchShortClipKeys(title.title) }
+                    .map { key -> title.copy(youtubeKey = key) }
+            }
+        }
+        .awaitAll()
+        .flatten()
+        .distinctBy { it.youtubeKey }
+        .shuffled()
+}
 
 @Composable
 fun ClipsFeedScreen(
@@ -83,7 +106,7 @@ fun ClipsFeedScreen(
     LaunchedEffect(Unit) {
         if (clips.isNotEmpty()) return@LaunchedEffect
         isLoading = true
-        val first = withContext(Dispatchers.IO) { mediaRepository.getTrendingClips() }
+        val first = withContext(Dispatchers.IO) { mediaRepository.loadShorts() }
         if (first.isEmpty()) {
             error = "Couldn't load clips. Check your connection and try again."
         } else {
@@ -104,7 +127,7 @@ fun ClipsFeedScreen(
             }
             if (current >= clips.size - 3 && !isAppending) {
                 isAppending = true
-                val more = withContext(Dispatchers.IO) { mediaRepository.getTrendingClips() }
+                val more = withContext(Dispatchers.IO) { mediaRepository.loadShorts() }
                 if (more.isNotEmpty()) {
                     val existing = clips.mapTo(HashSet()) { it.youtubeKey }
                     clips = clips + more.filter { it.youtubeKey !in existing }

@@ -10,7 +10,6 @@ import com.jellycine.data.model.TmdbReviewsResponse
 import com.jellycine.data.model.TmdbGenreListResponse
 import com.jellycine.data.model.TmdbTrendingItem
 import com.jellycine.data.model.TmdbTrendingResponse
-import com.jellycine.data.model.TmdbVideo
 import com.jellycine.data.model.TmdbVideosResponse
 import com.jellycine.data.model.toMediaExtras
 import com.jellycine.data.model.toRawVideos
@@ -109,10 +108,8 @@ internal class TmdbApi(
     private suspend fun fetchTrendingClipsPage(
         page: Int,
         genreMap: Map<Int, String>,
-        window: String = "week",
-        maxTitles: Int = 20,
-        maxClipsPerTitle: Int = 2
-    ): List<ClipFeedItem> = coroutineScope {
+        window: String = "week"
+    ): List<ClipFeedItem> {
         val trending = runCatching {
             client.get("https://api.themoviedb.org/3/trending/all/$window") {
                 parameter("api_key", apiKey)
@@ -120,48 +117,22 @@ internal class TmdbApi(
                 parameter("language", "en-US")
             }.body<TmdbTrendingResponse>().results
         }.getOrDefault(emptyList())
+        return trending
             .filter { it.id > 0 && (it.mediaType == "movie" || it.mediaType == "tv") }
-            .take(maxTitles)
-
-        trending
-            .map { title ->
-                async {
-                    val mediaType = title.mediaType ?: return@async emptyList()
-                    val name = title.title?.takeIf { it.isNotBlank() }
-                        ?: title.name?.takeIf { it.isNotBlank() }
-                        ?: return@async emptyList()
-                    val genres = title.genreIds.mapNotNull { genreMap[it] }
-                    fetchVideosRaw(mediaType, title.id.toString())
-                        .filter { video ->
-                            video.site.equals("YouTube", ignoreCase = true) &&
-                                video.official == true &&
-                                !video.key.isNullOrBlank() &&
-                                video.type?.lowercase() in CLIP_FEED_TYPES
-                        }
-                        .distinctBy { it.key }
-                        .sortedBy { clipTypeRank(it.type) }
-                        .take(maxClipsPerTitle)
-                        .map { video ->
-                            ClipFeedItem(
-                                tmdbId = title.id.toString(),
-                                mediaType = mediaType,
-                                title = name,
-                                youtubeKey = video.key!!,
-                                clipName = video.name?.takeIf { it.isNotBlank() } ?: name,
-                                clipType = video.type ?: "Trailer",
-                                backdropUrl = imageUrl(title.backdropPath, "w780"),
-                                posterUrl = imageUrl(title.posterPath, "w342"),
-                                overview = title.overview?.takeIf { it.isNotBlank() },
-                                genres = genres,
-                                publishedAt = video.publishedAt
-                            )
-                        }
-                }
+            .mapNotNull { title ->
+                val name = title.title?.takeIf { it.isNotBlank() }
+                    ?: title.name?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                ClipFeedItem(
+                    tmdbId = title.id.toString(),
+                    mediaType = title.mediaType ?: return@mapNotNull null,
+                    title = name,
+                    backdropUrl = imageUrl(title.backdropPath, "w780"),
+                    posterUrl = imageUrl(title.posterPath, "w342"),
+                    overview = title.overview?.takeIf { it.isNotBlank() },
+                    genres = title.genreIds.mapNotNull { genreMap[it] }
+                )
             }
-            .awaitAll()
-            .flatten()
-            .distinctBy { it.youtubeKey }
-            .shuffled()
     }
 
     private val usedTrendingPages = mutableSetOf<Int>()
@@ -176,7 +147,7 @@ internal class TmdbApi(
         pages.map { async { fetchTrendingClipsPage(page = it, genreMap = genreMap) } }
             .awaitAll()
             .flatten()
-            .distinctBy { it.youtubeKey }
+            .distinctBy { it.tmdbId }
             .shuffled()
     }
 
@@ -201,12 +172,6 @@ internal class TmdbApi(
             .toMap()
     }.getOrDefault(emptyMap())
 
-    private suspend fun fetchVideosRaw(mediaType: String, tmdbId: String): List<TmdbVideo> = runCatching {
-        client.get("https://api.themoviedb.org/3/$mediaType/$tmdbId/videos") {
-            parameter("api_key", apiKey)
-        }.body<TmdbVideosResponse>().results
-    }.getOrDefault(emptyList())
-
     suspend fun fetchReviews(mediaType: String, tmdbId: String): List<TmdbReview> = runCatching {
         client.get("https://api.themoviedb.org/3/$mediaType/$tmdbId/reviews") {
             parameter("api_key", apiKey)
@@ -226,15 +191,8 @@ internal class TmdbApi(
 
     private companion object {
         private const val TMDB_API_KEY = "4219e299c89411838049ab0dab19ebd5"
-        private val CLIP_FEED_TYPES = setOf("clip", "teaser")
         private val TRENDING_PAGE_RANGE = 1..15
         private const val PAGES_PER_BATCH = 3
-
-        private fun clipTypeRank(type: String?): Int = when (type?.lowercase()) {
-            "clip" -> 0
-            "teaser" -> 1
-            else -> 2
-        }
 
         private fun imageUrl(imagePath: String?, size: String): String? {
             val path = imagePath?.takeIf { it.isNotBlank() } ?: return null
