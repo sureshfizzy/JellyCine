@@ -1,6 +1,24 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +79,7 @@ import kotlinx.coroutines.withContext
 
 private const val FEED_MAX_HEIGHT_PHONE = 720
 private const val PLAYER_POOL_SIZE = 3
+private val FLOATING_NAV_HEIGHT = 68.dp + 20.dp + 8.dp
 private const val FIRST_BATCH_TITLES = 8
 private const val MAX_TITLES_PER_BATCH = 30
 
@@ -104,6 +122,7 @@ fun ClipsFeedScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isAppending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var muted by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (clips.isNotEmpty()) return@LaunchedEffect
@@ -182,6 +201,8 @@ fun ClipsFeedScreen(
                         isActive = pagerState.currentPage == page,
                         loadEnabled = abs(pagerState.currentPage - page) <= 1,
                         player = players[page % players.size],
+                        muted = muted,
+                        onToggleMute = { muted = !muted },
                         onCompleted = advance
                     )
                 }
@@ -260,9 +281,16 @@ private fun ClipPage(
     isActive: Boolean,
     loadEnabled: Boolean,
     player: ExoPlayer,
+    muted: Boolean,
+    onToggleMute: () -> Unit,
     onCompleted: () -> Unit
 ) {
+    val context = LocalContext.current
     var expanded by remember(clip.youtubeKey) { mutableStateOf(false) }
+    var paused by remember(clip.youtubeKey) { mutableStateOf(false) }
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val contentBottom = navInset + FLOATING_NAV_HEIGHT
+    val owns = { player.currentMediaItem?.mediaId == clip.youtubeWatchUrl }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AsyncImage(
@@ -278,69 +306,156 @@ private fun ClipPage(
             isVisible = isActive,
             loadEnabled = loadEnabled,
             showBuiltInMute = false,
+            mutedOverride = muted,
             modifier = Modifier.fillMaxSize(),
             onPlaybackCompleted = onCompleted
         )
 
+        // Tap anywhere to pause / resume
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    if (isActive && owns()) {
+                        paused = !paused
+                        player.playWhenReady = !paused
+                    }
+                }
+        )
+
+        // Top + bottom scrims for legibility
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.5f to Color.Transparent,
-                        1f to Color.Black.copy(alpha = 0.9f)
+                        0f to Color.Black.copy(alpha = 0.45f),
+                        0.22f to Color.Transparent,
+                        0.4f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.95f)
                     )
                 )
         )
 
+        AnimatedVisibility(
+            visible = paused && isActive,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+        }
+
+        // Right action rail
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 118.dp),
+                .padding(end = 16.dp, bottom = contentBottom + 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    .clickable(onClick = onToggleMute),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (muted) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                    contentDescription = if (muted) "Unmute" else "Mute",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                    .clickable {
+                        runCatching {
+                            val send = Intent(Intent.ACTION_SEND)
+                                .setType("text/plain")
+                                .putExtra(Intent.EXTRA_TEXT, "${clip.title} ${clip.youtubeWatchUrl}")
+                            context.startActivity(
+                                Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             AsyncImage(
                 model = clip.posterUrl ?: clip.thumbnailUrl,
                 contentDescription = clip.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(58.dp)
-                    .shadow(elevation = 8.dp, shape = CircleShape, clip = false)
-                    .clip(CircleShape)
-                    .border(2.dp, Color.White, CircleShape)
-            )
-            Text(
-                text = clip.title.uppercase(),
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(64.dp)
+                    .width(46.dp)
+                    .height(66.dp)
+                    .shadow(elevation = 8.dp, shape = RoundedCornerShape(8.dp), clip = false)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.5.dp, Color.White, RoundedCornerShape(8.dp))
             )
         }
 
+        // Bottom info
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth(0.72f)
-                .padding(start = 20.dp, bottom = 118.dp),
+                .fillMaxWidth(0.76f)
+                .padding(start = 20.dp, bottom = contentBottom + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
+                text = if (clip.mediaType.equals("tv", true)) "SERIES" else "MOVIE",
+                color = Color.White,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.18f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+            Text(
                 text = clip.title,
                 color = Color.White,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             if (clip.genreLine.isNotBlank()) {
                 Text(
                     text = clip.genreLine,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = Color.White.copy(alpha = 0.85f),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -351,14 +466,17 @@ private fun ClipPage(
             if (!synopsis.isNullOrBlank()) {
                 Text(
                     text = synopsis,
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = Color.White.copy(alpha = 0.8f),
                     fontSize = 14.sp,
-                    maxLines = if (expanded) 6 else 1,
+                    lineHeight = 19.sp,
+                    maxLines = if (expanded) 8 else 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { expanded = !expanded }
+                    modifier = Modifier
+                        .animateContentSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { expanded = !expanded }
                 )
             }
         }
