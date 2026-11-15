@@ -7,20 +7,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
-
-@Serializable
-data class DiscoveredServer(
-    @SerialName("Address") val address: String,
-    @SerialName("Id") val id: String,
-    @SerialName("Name") val name: String,
-    @SerialName("EndpointAddress") val endpointAddress: String? = null
-)
 
 object ServerDiscovery {
 

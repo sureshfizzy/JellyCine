@@ -6,29 +6,25 @@ import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerEndpoint
 import com.jellycine.data.preferences.NetworkPreferences
 
-class IosAuthPlatform : AuthPlatform {
+class IosAuthPlatform(
+    private val messages: suspend (AuthMessage, Array<out Any>) -> String
+) : AuthPlatform {
 
     private val networkPreferences = NetworkPreferences()
 
     override suspend fun resolveEndpoint(serverUrl: String): Result<ServerEndpoint> {
-        return NetworkModule.serverEndpoint(
+        val result = NetworkModule.serverEndpoint(
             serverUrl = serverUrl,
             timeoutConfig = networkPreferences.getTimeoutConfig()
-        ).fold(
-            onSuccess = { Result.success(it) },
-            onFailure = { error ->
-                if (error is HttpStatusException) {
-                    Result.failure(
-                        HttpStatusException(
-                            error.statusCode,
-                            text(AuthMessage.ENDPOINT_HTTP, error.statusCode)
-                        )
-                    )
-                } else {
-                    Result.failure(Exception(connectionErrorMessage(error) ?: error.message))
-                }
-            }
         )
+        val error = result.exceptionOrNull() ?: return result
+        return if (error is HttpStatusException) {
+            Result.failure(
+                HttpStatusException(error.statusCode, text(AuthMessage.ENDPOINT_HTTP, error.statusCode))
+            )
+        } else {
+            Result.failure(Exception(connectionErrorMessage(error) ?: error.message))
+        }
     }
 
     override fun createApi(endpoint: ServerEndpoint): MediaServerApi {
@@ -39,11 +35,11 @@ class IosAuthPlatform : AuthPlatform {
         )
     }
 
-    override fun text(message: AuthMessage, vararg args: Any): String {
-        return IosStrings.resolve(message.resourceName, args.firstOrNull()?.toString())
+    override suspend fun text(message: AuthMessage, vararg args: Any): String {
+        return messages(message, args)
     }
 
-    override fun connectionErrorMessage(error: Throwable): String? {
+    override suspend fun connectionErrorMessage(error: Throwable): String? {
         val lower = error.message.orEmpty().lowercase()
         return when {
             "timed out" in lower || "code=-1001" in lower ->
@@ -61,16 +57,4 @@ class IosAuthPlatform : AuthPlatform {
     }
 
     override suspend fun onSessionEnded(serverId: String?) = Unit
-}
-
-object IosStrings {
-    private var resolver: ((String, String?) -> String)? = null
-
-    fun setResolver(resolver: (String, String?) -> String) {
-        this.resolver = resolver
-    }
-
-    fun resolve(resourceName: String, argument: String?): String {
-        return resolver?.invoke(resourceName, argument) ?: resourceName
-    }
 }

@@ -1,17 +1,20 @@
 import SwiftUI
-import JellyCineData
+import JellyCineShared
 
 @main
 struct JellyCineApp: App {
-    init() {
-        AuthFacade.shared.setStringResolver { key, argument in
-            AndroidStrings.get(key, argument, module: .data)
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ComposeView()
+                .ignoresSafeArea()
         }
     }
+}
+
+struct ComposeView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> UIViewController {
+        MainViewControllerKt.MainViewController()
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }

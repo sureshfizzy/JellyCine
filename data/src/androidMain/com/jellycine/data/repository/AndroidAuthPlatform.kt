@@ -36,11 +36,11 @@ class AndroidAuthPlatform(private val context: Context) : AuthPlatform {
         )
     }
 
-    override fun text(message: AuthMessage, vararg args: Any): String {
+    override suspend fun text(message: AuthMessage, vararg args: Any): String {
         return context.getString(stringRes(message), *args)
     }
 
-    override fun connectionErrorMessage(error: Throwable): String? {
+    override suspend fun connectionErrorMessage(error: Throwable): String? {
         return when (error) {
             is UnknownHostException -> text(AuthMessage.CANNOT_REACH_SERVER)
             is ConnectException -> text(AuthMessage.CONNECTION_REFUSED)

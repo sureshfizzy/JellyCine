@@ -1,24 +1,50 @@
-package com.jellycine.app.ui.screens.auth
+package com.jellycine.shared.auth
 
-import android.app.Application
-import androidx.annotation.StringRes
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.shared.R
-import com.jellycine.app.ui.screens.dashboard.home.CachedData
+import com.jellycine.data.model.ServerInfo
 import com.jellycine.data.network.DiscoveredServer
-import com.jellycine.data.network.ServerDiscovery
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.network.HttpStatusException
+import com.jellycine.data.repository.AuthRepository
+import com.jellycine.shared.resources.Res
+import com.jellycine.shared.resources.auth_error_enter_server_url
+import com.jellycine.shared.resources.auth_error_enter_username
+import com.jellycine.shared.resources.auth_error_login_access_denied
+import com.jellycine.shared.resources.auth_error_login_cannot_connect
+import com.jellycine.shared.resources.auth_error_login_cannot_reach_server
+import com.jellycine.shared.resources.auth_error_login_generic
+import com.jellycine.shared.resources.auth_error_login_invalid_credentials
+import com.jellycine.shared.resources.auth_error_login_invalid_request
+import com.jellycine.shared.resources.auth_error_login_server_error
+import com.jellycine.shared.resources.auth_error_login_service_not_found
+import com.jellycine.shared.resources.auth_error_login_timeout
+import com.jellycine.shared.resources.auth_error_login_too_many_attempts
+import com.jellycine.shared.resources.auth_error_missing_server_url_quick_connect
+import com.jellycine.shared.resources.auth_error_quick_connect_start_failed
+import com.jellycine.shared.resources.auth_error_quick_connect_timed_out
+import com.jellycine.shared.resources.auth_error_server_access_rejected
+import com.jellycine.shared.resources.auth_error_server_cannot_connect
+import com.jellycine.shared.resources.auth_error_server_cannot_find
+import com.jellycine.shared.resources.auth_error_server_endpoint_not_found
+import com.jellycine.shared.resources.auth_error_server_generic
+import com.jellycine.shared.resources.auth_error_server_invalid_request
+import com.jellycine.shared.resources.auth_error_server_timeout
+import com.jellycine.shared.resources.auth_error_server_unavailable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
 
-class AuthScreenViewModel(application: Application) : AndroidViewModel(application) {
-    
-    private val authRepository = AuthRepositoryProvider.getInstance(application)
-    private val mediaRepository = MediaRepositoryProvider.getInstance(application)
+class AuthScreenViewModel(
+    private val authRepository: AuthRepository,
+    private val serverDiscovery: (() -> Flow<DiscoveredServer>)? = null
+) : ViewModel() {
+
     private var quickConnectPollingJob: Job? = null
     private var discoveryJob: Job? = null
 
@@ -31,26 +57,26 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     private val _isDiscovering = MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
 
-    val isAuthenticated: Flow<Boolean> = authRepository.isAuthenticated
+    val supportsDiscovery: Boolean = serverDiscovery != null
 
     init {
         discoverServers()
     }
-    
+
     fun updateServerUrl(url: String) {
         _uiState.value = _uiState.value.copy(
             serverUrl = url,
             serverErrorMessage = null
         )
     }
-    
+
     fun updateUsername(username: String) {
         _uiState.value = _uiState.value.copy(
             username = username,
             loginErrorMessage = null
         )
     }
-    
+
     fun updatePassword(password: String) {
         _uiState.value = _uiState.value.copy(
             password = password,
@@ -59,27 +85,31 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun setLoginError(error: Throwable) {
-        _uiState.value = _uiState.value.copy(loginErrorMessage = mapLoginError(error))
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(loginErrorMessage = mapLoginError(error))
+        }
     }
-    
+
     fun connectToServer(onSuccess: (serverUrl: String, serverName: String?) -> Unit) {
         val currentState = _uiState.value
-        
+
         if (currentState.serverUrl.isBlank()) {
-            _uiState.value = currentState.copy(
-                serverErrorMessage = string(R.string.auth_error_enter_server_url)
-            )
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    serverErrorMessage = string(Res.string.auth_error_enter_server_url)
+                )
+            }
             return
         }
-        
+
         _uiState.value = currentState.copy(
             isServerLoading = true,
             serverErrorMessage = null
         )
-        
+
         viewModelScope.launch {
             val result = authRepository.testServerConnection(currentState.serverUrl)
-            
+
             result.fold(
                 onSuccess = { serverInfo ->
                     _uiState.value = _uiState.value.copy(
@@ -98,34 +128,34 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
     }
-    
+
     fun login(serverUrl: String, onSuccess: () -> Unit) {
         val currentState = _uiState.value
-        
+
         if (currentState.username.isBlank()) {
-            _uiState.value = currentState.copy(
-                loginErrorMessage = string(R.string.auth_error_enter_username)
-            )
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    loginErrorMessage = string(Res.string.auth_error_enter_username)
+                )
+            }
             return
         }
-        
+
         _uiState.value = currentState.copy(
             isLoginLoading = true,
             loginErrorMessage = null
         )
-        
+
         viewModelScope.launch {
             val result = authRepository.authenticateUser(
                 serverUrl = serverUrl,
                 username = currentState.username,
                 password = currentState.password
             )
-            
+
             result.fold(
                 onSuccess = {
-                    _uiState.value = _uiState.value.copy(
-                        isLoginLoading = false
-                    )
+                    _uiState.value = _uiState.value.copy(isLoginLoading = false)
                     onSuccess()
                 },
                 onFailure = { error ->
@@ -161,9 +191,11 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
 
         val normalizedUrl = serverUrl.trim()
         if (normalizedUrl.isBlank()) {
-            _uiState.value = _uiState.value.copy(
-                loginErrorMessage = string(R.string.auth_error_missing_server_url_quick_connect)
-            )
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(
+                    loginErrorMessage = string(Res.string.auth_error_missing_server_url_quick_connect)
+                )
+            }
             return
         }
 
@@ -184,13 +216,13 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
                 return@launch
             }
 
-            var currentSecret = initiated.secret.orEmpty()
+            val currentSecret = initiated.secret.orEmpty()
             val initialCode = initiated.code.orEmpty()
             if (currentSecret.isBlank() || initialCode.isBlank()) {
                 _uiState.value = _uiState.value.copy(
                     isQuickConnectLoading = false,
                     quickConnectCode = null,
-                    loginErrorMessage = string(R.string.auth_error_quick_connect_start_failed)
+                    loginErrorMessage = string(Res.string.auth_error_quick_connect_start_failed)
                 )
                 return@launch
             }
@@ -218,109 +250,107 @@ class AuthScreenViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.value = _uiState.value.copy(
                 isQuickConnectLoading = false,
                 quickConnectCode = null,
-                loginErrorMessage = string(R.string.auth_error_quick_connect_timed_out)
+                loginErrorMessage = string(Res.string.auth_error_quick_connect_timed_out)
             )
         }
     }
 
+    fun cancelQuickConnect() {
+        quickConnectPollingJob?.cancel()
+        quickConnectPollingJob = null
+        _uiState.value = _uiState.value.copy(
+            isQuickConnectLoading = false,
+            quickConnectCode = null
+        )
+    }
+
     fun discoverServers() {
+        val discovery = serverDiscovery ?: return
         discoveryJob?.cancel()
         discoveryJob = viewModelScope.launch {
             _isDiscovering.value = true
             _discoveredServers.value = emptyList()
             val servers = mutableListOf<DiscoveredServer>()
             try {
-                ServerDiscovery.discoverServers(getApplication()).collect { server ->
+                discovery().collect { server ->
                     servers.add(server)
                     _discoveredServers.value = servers.toList()
                 }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
             } finally {
                 _isDiscovering.value = false
             }
         }
     }
 
-    fun clearServerError() {
-        _uiState.value = _uiState.value.copy(serverErrorMessage = null)
-    }
-    
     fun clearLoginError() {
         _uiState.value = _uiState.value.copy(loginErrorMessage = null)
     }
 
-    fun logout() {
-        viewModelScope.launch {
-            quickConnectPollingJob?.cancel()
-            authRepository.logout()
-            mediaRepository.clearPersistedHomeSnapshot()
-            CachedData.clearAllCache()
-            _uiState.value = AuthScreenUiState()
-        }
-    }
-
-    private fun mapLoginError(error: Throwable): String {
+    private suspend fun mapLoginError(error: Throwable): String {
         val message = error.message?.trim().orEmpty()
-        val code = extractHttpCode(message)
+        val code = (error as? HttpStatusException)?.statusCode ?: extractHttpCode(message)
 
         return when (code) {
-            400 -> string(R.string.auth_error_login_invalid_request)
-            401 -> string(R.string.auth_error_login_invalid_credentials)
-            403 -> string(R.string.auth_error_login_access_denied)
-            404 -> string(R.string.auth_error_login_service_not_found)
-            429 -> string(R.string.auth_error_login_too_many_attempts)
-            500, 502, 503, 504 -> string(R.string.auth_error_login_server_error)
+            400 -> string(Res.string.auth_error_login_invalid_request)
+            401 -> string(Res.string.auth_error_login_invalid_credentials)
+            403 -> string(Res.string.auth_error_login_access_denied)
+            404 -> string(Res.string.auth_error_login_service_not_found)
+            429 -> string(Res.string.auth_error_login_too_many_attempts)
+            500, 502, 503, 504 -> string(Res.string.auth_error_login_server_error)
             else -> when {
-                message.equals("401") -> string(R.string.auth_error_login_invalid_credentials)
-                message.contains("authentication failed", ignoreCase = true) -> string(R.string.auth_error_login_invalid_credentials)
-                message.contains("timeout", ignoreCase = true) -> string(R.string.auth_error_login_timeout)
-                message.contains("unable to resolve host", ignoreCase = true) -> string(R.string.auth_error_login_cannot_reach_server)
-                message.contains("failed to connect", ignoreCase = true) -> string(R.string.auth_error_login_cannot_connect)
-                else -> string(R.string.auth_error_login_generic)
+                message == "401" -> string(Res.string.auth_error_login_invalid_credentials)
+                message.contains("authentication failed", ignoreCase = true) ->
+                    string(Res.string.auth_error_login_invalid_credentials)
+                message.contains("timeout", ignoreCase = true) -> string(Res.string.auth_error_login_timeout)
+                message.contains("unable to resolve host", ignoreCase = true) ->
+                    string(Res.string.auth_error_login_cannot_reach_server)
+                message.contains("failed to connect", ignoreCase = true) ->
+                    string(Res.string.auth_error_login_cannot_connect)
+                else -> string(Res.string.auth_error_login_generic)
             }
         }
     }
 
-    private fun mapServerError(error: Throwable): String {
+    private suspend fun mapServerError(error: Throwable): String {
         val message = error.message?.trim().orEmpty()
-        val code = extractHttpCode(message)
+        val code = (error as? HttpStatusException)?.statusCode ?: extractHttpCode(message)
 
         return when (code) {
-            400 -> string(R.string.auth_error_server_invalid_request)
-            401, 403 -> string(R.string.auth_error_server_access_rejected)
-            404 -> string(R.string.auth_error_server_endpoint_not_found)
-            500, 502, 503, 504 -> string(R.string.auth_error_server_unavailable)
+            400 -> string(Res.string.auth_error_server_invalid_request)
+            401, 403 -> string(Res.string.auth_error_server_access_rejected)
+            404 -> string(Res.string.auth_error_server_endpoint_not_found)
+            500, 502, 503, 504 -> string(Res.string.auth_error_server_unavailable)
             else -> when {
-                message.equals("401") -> string(R.string.auth_error_server_access_rejected)
-                message.contains("timeout", ignoreCase = true) -> string(R.string.auth_error_server_timeout)
-                message.contains("unable to resolve host", ignoreCase = true) -> string(R.string.auth_error_server_cannot_find)
-                message.contains("failed to connect", ignoreCase = true) -> string(R.string.auth_error_server_cannot_connect)
-                message.isBlank() -> string(R.string.auth_error_server_generic)
+                message == "401" -> string(Res.string.auth_error_server_access_rejected)
+                message.contains("timeout", ignoreCase = true) -> string(Res.string.auth_error_server_timeout)
+                message.contains("unable to resolve host", ignoreCase = true) ->
+                    string(Res.string.auth_error_server_cannot_find)
+                message.contains("failed to connect", ignoreCase = true) ->
+                    string(Res.string.auth_error_server_cannot_connect)
+                message.isBlank() -> string(Res.string.auth_error_server_generic)
                 else -> message
             }
         }
     }
 
-    private fun string(@StringRes resId: Int): String {
-        return getApplication<Application>().getString(resId)
-    }
+    private suspend fun string(resource: StringResource): String = getString(resource)
 
     private fun extractHttpCode(message: String): Int? {
-        val match = """\b([1-5]\d{2})\b""".toRegex().find(message) ?: return null
+        val match = Regex("""\b([1-5]\d{2})\b""").find(message) ?: return null
         return match.groupValues.getOrNull(1)?.toIntOrNull()
     }
 }
 
 data class AuthScreenUiState(
-    // Server connection state
     val serverUrl: String = "",
     val isServerLoading: Boolean = false,
     val isServerConnected: Boolean = false,
-    val serverInfo: com.jellycine.data.model.ServerInfo? = null,
+    val serverInfo: ServerInfo? = null,
     val serverErrorMessage: String? = null,
-    
-    // Login state
+
     val username: String = "",
     val password: String = "",
     val isLoginLoading: Boolean = false,

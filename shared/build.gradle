@@ -2,6 +2,37 @@ plugins {
     id 'com.android.kotlin.multiplatform.library'
     id 'org.jetbrains.kotlin.multiplatform'
     id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.compose'
+}
+
+def composeResourcesDir = layout.buildDirectory.dir('generated/composeResourcesSource')
+def syncComposeResources = tasks.register('syncComposeResources', Sync) {
+    from('src/androidMain/res') {
+        include 'values*/strings.xml'
+        include 'drawable/jellycine_logo.png'
+    }
+    from('../data/src/androidMain/res') {
+        include 'values*/strings.xml'
+        rename 'strings.xml', 'data_strings.xml'
+        filter { line -> line.replace('name="', 'name="data_') }
+    }
+    into composeResourcesDir
+}
+
+compose.resources {
+    publicResClass = true
+    generateResClass = always
+    packageOfResClass = "com.jellycine.shared.resources"
+    customDirectory(
+        "commonMain",
+        composeResourcesDir
+    )
+}
+
+tasks.configureEach {
+    if (name.endsWith('ValueResourcesForCommonMain')) {
+        dependsOn syncComposeResources
+    }
 }
 
 kotlin {
@@ -20,17 +51,36 @@ kotlin {
     }
 
     if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-        iosX64()
-        iosArm64()
-        iosSimulatorArm64()
+        def iosArm64 = iosArm64()
+        def iosSimulatorArm64 = iosSimulatorArm64()
+
+        [iosArm64, iosSimulatorArm64].forEach { target ->
+            target.binaries.framework {
+                baseName = "JellyCineShared"
+                isStatic = true
+                export project(':data')
+            }
+        }
     }
 
     sourceSets {
-        androidMain {
-            kotlin.srcDirs = ['src/androidMain']
+        commonMain {
+            kotlin.srcDir 'src/commonMain'
             dependencies {
                 implementation project(':data')
-
+                implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0'
+                implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+                implementation compose.runtime
+                implementation compose.foundation
+                implementation compose.material3
+                implementation compose.ui
+                implementation compose.components.resources
+                implementation 'org.jetbrains.compose.material:material-icons-extended:1.7.3'
+            }
+        }
+        androidMain {
+            kotlin.srcDir 'src/androidMain'
+            dependencies {
                 implementation 'androidx.core:core-ktx:1.19.1'
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
 
@@ -58,9 +108,9 @@ kotlin {
 
         if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
             iosMain {
-                kotlin.srcDirs = ['src/iosMain']
+                kotlin.srcDir 'src/iosMain'
                 dependencies {
-                    implementation project(':data')
+                    api project(':data')
                 }
             }
         }

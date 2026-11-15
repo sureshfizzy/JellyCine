@@ -37,10 +37,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,9 +50,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
-import com.jellycine.app.ui.components.common.amoledAuthFieldColors
+import com.jellycine.shared.auth.amoledAuthFieldColors
 import com.jellycine.shared.ui.theme.JellyBlue
 import com.jellycine.shared.ui.theme.JellyRed
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 
 @Composable
 internal fun SeerrConnectionDialog(

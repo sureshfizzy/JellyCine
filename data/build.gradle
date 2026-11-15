@@ -32,17 +32,9 @@ kotlin {
 
     // iOS targets (only on macOS)
     if (org.gradle.internal.os.OperatingSystem.current().isMacOsX()) {
-        def iosX64 = iosX64()
-        def iosArm64 = iosArm64()
-        def iosSimulatorArm64 = iosSimulatorArm64()
-
-        // Configure iOS framework for Xcode
-        [iosX64, iosArm64, iosSimulatorArm64].forEach { target ->
-            target.binaries.framework {
-                baseName = "JellyCineData"
-                isStatic = true
-            }
-        }
+        iosX64()
+        iosArm64()
+        iosSimulatorArm64()
     }
 
     sourceSets {

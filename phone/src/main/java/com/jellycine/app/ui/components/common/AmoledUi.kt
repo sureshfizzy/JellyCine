@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.TextSelectionColors
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,7 +22,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.jellycine.shared.ui.theme.JellyBlue
 
 @Composable
 fun AmoledDialogFrame(
@@ -114,22 +111,3 @@ fun AmoledDialogFrame(
         }
     }
 }
-
-@Composable
-fun amoledAuthFieldColors(
-    hasLeadingIcon: Boolean = false
-) = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedLabelColor = JellyBlue,
-    unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
-    focusedBorderColor = JellyBlue,
-    unfocusedBorderColor = Color.White.copy(alpha = 0.26f),
-    focusedLeadingIconColor = if (hasLeadingIcon) JellyBlue else Color.Unspecified,
-    unfocusedLeadingIconColor = if (hasLeadingIcon) Color.White.copy(alpha = 0.65f) else Color.Unspecified,
-    cursorColor = JellyBlue,
-    selectionColors = TextSelectionColors(
-        handleColor = JellyBlue,
-        backgroundColor = JellyBlue.copy(alpha = 0.28f)
-    )
-)

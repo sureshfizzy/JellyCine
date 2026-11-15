@@ -122,7 +122,6 @@
 				57A80AD6302C873A00B7A835 /* Sources */,
 				57A80AD7302C873A00B7A835 /* Frameworks */,
 				57A80AD8302C873A00B7A835 /* Resources */,
-				A1B2C3D4E5F60718293A4B03 /* Copy Android Strings */,
 			);
 			buildRules = (
 			);
@@ -285,26 +284,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\" || exit 1\n./gradlew :data:embedAndSignAppleFrameworkForXcode\n";
-		};
-		A1B2C3D4E5F60718293A4B03 /* Copy Android Strings */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Copy Android Strings";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -e\nDEST=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/AndroidStrings\"\nrm -rf \"$DEST\"\nfor module in shared data; do\n  for dir in \"$SRCROOT/../$module/src/androidMain/res\"/values*; do\n    [ -f \"$dir/strings.xml\" ] || continue\n    mkdir -p \"$DEST/$module/$(basename \"$dir\")\"\n    cp \"$dir/strings.xml\" \"$DEST/$module/$(basename \"$dir\")/\"\n  done\ndone\n";
+			shellScript = "cd \"$SRCROOT/..\" || exit 1\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -468,8 +448,9 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../data/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -487,7 +468,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineData);
+				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineShared);
 				PRODUCT_BUNDLE_IDENTIFIER = com.JellyCine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -513,8 +494,9 @@
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../data/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -532,7 +514,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineData);
+				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineShared);
 				PRODUCT_BUNDLE_IDENTIFIER = com.JellyCine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
