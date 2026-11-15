@@ -30,10 +30,8 @@ class Preferences(context: Context) {
         private const val KEY_THEME_MUSIC_MODE = "theme_music_mode"
         private const val KEY_THEME_MUSIC_VOLUME = "theme_music_volume"
 
-        private const val KEY_CLIPS_REMEMBER_MUTE = "clips_remember_mute"
         private const val KEY_CLIPS_MUTED = "clips_muted"
         private const val KEY_CLIPS_MAX_QUALITY = "clips_max_quality"
-        private const val KEY_CLIPS_WIFI_ONLY = "clips_wifi_only"
         private const val KEY_CLIPS_CONTENT_TYPE = "clips_content_type"
         private const val KEY_CLIPS_TRENDING_WINDOW = "clips_trending_window"
         private const val KEY_CLIPS_EXCLUDED_GENRES = "clips_excluded_genres"
@@ -388,13 +386,6 @@ class Preferences(context: Context) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
-    fun isClipsRememberMuteEnabled(): Boolean = prefs.getBoolean(KEY_CLIPS_REMEMBER_MUTE, true)
-    fun setClipsRememberMuteEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_CLIPS_REMEMBER_MUTE, enabled).apply()
-    }
-    fun clipsRememberMuteEnabled(): Flow<Boolean> =
-        clipsFlow(KEY_CLIPS_REMEMBER_MUTE) { isClipsRememberMuteEnabled() }
-
     fun isClipsMuted(): Boolean = prefs.getBoolean(KEY_CLIPS_MUTED, false)
     fun setClipsMuted(muted: Boolean) {
         prefs.edit().putBoolean(KEY_CLIPS_MUTED, muted).apply()
@@ -405,12 +396,6 @@ class Preferences(context: Context) {
         prefs.edit().putInt(KEY_CLIPS_MAX_QUALITY, height).apply()
     }
     fun clipsMaxQuality(): Flow<Int> = clipsFlow(KEY_CLIPS_MAX_QUALITY) { getClipsMaxQuality() }
-
-    fun isClipsWifiOnly(): Boolean = prefs.getBoolean(KEY_CLIPS_WIFI_ONLY, false)
-    fun setClipsWifiOnly(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_CLIPS_WIFI_ONLY, enabled).apply()
-    }
-    fun clipsWifiOnly(): Flow<Boolean> = clipsFlow(KEY_CLIPS_WIFI_ONLY) { isClipsWifiOnly() }
 
     fun getClipsContentType(): String =
         when (val v = prefs.getString(KEY_CLIPS_CONTENT_TYPE, CLIPS_CONTENT_ALL)) {

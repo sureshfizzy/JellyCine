@@ -582,10 +582,6 @@
     <string name="settings_clips_subtitle">Feed content, quality and sound</string>
     <string name="clips_section_playback">Playback</string>
     <string name="clips_section_content">Content</string>
-    <string name="clips_remember_mute">Remember mute</string>
-    <string name="clips_remember_mute_subtitle">Keep clips muted or unmuted between sessions.</string>
-    <string name="clips_wifi_only">Wi-Fi only</string>
-    <string name="clips_wifi_only_subtitle">Don\'t load clips on mobile data.</string>
     <string name="clips_max_quality">Maximum quality</string>
     <string name="clips_quality_auto">Auto</string>
     <string name="clips_content_type">Content type</string>

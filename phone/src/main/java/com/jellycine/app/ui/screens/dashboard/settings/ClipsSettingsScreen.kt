@@ -17,8 +17,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.VolumeOff
-import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,10 +50,6 @@ fun ClipsSettingsScreen(
 ) {
     val context = LocalContext.current
     val preferences = remember { Preferences(context) }
-    val rememberMute by preferences.clipsRememberMuteEnabled()
-        .collectAsStateWithLifecycle(initialValue = preferences.isClipsRememberMuteEnabled())
-    val wifiOnly by preferences.clipsWifiOnly()
-        .collectAsStateWithLifecycle(initialValue = preferences.isClipsWifiOnly())
     val maxQuality by preferences.clipsMaxQuality()
         .collectAsStateWithLifecycle(initialValue = preferences.getClipsMaxQuality())
     val contentType by preferences.clipsContentType()
@@ -114,24 +108,6 @@ fun ClipsSettingsScreen(
             item { SectionLabel(stringResource(R.string.clips_section_playback)) }
             item {
                 SettingsSection {
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.VolumeOff,
-                        title = stringResource(R.string.clips_remember_mute),
-                        subtitle = stringResource(R.string.clips_remember_mute_subtitle),
-                        checked = rememberMute,
-                        onCheckedChange = preferences::setClipsRememberMuteEnabled,
-                        accentColor = playbackColor
-                    )
-                    SettingsDivider()
-                    SwitchSettingsItem(
-                        icon = Icons.Rounded.Wifi,
-                        title = stringResource(R.string.clips_wifi_only),
-                        subtitle = stringResource(R.string.clips_wifi_only_subtitle),
-                        checked = wifiOnly,
-                        onCheckedChange = preferences::setClipsWifiOnly,
-                        accentColor = playbackColor
-                    )
-                    SettingsDivider()
                     SelectionDialogSettingsItem(
                         icon = Icons.Rounded.HighQuality,
                         title = stringResource(R.string.clips_max_quality),

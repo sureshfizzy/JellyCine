@@ -84,7 +84,6 @@ import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.createInlineExoPlayer
 import com.jellycine.data.model.ClipFeedFilters
 import com.jellycine.data.model.ClipFeedItem
-import com.jellycine.data.network.NetworkModule
 import com.jellycine.shared.preferences.Preferences
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.data.repository.MediaRepository
@@ -136,8 +135,6 @@ fun ClipsFeedScreen(
     val preferences = remember { Preferences(context) }
     val maxQuality by preferences.clipsMaxQuality()
         .collectAsStateWithLifecycle(initialValue = preferences.getClipsMaxQuality())
-    val wifiOnly by preferences.clipsWifiOnly()
-        .collectAsStateWithLifecycle(initialValue = preferences.isClipsWifiOnly())
     val contentType by preferences.clipsContentType()
         .collectAsStateWithLifecycle(initialValue = preferences.getClipsContentType())
     val trendingWindow by preferences.clipsTrendingWindow()
@@ -145,8 +142,6 @@ fun ClipsFeedScreen(
     val language = configuration.locales[0].toLanguageTag().takeIf { it != "und" } ?: "en-US"
     val excludedGenres by preferences.clipsExcludedGenres()
         .collectAsStateWithLifecycle(initialValue = preferences.getClipsExcludedGenres())
-    val rememberMute by preferences.clipsRememberMuteEnabled()
-        .collectAsStateWithLifecycle(initialValue = preferences.isClipsRememberMuteEnabled())
     val feedMaxHeight = when {
         maxQuality > 0 -> maxQuality
         isTablet -> Int.MAX_VALUE
@@ -175,19 +170,14 @@ fun ClipsFeedScreen(
     var isAppending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var muted by rememberSaveable {
-        mutableStateOf(if (preferences.isClipsRememberMuteEnabled()) preferences.isClipsMuted() else false)
+        mutableStateOf(preferences.isClipsMuted())
     }
 
-    LaunchedEffect(filters, feedMaxHeight, wifiOnly) {
+    LaunchedEffect(filters, feedMaxHeight) {
         clips = emptyList()
         error = null
         isAppending = false
         isLoading = true
-        if (wifiOnly && !NetworkModule.hasLocalNetworkTransport(context)) {
-            error = "Clips are set to Wi-Fi only. Connect to Wi-Fi or change this in Settings."
-            isLoading = false
-            return@LaunchedEffect
-        }
         val first = withContext(Dispatchers.IO) {
             mediaRepository.loadShorts(feedMaxHeight, filters, FIRST_BATCH_TITLES)
         }
@@ -267,7 +257,7 @@ fun ClipsFeedScreen(
                         muted = muted,
                         onToggleMute = {
                             muted = !muted
-                            if (rememberMute) preferences.setClipsMuted(muted)
+                            preferences.setClipsMuted(muted)
                         },
                         onCompleted = advance
                     )
