@@ -9,3 +9,4 @@ actual fun currentTimeMillis(): Long {
     val now = NSDate()
     return (now.timeIntervalSince1970 * 1000).toLong()
 }
+actual val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default

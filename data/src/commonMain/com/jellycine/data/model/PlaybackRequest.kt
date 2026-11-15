@@ -1,12 +1,14 @@
 package com.jellycine.data.model
 
-import android.content.Context
-import android.net.Uri
-import com.jellycine.data.R
 import com.jellycine.data.network.ServerType
+import com.jellycine.data.repository.MediaMessage
+import com.jellycine.data.repository.MediaPlatform
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
+import com.jellycine.data.util.queryParameter
 import com.jellycine.data.util.removeQueryParameter
+import com.jellycine.data.util.withQueryParameter
+import io.ktor.http.URLBuilder
 
 private const val API_KEY_QUERY_PARAM = "api_key"
 
@@ -17,15 +19,12 @@ data class PlaybackRequest(
     fun authorizeRelatedUrl(relatedUrl: String): String {
         val apiKey = url.apiKey() ?: return relatedUrl
         if (relatedUrl.apiKey() != null) return relatedUrl
-        return Uri.parse(relatedUrl).buildUpon()
-            .appendQueryParameter(API_KEY_QUERY_PARAM, apiKey)
-            .build()
-            .toString()
+        return relatedUrl.withQueryParameter(API_KEY_QUERY_PARAM, apiKey)
     }
 }
 
 private fun String.apiKey(): String? {
-    return Uri.parse(this).getQueryParameter(API_KEY_QUERY_PARAM)?.takeIf { it.isNotBlank() }
+    return runCatching { queryParameter(API_KEY_QUERY_PARAM) }.getOrNull()?.takeIf { it.isNotBlank() }
 }
 
 internal data class PlaybackAuthContext(
@@ -82,15 +81,15 @@ internal object PlaybackUrlBuilder {
         )
     }
 
-    fun createLocalPlaybackRequest(
-        context: Context,
+    suspend fun createLocalPlaybackRequest(
+        platform: MediaPlatform,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<PlaybackRequest> {
         return buildStreamingUrl(
-            context = context,
+            platform = platform,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
@@ -107,15 +106,15 @@ internal object PlaybackUrlBuilder {
         }
     }
 
-    fun createCastStreamingUrl(
-        context: Context,
+    suspend fun createCastStreamingUrl(
+        platform: MediaPlatform,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
         options: PlaybackStreamOptions
     ): Result<String> {
         return buildStreamingUrl(
-            context = context,
+            platform = platform,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = playbackInfo,
@@ -141,8 +140,8 @@ internal object PlaybackUrlBuilder {
         )
     }
 
-    private fun buildStreamingUrl(
-        context: Context,
+    private suspend fun buildStreamingUrl(
+        platform: MediaPlatform,
         authContext: PlaybackAuthContext,
         itemId: String,
         playbackInfo: PlaybackInfoResponse,
@@ -150,7 +149,7 @@ internal object PlaybackUrlBuilder {
     ): Result<String> {
         return try {
             val mediaSource = playbackInfo.mediaSources?.firstOrNull()
-                ?: return Result.failure(Exception(context.getString(R.string.data_error_no_media_source_available)))
+                ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_NO_MEDIA_SOURCE_AVAILABLE)))
             val normalizedSubtitleStreamIndex = normalizeSubtitleStreamIndex(options.subtitleStreamIndex)
             val selectedAudioStream = getSelectedAudioStream(
                 mediaSource = mediaSource,
@@ -212,7 +211,7 @@ internal object PlaybackUrlBuilder {
 
             if (hasQualityCap) {
                 return Result.failure(
-                    Exception(context.getString(R.string.data_error_transcoding_url_unavailable, itemId))
+                    Exception(platform.text(MediaMessage.DATA_ERROR_TRANSCODING_URL_UNAVAILABLE, itemId))
                 )
             }
 
@@ -254,10 +253,7 @@ internal object PlaybackUrlBuilder {
         if (!options.includeAccessToken) return url
         val apiKey = authContext.accessToken?.takeIf { it.isNotBlank() } ?: return url
         if (url.apiKey() != null) return url
-        return Uri.parse(url).buildUpon()
-            .appendQueryParameter(API_KEY_QUERY_PARAM, apiKey)
-            .build()
-            .toString()
+        return url.withQueryParameter(API_KEY_QUERY_PARAM, apiKey)
     }
 
     private fun buildStreamUrl(
@@ -322,8 +318,7 @@ internal object PlaybackUrlBuilder {
         sourceVideoBitrate: Int? = null,
         preserveOriginalVideo: Boolean = false
     ): String {
-        val sourceUri = Uri.parse(streamingUrl)
-        val builder = sourceUri.buildUpon().clearQuery()
+        val builder = URLBuilder(streamingUrl)
         val overrideParams = linkedMapOf<String, String>()
 
         audioStreamIndex?.let {
@@ -351,22 +346,19 @@ internal object PlaybackUrlBuilder {
             overrideParams["allowAudioStreamCopy"] = "true"
         }
 
-        sourceUri.queryParameterNames
-            .filterNot { queryName ->
-                overrideParams.keys.any { key ->
-                    queryName.equals(key, ignoreCase = true)
-                }
+        val keptParams = builder.parameters.entries()
+            .filterNot { (queryName, _) ->
+                overrideParams.keys.any { key -> queryName.equals(key, ignoreCase = true) }
             }
-            .forEach { queryName ->
-                sourceUri.getQueryParameters(queryName).forEach { queryValue ->
-                    builder.appendQueryParameter(queryName, queryValue)
-                }
-            }
-
-        overrideParams.forEach { (key, value) ->
-            builder.appendQueryParameter(key, value)
+        builder.parameters.clear()
+        keptParams.forEach { (queryName, queryValues) ->
+            queryValues.forEach { queryValue -> builder.parameters.append(queryName, queryValue) }
         }
 
-        return builder.build().toString()
+        overrideParams.forEach { (key, value) ->
+            builder.parameters.append(key, value)
+        }
+
+        return builder.buildString()
     }
 }

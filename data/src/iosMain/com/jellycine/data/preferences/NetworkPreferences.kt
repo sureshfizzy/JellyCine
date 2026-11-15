@@ -2,12 +2,6 @@ package com.jellycine.data.preferences
 
 import platform.Foundation.NSUserDefaults
 
-data class NetworkTimeoutConfig(
-    val requestTimeoutMs: Int,
-    val connectionTimeoutMs: Int,
-    val socketTimeoutMs: Int
-)
-
 class NetworkPreferences {
     private val defaults = NSUserDefaults.standardUserDefaults
 

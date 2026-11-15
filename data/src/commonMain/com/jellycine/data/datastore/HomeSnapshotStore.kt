@@ -1,22 +1,24 @@
 package com.jellycine.data.datastore
 
-import android.util.AtomicFile
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.network.JellyCineJson
-import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.nio.charset.StandardCharsets
+import com.jellycine.data.util.currentTimeMillis
+import com.jellycine.data.util.ioDispatcher
+import okio.FileSystem
+import okio.Path
+import okio.Path.Companion.toPath
 
 class HomeSnapshotStore(
-    private val filesDir: File
+    private val filesDir: String
 ) {
+    private val fileSystem = FileSystem.SYSTEM
     private val homeSnapshotMutex = Mutex()
     private val homeSnapshotFileName = "JellyCineSnapshot.json"
 
@@ -30,12 +32,12 @@ class HomeSnapshotStore(
         expectedSnapshotKey: String,
         maxAgeMs: Long? = null
     ): PersistedHomeSnapshot? {
-        return withContext(Dispatchers.IO) {
+        return withContext(ioDispatcher) {
             homeSnapshotMutex.withLock {
                 runCatching {
                     val parsed = readSnapshot(getHomeSnapshotFile()) ?: return@runCatching null
                     val isExpired = maxAgeMs?.let { ttl ->
-                        System.currentTimeMillis() - parsed.updatedAt > ttl
+                        currentTimeMillis() - parsed.updatedAt > ttl
                     } ?: false
                     val keyMismatch = parsed.snapshotKey != expectedSnapshotKey
                     if (isExpired || keyMismatch) null else parsed
@@ -62,7 +64,7 @@ class HomeSnapshotStore(
         canManageSubtitles: Boolean? = null,
         subtitleLanguagePreference: String? = null
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             homeSnapshotMutex.withLock {
                 runCatching {
                     val file = getHomeSnapshotFile()
@@ -70,7 +72,7 @@ class HomeSnapshotStore(
                     val sameSessionSnapshot = existing?.takeIf { it.snapshotKey == snapshotKey }
                     val next = PersistedHomeSnapshot(
                         snapshotKey = snapshotKey,
-                        updatedAt = System.currentTimeMillis(),
+                        updatedAt = currentTimeMillis(),
                         featuredHomeItems = featuredHomeItems ?: sameSessionSnapshot?.featuredHomeItems.orEmpty(),
                         continueWatchingItems = continueWatchingItems ?: sameSessionSnapshot?.continueWatchingItems.orEmpty(),
                         nextUpItems = nextUpItems ?: sameSessionSnapshot?.nextUpItems.orEmpty(),
@@ -99,44 +101,41 @@ class HomeSnapshotStore(
     }
 
     suspend fun clearPersistedHomeSnapshot() {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             homeSnapshotMutex.withLock {
                 runCatching {
                     val file = getHomeSnapshotFile()
-                    if (file.exists()) {
-                        file.delete()
+                    if (fileSystem.exists(file)) {
+                        fileSystem.delete(file)
                     }
                 }
             }
         }
     }
 
-    private fun getHomeSnapshotFile(): File = filesDir.resolve(homeSnapshotFileName)
+    private fun getHomeSnapshotFile(): Path = filesDir.toPath() / homeSnapshotFileName
 
-    private fun readSnapshot(file: File): PersistedHomeSnapshot? {
-        if (!file.exists()) return null
+    private fun readSnapshot(file: Path): PersistedHomeSnapshot? {
+        if (!fileSystem.exists(file)) return null
         return runCatching {
-            val rawJson = file.readText()
+            val rawJson = fileSystem.read(file) { readUtf8() }
             JellyCineJson.decodeFromString<PersistedHomeSnapshot>(rawJson)
         }.getOrElse {
-            file.delete()
+            fileSystem.delete(file)
             null
         }
     }
 
     private fun writeSnapshotAtomically(
-        file: File,
+        file: Path,
         snapshot: PersistedHomeSnapshot
     ) {
-        val atomicFile = AtomicFile(file)
-        var stream: java.io.FileOutputStream? = null
+        val temp = filesDir.toPath() / "$homeSnapshotFileName.tmp"
         try {
-            stream = atomicFile.startWrite()
-            stream.write(JellyCineJson.encodeToString(snapshot).toByteArray(StandardCharsets.UTF_8))
-            stream.flush()
-            atomicFile.finishWrite(stream)
+            fileSystem.write(temp) { writeUtf8(JellyCineJson.encodeToString(snapshot)) }
+            fileSystem.atomicMove(temp, file)
         } catch (error: Exception) {
-            stream?.let { atomicFile.failWrite(it) }
+            fileSystem.delete(temp)
             throw error
         }
     }

@@ -1,16 +1,12 @@
 package com.jellycine.data.repository
 
-import android.content.Context
-import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.jellycine.data.DataModuleConfig
-import com.jellycine.data.R
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.api.ThemerrDbApi
 import com.jellycine.data.api.TmdbApi
-import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.AuthHeaderDto
@@ -37,43 +33,44 @@ import com.jellycine.data.model.UserDto
 import com.jellycine.data.model.toSearchQueries
 import com.jellycine.data.network.HttpStatusException
 import com.jellycine.data.network.JellyCineJson
-import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.network.trimTrailingSlash
-import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.preferences.NetworkTimeoutConfig
 import com.jellycine.data.security.AuthSessionIds
+import com.jellycine.data.security.TokenStore
+import com.jellycine.data.util.currentTimeMillis
+import com.jellycine.data.util.ioDispatcher
+import com.jellycine.data.util.withQueryParameter
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
-import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.data.util.buildServerUrl
 import com.jellycine.data.util.getServerUrl
 import com.jellycine.data.util.toGuid
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.serialization.kotlinx.json.json
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import okhttp3.Dispatcher
-import okhttp3.OkHttpClient
 
 data class EpisodeNavigationIds(
     val previousEpisodeId: String? = null,
     val nextEpisodeId: String? = null
 )
 
-class MediaRepository(private val context: Context) {
+class MediaRepository(
+    private val dataStore: DataStore<Preferences>,
+    private val secureSessionStore: TokenStore,
+    private val platform: MediaPlatform
+) {
     companion object {
         private val SERVER_URL_KEY = stringPreferencesKey("server_url")
         private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
@@ -81,12 +78,11 @@ class MediaRepository(private val context: Context) {
         private val PROVIDER_KEYS = listOf("Imdb", "Tmdb", "Tvdb")
     }
 
-    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
-    private val networkPreferences = NetworkPreferences(context)
-    private val secureSessionStore = SecureSessionStore(context)
-    private val tmdbApi by lazy { TmdbApi(createTmdbHttpClient()) }
-    private val themerrDbApi by lazy { ThemerrDbApi(createTmdbHttpClient()) }
-    private val themerrUrlCache = java.util.concurrent.ConcurrentHashMap<String, ThemerrCacheEntry>()
+    private val tmdbApi by lazy { TmdbApi(platform.createExternalHttpClient()) }
+    private val themerrDbApi by lazy { ThemerrDbApi(platform.createExternalHttpClient()) }
+    private val themerrUrlCache = mutableMapOf<String, ThemerrCacheEntry>()
+    private val themerrCacheMutex = Mutex()
+    private val sessionMutex = Mutex()
 
     private data class ThemerrCacheEntry(val youtubeUrl: String?)
 
@@ -155,11 +151,13 @@ class MediaRepository(private val context: Context) {
     @Volatile
     private var cachedImageAuthAt: Long = 0L
 
-    private val homeSnapshotStore = HomeSnapshotStore(context.filesDir)
+    private val homeSnapshotStore = HomeSnapshotStore(platform.snapshotDirectory)
     private val theIntroDbClient = TheIntroDbClient(
+        httpClient = platform.createFastHttpClient(),
         getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
     )
     private val introDbClient = IntroDbClient(
+        httpClient = platform.createFastHttpClient(),
         getSeriesItem = { seriesId -> getItemById(seriesId).getOrNull() }
     )
 
@@ -184,7 +182,7 @@ class MediaRepository(private val context: Context) {
             serverUrl = config.serverUrl,
             serverType = config.serverType,
             accessToken = config.accessToken,
-            deviceId = NetworkModule.getClientDeviceId(),
+            deviceId = platform.clientDeviceId,
             clientVersion = DataModuleConfig.CLIENT_VERSION
         )
     }
@@ -206,7 +204,7 @@ class MediaRepository(private val context: Context) {
             serverType = serverType,
             accessToken = accessToken,
             userId = userId,
-            timeoutConfig = networkPreferences.getTimeoutConfig()
+            timeoutConfig = platform.timeoutConfig()
         ).also {
             cachedSessionConfig = it
         }
@@ -236,18 +234,17 @@ class MediaRepository(private val context: Context) {
             }
         }
 
-        synchronized(this) {
+        return sessionMutex.withLock {
             cachedSession?.let { session ->
                 if (cachedSessionKey == newSessionKey) {
-                    return session
+                    return@withLock session
                 }
             }
 
-            val api = NetworkModule.createMediaServerApi(
+            val api = platform.createApi(
                 baseUrl = config.serverUrl,
                 accessToken = config.accessToken,
                 serverType = config.serverType,
-                storageDir = context.filesDir,
                 timeoutConfig = config.timeoutConfig
             )
 
@@ -260,7 +257,7 @@ class MediaRepository(private val context: Context) {
             )
             cachedSession = session
             cachedSessionKey = newSessionKey
-            return session
+            session
         }
     }
 
@@ -331,7 +328,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,OfficialRating,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
 
             val response = session.api.getLatestItems(
                 userId = session.userId,
@@ -344,7 +341,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_latest_items_failed, response.code())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_LATEST_ITEMS_FAILED, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -357,7 +354,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,ProductionYear,Overview"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val route = SuggestionsEndpoint(
                 serverType = session.serverType,
                 userId = session.userId
@@ -383,7 +380,7 @@ class MediaRepository(private val context: Context) {
                     .toList()
                 Result.success(items)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_suggestions_failed, response.code())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_SUGGESTIONS_FAILED, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -397,8 +394,8 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Genres,CommunityRating,ProductionYear,Overview,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,EpisodeCount,RecursiveItemCount,ChildCount,UserData,People"
     ): Result<List<RecommendationDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getMovieRecommendations(
                 userId = userId,
@@ -421,7 +418,7 @@ class MediaRepository(private val context: Context) {
                     .filter { it.items.orEmpty().isNotEmpty() }
                 Result.success(recommendations)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_movie_recommendations_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_MOVIE_RECOMMENDATIONS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -442,8 +439,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getItemById(itemId: String): Result<BaseItemDto> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
             val detailFields = "People,Studios,Genres,Overview,ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,OfficialRating,UserData,Chapters,ProviderIds,IndexNumber,ParentIndexNumber,RemoteTrailers,MediaStreams,MediaSources"
             val response = api.getItemById(
                 userId = userId,
@@ -479,7 +476,7 @@ class MediaRepository(private val context: Context) {
 
                 Result.success(mappedItem)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_item_failed, response.code())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_ITEM_FAILED, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -489,7 +486,7 @@ class MediaRepository(private val context: Context) {
     suspend fun getThemeSongUrls(itemId: String): Result<List<String>> {
         return try {
             val session = getApiSession()
-                ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+                ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val response = session.api.getThemeMedia(
                 itemId = itemId,
                 userId = session.userId,
@@ -544,7 +541,7 @@ class MediaRepository(private val context: Context) {
     suspend fun getThemeYoutubeSearchQuery(
         itemId: String,
         preloadedItem: BaseItemDto? = null
-    ): ThemeYoutubeSearch? = withContext(Dispatchers.IO) {
+    ): ThemeYoutubeSearch? = withContext(ioDispatcher) {
         val owner = getThemeOwner(itemId, preloadedItem) ?: return@withContext null
         val isSupported = owner.type.equals("Series", ignoreCase = true) ||
             owner.type.equals("Movie", ignoreCase = true)
@@ -563,8 +560,8 @@ class MediaRepository(private val context: Context) {
     suspend fun getThemerrThemeYoutubeUrl(
         itemId: String,
         preloadedItem: BaseItemDto? = null
-    ): String? = withContext(Dispatchers.IO) {
-        themerrUrlCache[itemId]?.let { cached ->
+    ): String? = withContext(ioDispatcher) {
+        themerrCacheMutex.withLock { themerrUrlCache[itemId] }?.let { cached ->
             return@withContext cached.youtubeUrl
         }
         val lookupItem = getThemeOwner(itemId, preloadedItem) ?: return@withContext null
@@ -583,7 +580,7 @@ class MediaRepository(private val context: Context) {
                     ?: imdbId?.let { themerrDbApi.youtubeThemeUrl("movies", "imdb", it) }
             else -> null
         }
-        themerrUrlCache[itemId] = ThemerrCacheEntry(youtubeUrl)
+        themerrCacheMutex.withLock { themerrUrlCache[itemId] = ThemerrCacheEntry(youtubeUrl) }
         youtubeUrl
     }
 
@@ -675,8 +672,8 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Overview,Genres,CommunityRating,ProductionYear,OfficialRating,SeriesName,SeriesId,UserData,ProviderIds"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getSimilarItems(
                 itemId = itemId,
@@ -693,7 +690,7 @@ class MediaRepository(private val context: Context) {
                         .distinctBy { it.mergeVersionKey() }
                 )
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_similar_items_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_SIMILAR_ITEMS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -718,8 +715,8 @@ class MediaRepository(private val context: Context) {
         enableUserData: Boolean? = null
     ): Result<QueryResult<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getUserItems(
                 userId = userId,
@@ -743,7 +740,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_user_items_failed, response.code())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_USER_ITEMS_FAILED, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -895,8 +892,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun setFavoriteStatus(itemId: String, isFavorite: Boolean): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = if (isFavorite) {
                 api.markAsFavorite(userId = userId, itemId = itemId)
@@ -920,8 +917,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun setPlayedStatus(itemId: String, isPlayed: Boolean): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = if (isPlayed) {
                 api.markAsPlayed(userId = userId, itemId = itemId)
@@ -949,7 +946,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getUserViews(): Result<QueryResult<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val response = session.api.getUserViews(session.userId)
 
             if (response.isSuccessful && response.body() != null) {
@@ -965,7 +962,7 @@ class MediaRepository(private val context: Context) {
                     )
                 )
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_user_views_failed, response.code())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_USER_VIEWS_FAILED, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1026,13 +1023,13 @@ class MediaRepository(private val context: Context) {
                 }
 
                 val session = getApiSession() ?: return@fold Result.failure(
-                    Exception(string(R.string.data_error_session_not_available))
+                    Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE))
                 )
                 val fields = "SeriesName,SeriesId,EpisodeCount,RecursiveItemCount,ChildCount,ProductionYear,EndDate,IndexNumber,ParentIndexNumber,UserData"
                 val sectionFetchSemaphore = Semaphore(4)
 
                 val sections = libraries.map { library ->
-                    async(Dispatchers.IO) {
+                    async(ioDispatcher) {
                         sectionFetchSemaphore.withPermit {
                             val libraryId = library.id ?: return@withPermit null
                             val includeItemTypes = when (library.collectionType) {
@@ -1084,7 +1081,7 @@ class MediaRepository(private val context: Context) {
     }
 
     private suspend fun getImageAuthState(): ImageAuthState {
-        val now = System.currentTimeMillis()
+        val now = currentTimeMillis()
         cachedImageAuthState?.let { cached ->
             if (now - cachedImageAuthAt < imageAuthCacheTtlMs) {
                 return cached
@@ -1127,8 +1124,8 @@ class MediaRepository(private val context: Context) {
         return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
     }
 
-    suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(Dispatchers.IO) {
-        if (!NetworkModule.isInternetAvailable(context)) return@withContext null
+    suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(ioDispatcher) {
+        if (!platform.isInternetAvailable()) return@withContext null
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -1149,8 +1146,8 @@ class MediaRepository(private val context: Context) {
         tmdbApi.titleLogoUrl(tmdbType, tmdbId)
     }
 
-    suspend fun getTmdbExtras(item: BaseItemDto): List<MediaExtra> = withContext(Dispatchers.IO) {
-        if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
+    suspend fun getTmdbExtras(item: BaseItemDto): List<MediaExtra> = withContext(ioDispatcher) {
+        if (!platform.isInternetAvailable()) return@withContext emptyList()
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -1174,12 +1171,12 @@ class MediaRepository(private val context: Context) {
     suspend fun getTrendingClips(
         filters: com.jellycine.data.model.ClipFeedFilters = com.jellycine.data.model.ClipFeedFilters()
     ): List<com.jellycine.data.model.ClipFeedItem> =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             runCatching { tmdbApi.fetchTrendingClips(filters) }.getOrDefault(emptyList())
         }
 
-    suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(Dispatchers.IO) {
-        if (!NetworkModule.isInternetAvailable(context)) return@withContext emptyList()
+    suspend fun getTmdbReviews(item: BaseItemDto): List<TmdbReview> = withContext(ioDispatcher) {
+        if (!platform.isInternetAvailable()) return@withContext emptyList()
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {
             getItemById(item.seriesId!!).getOrNull() ?: item
         } else {
@@ -1300,8 +1297,8 @@ class MediaRepository(private val context: Context) {
         sortOrder: String? = "Ascending"
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getGenres(
                 userId = userId,
@@ -1457,7 +1454,7 @@ class MediaRepository(private val context: Context) {
         limit: Int? = 20
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
 
             val response = session.api.getItemsByGenre(
                 userId = session.userId,
@@ -1481,7 +1478,7 @@ class MediaRepository(private val context: Context) {
                 Result.failure(Exception(errorMsg))
             }
         } catch (e: Exception) {
-            Result.failure(Exception(string(R.string.media_error_fetch_items_by_genre_failed, genreId, e.message.orEmpty()), e))
+            Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_ITEMS_BY_GENRE_FAILED, genreId, e.message.orEmpty()), e))
         }
     }
 
@@ -1493,7 +1490,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "ChildCount,RecursiveItemCount,EpisodeCount,SeriesName,SeriesId,ProductionYear,ProviderIds"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
 
             val response = session.api.getResumeItems(
                 userId = session.userId,
@@ -1511,7 +1508,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_resume_items_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_RESUME_ITEMS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1526,7 +1523,7 @@ class MediaRepository(private val context: Context) {
         fields: String? = "Overview,SeriesName,SeriesId,SeasonName,SeasonId,ProviderIds,ProductionYear"
     ): Result<List<BaseItemDto>> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val legacyNextUp = if (session.serverType == ServerType.EMBY) true else null
 
             val response = session.api.getNextUp(
@@ -1545,7 +1542,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_next_up_items_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_NEXT_UP_ITEMS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1554,8 +1551,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getSeasons(seriesId: String): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getSeasons(
                 seriesId = seriesId,
@@ -1567,7 +1564,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_seasons_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_SEASONS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1581,8 +1578,8 @@ class MediaRepository(private val context: Context) {
         startIndex: Int? = null
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getEpisodes(
                 seriesId = seriesId,
@@ -1597,7 +1594,7 @@ class MediaRepository(private val context: Context) {
                 val queryResult = response.body()!!
                 Result.success(queryResult.items ?: emptyList())
             } else {
-                Result.failure(Exception(string(R.string.media_error_fetch_episodes_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_FETCH_EPISODES_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -1647,8 +1644,8 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getCurrentUser(): Result<UserDto> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             val response = api.getUserById(userId)
 
@@ -1660,7 +1657,7 @@ class MediaRepository(private val context: Context) {
                     HttpStatusException(
                         statusCode = statusCode,
                         statusMessage = response.message(),
-                        message = string(R.string.media_error_fetch_user_info_failed, statusCode)
+                        message = platform.text(MediaMessage.MEDIA_ERROR_FETCH_USER_INFO_FAILED, statusCode)
                     )
                 )
             }
@@ -1676,7 +1673,7 @@ class MediaRepository(private val context: Context) {
      */
     suspend fun deleteSubtitle(itemId: String, index: Int): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.deleteSubtitle(itemId = itemId, index = index)
             if (response.isSuccessful) {
                 Result.success(Unit)
@@ -1699,7 +1696,7 @@ class MediaRepository(private val context: Context) {
         language: String
     ): Result<List<RemoteSubtitleInfo>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.searchRemoteSubtitles(itemId = itemId, language = language)
             if (response.isSuccessful) {
                 Result.success(response.body().orEmpty())
@@ -1727,7 +1724,7 @@ class MediaRepository(private val context: Context) {
         subtitleId: String
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.downloadRemoteSubtitle(itemId = itemId, subtitleId = subtitleId)
             if (response.isSuccessful) {
                 Result.success(Unit)
@@ -1774,7 +1771,7 @@ class MediaRepository(private val context: Context) {
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO
     ): Result<com.jellycine.data.model.PlaybackInfoResponse> {
         return try {
-            val session = getApiSession() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val session = getApiSession() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val api = session.api
             val userId = session.userId
             val serverUrl = session.baseUrl
@@ -1872,11 +1869,11 @@ class MediaRepository(private val context: Context) {
      */
     suspend fun getItemDownloadRequest(itemId: String): Result<ItemDownloadRequest> {
         return try {
-            val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val config = getSessionConfig() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val serverUrl = config.serverUrl
             val accessToken = config.accessToken
             if (accessToken.isNullOrBlank()) {
-                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
+                return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_ACCESS_TOKEN_NOT_AVAILABLE)))
             }
 
             val item = getItemById(itemId).getOrNull()
@@ -1934,11 +1931,11 @@ class MediaRepository(private val context: Context) {
     ): Result<ItemDownloadRequest> {
         return try {
             val config = getSessionConfig()
-                ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+                ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val serverUrl = config.serverUrl
             val accessToken = config.accessToken
             if (accessToken.isNullOrBlank()) {
-                return Result.failure(Exception(string(R.string.data_error_access_token_not_available)))
+                return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_ACCESS_TOKEN_NOT_AVAILABLE)))
             }
 
             val item = getItemById(itemId).getOrNull()
@@ -2017,7 +2014,7 @@ class MediaRepository(private val context: Context) {
         item: BaseItemDto? = null
     ): Result<List<SubtitleDownloadRequest>> {
         return try {
-            val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+            val config = getSessionConfig() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
             val serverUrl = config.serverUrl
             val accessToken = config.accessToken
             val isEmby = config.serverType == ServerType.EMBY
@@ -2078,8 +2075,7 @@ class MediaRepository(private val context: Context) {
                 }
 
                 val authorizedUrl = if (!accessToken.isNullOrBlank() && !fullUrl.contains("api_key=", ignoreCase = true)) {
-                    val uri = Uri.parse(fullUrl)
-                    uri.buildUpon().appendQueryParameter("api_key", accessToken).build().toString()
+                    fullUrl.withQueryParameter("api_key", accessToken)
                 } else {
                     fullUrl
                 }
@@ -2126,7 +2122,7 @@ class MediaRepository(private val context: Context) {
         playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null,
         includeAccessToken: Boolean = false
     ): Result<PlaybackRequest> {
-        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+        val config = getSessionConfig() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
         val authContext = createPlaybackAuthContext(config)
         val activePlaybackInfo = playbackInfo ?: run {
             val playbackInfoResult = getPlaybackInfo(
@@ -2138,14 +2134,14 @@ class MediaRepository(private val context: Context) {
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
-                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
+                    playbackInfoResult.exceptionOrNull() ?: Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_FAILED))
                 )
             }
             playbackInfoResult.getOrNull()
-        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
+        } ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_NOT_AVAILABLE)))
 
         return PlaybackUrlBuilder.createLocalPlaybackRequest(
-            context = context,
+            platform = platform,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = activePlaybackInfo,
@@ -2169,7 +2165,7 @@ class MediaRepository(private val context: Context) {
         audioTranscodeMode: AudioTranscodeMode = AudioTranscodeMode.AUTO,
         playbackInfo: com.jellycine.data.model.PlaybackInfoResponse? = null
     ): Result<String> {
-        val config = getSessionConfig() ?: return Result.failure(Exception(string(R.string.data_error_session_not_available)))
+        val config = getSessionConfig() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_SESSION_NOT_AVAILABLE)))
         val authContext = createPlaybackAuthContext(config)
         val activePlaybackInfo = playbackInfo ?: run {
             val playbackInfoResult = getPlaybackInfo(
@@ -2181,14 +2177,14 @@ class MediaRepository(private val context: Context) {
             )
             if (playbackInfoResult.isFailure) {
                 return Result.failure(
-                    playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed))
+                    playbackInfoResult.exceptionOrNull() ?: Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_FAILED))
                 )
             }
             playbackInfoResult.getOrNull()
-        } ?: return Result.failure(Exception(string(R.string.data_error_playback_info_not_available)))
+        } ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_NOT_AVAILABLE)))
 
         return PlaybackUrlBuilder.createCastStreamingUrl(
-            context = context,
+            platform = platform,
             authContext = authContext,
             itemId = itemId,
             playbackInfo = activePlaybackInfo,
@@ -2209,7 +2205,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val playbackInfoResult = getPlaybackInfo(itemId)
             if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_FAILED)))
             }
 
             val playbackInfo = playbackInfoResult.getOrNull()
@@ -2229,7 +2225,7 @@ class MediaRepository(private val context: Context) {
         return try {
             val playbackInfoResult = getPlaybackInfo(itemId)
             if (playbackInfoResult.isFailure) {
-                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(string(R.string.data_error_playback_info_failed)))
+                return Result.failure(playbackInfoResult.exceptionOrNull() ?: Exception(platform.text(MediaMessage.DATA_ERROR_PLAYBACK_INFO_FAILED)))
             }
 
             val playbackInfo = playbackInfoResult.getOrNull()
@@ -2270,7 +2266,7 @@ class MediaRepository(private val context: Context) {
     }
 
     suspend fun getTmdbTitleDetail(tmdbId: String, mediaType: String): Result<BaseItemDto> {
-        if (!NetworkModule.isInternetAvailable(context)) return Result.failure(Exception("No internet"))
+        if (!platform.isInternetAvailable()) return Result.failure(Exception("No internet"))
         val normalizedType = if (mediaType.equals("tv", ignoreCase = true)) "tv" else "movie"
         val detail = tmdbApi.titleDetail(normalizedType, tmdbId)
             ?: return Result.failure(Exception("Title details unavailable"))
@@ -2346,8 +2342,8 @@ class MediaRepository(private val context: Context) {
         limit: Int? = 50
     ): Result<List<BaseItemDto>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
-            val userId = getUserId() ?: return Result.failure(Exception(string(R.string.data_error_user_id_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
+            val userId = getUserId() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_USER_ID_NOT_AVAILABLE)))
 
             // Try searchTerm parameter first
             var response = api.searchItems(
@@ -2376,7 +2372,7 @@ class MediaRepository(private val context: Context) {
                 val items = (queryResult.items ?: emptyList()).distinctBy { it.mergeVersionKey() }
                 Result.success(items)
             } else {
-                Result.failure(Exception(string(R.string.media_error_search_items_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_SEARCH_ITEMS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -2413,7 +2409,7 @@ class MediaRepository(private val context: Context) {
             .distinctBy { item -> item.mergeVersionKey() }
 
         if (items.isEmpty() && results.all { it == null }) {
-            Result.failure(Exception(string(R.string.media_error_search_items_failed, 0, "Search timed out")))
+            Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_SEARCH_ITEMS_FAILED, 0, "Search timed out")))
         } else {
             Result.success(items)
         }
@@ -2434,7 +2430,7 @@ class MediaRepository(private val context: Context) {
         playMethod: String? = null
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
 
             val request = com.jellycine.data.model.PlaybackStartRequest(
                 itemId = itemId,
@@ -2451,7 +2447,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(string(R.string.media_error_report_playback_start_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_REPORT_PLAYBACK_START_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -2474,7 +2470,7 @@ class MediaRepository(private val context: Context) {
         playMethod: String? = null
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
 
             val request = com.jellycine.data.model.PlaybackProgressRequest(
                 itemId = itemId,
@@ -2494,7 +2490,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(string(R.string.media_error_report_playback_progress_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_REPORT_PLAYBACK_PROGRESS_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -2512,7 +2508,7 @@ class MediaRepository(private val context: Context) {
         failed: Boolean = false
     ): Result<Unit> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
 
             val request = com.jellycine.data.model.PlaybackStoppedRequest(
                 itemId = itemId,
@@ -2527,7 +2523,7 @@ class MediaRepository(private val context: Context) {
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(string(R.string.media_error_report_playback_stopped_failed, response.code(), response.message())))
+                Result.failure(Exception(platform.text(MediaMessage.MEDIA_ERROR_REPORT_PLAYBACK_STOPPED_FAILED, response.code(), response.message())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -2548,7 +2544,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getSystemInfo(): Result<SystemInfoFull> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.getSystemInfo()
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -2568,7 +2564,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getActiveSessions(): Result<List<AdminSessionInfo>> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.getActiveSessions()
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -2588,7 +2584,7 @@ class MediaRepository(private val context: Context) {
 
     suspend fun getActivityLog(startIndex: Int? = null, limit: Int? = null): Result<ActivityLogResult> {
         return try {
-            val api = getApi() ?: return Result.failure(Exception(string(R.string.data_error_api_not_available)))
+            val api = getApi() ?: return Result.failure(Exception(platform.text(MediaMessage.DATA_ERROR_API_NOT_AVAILABLE)))
             val response = api.getActivityLog(startIndex = startIndex, limit = limit)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
@@ -2603,33 +2599,6 @@ class MediaRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             Result.failure(e)
-        }
-    }
-
-    private fun string(resId: Int, vararg formatArgs: Any): String =
-        context.getString(resId, *formatArgs)
-
-    private fun createTmdbHttpClient(): HttpClient {
-        val timeouts = networkPreferences.getTimeoutConfig()
-        val dispatcher = Dispatcher().apply { maxRequestsPerHost = 32 }
-        val okHttpClient = OkHttpClient.Builder()
-            .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .retryOnConnectionFailure(true)
-            .dns(com.jellycine.data.network.DohDns())
-            .dispatcher(dispatcher)
-            .build()
-
-        return HttpClient(OkHttp) {
-            expectSuccess = false
-            engine {
-                preconfigured = okHttpClient
-            }
-            install(ContentNegotiation) {
-                json(JellyCineJson)
-            }
         }
     }
 }
@@ -2690,7 +2659,7 @@ fun BaseItemDto.getYearAndGenre(): String {
  */
 fun BaseItemDto.getFormattedRating(): String? {
     return communityRating?.let { rating ->
-        String.format("%.1f", rating)
+        formatOneDecimal(rating.toDouble())
     }
 }
 
@@ -2736,8 +2705,13 @@ fun BaseItemDto.getFormattedResumePosition(): String? {
     val hours = minutes / 60
 
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes % 60, seconds % 60)
+        "$hours:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}"
     } else {
-        String.format("%d:%02d", minutes, seconds % 60)
+        "$minutes:${(seconds % 60).toString().padStart(2, '0')}"
     }
+}
+
+private fun formatOneDecimal(value: Double): String {
+    val tenths = kotlin.math.round(value * 10).toLong()
+    return "${tenths / 10}.${kotlin.math.abs(tenths % 10)}"
 }

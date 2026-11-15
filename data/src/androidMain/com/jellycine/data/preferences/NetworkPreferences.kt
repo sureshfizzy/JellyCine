@@ -3,12 +3,6 @@ package com.jellycine.data.preferences
 import android.content.Context
 import android.content.SharedPreferences
 
-data class NetworkTimeoutConfig(
-    val requestTimeoutMs: Int,
-    val connectionTimeoutMs: Int,
-    val socketTimeoutMs: Int
-)
-
 class NetworkPreferences(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

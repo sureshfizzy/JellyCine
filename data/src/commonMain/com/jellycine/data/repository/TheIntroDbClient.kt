@@ -5,17 +5,18 @@ import com.jellycine.data.model.PlaybackSegmentSource
 import com.jellycine.data.model.PlaybackSegmentWindow
 import com.jellycine.data.model.PlaybackSegments
 import com.jellycine.data.network.JellyCineJson
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.jellycine.data.util.currentTimeMillis
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 
 internal class TheIntroDbClient(
+    private val httpClient: HttpClient,
     private val getSeriesItem: suspend (String) -> BaseItemDto?
 ) {
     private data class CachedPlaybackSegments(
@@ -51,39 +52,34 @@ internal class TheIntroDbClient(
         val endMs: Long? = null
     )
 
-    private val cacheTtlMs = TimeUnit.HOURS.toMillis(6)
-    private val playbackSegmentsCache = ConcurrentHashMap<String, CachedPlaybackSegments>()
-    private val httpClient: OkHttpClient by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        OkHttpClient.Builder()
-            .connectTimeout(3, TimeUnit.SECONDS)
-            .readTimeout(4, TimeUnit.SECONDS)
-            .callTimeout(5, TimeUnit.SECONDS)
-            .build()
-    }
-
+    private val cacheTtlMs = 6L * 60L * 60L * 1000L
+    private val playbackSegmentsCache = mutableMapOf<String, CachedPlaybackSegments>()
+    private val cacheMutex = Mutex()
     suspend fun getPlaybackSegments(item: BaseItemDto): PlaybackSegments? {
         val lookupRequest = buildLookupRequest(item) ?: return null
         getCachedPlaybackSegments(lookupRequest.cacheKey)?.let { cachedEntry ->
             return cachedEntry.segments
         }
 
-        val playbackSegments = withContext(Dispatchers.IO) {
-            fetchPlaybackSegments(lookupRequest)
+        val playbackSegments = fetchPlaybackSegments(lookupRequest)
+        cacheMutex.withLock {
+            playbackSegmentsCache[lookupRequest.cacheKey] = CachedPlaybackSegments(
+                segments = playbackSegments,
+                cachedAtMs = currentTimeMillis()
+            )
         }
-        playbackSegmentsCache[lookupRequest.cacheKey] = CachedPlaybackSegments(
-            segments = playbackSegments,
-            cachedAtMs = System.currentTimeMillis()
-        )
         return playbackSegments
     }
 
-    private fun getCachedPlaybackSegments(cacheKey: String): CachedPlaybackSegments? {
-        val cachedEntry = playbackSegmentsCache[cacheKey] ?: return null
-        if (System.currentTimeMillis() - cachedEntry.cachedAtMs > cacheTtlMs) {
-            playbackSegmentsCache.remove(cacheKey)
-            return null
+    private suspend fun getCachedPlaybackSegments(cacheKey: String): CachedPlaybackSegments? {
+        return cacheMutex.withLock {
+            val cachedEntry = playbackSegmentsCache[cacheKey] ?: return@withLock null
+            if (currentTimeMillis() - cachedEntry.cachedAtMs > cacheTtlMs) {
+                playbackSegmentsCache.remove(cacheKey)
+                return@withLock null
+            }
+            cachedEntry
         }
-        return cachedEntry
     }
 
     private suspend fun buildLookupRequest(item: BaseItemDto): TheIntroDbLookupRequest? {
@@ -117,18 +113,14 @@ internal class TheIntroDbClient(
             ?.takeIf { it.isNotEmpty() }
     }
 
-    private fun fetchPlaybackSegments(requestParams: TheIntroDbLookupRequest): PlaybackSegments? {
+    private suspend fun fetchPlaybackSegments(requestParams: TheIntroDbLookupRequest): PlaybackSegments? {
         val url = "https://api.theintrodb.org/v4/media?tmdb_id=${requestParams.tmdbId}&season=${requestParams.seasonNumber}&episode=${requestParams.episodeNumber}&mapping=default"
 
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+        val response = httpClient.get(url)
+        if (response.status.value !in 200..299) return null
 
-        httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-
-            val responseBody = response.body?.string()?.takeIf { it.isNotBlank() } ?: return null
+        run {
+            val responseBody = response.bodyAsText().takeIf { it.isNotBlank() } ?: return null
             val payload = JellyCineJson.decodeFromString<TheIntroDbMediaResponse>(responseBody)
             val playbackSegments = PlaybackSegments(
                 intro = payload.intro.firstOrNull()?.toPlaybackSegmentWindow(),
