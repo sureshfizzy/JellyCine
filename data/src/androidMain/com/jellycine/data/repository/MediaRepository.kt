@@ -2618,6 +2618,7 @@ class MediaRepository(private val context: Context) {
             .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(true)
+            .dns(com.jellycine.data.network.DohDns())
             .dispatcher(dispatcher)
             .build()
 
