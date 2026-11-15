@@ -280,8 +280,8 @@ private const val LOADER_LAST_STEP_DELAY_MS = 6000L
 private val LOADING_STEPS = listOf(
     "Finding what's trending",
     "Searching for the best short clips",
-    "Checking which clips are playable",
-    "Cueing up your feed",
+    "Picking clips worth your time",
+    "Queuing up your feed",
     "Taking a bit longer than usual…"
 )
 
