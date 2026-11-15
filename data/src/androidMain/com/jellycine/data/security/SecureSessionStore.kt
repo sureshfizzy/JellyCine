@@ -3,16 +3,9 @@ package com.jellycine.data.security
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
-import com.jellycine.data.network.canonicalServerUrlKey
 import java.security.MessageDigest
 
-object AuthSessionIds {
-    fun buildServerId(serverUrl: String, userId: String): String {
-        return "${canonicalServerUrlKey(serverUrl)}|${userId.trim()}"
-    }
-}
-
-class SecureSessionStore(context: Context) {
+class SecureSessionStore(context: Context) : TokenStore {
     private val appContext = context.applicationContext
     private val prefs by lazy {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -26,22 +19,22 @@ class SecureSessionStore(context: Context) {
         )
     }
 
-    fun getToken(serverId: String?): String? {
+    override fun getToken(serverId: String?): String? {
         if (serverId.isNullOrBlank()) return null
         return prefs.getString(tokenKey(serverId), null)?.takeIf { it.isNotBlank() }
     }
 
-    fun putToken(serverId: String, accessToken: String) {
+    override fun putToken(serverId: String, accessToken: String) {
         if (serverId.isBlank() || accessToken.isBlank()) return
         prefs.edit().putString(tokenKey(serverId), accessToken).apply()
     }
 
-    fun removeToken(serverId: String?) {
+    override fun removeToken(serverId: String?) {
         if (serverId.isNullOrBlank()) return
         prefs.edit().remove(tokenKey(serverId)).apply()
     }
 
-    fun hasToken(serverId: String?): Boolean = !getToken(serverId).isNullOrBlank()
+    override fun hasToken(serverId: String?): Boolean = !getToken(serverId).isNullOrBlank()
 
     private fun tokenKey(serverId: String): String = "token_${sha256(serverId)}"
 

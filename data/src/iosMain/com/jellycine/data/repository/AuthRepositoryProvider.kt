@@ -1,9 +1,16 @@
 package com.jellycine.data.repository
 
-private var authRepositoryInstance: AuthRepository? = null
+import com.jellycine.data.datastore.DataStoreProvider
+import com.jellycine.data.security.SecureSessionStore
 
 object AuthRepositoryProvider {
-    fun getInstance(): AuthRepository {
-        return authRepositoryInstance ?: AuthRepository().also { authRepositoryInstance = it }
+    private val instance: AuthRepository by lazy {
+        AuthRepository(
+            dataStore = DataStoreProvider.getDataStore(),
+            secureSessionStore = SecureSessionStore(),
+            platform = IosAuthPlatform()
+        )
     }
+
+    fun getInstance(): AuthRepository = instance
 }

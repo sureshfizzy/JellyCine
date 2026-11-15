@@ -23,6 +23,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.jellycine.data.repository.SavedServer
 
 enum class SeerrConnectionStatus {
     DISCONNECTED,
@@ -55,7 +56,7 @@ data class SettingsUiState(
     val username: String? = null,
     val profileImageUrl: String? = null,
     val isAdministrator: Boolean? = null,
-    val savedServers: List<AuthRepository.SavedServer> = emptyList(),
+    val savedServers: List<SavedServer> = emptyList(),
     val activeServerId: String? = null,
     val wifiOnlyDownloads: Boolean = false,
     val forceOffline: Boolean = false,
@@ -273,7 +274,7 @@ class SettingsViewModel(
             }
         }
     }
-    
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }

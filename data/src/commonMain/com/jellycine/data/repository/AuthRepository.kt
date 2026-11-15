@@ -1,27 +1,25 @@
 package com.jellycine.data.repository
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.jellycine.data.R
-import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthenticationRequest
 import com.jellycine.data.model.AuthenticationResult
 import com.jellycine.data.model.QuickConnectDto
 import com.jellycine.data.model.QuickConnectResult
 import com.jellycine.data.model.ServerInfo
+import com.jellycine.data.network.HttpStatusException
+import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.ServerEndpoint
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.network.canonicalServerUrl
-import com.jellycine.data.network.NetworkModule
-import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.AuthSessionIds
 import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
-import com.jellycine.data.security.SecureSessionStore
-import com.jellycine.data.network.JellyCineJson
+import com.jellycine.data.security.TokenStore
+import com.jellycine.data.util.currentTimeMillis
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,18 +32,17 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
-class AuthRepository(private val context: Context) {
+class AuthRepository(
+    private val dataStore: DataStore<Preferences>,
+    private val secureSessionStore: TokenStore,
+    private val platform: AuthPlatform
+) {
 
-    private val dataStore: DataStore<Preferences> = DataStoreProvider.getDataStore(context)
-    private val networkPreferences = NetworkPreferences(context)
-    private val secureSessionStore = SecureSessionStore(context)
-    private val seerrRepository = SeerrRepository(context)
     private val legacyMigrationMutex = Mutex()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Volatile
     private var cachedSnapshot: ActiveSessionSnapshot? = null
@@ -71,26 +68,6 @@ class AuthRepository(private val context: Context) {
     }
 
     @Serializable
-    data class SavedServer(
-        @SerialName("id")
-        val id: String,
-        @SerialName("serverUrl")
-        val serverUrl: String,
-        @SerialName("serverName")
-        val serverName: String,
-        @SerialName("serverTypeRaw")
-        val serverTypeRaw: String,
-        @SerialName("username")
-        val username: String,
-        @SerialName("userId")
-        val userId: String,
-        @SerialName("profileImageUrl")
-        val profileImageUrl: String? = null,
-        @SerialName("lastUsedAt")
-        val lastUsedAt: Long
-    )
-
-    @Serializable
     private data class StoredSavedServer(
         @SerialName("id")
         val id: String,
@@ -110,15 +87,6 @@ class AuthRepository(private val context: Context) {
         val lastUsedAt: Long,
         @SerialName("accessToken")
         val accessToken: String? = null
-    )
-
-    data class ActiveSessionSnapshot(
-        val serverName: String?,
-        val serverUrl: String?,
-        val serverType: String?,
-        val username: String?,
-        val savedServers: List<SavedServer>,
-        val activeServerId: String?
     )
 
     private fun defaultServerName(serverType: ServerType): String {
@@ -211,7 +179,7 @@ class AuthRepository(private val context: Context) {
             username = username,
             userId = userId,
             profileImageUrl = existingSavedServer?.profileImageUrl,
-            lastUsedAt = System.currentTimeMillis()
+            lastUsedAt = currentTimeMillis()
         )
     }
 
@@ -327,7 +295,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun switchServer(serverId: String): Result<SavedServer> {
         if (serverId.isBlank()) {
-            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
+            return Result.failure(Exception(platform.text(AuthMessage.INVALID_SERVER_ID)))
         }
 
         return try {
@@ -336,11 +304,11 @@ class AuthRepository(private val context: Context) {
             val existingServers = savedServers(preferences[SAVED_SERVERS_KEY])
             val targetServer = existingServers.firstOrNull { it.id == serverId }
                 ?: activeServer(preferences)?.takeIf { it.id == serverId }
-                ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
+                ?: return Result.failure(Exception(platform.text(AuthMessage.SAVED_SERVER_NOT_FOUND)))
             val accessToken = secureSessionStore.getToken(targetServer.id)
-                ?: return Result.failure(Exception(string(R.string.auth_error_saved_session_expired)))
+                ?: return Result.failure(Exception(platform.text(AuthMessage.SAVED_SESSION_EXPIRED)))
 
-            val switchedServer = targetServer.copy(lastUsedAt = System.currentTimeMillis())
+            val switchedServer = targetServer.copy(lastUsedAt = currentTimeMillis())
 
             dataStore.edit { prefs ->
                 val latestServers = savedServers(prefs[SAVED_SERVERS_KEY])
@@ -365,7 +333,7 @@ class AuthRepository(private val context: Context) {
 
     suspend fun removeSavedServer(serverId: String): Result<Unit> {
         if (serverId.isBlank()) {
-            return Result.failure(Exception(string(R.string.auth_error_invalid_server_id)))
+            return Result.failure(Exception(platform.text(AuthMessage.INVALID_SERVER_ID)))
         }
 
         return try {
@@ -377,11 +345,11 @@ class AuthRepository(private val context: Context) {
                 ?: activeServer(preferences)?.id
 
             val removeServer = existingServers.firstOrNull { it.id == serverId }
-                ?: return Result.failure(Exception(string(R.string.auth_error_saved_server_not_found)))
+                ?: return Result.failure(Exception(platform.text(AuthMessage.SAVED_SERVER_NOT_FOUND)))
 
             if (removeServer.id == activeServerId) {
                 return Result.failure(
-                    Exception(string(R.string.auth_error_remove_active_server))
+                    Exception(platform.text(AuthMessage.REMOVE_ACTIVE_SERVER))
                 )
             }
 
@@ -396,7 +364,7 @@ class AuthRepository(private val context: Context) {
                 }
             }
             secureSessionStore.removeToken(removeServer.id)
-            seerrRepository.disconnect(removeServer.id)
+            platform.onSessionEnded(removeServer.id)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -440,16 +408,11 @@ class AuthRepository(private val context: Context) {
         legacyStorageMigrated()
         return try {
             if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
-                return Result.failure(Exception(string(R.string.auth_error_invalid_url_scheme)))
+                return Result.failure(Exception(platform.text(AuthMessage.INVALID_URL_SCHEME)))
             }
 
-            val resolved = NetworkModule.serverEndpoint(
-                    context = context,
-                    serverUrl = serverUrl,
-                    storageDir = context.filesDir,
-                    timeoutConfig = networkPreferences.getTimeoutConfig()
-                ).getOrElse { error ->
-                return Result.failure(Exception(error.message ?: string(R.string.auth_error_unable_to_connect)))
+            val resolved = platform.resolveEndpoint(serverUrl).getOrElse { error ->
+                return Result.failure(Exception(error.message ?: platform.text(AuthMessage.UNABLE_TO_CONNECT)))
             }
 
             val normalizedServerInfo = resolved.serverInfo.copy(
@@ -460,27 +423,15 @@ class AuthRepository(private val context: Context) {
             )
 
             Result.success(normalizedServerInfo)
-        } catch (e: java.net.UnknownHostException) {
-            Result.failure(Exception(string(R.string.auth_error_cannot_reach_server)))
-        } catch (e: java.net.ConnectException) {
-            Result.failure(Exception(string(R.string.auth_error_connection_refused)))
-        } catch (e: java.net.SocketTimeoutException) {
-            Result.failure(Exception(string(R.string.auth_error_connection_timeout)))
-        } catch (e: javax.net.ssl.SSLException) {
-            Result.failure(Exception(string(R.string.auth_error_ssl_failed)))
-        } catch (e: java.security.cert.CertificateException) {
-            Result.failure(Exception(string(R.string.auth_error_certificate_failed)))
-        } catch (e: java.io.IOException) {
-            Result.failure(Exception(string(R.string.auth_error_network, e.message ?: string(R.string.auth_error_unable_to_connect))))
         } catch (e: Exception) {
-            val errorMessage = when {
+            val errorMessage = platform.connectionErrorMessage(e) ?: when {
                 e.message?.contains("Failed to connect", ignoreCase = true) == true ->
-                    string(R.string.auth_error_connect_failed)
+                    platform.text(AuthMessage.CONNECT_FAILED)
                 e.message?.contains("timeout", ignoreCase = true) == true ->
-                    string(R.string.auth_error_connection_timeout_unavailable)
+                    platform.text(AuthMessage.CONNECTION_TIMEOUT_UNAVAILABLE)
                 e.message?.contains("refused", ignoreCase = true) == true ->
-                    string(R.string.auth_error_connection_refused_short)
-                else -> e.message ?: string(R.string.auth_error_unknown_connection)
+                    platform.text(AuthMessage.CONNECTION_REFUSED_SHORT)
+                else -> e.message ?: platform.text(AuthMessage.UNKNOWN_CONNECTION)
             }
             Result.failure(Exception(errorMessage))
         }
@@ -507,15 +458,10 @@ class AuthRepository(private val context: Context) {
             )
         }
 
-        return NetworkModule.serverEndpoint(
-            context = context,
-            serverUrl = serverUrl,
-            storageDir = context.filesDir,
-            timeoutConfig = networkPreferences.getTimeoutConfig()
-        ).fold(
+        return platform.resolveEndpoint(serverUrl).fold(
             onSuccess = { Result.success(it) },
             onFailure = { error ->
-                Result.failure(Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved)))
+                Result.failure(Exception(error.message ?: platform.text(AuthMessage.ENDPOINT_UNRESOLVED)))
             }
         )
     }
@@ -547,13 +493,8 @@ class AuthRepository(private val context: Context) {
                     )
                 )
             } else {
-                NetworkModule.serverEndpoint(
-                    context = context,
-                    serverUrl = serverUrl,
-                    storageDir = context.filesDir,
-                    timeoutConfig = networkPreferences.getTimeoutConfig()
-                ).getOrElse { error ->
-                    return Result.failure(Exception(error.message ?: string(R.string.data_error_server_endpoint_unresolved)))
+                platform.resolveEndpoint(serverUrl).getOrElse { error ->
+                    return Result.failure(Exception(error.message ?: platform.text(AuthMessage.ENDPOINT_UNRESOLVED)))
                 }
             }
 
@@ -561,12 +502,7 @@ class AuthRepository(private val context: Context) {
                 serverInfo = endpoint.serverInfo,
                 serverType = endpoint.serverType
             )
-            val api = NetworkModule.createMediaServerApi(
-                baseUrl = endpoint.baseUrl,
-                serverType = endpoint.serverType,
-                storageDir = context.filesDir,
-                timeoutConfig = networkPreferences.getTimeoutConfig()
-            )
+            val api = platform.createApi(endpoint)
 
             val response = api.authenticateByName(AuthenticationRequest(username, password))
             if (response.isSuccessful && response.body() != null) {
@@ -579,7 +515,7 @@ class AuthRepository(private val context: Context) {
                     username = username,
                     userId = authResult.user.id,
                     profileImageUrl = null,
-                    lastUsedAt = System.currentTimeMillis()
+                    lastUsedAt = currentTimeMillis()
                 )
 
                 secureSessionStore.putToken(savedServer.id, authResult.accessToken)
@@ -603,7 +539,9 @@ class AuthRepository(private val context: Context) {
                 }
                 Result.success(authResult)
             } else {
-                Result.failure(Exception(string(R.string.auth_error_authentication_failed, response.code())))
+                Result.failure(
+                    HttpStatusException(response.code(), platform.text(AuthMessage.AUTHENTICATION_FAILED, response.code()))
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -618,17 +556,14 @@ class AuthRepository(private val context: Context) {
                 return Result.failure(error)
             }
 
-            val api = NetworkModule.createMediaServerApi(
-                baseUrl = endpoint.baseUrl,
-                serverType = endpoint.serverType,
-                storageDir = context.filesDir,
-                timeoutConfig = networkPreferences.getTimeoutConfig()
-            )
+            val api = platform.createApi(endpoint)
             val response = api.initiateQuickConnect()
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(string(R.string.auth_error_quick_connect_start_failed, response.code())))
+                Result.failure(
+                    HttpStatusException(response.code(), platform.text(AuthMessage.QUICK_CONNECT_START_FAILED, response.code()))
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -650,7 +585,7 @@ class AuthRepository(private val context: Context) {
         secret: String
     ): Result<AuthenticationResult> {
         if (secret.isBlank()) {
-            return Result.failure(Exception(string(R.string.auth_error_quick_connect_secret_missing)))
+            return Result.failure(Exception(platform.text(AuthMessage.QUICK_CONNECT_SECRET_MISSING)))
         }
 
         return try {
@@ -664,12 +599,7 @@ class AuthRepository(private val context: Context) {
                 serverInfo = endpoint.serverInfo,
                 serverType = endpoint.serverType
             )
-            val api = NetworkModule.createMediaServerApi(
-                baseUrl = endpoint.baseUrl,
-                serverType = endpoint.serverType,
-                storageDir = context.filesDir,
-                timeoutConfig = networkPreferences.getTimeoutConfig()
-            )
+            val api = platform.createApi(endpoint)
 
             val response = api.authenticateWithQuickConnect(QuickConnectDto(secret = secret))
             if (response.isSuccessful && response.body() != null) {
@@ -683,7 +613,7 @@ class AuthRepository(private val context: Context) {
                     username = persistedUsername,
                     userId = authResult.user.id,
                     profileImageUrl = null,
-                    lastUsedAt = System.currentTimeMillis()
+                    lastUsedAt = currentTimeMillis()
                 )
 
                 secureSessionStore.putToken(savedServer.id, authResult.accessToken)
@@ -707,7 +637,9 @@ class AuthRepository(private val context: Context) {
                 }
                 Result.success(authResult)
             } else {
-                Result.failure(Exception(string(R.string.auth_error_authentication_failed, response.code())))
+                Result.failure(
+                    HttpStatusException(response.code(), platform.text(AuthMessage.AUTHENTICATION_FAILED, response.code()))
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -735,7 +667,7 @@ class AuthRepository(private val context: Context) {
             preferences[ACTIVE_SERVER_ID_KEY] = ""
             preferences[IS_AUTHENTICATED_KEY] = false
         }
-        seerrRepository.disconnect(loggedOutServerId)
+        platform.onSessionEnded(loggedOutServerId)
     }
 
     private suspend fun legacyStorageMigrated() {
@@ -812,7 +744,4 @@ class AuthRepository(private val context: Context) {
         return normalizedInput.equals(normalizedSaved, ignoreCase = true) ||
             normalizedInput.equals(normalizedSavedWithoutEmby, ignoreCase = true)
     }
-
-    private fun string(resId: Int, vararg formatArgs: Any): String =
-        context.getString(resId, *formatArgs)
 }

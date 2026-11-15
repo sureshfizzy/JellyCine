@@ -117,6 +117,7 @@ import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.shared.util.image.WarmImageUrl
 import com.jellycine.shared.playback.UserDataRefreshSignals
 import java.util.concurrent.ConcurrentHashMap
+import com.jellycine.data.repository.SavedServer
 
 @Stable
 @Immutable
@@ -1266,7 +1267,7 @@ fun Dashboard(
                     sameServerUrl(savedServer.serverUrl, currentServerUrl)
             }
             .sortedWith(
-                compareByDescending<com.jellycine.data.repository.AuthRepository.SavedServer> {
+                compareByDescending<com.jellycine.data.repository.SavedServer> {
                     it.id == sessionSnapshot.activeServerId
                 }.thenBy { it.username.lowercase() }
             )

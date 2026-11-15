@@ -46,6 +46,7 @@ import com.jellycine.data.network.sameServerUrl
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
+import com.jellycine.data.repository.SavedServer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +91,7 @@ fun Settings(
                     sameServerUrl(savedServer.serverUrl, currentServerUrl)
             }
             .sortedWith(
-                compareByDescending<AuthRepository.SavedServer> {
+                compareByDescending<SavedServer> {
                     if (it.id == uiState.activeServerId) 1 else 0
                 }
                     .thenBy { it.username.lowercase() }

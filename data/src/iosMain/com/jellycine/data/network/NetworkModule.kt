@@ -144,7 +144,7 @@ object NetworkModule {
                     )
                 }
 
-                lastError = Exception("Server endpoint returned HTTP ${response.code()}")
+                lastError = HttpStatusException(response.code(), "Server endpoint returned HTTP ${response.code()}")
             } catch (e: Exception) {
                 lastError = e
             }

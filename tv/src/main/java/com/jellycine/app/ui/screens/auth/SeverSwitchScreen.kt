@@ -86,10 +86,11 @@ import com.jellycine.data.network.ServerDiscovery
 import com.jellycine.data.network.canonicalServerUrlKey
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
+import com.jellycine.data.repository.SavedServer
 
 internal var discoveredServerUrl: String? = null
 
-private fun AuthRepository.SavedServer.isActiveServer(activeServerId: String?): Boolean {
+private fun SavedServer.isActiveServer(activeServerId: String?): Boolean {
     return id == activeServerId
 }
 
@@ -99,13 +100,13 @@ internal class ServerSwitchDialogsState {
         private set
     var showUserSwitchDialog by mutableStateOf(false)
         private set
-    var userSwitchUsers by mutableStateOf<List<AuthRepository.SavedServer>>(emptyList())
+    var userSwitchUsers by mutableStateOf<List<SavedServer>>(emptyList())
         private set
     var userSwitchServerName by mutableStateOf<String?>(null)
         private set
     var userSwitchServerUrl by mutableStateOf<String?>(null)
         private set
-    var serverPendingRemoval by mutableStateOf<AuthRepository.SavedServer?>(null)
+    var serverPendingRemoval by mutableStateOf<SavedServer?>(null)
         private set
 
     fun openServers() {
@@ -116,7 +117,7 @@ internal class ServerSwitchDialogsState {
         showServerSwitchDialog = false
     }
 
-    fun openUsers(serverName: String?, users: List<AuthRepository.SavedServer>) {
+    fun openUsers(serverName: String?, users: List<SavedServer>) {
         showServerSwitchDialog = false
         userSwitchServerName = serverName
         userSwitchServerUrl = users.firstOrNull()?.serverUrl
@@ -139,7 +140,7 @@ internal class ServerSwitchDialogsState {
         showServerSwitchDialog = true
     }
 
-    fun requestRemoval(server: AuthRepository.SavedServer) {
+    fun requestRemoval(server: SavedServer) {
         serverPendingRemoval = server
     }
 
@@ -156,16 +157,16 @@ internal fun rememberServerSwitchDialogsState(): ServerSwitchDialogsState {
 @Composable
 internal fun ServerSwitchDialogsHost(
     state: ServerSwitchDialogsState,
-    savedServers: List<AuthRepository.SavedServer>,
+    savedServers: List<SavedServer>,
     activeServerId: String?,
     currentServerName: String?,
     currentServerUrl: String?,
     isSwitching: Boolean,
     onAddServer: () -> Unit,
     onAddUser: (serverUrl: String, serverName: String?) -> Unit,
-    onServerSelected: (AuthRepository.SavedServer, () -> Unit) -> Unit,
-    onRequestRemoveServer: (AuthRepository.SavedServer) -> Unit = {},
-    onRequestRemoveUser: (AuthRepository.SavedServer) -> Unit = {},
+    onServerSelected: (SavedServer, () -> Unit) -> Unit,
+    onRequestRemoveServer: (SavedServer) -> Unit = {},
+    onRequestRemoveUser: (SavedServer) -> Unit = {},
     onRemoveServer: ((String, () -> Unit) -> Unit)? = null,
     showRemoveAction: Boolean = true,
     dismissServerDialogOnRequest: Boolean = true,
@@ -390,7 +391,7 @@ private fun AmoledDialogFrame(
 
 @Composable
 internal fun ServerSwitchDialog(
-    servers: List<AuthRepository.SavedServer>,
+    servers: List<SavedServer>,
     activeServerId: String?,
     isSwitching: Boolean,
     showRemoveAction: Boolean = true,
@@ -398,9 +399,9 @@ internal fun ServerSwitchDialog(
     showCloseAction: Boolean = true,
     onDismiss: () -> Unit,
     onAddServer: () -> Unit,
-    onRequestRemoveServer: (AuthRepository.SavedServer) -> Unit,
-    onOpenServerUsers: (String, List<AuthRepository.SavedServer>) -> Unit,
-    onServerSelected: (AuthRepository.SavedServer) -> Unit
+    onRequestRemoveServer: (SavedServer) -> Unit,
+    onOpenServerUsers: (String, List<SavedServer>) -> Unit,
+    onServerSelected: (SavedServer) -> Unit
 ) {
     val context = LocalContext.current
     var discoveryTrigger by remember { mutableStateOf(0) }
@@ -435,7 +436,7 @@ internal fun ServerSwitchDialog(
             .groupBy { canonicalServerUrlKey(it.serverUrl) }
             .map { (_, groupedUsers) ->
                 val sortedUsers = groupedUsers.sortedWith(
-                    compareByDescending<AuthRepository.SavedServer> {
+                    compareByDescending<SavedServer> {
                         if (it.isActiveServer(activeServerId)) 1 else 0
                     }.thenBy { it.username.lowercase() }
                 )
@@ -706,14 +707,14 @@ internal fun ServerSwitchDialog(
 private data class ServerGroupUiModel(
     val serverName: String,
     val serverUrl: String,
-    val users: List<AuthRepository.SavedServer>,
-    val activeUser: AuthRepository.SavedServer?
+    val users: List<SavedServer>,
+    val activeUser: SavedServer?
 )
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun UserSwitchDialog(
-    users: List<AuthRepository.SavedServer>,
+    users: List<SavedServer>,
     activeServerId: String?,
     serverName: String?,
     isSwitching: Boolean,
@@ -721,8 +722,8 @@ internal fun UserSwitchDialog(
     dismissOnRequest: Boolean = true,
     onDismiss: () -> Unit,
     onAddUser: () -> Unit,
-    onRequestRemoveUser: (AuthRepository.SavedServer) -> Unit,
-    onUserSelected: (AuthRepository.SavedServer) -> Unit
+    onRequestRemoveUser: (SavedServer) -> Unit,
+    onUserSelected: (SavedServer) -> Unit
 ) {
     Dialog(
         onDismissRequest = {
@@ -998,12 +999,12 @@ private fun WhoWatchingScrollIndicator(
 
 @Composable
 private fun WhoWatchingUserCard(
-    user: AuthRepository.SavedServer,
+    user: SavedServer,
     activeServerId: String?,
     isSwitching: Boolean,
     showRemoveAction: Boolean,
-    onUserSelected: (AuthRepository.SavedServer) -> Unit,
-    onRequestRemoveUser: (AuthRepository.SavedServer) -> Unit,
+    onUserSelected: (SavedServer) -> Unit,
+    onRequestRemoveUser: (SavedServer) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isActiveUser = user.isActiveServer(activeServerId)
@@ -1097,7 +1098,7 @@ private fun WhoWatchingUserCard(
 
 @Composable
 internal fun RemoveServerConfirmDialog(
-    server: AuthRepository.SavedServer,
+    server: SavedServer,
     isRemoving: Boolean,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit

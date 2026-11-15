@@ -80,7 +80,7 @@ import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PersistedHomeSnapshot
-import com.jellycine.data.repository.AuthRepository.ActiveSessionSnapshot
+import com.jellycine.data.repository.ActiveSessionSnapshot
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.CancellationException

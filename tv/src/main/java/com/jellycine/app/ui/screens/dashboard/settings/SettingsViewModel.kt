@@ -16,6 +16,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.jellycine.data.repository.SavedServer
 
 data class SettingsUiState(
     val user: UserDto? = null,
@@ -24,7 +25,7 @@ data class SettingsUiState(
     val username: String? = null,
     val profileImageUrl: String? = null,
     val isAdministrator: Boolean? = null,
-    val savedServers: List<AuthRepository.SavedServer> = emptyList(),
+    val savedServers: List<SavedServer> = emptyList(),
     val activeServerId: String? = null,
     val wifiOnlyDownloads: Boolean = false,
     val requestTimeoutMs: Int = NetworkPreferences.DEFAULT_REQUEST_TIMEOUT_MS,
@@ -235,7 +236,7 @@ class SettingsViewModel(
             }
         }
     }
-    
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }

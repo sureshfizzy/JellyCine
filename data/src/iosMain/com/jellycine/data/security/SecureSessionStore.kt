@@ -36,24 +36,24 @@ import platform.Security.kSecReturnData
 import platform.Security.kSecValueData
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-class SecureSessionStore {
+class SecureSessionStore : TokenStore {
 
-    fun getToken(serverId: String?): String? {
+    override fun getToken(serverId: String?): String? {
         if (serverId.isNullOrBlank()) return null
         return keychainGet(tokenKey(serverId))
     }
 
-    fun putToken(serverId: String, accessToken: String) {
+    override fun putToken(serverId: String, accessToken: String) {
         if (serverId.isBlank() || accessToken.isBlank()) return
         keychainSet(tokenKey(serverId), accessToken)
     }
 
-    fun removeToken(serverId: String?) {
+    override fun removeToken(serverId: String?) {
         if (serverId.isNullOrBlank()) return
         keychainDelete(tokenKey(serverId))
     }
 
-    fun hasToken(serverId: String?): Boolean = !getToken(serverId).isNullOrBlank()
+    override fun hasToken(serverId: String?): Boolean = !getToken(serverId).isNullOrBlank()
 
     private fun tokenKey(serverId: String): String = "token_${sha256(serverId)}"
 
