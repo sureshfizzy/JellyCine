@@ -3,7 +3,6 @@ package com.jellycine.app.ui.screens.auth
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.CancellationException
@@ -56,7 +55,6 @@ class ServerSwitchViewModel(application: Application) : AndroidViewModel(applica
             switchResult.fold(
                 onSuccess = {
                     mediaRepository.clearPersistedHomeSnapshot()
-                    CachedData.clearAllCache()
                     _uiState.value = ServerSwitchUiState()
                     onSwitchComplete()
                 },

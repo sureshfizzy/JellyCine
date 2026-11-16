@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.dashboard.home
+package com.jellycine.shared.ui.screens.dashboard.home
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.BaseItemDto
+import kotlin.math.round
 
 @Composable
 internal fun FeatureHeroMetadataRow(
@@ -32,7 +33,7 @@ internal fun FeatureHeroMetadataRow(
     metaAlpha: Float,
     metaOffset: Float
 ) {
-    val ratingText = item.communityRating?.let { String.format("%.1f", it) }
+    val ratingText = item.communityRating?.let { (round(it * 10f) / 10f).toString() }
     val resolvedYear = item.productionYear ?: item.premiereDate
         ?.take(4)
         ?.toIntOrNull()

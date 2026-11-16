@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
+    val isLoading: Boolean = true,
+    val selectedCategory: String = HomeCategory.HOME,
     val featured: List<BaseItemDto> = emptyList(),
     val continueWatching: List<BaseItemDto> = emptyList(),
     val nextUp: List<BaseItemDto> = emptyList(),
@@ -50,14 +52,14 @@ class HomeViewModel(
         viewModelScope.launch {
             coroutineScope {
                 val headers = async { mediaRepository.getImageAuthHeaders() }
-                val featured = async { mediaRepository.getLatestItems(limit = 8) }
+                val featured = async { loadFeatured(HomeCategory.HOME) }
                 val resume = async { mediaRepository.getResumeItems(limit = 12) }
                 val nextUp = async { mediaRepository.getNextUpItems(limit = 12) }
                 val sections = async { mediaRepository.getHomeLibrarySections() }
                 val profileImage = async { mediaRepository.getUserProfileImageUrl() }
 
                 val loadedHeaders = headers.await()
-                val loadedFeatured = featured.await().getOrNull().orEmpty()
+                val loadedFeatured = featured.await()
                 val loadedResume = resume.await().getOrNull().orEmpty()
                 val loadedNextUp = nextUp.await().getOrNull().orEmpty()
                 val loadedSections = sections.await().getOrNull().orEmpty().filter { it.items.isNotEmpty() }
@@ -65,6 +67,7 @@ class HomeViewModel(
 
                 _uiState.update {
                     it.copy(
+                        isLoading = false,
                         featured = loadedFeatured,
                         continueWatching = loadedResume,
                         nextUp = loadedNextUp,
@@ -77,24 +80,38 @@ class HomeViewModel(
         }
     }
 
+    fun selectCategory(category: String) {
+        if (category == _uiState.value.selectedCategory) return
+        _uiState.update { it.copy(selectedCategory = category, isLoading = true, featured = emptyList()) }
+        viewModelScope.launch {
+            val featured = loadFeatured(category)
+            _uiState.update {
+                if (it.selectedCategory == category) it.copy(isLoading = false, featured = featured) else it
+            }
+        }
+    }
+
+    private suspend fun loadFeatured(category: String): List<BaseItemDto> {
+        return mediaRepository.getUserItems(
+            parentId = null,
+            includeItemTypes = when (category) {
+                HomeCategory.MOVIES -> "Movie"
+                HomeCategory.TV_SHOWS -> "Series"
+                else -> "Movie,Series"
+            },
+            sortBy = "Random",
+            sortOrder = null,
+            limit = 10,
+            startIndex = 0,
+            recursive = true,
+            fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview,RemoteTrailers"
+        ).getOrNull()?.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
+    }
+
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
             mediaRepository.clearPersistedHomeSnapshot()
         }
-    }
-
-    suspend fun imageUrl(
-        itemId: String,
-        imageType: String,
-        width: Int,
-        imageTag: String? = null
-    ): String? {
-        return mediaRepository.getImageUrlString(
-            itemId = itemId,
-            imageType = imageType,
-            width = width,
-            imageTag = imageTag
-        )
     }
 }

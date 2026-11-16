@@ -35,6 +35,7 @@ import com.jellycine.shared.util.image.JellyfinPosterImage
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
+import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.ScreenCastButton
 import com.jellycine.shared.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
@@ -424,6 +425,9 @@ fun Dashboard(
     val HeaderUserName = currentUsername
         ?.takeIf { it.isNotBlank() }
         ?: "User"
+    val featureImageHeaders by produceState(emptyMap<String, String>(), dashboardSessionKey) {
+        value = mediaRepository.getImageAuthHeaders()
+    }
     var noCarouselProfileImageUrl by remember(dashboardSessionKey) {
         mutableStateOf(persistedHomeSnapshot?.profileImageUrl)
     }
@@ -539,7 +543,6 @@ fun Dashboard(
         if (forceLogout) {
             authRepository.logout()
             mediaRepository.clearPersistedHomeSnapshot()
-            CachedData.clearAllCache()
             onLogout()
         }
     }
@@ -999,17 +1002,53 @@ fun Dashboard(
                 if (featureCarouselEnabled) {
                     item(key = "feature_tab") {
                         FeatureTab(
+                            mediaRepository = mediaRepository,
+                            imageHeaders = featureImageHeaders,
                             featuredItems = FeaturedItems,
                             isLoading = featuredQuery.isLoading && FeaturedItems.isEmpty(),
                             error = featuredQuery.error,
                             selectedCategory = selectedCategory,
                             carouselHeight = featureCarouselHeight,
+                            autoplayTrailersEnabled = autoplayTrailersEnabled,
                             verticalParallaxOffsetPx = featureParallaxOffsetPx,
                             onItemClick = onNavigateToDetail,
-                            onLogout = onLogout,
-                            onProfileClick = { showAccountOverview = true },
-                            onCategorySelected = { category ->
-                                selectedCategory = category
+                            trailerPlayer = { url, modifier, onCompleted ->
+                                InlineTrailerPlayer(
+                                    trailerUrl = url,
+                                    isVisible = true,
+                                    modifier = modifier,
+                                    onPlaybackCompleted = onCompleted,
+                                    onError = { onCompleted() }
+                                )
+                            },
+                            topBar = {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CategoryChipMenu(
+                                        selectedCategory = selectedCategory,
+                                        onCategorySelected = { category -> selectedCategory = category }
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ScreenCastButton(
+                                            onConnectedClick = {},
+                                            size = 34.dp
+                                        )
+                                        UserProfileAvatar(
+                                            imageUrl = noCarouselProfileImageUrl,
+                                            serverTypeRaw = currentServerType,
+                                            onClick = { showAccountOverview = true },
+                                            modifier = Modifier.size(34.dp)
+                                        )
+                                    }
+                                }
                             }
                         )
                     }
@@ -1232,7 +1271,6 @@ fun Dashboard(
                 scope.launch {
                     authRepository.logout()
                     mediaRepository.clearPersistedHomeSnapshot()
-                    CachedData.clearAllCache()
                     onLogout()
                 }
             }

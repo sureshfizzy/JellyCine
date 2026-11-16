@@ -17,7 +17,6 @@ import com.jellycine.data.repository.SeerrHostnameAlreadyConfiguredException
 import com.jellycine.data.repository.SeerrSessionExpiredException
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.shared.R
-import com.jellycine.app.ui.screens.dashboard.home.CachedData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -267,7 +266,6 @@ class SettingsViewModel(
             try {
                 authRepository.logout()
                 mediaRepository.clearPersistedHomeSnapshot()
-                CachedData.clearAllCache()
                 onLogoutComplete()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.message)

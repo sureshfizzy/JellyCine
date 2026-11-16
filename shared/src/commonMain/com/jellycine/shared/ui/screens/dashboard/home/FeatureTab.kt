@@ -1,29 +1,15 @@
-package com.jellycine.app.ui.screens.dashboard.home
+package com.jellycine.shared.ui.screens.dashboard.home
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -33,91 +19,57 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalDensity
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
+import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
-import coil3.imageLoader
-import coil3.request.*
-import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.UserProfileAvatar
-import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.shared.util.image.imageTagFor
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.crossfade
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.PersistedHomeSnapshot
-import com.jellycine.data.repository.ActiveSessionSnapshot
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.util.currentTimeMillis
+import com.jellycine.data.util.ioDispatcher
 import com.jellycine.shared.preferences.Preferences
-import com.jellycine.app.ui.components.common.InlineTrailerPlayer
-import androidx.compose.ui.platform.LocalConfiguration
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import com.jellycine.shared.resources.Res
+import com.jellycine.shared.resources.app_name
+import com.jellycine.shared.resources.feature_logo_content_description
+import com.jellycine.shared.resources.feature_no_content
+import com.jellycine.shared.resources.jellycine_logo
+import com.jellycine.shared.resources.search_result_unknown_title
+import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.shared.util.platformBitmapConfig
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.abs
-
-
-internal object CachedData {
-    var featuredItems: List<BaseItemDto> = emptyList()
-    var lastLoadTime: Long = 0
-    private var _isCurrentlyLoading: Boolean = false
-
-    val isCurrentlyLoading: Boolean get() = _isCurrentlyLoading
-
-    fun shouldRefresh(): Boolean {
-        return featuredItems.isEmpty() || System.currentTimeMillis() - lastLoadTime > 300_000
-    }
-
-    fun updateFeaturedItems(items: List<BaseItemDto>) {
-        featuredItems = items
-        lastLoadTime = System.currentTimeMillis()
-        _isCurrentlyLoading = false
-    }
-
-    fun clearAllCache() {
-        featuredItems = emptyList()
-        lastLoadTime = 0
-        _isCurrentlyLoading = false
-    }
-
-    fun markAsLoading(loading: Boolean) {
-        _isCurrentlyLoading = loading
-    }
-}
 
 private data class FeatureCardImages(
     val lowBackdropUrl: String?,
@@ -127,56 +79,37 @@ private data class FeatureCardImages(
 )
 
 @Composable
-@Suppress("UNUSED_PARAMETER")
-@OptIn(ExperimentalFoundationApi::class)
 fun FeatureTab(
+    mediaRepository: MediaRepository,
+    imageHeaders: Map<String, String>,
     modifier: Modifier = Modifier,
     featuredItems: List<BaseItemDto> = emptyList(),
     isLoading: Boolean = true,
     error: String? = null,
     selectedCategory: String = HomeCategory.HOME,
     carouselHeight: String = Preferences.FEATURE_CAROUSEL_HEIGHT_LARGE,
+    autoplayTrailersEnabled: Boolean = false,
     verticalParallaxOffsetPx: Float = 0f,
     onItemClick: (BaseItemDto) -> Unit = {},
-    onLogout: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onCastButtonClick: () -> Unit = {},
-    onCategorySelected: (String) -> Unit = {},
-    refreshTrigger: Int = 0
+    trailerPlayer: (@Composable (url: String, modifier: Modifier, onCompleted: () -> Unit) -> Unit)? = null,
+    topBar: @Composable () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val preferences = remember { Preferences(context) }
-    val userFallback = stringResource(R.string.settings_unknown_user)
-    var persistedHomeSnapshot by remember {
-        mutableStateOf<PersistedHomeSnapshot?>(mediaRepository.getPersistedHomeSnapshot())
-    }
-    val sessionSnapshot by authRepository.observeActiveSession().collectAsState(
-        initial = ActiveSessionSnapshot(
-            serverName = null,
-            serverUrl = null,
-            serverType = null,
-            username = null,
-            savedServers = emptyList(),
-            activeServerId = null
-        )
-    )
-    val currentUsername = sessionSnapshot.username ?: persistedHomeSnapshot?.username
-    val currentServerUrl = sessionSnapshot.serverUrl ?: persistedHomeSnapshot?.serverUrl
-    var displayUsername by rememberSaveable(currentUsername, currentServerUrl) {
-        mutableStateOf(currentUsername ?: persistedHomeSnapshot?.username ?: userFallback)
-    }
-    var userProfileImageUrl by rememberSaveable(currentUsername, currentServerUrl) {
-        mutableStateOf<String?>(persistedHomeSnapshot?.profileImageUrl)
+    val context = LocalPlatformContext.current
+    val density = LocalDensity.current
+    val containerSize = LocalWindowInfo.current.containerSize
+    val screenWidth = with(density) { containerSize.width.toDp() }
+    val screenHeight = with(density) { containerSize.height.toDp() }
+    val headers = remember(imageHeaders) {
+        NetworkHeaders.Builder().apply {
+            imageHeaders.forEach { (name, value) -> set(name, value) }
+        }.build()
     }
 
-    val configuration = LocalConfiguration.current
     val featuredRowState = remember(
         selectedCategory,
         carouselHeight,
-        configuration.screenWidthDp,
-        configuration.screenHeightDp
+        screenWidth,
+        screenHeight
     ) { LazyListState() }
     val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
@@ -244,27 +177,23 @@ fun FeatureTab(
     }
     var autoScroll by rememberSaveable(selectedCategory, carouselHeight) { mutableStateOf(false) }
     var isAutoScrolling by remember { mutableStateOf(false) }
-    val autoplayTrailersEnabled by preferences.autoplayTrailersEnabled()
-        .collectAsState(initial = preferences.isAutoplayTrailersEnabled())
-    val isAutoplayAllowed = autoplayTrailersEnabled &&
+    val isAutoplayAllowed = autoplayTrailersEnabled && trailerPlayer != null &&
             (carouselHeight == Preferences.FEATURE_CAROUSEL_HEIGHT_MEDIUM ||
              carouselHeight == Preferences.FEATURE_CAROUSEL_HEIGHT_SMALL)
     var currentPlayingTrailerUrl by remember { mutableStateOf<String?>(null) }
-    var isTrailerPlaying by remember { mutableStateOf(false) }
     var trailerPlaybackCompleted by remember { mutableStateOf(false) }
     var hasSeededCarousel by remember(
         selectedCategory,
         carouselHeight,
-        configuration.screenWidthDp,
-        configuration.screenHeightDp
+        screenWidth,
+        screenHeight
     ) { mutableStateOf(false) }
-    val heroSizing = remember(configuration.screenHeightDp, carouselHeight) {
+    val heroSizing = remember(screenHeight, carouselHeight) {
         featureHeroSizing(
             heightMode = carouselHeight,
-            screenHeight = configuration.screenHeightDp.dp
+            screenHeight = screenHeight
         )
     }
-    val screenWidth = configuration.screenWidthDp.dp
     val heroHeight = heroSizing.height
     val heroViewportHeight = heroHeight + heroSizing.carouselTopPadding
     val heroCardWidth = remember(screenWidth, heroSizing) {
@@ -281,7 +210,6 @@ fun FeatureTab(
             }?.index ?: featuredRowState.firstVisibleItemIndex
         }
     }
-    val density = LocalDensity.current
     val initialCarouselIndex = remember(heroSizing, infiniteStartIndex) {
         heroSizing.initialCarouselIndex(infiniteStartIndex)
     }
@@ -298,52 +226,6 @@ fun FeatureTab(
         )
     }
 
-    LaunchedEffect(currentServerUrl, currentUsername) {
-        persistedHomeSnapshot = mediaRepository.loadPersistedHomeSnapshot()
-    }
-
-    LaunchedEffect(currentUsername, currentServerUrl, refreshTrigger) {
-        val activeUsername = currentUsername ?: persistedHomeSnapshot?.username
-        displayUsername = activeUsername?.takeIf { it.isNotBlank() } ?: "User"
-
-        val persistedProfileUrl = persistedHomeSnapshot?.profileImageUrl
-        if (!persistedProfileUrl.isNullOrBlank()) {
-            userProfileImageUrl = persistedProfileUrl
-        }
-
-        val user = withContext(Dispatchers.IO) {
-            try {
-                mediaRepository.getCurrentUser().getOrNull()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                null
-            }
-        }
-        currentCoroutineContext().ensureActive()
-        val profileUrl = withContext(Dispatchers.IO) {
-            try {
-                mediaRepository.getUserProfileImageUrl(user?.primaryImageTag)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                null
-            }
-        }
-        currentCoroutineContext().ensureActive()
-        userProfileImageUrl = profileUrl
-        authRepository.updateActiveServerProfileImage(
-            profileImageUrl = profileUrl ?: persistedProfileUrl
-        )
-    }
-
-    LaunchedEffect(featuredItems, isLoading) {
-        CachedData.markAsLoading(isLoading)
-        if (featuredItems.isNotEmpty()) {
-            CachedData.updateFeaturedItems(featuredItems)
-        }
-    }
-
     LaunchedEffect(featuredKeys, isLoading, selectedCategory, initialCarouselIndex, initialCarouselScrollOffsetPx) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
         runCatching {
@@ -358,7 +240,7 @@ fun FeatureTab(
     LaunchedEffect(metadataQualifiedFeaturedItems.value) {
         if (metadataQualifiedFeaturedItems.value.isEmpty()) return@LaunchedEffect
 
-        val imageLoader = context.imageLoader
+        val imageLoader = SingletonImageLoader.get(context)
         coroutineScope {
             metadataQualifiedFeaturedItems.value.forEach { item ->
                 val itemId = item.id ?: return@forEach
@@ -369,7 +251,7 @@ fun FeatureTab(
                 val cachedImages = imageCacheByItemId[itemId]
                 if (cachedImages != null && cachedImages.versionKey == versionKey) return@forEach
 
-                launch(Dispatchers.IO) {
+                launch(ioDispatcher) {
                     val backdropTag = item.imageTagFor(
                         imageType = "Backdrop",
                         targetItemId = itemId
@@ -417,30 +299,14 @@ fun FeatureTab(
 
                     if (!lowBackdropUrl.isNullOrBlank()) {
                         val result = imageLoader.execute(
-                            ImageRequest.Builder(context)
-                                .data(lowBackdropUrl)
-                                .memoryCachePolicy(CachePolicy.ENABLED)
-                                .diskCachePolicy(CachePolicy.ENABLED)
-                                .networkCachePolicy(CachePolicy.ENABLED)
-                                .crossfade(false)
-                                .allowHardware(true)
-                                .allowRgb565(true)
-                                .build()
+                            heroImageRequest(context, lowBackdropUrl, headers, crossfade = false, allowRgb565 = true)
                         )
                         backdropLoaded = result is SuccessResult
                     }
 
                     if (!logoUrl.isNullOrBlank()) {
                         val result = imageLoader.execute(
-                            ImageRequest.Builder(context)
-                                .data(logoUrl)
-                                .memoryCachePolicy(CachePolicy.ENABLED)
-                                .diskCachePolicy(CachePolicy.ENABLED)
-                                .networkCachePolicy(CachePolicy.ENABLED)
-                                .crossfade(false)
-                                .allowHardware(true)
-                                .allowRgb565(true)
-                                .build()
+                            heroImageRequest(context, logoUrl, headers, crossfade = false, allowRgb565 = true)
                         )
                         logoLoaded = result is SuccessResult
                     }
@@ -473,7 +339,6 @@ fun FeatureTab(
         if (featuredRowState.isScrollInProgress && !isAutoScrolling) {
             autoScroll = false
             currentPlayingTrailerUrl = null
-            isTrailerPlaying = false
             trailerPlaybackCompleted = false
         } else if (!featuredRowState.isScrollInProgress && !isAutoScrolling && !autoScroll) {
             delay(3000L)
@@ -503,18 +368,16 @@ fun FeatureTab(
 
                 if (shouldPlayTrailer && !trailerUrl.isNullOrBlank()) {
                     currentPlayingTrailerUrl = trailerUrl
-                    isTrailerPlaying = true
                     trailerPlaybackCompleted = false
 
-                    val startTime = System.currentTimeMillis()
+                    val startTime = currentTimeMillis()
                     while (!trailerPlaybackCompleted &&
-                           System.currentTimeMillis() - startTime < 60_000L &&
+                           currentTimeMillis() - startTime < 60_000L &&
                            autoScroll) {
                         delay(1000L)
                     }
 
                     currentPlayingTrailerUrl = null
-                    isTrailerPlaying = false
                     trailerPlaybackCompleted = false
                 } else {
                     delay(10_000L)
@@ -573,6 +436,7 @@ fun FeatureTab(
                                 listState = featuredRowState,
                                 verticalParallaxOffsetPx = verticalParallaxOffsetPx,
                                 images = cachedImages,
+                                headers = headers,
                                 onClick = { onItemClick(item) },
                                 heroSizing = heroSizing,
                                 modifier = heroCardWidth?.let { Modifier.width(it) }
@@ -582,7 +446,8 @@ fun FeatureTab(
                                 onTrailerCompleted = {
                                     trailerPlaybackCompleted = true
                                 },
-                                currentPlayingTrailerUrl = if (index == centeredCardIndex) currentPlayingTrailerUrl else null
+                                currentPlayingTrailerUrl = if (index == centeredCardIndex) currentPlayingTrailerUrl else null,
+                                trailerPlayer = trailerPlayer
                             )
                         }
                     }
@@ -600,41 +465,19 @@ fun FeatureTab(
                 )
 
                 else -> FeatureHeroError(
-                    error = "No featured content available",
+                    error = stringResource(Res.string.feature_no_content),
                     heroHeight = heroHeight,
                     modifier = Modifier.padding(top = heroSizing.carouselTopPadding)
                 )
             }
 
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-                    .align(Alignment.TopStart),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .align(Alignment.TopStart)
             ) {
-                CategoryChipMenu(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = onCategorySelected
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    ScreenCastButton(
-                        onConnectedClick = onCastButtonClick,
-                        size = 34.dp
-                    )
-                    UserProfileAvatar(
-                        imageUrl = userProfileImageUrl,
-                        serverTypeRaw = sessionSnapshot.serverType,
-                        onClick = onProfileClick,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
+                topBar()
             }
         }
 
@@ -656,7 +499,7 @@ private fun hasFeatureHeroAssets(item: BaseItemDto): Boolean {
 }
 
 @Composable
-private fun CategoryChipMenu(
+fun CategoryChipMenu(
     selectedCategory: String,
     onCategorySelected: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -690,8 +533,8 @@ private fun CategoryChipMenu(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.jellycine_logo),
-                contentDescription = stringResource(R.string.app_name),
+                painter = painterResource(Res.drawable.jellycine_logo),
+                contentDescription = stringResource(Res.string.app_name),
                 modifier = Modifier.size(28.dp),
                 contentScale = ContentScale.Fit
             )
@@ -767,16 +610,18 @@ private fun FeatureHeroCard(
     listState: LazyListState,
     verticalParallaxOffsetPx: Float,
     images: FeatureCardImages?,
+    headers: NetworkHeaders,
     onClick: () -> Unit,
     heroSizing: FeatureHeroSizing,
     modifier: Modifier = Modifier,
     isAutoplayTrailersEnabled: Boolean = false,
     isCenteredCard: Boolean = false,
     onTrailerCompleted: () -> Unit = {},
-    currentPlayingTrailerUrl: String? = null
+    currentPlayingTrailerUrl: String? = null,
+    trailerPlayer: (@Composable (url: String, modifier: Modifier, onCompleted: () -> Unit) -> Unit)? = null
 ) {
-    val context = LocalContext.current
-    val itemName = item.name ?: stringResource(R.string.search_result_unknown_title)
+    val context = LocalPlatformContext.current
+    val itemName = item.name ?: stringResource(Res.string.search_result_unknown_title)
     var contentVisible by remember { mutableStateOf(true) }
     val logoAlpha by animateFloatAsState(
         targetValue = if (contentVisible) 1f else 0f,
@@ -825,15 +670,7 @@ private fun FeatureHeroCard(
         Box(modifier = Modifier.fillMaxSize()) {
             if (!lowBackdropUrl.isNullOrBlank()) {
                 val lowPainter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(context)
-                        .data(lowBackdropUrl)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .networkCachePolicy(CachePolicy.ENABLED)
-                        .crossfade(false)
-                        .allowHardware(true)
-                        .allowRgb565(true)
-                        .build()
+                    model = heroImageRequest(context, lowBackdropUrl, headers, crossfade = false, allowRgb565 = true)
                 )
                 val lowState by lowPainter.state.collectAsState()
                 LaunchedEffect(lowState) {
@@ -866,15 +703,7 @@ private fun FeatureHeroCard(
 
             if (!backdropUrl.isNullOrBlank() && lowResImage) {
                 val highPainter = rememberAsyncImagePainter(
-                    model = ImageRequest.Builder(context)
-                        .data(backdropUrl)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .networkCachePolicy(CachePolicy.ENABLED)
-                        .crossfade(true)
-                        .allowHardware(true)
-                        .allowRgb565(true)
-                        .build()
+                    model = heroImageRequest(context, backdropUrl, headers, crossfade = true, allowRgb565 = true)
                 )
                 val highState by highPainter.state.collectAsState()
                 val highResImage = highState is AsyncImagePainter.State.Success
@@ -962,13 +791,7 @@ private fun FeatureHeroCard(
             if (isAutoplayTrailersEnabled && isCenteredCard) {
                 val trailerUrl = currentPlayingTrailerUrl ?: item.remoteTrailers?.firstOrNull()?.url
                 if (!trailerUrl.isNullOrBlank()) {
-                    InlineTrailerPlayer(
-                        trailerUrl = trailerUrl,
-                        isVisible = isCenteredCard,
-                        modifier = Modifier.fillMaxSize(),
-                        onPlaybackCompleted = onTrailerCompleted,
-                        onError = { onTrailerCompleted() }
-                    )
+                    trailerPlayer?.invoke(trailerUrl, Modifier.fillMaxSize(), onTrailerCompleted)
                 }
             }
 
@@ -991,17 +814,9 @@ private fun FeatureHeroCard(
             ) {
                 if (!logoUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(logoUrl)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .networkCachePolicy(CachePolicy.ENABLED)
-                            .crossfade(false)
-                        .allowHardware(true)
-                        .allowRgb565(false)
-                        .build(),
+                        model = heroImageRequest(context, logoUrl, headers, crossfade = false, allowRgb565 = false),
                         contentDescription = stringResource(
-                            R.string.feature_logo_content_description,
+                            Res.string.feature_logo_content_description,
                             itemName
                         ),
                         contentScale = ContentScale.Fit,
@@ -1078,4 +893,22 @@ private fun FeatureHeroError(
             )
         }
     }
+}
+
+private fun heroImageRequest(
+    context: PlatformContext,
+    url: String,
+    headers: NetworkHeaders,
+    crossfade: Boolean,
+    allowRgb565: Boolean
+): ImageRequest {
+    return ImageRequest.Builder(context)
+        .data(url)
+        .httpHeaders(headers)
+        .memoryCachePolicy(CachePolicy.ENABLED)
+        .diskCachePolicy(CachePolicy.ENABLED)
+        .networkCachePolicy(CachePolicy.ENABLED)
+        .crossfade(crossfade)
+        .platformBitmapConfig(allowRgb565)
+        .build()
 }

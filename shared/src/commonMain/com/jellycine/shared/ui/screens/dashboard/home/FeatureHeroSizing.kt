@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.dashboard.home
+package com.jellycine.shared.ui.screens.dashboard.home
 
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
