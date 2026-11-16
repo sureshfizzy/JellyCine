@@ -68,8 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.theme.JellyBlue
-import com.jellycine.shared.ui.theme.JellyRed
+import com.jellycine.ui.theme.JellyBlue
+import com.jellycine.ui.theme.JellyRed
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.repository.AuthRepositoryProvider
 

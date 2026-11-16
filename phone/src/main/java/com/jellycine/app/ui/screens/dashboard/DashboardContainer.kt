@@ -26,8 +26,8 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.tween
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.preferences.Preferences
+import com.jellycine.ui.components.common.ShimmerEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.UserSwitchDialog
@@ -57,8 +57,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jellycine.shared.ui.screens.dashboard.DashboardDestination
-import com.jellycine.shared.ui.screens.dashboard.DashboardShell
+import com.jellycine.ui.screens.dashboard.DashboardDestination
+import com.jellycine.ui.screens.dashboard.DashboardShell
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -66,7 +66,7 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import com.jellycine.shared.ui.screens.dashboard.home.AccountOverview
+import com.jellycine.ui.screens.dashboard.home.AccountOverview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -24,7 +24,7 @@ def syncComposeResources = tasks.register('syncComposeResources', Sync) {
 compose.resources {
     publicResClass = true
     generateResClass = always
-    packageOfResClass = "com.jellycine.shared.resources"
+    packageOfResClass = "com.jellycine.resources"
     customDirectory(
         "commonMain",
         composeResourcesDir

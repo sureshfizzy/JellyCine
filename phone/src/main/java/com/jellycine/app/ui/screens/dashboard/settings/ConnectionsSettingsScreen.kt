@@ -49,7 +49,7 @@ fun ConnectionsSettingsScreen(
     var isDiscordAuthorized by remember(discordRpcManager) {
         mutableStateOf(discordRpcManager?.isAuthorized() == true)
     }
-    val preferences = remember { com.jellycine.shared.preferences.Preferences(context) }
+    val preferences = remember { com.jellycine.preferences.Preferences(context) }
     var discordRpcEnabled by remember { mutableStateOf(preferences.isDiscordRpcEnabled()) }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, discordRpcManager) {

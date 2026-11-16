@@ -42,8 +42,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
@@ -52,10 +52,10 @@ import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
-import com.jellycine.shared.ui.components.common.ScreenWrapper
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.ui.components.common.ScreenWrapper
+import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.playback.UserDataRefreshSignals
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
 import androidx.lifecycle.Lifecycle
@@ -68,7 +68,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import com.jellycine.player.audio.ThemeMusicController
 import com.jellycine.player.core.RemoteTrailerUrl
-import com.jellycine.shared.preferences.Preferences
+import com.jellycine.preferences.Preferences
 
 
 @UnstableApi
@@ -950,7 +950,7 @@ private fun SeasonEpisodeRow(
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(episode.id) {
-        episodeImageUrl = com.jellycine.shared.util.image.getBackdrop(
+        episodeImageUrl = com.jellycine.util.image.getBackdrop(
             episode = episode,
             mediaRepository = mediaRepository,
             width = 640,

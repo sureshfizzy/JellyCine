@@ -33,8 +33,8 @@ import androidx.compose.ui.res.stringResource
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
-import com.jellycine.shared.ui.components.common.LazyImageLoader
-import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.ui.components.common.LazyImageLoader
+import com.jellycine.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage

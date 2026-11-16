@@ -26,12 +26,12 @@ import com.jellycine.app.ui.components.common.detailActionWidth
 import com.jellycine.data.model.DownloadStatus
 import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.DetailDownloadActionButton
-import com.jellycine.shared.ui.components.common.DetailDownloadActionState
-import com.jellycine.shared.ui.components.common.DetailPlayActionButton
-import com.jellycine.shared.ui.components.common.DetailTrailerButton
-import com.jellycine.shared.ui.components.common.FavoriteActionButton
-import com.jellycine.shared.ui.components.common.SubtitleSearchActionButton
+import com.jellycine.ui.components.common.DetailDownloadActionButton
+import com.jellycine.ui.components.common.DetailDownloadActionState
+import com.jellycine.ui.components.common.DetailPlayActionButton
+import com.jellycine.ui.components.common.DetailTrailerButton
+import com.jellycine.ui.components.common.FavoriteActionButton
+import com.jellycine.ui.components.common.SubtitleSearchActionButton
 
 @Composable
 internal fun ActionSection(

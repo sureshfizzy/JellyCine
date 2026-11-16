@@ -37,7 +37,7 @@ import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.rememberCompactProgress
-import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
+import com.jellycine.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch

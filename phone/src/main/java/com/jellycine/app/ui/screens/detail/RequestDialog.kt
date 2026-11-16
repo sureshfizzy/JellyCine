@@ -64,7 +64,7 @@ import com.jellycine.data.model.SeerrRequestSelection
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSeasonRequestOption
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.util.image.JellyfinPosterImage
 
 @Composable
 internal fun SeerrRequestDialog(

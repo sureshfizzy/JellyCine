@@ -57,12 +57,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
-import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
-import com.jellycine.shared.ui.components.common.PosterCountBadge
-import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
-import com.jellycine.shared.playback.UserDataRefreshSignals
-import com.jellycine.shared.util.image.DisableEmbyPosterEnhancers
-import com.jellycine.shared.util.image.WarmImageUrl
+import com.jellycine.ui.components.common.FilterChip as MediaFilterChip
+import com.jellycine.ui.components.common.PosterCountBadge
+import com.jellycine.ui.components.common.WatchedIndicatorBadge
+import com.jellycine.playback.UserDataRefreshSignals
+import com.jellycine.util.image.DisableEmbyPosterEnhancers
+import com.jellycine.util.image.WarmImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto

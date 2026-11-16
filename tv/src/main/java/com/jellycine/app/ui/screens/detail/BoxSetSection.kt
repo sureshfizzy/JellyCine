@@ -50,9 +50,9 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecUtils
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
-import com.jellycine.shared.util.image.primaryImageTagOrNull
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.imageTagFor
+import com.jellycine.util.image.primaryImageTagOrNull
 import kotlinx.coroutines.flow.first
 
 @Composable

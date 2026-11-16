@@ -50,9 +50,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
-import com.jellycine.shared.ui.screens.auth.amoledAuthFieldColors
-import com.jellycine.shared.ui.theme.JellyBlue
-import com.jellycine.shared.ui.theme.JellyRed
+import com.jellycine.ui.screens.auth.amoledAuthFieldColors
+import com.jellycine.ui.theme.JellyBlue
+import com.jellycine.ui.theme.JellyRed
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 

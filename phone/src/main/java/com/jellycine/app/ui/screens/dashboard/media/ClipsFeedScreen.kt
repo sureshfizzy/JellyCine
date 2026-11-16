@@ -84,7 +84,7 @@ import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.createInlineExoPlayer
 import com.jellycine.data.model.ClipFeedFilters
 import com.jellycine.data.model.ClipFeedItem
-import com.jellycine.shared.preferences.Preferences
+import com.jellycine.preferences.Preferences
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider

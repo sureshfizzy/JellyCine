@@ -53,7 +53,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
+import com.jellycine.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SearchMediaType
 import com.jellycine.data.repository.AuthRepositoryProvider

@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.ui.components.common.SimilarItemsSection
+import com.jellycine.ui.components.common.SimilarItemsSection
 
 @Composable
 internal fun Recommendations(

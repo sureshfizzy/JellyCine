@@ -39,11 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.PosterCountBadge
-import com.jellycine.shared.ui.components.common.ShimmerEffect
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
-import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.ui.components.common.PosterCountBadge
+import com.jellycine.ui.components.common.ShimmerEffect
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.imageTagFor
+import com.jellycine.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider

@@ -2,7 +2,7 @@ package com.jellycine.app.ui.screens.player
 
 import android.util.Log
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.playback.UserDataRefreshSignals
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

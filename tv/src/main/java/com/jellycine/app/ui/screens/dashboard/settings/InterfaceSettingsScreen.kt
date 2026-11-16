@@ -46,8 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.ui.components.common.ThemeMusicSettingsItem
+import com.jellycine.preferences.Preferences
+import com.jellycine.ui.components.common.ThemeMusicSettingsItem
 import com.jellycine.data.repository.AuthRepositoryProvider
 
 @OptIn(ExperimentalMaterial3Api::class)

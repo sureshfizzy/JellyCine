@@ -46,7 +46,7 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.AuthRepository
 import kotlinx.coroutines.launch
 import com.jellycine.data.repository.SavedServer
-import com.jellycine.shared.ui.components.common.ProfileImageLoader
+import com.jellycine.ui.components.common.ProfileImageLoader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -27,10 +27,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.getBackdrop
-import com.jellycine.shared.ui.components.common.AnimatedCard
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.getBackdrop
+import com.jellycine.ui.components.common.AnimatedCard
+import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecUtils

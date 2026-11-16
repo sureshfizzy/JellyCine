@@ -9,7 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.discord.DiscordRpcManager
 import com.jellycine.player.discord.NowPlayingInfo
-import com.jellycine.shared.preferences.Preferences
+import com.jellycine.preferences.Preferences
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged

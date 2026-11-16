@@ -118,7 +118,7 @@ object CodecUtils {
     /**
      * Format runtime from ticks to human readable format
      */
-    fun formatRuntime(ticks: Long?): String = com.jellycine.shared.util.formatRuntime(ticks)
+    fun formatRuntime(ticks: Long?): String = com.jellycine.util.formatRuntime(ticks)
 
     /**
      * Get video codec information

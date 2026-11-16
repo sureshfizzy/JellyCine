@@ -43,19 +43,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.preferences.Preferences
+import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
-import com.jellycine.shared.ui.components.common.activeDetailMediaSources
-import com.jellycine.shared.ui.components.common.buildInlineText
-import com.jellycine.shared.ui.components.common.buildLocalVersionEntries
-import com.jellycine.shared.ui.components.common.selectedVideoOption
+import com.jellycine.ui.components.common.activeDetailMediaSources
+import com.jellycine.ui.components.common.buildInlineText
+import com.jellycine.ui.components.common.buildLocalVersionEntries
+import com.jellycine.ui.components.common.selectedVideoOption
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.shared.playback.UserDataRefreshEvent
-import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.playback.UserDataRefreshEvent
+import com.jellycine.playback.UserDataRefreshSignals
 import java.util.Locale
 import kotlinx.coroutines.launch
 

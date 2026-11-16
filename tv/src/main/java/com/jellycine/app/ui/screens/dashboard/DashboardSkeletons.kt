@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.ui.components.common.ShimmerEffect
 
 @Composable
 fun PosterSkeleton(

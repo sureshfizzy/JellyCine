@@ -83,8 +83,8 @@ import com.jellycine.data.preferences.DownloadPreferences
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.isPausedTrackedDownload
 import com.jellycine.app.ui.screens.player.PlayerScreen
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.rememberImageUrl
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.rememberImageUrl
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.launch

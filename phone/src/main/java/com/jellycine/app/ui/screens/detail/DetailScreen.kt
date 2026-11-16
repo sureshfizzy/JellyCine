@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.imageTagFor
 import com.jellycine.data.model.BatchDownloadCandidate
 import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
@@ -46,15 +46,15 @@ import kotlinx.coroutines.flow.first
 import android.content.res.Configuration
 import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
-import com.jellycine.shared.ui.components.common.ScreenWrapper
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.ui.components.common.ScreenWrapper
+import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.playback.UserDataRefreshSignals
 import com.jellycine.app.ui.components.common.detailContentMaxWidth
 import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.isTabletLayout
@@ -71,7 +71,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import com.jellycine.player.audio.ThemeMusicController
 import com.jellycine.player.core.RemoteTrailerUrl
-import com.jellycine.shared.preferences.Preferences
+import com.jellycine.preferences.Preferences
 
 internal val heroOverlayGradient = arrayOf(
     0.0f to Color.Transparent,

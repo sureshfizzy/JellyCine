@@ -43,7 +43,7 @@ import com.jellycine.shared.R
 import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
 import androidx.compose.foundation.layout.statusBarsPadding
-import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
+import com.jellycine.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
 import com.jellycine.data.model.title
@@ -51,8 +51,8 @@ import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.shared.recommendations.loadWatchedFeed
-import com.jellycine.shared.ui.components.common.ShimmerPosterRail
+import com.jellycine.recommendations.loadWatchedFeed
+import com.jellycine.ui.components.common.ShimmerPosterRail
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope

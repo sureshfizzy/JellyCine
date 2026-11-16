@@ -70,7 +70,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.Slider
+import com.jellycine.ui.components.common.Slider
 import com.jellycine.player.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 

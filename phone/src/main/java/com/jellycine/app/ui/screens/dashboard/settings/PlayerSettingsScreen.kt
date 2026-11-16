@@ -78,7 +78,7 @@ import com.jellycine.app.ui.components.common.AmoledSelectionDialog
 import com.jellycine.app.ui.components.common.SelectionOption
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.Slider
+import com.jellycine.ui.components.common.Slider
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)

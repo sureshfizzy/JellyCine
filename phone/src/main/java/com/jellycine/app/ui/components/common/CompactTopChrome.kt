@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.util.image.JellyfinPosterImage
 
 private fun compactProgress(
     firstVisibleItemIndex: Int,

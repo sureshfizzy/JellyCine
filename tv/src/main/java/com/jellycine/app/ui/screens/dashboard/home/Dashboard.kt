@@ -35,10 +35,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.rememberImageUrl
-import com.jellycine.shared.ui.components.common.*
+import com.jellycine.preferences.Preferences
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.rememberImageUrl
+import com.jellycine.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
@@ -117,9 +117,9 @@ import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import coil3.size.Precision
-import com.jellycine.shared.util.image.imageTagFor
-import com.jellycine.shared.util.image.WarmImageUrl
-import com.jellycine.shared.playback.UserDataRefreshSignals
+import com.jellycine.util.image.imageTagFor
+import com.jellycine.util.image.WarmImageUrl
+import com.jellycine.playback.UserDataRefreshSignals
 import java.util.concurrent.ConcurrentHashMap
 import com.jellycine.data.repository.SavedServer
 

@@ -39,7 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.app.ui.components.common.AmoledMultiSelectionDialog
 import com.jellycine.app.ui.components.common.SelectionOption
 import com.jellycine.shared.R
-import com.jellycine.shared.preferences.Preferences
+import com.jellycine.preferences.Preferences
 
 private val QUALITY_OPTIONS = listOf(0, 480, 720, 1080)
 

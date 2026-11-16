@@ -41,10 +41,10 @@ import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.app.ui.components.common.rememberCompactProgress
-import com.jellycine.shared.playback.UserDataRefreshSignals
-import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.getBackdrop
+import com.jellycine.playback.UserDataRefreshSignals
+import com.jellycine.ui.components.common.WatchedIndicatorBadge
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.getBackdrop
 import com.jellycine.data.model.BatchDownloadCandidate
 import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
@@ -52,7 +52,7 @@ import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
-import com.jellycine.shared.playback.UserDataRefreshEvent
+import com.jellycine.playback.UserDataRefreshEvent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 

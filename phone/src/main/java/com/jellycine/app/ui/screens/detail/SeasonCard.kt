@@ -18,11 +18,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.util.image.JellyfinPosterImage
-import com.jellycine.shared.util.image.imageTagFor
-import com.jellycine.shared.ui.components.common.AnimatedCard
-import com.jellycine.shared.ui.components.common.ShimmerEffect
+import com.jellycine.preferences.Preferences
+import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.imageTagFor
+import com.jellycine.ui.components.common.AnimatedCard
+import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.app.ui.components.common.SeerrTopBadges
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState

@@ -53,8 +53,8 @@ import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.shared.ui.screens.dashboard.home.LibraryItemCard
-import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
+import com.jellycine.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.RecommendationDto
@@ -66,15 +66,15 @@ import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.shared.recommendations.loadWatchedFeed
-import com.jellycine.shared.ui.components.common.ShimmerPosterRail
+import com.jellycine.recommendations.loadWatchedFeed
+import com.jellycine.ui.components.common.ShimmerPosterRail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.jellycine.shared.ui.components.common.UserProfileAvatar
+import com.jellycine.ui.components.common.UserProfileAvatar
 
 private data class RecommendationSectionUi(
     val title: String,

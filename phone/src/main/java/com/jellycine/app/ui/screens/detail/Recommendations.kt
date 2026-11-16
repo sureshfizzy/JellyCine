@@ -8,7 +8,7 @@ import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.shared.R
-import com.jellycine.shared.ui.components.common.SimilarItemsSection
+import com.jellycine.ui.components.common.SimilarItemsSection
 
 @Composable
 internal fun Recommendations(

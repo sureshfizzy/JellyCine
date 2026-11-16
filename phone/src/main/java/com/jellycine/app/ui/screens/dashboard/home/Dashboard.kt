@@ -30,14 +30,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.shared.preferences.Preferences
-import com.jellycine.shared.util.image.JellyfinPosterImage
+import com.jellycine.preferences.Preferences
+import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.components.common.InlineTrailerPlayer
 import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.shared.ui.components.common.*
+import com.jellycine.ui.components.common.*
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
@@ -74,9 +74,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.res.stringResource
 import com.jellycine.shared.R
-import com.jellycine.shared.resources.Res
-import com.jellycine.shared.resources.dashboard_failed_next_up
-import com.jellycine.shared.resources.dashboard_next_up
+import com.jellycine.resources.Res
+import com.jellycine.resources.dashboard_failed_next_up
+import com.jellycine.resources.dashboard_next_up
 import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.app.ui.screens.dashboard.GenreSectionSkeleton
 import com.jellycine.detail.CodecUtils
@@ -98,8 +98,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import coil3.request.*
-import com.jellycine.shared.playback.UserDataRefreshSignals
-import com.jellycine.shared.ui.screens.dashboard.home.*
+import com.jellycine.playback.UserDataRefreshSignals
+import com.jellycine.ui.screens.dashboard.home.*
 import com.jellycine.data.repository.SavedServer
 
 @Stable
