@@ -118,6 +118,7 @@ kotlin {
                     api project(':data')
                     implementation 'io.coil-kt.coil3:coil-network-ktor3:3.6.3'
                     implementation 'io.ktor:ktor-client-darwin:3.6.0'
+                    implementation 'com.squareup.okio:okio:3.18.2'
                 }
             }
         }

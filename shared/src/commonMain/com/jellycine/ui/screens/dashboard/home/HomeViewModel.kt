@@ -50,49 +50,82 @@ class HomeViewModel(
 
     private fun refresh() {
         viewModelScope.launch {
+            val headers = mediaRepository.getImageAuthHeaders()
+            val snapshot = mediaRepository.loadPersistedHomeSnapshot()
+            _uiState.update {
+                it.copy(
+                    imageHeaders = headers,
+                    isLoading = snapshot == null,
+                    featured = snapshot?.featuredHomeItems.orEmpty(),
+                    continueWatching = snapshot?.continueWatchingItems.orEmpty(),
+                    nextUp = snapshot?.nextUpItems.orEmpty(),
+                    sections = snapshot?.homeLibrarySections.orEmpty().filter { section -> section.items.isNotEmpty() },
+                    profileImageUrl = snapshot?.profileImageUrl
+                )
+            }
+
             coroutineScope {
-                val headers = async { mediaRepository.getImageAuthHeaders() }
-                val featured = async { loadFeatured(HomeCategory.HOME) }
-                val resume = async { mediaRepository.getResumeItems(limit = 12) }
-                val nextUp = async { mediaRepository.getNextUpItems(limit = 12) }
-                val sections = async { mediaRepository.getHomeLibrarySections() }
-                val profileImage = async { mediaRepository.getUserProfileImageUrl() }
-
-                val loadedHeaders = headers.await()
-                val loadedFeatured = featured.await()
-                val loadedResume = resume.await().getOrNull().orEmpty()
-                val loadedNextUp = nextUp.await().getOrNull().orEmpty()
-                val loadedSections = sections.await().getOrNull().orEmpty().filter { it.items.isNotEmpty() }
-                val loadedProfileImage = profileImage.await()
-
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        featured = loadedFeatured,
-                        continueWatching = loadedResume,
-                        nextUp = loadedNextUp,
-                        sections = loadedSections,
-                        imageHeaders = loadedHeaders,
-                        profileImageUrl = loadedProfileImage
-                    )
+                launch {
+                    loadFeatured(HomeCategory.HOME)?.let { featured ->
+                        _uiState.update {
+                            if (it.selectedCategory == HomeCategory.HOME) it.copy(isLoading = false, featured = featured) else it
+                        }
+                    }
+                }
+                launch {
+                    mediaRepository.getResumeItems(limit = 12).getOrNull()?.let { items ->
+                        _uiState.update { it.copy(continueWatching = items) }
+                    }
+                }
+                launch {
+                    mediaRepository.getNextUpItems(limit = 12).getOrNull()?.let { items ->
+                        _uiState.update { it.copy(nextUp = items) }
+                    }
+                }
+                launch {
+                    mediaRepository.getHomeLibrarySections().getOrNull()?.let { sections ->
+                        _uiState.update { it.copy(sections = sections.filter { section -> section.items.isNotEmpty() }) }
+                    }
+                }
+                launch {
+                    mediaRepository.getUserProfileImageUrl()?.let { url ->
+                        _uiState.update { it.copy(profileImageUrl = url) }
+                    }
                 }
             }
+
+            _uiState.update { it.copy(isLoading = false) }
+            persistSnapshot()
         }
+    }
+
+    private suspend fun persistSnapshot() {
+        val state = _uiState.value
+        if (state.selectedCategory != HomeCategory.HOME) return
+        mediaRepository.persistHomeSnapshot(
+            featuredHomeItems = state.featured,
+            continueWatchingItems = state.continueWatching,
+            nextUpItems = state.nextUp,
+            homeLibrarySections = state.sections,
+            username = state.username,
+            serverName = state.serverName,
+            profileImageUrl = state.profileImageUrl
+        )
     }
 
     fun selectCategory(category: String) {
         if (category == _uiState.value.selectedCategory) return
         _uiState.update { it.copy(selectedCategory = category, isLoading = true, featured = emptyList()) }
         viewModelScope.launch {
-            val featured = loadFeatured(category)
+            val featured = loadFeatured(category).orEmpty()
             _uiState.update {
                 if (it.selectedCategory == category) it.copy(isLoading = false, featured = featured) else it
             }
         }
     }
 
-    private suspend fun loadFeatured(category: String): List<BaseItemDto> {
-        return mediaRepository.getUserItems(
+    private suspend fun loadFeatured(category: String): List<BaseItemDto>? {
+        val result = mediaRepository.getUserItems(
             parentId = null,
             includeItemTypes = when (category) {
                 HomeCategory.MOVIES -> "Movie"
@@ -105,7 +138,10 @@ class HomeViewModel(
             startIndex = 0,
             recursive = true,
             fields = "BasicSyncInfo,Genres,CommunityRating,CriticRating,ProductionYear,PremiereDate,OfficialRating,Overview,RemoteTrailers"
-        ).getOrNull()?.items.orEmpty().filter { it.id != null && !it.name.isNullOrBlank() }
+        )
+        return result.getOrNull()?.items.orEmpty()
+            .filter { it.id != null && !it.name.isNullOrBlank() }
+            .takeIf { result.isSuccess }
     }
 
     fun logout() {
