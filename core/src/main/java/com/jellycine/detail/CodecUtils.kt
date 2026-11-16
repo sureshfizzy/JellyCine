@@ -118,13 +118,7 @@ object CodecUtils {
     /**
      * Format runtime from ticks to human readable format
      */
-    fun formatRuntime(ticks: Long?): String {
-        if (ticks == null) return ""
-        val minutes = (ticks / 10000000) / 60
-        val hours = minutes / 60
-        val remainingMinutes = minutes % 60
-        return if (hours > 0) "${hours}h ${remainingMinutes}m" else "${minutes}m"
-    }
+    fun formatRuntime(ticks: Long?): String = com.jellycine.shared.util.formatRuntime(ticks)
 
     /**
      * Get video codec information
@@ -236,7 +230,7 @@ object CodecUtils {
     fun isHighQualityVideo(videoStream: MediaStream): Boolean {
         val height = videoStream.height ?: 0
         val bitrate = videoStream.bitRate ?: 0
-        
+
         return height >= 1080 || bitrate >= 10000000 // 10 Mbps
     }
 
@@ -275,10 +269,10 @@ object CodecUtils {
      */
     fun getFileSize(sizeBytes: Long?): String? {
         if (sizeBytes == null || sizeBytes <= 0) return null
-        
+
         val gb = sizeBytes / (1024.0 * 1024.0 * 1024.0)
         val mb = sizeBytes / (1024.0 * 1024.0)
-        
+
         return when {
             gb >= 1.0 -> "%.1f GB".format(gb)
             mb >= 1.0 -> "%.0f MB".format(mb)

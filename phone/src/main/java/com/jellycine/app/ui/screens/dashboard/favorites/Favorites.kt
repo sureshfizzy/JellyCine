@@ -55,7 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.rememberCompactProgress
-import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.shared.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.shared.R
 import com.jellycine.data.model.BaseItemDto

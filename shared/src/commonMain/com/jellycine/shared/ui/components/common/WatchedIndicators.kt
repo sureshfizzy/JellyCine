@@ -16,10 +16,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jellycine.shared.R
+import com.jellycine.shared.resources.Res
+import com.jellycine.shared.resources.unwatched
+import com.jellycine.shared.resources.watched
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun WatchedIndicatorBadge(
@@ -36,7 +38,7 @@ fun WatchedIndicatorBadge(
         ) {
             Icon(
                 imageVector = Icons.Rounded.Check,
-                contentDescription = stringResource(R.string.watched),
+                contentDescription = stringResource(Res.string.watched),
                 tint = Color.White,
                 modifier = Modifier.size(12.dp)
             )
@@ -80,7 +82,7 @@ fun WatchedActionButton(
                 Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = stringResource(
-                        if (isWatched) R.string.watched else R.string.unwatched
+                        if (isWatched) Res.string.watched else Res.string.unwatched
                     ),
                     tint = Color.White,
                     modifier = Modifier.size(iconSize)

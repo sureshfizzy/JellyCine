@@ -53,7 +53,7 @@ import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.shared.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.shared.util.image.disableEmbyPosterEnhancers
 import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.BaseItemDto

@@ -102,6 +102,7 @@ dependencies {
 
     // Data module dependency
     implementation project(':data')
+    implementation project(':shared')
 
     // Testing
     testImplementation 'junit:junit:4.13.2'

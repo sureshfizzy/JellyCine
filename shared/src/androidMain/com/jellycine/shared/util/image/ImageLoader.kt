@@ -1,5 +1,6 @@
 package com.jellycine.shared.util.image
 
+import android.content.Context
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -9,57 +10,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.*
-import android.content.Context
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import coil3.imageLoader
-import com.jellycine.shared.preferences.Preferences
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.shared.preferences.Preferences
+import com.jellycine.shared.ui.components.common.ShimmerEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
-import javax.inject.Inject
-import com.jellycine.shared.ui.components.common.ShimmerEffect
-
-@Composable
-fun WarmImageUrl(
-    imageUrl: String?,
-    allowRgb565: Boolean = true
-) {
-    val context = LocalContext.current
-
-    LaunchedEffect(context, imageUrl, allowRgb565) {
-        if (imageUrl.isNullOrBlank()) return@LaunchedEffect
-
-        context.imageLoader.enqueue(
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .networkCachePolicy(CachePolicy.ENABLED)
-                .allowHardware(true)
-                .allowRgb565(allowRgb565)
-                .crossfade(false)
-                .build()
-        )
-    }
-}
 
 // Skeleton loading animation with optional placeholder
 @Composable

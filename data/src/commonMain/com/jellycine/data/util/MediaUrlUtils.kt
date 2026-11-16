@@ -1,11 +1,7 @@
 package com.jellycine.data.util
 
 import com.jellycine.data.network.trimTrailingSlash
-import io.ktor.http.URLBuilder
-import io.ktor.http.Url
-import io.ktor.http.appendEncodedPathSegments
-import io.ktor.http.encodedPath
-import io.ktor.http.parseQueryString
+import io.ktor.http.*
 
 internal fun buildServerUrl(
     baseUrl: String,

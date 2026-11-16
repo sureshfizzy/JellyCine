@@ -12,8 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,8 +45,9 @@ fun PosterCountBadge(
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 style = TextStyle(
-                    platformStyle = PlatformTextStyle(
-                        includeFontPadding = false
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both
                     )
                 )
             )
@@ -77,8 +78,9 @@ fun PosterTextBadge(
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 style = TextStyle(
-                    platformStyle = PlatformTextStyle(
-                        includeFontPadding = false
+                    lineHeightStyle = LineHeightStyle(
+                        alignment = LineHeightStyle.Alignment.Center,
+                        trim = LineHeightStyle.Trim.Both
                     )
                 )
             )

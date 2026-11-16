@@ -52,7 +52,7 @@ import com.jellycine.app.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
 import com.jellycine.app.ui.components.common.rememberCompactProgress
-import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
+import com.jellycine.shared.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.shared.ui.components.common.PosterCountBadge
 import com.jellycine.shared.ui.components.common.WatchedIndicatorBadge
@@ -357,7 +357,7 @@ fun ViewAllScreen(
                             }
                         }
                     }
-                    
+
                     uiState.error != null && items.isEmpty() -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -397,7 +397,7 @@ fun ViewAllScreen(
                             }
                         }
                     }
-                    
+
                     displayItems.isEmpty() -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -421,7 +421,7 @@ fun ViewAllScreen(
                             }
                         }
                     }
-                    
+
                     else -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             LazyVerticalGrid(
@@ -960,9 +960,9 @@ private fun SortBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .let { 
-                    if (isTablet) it.widthIn(max = 640.dp).align(Alignment.CenterHorizontally) 
-                    else it 
+                .let {
+                    if (isTablet) it.widthIn(max = 640.dp).align(Alignment.CenterHorizontally)
+                    else it
                 }
                 .heightIn(max = if (isTablet) 700.dp else 560.dp)
                 .padding(start = 24.dp, end = 24.dp, bottom = 32.dp)

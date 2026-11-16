@@ -3,11 +3,7 @@ package com.jellycine.data.model
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.repository.MediaMessage
 import com.jellycine.data.repository.MediaPlatform
-import com.jellycine.data.util.buildServerUrl
-import com.jellycine.data.util.getServerUrl
-import com.jellycine.data.util.queryParameter
-import com.jellycine.data.util.removeQueryParameter
-import com.jellycine.data.util.withQueryParameter
+import com.jellycine.data.util.*
 import io.ktor.http.URLBuilder
 
 private const val API_KEY_QUERY_PARAM = "api_key"
