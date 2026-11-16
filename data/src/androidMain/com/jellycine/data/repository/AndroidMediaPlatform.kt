@@ -3,14 +3,12 @@ package com.jellycine.data.repository
 import android.content.Context
 import com.jellycine.data.R
 import com.jellycine.data.api.MediaServerApi
-import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.network.DohDns
 import com.jellycine.data.network.JellyCineJson
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.preferences.NetworkTimeoutConfig
-import com.jellycine.data.security.SecureSessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation

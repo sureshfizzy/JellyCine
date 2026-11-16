@@ -1,4 +1,4 @@
-package com.jellycine.shared.ui.navigation
+package com.jellycine.shared.ui.screens.dashboard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring

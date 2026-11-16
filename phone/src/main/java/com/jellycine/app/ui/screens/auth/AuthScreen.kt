@@ -14,7 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.data.network.ServerDiscovery
 import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.shared.auth.AuthScreen as SharedAuthScreen
+import com.jellycine.shared.ui.screens.auth.AuthScreen as SharedAuthScreen
 import androidx.compose.runtime.getValue
 
 @Composable

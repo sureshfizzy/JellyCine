@@ -1124,6 +1124,20 @@ class MediaRepository(
         return buildServerUrl(baseUrl = serverUrl, encodedPath = "Items/$itemId/Images/$imageType", queryParams = queryParams)
     }
 
+    suspend fun getImageAuthHeaders(): Map<String, String> {
+        val config = getSessionConfig() ?: return emptyMap()
+        val authHeader = AuthHeaderDto.fromServerType(
+            serverType = config.serverType,
+            deviceId = platform.clientDeviceId,
+            version = DataModuleConfig.CLIENT_VERSION,
+            accessToken = config.accessToken
+        ).asHeaderValue()
+        return mapOf(
+            "Authorization" to authHeader,
+            "X-Emby-Authorization" to authHeader
+        )
+    }
+
     suspend fun getTmdbLogoUrl(item: BaseItemDto): String? = withContext(ioDispatcher) {
         if (!platform.isInternetAvailable()) return@withContext null
         val lookupItem = if (item.type.equals("Episode", ignoreCase = true) && !item.seriesId.isNullOrBlank()) {

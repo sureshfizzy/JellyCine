@@ -1,4 +1,4 @@
-package com.jellycine.shared.auth
+package com.jellycine.shared.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

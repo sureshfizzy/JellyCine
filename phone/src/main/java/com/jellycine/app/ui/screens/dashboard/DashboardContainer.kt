@@ -21,19 +21,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.jellycine.shared.preferences.Preferences
 import com.jellycine.shared.ui.components.common.ShimmerEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,7 +48,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
@@ -64,22 +55,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.Velocity
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
-import com.jellycine.shared.ui.navigation.DashboardDestination
-import com.jellycine.shared.ui.navigation.DashboardNavigationBar
-import com.jellycine.shared.ui.navigation.DashboardNavigationBarHeight
+import com.jellycine.shared.ui.screens.dashboard.DashboardDestination
+import com.jellycine.shared.ui.screens.dashboard.DashboardShell
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.repository.AuthRepositoryProvider
@@ -87,14 +67,6 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-
-private fun DashboardEnterTransition(): EnterTransition {
-    return fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing))
-}
-
-private fun DashboardExitTransition(): ExitTransition {
-    return fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,10 +88,6 @@ fun DashboardContainer(
     onAddServer: () -> Unit = {},
     onAddUser: (serverUrl: String, serverName: String?) -> Unit = { _, _ -> }
 ) {
-    val navController = rememberNavController()
-    val homeScrollState = rememberLazyListState()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
     val context = LocalContext.current
     val preferences = remember(context) { Preferences(context) }
     val appContext = remember(context) { context.applicationContext }
@@ -143,153 +111,6 @@ fun DashboardContainer(
     )
     val isNetworkAvailable = networkStatus.isAvailable
     val isOnline = networkStatus == NetworkStatus.Online
-    val density = LocalDensity.current
-    val bottomBarHeight = DashboardNavigationBarHeight
-    val navigationBarInsetPx = WindowInsets.navigationBars.getBottom(density).toFloat()
-    val bottomBarHideDistancePx = with(density) { (bottomBarHeight + 36.dp).toPx() } + navigationBarInsetPx
-    val hideThresholdPx = with(density) { 22.dp.toPx() }
-    val showThresholdPx = with(density) { 14.dp.toPx() }
-    var isBottomBarVisible by remember { mutableStateOf(true) }
-    var accumulatedScrollPx by remember { mutableFloatStateOf(0f) }
-    var homeScrollToTop by remember { mutableStateOf(0) }
-    val keepBottomBarVisible = remember { mutableStateOf(false) }
-
-    val bottomBarScrollConnection = remember(hideThresholdPx, showThresholdPx, isNetworkAvailable) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (!isNetworkAvailable) return Offset.Zero
-                if (keepBottomBarVisible.value) return Offset.Zero
-                if (source != NestedScrollSource.Drag) return Offset.Zero
-
-                val deltaY = available.y
-                if (deltaY == 0f) return Offset.Zero
-
-                if (abs(available.y) < abs(available.x)) return Offset.Zero
-
-                if (deltaY < 0f) {
-                    accumulatedScrollPx = min(0f, accumulatedScrollPx + deltaY)
-                    if (isBottomBarVisible && -accumulatedScrollPx >= hideThresholdPx) {
-                        isBottomBarVisible = false
-                        accumulatedScrollPx = 0f
-                    }
-                } else {
-                    accumulatedScrollPx = max(0f, accumulatedScrollPx + deltaY)
-                    if (!isBottomBarVisible && accumulatedScrollPx >= showThresholdPx) {
-                        isBottomBarVisible = true
-                        accumulatedScrollPx = 0f
-                    }
-                }
-
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                if (!isNetworkAvailable) return Velocity.Zero
-                if (keepBottomBarVisible.value) return Velocity.Zero
-                if (available.y < -500f) {
-                    isBottomBarVisible = false
-                } else if (available.y > 500f) {
-                    isBottomBarVisible = true
-                }
-                accumulatedScrollPx = 0f
-                return Velocity.Zero
-            }
-        }
-    }
-
-    LaunchedEffect(currentRoute, isOnline) {
-        isBottomBarVisible = true
-        accumulatedScrollPx = 0f
-        keepBottomBarVisible.value = currentRoute == DashboardDestination.Favorites.route && isOnline
-    }
-    LaunchedEffect(keepBottomBarVisible.value) {
-        if (keepBottomBarVisible.value) {
-            isBottomBarVisible = true
-            accumulatedScrollPx = 0f
-        }
-    }
-    LaunchedEffect(isNetworkAvailable) {
-        if (!isNetworkAvailable) {
-            isBottomBarVisible = true
-            accumulatedScrollPx = 0f
-        }
-    }
-
-    val bottomBarTransition = updateTransition(
-        targetState = isBottomBarVisible,
-        label = "bottom_bar_visibility"
-    )
-    val bottomBarTranslationPx by bottomBarTransition.animateFloat(
-        transitionSpec = {
-            tween(
-                durationMillis = if (targetState) 440 else 320,
-                easing = FastOutSlowInEasing
-            )
-        },
-        label = "bottom_bar_translation"
-    ) { visible ->
-        if (visible) 0f else bottomBarHideDistancePx
-    }
-    val bottomBarAlpha by bottomBarTransition.animateFloat(
-        transitionSpec = {
-            tween(
-                durationMillis = if (targetState) 420 else 260,
-                easing = LinearOutSlowInEasing
-            )
-        },
-        label = "bottom_bar_alpha"
-    ) { visible ->
-        if (visible) 1f else 0f
-    }
-
-
-    val offlineAllowedRoutes = remember {
-        setOf(
-            DashboardDestination.Home.route,
-            DashboardDestination.Settings.route
-        )
-    }
-    val navigateToDestination: (DashboardDestination) -> Unit = { destination ->
-        if (
-            destination == DashboardDestination.Home &&
-            currentRoute == DashboardDestination.Home.route
-        ) {
-            homeScrollToTop += 1
-        }
-        if (currentRoute != destination.route) {
-            navController.navigate(destination.route) {
-                popUpTo(navController.graph.startDestinationId) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
-    }
-
-    LaunchedEffect(currentRoute, homeScrollToTop) {
-        if (
-            currentRoute != DashboardDestination.Home.route ||
-            homeScrollToTop == 0
-        ) {
-            return@LaunchedEffect
-        }
-
-        if (
-            homeScrollState.firstVisibleItemIndex != 0 ||
-            homeScrollState.firstVisibleItemScrollOffset != 0
-        ) {
-            homeScrollState.animateScrollToItem(0)
-        }
-        homeScrollToTop = 0
-    }
-
-    LaunchedEffect(isNetworkAvailable, currentRoute) {
-        if (!isNetworkAvailable && currentRoute != null && !offlineAllowedRoutes.contains(currentRoute)) {
-            navigateToDestination(DashboardDestination.Home)
-        }
-    }
-
     LaunchedEffect(authRepository, seerrRepository, isNetworkAvailable) {
         if (!isNetworkAvailable) return@LaunchedEffect
 
@@ -378,148 +199,85 @@ fun DashboardContainer(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Main content area with transitions and parallax effect
-            NavHost(
-                navController = navController,
-                startDestination = DashboardDestination.Home.route,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (isNetworkAvailable) {
-                            Modifier.nestedScroll(bottomBarScrollConnection)
-                        } else {
-                            Modifier
+    DashboardShell(
+        isNetworkAvailable = isNetworkAvailable,
+        isOnline = isOnline,
+        overlay = {
+            BackHandler(enabled = currentRoute != DashboardDestination.Home.route) {
+                navigateTo(DashboardDestination.Home)
+            }
+        }
+    ) { route ->
+        when (route) {
+            DashboardDestination.Home.route -> {
+                ContentWrapper {
+                    Dashboard(
+                        onLogout = onLogout,
+                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToViewAll = onNavigateToViewAll,
+                        onNavigateToPlayer = onNavigateToPlayer,
+                        onAddServer = onAddServer,
+                        onAddUser = onAddUser,
+                        isTabActive = currentRoute == DashboardDestination.Home.route,
+                        dashboardScrollState = homeScrollState
+                    )
+                }
+            }
+            DashboardDestination.MyMedia.route -> {
+                ContentWrapper {
+                    Discover(
+                        onItemClick = onNavigateToDetail,
+                        onWatchedItemClick = onNavigateToMergedDetail,
+                        onNavigateToViewAll = { contentType, parentId, title ->
+                            onNavigateToViewAll(contentType.name, parentId, title)
+                        },
+                        onProfileClick = { showAccountSheet = true }
+                    )
+                }
+            }
+            DashboardDestination.Search.route -> {
+                ContentWrapper {
+                    SearchContainer(
+                        onNavigateToDetail = onNavigateToMergedDetail,
+                        onCancel = {
+                            navigateTo(DashboardDestination.Home)
                         }
                     )
-                    .graphicsLayer(
-                        translationY = when (currentRoute) {
-                            DashboardDestination.Search.route -> -2f
-                            else -> 0f
-                        },
-                        transformOrigin = TransformOrigin.Center
-                    )
-            ) {
-                composable(
-                    DashboardDestination.Home.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
-                ) {
-                    // Track when Home tab becomes active
-                    val isHomeActive = currentRoute == DashboardDestination.Home.route
-
-                    ContentWrapper {
-                        Dashboard(
-                            onLogout = onLogout,
-                            onNavigateToDetail = onNavigateToDetail,
-                            onNavigateToViewAll = onNavigateToViewAll,
-                            onNavigateToPlayer = onNavigateToPlayer,
-                            onAddServer = onAddServer,
-                            onAddUser = onAddUser,
-                            isTabActive = isHomeActive,
-                            dashboardScrollState = homeScrollState
-                        )
-                    }
                 }
-                composable(
-                    DashboardDestination.MyMedia.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
-                ) {
-                    ContentWrapper {
-                        Discover(
-                            onItemClick = onNavigateToDetail,
-                            onWatchedItemClick = onNavigateToMergedDetail,
-                            onNavigateToViewAll = { contentType, parentId, title ->
+            }
+            DashboardDestination.Favorites.route -> {
+                ContentWrapper {
+                    if (isOnline) {
+                        ClipsFeedScreen(modifier = Modifier.fillMaxSize())
+                    } else {
+                        MyMedia(
+                            onLibraryClick = { contentType, parentId, title ->
                                 onNavigateToViewAll(contentType.name, parentId, title)
-                            },
-                            onProfileClick = { showAccountSheet = true }
-                        )
-                    }
-                }
-                composable(
-                    DashboardDestination.Search.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
-                ) {
-                    ContentWrapper {
-                        SearchContainer(
-                            onNavigateToDetail = onNavigateToMergedDetail,
-                            onCancel = {
-                                navigateToDestination(DashboardDestination.Home)
                             }
                         )
                     }
                 }
-                composable(
-                    DashboardDestination.Favorites.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
-                ) {
-                    ContentWrapper {
-                        if (isOnline) {
-                            ClipsFeedScreen(modifier = Modifier.fillMaxSize())
-                        } else {
-                            MyMedia(
-                                onLibraryClick = { contentType, parentId, title ->
-                                    onNavigateToViewAll(contentType.name, parentId, title)
-                                }
-                            )
-                        }
-                    }
-                }
-                composable(
-                    DashboardDestination.Settings.route,
-                    enterTransition = { DashboardEnterTransition() },
-                    exitTransition = { DashboardExitTransition() }
-                ) {
-                    ContentWrapper {
-                        Settings(
-                            onLogout = onLogout,
-                            onNavigateToPlayerSettings = onNavigateToPlayerSettings,
-                            onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
-                            onNavigateToClipsSettings = onNavigateToClipsSettings,
-                            onNavigateToConnections = onNavigateToConnections,
-                            onNavigateToDownloads = onNavigateToDownloads,
-                            onNavigateToCacheSettings = onNavigateToCacheSettings,
-                            onNavigateToAbout = onNavigateToAbout,
-                            onNavigateToServerInfo = onNavigateToServerInfo,
-                            onNavigateToScreenTime = onNavigateToScreenTime,
-                            onNavigateToRequestedItem = onNavigateToDetail,
-                            onAddServer = onAddServer,
-                            onAddUser = onAddUser
-                        )
-                    }
+            }
+            DashboardDestination.Settings.route -> {
+                ContentWrapper {
+                    Settings(
+                        onLogout = onLogout,
+                        onNavigateToPlayerSettings = onNavigateToPlayerSettings,
+                        onNavigateToInterfaceSettings = onNavigateToInterfaceSettings,
+                        onNavigateToClipsSettings = onNavigateToClipsSettings,
+                        onNavigateToConnections = onNavigateToConnections,
+                        onNavigateToDownloads = onNavigateToDownloads,
+                        onNavigateToCacheSettings = onNavigateToCacheSettings,
+                        onNavigateToAbout = onNavigateToAbout,
+                        onNavigateToServerInfo = onNavigateToServerInfo,
+                        onNavigateToScreenTime = onNavigateToScreenTime,
+                        onNavigateToRequestedItem = onNavigateToDetail,
+                        onAddServer = onAddServer,
+                        onAddUser = onAddUser
+                    )
                 }
             }
-
-            BackHandler(
-                enabled = currentRoute != null && currentRoute != DashboardDestination.Home.route
-            ) {
-                navigateToDestination(DashboardDestination.Home)
-            }
-
-            DashboardNavigationBar(
-                currentRoute = currentRoute,
-                isNetworkAvailable = isNetworkAvailable,
-                isOnline = isOnline,
-                onNavigate = navigateToDestination,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .graphicsLayer {
-                        translationY = bottomBarTranslationPx
-                        alpha = bottomBarAlpha
-                        clip = false
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    }
-            )
+            else -> Unit
         }
     }
 }
