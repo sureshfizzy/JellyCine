@@ -55,9 +55,9 @@ import com.jellycine.app.ui.screens.cast.loadCastPlaybackData
 import com.jellycine.app.ui.screens.cast.activeCastArtworkUrl
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.playback.UserDataRefreshSignals
-import com.jellycine.app.ui.components.common.detailContentMaxWidth
-import com.jellycine.app.ui.components.common.isTabletDetailLayout
-import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.ui.components.common.detailContentMaxWidth
+import com.jellycine.ui.components.common.isTabletDetailLayout
+import com.jellycine.ui.components.common.isTabletLayout
 import java.util.Locale
 import androidx.media3.common.util.UnstableApi
 import androidx.activity.compose.BackHandler
@@ -1109,35 +1109,6 @@ internal suspend fun heroImageCandidates(
     }
 
     return candidates
-}
-
-internal suspend fun logoImage(
-    item: BaseItemDto,
-    mediaRepository: MediaRepository
-): String? {
-    if (item.isSeerDetailItem()) return null
-
-    val logoItemId = item.logoItemId() ?: return null
-    val logoImageTag = item.imageTagFor(
-        imageType = "Logo",
-        targetItemId = logoItemId
-    ) ?: return mediaRepository.getTmdbLogoUrl(item)
-
-    return mediaRepository.getImageUrl(
-        itemId = logoItemId,
-        imageType = "Logo",
-        width = 1200,
-        quality = 95,
-        imageTag = logoImageTag
-    ).first()
-}
-
-internal fun BaseItemDto.logoItemId(): String? {
-    return if (type == "Episode") {
-        seriesId ?: id
-    } else {
-        id
-    }
 }
 
 internal fun BaseItemPerson.isCreditType(expectedType: String): Boolean {

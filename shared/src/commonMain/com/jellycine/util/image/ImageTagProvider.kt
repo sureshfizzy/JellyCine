@@ -2,6 +2,9 @@ package com.jellycine.util.image
 
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.BaseItemPerson
+import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.repository.MediaRepository
+import kotlinx.coroutines.flow.first
 
 private fun String?.nonBlankTag(): String? = this?.takeIf { it.isNotBlank() }
 
@@ -84,3 +87,32 @@ fun BaseItemDto.imageTagFor(
 }
 
 fun BaseItemPerson.primaryImageTagOrNull(): String? = primaryImageTag.nonBlankTag()
+
+suspend fun logoImage(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+): String? {
+    if (SeerrItemIds.isDetailId(item.id)) return null
+
+    val logoItemId = item.logoItemId() ?: return null
+    val logoImageTag = item.imageTagFor(
+        imageType = "Logo",
+        targetItemId = logoItemId
+    ) ?: return mediaRepository.getTmdbLogoUrl(item)
+
+    return mediaRepository.getImageUrl(
+        itemId = logoItemId,
+        imageType = "Logo",
+        width = 1200,
+        quality = 95,
+        imageTag = logoImageTag
+    ).first()
+}
+
+fun BaseItemDto.logoItemId(): String? {
+    return if (type == "Episode") {
+        seriesId ?: id
+    } else {
+        id
+    }
+}

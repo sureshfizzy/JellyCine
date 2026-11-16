@@ -1,12 +1,10 @@
-package com.jellycine.app.ui.screens.dashboard.search
+package com.jellycine.ui.screens.dashboard.search
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -14,50 +12,40 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.res.stringResource
-import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.isTabletLayout
-import com.jellycine.ui.components.common.LazyImageLoader
-import com.jellycine.util.image.rememberImageUrl
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.stringResource
+import com.jellycine.ui.components.common.containerWidthDp
+import com.jellycine.ui.components.common.isTabletLayout
+import com.jellycine.util.image.logoImage
 import com.jellycine.data.model.BaseItemDto
-import androidx.compose.ui.platform.LocalContext
-import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
+import coil3.compose.*
+import coil3.request.*
+import com.jellycine.util.platformBitmapConfig
+import kotlin.math.round
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.app.ui.screens.detail.logoImage
 
 @Composable
 fun SuggestionsStoriesView(
+    mediaRepository: MediaRepository,
     suggestions: List<BaseItemDto>,
     onItemClick: (BaseItemDto) -> Unit
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-
     if (suggestions.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = stringResource(R.string.suggestions_empty),
+                text = stringResource(Res.string.suggestions_empty),
                 color = Color.Gray,
                 fontSize = 16.sp
             )
@@ -98,20 +86,12 @@ fun SuggestionsStoriesView(
         modifier = Modifier.fillMaxSize()
     ) {
         val currentItem = suggestions[currentItemIndex]
-        val backgroundImageUrl = currentItem.imageUrl
-            ?: rememberImageUrl(
-                itemId = currentItem.id,
-                imageType = "Primary",
-                enableImageEnhancers = false,
-                mediaRepository = mediaRepository
-            )
 
-        LazyImageLoader(
-            imageUrl = backgroundImageUrl,
-            contentDescription = stringResource(R.string.cd_backdrop),
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            cornerRadius = 0
+        SuggestionImage(
+            item = currentItem,
+            mediaRepository = mediaRepository,
+            contentDescription = stringResource(Res.string.cd_backdrop),
+            modifier = Modifier.fillMaxSize()
         )
         
         Box(
@@ -167,9 +147,9 @@ fun SuggestionsStoriesView(
         }
 
         val typeText = when (currentItem.type) {
-            "Movie" -> stringResource(R.string.suggestions_type_movie)
-            "Series" -> stringResource(R.string.suggestions_type_tv_series)
-            else -> currentItem.type ?: stringResource(R.string.suggestions_type_media)
+            "Movie" -> stringResource(Res.string.suggestions_type_movie)
+            "Series" -> stringResource(Res.string.suggestions_type_tv_series)
+            else -> currentItem.type ?: stringResource(Res.string.suggestions_type_media)
         }
         val yearText = currentItem.productionYear
             ?: currentItem.premiereDate?.take(4)?.toIntOrNull()
@@ -177,7 +157,7 @@ fun SuggestionsStoriesView(
             var needsSep = false
             currentItem.communityRating?.let { rating ->
                 withStyle(SpanStyle(color = Color(0xFFFF4D4F))) { append("★ ") }
-                append("%.1f".format(rating))
+                append((round(rating * 10f) / 10f).toString())
                 needsSep = true
             }
             yearText?.let {
@@ -388,20 +368,13 @@ private fun SuggestionsCard(
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                val imageUrl = item.imageUrl ?: rememberImageUrl(
-                    itemId = item.id,
-                    imageType = "Primary",
-                    enableImageEnhancers = false,
-                    mediaRepository = mediaRepository
-                )
-                LazyImageLoader(
-                    imageUrl = imageUrl,
+                SuggestionImage(
+                    item = item,
+                    mediaRepository = mediaRepository,
                     contentDescription = item.name,
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(20.dp)),
-                    contentScale = ContentScale.Crop,
-                    cornerRadius = 20
+                        .clip(RoundedCornerShape(20.dp))
                 )
 
                 Box(
@@ -414,26 +387,37 @@ private fun SuggestionsCard(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-fun SuggestionsStoriesViewPreview() {
-    val mockMovies = listOf(
-        BaseItemDto(
-            name = "Guru",
-            id = "1",
-            productionYear = 2007,
-            genres = listOf("Drama", "Biography", "Musical")
-        ),
-        BaseItemDto(
-            name = "Scott Pilgrim vs. The World",
-            id = "2",
-            productionYear = 2010,
-            genres = listOf("Action", "Comedy", "Romance")
-        )
-    )
-    
-    SuggestionsStoriesView(
-        suggestions = mockMovies,
-        onItemClick = {}
+private fun SuggestionImage(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
+    contentDescription: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalPlatformContext.current
+    val imageUrl by produceState(item.imageUrl, item.id, item.imageUrl) {
+        if (value.isNullOrBlank()) {
+            value = item.id?.let { itemId ->
+                mediaRepository.getImageUrlString(
+                    itemId = itemId,
+                    imageType = "Primary",
+                    enableImageEnhancers = false
+                )
+            }
+        }
+    }
+    val url = imageUrl ?: return
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(url)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .networkCachePolicy(CachePolicy.ENABLED)
+            .platformBitmapConfig(allowRgb565 = true)
+            .crossfade(150)
+            .build(),
+        contentDescription = contentDescription,
+        modifier = modifier,
+        contentScale = ContentScale.Crop
     )
 }

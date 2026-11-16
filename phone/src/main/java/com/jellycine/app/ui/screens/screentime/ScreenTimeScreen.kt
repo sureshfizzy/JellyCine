@@ -49,8 +49,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
-import com.jellycine.app.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.ui.components.common.containerWidthDp
+import com.jellycine.ui.components.common.isTabletLayout
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.shared.R
 import com.jellycine.ui.components.common.ShimmerEffect

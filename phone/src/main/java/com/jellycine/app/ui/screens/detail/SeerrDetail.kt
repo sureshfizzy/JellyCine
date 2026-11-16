@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.app.ui.components.common.fetchSeerTmdbPersonId
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.util.image.logoImage
 import com.jellycine.data.model.BaseItemPerson
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrPersonRole

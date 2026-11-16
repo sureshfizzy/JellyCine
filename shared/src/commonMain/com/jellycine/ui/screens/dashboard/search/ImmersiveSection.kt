@@ -1,11 +1,6 @@
-package com.jellycine.app.ui.screens.dashboard.search
+package com.jellycine.ui.screens.dashboard.search
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,20 +13,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.app.ui.screens.detail.logoImage
-import coil3.imageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.compose.LocalPlatformContext
 import coil3.request.*
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.ui.components.common.containerHeightDp
+import com.jellycine.util.image.logoImage
+import com.jellycine.util.platformBitmapConfig
 import kotlinx.coroutines.launch
 
 private fun buildImmersiveImageRequest(
-    context: android.content.Context,
+    context: PlatformContext,
     imageUrl: String
 ): ImageRequest {
     return ImageRequest.Builder(context)
@@ -40,13 +37,13 @@ private fun buildImmersiveImageRequest(
         .diskCachePolicy(CachePolicy.ENABLED)
         .networkCachePolicy(CachePolicy.ENABLED)
         .crossfade(false)
-        .allowHardware(true)
-        .allowRgb565(true)
+        .platformBitmapConfig(allowRgb565 = true)
         .build()
 }
 
 @Composable
 fun ImmersiveSection(
+    mediaRepository: MediaRepository,
     movies: List<BaseItemDto>,
     isLoading: Boolean,
     onItemClick: (BaseItemDto) -> Unit,
@@ -55,8 +52,8 @@ fun ImmersiveSection(
     selectedDiscoveryTab: SearchDiscoveryTab? = null,
     onDiscoveryTabClick: (SearchDiscoveryTab) -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val context = LocalPlatformContext.current
+    val imageLoader = SingletonImageLoader.get(context)
     val firstMovie = movies.firstOrNull()
     var isFirstImageReady by remember(isLoading, firstMovie?.id) {
         mutableStateOf(isLoading || firstMovie?.id == null)
@@ -76,7 +73,7 @@ fun ImmersiveSection(
 
         isFirstImageReady = false
         val firstImageUrl = runCatching {
-            firstMovie?.imageUrl ?: mediaRepository.getImageUrlString(
+            firstMovie.imageUrl ?: mediaRepository.getImageUrlString(
                 itemId = itemId,
                 imageType = "Primary",
                 enableImageEnhancers = false
@@ -85,11 +82,11 @@ fun ImmersiveSection(
 
         firstImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
             runCatching {
-                context.imageLoader.execute(buildImmersiveImageRequest(context, imageUrl))
+                imageLoader.execute(buildImmersiveImageRequest(context, imageUrl))
             }
         }
 
-        val firstLogoUrl = firstMovie?.let { movie ->
+        val firstLogoUrl = firstMovie.let { movie ->
             runCatching {
                 logoImage(item = movie, mediaRepository = mediaRepository)
                     ?: mediaRepository.getTmdbLogoUrl(movie)
@@ -97,7 +94,7 @@ fun ImmersiveSection(
         }
         firstLogoUrl?.takeIf { it.isNotBlank() }?.let { logoUrl ->
             runCatching {
-                context.imageLoader.enqueue(buildImmersiveImageRequest(context, logoUrl))
+                imageLoader.enqueue(buildImmersiveImageRequest(context, logoUrl))
             }
         }
 
@@ -127,7 +124,7 @@ fun ImmersiveSection(
 
                 immersiveImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
                     runCatching {
-                        context.imageLoader.execute(
+                        imageLoader.execute(
                             buildImmersiveImageRequest(context, imageUrl)
                         )
                     }
@@ -145,7 +142,7 @@ fun ImmersiveSection(
                 }.getOrNull()
 
                 backgroundImageUrl?.takeIf { it.isNotBlank() }?.let { imageUrl ->
-                    context.imageLoader.enqueue(
+                    imageLoader.enqueue(
                         buildImmersiveImageRequest(context, imageUrl)
                     )
                 }
@@ -157,7 +154,7 @@ fun ImmersiveSection(
                     }.getOrNull()
                 }
                 logoUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                    context.imageLoader.enqueue(buildImmersiveImageRequest(context, url))
+                    imageLoader.enqueue(buildImmersiveImageRequest(context, url))
                 }
             }
         }
@@ -166,12 +163,13 @@ fun ImmersiveSection(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(LocalConfiguration.current.screenHeightDp.dp)
+            .height(containerHeightDp())
     ) {
         if (isLoading || !isFirstImageReady) {
             SuggestionsShimmer()
         } else {
             SuggestionsStoriesView(
+                mediaRepository = mediaRepository,
                 suggestions = movies,
                 onItemClick = onItemClick
             )

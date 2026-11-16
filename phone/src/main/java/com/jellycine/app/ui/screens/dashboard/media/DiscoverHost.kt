@@ -1,22 +1,11 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.jellycine.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.SeerrPersonRole
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.AwardsRepositoryProvider
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.data.model.ContentType
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
 import com.jellycine.ui.screens.dashboard.media.DiscoverSeerrBridge
 import com.jellycine.util.image.disableEmbyPosterEnhancers
 

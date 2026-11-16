@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.DownloadPanelState
-import com.jellycine.app.ui.components.common.detailActionWidth
+import com.jellycine.ui.components.common.detailActionWidth
 import com.jellycine.data.model.DownloadStatus
 import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.shared.R

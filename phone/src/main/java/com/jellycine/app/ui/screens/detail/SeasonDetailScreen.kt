@@ -33,10 +33,10 @@ import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
 import com.jellycine.ui.components.common.compactHeaderLogo
-import com.jellycine.app.ui.components.common.containerHeightDp
-import com.jellycine.app.ui.components.common.containerWidthDp
+import com.jellycine.ui.components.common.containerHeightDp
+import com.jellycine.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.hasActiveDownloads
-import com.jellycine.app.ui.components.common.isTabletDetailLayout
+import com.jellycine.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState

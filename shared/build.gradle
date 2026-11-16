@@ -71,11 +71,13 @@ kotlin {
             dependencies {
                 implementation project(':data')
                 implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0'
+                implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.11.0'
                 implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
                 implementation compose.runtime
                 implementation compose.foundation
                 implementation compose.material3
                 implementation compose.ui
+                implementation 'org.jetbrains.compose.ui:ui-tooling-preview:1.12.1'
                 implementation 'org.jetbrains.compose.ui:ui-backhandler:1.12.1'
                 implementation compose.components.resources
                 implementation 'io.coil-kt.coil3:coil-compose:3.6.3'

@@ -1,40 +1,42 @@
-package com.jellycine.app.ui.screens.dashboard.search
+package com.jellycine.ui.screens.dashboard.search
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.SeerrDiscoveryCategory
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.SearchMediaType
-import com.jellycine.data.model.filterSeerTitles
-import com.jellycine.data.repository.AuthRepositoryProvider
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
-import java.util.Locale
-import javax.inject.Inject
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.*
 
 private val defaultSearchTypes = setOf(
     SearchMediaType.MOVIE,
     SearchMediaType.SERIES
 )
 
-@HiltViewModel
-class SearchViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val mediaRepository: MediaRepository
+/**
+ * Optional Seerr hooks. Platforms with no Seerr support pass `null`, which keeps search local-only.
+ */
+interface SearchSeerrSource {
+    fun isConnected(scopeId: String?): Boolean
+
+    suspend fun searchTitles(
+        scopeId: String,
+        query: String,
+        limit: Int
+    ): Result<List<SeerrRecommendationTitle>>
+
+    suspend fun discoveryTitles(
+        scopeId: String,
+        category: SeerrDiscoveryCategory,
+        limit: Int
+    ): Result<List<SeerrRecommendationTitle>>
+}
+
+class SearchViewModel(
+    private val mediaRepository: MediaRepository,
+    private val authRepository: AuthRepository,
+    private val seerr: SearchSeerrSource? = null
 ) : ViewModel() {
-    private val authRepository = AuthRepositoryProvider.getInstance(context)
-    private val seerrRepository = SeerrRepository(context)
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -125,7 +127,7 @@ class SearchViewModel @Inject constructor(
         )
 
         val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
-        val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
+        val isSeerrConnected = seerr?.isConnected(activeServerId) == true
         val selectedTypes = _selectedSearchTypes.value
         val seerrTitles = if (
             SearchMediaType.MOVIE in selectedTypes ||
@@ -210,8 +212,7 @@ class SearchViewModel @Inject constructor(
         val scopeChanged = seerrScopeId != scopeId
         val wasSeerrConnected = _uiState.value.isSeerrConnected
         seerrScopeId = scopeId
-        val isSeerrConnected = scopeId != null &&
-            seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
+        val isSeerrConnected = scopeId != null && seerr?.isConnected(scopeId) == true
 
         if (!isSeerrConnected) {
             _selectedDiscoveryTab.value = SearchDiscoveryTab.SUGGESTIONS
@@ -249,7 +250,7 @@ class SearchViewModel @Inject constructor(
 
             val activeServerId = authRepository.getActiveSessionSnapshot().activeServerId
             val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-            val isSeerrConnected = seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
+            val isSeerrConnected = seerr?.isConnected(activeServerId) == true
             if (scopeId == null || !isSeerrConnected) {
                 _uiState.value = _uiState.value.copy(
                     isSeerrConnected = false,
@@ -261,7 +262,7 @@ class SearchViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(isSeerrConnected = true)
 
-            seerrRepository.getDiscoveryTitles(
+            seerr.discoveryTitles(
                 scopeId = scopeId,
                 category = category,
                 limit = 20
@@ -388,9 +389,9 @@ class SearchViewModel @Inject constructor(
         val trimmedQuery = query.trim()
         if (text.isBlank() || trimmedQuery.isBlank()) return null
 
-        val lowerQuery = trimmedQuery.lowercase(Locale.US)
+        val lowerQuery = trimmedQuery.lowercase()
         val normalizedQuery = trimmedQuery.normalizedSearchKey()
-        val lowerText = text.lowercase(Locale.US)
+        val lowerText = text.lowercase()
         val normalizedText = text.normalizedSearchKey()
         val queryWords = lowerQuery
             .split(Regex("[^a-z0-9]+"))
@@ -416,7 +417,7 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun String.normalizedSearchKey(): String {
-        return lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "")
+        return lowercase().replace(Regex("[^a-z0-9]+"), "")
     }
 
     private suspend fun fetchSeerrTitles(
@@ -427,11 +428,11 @@ class SearchViewModel @Inject constructor(
         val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return emptyList()
         if (!isSeerrConnected) return emptyList()
 
-        return seerrRepository.searchTitles(
+        return seerr?.searchTitles(
             scopeId = scopeId,
             query = query,
             limit = 20
-        ).getOrElse { emptyList() }
+        )?.getOrElse { emptyList() }.orEmpty()
     }
 
     private enum class SearchMatch(val priority: Int) {

@@ -53,8 +53,8 @@ import com.jellycine.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.ui.components.common.CompactTopText
 import com.jellycine.ui.components.common.compactHeaderLogo
-import com.jellycine.app.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.ui.components.common.containerWidthDp
+import com.jellycine.ui.components.common.isTabletLayout
 import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.ui.components.common.FilterChip as MediaFilterChip

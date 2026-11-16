@@ -73,11 +73,11 @@ import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
 import com.jellycine.app.ui.components.common.DetailHeroCastButtonOverlay
 import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.app.ui.components.common.containerHeightDp
-import com.jellycine.app.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.detailActionWidth
-import com.jellycine.app.ui.components.common.isTabletDetailLayout
-import com.jellycine.app.ui.components.common.isTabletLayout
+import com.jellycine.ui.components.common.containerHeightDp
+import com.jellycine.ui.components.common.containerWidthDp
+import com.jellycine.ui.components.common.detailActionWidth
+import com.jellycine.ui.components.common.isTabletDetailLayout
+import com.jellycine.ui.components.common.isTabletLayout
 import com.jellycine.ui.components.common.rememberCompactProgress
 import java.util.Locale
 import kotlinx.coroutines.launch

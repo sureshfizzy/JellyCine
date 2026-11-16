@@ -1,49 +1,30 @@
-package com.jellycine.app.ui.screens.dashboard.search
+package com.jellycine.ui.screens.dashboard.search
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
-import com.jellycine.ui.components.common.SeerrTopBadges
-import com.jellycine.ui.components.common.ShimmerEffect
-import com.jellycine.ui.components.common.LazyImageLoader
-import com.jellycine.ui.components.common.episodeDisplaySubtitle
-import com.jellycine.ui.components.common.preferredDisplayTitle
+import androidx.compose.ui.unit.*
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.stringResource
+import com.jellycine.ui.components.common.*
 import com.jellycine.ui.screens.dashboard.PosterSkeleton
 import com.jellycine.ui.screens.dashboard.SectionTitleSkeleton
-import com.jellycine.util.image.rememberImageUrl
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.toSeerDetailItem
+import com.jellycine.data.model.*
 import com.jellycine.data.repository.getYearAndGenre
-import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.ui.screens.dashboard.home.ImageLoader
 import coil3.compose.AsyncImage
-import java.util.Locale
 
 @Composable
 fun SearchResultsViewSkeleton(
@@ -129,6 +110,8 @@ private fun LazyListScope.searchPosterSectionSkeleton(titleWidth: Dp) {
 @Composable
 fun SearchResultsView(
     uiState: SearchUiState,
+    mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: (BaseItemDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -141,7 +124,7 @@ fun SearchResultsView(
         if (uiState.movieResults.isNotEmpty() || uiState.seerrMovieResults.isNotEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.movies),
+                    text = stringResource(Res.string.movies),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -157,6 +140,8 @@ fun SearchResultsView(
                     items(uiState.movieResults) { movie ->
                         SearchResultCard(
                             item = movie,
+                            mediaRepository = mediaRepository,
+                            disablePosterEnhancers = disablePosterEnhancers,
                             onItemClick = { onItemClick(movie) }
                         )
                     }
@@ -178,7 +163,7 @@ fun SearchResultsView(
         if (uiState.showResults.isNotEmpty() || uiState.seerrShowResults.isNotEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.search_results_shows),
+                    text = stringResource(Res.string.search_results_shows),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -194,6 +179,8 @@ fun SearchResultsView(
                     items(uiState.showResults) { show ->
                         SearchResultCard(
                             item = show,
+                            mediaRepository = mediaRepository,
+                            disablePosterEnhancers = disablePosterEnhancers,
                             onItemClick = { onItemClick(show) }
                         )
                     }
@@ -215,7 +202,7 @@ fun SearchResultsView(
         if (uiState.episodeResults.isNotEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.search_results_episodes),
+                    text = stringResource(Res.string.search_results_episodes),
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -226,6 +213,7 @@ fun SearchResultsView(
             items(uiState.episodeResults) { episode ->
                 EpisodeResultCard(
                     item = episode,
+                    mediaRepository = mediaRepository,
                     onItemClick = { onItemClick(episode) }
                 )
             }
@@ -236,12 +224,12 @@ fun SearchResultsView(
 @Composable
 private fun SearchResultCard(
     item: BaseItemDto,
+    mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
     onItemClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val unknownTitle = stringResource(R.string.search_result_unknown_title)
-    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
+    val unknownTitle = stringResource(Res.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(Res.string.search_result_unknown_episode)
     Column(
         modifier = Modifier
             .width(120.dp)
@@ -257,22 +245,17 @@ private fun SearchResultCard(
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            val imageUrl = rememberImageUrl(
+            ImageLoader(
                 itemId = item.id,
                 imageType = "Primary",
-                width = 300,
-                height = 450,
-                quality = 80,
-                mediaRepository = mediaRepository
-            )
-            LazyImageLoader(
-                imageUrl = imageUrl,
                 contentDescription = item.name,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop,
-                cornerRadius = 12
+                cornerRadius = 12,
+                mediaRepository = mediaRepository,
+                hasImageEnhancers = !disablePosterEnhancers
             )
         }
         
@@ -306,12 +289,11 @@ private fun SearchResultCard(
 @Composable
 private fun EpisodeResultCard(
     item: BaseItemDto,
+    mediaRepository: MediaRepository,
     onItemClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val unknownTitle = stringResource(R.string.search_result_unknown_title)
-    val unknownEpisode = stringResource(R.string.search_result_unknown_episode)
+    val unknownTitle = stringResource(Res.string.search_result_unknown_title)
+    val unknownEpisode = stringResource(Res.string.search_result_unknown_episode)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -327,23 +309,17 @@ private fun EpisodeResultCard(
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            val imageUrl = rememberImageUrl(
+            ImageLoader(
                 itemId = item.id,
                 imageType = "Primary",
-                width = 240,
-                height = 180,
-                quality = 75,
-                enableImageEnhancers = false,
-                mediaRepository = mediaRepository
-            )
-            LazyImageLoader(
-                imageUrl = imageUrl,
                 contentDescription = item.name,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop,
-                cornerRadius = 8
+                cornerRadius = 8,
+                mediaRepository = mediaRepository,
+                hasImageEnhancers = false
             )
         }
         
@@ -433,7 +409,7 @@ private fun SearchSeerrResultCard(
         Text(
             text = item.productionYear?.toString()
                 ?: item.mediaType.replaceFirstChar { char ->
-                    if (char.isLowerCase()) char.titlecase(Locale.US) else char.toString()
+                    char.titlecase()
                 },
             color = Color.Gray,
             fontSize = 12.sp,

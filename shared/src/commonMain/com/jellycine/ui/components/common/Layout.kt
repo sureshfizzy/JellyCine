@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.ui.components.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalDensity
