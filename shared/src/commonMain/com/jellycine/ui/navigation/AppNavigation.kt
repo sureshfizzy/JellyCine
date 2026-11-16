@@ -14,6 +14,7 @@ import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.ui.screens.auth.AuthScreen
 import com.jellycine.ui.screens.dashboard.home.HomeScreen
+import com.jellycine.ui.screens.dashboard.media.Discover
 import com.jellycine.ui.screens.dashboard.DashboardDestination
 import com.jellycine.ui.screens.dashboard.DashboardShell
 import kotlinx.coroutines.flow.Flow
@@ -52,6 +53,12 @@ private fun Dashboard(mediaRepository: MediaRepository, authRepository: AuthRepo
                 mediaRepository = mediaRepository,
                 authRepository = authRepository,
                 listState = homeScrollState
+            )
+        } else if (route == DashboardDestination.MyMedia.route) {
+            Discover(
+                mediaRepository = mediaRepository,
+                authRepository = authRepository,
+                disablePosterEnhancers = false
             )
         } else {
             Box(

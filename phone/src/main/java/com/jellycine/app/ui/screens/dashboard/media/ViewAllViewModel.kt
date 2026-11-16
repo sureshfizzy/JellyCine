@@ -1,5 +1,7 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import com.jellycine.data.model.ContentType
+import com.jellycine.data.model.isSeerrCatalog
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -345,20 +347,3 @@ data class ViewAllUiState(
     val totalItems: Int = 0,
     val hasMorePages: Boolean = true
 )
-
-enum class ContentType {
-    ALL, MOVIES, SERIES, EPISODES, MOVIES_GENRE, TVSHOWS_GENRE, SEERR_STUDIO, SEERR_NETWORK, AWARD
-}
-
-fun ContentType.isSeerrCatalog(): Boolean =
-    this == ContentType.SEERR_STUDIO || this == ContentType.SEERR_NETWORK
-
-fun ContentType.isLibraryCatalog(): Boolean =
-    this == ContentType.ALL ||
-        this == ContentType.MOVIES ||
-        this == ContentType.SERIES ||
-        this == ContentType.EPISODES
-
-fun ContentType.isGenreCatalog(): Boolean =
-    this == ContentType.MOVIES_GENRE ||
-        this == ContentType.TVSHOWS_GENRE

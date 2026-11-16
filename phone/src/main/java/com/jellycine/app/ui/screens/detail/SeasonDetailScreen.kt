@@ -32,7 +32,7 @@ import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.DetailBackdropHero
 import com.jellycine.app.ui.components.common.canResumeDownloads
-import com.jellycine.app.ui.components.common.compactHeaderLogo
+import com.jellycine.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerHeightDp
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.hasActiveDownloads
@@ -40,7 +40,7 @@ import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
 import com.jellycine.app.ui.components.common.rememberDownloadPanelState
-import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.playback.UserDataRefreshSignals
 import com.jellycine.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.util.image.JellyfinPosterImage

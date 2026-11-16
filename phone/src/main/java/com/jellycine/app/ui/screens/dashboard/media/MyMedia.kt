@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import com.jellycine.data.model.ContentType
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -34,9 +35,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.CompactPageHeader
-import com.jellycine.app.ui.components.common.CompactTopText
-import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.components.common.CompactPageHeader
+import com.jellycine.ui.components.common.CompactTopText
+import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.util.image.disableEmbyPosterEnhancers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,7 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun MyMedia(
-    onLibraryClick: (com.jellycine.app.ui.screens.dashboard.media.ContentType, String?, String) -> Unit = { _, _, _ -> }
+    onLibraryClick: (com.jellycine.data.model.ContentType, String?, String) -> Unit = { _, _, _ -> }
 ) {
     var libraryViews by remember { mutableStateOf<List<com.jellycine.data.model.BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -323,9 +324,9 @@ fun MyMedia(
                                     imageUrl = library.id?.let { id -> libraryImageUrls[id] },
                                     onClick = {
                                         val contentType = when (library.collectionType) {
-                                            "movies" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES
-                                            "tvshows" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SERIES
-                                            else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
+                                            "movies" -> com.jellycine.data.model.ContentType.MOVIES
+                                            "tvshows" -> com.jellycine.data.model.ContentType.SERIES
+                                            else -> com.jellycine.data.model.ContentType.ALL
                                         }
                                         onLibraryClick(
                                             contentType,

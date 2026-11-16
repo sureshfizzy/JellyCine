@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.ui.components.common
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -30,10 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,8 +38,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
-import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.resources.Res
+import com.jellycine.resources.cd_back_button
+import org.jetbrains.compose.resources.stringResource
 
 private fun compactProgress(
     firstVisibleItemIndex: Int,
@@ -200,61 +198,6 @@ fun CompactTopChip(
 }
 
 @Composable
-fun CompactTopLogo(
-    imageUrl: String,
-    contentDescription: String?,
-    progress: Float,
-    isTablet: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    width: Dp = if (isTablet) 122.dp else 92.dp,
-    height: Dp = if (isTablet) 48.dp else 36.dp,
-    shape: Shape = RoundedCornerShape(10.dp),
-    contentScale: ContentScale = ContentScale.Fit,
-    horizontalImagePadding: Dp = 10.dp,
-    verticalImagePadding: Dp = 7.dp,
-    overlayTitle: String? = null
-) {
-    val context = LocalContext.current
-
-    CompactTopChip(
-        modifier = modifier
-            .statusBarsPadding()
-            .padding(start = 16.dp, top = 10.dp),
-        progress = progress,
-        width = width,
-        height = height,
-        shape = shape,
-        onClick = onClick
-    ) {
-        JellyfinPosterImage(
-            imageUrl = imageUrl,
-            contentDescription = contentDescription,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = horizontalImagePadding, vertical = verticalImagePadding),
-            context = context,
-            contentScale = contentScale,
-            alignment = Alignment.Center
-        )
-        overlayTitle?.let { title ->
-            Text(
-                text = title,
-                color = Color.White.copy(alpha = 0.78f),
-                fontSize = if (isTablet) 10.sp else 8.sp,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 5.dp, vertical = 3.dp)
-            )
-        }
-    }
-}
-
-@Composable
 fun CompactTopText(
     text: String,
     progress: Float,
@@ -324,7 +267,7 @@ fun AwardsCompactHeader(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.cd_back_button),
+                    contentDescription = stringResource(Res.string.cd_back_button),
                     tint = Color.White
                 )
             }

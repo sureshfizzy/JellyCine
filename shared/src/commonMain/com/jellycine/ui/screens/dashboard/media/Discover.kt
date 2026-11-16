@@ -1,14 +1,26 @@
-package com.jellycine.app.ui.screens.dashboard.media
+package com.jellycine.ui.screens.dashboard.media
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -23,58 +35,95 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.AwardsCompactHeader
-import com.jellycine.app.ui.components.common.CompactPageHeader
-import com.jellycine.app.ui.components.common.CompactTopText
-import com.jellycine.app.ui.components.common.SeerTitleCard
-import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
-import com.jellycine.app.ui.components.common.rememberCompactProgress
-import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
+import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.ContentType
+import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrPersonRole
+import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.filterSeerTitlesForRow
 import com.jellycine.data.model.seerPersonId
-import com.jellycine.data.model.toSeerDetailItem
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.ui.screens.dashboard.home.LibraryItemCard
-import com.jellycine.util.image.disableEmbyPosterEnhancers
-import com.jellycine.data.model.AwardMode
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.RecommendationDto
-import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.seerRole
 import com.jellycine.data.model.title
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.AwardsRepositoryProvider
+import com.jellycine.data.model.toSeerDetailItem
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.recommendations.loadWatchedFeed
+import com.jellycine.resources.Res
+import com.jellycine.resources.dashboard_discover
+import com.jellycine.resources.dashboard_discover_awards
+import com.jellycine.resources.dashboard_discover_empty_message
+import com.jellycine.resources.dashboard_discover_empty_title
+import com.jellycine.resources.dashboard_discover_greeting
+import com.jellycine.resources.dashboard_discover_load_error
+import com.jellycine.resources.dashboard_discover_recommendations
+import com.jellycine.resources.dashboard_view_all
+import com.jellycine.resources.favorites
+import com.jellycine.resources.movies
+import com.jellycine.resources.search_results_episodes
+import com.jellycine.resources.search_results_shows
+import com.jellycine.resources.try_again
+import com.jellycine.resources.watched
+import com.jellycine.ui.components.common.CompactPageHeader
+import com.jellycine.ui.components.common.CompactTopText
 import com.jellycine.ui.components.common.ShimmerPosterRail
-import kotlinx.coroutines.Dispatchers
+import com.jellycine.ui.components.common.UserProfileAvatar
+import com.jellycine.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.screens.dashboard.home.LibraryItemCard
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.jellycine.ui.components.common.UserProfileAvatar
+import org.jetbrains.compose.resources.stringResource
+
+const val WATCHED_VIEW_ALL_PARENT_ID = "__watched__"
+const val FAVORITES_VIEW_ALL_PARENT_ID = "__favorites__"
+
+enum class DiscoverFeed { RECOMMENDATIONS, WATCHED, FAVORITES, AWARDS }
+
+private val DiscoverFeedSaver = Saver<DiscoverFeed, String>(
+    save = { it.name },
+    restore = { name -> DiscoverFeed.entries.firstOrNull { it.name == name } }
+)
+
+/**
+ * Optional Seerr hooks. Platforms that have no Seerr support pass `null`.
+ */
+interface DiscoverSeerrBridge {
+    suspend fun creditTitles(
+        seedItem: BaseItemDto,
+        personId: String,
+        role: SeerrPersonRole,
+        activeServerId: String
+    ): List<SeerrRecommendationTitle>
+
+    @Composable
+    fun TitleCard(item: SeerrRecommendationTitle, onClick: () -> Unit)
+}
+
+/**
+ * Slot for the Awards feed. Platforms without awards support pass `null`, which hides the tab.
+ * [feedPills] is the feed switcher and [profileAvatar] the header avatar, so the slot can place
+ * them inside its own header.
+ */
+typealias DiscoverAwardsContent = @Composable (
+    feedPills: @Composable () -> Unit,
+    profileAvatar: @Composable () -> Unit
+) -> Unit
 
 private data class RecommendationSectionUi(
     val title: String,
@@ -84,8 +133,6 @@ private data class RecommendationSectionUi(
     val personName: String? = null
 )
 
-internal const val WATCHED_VIEW_ALL_PARENT_ID = "__watched__"
-
 private data class RecommendationFeedState(
     val sections: List<RecommendationSectionUi>,
     val error: String?
@@ -93,6 +140,12 @@ private data class RecommendationFeedState(
 
 @Composable
 fun Discover(
+    mediaRepository: MediaRepository,
+    authRepository: AuthRepository,
+    disablePosterEnhancers: Boolean,
+    modifier: Modifier = Modifier,
+    seerr: DiscoverSeerrBridge? = null,
+    awardsContent: DiscoverAwardsContent? = null,
     onItemClick: (BaseItemDto) -> Unit = {},
     onWatchedItemClick: (BaseItemDto) -> Unit = onItemClick,
     onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> },
@@ -101,9 +154,9 @@ fun Discover(
     var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var watchedSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
     var favoritesSections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
-    var feed by rememberSaveable { mutableStateOf(DiscoverFeed.RECOMMENDATIONS) }
-    var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
-    var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var feed by rememberSaveable(stateSaver = DiscoverFeedSaver) {
+        mutableStateOf(DiscoverFeed.RECOMMENDATIONS)
+    }
     val showWatchedTab = feed == DiscoverFeed.WATCHED
     val showFavoritesTab = feed == DiscoverFeed.FAVORITES
     var loadingFeed by remember { mutableStateOf(true) }
@@ -116,12 +169,6 @@ fun Discover(
     }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val context = LocalContext.current
-    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember(context) { SeerrRepository(context) }
-    val awardsRepository = remember(context) { AwardsRepositoryProvider.getInstance(context) }
-    val disablePosterEnhancers = disableEmbyPosterEnhancers()
     val scope = rememberCoroutineScope()
     val feedListState = rememberLazyListState()
     val watchedListState = rememberLazyListState()
@@ -138,31 +185,33 @@ fun Discover(
     val sessionSnapshot by authRepository.observeActiveSession()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot())
     val username = sessionSnapshot.username
-    val fallbackHeaderTitle = stringResource(R.string.dashboard_discover)
+    val fallbackHeaderTitle = stringResource(Res.string.dashboard_discover)
     val greetingName = username?.trim()?.takeIf { it.isNotEmpty() }
     val headerTitle = if (greetingName != null) {
-        stringResource(R.string.dashboard_discover_greeting, greetingName)
+        stringResource(Res.string.dashboard_discover_greeting, greetingName)
     } else {
         fallbackHeaderTitle
     }
     val activeServerId = sessionSnapshot.activeServerId
-    val seerrConnected = remember(activeServerId) {
-        activeServerId?.let { seerrRepository.getSavedConnectionInfo(it)?.isVerified == true } ?: false
-    }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        val url = withContext(Dispatchers.IO) { mediaRepository.getUserProfileImageUrl() }
+        val url = mediaRepository.getUserProfileImageUrl()
         if (!url.isNullOrBlank()) profileImageUrl = url
     }
     val compactTitle = when (feed) {
-        DiscoverFeed.RECOMMENDATIONS -> stringResource(R.string.dashboard_discover_recommendations)
-        DiscoverFeed.WATCHED -> stringResource(R.string.watched)
-        DiscoverFeed.FAVORITES -> stringResource(R.string.favorites)
-        DiscoverFeed.AWARDS -> stringResource(R.string.dashboard_discover_awards)
+        DiscoverFeed.RECOMMENDATIONS -> stringResource(Res.string.dashboard_discover_recommendations)
+        DiscoverFeed.WATCHED -> stringResource(Res.string.watched)
+        DiscoverFeed.FAVORITES -> stringResource(Res.string.favorites)
+        DiscoverFeed.AWARDS -> stringResource(Res.string.dashboard_discover_awards)
     }
-    val watchedMoviesTitle = stringResource(R.string.movies)
-    val watchedShowsTitle = stringResource(R.string.search_results_shows)
-    val watchedEpisodesTitle = stringResource(R.string.search_results_episodes)
+    val watchedMoviesTitle = stringResource(Res.string.movies)
+    val watchedShowsTitle = stringResource(Res.string.search_results_shows)
+    val watchedEpisodesTitle = stringResource(Res.string.search_results_episodes)
+    val awardsEnabled = awardsContent != null
+
+    LaunchedEffect(awardsEnabled) {
+        if (!awardsEnabled && feed == DiscoverFeed.AWARDS) feed = DiscoverFeed.RECOMMENDATIONS
+    }
 
     fun refresh() {
         scope.launch {
@@ -172,6 +221,7 @@ fun Discover(
             error = result.error
             loadingFeed = false
 
+            if (seerr == null) return@launch
             result.sections
                 .filter { it.seerRole != null }
                 .forEach { section ->
@@ -179,8 +229,7 @@ fun Discover(
                         val seerItems = loadSectionSeerRecommendations(
                             section = section,
                             activeServerId = activeServerId,
-                            mediaRepository = mediaRepository,
-                            seerrRepository = seerrRepository
+                            seerr = seerr
                         )
                         var updatedSection = section.copy(seerItems = seerItems)
                         if (updatedSection != section) {
@@ -215,20 +264,18 @@ fun Discover(
                 }
         }
 
-        scope.launch(Dispatchers.IO) {
+        scope.launch {
             val watched = loadWatchedFeed(
                 mediaRepository = mediaRepository,
                 moviesTitle = watchedMoviesTitle,
                 showsTitle = watchedShowsTitle,
                 episodesTitle = watchedEpisodesTitle
             )
-            withContext(Dispatchers.Main) {
-                watchedSections = watched.sections.map { section ->
-                    RecommendationSectionUi(section.title, section.items)
-                }
-                if (error == null) error = watched.error
-                loadingWatched = false
+            watchedSections = watched.sections.map { section ->
+                RecommendationSectionUi(section.title, section.items)
             }
+            if (error == null) error = watched.error
+            loadingWatched = false
         }
     }
 
@@ -238,9 +285,7 @@ fun Discover(
 
     LaunchedEffect(activeServerId) {
         loadingFavorites = true
-        val items = withContext(Dispatchers.IO) {
-            mediaRepository.getFavoriteItems().getOrNull()?.items.orEmpty()
-        }
+        val items = mediaRepository.getFavoriteItems().getOrNull()?.items.orEmpty()
         favoritesSections = buildList {
             items.filter { it.type == "Movie" }.takeIf { it.isNotEmpty() }
                 ?.let { add(RecommendationSectionUi(watchedMoviesTitle, it)) }
@@ -253,7 +298,7 @@ fun Discover(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
@@ -266,141 +311,112 @@ fun Discover(
         val showStaticHeader = activeSections.isEmpty()
 
         Column(modifier = Modifier.fillMaxSize()) {
-            if (feed == DiscoverFeed.AWARDS) {
-                AwardsCompactHeader(
-                    title = awardsHeaderTitle
-                        ?: stringResource(R.string.dashboard_discover_awards),
-                    onBack = awardsBack
-                ) {
-                    UserProfileAvatar(
-                        imageUrl = profileImageUrl,
-                        serverTypeRaw = sessionSnapshot.serverType,
-                        onClick = onProfileClick,
-                        modifier = Modifier.size(34.dp)
-                    )
-                }
-                if (awardsBack == null) {
-                    DiscoverFeedPills(
-                        feed = feed,
-                        onFeedChange = { feed = it }
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    CompositionLocalProvider(LocalAwardSeerrConnected provides seerrConnected) {
-                        AwardsContent(
-                            awardsRepository = awardsRepository,
-                            onItemClick = onItemClick,
-                            onViewAllCategory = { qid, mode, title ->
-                                onNavigateToViewAll(ContentType.AWARD, "${qid}_${mode.name}", title)
-                            },
-                            onHeaderTitleChange = { awardsHeaderTitle = it },
-                            onBackChange = { awardsBack = it },
-                            modifier = Modifier.fillMaxSize()
+            if (feed == DiscoverFeed.AWARDS && awardsContent != null) {
+                awardsContent(
+                    { DiscoverFeedPills(feed = feed, awardsEnabled = true, onFeedChange = { feed = it }) },
+                    {
+                        UserProfileAvatar(
+                            imageUrl = profileImageUrl,
+                            serverTypeRaw = sessionSnapshot.serverType,
+                            onClick = onProfileClick,
+                            modifier = Modifier.size(34.dp)
                         )
                     }
-                }
-            } else {
-            if (showStaticHeader) {
-                DiscoverHeader(
-                    title = headerTitle,
-                    profileImageUrl = profileImageUrl,
-                    serverTypeRaw = sessionSnapshot.serverType,
-                    onProfileClick = onProfileClick
                 )
-            }
+            } else {
+                if (showStaticHeader) {
+                    DiscoverHeader(
+                        title = headerTitle,
+                        profileImageUrl = profileImageUrl,
+                        serverTypeRaw = sessionSnapshot.serverType,
+                        onProfileClick = onProfileClick
+                    )
+                }
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                when {
-                    isLoading -> {
-                        DiscoverLoadingSkeleton(
-                            feed = feed,
-                            onFeedChange = { feed = it }
-                        )
-                    }
-
-                    hasAnySections -> {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 110.dp)
-                        ) {
-                            item(key = "discover_header") {
-                                DiscoverHeader(
-                                    title = headerTitle,
-                                    profileImageUrl = profileImageUrl,
-                                    serverTypeRaw = sessionSnapshot.serverType,
-                                    onProfileClick = onProfileClick
-                                )
-                            }
-
-                            item(key = "discover_feed_pills") {
-                                DiscoverFeedPills(
-                                    feed = feed,
-                                    onFeedChange = { feed = it }
-                                )
-                            }
-
-                            if (activeSections.isEmpty() && (
-                                    (feed == DiscoverFeed.WATCHED && loadingWatched) ||
-                                        (feed == DiscoverFeed.FAVORITES && loadingFavorites) ||
-                                        (feed == DiscoverFeed.RECOMMENDATIONS && loadingFeed)
-                                )
-                            ) {
-                                items(3, key = { "shimmer_$it" }) {
-                                    ShimmerPosterRail()
-                                }
-                            }
-
-                            itemsIndexed(
-                                items = activeSections,
-                                key = { index, section -> "${section.title}_$index" }
-                            ) { _, section ->
-                                val viewAllContentType = when (section.title) {
-                                    watchedMoviesTitle -> ContentType.MOVIES
-                                    watchedShowsTitle -> ContentType.SERIES
-                                    else -> ContentType.EPISODES
-                                }
-                                val viewAllParentId = if (showFavoritesTab) {
-                                    FAVORITES_VIEW_ALL_PARENT_ID
-                                } else {
-                                    WATCHED_VIEW_ALL_PARENT_ID
-                                }
-                                RecommendationRail(
-                                    section = section,
-                                    mediaRepository = mediaRepository,
-                                    disablePosterEnhancers = disablePosterEnhancers,
-                                    isWatchedFeed = showWatchedTab,
-                                    showViewAll = showWatchedTab || showFavoritesTab,
-                                    onViewAllClick = {
-                                        onNavigateToViewAll(viewAllContentType, viewAllParentId, section.title)
-                                    },
-                                    onItemClick = if (showWatchedTab) onWatchedItemClick else onItemClick
-                                )
-                            }
-
-                        }
-                    }
-
-                    else -> {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            DiscoverFeedPills(
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when {
+                        isLoading -> {
+                            DiscoverLoadingSkeleton(
                                 feed = feed,
+                                awardsEnabled = awardsEnabled,
                                 onFeedChange = { feed = it }
                             )
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (error != null) {
-                                    ErrorCard(
-                                        message = error.orEmpty(),
-                                        onRetry = ::refresh
+                        }
+
+                        hasAnySections -> {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = 110.dp)
+                            ) {
+                                item(key = "discover_header") {
+                                    DiscoverHeader(
+                                        title = headerTitle,
+                                        profileImageUrl = profileImageUrl,
+                                        serverTypeRaw = sessionSnapshot.serverType,
+                                        onProfileClick = onProfileClick
                                     )
-                                } else {
-                                    EmptyCard()
+                                }
+
+                                item(key = "discover_feed_pills") {
+                                    DiscoverFeedPills(
+                                        feed = feed,
+                                        awardsEnabled = awardsEnabled,
+                                        onFeedChange = { feed = it }
+                                    )
+                                }
+
+                                itemsIndexed(
+                                    items = activeSections,
+                                    key = { index, section -> "${section.title}_$index" }
+                                ) { _, section ->
+                                    val viewAllContentType = when (section.title) {
+                                        watchedMoviesTitle -> ContentType.MOVIES
+                                        watchedShowsTitle -> ContentType.SERIES
+                                        else -> ContentType.EPISODES
+                                    }
+                                    val viewAllParentId = if (showFavoritesTab) {
+                                        FAVORITES_VIEW_ALL_PARENT_ID
+                                    } else {
+                                        WATCHED_VIEW_ALL_PARENT_ID
+                                    }
+                                    RecommendationRail(
+                                        section = section,
+                                        mediaRepository = mediaRepository,
+                                        disablePosterEnhancers = disablePosterEnhancers,
+                                        isWatchedFeed = showWatchedTab,
+                                        showViewAll = showWatchedTab || showFavoritesTab,
+                                        seerr = seerr,
+                                        onViewAllClick = {
+                                            onNavigateToViewAll(viewAllContentType, viewAllParentId, section.title)
+                                        },
+                                        onItemClick = if (showWatchedTab) onWatchedItemClick else onItemClick
+                                    )
+                                }
+                            }
+                        }
+
+                        else -> {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                DiscoverFeedPills(
+                                    feed = feed,
+                                    awardsEnabled = awardsEnabled,
+                                    onFeedChange = { feed = it }
+                                )
+                                Box(modifier = Modifier.weight(1f)) {
+                                    if (error != null) {
+                                        ErrorCard(
+                                            message = error.orEmpty(),
+                                            onRetry = ::refresh
+                                        )
+                                    } else {
+                                        EmptyCard()
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
             }
         }
 
@@ -523,8 +539,7 @@ private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): Re
 private suspend fun loadSectionSeerRecommendations(
     section: RecommendationSectionUi,
     activeServerId: String?,
-    mediaRepository: MediaRepository,
-    seerrRepository: SeerrRepository
+    seerr: DiscoverSeerrBridge
 ): List<SeerrRecommendationTitle> {
     val role = section.seerRole ?: return emptyList()
     val personName = section.personName ?: return emptyList()
@@ -537,13 +552,11 @@ private suspend fun loadSectionSeerRecommendations(
     ) ?: return emptyList()
 
     return filterSeerTitlesForRow(
-        seerrTitles = fetchSeerCreditTitles(
-            item = seedItem,
+        seerrTitles = seerr.creditTitles(
+            seedItem = seedItem,
             personId = personId,
             role = role,
-            activeServerId = activeServerId,
-            mediaRepository = mediaRepository,
-            seerrRepository = seerrRepository
+            activeServerId = activeServerId
         ),
         baseTitles = section.items,
         item = seedItem,
@@ -583,8 +596,17 @@ private fun DiscoverHeader(
 @Composable
 private fun DiscoverFeedPills(
     feed: DiscoverFeed,
+    awardsEnabled: Boolean,
     onFeedChange: (DiscoverFeed) -> Unit
 ) {
+    val tabs = buildList {
+        add(DiscoverFeed.RECOMMENDATIONS to stringResource(Res.string.dashboard_discover_recommendations))
+        add(DiscoverFeed.WATCHED to stringResource(Res.string.watched))
+        add(DiscoverFeed.FAVORITES to stringResource(Res.string.favorites))
+        if (awardsEnabled) {
+            add(DiscoverFeed.AWARDS to stringResource(Res.string.dashboard_discover_awards))
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -593,12 +615,7 @@ private fun DiscoverFeedPills(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        listOf(
-            DiscoverFeed.RECOMMENDATIONS to stringResource(R.string.dashboard_discover_recommendations),
-            DiscoverFeed.WATCHED to stringResource(R.string.watched),
-            DiscoverFeed.FAVORITES to stringResource(R.string.favorites),
-            DiscoverFeed.AWARDS to stringResource(R.string.dashboard_discover_awards)
-        ).forEach { (tab, label) ->
+        tabs.forEach { (tab, label) ->
             val selected = feed == tab
             Surface(
                 shape = RoundedCornerShape(999.dp),
@@ -622,11 +639,13 @@ private fun DiscoverFeedPills(
 @Composable
 private fun DiscoverLoadingSkeleton(
     feed: DiscoverFeed,
+    awardsEnabled: Boolean,
     onFeedChange: (DiscoverFeed) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         DiscoverFeedPills(
             feed = feed,
+            awardsEnabled = awardsEnabled,
             onFeedChange = onFeedChange
         )
         repeat(3) { ShimmerPosterRail() }
@@ -640,6 +659,7 @@ private fun RecommendationRail(
     disablePosterEnhancers: Boolean,
     isWatchedFeed: Boolean,
     showViewAll: Boolean,
+    seerr: DiscoverSeerrBridge?,
     onViewAllClick: () -> Unit,
     onItemClick: (BaseItemDto) -> Unit
 ) {
@@ -672,7 +692,7 @@ private fun RecommendationRail(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = stringResource(R.string.dashboard_view_all),
+                        contentDescription = stringResource(Res.string.dashboard_view_all),
                         tint = Color.White.copy(alpha = 0.72f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -699,16 +719,18 @@ private fun RecommendationRail(
                 )
             }
 
-            itemsIndexed(
-                items = section.seerItems,
-                key = { index, item ->
-                    "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}_$index"
+            if (seerr != null) {
+                itemsIndexed(
+                    items = section.seerItems,
+                    key = { index, item ->
+                        "${section.title}-${SeerrItemIds.detailId(item.tmdbId, item.mediaType)}_$index"
+                    }
+                ) { _, item ->
+                    seerr.TitleCard(
+                        item = item,
+                        onClick = { onItemClick(item.toSeerDetailItem()) }
+                    )
                 }
-            ) { _, item ->
-                SeerTitleCard(
-                    item = item,
-                    onClick = { onItemClick(item.toSeerDetailItem()) }
-                )
             }
         }
     }
@@ -728,7 +750,7 @@ private fun ErrorCard(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = stringResource(R.string.dashboard_discover_load_error),
+                text = stringResource(Res.string.dashboard_discover_load_error),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
@@ -745,7 +767,7 @@ private fun ErrorCard(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE86E2F))
             ) {
-                Text(text = stringResource(R.string.try_again))
+                Text(text = stringResource(Res.string.try_again))
             }
         }
     }
@@ -772,14 +794,14 @@ private fun EmptyCard() {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = stringResource(R.string.dashboard_discover_empty_title),
+                text = stringResource(Res.string.dashboard_discover_empty_title),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.dashboard_discover_empty_message),
+                text = stringResource(Res.string.dashboard_discover_empty_message),
                 color = Color.White.copy(alpha = 0.64f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp

@@ -54,10 +54,10 @@ import com.jellycine.ui.components.common.SeerrRequestButtonRow
 import com.jellycine.ui.components.common.WatchedActionButton
 import com.jellycine.ui.components.common.selectedVideoOption
 import com.jellycine.app.ui.components.common.BackButton
-import com.jellycine.app.ui.components.common.CompactTopChip
+import com.jellycine.ui.components.common.CompactTopChip
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.canResumeDownloads
-import com.jellycine.app.ui.components.common.compactHeaderLogo
+import com.jellycine.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.app.ui.components.common.pausableItemIds
 import com.jellycine.app.ui.components.common.isPausedDownloadState
@@ -78,7 +78,7 @@ import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.detailActionWidth
 import com.jellycine.app.ui.components.common.isTabletDetailLayout
 import com.jellycine.app.ui.components.common.isTabletLayout
-import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.components.common.rememberCompactProgress
 import java.util.Locale
 import kotlinx.coroutines.launch
 

@@ -1,5 +1,9 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
+import com.jellycine.data.model.ContentType
+import com.jellycine.data.model.isGenreCatalog
+import com.jellycine.data.model.isLibraryCatalog
+import com.jellycine.data.model.isSeerrCatalog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
@@ -45,13 +49,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.app.ui.components.common.BackButton
-import com.jellycine.app.ui.components.common.CompactPageHeader
+import com.jellycine.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopLogo
-import com.jellycine.app.ui.components.common.CompactTopText
-import com.jellycine.app.ui.components.common.compactHeaderLogo
+import com.jellycine.ui.components.common.CompactTopText
+import com.jellycine.ui.components.common.compactHeaderLogo
 import com.jellycine.app.ui.components.common.containerWidthDp
 import com.jellycine.app.ui.components.common.isTabletLayout
-import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.ui.screens.dashboard.home.LibraryItemCard
 import com.jellycine.ui.components.common.FilterChip as MediaFilterChip
 import com.jellycine.ui.components.common.PosterCountBadge

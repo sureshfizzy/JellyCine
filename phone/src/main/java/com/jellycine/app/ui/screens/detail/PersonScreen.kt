@@ -50,8 +50,8 @@ import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.app.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.SeerTitlesRow
 import com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
-import com.jellycine.app.ui.components.common.CompactTopText
-import com.jellycine.app.ui.components.common.rememberCompactProgress
+import com.jellycine.ui.components.common.CompactTopText
+import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.ui.components.common.PosterCountBadge
 import com.jellycine.ui.components.common.ShimmerEffect
 import kotlinx.coroutines.async

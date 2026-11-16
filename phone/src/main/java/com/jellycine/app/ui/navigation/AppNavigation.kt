@@ -1,5 +1,6 @@
 package com.jellycine.app.ui.navigation
 
+import com.jellycine.data.model.ContentType
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,7 +19,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.jellycine.app.ui.screens.dashboard.DashboardContainer
 import com.jellycine.app.ui.screens.auth.AuthScreen
-import com.jellycine.app.ui.screens.dashboard.media.isSeerrCatalog
+import com.jellycine.data.model.isSeerrCatalog
 import com.jellycine.app.ui.screens.detail.DetailScreenContainer
 import com.jellycine.app.ui.screens.detail.PersonScreenContainer
 import com.jellycine.app.ui.screens.dashboard.settings.DownloadsScreen
@@ -432,15 +433,15 @@ fun AppNavigation() {
                 } ?: "View All"
 
                 val contentType = when (contentTypeString.uppercase()) {
-                    "MOVIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES
-                    "SERIES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SERIES
-                    "EPISODES" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.EPISODES
-                    "MOVIES_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.MOVIES_GENRE
-                    "TVSHOWS_GENRE" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.TVSHOWS_GENRE
-                    "SEERR_STUDIO" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SEERR_STUDIO
-                    "SEERR_NETWORK" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.SEERR_NETWORK
-                    "AWARD" -> com.jellycine.app.ui.screens.dashboard.media.ContentType.AWARD
-                    else -> com.jellycine.app.ui.screens.dashboard.media.ContentType.ALL
+                    "MOVIES" -> com.jellycine.data.model.ContentType.MOVIES
+                    "SERIES" -> com.jellycine.data.model.ContentType.SERIES
+                    "EPISODES" -> com.jellycine.data.model.ContentType.EPISODES
+                    "MOVIES_GENRE" -> com.jellycine.data.model.ContentType.MOVIES_GENRE
+                    "TVSHOWS_GENRE" -> com.jellycine.data.model.ContentType.TVSHOWS_GENRE
+                    "SEERR_STUDIO" -> com.jellycine.data.model.ContentType.SEERR_STUDIO
+                    "SEERR_NETWORK" -> com.jellycine.data.model.ContentType.SEERR_NETWORK
+                    "AWARD" -> com.jellycine.data.model.ContentType.AWARD
+                    else -> com.jellycine.data.model.ContentType.ALL
                 }
 
                 com.jellycine.app.ui.screens.dashboard.media.ViewAllScreen(
