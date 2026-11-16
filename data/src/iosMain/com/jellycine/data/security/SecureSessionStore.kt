@@ -77,13 +77,17 @@ class SecureSessionStore : TokenStore {
     private fun keychainSet(account: String, value: String) {
         keychainDelete(account)
 
-        val data = NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding) ?: return
+        val data = NSString.create(string = value).dataUsingEncoding(NSUTF8StringEncoding)
+            ?: throw IllegalStateException("Unable to encode session token")
         val query = baseQuery(account)
         CFDictionaryAddValue(query, kSecValueData, CFBridgingRetain(data))
         CFDictionaryAddValue(query, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
 
-        SecItemAdd(query, null)
+        val status = SecItemAdd(query, null)
         CFRelease(query)
+        if (status != errSecSuccess) {
+            throw IllegalStateException("Unable to save session in the Keychain (status $status)")
+        }
     }
 
     private fun keychainDelete(account: String) {
