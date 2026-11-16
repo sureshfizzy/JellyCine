@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.repository.AuthRepository
+import com.jellycine.data.repository.AwardsRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.ui.screens.auth.AuthScreen
 import com.jellycine.ui.screens.dashboard.home.HomeScreen
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 fun AppNavigation(
     authRepository: AuthRepository,
     mediaRepository: MediaRepository,
+    awardsRepository: AwardsRepository? = null,
     serverDiscovery: (() -> Flow<DiscoveredServer>)? = null,
     onOpenLanguageSettings: () -> Unit = {}
 ) {
@@ -38,12 +40,16 @@ fun AppNavigation(
             onOpenLanguageSettings = onOpenLanguageSettings,
             onAuthSuccess = {}
         )
-        true -> Dashboard(mediaRepository, authRepository)
+        true -> Dashboard(mediaRepository, authRepository, awardsRepository)
     }
 }
 
 @Composable
-private fun Dashboard(mediaRepository: MediaRepository, authRepository: AuthRepository) {
+private fun Dashboard(
+    mediaRepository: MediaRepository,
+    authRepository: AuthRepository,
+    awardsRepository: AwardsRepository?
+) {
     DashboardShell(
         isNetworkAvailable = true,
         isOnline = true
@@ -58,7 +64,8 @@ private fun Dashboard(mediaRepository: MediaRepository, authRepository: AuthRepo
             Discover(
                 mediaRepository = mediaRepository,
                 authRepository = authRepository,
-                disablePosterEnhancers = false
+                disablePosterEnhancers = false,
+                awardsRepository = awardsRepository
             )
         } else {
             Box(

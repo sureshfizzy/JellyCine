@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.SeerrTopBadges
+import com.jellycine.ui.components.common.SeerrTopBadges
 import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.ui.components.common.LazyImageLoader
 import com.jellycine.ui.components.common.episodeDisplaySubtitle

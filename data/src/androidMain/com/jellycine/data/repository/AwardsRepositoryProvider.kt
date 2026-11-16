@@ -9,7 +9,6 @@ object AwardsRepositoryProvider {
     fun getInstance(context: Context): AwardsRepository {
         return INSTANCE ?: synchronized(this) {
             INSTANCE ?: AwardsRepository(
-                context.applicationContext,
                 MediaRepositoryProvider.getInstance(context)
             ).also { INSTANCE = it }
         }

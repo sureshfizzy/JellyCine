@@ -1,6 +1,5 @@
 package com.jellycine.data.repository
 
-import android.content.Context
 import com.jellycine.data.api.TmdbApi
 import com.jellycine.data.api.WikidataAwardsClient
 import com.jellycine.data.model.AwardDefinition
@@ -9,34 +8,25 @@ import com.jellycine.data.model.AwardRefsState
 import com.jellycine.data.model.AwardRow
 import com.jellycine.data.model.AwardTitleRef
 import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.network.JellyCineJson
-import com.jellycine.data.preferences.NetworkPreferences
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.Dispatchers
+import com.jellycine.data.util.ioDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 
 class AwardsRepository(
-    context: Context,
     private val mediaRepository: MediaRepository
 ) {
-    private val appContext = context.applicationContext
-    private val networkPreferences = NetworkPreferences(appContext)
-    private val wikidata by lazy { WikidataAwardsClient(createHttpClient()) }
-    private val tmdb by lazy { TmdbApi(createHttpClient()) }
+    private val wikidata by lazy { WikidataAwardsClient(mediaRepository.createExternalHttpClient()) }
+    private val tmdb by lazy { TmdbApi(mediaRepository.createExternalHttpClient()) }
 
-    private val refsCache = ConcurrentHashMap<String, List<AwardTitleRef>>()
-    private val titleCache = ConcurrentHashMap<String, SeerrRecommendationTitle>()
+    private val cacheMutex = Mutex()
+    private val refsCache = mutableMapOf<String, List<AwardTitleRef>>()
+    private val titleCache = mutableMapOf<String, SeerrRecommendationTitle>()
 
     suspend fun getCategoryRefs(
         categoryQids: List<String>,
@@ -46,16 +36,16 @@ class AwardsRepository(
         val result = LinkedHashMap<String, List<AwardTitleRef>>()
         val uncached = mutableListOf<String>()
         for (qid in categoryQids) {
-            val cached = refsCache["$qid|$mode"]
+            val cached = cacheMutex.withLock { refsCache["$qid|$mode"] }
             if (cached != null) result[qid] = cached else uncached.add(qid)
         }
         if (uncached.isNotEmpty()) {
-            val fetched = withContext(Dispatchers.IO) {
+            val fetched = withContext(ioDispatcher) {
                 runCatching { wikidata.categoryTitlesBatch(uncached, mode) }.getOrDefault(emptyMap())
             }
             for (qid in uncached) {
                 val refs = (fetched[qid] ?: emptyList()).take(limit)
-                refsCache["$qid|$mode"] = refs
+                cacheMutex.withLock { refsCache["$qid|$mode"] = refs }
                 result[qid] = refs
             }
         }
@@ -105,7 +95,7 @@ class AwardsRepository(
         if (refs.isEmpty()) return emptyList()
         val target = refs.take(limit)
         val needsLocalLookup = target.filter { ref ->
-            val cached = titleCache["${ref.mediaType}:${ref.tmdbId}"]
+            val cached = cacheMutex.withLock { titleCache["${ref.mediaType}:${ref.tmdbId}"] }
             cached == null || cached.jellyfinMediaId.isNullOrBlank()
         }
         val localIds = if (needsLocalLookup.isEmpty()) {
@@ -117,7 +107,7 @@ class AwardsRepository(
             val gate = Semaphore(MAX_CONCURRENCY)
             target
                 .map { ref ->
-                    async(Dispatchers.IO) { gate.withPermit { hydrateOne(ref, localIds[ref.tmdbId]) } }
+                    async(ioDispatcher) { gate.withPermit { hydrateOne(ref, localIds[ref.tmdbId]) } }
                 }
                 .awaitAll()
                 .filterNotNull()
@@ -126,12 +116,12 @@ class AwardsRepository(
 
     private suspend fun hydrateOne(ref: AwardTitleRef, localId: String?): SeerrRecommendationTitle? {
         val cacheKey = "${ref.mediaType}:${ref.tmdbId}"
-        titleCache[cacheKey]?.let { cached ->
+        cacheMutex.withLock { titleCache[cacheKey] }?.let { cached ->
             val updated = cached.copy(
                 productionYear = cached.productionYear ?: ref.year,
                 jellyfinMediaId = localId ?: cached.jellyfinMediaId
             )
-            if (updated !== cached) titleCache[cacheKey] = updated
+            if (updated != cached) cacheMutex.withLock { titleCache[cacheKey] = updated }
             return updated
         }
 
@@ -144,25 +134,8 @@ class AwardsRepository(
             posterUrl = resolved.posterUrl,
             jellyfinMediaId = localId
         )
-        titleCache[cacheKey] = hydrated
+        cacheMutex.withLock { titleCache[cacheKey] = hydrated }
         return hydrated
-    }
-
-    private fun createHttpClient(): HttpClient {
-        val timeouts = networkPreferences.getTimeoutConfig()
-        val okHttpClient = OkHttpClient.Builder()
-            .callTimeout(timeouts.requestTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .connectTimeout(timeouts.connectionTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .readTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .writeTimeout(timeouts.socketTimeoutMs.toLong(), TimeUnit.MILLISECONDS)
-            .retryOnConnectionFailure(true)
-            .build()
-
-        return HttpClient(OkHttp) {
-            expectSuccess = false
-            engine { preconfigured = okHttpClient }
-            install(ContentNegotiation) { json(JellyCineJson) }
-        }
     }
 
     private companion object {

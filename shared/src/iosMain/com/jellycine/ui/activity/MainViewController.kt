@@ -7,6 +7,7 @@ import coil3.disk.DiskCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.repository.AuthRepository
+import com.jellycine.data.repository.AwardsRepository
 import com.jellycine.data.repository.IosAuthPlatform
 import com.jellycine.data.repository.IosMediaPlatform
 import com.jellycine.data.repository.MediaRepository
@@ -46,6 +47,8 @@ private val mediaRepository: MediaRepository by lazy {
     )
 }
 
+private val awardsRepository by lazy { AwardsRepository(mediaRepository) }
+
 fun MainViewController() = ComposeUIViewController {
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
@@ -62,6 +65,7 @@ fun MainViewController() = ComposeUIViewController {
     AppNavigation(
         authRepository = authRepository,
         mediaRepository = mediaRepository,
+        awardsRepository = awardsRepository,
         onOpenLanguageSettings = {
             NSURL.URLWithString(UIApplicationOpenSettingsURLString)?.let { url ->
                 UIApplication.sharedApplication.openURL(url)

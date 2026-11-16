@@ -68,7 +68,7 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrCatalog
-import com.jellycine.app.ui.components.common.SeerrTopBadges
+import com.jellycine.ui.components.common.SeerrTopBadges
 import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
 import kotlinx.coroutines.launch
 

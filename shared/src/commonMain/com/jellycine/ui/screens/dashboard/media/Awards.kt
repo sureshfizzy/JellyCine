@@ -1,7 +1,7 @@
-package com.jellycine.app.ui.screens.dashboard.media
+package com.jellycine.ui.screens.dashboard.media
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,12 +38,14 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.app.ui.components.common.SeerTitleCard
+import com.jellycine.ui.components.common.SeerTitleCard
+import com.jellycine.ui.components.common.ShimmerPosterCard
+import com.jellycine.ui.components.common.ShimmerPosterRail
 import com.jellycine.data.model.AwardDefinition
 import com.jellycine.data.model.AwardMode
 import com.jellycine.data.model.AwardRefsState
@@ -54,7 +55,8 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.AwardsRepository
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.dashboard_view_all
 
 
 private const val ACCENT = 0xFFE86E2F
@@ -76,6 +78,7 @@ internal fun awardHeaderTitle(award: AwardDefinition, minYear: Int?, maxYear: In
     return if (range != null) "${award.shortLabel}: $range" else award.shortLabel
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun AwardsContent(
     awardsRepository: AwardsRepository,
@@ -165,7 +168,7 @@ private fun BrowseScreen(
 
         when {
             state == null -> Column(modifier = Modifier.fillMaxSize().padding(top = 6.dp)) {
-                repeat(3) { AwardRailSkeleton() }
+                repeat(3) { ShimmerPosterRail() }
             }
             state.rows.isEmpty() -> AwardsNotice("No award data available right now.")
             else -> AwardRailColumn(state.rows, awardsRepository, onViewAllCategory, onItemClick) {
@@ -289,7 +292,7 @@ private fun AwardCategoryRail(
             )
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = stringResource(R.string.dashboard_view_all),
+                contentDescription = stringResource(Res.string.dashboard_view_all),
                 tint = Color.White.copy(alpha = 0.72f),
                 modifier = Modifier.padding(start = 4.dp).size(18.dp)
             )
@@ -385,23 +388,7 @@ private fun RailLoading() {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        items(count = 5) {
-            Box(modifier = Modifier.width(116.dp)) { SkeletonPosterCard() }
-        }
-    }
-}
-
-@Composable
-private fun AwardRailSkeleton() {
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) {
-        Box(
-            modifier = Modifier
-                .padding(start = 16.dp)
-                .width(150.dp)
-                .height(18.dp)
-                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(6.dp))
-        )
-        RailLoading()
+        items(count = 5) { ShimmerPosterCard(width = 116.dp) }
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,6 +62,7 @@ import com.jellycine.data.model.seerRole
 import com.jellycine.data.model.title
 import com.jellycine.data.model.toSeerDetailItem
 import com.jellycine.data.repository.AuthRepository
+import com.jellycine.data.repository.AwardsRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.recommendations.loadWatchedFeed
 import com.jellycine.resources.Res
@@ -78,6 +80,7 @@ import com.jellycine.resources.search_results_episodes
 import com.jellycine.resources.search_results_shows
 import com.jellycine.resources.try_again
 import com.jellycine.resources.watched
+import com.jellycine.ui.components.common.AwardsCompactHeader
 import com.jellycine.ui.components.common.CompactPageHeader
 import com.jellycine.ui.components.common.CompactTopText
 import com.jellycine.ui.components.common.ShimmerPosterRail
@@ -115,16 +118,6 @@ interface DiscoverSeerrBridge {
     fun TitleCard(item: SeerrRecommendationTitle, onClick: () -> Unit)
 }
 
-/**
- * Slot for the Awards feed. Platforms without awards support pass `null`, which hides the tab.
- * [feedPills] is the feed switcher and [profileAvatar] the header avatar, so the slot can place
- * them inside its own header.
- */
-typealias DiscoverAwardsContent = @Composable (
-    feedPills: @Composable () -> Unit,
-    profileAvatar: @Composable () -> Unit
-) -> Unit
-
 private data class RecommendationSectionUi(
     val title: String,
     val items: List<BaseItemDto>,
@@ -145,7 +138,8 @@ fun Discover(
     disablePosterEnhancers: Boolean,
     modifier: Modifier = Modifier,
     seerr: DiscoverSeerrBridge? = null,
-    awardsContent: DiscoverAwardsContent? = null,
+    awardsRepository: AwardsRepository? = null,
+    awardsSeerrConnected: Boolean = false,
     onItemClick: (BaseItemDto) -> Unit = {},
     onWatchedItemClick: (BaseItemDto) -> Unit = onItemClick,
     onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> },
@@ -207,7 +201,9 @@ fun Discover(
     val watchedMoviesTitle = stringResource(Res.string.movies)
     val watchedShowsTitle = stringResource(Res.string.search_results_shows)
     val watchedEpisodesTitle = stringResource(Res.string.search_results_episodes)
-    val awardsEnabled = awardsContent != null
+    val awardsEnabled = awardsRepository != null
+    var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
+    var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     LaunchedEffect(awardsEnabled) {
         if (!awardsEnabled && feed == DiscoverFeed.AWARDS) feed = DiscoverFeed.RECOMMENDATIONS
@@ -311,18 +307,40 @@ fun Discover(
         val showStaticHeader = activeSections.isEmpty()
 
         Column(modifier = Modifier.fillMaxSize()) {
-            if (feed == DiscoverFeed.AWARDS && awardsContent != null) {
-                awardsContent(
-                    { DiscoverFeedPills(feed = feed, awardsEnabled = true, onFeedChange = { feed = it }) },
-                    {
-                        UserProfileAvatar(
-                            imageUrl = profileImageUrl,
-                            serverTypeRaw = sessionSnapshot.serverType,
-                            onClick = onProfileClick,
-                            modifier = Modifier.size(34.dp)
+            if (feed == DiscoverFeed.AWARDS && awardsRepository != null) {
+                AwardsCompactHeader(
+                    title = awardsHeaderTitle
+                        ?: stringResource(Res.string.dashboard_discover_awards),
+                    onBack = awardsBack
+                ) {
+                    UserProfileAvatar(
+                        imageUrl = profileImageUrl,
+                        serverTypeRaw = sessionSnapshot.serverType,
+                        onClick = onProfileClick,
+                        modifier = Modifier.size(34.dp)
+                    )
+                }
+                if (awardsBack == null) {
+                    DiscoverFeedPills(
+                        feed = feed,
+                        awardsEnabled = true,
+                        onFeedChange = { feed = it }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    CompositionLocalProvider(LocalAwardSeerrConnected provides awardsSeerrConnected) {
+                        AwardsContent(
+                            awardsRepository = awardsRepository,
+                            onItemClick = onItemClick,
+                            onViewAllCategory = { qid, mode, title ->
+                                onNavigateToViewAll(ContentType.AWARD, "${qid}_${mode.name}", title)
+                            },
+                            onHeaderTitleChange = { awardsHeaderTitle = it },
+                            onBackChange = { awardsBack = it },
+                            modifier = Modifier.fillMaxSize()
                         )
                     }
-                )
+                }
             } else {
                 if (showStaticHeader) {
                     DiscoverHeader(

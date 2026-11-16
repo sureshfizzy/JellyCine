@@ -76,6 +76,7 @@ kotlin {
                 implementation compose.foundation
                 implementation compose.material3
                 implementation compose.ui
+                implementation 'org.jetbrains.compose.ui:ui-backhandler:1.12.1'
                 implementation compose.components.resources
                 implementation 'io.coil-kt.coil3:coil-compose:3.6.3'
                 implementation 'io.coil-kt.coil3:coil-network-core:3.6.3'

@@ -48,6 +48,8 @@ class MediaRepository(
     }
 
     private val tmdbApi by lazy { TmdbApi(platform.createExternalHttpClient()) }
+
+    fun createExternalHttpClient(): HttpClient = platform.createExternalHttpClient()
     private val themerrDbApi by lazy { ThemerrDbApi(platform.createExternalHttpClient()) }
     private val themerrUrlCache = mutableMapOf<String, ThemerrCacheEntry>()
     private val themerrCacheMutex = Mutex()

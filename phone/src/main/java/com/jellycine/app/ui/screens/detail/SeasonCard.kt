@@ -23,7 +23,7 @@ import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.util.image.imageTagFor
 import com.jellycine.ui.components.common.AnimatedCard
 import com.jellycine.ui.components.common.ShimmerEffect
-import com.jellycine.app.ui.components.common.SeerrTopBadges
+import com.jellycine.ui.components.common.SeerrTopBadges
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSeasonRequestOption

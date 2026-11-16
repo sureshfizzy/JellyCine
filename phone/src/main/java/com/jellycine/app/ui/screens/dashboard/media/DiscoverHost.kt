@@ -1,18 +1,12 @@
 package com.jellycine.app.ui.screens.dashboard.media
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import com.jellycine.app.ui.components.common.SeerTitleCard
+import com.jellycine.ui.components.common.SeerTitleCard
 import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrPersonRole
@@ -22,8 +16,6 @@ import com.jellycine.data.repository.AwardsRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.shared.R
-import com.jellycine.ui.components.common.AwardsCompactHeader
 import com.jellycine.data.model.ContentType
 import com.jellycine.ui.screens.dashboard.media.DiscoverSeerrBridge
 import com.jellycine.util.image.disableEmbyPosterEnhancers
@@ -56,36 +48,13 @@ fun Discover(
         activeServerId?.let { seerrRepository.getSavedConnectionInfo(it)?.isVerified == true } ?: false
     }
 
-    var awardsHeaderTitle by remember { mutableStateOf<String?>(null) }
-    var awardsBack by remember { mutableStateOf<(() -> Unit)?>(null) }
-
     com.jellycine.ui.screens.dashboard.media.Discover(
         mediaRepository = mediaRepository,
         authRepository = authRepository,
         disablePosterEnhancers = disablePosterEnhancers,
         seerr = seerr,
-        awardsContent = { feedPills, profileAvatar ->
-            AwardsCompactHeader(
-                title = awardsHeaderTitle ?: stringResource(R.string.dashboard_discover_awards),
-                onBack = awardsBack,
-                trailing = profileAvatar
-            )
-            if (awardsBack == null) feedPills()
-            Box(modifier = Modifier.fillMaxSize()) {
-                CompositionLocalProvider(LocalAwardSeerrConnected provides seerrConnected) {
-                    AwardsContent(
-                        awardsRepository = awardsRepository,
-                        onItemClick = onItemClick,
-                        onViewAllCategory = { qid, mode, title ->
-                            onNavigateToViewAll(ContentType.AWARD, "${qid}_${mode.name}", title)
-                        },
-                        onHeaderTitleChange = { awardsHeaderTitle = it },
-                        onBackChange = { awardsBack = it },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            }
-        },
+        awardsRepository = awardsRepository,
+        awardsSeerrConnected = seerrConnected,
         onItemClick = onItemClick,
         onWatchedItemClick = onWatchedItemClick,
         onNavigateToViewAll = onNavigateToViewAll,
