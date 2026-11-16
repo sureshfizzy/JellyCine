@@ -33,8 +33,8 @@ import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.ui.components.common.LazyImageLoader
 import com.jellycine.ui.components.common.episodeDisplaySubtitle
 import com.jellycine.ui.components.common.preferredDisplayTitle
-import com.jellycine.app.ui.screens.dashboard.PosterSkeleton
-import com.jellycine.app.ui.screens.dashboard.SectionTitleSkeleton
+import com.jellycine.ui.screens.dashboard.PosterSkeleton
+import com.jellycine.ui.screens.dashboard.SectionTitleSkeleton
 import com.jellycine.util.image.rememberImageUrl
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.toSeerDetailItem

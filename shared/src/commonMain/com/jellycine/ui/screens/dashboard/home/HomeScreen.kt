@@ -110,6 +110,28 @@ fun HomeScreen(
                 }
             }
 
+            if (state.selectedCategory == HomeCategory.MOVIES) {
+                item(key = "movies_genres") {
+                    MovieGenreSections(
+                        mediaRepository = mediaRepository,
+                        imageHeaders = state.imageHeaders,
+                        disablePosterEnhancers = false,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+
+            if (state.selectedCategory == HomeCategory.TV_SHOWS) {
+                item(key = "tv_genres") {
+                    TVShowGenreSections(
+                        mediaRepository = mediaRepository,
+                        imageHeaders = state.imageHeaders,
+                        disablePosterEnhancers = false,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+
             items(if (isHomeCategory) state.sections else emptyList(), key = { it.library.id.orEmpty() }) { section ->
                 BurstLibrarySection(
                     section = section.toUiSection(),
