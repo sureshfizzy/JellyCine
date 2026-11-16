@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +27,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -34,20 +37,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
-import coil3.compose.LocalPlatformContext
-import coil3.network.NetworkHeaders
-import coil3.network.httpHeaders
-import coil3.request.ImageRequest
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.shared.resources.Res
+import com.jellycine.shared.ui.components.common.AuthenticatedImage
+import com.jellycine.shared.ui.components.common.UserProfileAvatar
 import com.jellycine.shared.resources.dashboard_continue_watching
 import com.jellycine.shared.resources.dashboard_next_up
 import org.jetbrains.compose.resources.stringResource
@@ -55,56 +55,94 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun HomeScreen(
     mediaRepository: MediaRepository,
+    authRepository: AuthRepository,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
-    val viewModel: HomeViewModel = viewModel { HomeViewModel(mediaRepository) }
+    val viewModel: HomeViewModel = viewModel { HomeViewModel(mediaRepository, authRepository) }
     val state by viewModel.uiState.collectAsState()
     val imageLoader = remember(state.imageHeaders) { HomeImages(viewModel, state.imageHeaders) }
+    var showAccountOverview by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        state = listState,
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
-        contentPadding = PaddingValues(bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+            .background(Color.Black)
     ) {
-        if (state.featured.isNotEmpty()) {
-            item { FeaturedPager(state.featured, imageLoader, onItemClick) }
-        } else {
-            item { Spacer(Modifier.statusBarsPadding().height(16.dp)) }
-        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            if (state.featured.isNotEmpty()) {
+                item { FeaturedPager(state.featured, imageLoader, onItemClick) }
+            } else {
+                item { Spacer(Modifier.statusBarsPadding().height(56.dp)) }
+            }
 
-        if (state.continueWatching.isNotEmpty()) {
-            item {
-                LandscapeRow(
-                    title = stringResource(Res.string.dashboard_continue_watching),
-                    items = state.continueWatching,
+            if (state.continueWatching.isNotEmpty()) {
+                item {
+                    LandscapeRow(
+                        title = stringResource(Res.string.dashboard_continue_watching),
+                        items = state.continueWatching,
+                        images = imageLoader,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+
+            if (state.nextUp.isNotEmpty()) {
+                item {
+                    LandscapeRow(
+                        title = stringResource(Res.string.dashboard_next_up),
+                        items = state.nextUp,
+                        images = imageLoader,
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+
+            items(state.sections, key = { it.library.id.orEmpty() }) { section ->
+                PosterRow(
+                    title = section.library.name.orEmpty(),
+                    items = section.items,
                     images = imageLoader,
                     onItemClick = onItemClick
                 )
             }
         }
 
-        if (state.nextUp.isNotEmpty()) {
-            item {
-                LandscapeRow(
-                    title = stringResource(Res.string.dashboard_next_up),
-                    items = state.nextUp,
-                    images = imageLoader,
-                    onItemClick = onItemClick
-                )
-            }
+        BrandHeader(
+            serverName = state.serverName,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+        ) {
+            UserProfileAvatar(
+                imageUrl = state.profileImageUrl,
+                serverTypeRaw = state.serverType,
+                imageHeaders = state.imageHeaders,
+                onClick = { showAccountOverview = true },
+                modifier = Modifier.size(34.dp)
+            )
         }
 
-        items(state.sections, key = { it.library.id.orEmpty() }) { section ->
-            PosterRow(
-                title = section.library.name.orEmpty(),
-                items = section.items,
-                images = imageLoader,
-                onItemClick = onItemClick
+        if (showAccountOverview) {
+            AccountOverview(
+                userName = state.username,
+                serverName = state.serverName,
+                profileImageUrl = state.profileImageUrl,
+                imageHeaders = state.imageHeaders,
+                serverTypeRaw = state.serverType,
+                canChangeUser = false,
+                onDismiss = { showAccountOverview = false },
+                onChangeUser = {},
+                onLogout = {
+                    showAccountOverview = false
+                    viewModel.logout()
+                }
             )
         }
     }
@@ -133,18 +171,9 @@ private fun RemoteImage(
     }
     Box(modifier = modifier.background(Color(0xFF14141A))) {
         url?.let { imageUrl ->
-            val request = ImageRequest.Builder(LocalPlatformContext.current)
-                .data(imageUrl)
-                .httpHeaders(
-                    NetworkHeaders.Builder().apply {
-                        images.headers.forEach { (name, value) -> set(name, value) }
-                    }.build()
-                )
-                .build()
-            AsyncImage(
-                model = request,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            AuthenticatedImage(
+                url = imageUrl,
+                headers = images.headers,
                 modifier = Modifier.fillMaxSize()
             )
         }

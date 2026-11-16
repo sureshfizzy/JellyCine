@@ -10,6 +10,8 @@ def syncComposeResources = tasks.register('syncComposeResources', Sync) {
     from('src/androidMain/res') {
         include 'values*/strings.xml'
         include 'drawable/jellycine_logo.png'
+        include 'drawable/ic_emby_placeholder.xml'
+        include 'drawable/ic_jellyfin_placeholder.xml'
     }
     from('../data/src/androidMain/res') {
         include 'values*/strings.xml'

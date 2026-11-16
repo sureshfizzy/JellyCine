@@ -4,25 +4,32 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.HomeLibrarySectionData
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
-    val isLoading: Boolean = true,
     val featured: List<BaseItemDto> = emptyList(),
     val continueWatching: List<BaseItemDto> = emptyList(),
     val nextUp: List<BaseItemDto> = emptyList(),
     val sections: List<HomeLibrarySectionData> = emptyList(),
-    val imageHeaders: Map<String, String> = emptyMap()
+    val imageHeaders: Map<String, String> = emptyMap(),
+    val serverName: String? = null,
+    val serverType: String? = null,
+    val username: String? = null,
+    val profileImageUrl: String? = null
 )
 
 class HomeViewModel(
-    private val mediaRepository: MediaRepository
+    private val mediaRepository: MediaRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -30,27 +37,54 @@ class HomeViewModel(
 
     init {
         refresh()
+        viewModelScope.launch {
+            authRepository.observeActiveSession().collectLatest { session ->
+                _uiState.update {
+                    it.copy(
+                        serverName = session.serverName,
+                        serverType = session.serverType,
+                        username = session.username
+                    )
+                }
+            }
+        }
     }
 
-    fun refresh() {
+    private fun refresh() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
             coroutineScope {
                 val headers = async { mediaRepository.getImageAuthHeaders() }
                 val featured = async { mediaRepository.getLatestItems(limit = 8) }
                 val resume = async { mediaRepository.getResumeItems(limit = 12) }
                 val nextUp = async { mediaRepository.getNextUpItems(limit = 12) }
                 val sections = async { mediaRepository.getHomeLibrarySections() }
+                val profileImage = async { mediaRepository.getUserProfileImageUrl() }
 
-                _uiState.value = HomeUiState(
-                    isLoading = false,
-                    featured = featured.await().getOrNull().orEmpty(),
-                    continueWatching = resume.await().getOrNull().orEmpty(),
-                    nextUp = nextUp.await().getOrNull().orEmpty(),
-                    sections = sections.await().getOrNull().orEmpty().filter { it.items.isNotEmpty() },
-                    imageHeaders = headers.await()
-                )
+                val loadedHeaders = headers.await()
+                val loadedFeatured = featured.await().getOrNull().orEmpty()
+                val loadedResume = resume.await().getOrNull().orEmpty()
+                val loadedNextUp = nextUp.await().getOrNull().orEmpty()
+                val loadedSections = sections.await().getOrNull().orEmpty().filter { it.items.isNotEmpty() }
+                val loadedProfileImage = profileImage.await()
+
+                _uiState.update {
+                    it.copy(
+                        featured = loadedFeatured,
+                        continueWatching = loadedResume,
+                        nextUp = loadedNextUp,
+                        sections = loadedSections,
+                        imageHeaders = loadedHeaders,
+                        profileImageUrl = loadedProfileImage
+                    )
+                }
             }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
+            mediaRepository.clearPersistedHomeSnapshot()
         }
     }
 

@@ -1,7 +1,6 @@
 package com.jellycine.app.ui.screens.auth
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -64,19 +63,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.jellycine.shared.R
+import com.jellycine.shared.ui.components.common.ProfileImageLoader
 import com.jellycine.app.ui.components.common.AmoledDialogFrame
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.network.ServerDiscovery
@@ -235,63 +229,6 @@ internal fun ServerSwitchDialogsHost(
                 },
                 onConfirm = {
                     onRemoveServer(server.id, state::clearRemoval)
-                }
-            )
-        }
-    }
-}
-
-@Composable
-internal fun ProfileImageLoader(
-    imageUrl: String?,
-    serverTypeRaw: String? = null,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    var hasError by remember { mutableStateOf(false) }
-    val profileRequest = remember(imageUrl) {
-        imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
-            ImageRequest.Builder(context)
-                .data(url)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .crossfade(300)
-                .build()
-        }
-    }
-
-    LaunchedEffect(profileRequest) {
-        hasError = false
-    }
-    val avatarImage = profileRequest == null || hasError
-    val placeholderResId = remember(serverTypeRaw) {
-        when {
-            serverTypeRaw.equals("EMBY", ignoreCase = true) -> R.drawable.ic_emby_placeholder
-            else -> R.drawable.ic_jellyfin_placeholder
-        }
-    }
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        if (avatarImage) {
-            Image(
-                painter = painterResource(id = placeholderResId),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(0.62f)
-            )
-        } else {
-            AsyncImage(
-                model = profileRequest,
-                contentDescription = stringResource(R.string.settings_profile_picture),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape),
-                onError = {
-                    hasError = true
                 }
             )
         }

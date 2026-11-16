@@ -56,7 +56,6 @@ import com.jellycine.app.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopText
 import com.jellycine.app.ui.components.common.rememberCompactProgress
 import com.jellycine.app.ui.screens.dashboard.home.LibraryItemCard
-import com.jellycine.app.ui.screens.dashboard.home.UserProfileAvatar
 import com.jellycine.app.ui.screens.dashboard.media.ContentType
 import com.jellycine.shared.R
 import com.jellycine.data.model.BaseItemDto
@@ -66,6 +65,7 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.jellycine.shared.ui.components.common.UserProfileAvatar
 
 internal const val FAVORITES_VIEW_ALL_PARENT_ID = "__favorites__"
 

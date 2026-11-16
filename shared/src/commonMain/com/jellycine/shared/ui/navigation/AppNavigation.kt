@@ -37,12 +37,12 @@ fun AppNavigation(
             onOpenLanguageSettings = onOpenLanguageSettings,
             onAuthSuccess = {}
         )
-        true -> Dashboard(mediaRepository)
+        true -> Dashboard(mediaRepository, authRepository)
     }
 }
 
 @Composable
-private fun Dashboard(mediaRepository: MediaRepository) {
+private fun Dashboard(mediaRepository: MediaRepository, authRepository: AuthRepository) {
     DashboardShell(
         isNetworkAvailable = true,
         isOnline = true
@@ -50,6 +50,7 @@ private fun Dashboard(mediaRepository: MediaRepository) {
         if (route == DashboardDestination.Home.route) {
             HomeScreen(
                 mediaRepository = mediaRepository,
+                authRepository = authRepository,
                 listState = homeScrollState
             )
         } else {

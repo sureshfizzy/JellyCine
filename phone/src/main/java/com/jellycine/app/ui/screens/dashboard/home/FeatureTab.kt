@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -70,8 +69,8 @@ import coil3.compose.rememberAsyncImagePainter
 import coil3.imageLoader
 import coil3.request.*
 import com.jellycine.shared.R
+import com.jellycine.shared.ui.components.common.UserProfileAvatar
 import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.app.ui.screens.auth.ProfileImageLoader
 import com.jellycine.shared.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.PersistedHomeSnapshot
@@ -1030,28 +1029,6 @@ private fun FeatureHeroCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-internal fun UserProfileAvatar(
-    imageUrl: String?,
-    serverTypeRaw: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.1f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        ProfileImageLoader(
-            imageUrl = imageUrl,
-            serverTypeRaw = serverTypeRaw,
-            modifier = Modifier.fillMaxSize()
-        )
     }
 }
 

@@ -31,7 +31,6 @@ import com.jellycine.shared.ui.components.common.ShimmerEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.app.ui.screens.auth.ServerSwitchViewModel
 import com.jellycine.app.ui.screens.auth.UserSwitchDialog
-import com.jellycine.app.ui.screens.dashboard.home.AccountOverview
 import com.jellycine.app.ui.screens.dashboard.home.Dashboard
 import com.jellycine.app.ui.screens.dashboard.settings.Settings
 import com.jellycine.app.ui.screens.dashboard.media.MyMedia
@@ -67,6 +66,7 @@ import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import com.jellycine.shared.ui.screens.dashboard.home.AccountOverview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
