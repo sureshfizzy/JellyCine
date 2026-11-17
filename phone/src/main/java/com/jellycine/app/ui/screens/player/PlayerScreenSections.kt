@@ -2,14 +2,8 @@
 
 package com.jellycine.app.ui.screens.player
 
-import android.app.Activity
 import android.content.Context
-import android.content.pm.ActivityInfo
-import android.media.AudioManager
-import android.os.Build
-import android.view.View
-import android.view.Window
-import android.view.WindowManager
+import android.view.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,11 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -49,24 +39,18 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.*
 import coil3.SingletonImageLoader
-import com.jellycine.player.core.PreferredStreamIndexes
-import com.jellycine.shared.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.player.core.*
 import com.jellycine.player.core.PlayerConstants.CONTROLS_AUTO_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_HIDE_DELAY
 import com.jellycine.player.core.PlayerConstants.NEXT_EPISODE_AUTOPLAY_DELAY
 import com.jellycine.player.core.PlayerConstants.NEXT_EPISODE_PROGRESS_UPDATE_DELAY
-import com.jellycine.player.core.PlayerState
-import com.jellycine.player.core.SkippableSegmentAction
-import com.jellycine.player.core.SkippableSegmentType
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.shared.R
+import com.jellycine.ui.screens.player.*
 import kotlinx.coroutines.delay
 
 private const val PLAYER_POSITION_UPDATE_MS = 250L
@@ -77,27 +61,10 @@ private fun trimImageMemoryCacheForPlayback(context: Context) {
     }
 }
 
-/**
- * Applies [Window.setDesiredHdrHeadroom] on Android 15+ via reflection.
- *
- * The API only exists on API 35+, but with R8 minification a direct call gets outlined
- * into a shared synthetic method whose unresolved reference throws NoSuchMethodError on
- * older devices (e.g. Android 14) even when the SDK_INT branch is never taken. Invoking
- * reflectively keeps any hard reference to the missing method out of the dex.
- */
-private fun setDesiredHdrHeadroomCompat(window: Window, headroom: Float) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
-    runCatching {
-        Window::class.java
-            .getMethod("setDesiredHdrHeadroom", Float::class.javaPrimitiveType)
-            .invoke(window, headroom)
-    }
-}
-
 @Composable
 internal fun PlayerScreenEffects(
     context: Context,
-    currentView: View,
+    platform: PlayerPlatform,
     lifecycleOwner: LifecycleOwner,
     mediaId: String,
     initialItemDetails: BaseItemDto?,
@@ -110,8 +77,6 @@ internal fun PlayerScreenEffects(
     preferredStreamIndexes: PreferredStreamIndexes,
     playerState: PlayerState,
     useDeviceVolumeInPlayer: Boolean,
-    audioManager: AudioManager,
-    originalVolume: Int,
     playerBrightness: Float,
     playerVolume: Float,
     showAudioTrackDialog: Boolean,
@@ -121,7 +86,6 @@ internal fun PlayerScreenEffects(
     showMediaInfo: Boolean,
     autoHideKey: Int,
     isScrubbing: Boolean,
-    hideSystemBars: () -> Unit,
     uiStateProvider: () -> PlayerUiState,
     onUiStateChange: (PlayerUiState) -> Unit,
     initializedMediaIdProvider: () -> String?,
@@ -131,31 +95,8 @@ internal fun PlayerScreenEffects(
     onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit
 ) {
     DisposableEffect(Unit) {
-        currentView.keepScreenOn = true
-        val activity = context as? Activity
-        val originalRequestedOrientation = activity?.requestedOrientation
-        activity?.let { act ->
-            act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            hideSystemBars()
-        }
-
-        onDispose {
-            currentView.keepScreenOn = false
-            activity?.let { act ->
-                act.requestedOrientation =
-                    originalRequestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                act.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                if (!useDeviceVolumeInPlayer) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
-                }
-                val layoutParams = act.window.attributes
-                layoutParams.screenBrightness = -1f
-                act.window.attributes = layoutParams
-                WindowCompat.getInsetsController(act.window, act.window.decorView)
-                    .show(WindowInsetsCompat.Type.systemBars())
-            }
-        }
+        platform.enterPlayerMode()
+        onDispose { platform.exitPlayerMode(restoreVolume = !useDeviceVolumeInPlayer) }
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -170,33 +111,10 @@ internal fun PlayerScreenEffects(
 
     val hdrPassthrough = remember { !PlayerPreferences(context).getMpvHdrToSdrTonemapping() }
     DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled, hdrPassthrough) {
-        val activity = context as? Activity
-        val shouldUseHdrColorMode = viewModel.mpvPlayer != null && playerState.isHdrEnabled && hdrPassthrough
-        val originalColorMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            activity?.window?.colorMode
-        } else {
-            null
-        }
-
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            activity != null &&
-            shouldUseHdrColorMode
-        ) {
-            activity.window.colorMode = ActivityInfo.COLOR_MODE_HDR
-            setDesiredHdrHeadroomCompat(activity.window, 4.0f)
-        }
-
-        onDispose {
-            if (
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                activity != null &&
-                originalColorMode != null
-            ) {
-                activity.window.colorMode = originalColorMode
-                setDesiredHdrHeadroomCompat(activity.window, 1.0f)
-            }
-        }
+        platform.setHdrMode(
+            viewModel.mpvPlayer != null && playerState.isHdrEnabled && hdrPassthrough
+        )
+        onDispose { platform.setHdrMode(false) }
     }
 
     val initializationKey = remoteMediaUrl
@@ -280,16 +198,8 @@ internal fun PlayerScreenEffects(
     }
 
     LaunchedEffect(Unit) {
-        val activity = context as? Activity
-        activity?.let { act ->
-            val layoutParams = act.window.attributes
-            layoutParams.screenBrightness = playerBrightness
-            act.window.attributes = layoutParams
-        }
-
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        val initialVolume = (playerVolume * maxVolume).toInt().coerceIn(0, maxVolume)
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, initialVolume, 0)
+        platform.setBrightness(playerBrightness)
+        platform.setDeviceVolume(playerVolume)
     }
 
     LaunchedEffect(uiStateProvider().volumeLevel) {
@@ -329,7 +239,7 @@ internal fun PlayerScreenEffects(
             showAudioTranscodingDialog ||
             showMediaInfo
         ) {
-            hideSystemBars()
+            platform.hideSystemBars()
         }
     }
 

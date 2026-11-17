@@ -1,11 +1,11 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.ui.screens.player
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -15,22 +15,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import java.util.Locale
+import com.jellycine.util.formatDecimal
 
 data class MediaMetadataInfo(
     val hdrFormat: HdrFormatInfo? = null,
@@ -84,9 +82,8 @@ fun MediaInfoDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
-    val screenWidth = configuration.screenWidthDp.dp
+    val screenWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
     val compact = screenWidth < 700.dp
     val panelWidth = (screenWidth * if (compact) 0.80f else 0.31f).coerceIn(240.dp, 390.dp)
     val horizontalInset = if (compact) 14.dp else 34.dp
@@ -220,8 +217,8 @@ private fun MixedLine(label: String, value: String) {
 }
 
 private fun buildStreamLine(mediaInfo: MediaMetadataInfo): String {
-    val container = mediaInfo.streamContainer?.uppercase(Locale.US)
-        ?: mediaInfo.videoFormat?.mimeType?.substringAfter("/", "")?.uppercase(Locale.US)
+    val container = mediaInfo.streamContainer?.uppercase()
+        ?: mediaInfo.videoFormat?.mimeType?.substringAfter("/", "")?.uppercase()
         ?: "STREAM"
 
     val bitrateKbps = mediaInfo.streamBitrateKbps ?: mediaInfo.videoFormat?.bitrateKbps
@@ -259,7 +256,7 @@ private fun buildVideoDetails(videoInfo: VideoFormatInfo?): String? {
     videoInfo.profile?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
     videoInfo.bitDepth?.let { parts.add("${it}bit") }
     videoInfo.bitrateKbps?.takeIf { it > 0 }?.let { parts.add("${formatMbps(it)} mbps") }
-    videoInfo.frameRate?.takeIf { it > 0f }?.let { parts.add(String.format(Locale.US, "%.3f fps", it)) }
+    videoInfo.frameRate?.takeIf { it > 0f }?.let { parts.add("${formatDecimal(it, 3)} fps") }
 
     return parts.joinToString(" ").takeIf { it.isNotBlank() }
 }
@@ -268,7 +265,7 @@ private fun buildDisplayMode(videoInfo: VideoFormatInfo?): String? {
     if (videoInfo == null) return null
 
     val width = videoInfo.resolution.substringBefore("x", "").trim().takeIf { it.isNotBlank() }
-    val fps = videoInfo.frameRate?.takeIf { it > 0f }?.let { String.format(Locale.US, "%.2f", it) }
+    val fps = videoInfo.frameRate?.takeIf { it > 0f }?.let { formatDecimal(it, 2) }
 
     return when {
         width != null && fps != null -> "$width/$fps"
@@ -281,7 +278,7 @@ private fun buildAudioTitle(audioInfo: AudioFormatInfo?): String {
     if (audioInfo == null) return "Unknown"
 
     val lang = audioInfo.language?.takeIf { it.isNotBlank() }?.replaceFirstChar {
-        if (it.isLowerCase()) it.titlecase(Locale.US) else it.toString()
+        if (it.isLowerCase()) it.titlecase() else it.toString()
     }
     val defaultTag = if (audioInfo.isDefault) " (Default)" else ""
 
@@ -291,15 +288,15 @@ private fun buildAudioTitle(audioInfo: AudioFormatInfo?): String {
 }
 
 private fun mapCodecForDisplay(codec: String): String {
-    return when (codec.uppercase(Locale.US)) {
+    return when (codec.uppercase()) {
         "H.265", "H265", "HEVC" -> "HEVC"
         "H.264", "H264", "AVC" -> "AVC"
-        else -> codec.uppercase(Locale.US)
+        else -> codec.uppercase()
     }
 }
 
 private fun formatMbps(kbps: Int): String {
     val mbps = kbps / 1000f
-    return if (mbps >= 10f) String.format(Locale.US, "%.0f", mbps) else String.format(Locale.US, "%.1f", mbps)
+    return if (mbps >= 10f) formatDecimal(mbps, 0) else formatDecimal(mbps, 1)
 }
 

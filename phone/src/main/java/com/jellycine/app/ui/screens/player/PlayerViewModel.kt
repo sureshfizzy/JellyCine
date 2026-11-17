@@ -32,6 +32,7 @@ import com.jellycine.detail.canSpatializeAudioStream
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.core.*
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.ui.screens.player.MediaMetadataInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject

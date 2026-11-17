@@ -7,6 +7,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.player.video.HdrCapabilityManager
+import com.jellycine.ui.screens.player.*
 
 internal object PlayerMetadata {
 

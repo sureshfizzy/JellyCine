@@ -1,14 +1,16 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.ui.screens.player
 
-import android.view.MotionEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,17 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInteropFilter
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,14 +40,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import com.jellycine.shared.R
 import com.jellycine.detail.SpatializationResult
 import com.jellycine.player.core.ChapterMarker
 import com.jellycine.player.core.PlayerConstants.PROGRESS_BAR_HEIGHT_DP
-import java.util.Locale
+import com.jellycine.resources.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.vectorResource
 
 @Composable
 fun ControlsOverlay(
@@ -88,7 +89,7 @@ fun ControlsOverlay(
     onPlayNextEpisode: () -> Unit = {},
     onScrubStateChange: (Boolean) -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val context = LocalPlatformContext.current
     var scrubPreviewProgress by remember { mutableStateOf<Float?>(null) }
     val overlayGradient = remember {
         Brush.verticalGradient(
@@ -260,7 +261,7 @@ fun ControlsOverlay(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SkipPrevious,
-                        contentDescription = stringResource(R.string.player_previous_episode),
+                        contentDescription = stringResource(Res.string.player_previous_episode),
                         tint = Color.White,
                         modifier = Modifier.size(42.dp)
                     )
@@ -342,7 +343,7 @@ fun ControlsOverlay(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.SkipNext,
-                        contentDescription = stringResource(R.string.player_next_episode),
+                        contentDescription = stringResource(Res.string.player_next_episode),
                         tint = Color.White,
                         modifier = Modifier.size(42.dp)
                     )
@@ -407,10 +408,10 @@ fun ControlsOverlay(
                                     Image(
                                         painter = painterResource(
                                             when {
-                                                useDolbyVisionBadge -> R.drawable.dolby_vision_badge
-                                                useHdr10PlusBadge -> R.drawable.hdr10plus_badge
-                                                useHdr10Badge -> R.drawable.hdr10_badge
-                                                else -> R.drawable.hdr_badge
+                                                useDolbyVisionBadge -> Res.drawable.dolby_vision_badge
+                                                useHdr10PlusBadge -> Res.drawable.hdr10plus_badge
+                                                useHdr10Badge -> Res.drawable.hdr10_badge
+                                                else -> Res.drawable.hdr_badge
                                             }
                                         ),
                                         contentDescription = osdDescription(hdrBadgeLabel),
@@ -441,7 +442,7 @@ fun ControlsOverlay(
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Icon(
-                                        imageVector = ImageVector.vectorResource(R.drawable.ic_spatial_audio),
+                                        imageVector = vectorResource(Res.drawable.ic_spatial_audio),
                                         contentDescription = null,
                                         tint = Color(0xFF4CAF50),
                                         modifier = Modifier.size(14.dp)
@@ -516,6 +517,9 @@ private fun SeekBar(
     var dragActive by remember { mutableStateOf(false) }
     var widthPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
+    val currentOnSeek by rememberUpdatedState(onSeek)
+    val currentOnScrubProgressChange by rememberUpdatedState(onScrubProgressChange)
+    val currentProgress by rememberUpdatedState(progress)
     val trackHeightFraction by animateFloatAsState(
         targetValue = if (dragActive) 0.95f else 0.55f,
         label = "seekTrackHeight"
@@ -536,36 +540,26 @@ private fun SeekBar(
         modifier = modifier
             .height(PROGRESS_BAR_HEIGHT_DP.dp)
             .onSizeChanged { widthPx = it.width }
-            .pointerInteropFilter { event ->
-                if (widthPx <= 0) return@pointerInteropFilter false
-
-                val newProgress = (event.x / widthPx.toFloat()).coerceIn(0f, 1f)
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        dragActive = true
-                        scrubProgress = newProgress
-                        onScrubProgressChange(scrubProgress)
-                        true
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    if (widthPx <= 0) return@awaitEachGesture
+                    val down = awaitFirstDown()
+                    down.consume()
+                    dragActive = true
+                    scrubProgress = (down.position.x / widthPx.toFloat()).coerceIn(0f, 1f)
+                    currentOnScrubProgressChange(scrubProgress)
+                    val completed = drag(down.id) { change ->
+                        change.consume()
+                        scrubProgress = (change.position.x / widthPx.toFloat()).coerceIn(0f, 1f)
+                        currentOnScrubProgressChange(scrubProgress)
                     }
-                    MotionEvent.ACTION_MOVE -> {
-                        scrubProgress = newProgress
-                        onScrubProgressChange(scrubProgress)
-                        true
+                    dragActive = false
+                    if (completed) {
+                        currentOnSeek(scrubProgress)
+                    } else {
+                        scrubProgress = currentProgress.coerceIn(0f, 1f)
                     }
-                    MotionEvent.ACTION_UP -> {
-                        scrubProgress = newProgress
-                        dragActive = false
-                        onSeek(scrubProgress)
-                        onScrubProgressChange(null)
-                        true
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
-                        dragActive = false
-                        scrubProgress = progress.coerceIn(0f, 1f)
-                        onScrubProgressChange(null)
-                        true
-                    }
-                    else -> false
+                    currentOnScrubProgressChange(null)
                 }
             }
     ) {
@@ -690,9 +684,9 @@ private fun formatTime(timeMs: Long): String {
     val seconds = totalSeconds % 60
 
     return if (hours > 0) {
-        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+        "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     } else {
-        String.format(Locale.US, "%02d:%02d", minutes, seconds)
+        "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
     }
 }
 

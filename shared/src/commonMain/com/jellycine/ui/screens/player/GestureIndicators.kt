@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.ui.screens.player
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -23,7 +23,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.player.core.PlayerConstants.GESTURE_INDICATOR_PADDING_DP
-import com.jellycine.player.core.PlayerState
 
 enum class SeekSide {
     LEFT, CENTER, RIGHT
