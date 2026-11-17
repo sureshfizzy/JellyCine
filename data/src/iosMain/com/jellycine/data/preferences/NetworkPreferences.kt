@@ -2,10 +2,10 @@ package com.jellycine.data.preferences
 
 import platform.Foundation.NSUserDefaults
 
-class NetworkPreferences {
+class NetworkPreferences : NetworkSettingsStore {
     private val defaults = NSUserDefaults.standardUserDefaults
 
-    fun getTimeoutConfig(): NetworkTimeoutConfig {
+    override fun getTimeoutConfig(): NetworkTimeoutConfig {
         val requestMs = sanitize(defaults.integerForKey(KEY_REQUEST_TIMEOUT).toInt().takeIf { it != 0 } ?: DEFAULT_REQUEST_TIMEOUT_MS)
         val connectionMs = sanitize(defaults.integerForKey(KEY_CONNECTION_TIMEOUT).toInt().takeIf { it != 0 } ?: DEFAULT_CONNECTION_TIMEOUT_MS)
         val socketMs = sanitize(defaults.integerForKey(KEY_SOCKET_TIMEOUT).toInt().takeIf { it != 0 } ?: DEFAULT_SOCKET_TIMEOUT_MS)
@@ -17,32 +17,32 @@ class NetworkPreferences {
         )
     }
 
-    fun setRequestTimeoutMs(milliseconds: Int) {
+    override fun setRequestTimeoutMs(milliseconds: Int) {
         defaults.setInteger(sanitize(milliseconds).toLong(), KEY_REQUEST_TIMEOUT)
         defaults.synchronize()
     }
 
-    fun setConnectionTimeoutMs(milliseconds: Int) {
+    override fun setConnectionTimeoutMs(milliseconds: Int) {
         defaults.setInteger(sanitize(milliseconds).toLong(), KEY_CONNECTION_TIMEOUT)
         defaults.synchronize()
     }
 
-    fun setSocketTimeoutMs(milliseconds: Int) {
+    override fun setSocketTimeoutMs(milliseconds: Int) {
         defaults.setInteger(sanitize(milliseconds).toLong(), KEY_SOCKET_TIMEOUT)
         defaults.synchronize()
     }
 
-    fun getImageMemoryCacheMb(): Int {
+    override fun getImageMemoryCacheMb(): Int {
         val value = defaults.integerForKey(KEY_IMAGE_MEMORY_CACHE_MB).toInt().takeIf { it != 0 } ?: DEFAULT_IMAGE_MEMORY_CACHE_MB
         return ImageCacheMemoryMb(value)
     }
 
-    fun setImageMemoryCacheMb(megabytes: Int) {
+    override fun setImageMemoryCacheMb(megabytes: Int) {
         defaults.setInteger(ImageCacheMemoryMb(megabytes).toLong(), KEY_IMAGE_MEMORY_CACHE_MB)
         defaults.synchronize()
     }
 
-    fun isImageCachingEnabled(): Boolean {
+    override fun isImageCachingEnabled(): Boolean {
         // NSUserDefaults returns false for non-existent keys
         if (defaults.objectForKey(KEY_IMAGE_CACHING_ENABLED) == null) {
             return DEFAULT_IMAGE_CACHING_ENABLED
@@ -50,7 +50,7 @@ class NetworkPreferences {
         return defaults.boolForKey(KEY_IMAGE_CACHING_ENABLED)
     }
 
-    fun setImageCachingEnabled(enabled: Boolean) {
+    override fun setImageCachingEnabled(enabled: Boolean) {
         defaults.setBool(enabled, KEY_IMAGE_CACHING_ENABLED)
         defaults.synchronize()
     }
@@ -67,17 +67,17 @@ class NetworkPreferences {
     }
 
     companion object {
-        const val MIN_TIMEOUT_MS = 1000
-        const val MAX_TIMEOUT_MS = 300000
+        const val MIN_TIMEOUT_MS = NetworkSettingsStore.MIN_TIMEOUT_MS
+        const val MAX_TIMEOUT_MS = NetworkSettingsStore.MAX_TIMEOUT_MS
 
-        const val DEFAULT_REQUEST_TIMEOUT_MS = 30000
-        const val DEFAULT_CONNECTION_TIMEOUT_MS = 6000
-        const val DEFAULT_SOCKET_TIMEOUT_MS = 10000
-        const val MIN_IMAGE_MEMORY_CACHE_MB = 32
-        const val MAX_IMAGE_MEMORY_CACHE_MB = 512
-        const val AUTO_IMAGE_MEMORY_CACHE_MB = 0
-        const val DEFAULT_IMAGE_MEMORY_CACHE_MB = 120
-        const val DEFAULT_IMAGE_CACHING_ENABLED = true
+        const val DEFAULT_REQUEST_TIMEOUT_MS = NetworkSettingsStore.DEFAULT_REQUEST_TIMEOUT_MS
+        const val DEFAULT_CONNECTION_TIMEOUT_MS = NetworkSettingsStore.DEFAULT_CONNECTION_TIMEOUT_MS
+        const val DEFAULT_SOCKET_TIMEOUT_MS = NetworkSettingsStore.DEFAULT_SOCKET_TIMEOUT_MS
+        const val MIN_IMAGE_MEMORY_CACHE_MB = NetworkSettingsStore.MIN_IMAGE_MEMORY_CACHE_MB
+        const val MAX_IMAGE_MEMORY_CACHE_MB = NetworkSettingsStore.MAX_IMAGE_MEMORY_CACHE_MB
+        const val AUTO_IMAGE_MEMORY_CACHE_MB = NetworkSettingsStore.AUTO_IMAGE_MEMORY_CACHE_MB
+        const val DEFAULT_IMAGE_MEMORY_CACHE_MB = NetworkSettingsStore.DEFAULT_IMAGE_MEMORY_CACHE_MB
+        const val DEFAULT_IMAGE_CACHING_ENABLED = NetworkSettingsStore.DEFAULT_IMAGE_CACHING_ENABLED
 
         private const val KEY_REQUEST_TIMEOUT = "request_timeout_ms"
         private const val KEY_CONNECTION_TIMEOUT = "connection_timeout_ms"

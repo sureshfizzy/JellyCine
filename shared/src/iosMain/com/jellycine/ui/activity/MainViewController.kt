@@ -11,10 +11,14 @@ import com.jellycine.data.repository.AwardsRepository
 import com.jellycine.data.repository.IosAuthPlatform
 import com.jellycine.data.repository.IosMediaPlatform
 import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.security.SecureSessionStore
+import com.jellycine.preferences.Preferences
+import com.jellycine.preferences.UserDefaultsStore
 import com.jellycine.ui.navigation.AppNavigation
 import com.jellycine.util.text
 import okio.Path.Companion.toPath
+import platform.Foundation.NSBundle
 import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSURL
@@ -49,6 +53,13 @@ private val mediaRepository: MediaRepository by lazy {
 
 private val awardsRepository by lazy { AwardsRepository(mediaRepository) }
 
+private val appVersion: String =
+    NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: ""
+
+private val preferences by lazy { Preferences(UserDefaultsStore()) }
+
+private val networkPreferences by lazy { NetworkPreferences() }
+
 fun MainViewController() = ComposeUIViewController {
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
@@ -66,6 +77,9 @@ fun MainViewController() = ComposeUIViewController {
         authRepository = authRepository,
         mediaRepository = mediaRepository,
         awardsRepository = awardsRepository,
+        preferences = preferences,
+        networkSettings = networkPreferences,
+        appVersion = appVersion,
         onOpenLanguageSettings = {
             NSURL.URLWithString(UIApplicationOpenSettingsURLString)?.let { url ->
                 UIApplication.sharedApplication.openURL(url)

@@ -47,7 +47,7 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.SeerTitlesRow
 import com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
 import com.jellycine.ui.components.common.CompactTopText

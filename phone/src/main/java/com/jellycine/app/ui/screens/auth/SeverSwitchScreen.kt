@@ -71,7 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jellycine.shared.R
 import com.jellycine.ui.components.common.ProfileImageLoader
-import com.jellycine.app.ui.components.common.AmoledDialogFrame
+import com.jellycine.ui.components.common.AmoledDialogFrame
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.network.ServerDiscovery
 import com.jellycine.data.network.canonicalServerUrlKey

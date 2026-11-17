@@ -266,6 +266,17 @@ fun seerPersonId(
     ) { person -> role.matches(person) }
 }
 
+fun SeerrRequestedItem.toBaseItem(): BaseItemDto {
+    return BaseItemDto(
+        id = localItemId ?: SeerrItemIds.detailId(tmdbId, mediaType),
+        name = title,
+        type = if (mediaType.equals("tv", ignoreCase = true)) "Series" else "Movie",
+        providerIds = mapOf("tmdb" to tmdbId),
+        productionYear = productionYear,
+        imageUrl = posterUrl
+    )
+}
+
 fun SeerrRecommendationTitle.toSeerDetailItem(): BaseItemDto {
     return BaseItemDto(
         id = SeerrItemIds.detailId(tmdbId = tmdbId, mediaType = mediaType)

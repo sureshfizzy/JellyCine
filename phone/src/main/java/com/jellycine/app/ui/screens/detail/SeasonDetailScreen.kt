@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.shared.R
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.ui.components.common.BackButton
-import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
 import com.jellycine.app.ui.components.common.DownloadActionMenu
 import com.jellycine.app.ui.components.common.DownloadContent
 import com.jellycine.app.ui.components.common.CompactTopLogo

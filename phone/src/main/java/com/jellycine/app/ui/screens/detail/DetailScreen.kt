@@ -48,7 +48,7 @@ import com.jellycine.app.ui.screens.player.PlayerScreen
 import com.jellycine.detail.CodecUtils
 import com.jellycine.ui.components.common.ScreenWrapper
 import com.jellycine.ui.components.common.ShimmerEffect
-import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.ui.screens.cast.CastPlayback
 import com.jellycine.app.ui.screens.cast.loadCastPlaybackData

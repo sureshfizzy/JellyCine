@@ -53,7 +53,7 @@ import com.jellycine.ui.components.common.OverviewSection
 import com.jellycine.ui.components.common.SeerrRequestButtonRow
 import com.jellycine.ui.components.common.WatchedActionButton
 import com.jellycine.ui.components.common.selectedVideoOption
-import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
 import com.jellycine.ui.components.common.CompactTopChip
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.app.ui.components.common.canResumeDownloads

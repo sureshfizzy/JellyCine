@@ -1,63 +1,32 @@
-package com.jellycine.app.ui.screens.dashboard.settings
+package com.jellycine.ui.screens.dashboard.settings
 
+import com.jellycine.ui.screens.dashboard.settings.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.LinkOff
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.AmoledDialogFrame
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.stringResource
+import com.jellycine.ui.components.common.AmoledDialogFrame
 import com.jellycine.ui.screens.auth.amoledAuthFieldColors
 import com.jellycine.ui.theme.JellyBlue
 import com.jellycine.ui.theme.JellyRed
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 
 @Composable
-internal fun SeerrConnectionDialog(
+fun SeerrConnectionDialog(
     connectionState: SeerrUiState,
     isBusy: Boolean,
     onDismiss: () -> Unit,
@@ -90,7 +59,7 @@ internal fun SeerrConnectionDialog(
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = stringResource(R.string.settings_seerr_dialog_title),
+                    text = stringResource(Res.string.settings_seerr_dialog_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -105,7 +74,7 @@ internal fun SeerrConnectionDialog(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.cancel),
+                        contentDescription = stringResource(Res.string.cancel),
                         tint = Color.White.copy(alpha = 0.84f)
                     )
                 }
@@ -130,8 +99,8 @@ internal fun SeerrConnectionDialog(
                     value = serverUrlInput,
                     onValueChange = { serverUrlInput = it },
                     enabled = !isBusy,
-                    label = stringResource(R.string.server_url),
-                    placeholder = stringResource(R.string.settings_seerr_url_hint)
+                    label = stringResource(Res.string.server_url),
+                    placeholder = stringResource(Res.string.settings_seerr_url_hint)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -140,7 +109,7 @@ internal fun SeerrConnectionDialog(
                     value = usernameInput,
                     onValueChange = { usernameInput = it },
                     enabled = !isBusy,
-                    label = stringResource(R.string.settings_seerr_login_identifier),
+                    label = stringResource(Res.string.settings_seerr_login_identifier),
                     leadingIcon = Icons.Rounded.Person
                 )
 
@@ -150,7 +119,7 @@ internal fun SeerrConnectionDialog(
                     value = passwordInput,
                     onValueChange = { passwordInput = it },
                     enabled = !isBusy,
-                    label = stringResource(R.string.password),
+                    label = stringResource(Res.string.password),
                     leadingIcon = Icons.Rounded.Lock,
                     visualTransformation = if (showPassword) {
                         VisualTransformation.None
@@ -166,21 +135,22 @@ internal fun SeerrConnectionDialog(
                                     Icons.Rounded.Visibility
                                 },
                                 contentDescription = if (showPassword) {
-                                    stringResource(R.string.auth_hide_password)
+                                    stringResource(Res.string.auth_hide_password)
                                 } else {
-                                    stringResource(R.string.auth_show_password)
+                                    stringResource(Res.string.auth_show_password)
                                 }
                             )
                         }
                     }
                 )
 
+                val connectionMessage = connectionState.message
                 if (connectionState.status == SeerrConnectionStatus.ERROR &&
-                    !connectionState.message.isNullOrBlank()
+                    !connectionMessage.isNullOrBlank()
                 ) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = connectionState.message,
+                        text = connectionMessage,
                         color = JellyRed,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.fillMaxWidth()
@@ -213,9 +183,9 @@ internal fun SeerrConnectionDialog(
                         Text(
                             stringResource(
                                 if (connectionState.hasSavedConnection) {
-                                    R.string.settings_seerr_reconnect
+                                    Res.string.settings_seerr_reconnect
                                 } else {
-                                    R.string.settings_seerr_connect_button
+                                    Res.string.settings_seerr_connect_button
                                 }
                             ),
                             style = MaterialTheme.typography.labelLarge
@@ -248,7 +218,7 @@ private fun DisconnectSeerrDialogContent(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.settings_seerr_refresh_status),
+            text = stringResource(Res.string.settings_seerr_refresh_status),
             style = MaterialTheme.typography.labelLarge
         )
     }
@@ -276,25 +246,25 @@ private fun DisconnectSeerrDialogContent(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.settings_seerr_disconnect),
+            text = stringResource(Res.string.settings_seerr_disconnect),
             style = MaterialTheme.typography.labelLarge
         )
     }
 }
 
 @Composable
-internal fun seerrSubtitle(connectionState: SeerrUiState): String {
+fun seerrSubtitle(connectionState: SeerrUiState): String {
     return when (connectionState.status) {
-        SeerrConnectionStatus.CONNECTED -> stringResource(R.string.settings_seerr_connected_in_app_requests)
-        SeerrConnectionStatus.CONNECTING -> stringResource(R.string.settings_seerr_connecting)
-        SeerrConnectionStatus.CHECKING -> stringResource(R.string.settings_seerr_checking)
+        SeerrConnectionStatus.CONNECTED -> stringResource(Res.string.settings_seerr_connected_in_app_requests)
+        SeerrConnectionStatus.CONNECTING -> stringResource(Res.string.settings_seerr_connecting)
+        SeerrConnectionStatus.CHECKING -> stringResource(Res.string.settings_seerr_checking)
         SeerrConnectionStatus.ERROR -> connectionState.message
-            ?: stringResource(R.string.settings_seerr_error)
-        SeerrConnectionStatus.DISCONNECTED -> stringResource(R.string.settings_seerr_disconnected)
+            ?: stringResource(Res.string.settings_seerr_error)
+        SeerrConnectionStatus.DISCONNECTED -> stringResource(Res.string.settings_seerr_disconnected)
     }
 }
 
-internal fun seerrAccentColor(status: SeerrConnectionStatus): Color {
+fun seerrAccentColor(status: SeerrConnectionStatus): Color {
     return when (status) {
         SeerrConnectionStatus.CONNECTED -> Color(0xFF10B981)
         SeerrConnectionStatus.CONNECTING,
@@ -305,29 +275,29 @@ internal fun seerrAccentColor(status: SeerrConnectionStatus): Color {
 }
 
 @Composable
-internal fun SeerrStatusChip(status: SeerrConnectionStatus) {
+fun SeerrStatusChip(status: SeerrConnectionStatus) {
     val (label, containerColor, contentColor) = when (status) {
         SeerrConnectionStatus.CONNECTED -> Triple(
-            stringResource(R.string.settings_seerr_status_connected),
+            stringResource(Res.string.settings_seerr_status_connected),
             Color(0xFF10B981).copy(alpha = 0.14f),
             Color(0xFF10B981)
         )
 
         SeerrConnectionStatus.CONNECTING,
         SeerrConnectionStatus.CHECKING -> Triple(
-            stringResource(R.string.settings_seerr_status_checking),
+            stringResource(Res.string.settings_seerr_status_checking),
             Color(0xFF0EA5E9).copy(alpha = 0.14f),
             Color(0xFF0EA5E9)
         )
 
         SeerrConnectionStatus.ERROR -> Triple(
-            stringResource(R.string.settings_seerr_status_issue),
+            stringResource(Res.string.settings_seerr_status_issue),
             Color(0xFFF97316).copy(alpha = 0.14f),
             Color(0xFFF97316)
         )
 
         SeerrConnectionStatus.DISCONNECTED -> Triple(
-            stringResource(R.string.settings_seerr_status_not_connected),
+            stringResource(Res.string.settings_seerr_status_not_connected),
             MaterialTheme.colorScheme.surfaceVariant,
             MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -379,7 +349,7 @@ private fun SeerrStatusHeader(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_seerr),
+                        text = stringResource(Res.string.settings_seerr),
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White
                     )
@@ -399,7 +369,7 @@ private fun SeerrStatusHeader(
                 ?.takeIf { it.isNotBlank() }
                 ?.let { savedUrl ->
                     Text(
-                        text = stringResource(R.string.settings_seerr_saved_url, savedUrl),
+                        text = stringResource(Res.string.settings_seerr_saved_url, savedUrl),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.6f)
                     )
@@ -409,7 +379,7 @@ private fun SeerrStatusHeader(
                 ?.takeIf { it.isNotBlank() }
                 ?.let { version ->
                     Text(
-                        text = stringResource(R.string.settings_seerr_version, version),
+                        text = stringResource(Res.string.settings_seerr_version, version),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.6f)
                     )

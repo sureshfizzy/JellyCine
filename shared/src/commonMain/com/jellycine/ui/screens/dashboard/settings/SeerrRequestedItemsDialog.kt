@@ -1,45 +1,32 @@
-﻿package com.jellycine.app.ui.screens.dashboard.settings
+﻿package com.jellycine.ui.screens.dashboard.settings
 
+import com.jellycine.ui.screens.dashboard.settings.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.LocalMovies
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jellycine.data.model.SeerrRequestedItem
-import com.jellycine.shared.R
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 
 @Composable
-internal fun SeerrRequestedItemsDialog(
+fun SeerrRequestedItemsDialog(
     state: SeerrRequestedItemsUiState,
     onDismiss: () -> Unit,
     onItemClick: (SeerrRequestedItem) -> Unit
@@ -53,9 +40,9 @@ internal fun SeerrRequestedItemsDialog(
             Text(
                 text = stringResource(
                     if (state.mediaType == "tv") {
-                        R.string.settings_seerr_requested_shows
+                        Res.string.settings_seerr_requested_shows
                     } else {
-                        R.string.settings_seerr_requested_movies
+                        Res.string.settings_seerr_requested_movies
                     }
                 ),
                 style = MaterialTheme.typography.titleLarge,
@@ -64,16 +51,17 @@ internal fun SeerrRequestedItemsDialog(
             )
         },
         text = {
+            val errorMessage = state.error
             when {
                 state.isLoading -> SeerrRequestedItemsLoading()
-                state.error != null -> Text(
-                    text = state.error,
+                errorMessage != null -> Text(
+                    text = errorMessage,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFFFCA5A5)
                 )
 
                 state.items.isEmpty() -> Text(
-                    text = stringResource(R.string.settings_seerr_no_requested_items),
+                    text = stringResource(Res.string.settings_seerr_no_requested_items),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.72f)
                 )
@@ -98,7 +86,7 @@ internal fun SeerrRequestedItemsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_close))
+                Text(stringResource(Res.string.settings_close))
             }
         }
     )
@@ -117,7 +105,7 @@ private fun SeerrRequestedItemsLoading() {
             color = Color(0xFF06B6D4)
         )
         Text(
-            text = stringResource(R.string.settings_seerr_loading_requests),
+            text = stringResource(Res.string.settings_seerr_loading_requests),
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White.copy(alpha = 0.78f)
         )
@@ -165,7 +153,7 @@ private fun SeerrRequestedItemRow(
                     )
                     if (item.is4K) {
                         SeerrSmallChip(
-                            text = stringResource(R.string.settings_seerr_4k_badge),
+                            text = stringResource(Res.string.settings_seerr_4k_badge),
                             color = Color(0xFF8B5CF6)
                         )
                     }
@@ -209,11 +197,11 @@ private fun SeerrRequestedPoster(item: SeerrRequestedItem) {
 private fun SeerrRequestedItemSubtitle(item: SeerrRequestedItem) {
     val seasonText = item.seasonCount
         ?.takeIf { count -> count > 0 }
-        ?.let { count -> pluralStringResource(R.plurals.settings_seerr_seasons_count, count, count) }
+        ?.let { count -> pluralStringResource(Res.plurals.settings_seerr_seasons_count, count, count) }
     val requestedAtText = item.requestedAt
         ?.takeIf { it.isNotBlank() }
         ?.let { requestedAt ->
-            stringResource(R.string.settings_seerr_requested_on, requestedAt.substringBefore('T'))
+            stringResource(Res.string.settings_seerr_requested_on, requestedAt.substringBefore('T'))
         }
     val details = listOfNotNull(
         item.productionYear?.toString(),
@@ -240,18 +228,18 @@ private fun SeerrRequestStatusChip(
     mediaStatus: Int?
 ) {
     val mediaStatusLabel = when (mediaStatus) {
-        5 -> stringResource(R.string.settings_seerr_request_available) to Color(0xFF10B981)
-        4 -> stringResource(R.string.settings_seerr_request_partially_available) to Color(0xFF14B8A6)
-        3 -> stringResource(R.string.settings_seerr_request_processing) to Color(0xFF8B5CF6)
-        2 -> stringResource(R.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
+        5 -> stringResource(Res.string.settings_seerr_request_available) to Color(0xFF10B981)
+        4 -> stringResource(Res.string.settings_seerr_request_partially_available) to Color(0xFF14B8A6)
+        3 -> stringResource(Res.string.settings_seerr_request_processing) to Color(0xFF8B5CF6)
+        2 -> stringResource(Res.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
         else -> null
     }
     val (label, color) = mediaStatusLabel ?: when (requestStatus) {
-        1 -> stringResource(R.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
-        2 -> stringResource(R.string.settings_seerr_request_approved) to Color(0xFF06B6D4)
-        3 -> stringResource(R.string.settings_seerr_request_declined) to Color(0xFFEF4444)
-        null -> stringResource(R.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
-        else -> stringResource(R.string.settings_seerr_request_unknown_status, requestStatus) to Color(0xFF94A3B8)
+        1 -> stringResource(Res.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
+        2 -> stringResource(Res.string.settings_seerr_request_approved) to Color(0xFF06B6D4)
+        3 -> stringResource(Res.string.settings_seerr_request_declined) to Color(0xFFEF4444)
+        null -> stringResource(Res.string.settings_seerr_request_pending) to Color(0xFFF59E0B)
+        else -> stringResource(Res.string.settings_seerr_request_unknown_status, requestStatus) to Color(0xFF94A3B8)
     }
     SeerrSmallChip(text = label, color = color)
 }

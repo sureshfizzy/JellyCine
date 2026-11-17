@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.first
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
-import com.jellycine.app.ui.components.common.BackButton
+import com.jellycine.ui.components.common.BackButton
 import com.jellycine.ui.components.common.CompactPageHeader
 import com.jellycine.app.ui.components.common.CompactTopLogo
 import com.jellycine.ui.components.common.CompactTopText

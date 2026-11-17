@@ -1,10 +1,9 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
+import com.jellycine.ui.screens.dashboard.settings.*
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,10 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrRequestedItem
-import com.jellycine.app.ui.components.common.AmoledDialogFrame
+import com.jellycine.data.model.*
+import com.jellycine.ui.components.common.AmoledDialogFrame
 import com.jellycine.player.discord.DiscordRpcManager
 import com.jellycine.shared.R
 
@@ -36,7 +33,7 @@ fun ConnectionsSettingsScreen(
     onNavigateToRequestedItem: (BaseItemDto) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
+    val viewModel: SettingsViewModel = viewModel { createSettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
 
     val discordSdkAvailable = remember { DiscordRpcManager.isSdkAvailable() }
@@ -528,43 +525,3 @@ private fun DiscordStatusChip() {
     )
 }
 
-@Composable
-internal fun ConnectionStatusBadge(
-    label: String,
-    containerColor: Color,
-    contentColor: Color
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
-        contentColor = contentColor,
-        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.24f))
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun SectionLabel(title: String) {
-    Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 4.dp)
-    )
-}
-
-private fun SeerrRequestedItem.toBaseItem(): BaseItemDto {
-    return BaseItemDto(
-        id = localItemId ?: SeerrItemIds.detailId(tmdbId, mediaType),
-        name = title,
-        type = if (mediaType.equals("tv", ignoreCase = true)) "Series" else "Movie",
-        providerIds = mapOf("tmdb" to tmdbId),
-        productionYear = productionYear,
-        imageUrl = posterUrl
-    )
-}

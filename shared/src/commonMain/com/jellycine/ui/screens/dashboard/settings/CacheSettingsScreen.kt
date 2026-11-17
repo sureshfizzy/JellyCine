@@ -1,68 +1,34 @@
-package com.jellycine.app.ui.screens.dashboard.settings
+package com.jellycine.ui.screens.dashboard.settings
 
-import androidx.activity.compose.BackHandler
+import com.jellycine.ui.screens.dashboard.settings.*
+import androidx.compose.ui.*
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.SdCard
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.jellycine.shared.R
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.stringResource
 import com.jellycine.data.preferences.NetworkPreferences
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun CacheSettingsScreen(
+    viewModel: SettingsViewModel,
     onBackPressed: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val viewModel: SettingsViewModel = viewModel { SettingsViewModel(context) }
     val uiState by viewModel.uiState.collectAsState()
     var showCacheSizeDialog by remember { mutableStateOf(false) }
 
@@ -74,7 +40,7 @@ fun CacheSettingsScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        stringResource(R.string.settings_cache),
+                        stringResource(Res.string.settings_cache),
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -83,7 +49,7 @@ fun CacheSettingsScreen(
                     IconButton(onClick = onBackPressed) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back_button),
+                            contentDescription = stringResource(Res.string.cd_back_button),
                             tint = Color.White
                         )
                     }
@@ -107,7 +73,7 @@ fun CacheSettingsScreen(
         ) {
             item {
                 Text(
-                    text = stringResource(R.string.settings_cache_subtitle),
+                    text = stringResource(Res.string.settings_cache_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.72f),
                     modifier = Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp)
@@ -118,8 +84,8 @@ fun CacheSettingsScreen(
                 CacheSection {
                     CacheSwitchItem(
                         icon = Icons.Rounded.Image,
-                        title = stringResource(R.string.cache_settings_cache_images),
-                        subtitle = stringResource(R.string.cache_settings_cache_images_summary),
+                        title = stringResource(Res.string.cache_settings_cache_images),
+                        subtitle = stringResource(Res.string.cache_settings_cache_images_summary),
                         checked = uiState.imageCachingEnabled,
                         onCheckedChange = viewModel::setImageCachingEnabled,
                         accentColor = Color(0xFF22D3EE)
@@ -127,11 +93,11 @@ fun CacheSettingsScreen(
                     CacheDivider()
                     CacheActionItem(
                         icon = Icons.Rounded.SdCard,
-                        title = stringResource(R.string.cache_settings_cache_size),
+                        title = stringResource(Res.string.cache_settings_cache_size),
                         subtitle = if (uiState.imageMemoryCacheMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
-                            stringResource(R.string.settings_auto)
+                            stringResource(Res.string.settings_auto)
                         } else {
-                            stringResource(R.string.cache_settings_cache_size_value_mb, uiState.imageMemoryCacheMb)
+                            stringResource(Res.string.cache_settings_cache_size_value_mb, uiState.imageMemoryCacheMb)
                         },
                         enabled = uiState.imageCachingEnabled,
                         onClick = { showCacheSizeDialog = true },
@@ -293,7 +259,7 @@ private fun CacheSizeValueDialog(
         containerColor = Color.Black,
         titleContentColor = Color.White,
         textContentColor = Color.White,
-        title = { Text(stringResource(R.string.cache_settings_cache_size_dialog_title)) },
+        title = { Text(stringResource(Res.string.cache_settings_cache_size_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -301,7 +267,7 @@ private fun CacheSizeValueDialog(
                     onValueChange = { input ->
                         textValue = input.filter { it.isDigit() }.take(4)
                     },
-                    label = { Text(stringResource(R.string.cache_settings_cache_size_input_label)) },
+                    label = { Text(stringResource(Res.string.cache_settings_cache_size_input_label)) },
                     singleLine = true,
                     isError = hasValidationError,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -320,7 +286,7 @@ private fun CacheSizeValueDialog(
                 )
                 Text(
                     text = stringResource(
-                        R.string.cache_settings_allowed_range_mb,
+                        Res.string.cache_settings_allowed_range_mb,
                         NetworkPreferences.MIN_IMAGE_MEMORY_CACHE_MB,
                         NetworkPreferences.MAX_IMAGE_MEMORY_CACHE_MB
                     ),
@@ -328,7 +294,7 @@ private fun CacheSizeValueDialog(
                     color = Color.White.copy(alpha = 0.7f)
                 )
                 Text(
-                    text = stringResource(R.string.cache_settings_auto_hint),
+                    text = stringResource(Res.string.cache_settings_auto_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.7f)
                 )
@@ -336,12 +302,12 @@ private fun CacheSizeValueDialog(
         },
         confirmButton = {
             TextButton(enabled = isValid, onClick = { onSave(valueToPersist) }) {
-                Text(stringResource(R.string.settings_apply), color = Color(0xFF22D3EE))
+                Text(stringResource(Res.string.settings_apply), color = Color(0xFF22D3EE))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), color = Color.White.copy(alpha = 0.8f))
+                Text(stringResource(Res.string.cancel), color = Color.White.copy(alpha = 0.8f))
             }
         }
     )
