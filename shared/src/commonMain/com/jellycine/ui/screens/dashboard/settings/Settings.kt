@@ -52,6 +52,8 @@ fun Settings(
     onServerClick: () -> Unit = {},
     discordAvailable: Boolean = false,
     showOfflineOptions: Boolean = false,
+    showAboutRow: Boolean = false,
+    appVersion: String = "",
     deviceInfo: (@Composable () -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -291,6 +293,20 @@ fun Settings(
                 item {
                     SettingsSection {
                         deviceInfoRows()
+                    }
+                }
+            }
+
+            if (showAboutRow && onNavigateToAbout != null) {
+                item {
+                    SettingsSection {
+                        SettingsItem(
+                            icon = Icons.Rounded.Info,
+                            title = stringResource(Res.string.about_title),
+                            subtitle = stringResource(Res.string.about_version_chip, appVersion),
+                            accentColor = Color(0xFF3B82F6),
+                            onClick = onNavigateToAbout
+                        )
                     }
                 }
             }

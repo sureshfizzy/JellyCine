@@ -28,7 +28,6 @@ import org.jetbrains.compose.resources.stringResource
 private const val GithubUrl = "https://github.com/sureshfizzy/JellyCine"
 private const val PrivacyUrl = "https://github.com/sureshfizzy/JellyCine/blob/main/PRIVACY"
 private const val LicenseUrl = "https://github.com/sureshfizzy/JellyCine/blob/main/LICENSE"
-private const val PlayStoreUrl = "https://play.google.com/store/apps/details?id=com.jellycine.app"
 private const val BuyMeACoffeeUrl = "https://www.buymeacoffee.com/Sureshfizzy"
 private const val PatreonUrl = "https://www.patreon.com/c/sureshs/membership"
 private const val ContactEmail = "Sureshfizzy0503@gmail.com"
@@ -45,6 +44,7 @@ private val AboutAccent = Color(0xFF5AA9FA)
 @Composable
 fun AboutScreen(
     versionName: String,
+    rateAppUrl: String? = null,
     onBackPressed: () -> Unit = {}
 ) {
     val uriHandler = LocalUriHandler.current
@@ -120,13 +120,15 @@ fun AboutScreen(
             item { AboutSectionLabel(stringResource(Res.string.about_section_connect)) }
             item {
                 AboutSectionCard {
-                    AboutActionRow(
-                        icon = Icons.Rounded.StarRate,
-                        title = stringResource(Res.string.about_rate_app),
-                        subtitle = stringResource(Res.string.about_rate_app_subtitle),
-                        onClick = { openUrl(PlayStoreUrl) }
-                    )
-                    HorizontalDivider(color = AboutBorderColor)
+                    rateAppUrl?.let { storeUrl ->
+                        AboutActionRow(
+                            icon = Icons.Rounded.StarRate,
+                            title = stringResource(Res.string.about_rate_app),
+                            subtitle = stringResource(Res.string.about_rate_app_subtitle),
+                            onClick = { openUrl(storeUrl) }
+                        )
+                        HorizontalDivider(color = AboutBorderColor)
+                    }
                     AboutActionRow(
                         icon = Icons.Rounded.Email,
                         title = stringResource(Res.string.about_contact_developer),

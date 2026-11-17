@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.AwardsRepository
@@ -63,7 +64,10 @@ private val networkPreferences by lazy { NetworkPreferences() }
 fun MainViewController() = ComposeUIViewController {
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
-            .components { add(KtorNetworkFetcherFactory()) }
+            .components {
+                add(KtorNetworkFetcherFactory())
+                add(SvgDecoder.Factory())
+            }
             .diskCache {
                 DiskCache.Builder()
                     .directory(imageCacheDirectory)

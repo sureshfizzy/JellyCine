@@ -9,11 +9,14 @@ import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.preferences.Preferences
 import com.jellycine.ui.screens.dashboard.settings.SettingsViewModel
 
+private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.jellycine.app"
+
 /** Android entry points for the shared settings sub-screens. */
 @Composable
 fun AboutScreen(onBackPressed: () -> Unit = {}) {
     com.jellycine.ui.screens.dashboard.settings.AboutScreen(
         versionName = BuildConfig.VERSION_NAME,
+        rateAppUrl = PLAY_STORE_URL,
         onBackPressed = onBackPressed
     )
 }
