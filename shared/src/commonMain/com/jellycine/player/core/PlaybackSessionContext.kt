@@ -1,6 +1,6 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.player.core
 
-internal enum class PlayMethod(
+enum class PlayMethod(
     val displayName: String,
     val reportValue: String
 ) {
@@ -10,7 +10,7 @@ internal enum class PlayMethod(
     OFFLINE(displayName = "Offline", reportValue = "DirectPlay")
 }
 
-internal data class PlaybackSessionContext(
+data class PlaybackSessionContext(
     val mediaId: String? = null,
     val playSessionId: String? = null,
     val mediaSourceId: String? = null,

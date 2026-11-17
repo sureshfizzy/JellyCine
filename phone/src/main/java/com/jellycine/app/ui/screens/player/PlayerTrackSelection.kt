@@ -6,6 +6,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.player.core.AudioTrackInfo
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
+import com.jellycine.player.core.PreferredStreamIndexes
 import com.jellycine.player.core.SubtitleTrackInfo
 import com.jellycine.player.core.displayTitleOrNull
 import com.jellycine.player.preferences.PlayerPreferences

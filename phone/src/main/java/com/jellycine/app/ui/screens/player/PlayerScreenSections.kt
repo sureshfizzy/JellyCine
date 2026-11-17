@@ -55,6 +55,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import coil3.SingletonImageLoader
+import com.jellycine.player.core.PreferredStreamIndexes
 import com.jellycine.shared.R
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto

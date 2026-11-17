@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.player.core
 
 data class PreferredStreamIndexes(
     val audioStreamIndex: Int? = null,
