@@ -18,13 +18,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.ui.AspectRatioFrameLayout
-import com.jellycine.player.core.PlayMethod
-import com.jellycine.player.core.PlaybackSessionContext
-import com.jellycine.player.core.PreferredStreamIndexes
-import dagger.hilt.android.lifecycle.HiltViewModel
-import com.jellycine.app.player.mpv.MPVPlayer
-import com.jellycine.app.player.mpv.MpvPlayerController
-import com.jellycine.app.player.mpv.MpvWarmPool
+import com.jellycine.app.download.DownloadRepository
+import com.jellycine.app.download.DownloadRepositoryProvider
+import com.jellycine.app.player.mpv.*
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
@@ -34,27 +30,22 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.detail.canSpatializeAudioStream
 import com.jellycine.player.audio.SpatializerHelper
-import com.jellycine.player.core.PlaybackMarkerUtils
-import com.jellycine.player.core.PlayerState
-import com.jellycine.player.core.PlayerTrack
-import com.jellycine.player.core.PlayerUtils
-import com.jellycine.player.core.RemoteTrailerUrl
+import com.jellycine.player.core.*
 import com.jellycine.player.preferences.PlayerPreferences
+import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.jellycine.app.download.DownloadRepository
-import com.jellycine.app.download.DownloadRepositoryProvider
-import java.io.File
-import javax.inject.Inject
 
 /**
  * Player ViewModel
@@ -1271,8 +1262,8 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun createMpvListener(): MpvPlayerController.Listener {
-        return object : MpvPlayerController.Listener {
+    private fun createMpvListener(): PlayerEngineListener {
+        return object : PlayerEngineListener {
             override fun onBuffering() {
                 _playerState.value = _playerState.value.copy(isLoading = true)
             }

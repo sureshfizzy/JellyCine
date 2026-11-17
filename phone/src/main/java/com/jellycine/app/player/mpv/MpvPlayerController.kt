@@ -2,6 +2,8 @@ package com.jellycine.app.player.mpv
 
 import android.content.Context
 import android.view.Surface
+import com.jellycine.player.core.PlayerEngine
+import com.jellycine.player.core.PlayerEngineListener
 import com.jellycine.player.preferences.PlayerPreferences
 import org.jellycine.mpv.MPVLib
 import org.jellycine.mpv.MPVLib.MpvEvent
@@ -12,18 +14,12 @@ class MpvPlayerController(
     private val hardwareDecoding: String,
     private val videoOutput: String,
     private val audioOutput: String,
-    listener: Listener
-) : MPVLib.EventObserver {
+    listener: PlayerEngineListener
+) : PlayerEngine, MPVLib.EventObserver {
 
     companion object {
         private const val DATASPACE_V0_SRGB = 142671872
         private const val DATASPACE_BT2020_PQ = 163971072
-    }
-
-    interface Listener {
-        fun onBuffering()
-        fun onReady()
-        fun onEnded()
     }
 
     private val appContext = context.applicationContext
@@ -39,15 +35,15 @@ class MpvPlayerController(
     private var pendingSelectedSubtitleUrl: String? = null
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
-    private var listener: Listener = listener
+    private var listener: PlayerEngineListener = listener
 
-    val isPlaying: Boolean
+    override val isPlaying: Boolean
         get() = ready && playWhenReady
 
-    val currentPosition: Long
+    override val currentPosition: Long
         get() = positionMs
 
-    val bufferedPosition: Long
+    override val bufferedPosition: Long
         get() {
             if (released) return 0L
             val cacheTime = mpv.getPropertyDouble("demuxer-cache-time")
@@ -64,7 +60,7 @@ class MpvPlayerController(
             }
         }
 
-    val duration: Long
+    override val duration: Long
         get() = durationMs
 
     init {
@@ -80,7 +76,7 @@ class MpvPlayerController(
         mpv.observeProperty("eof-reached", MpvFormat.MPV_FORMAT_FLAG)
     }
 
-    fun load(
+    override fun load(
         url: String,
         subtitleUrls: List<String>,
         audioTrackId: String?,
@@ -114,7 +110,7 @@ class MpvPlayerController(
         mpv.command(loadCommand)
     }
 
-    fun setListener(listener: Listener) {
+    override fun setListener(listener: PlayerEngineListener) {
         this.listener = listener
     }
 
@@ -134,7 +130,7 @@ class MpvPlayerController(
         }
     }
 
-    fun setZoomMode(enabled: Boolean) {
+    override fun setZoomMode(enabled: Boolean) {
         if (released) return
         if (enabled) {
             mpv.setOptionString("panscan", "1")
@@ -147,7 +143,7 @@ class MpvPlayerController(
         }
     }
 
-    fun applySubtitlePreferences() {
+    override fun applySubtitlePreferences() {
         if (released) return
         mpv.setOptionString("sub-ass-override", "strip")
         mpv.setOptionString("sub-scale", subtitleScale(playerPreferences.getSubtitleTextSize()))
@@ -176,38 +172,38 @@ class MpvPlayerController(
         mpv.detachSurface()
     }
 
-    fun play() {
+    override fun play() {
         if (released) return
         playWhenReady = true
         mpv.setPropertyBoolean("pause", false)
     }
 
-    fun pause() {
+    override fun pause() {
         if (released) return
         playWhenReady = false
         mpv.setPropertyBoolean("pause", true)
     }
 
-    fun seekTo(positionMs: Long) {
+    override fun seekTo(positionMs: Long) {
         if (released) return
         this.positionMs = positionMs.coerceAtLeast(0L)
         this.bufferedPositionMs = this.positionMs
         mpv.command(arrayOf("seek", (this.positionMs / 1000.0).toString(), "absolute+exact"))
     }
 
-    fun setVolume(volume: Float) {
+    override fun setVolume(volume: Float) {
         if (!released) {
             mpv.setPropertyDouble("volume", (volume.coerceIn(0f, 1f) * 100f).toDouble())
         }
     }
 
-    fun selectAudioTrack(trackId: String) {
+    override fun selectAudioTrack(trackId: String) {
         if (!released) {
             mpv.setPropertyString("aid", trackId)
         }
     }
 
-    fun selectSubtitleTrack(trackId: String, externalUrl: String?) {
+    override fun selectSubtitleTrack(trackId: String, externalUrl: String?) {
         if (released) return
         if (trackId == "no") {
             mpv.setPropertyString("sid", "no")
@@ -218,7 +214,7 @@ class MpvPlayerController(
         }
     }
 
-    fun release() {
+    override fun release() {
         if (released) return
         released = true
         runCatching { mpv.removeObserver(this) }

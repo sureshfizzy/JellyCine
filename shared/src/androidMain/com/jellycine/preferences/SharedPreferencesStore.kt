@@ -10,9 +10,12 @@ fun Preferences(context: Context): Preferences {
     return Preferences(SharedPreferencesStore(context))
 }
 
-class SharedPreferencesStore(context: Context) : KeyValueStore {
+class SharedPreferencesStore(
+    context: Context,
+    name: String = Preferences.PREFS_NAME
+) : KeyValueStore {
     private val prefs: SharedPreferences =
-        context.getSharedPreferences(Preferences.PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     override val changes: Flow<String?> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key -> trySend(key) }
@@ -26,6 +29,9 @@ class SharedPreferencesStore(context: Context) : KeyValueStore {
     override fun getInt(key: String, default: Int) = prefs.getInt(key, default)
     override fun putInt(key: String, value: Int) = prefs.edit().putInt(key, value).apply()
 
+    override fun getLong(key: String, default: Long) = prefs.getLong(key, default)
+    override fun putLong(key: String, value: Long) = prefs.edit().putLong(key, value).apply()
+
     override fun getFloat(key: String, default: Float) = prefs.getFloat(key, default)
     override fun putFloat(key: String, value: Float) = prefs.edit().putFloat(key, value).apply()
 
@@ -36,4 +42,8 @@ class SharedPreferencesStore(context: Context) : KeyValueStore {
         prefs.getStringSet(key, default).orEmpty()
 
     override fun putStringSet(key: String, value: Set<String>) = prefs.edit().putStringSet(key, value).apply()
+
+    override fun contains(key: String) = prefs.contains(key)
+    override fun remove(key: String) = prefs.edit().remove(key).apply()
+    override fun keys(): Set<String> = prefs.all.keys.toSet()
 }

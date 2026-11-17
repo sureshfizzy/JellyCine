@@ -1,20 +1,19 @@
 package com.jellycine.player.preferences
 
-import android.content.Context
-import android.content.SharedPreferences
 import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.player.core.PlayerConstants.DEFAULT_BRIGHTNESS
 import com.jellycine.player.core.PlayerConstants.DEFAULT_VOLUME
+import com.jellycine.preferences.KeyValueStore
+import kotlin.time.Clock
 
 /**
  * Manages player-specific preferences like brightness, volume levels, and hardware acceleration settings
  * Follows ExoPlayer's approach to remember user settings per player session
  */
-class PlayerPreferences(context: Context) {
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    
+class PlayerPreferences(private val prefs: KeyValueStore) {
+
     companion object {
-        private const val PREFS_NAME = "jellycine_player_prefs"
+        const val PREFS_NAME = "jellycine_player_prefs"
         private const val KEY_PLAYER_BRIGHTNESS = "player_brightness"
         private const val KEY_PLAYER_VOLUME = "player_volume"
         private const val KEY_PLAYER_ENGINE = "player_engine"
@@ -229,7 +228,7 @@ class PlayerPreferences(context: Context) {
         private const val MAX_SUBTITLE_EDGE_PERCENT = 50
         private const val MAX_SUBTITLE_OPACITY_PERCENT = 100
     }
-    
+
     /**
      * Get the saved player brightness level (0.01f to 1.0f)
      * Returns the last used brightness or default if none saved
@@ -238,16 +237,14 @@ class PlayerPreferences(context: Context) {
         return prefs.getFloat(KEY_PLAYER_BRIGHTNESS, DEFAULT_BRIGHTNESS)
             .coerceIn(0.01f, 1.0f)
     }
-    
+
     /**
      * Save the current player brightness level
      */
     fun setPlayerBrightness(brightness: Float) {
-        prefs.edit()
-            .putFloat(KEY_PLAYER_BRIGHTNESS, brightness.coerceIn(0.01f, 1.0f))
-            .apply()
+        prefs.putFloat(KEY_PLAYER_BRIGHTNESS, brightness.coerceIn(0.01f, 1.0f))
     }
-    
+
     /**
      * Get the saved player volume level (0.0f to 1.0f)
      * Returns the last used volume or default if none saved
@@ -256,21 +253,19 @@ class PlayerPreferences(context: Context) {
         return prefs.getFloat(KEY_PLAYER_VOLUME, DEFAULT_VOLUME)
             .coerceIn(0.0f, 1.0f)
     }
-    
+
     /**
      * Save the current player volume level
      */
     fun setPlayerVolume(volume: Float) {
-        prefs.edit()
-            .putFloat(KEY_PLAYER_VOLUME, volume.coerceIn(0.0f, 1.0f))
-            .apply()
+        prefs.putFloat(KEY_PLAYER_VOLUME, volume.coerceIn(0.0f, 1.0f))
     }
-    
+
     /**
      * Clear all player preferences (useful for reset)
      */
     fun clearPreferences() {
-        prefs.edit().clear().apply()
+        prefs.keys().forEach(prefs::remove)
     }
 
     fun getPlayerEngine(): String {
@@ -279,12 +274,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setPlayerEngine(engine: String) {
-        prefs.edit()
-            .putString(
-                KEY_PLAYER_ENGINE,
-                if (engine in PLAYER_ENGINE_OPTIONS) engine else DEFAULT_PLAYER_ENGINE
-            )
-            .apply()
+        prefs.putString(
+            KEY_PLAYER_ENGINE,
+            if (engine in PLAYER_ENGINE_OPTIONS) engine else DEFAULT_PLAYER_ENGINE
+        )
     }
 
     fun getMpvHardwareDecoding(): String {
@@ -294,16 +287,14 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvHardwareDecoding(hardwareDecoding: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_HARDWARE_DECODING,
-                if (hardwareDecoding in MPV_HARDWARE_DECODING_OPTIONS) {
-                    hardwareDecoding
-                } else {
-                    DEFAULT_MPV_HARDWARE_DECODING
-                }
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_HARDWARE_DECODING,
+            if (hardwareDecoding in MPV_HARDWARE_DECODING_OPTIONS) {
+                hardwareDecoding
+            } else {
+                DEFAULT_MPV_HARDWARE_DECODING
+            }
+        )
     }
 
     fun getMpvVideoOutput(): String {
@@ -313,12 +304,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvVideoOutput(videoOutput: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_VIDEO_OUTPUT,
-                if (videoOutput in MPV_VIDEO_OUTPUT_OPTIONS) videoOutput else DEFAULT_MPV_VIDEO_OUTPUT
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_VIDEO_OUTPUT,
+            if (videoOutput in MPV_VIDEO_OUTPUT_OPTIONS) videoOutput else DEFAULT_MPV_VIDEO_OUTPUT
+        )
     }
 
     fun getMpvAudioOutput(): String {
@@ -328,12 +317,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvAudioOutput(audioOutput: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_AUDIO_OUTPUT,
-                if (audioOutput in MPV_AUDIO_OUTPUT_OPTIONS) audioOutput else DEFAULT_MPV_AUDIO_OUTPUT
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_AUDIO_OUTPUT,
+            if (audioOutput in MPV_AUDIO_OUTPUT_OPTIONS) audioOutput else DEFAULT_MPV_AUDIO_OUTPUT
+        )
     }
 
     fun getMpvUpscaleFilter(): String {
@@ -343,12 +330,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvUpscaleFilter(filter: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_UPSCALE_FILTER,
-                if (filter in MPV_UPSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_UPSCALE_FILTER
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_UPSCALE_FILTER,
+            if (filter in MPV_UPSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_UPSCALE_FILTER
+        )
     }
 
     fun getMpvDownscaleFilter(): String {
@@ -358,12 +343,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvDownscaleFilter(filter: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_DOWNSCALE_FILTER,
-                if (filter in MPV_DOWNSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_DOWNSCALE_FILTER
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_DOWNSCALE_FILTER,
+            if (filter in MPV_DOWNSCALE_FILTER_OPTIONS) filter else DEFAULT_MPV_DOWNSCALE_FILTER
+        )
     }
 
     fun getMpvToneMapping(): String {
@@ -373,12 +356,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvToneMapping(toneMapping: String) {
-        prefs.edit()
-            .putString(
-                KEY_MPV_TONE_MAPPING,
-                if (toneMapping in MPV_TONE_MAPPING_OPTIONS) toneMapping else DEFAULT_MPV_TONE_MAPPING
-            )
-            .apply()
+        prefs.putString(
+            KEY_MPV_TONE_MAPPING,
+            if (toneMapping in MPV_TONE_MAPPING_OPTIONS) toneMapping else DEFAULT_MPV_TONE_MAPPING
+        )
     }
 
     fun getMpvSmoothMotion(): Boolean {
@@ -386,7 +367,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvSmoothMotion(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_MPV_SMOOTH_MOTION, enabled).apply()
+        prefs.putBoolean(KEY_MPV_SMOOTH_MOTION, enabled)
     }
 
     fun getMpvDeband(): Boolean {
@@ -394,7 +375,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvDeband(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_MPV_DEBAND, enabled).apply()
+        prefs.putBoolean(KEY_MPV_DEBAND, enabled)
     }
 
     fun getMpvDynamicPeak(): Boolean {
@@ -402,7 +383,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvDynamicPeak(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_MPV_DYNAMIC_PEAK, enabled).apply()
+        prefs.putBoolean(KEY_MPV_DYNAMIC_PEAK, enabled)
     }
 
     fun getMpvHdrToSdrTonemapping(): Boolean {
@@ -410,7 +391,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setMpvHdrToSdrTonemapping(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_MPV_HDR_TO_SDR_TONEMAPPING, enabled).commit()
+        prefs.putBoolean(KEY_MPV_HDR_TO_SDR_TONEMAPPING, enabled)
     }
 
     /**
@@ -419,54 +400,54 @@ class PlayerPreferences(context: Context) {
     fun isHardwareAccelerationEnabled(): Boolean {
         return prefs.getBoolean(KEY_HARDWARE_ACCELERATION, true)
     }
-    
+
     /**
      * Set hardware acceleration preference
      */
     fun setHardwareAccelerationEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_HARDWARE_ACCELERATION, enabled).apply()
+        prefs.putBoolean(KEY_HARDWARE_ACCELERATION, enabled)
     }
-    
+
     /**
      * Get asynchronous MediaCodec preference
      */
     fun isAsyncMediaCodecEnabled(): Boolean {
         return prefs.getBoolean(KEY_ASYNC_MEDIACODEC, false)
     }
-    
+
     /**
      * Set asynchronous MediaCodec preference
      */
     fun setAsyncMediaCodecEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_ASYNC_MEDIACODEC, enabled).apply()
+        prefs.putBoolean(KEY_ASYNC_MEDIACODEC, enabled)
     }
-    
+
     /**
      * Get decoder priority preference
      */
     fun getDecoderPriority(): String {
         return prefs.getString(KEY_DECODER_PRIORITY, DECODER_PRIORITY_AUTO) ?: DECODER_PRIORITY_AUTO
     }
-    
+
     /**
      * Set decoder priority preference
      */
     fun setDecoderPriority(priority: String) {
-        prefs.edit().putString(KEY_DECODER_PRIORITY, priority).apply()
+        prefs.putString(KEY_DECODER_PRIORITY, priority)
     }
-    
+
     /**
      * Get battery optimization preference
      */
     fun isBatteryOptimizationEnabled(): Boolean {
         return prefs.getBoolean(KEY_BATTERY_OPTIMIZATION, false)
     }
-    
+
     /**
      * Set battery optimization preference
      */
     fun setBatteryOptimizationEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_BATTERY_OPTIMIZATION, enabled).apply()
+        prefs.putBoolean(KEY_BATTERY_OPTIMIZATION, enabled)
     }
 
     fun arePlayerGesturesEnabled(): Boolean {
@@ -474,9 +455,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setPlayerGesturesEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_PLAYER_GESTURES_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_PLAYER_GESTURES_ENABLED, enabled)
     }
 
     fun isVolumeBrightnessGesturesEnabled(): Boolean {
@@ -484,9 +463,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_VOLUME_BRIGHTNESS_GESTURES_ENABLED, enabled)
     }
 
     fun isUseDeviceVolumeInPlayerEnabled(): Boolean {
@@ -497,9 +474,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setUseDeviceVolumeInPlayerEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_USE_DEVICE_VOLUME_IN_PLAYER, enabled)
-            .apply()
+        prefs.putBoolean(KEY_USE_DEVICE_VOLUME_IN_PLAYER, enabled)
     }
 
     fun isUseDeviceBrightnessInPlayerEnabled(): Boolean {
@@ -510,9 +485,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setUseDeviceBrightnessInPlayerEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_USE_DEVICE_BRIGHTNESS_IN_PLAYER, enabled)
-            .apply()
+        prefs.putBoolean(KEY_USE_DEVICE_BRIGHTNESS_IN_PLAYER, enabled)
     }
 
     fun isProgressSeekGestureEnabled(): Boolean {
@@ -520,9 +493,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setProgressSeekGestureEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_PROGRESS_SEEK_GESTURE_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_PROGRESS_SEEK_GESTURE_ENABLED, enabled)
     }
 
     fun isZoomGestureEnabled(): Boolean {
@@ -530,23 +501,21 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setZoomGestureEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_ZOOM_GESTURE_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_ZOOM_GESTURE_ENABLED, enabled)
     }
-    
+
     /**
      * Get start maximized preference
      */
     fun isStartMaximizedEnabled(): Boolean {
         return prefs.getBoolean(KEY_START_MAXIMIZED, false)
     }
-    
+
     /**
      * Set start maximized preference
      */
     fun setStartMaximizedEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_START_MAXIMIZED, enabled).apply()
+        prefs.putBoolean(KEY_START_MAXIMIZED, enabled)
     }
 
     fun isCacheNextEpisodeEnabled(): Boolean {
@@ -554,21 +523,19 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setCacheNextEpisodeEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_CACHE_NEXT_EPISODE, enabled).apply()
+        prefs.putBoolean(KEY_CACHE_NEXT_EPISODE, enabled)
     }
-    
+
     fun getPlayerCacheSizeMb(): Int {
         return prefs.getInt(KEY_PLAYER_CACHE_SIZE_MB, DEFAULT_PLAYER_CACHE_SIZE_MB)
             .coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)
     }
 
     fun setPlayerCacheSizeMb(sizeMb: Int) {
-        prefs.edit()
-            .putInt(
-                KEY_PLAYER_CACHE_SIZE_MB,
-                sizeMb.coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)
-            )
-            .apply()
+        prefs.putInt(
+            KEY_PLAYER_CACHE_SIZE_MB,
+            sizeMb.coerceIn(MIN_PLAYER_CACHE_SIZE_MB, MAX_PLAYER_CACHE_SIZE_MB)
+        )
     }
 
     fun getPlayerCacheTimeSeconds(): Int {
@@ -577,12 +544,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setPlayerCacheTimeSeconds(seconds: Int) {
-        prefs.edit()
-            .putInt(
-                KEY_PLAYER_CACHE_TIME_SECONDS,
-                seconds.coerceIn(MIN_PLAYER_CACHE_TIME_SECONDS, MAX_PLAYER_CACHE_TIME_SECONDS)
-            )
-            .apply()
+        prefs.putInt(
+            KEY_PLAYER_CACHE_TIME_SECONDS,
+            seconds.coerceIn(MIN_PLAYER_CACHE_TIME_SECONDS, MAX_PLAYER_CACHE_TIME_SECONDS)
+        )
     }
 
     fun getSeekBackwardIntervalSeconds(): Int {
@@ -591,12 +556,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSeekBackwardIntervalSeconds(seconds: Int) {
-        prefs.edit()
-            .putInt(
-                KEY_SEEK_BACKWARD_INTERVAL_SECONDS,
-                seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
-            )
-            .apply()
+        prefs.putInt(
+            KEY_SEEK_BACKWARD_INTERVAL_SECONDS,
+            seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
+        )
     }
 
     fun getSeekForwardIntervalSeconds(): Int {
@@ -605,12 +568,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSeekForwardIntervalSeconds(seconds: Int) {
-        prefs.edit()
-            .putInt(
-                KEY_SEEK_FORWARD_INTERVAL_SECONDS,
-                seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
-            )
-            .apply()
+        prefs.putInt(
+            KEY_SEEK_FORWARD_INTERVAL_SECONDS,
+            seconds.coerceIn(MIN_SEEK_INTERVAL_SECONDS, MAX_SEEK_INTERVAL_SECONDS)
+        )
     }
 
     fun isSkipIntroEnabled(): Boolean {
@@ -618,9 +579,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSkipIntroEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_SKIP_INTRO_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_SKIP_INTRO_ENABLED, enabled)
     }
 
     fun areChapterMarkersEnabled(): Boolean {
@@ -628,9 +587,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setChapterMarkersEnabled(enabled: Boolean) {
-        prefs.edit()
-            .putBoolean(KEY_CHAPTER_MARKERS_ENABLED, enabled)
-            .apply()
+        prefs.putBoolean(KEY_CHAPTER_MARKERS_ENABLED, enabled)
     }
 
     fun getStreamingQuality(): String {
@@ -648,7 +605,7 @@ class PlayerPreferences(context: Context) {
         } else {
             DEFAULT_STREAMING_QUALITY
         }
-        prefs.edit().putString(KEY_STREAMING_QUALITY, value).apply()
+        prefs.putString(KEY_STREAMING_QUALITY, value)
     }
 
     fun getMaxStreamingBitrate(): Int? {
@@ -668,9 +625,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setAudioTranscodeMode(mode: AudioTranscodeMode) {
-        prefs.edit()
-            .putString(KEY_AUDIO_TRANSCODE_MODE, mode.preferenceValue)
-            .apply()
+        prefs.putString(KEY_AUDIO_TRANSCODE_MODE, mode.preferenceValue)
     }
 
     fun getSubtitleTextSize(): String {
@@ -680,7 +635,7 @@ class PlayerPreferences(context: Context) {
 
     fun setSubtitleTextSize(size: String) {
         val value = if (size in SUBTITLE_TEXT_SIZE_OPTIONS) size else DEFAULT_SUBTITLE_TEXT_SIZE
-        prefs.edit().putString(KEY_SUBTITLE_TEXT_SIZE, value).apply()
+        prefs.putString(KEY_SUBTITLE_TEXT_SIZE, value)
     }
 
     fun getSubtitleTextColor(): String {
@@ -690,7 +645,7 @@ class PlayerPreferences(context: Context) {
 
     fun setSubtitleTextColor(color: String) {
         val value = if (color in SUBTITLE_TEXT_COLOR_OPTIONS) color else DEFAULT_SUBTITLE_TEXT_COLOR
-        prefs.edit().putString(KEY_SUBTITLE_TEXT_COLOR, value).apply()
+        prefs.putString(KEY_SUBTITLE_TEXT_COLOR, value)
     }
 
     fun getSubtitleBackgroundColor(): String {
@@ -700,7 +655,7 @@ class PlayerPreferences(context: Context) {
 
     fun setSubtitleBackgroundColor(color: String) {
         val value = if (color in SUBTITLE_BACKGROUND_OPTIONS) color else DEFAULT_SUBTITLE_BACKGROUND_COLOR
-        prefs.edit().putString(KEY_SUBTITLE_BACKGROUND_COLOR, value).apply()
+        prefs.putString(KEY_SUBTITLE_BACKGROUND_COLOR, value)
     }
 
     fun getSubtitleEdgeType(): String {
@@ -710,7 +665,7 @@ class PlayerPreferences(context: Context) {
 
     fun setSubtitleEdgeType(edgeType: String) {
         val value = if (edgeType in SUBTITLE_EDGE_TYPE_OPTIONS) edgeType else DEFAULT_SUBTITLE_EDGE_TYPE
-        prefs.edit().putString(KEY_SUBTITLE_EDGE_TYPE, value).apply()
+        prefs.putString(KEY_SUBTITLE_EDGE_TYPE, value)
     }
 
     fun getSubtitleTextOpacityPercent(): Int {
@@ -721,12 +676,10 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSubtitleTextOpacityPercent(percent: Int) {
-        prefs.edit()
-            .putInt(
-                KEY_SUBTITLE_TEXT_OPACITY_PERCENT,
-                percent.coerceIn(0, MAX_SUBTITLE_OPACITY_PERCENT)
-            )
-            .apply()
+        prefs.putInt(
+            KEY_SUBTITLE_TEXT_OPACITY_PERCENT,
+            percent.coerceIn(0, MAX_SUBTITLE_OPACITY_PERCENT)
+        )
     }
 
     fun getSubtitlePosition(): Int {
@@ -744,9 +697,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSubtitleBottomEdgePositionPercent(percent: Int) {
-        prefs.edit()
-            .putInt(KEY_SUBTITLE_BOTTOM_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
-            .apply()
+        prefs.putInt(KEY_SUBTITLE_BOTTOM_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
     }
 
     fun getSubtitleTopEdgePositionPercent(): Int {
@@ -757,9 +708,7 @@ class PlayerPreferences(context: Context) {
     }
 
     fun setSubtitleTopEdgePositionPercent(percent: Int) {
-        prefs.edit()
-            .putInt(KEY_SUBTITLE_TOP_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
-            .apply()
+        prefs.putInt(KEY_SUBTITLE_TOP_EDGE_PERCENT, percent.coerceIn(0, MAX_SUBTITLE_EDGE_PERCENT))
     }
 
     fun getPreferredAudioStreamIndex(itemId: String): Int? {
@@ -770,7 +719,7 @@ class PlayerPreferences(context: Context) {
     fun setPreferredAudioStreamIndex(itemId: String, streamIndex: Int?) {
         val key = audioStreamKey(itemId)
         val subtitleExists = prefs.contains(subtitleStreamKey(itemId))
-        prefs.edit().apply {
+        with(prefs) {
             if (streamIndex == null) {
                 remove(key)
             } else {
@@ -779,9 +728,9 @@ class PlayerPreferences(context: Context) {
             if (streamIndex == null && !subtitleExists) {
                 remove(streamUpdatedAtKey(itemId))
             } else {
-                putLong(streamUpdatedAtKey(itemId), System.currentTimeMillis())
+                putLong(streamUpdatedAtKey(itemId), Clock.System.now().toEpochMilliseconds())
             }
-        }.apply()
+        }
         prunePreferredStreamIndexesIfNeeded()
     }
 
@@ -793,7 +742,7 @@ class PlayerPreferences(context: Context) {
     fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?) {
         val key = subtitleStreamKey(itemId)
         val audioExists = prefs.contains(audioStreamKey(itemId))
-        prefs.edit().apply {
+        with(prefs) {
             if (streamIndex == null) {
                 remove(key)
             } else {
@@ -802,9 +751,9 @@ class PlayerPreferences(context: Context) {
             if (streamIndex == null && !audioExists) {
                 remove(streamUpdatedAtKey(itemId))
             } else {
-                putLong(streamUpdatedAtKey(itemId), System.currentTimeMillis())
+                putLong(streamUpdatedAtKey(itemId), Clock.System.now().toEpochMilliseconds())
             }
-        }.apply()
+        }
         prunePreferredStreamIndexesIfNeeded()
     }
 
@@ -822,7 +771,7 @@ class PlayerPreferences(context: Context) {
 
     private fun prunePreferredStreamIndexesIfNeeded() {
         val itemIds = mutableSetOf<String>()
-        prefs.all.keys.forEach { key ->
+        prefs.keys().forEach { key ->
             when {
                 key.startsWith(KEY_AUDIO_STREAM_INDEX_PREFIX) -> {
                     itemIds.add(key.removePrefix(KEY_AUDIO_STREAM_INDEX_PREFIX))
@@ -843,12 +792,12 @@ class PlayerPreferences(context: Context) {
             .sortedBy { it.second }
             .take(toRemoveCount)
 
-        prefs.edit().apply {
+        with(prefs) {
             oldestItems.forEach { (itemId, _) ->
                 remove(audioStreamKey(itemId))
                 remove(subtitleStreamKey(itemId))
                 remove(streamUpdatedAtKey(itemId))
             }
-        }.apply()
+        }
     }
 }

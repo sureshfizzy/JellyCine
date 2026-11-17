@@ -27,6 +27,14 @@ class UserDefaultsStore(
         _changes.tryEmit(key)
     }
 
+    override fun getLong(key: String, default: Long): Long =
+        if (has(key)) defaults.integerForKey(key) else default
+
+    override fun putLong(key: String, value: Long) {
+        defaults.setInteger(value, key)
+        _changes.tryEmit(key)
+    }
+
     override fun getFloat(key: String, default: Float): Float =
         if (has(key)) defaults.floatForKey(key) else default
 
@@ -50,4 +58,14 @@ class UserDefaultsStore(
         defaults.setObject(value.toList(), key)
         _changes.tryEmit(key)
     }
+
+    override fun contains(key: String): Boolean = has(key)
+
+    override fun remove(key: String) {
+        defaults.removeObjectForKey(key)
+        _changes.tryEmit(key)
+    }
+
+    override fun keys(): Set<String> =
+        defaults.dictionaryRepresentation().keys.filterIsInstance<String>().toSet()
 }

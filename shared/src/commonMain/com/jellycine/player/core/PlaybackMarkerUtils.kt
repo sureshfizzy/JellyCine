@@ -1,8 +1,6 @@
 package com.jellycine.player.core
 
-import com.jellycine.data.model.ChapterInfo
-import com.jellycine.data.model.PlaybackSegmentSource
-import com.jellycine.data.model.PlaybackSegmentWindow
+import com.jellycine.data.model.*
 
 object PlaybackMarkerUtils {
     fun buildChapterMarkers(chapters: List<ChapterInfo>?): List<ChapterMarker> {

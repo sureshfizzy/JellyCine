@@ -2,10 +2,9 @@ package com.jellycine.app.player.mpv
 
 import android.content.Context
 import android.util.Log
+import com.jellycine.player.core.PlayerEngineListener
 import com.jellycine.player.preferences.PlayerPreferences
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 
 object MpvWarmPool {
     private const val TAG = "MpvWarmPool"
@@ -81,7 +80,7 @@ object MpvWarmPool {
 
     fun acquire(
         context: Context,
-        listener: MpvPlayerController.Listener
+        listener: PlayerEngineListener
     ): MpvPlayerController? {
         val config = MpvWarmConfig.from(PlayerPreferences(context.applicationContext))
         var stalePlayer: MpvPlayerController? = null
@@ -164,7 +163,7 @@ object MpvWarmPool {
         }
     }
 
-    private object NoopListener : MpvPlayerController.Listener {
+    private object NoopListener : PlayerEngineListener {
         override fun onBuffering() = Unit
         override fun onReady() = Unit
         override fun onEnded() = Unit
