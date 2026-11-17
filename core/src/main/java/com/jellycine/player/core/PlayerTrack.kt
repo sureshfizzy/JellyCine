@@ -6,14 +6,6 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
 import com.jellycine.data.model.MediaStream
 
-data class PlayerTrackState(
-    val availableAudioTracks: List<AudioTrackInfo>,
-    val currentAudioTrack: AudioTrackInfo?,
-    val availableSubtitleTracks: List<SubtitleTrackInfo>,
-    val currentSubtitleTrack: SubtitleTrackInfo?,
-    val availableVideoTracks: List<VideoTrackInfo>
-)
-
 @UnstableApi
 object PlayerTrack {
 
@@ -158,11 +150,6 @@ object PlayerTrack {
             availableVideoTracks = liveVideoTracks
         )
     }
-
-    fun resolveApiMediaStreams(
-        itemDetails: BaseItemDto?,
-        playbackMediaSource: MediaSource?
-    ): List<MediaStream> = mergeApiMediaStreams(itemDetails, playbackMediaSource)
 
     private fun indexedStreams(
         mediaStreams: List<MediaStream>?,

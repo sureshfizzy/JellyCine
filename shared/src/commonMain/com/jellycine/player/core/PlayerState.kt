@@ -105,3 +105,11 @@ data class VideoTrackInfo(
     val height: Int,
     val codec: String?
 )
+
+data class PlayerTrackState(
+    val availableAudioTracks: List<AudioTrackInfo>,
+    val currentAudioTrack: AudioTrackInfo?,
+    val availableSubtitleTracks: List<SubtitleTrackInfo>,
+    val currentSubtitleTrack: SubtitleTrackInfo?,
+    val availableVideoTracks: List<VideoTrackInfo>
+)

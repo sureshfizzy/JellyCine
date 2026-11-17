@@ -1,24 +1,27 @@
-package com.jellycine.app.ui.screens.player
+package com.jellycine.player.core
 
-import android.util.Log
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.playback.UserDataRefreshSignals
-import com.jellycine.player.core.PlaybackSessionContext
+import com.jellycine.resources.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.getString
 
-internal class PlayerPlaybackReporter(
+class PlayerPlaybackReporter(
     private val mediaRepository: MediaRepository,
     private val scope: CoroutineScope,
     private val positionProvider: () -> Long,
-    private val isPausedProvider: () -> Boolean
+    private val isPausedProvider: () -> Boolean,
+    private val onError: (message: String, error: Throwable?) -> Unit = { message, error ->
+        println("PlayerPlaybackReporter: $message ${error ?: ""}")
+    }
 ) {
 
     companion object {
-        private const val TAG = "PlayerPlaybackReporter"
         private const val TICKS_PER_MILLISECOND = 10_000L
         private const val PROGRESS_REPORT_INTERVAL_MS = 15_000L
     }
@@ -58,13 +61,10 @@ internal class PlayerPlaybackReporter(
                     hasReportedStart = true
                     startProgressReportingLoop()
                 } else {
-                    Log.e(
-                        TAG,
-                        "Failed to report playback start: ${result.exceptionOrNull()?.message}"
-                    )
+                    report(Res.string.player_report_start_failed, null, result.exceptionOrNull()?.message)
                 }
             } catch (error: Exception) {
-                Log.e(TAG, "Error reporting playback start", error)
+                report(Res.string.player_report_start_error, error)
             }
         }
     }
@@ -97,13 +97,10 @@ internal class PlayerPlaybackReporter(
                 if (result.isSuccess) {
                     UserDataRefreshSignals.notifyUserDataChanged(mediaId)
                 } else {
-                    Log.e(
-                        TAG,
-                        "Failed to report playback stopped: ${result.exceptionOrNull()?.message}"
-                    )
+                    report(Res.string.player_report_stopped_failed, null, result.exceptionOrNull()?.message)
                 }
             } catch (error: Exception) {
-                Log.e(TAG, "Error reporting playback stopped", error)
+                report(Res.string.player_report_stopped_error, error)
             }
         }
     }
@@ -130,7 +127,7 @@ internal class PlayerPlaybackReporter(
                 } catch (_: CancellationException) {
                     break
                 } catch (error: Exception) {
-                    Log.e(TAG, "Error in progress reporting loop", error)
+                    report(Res.string.player_report_loop_error, error)
                     break
                 }
             }
@@ -158,13 +155,14 @@ internal class PlayerPlaybackReporter(
                 playMethod = sessionSnapshot.playMethod.reportValue
             )
             if (result.isFailure) {
-                Log.e(
-                    TAG,
-                    "Failed to report playback progress: ${result.exceptionOrNull()?.message}"
-                )
+                report(Res.string.player_report_progress_failed, null, result.exceptionOrNull()?.message)
             }
         } catch (error: Exception) {
-            Log.e(TAG, "Error reporting playback progress", error)
+            report(Res.string.player_report_progress_error, error)
         }
+    }
+
+    private suspend fun report(resource: StringResource, error: Throwable?, detail: String? = null) {
+        onError(if (detail != null) getString(resource, detail) else getString(resource), error)
     }
 }

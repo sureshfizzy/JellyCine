@@ -25,10 +25,13 @@ import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.core.PlayMethod
 import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlaybackSessionContext
+import com.jellycine.player.core.PlayerPlaybackReporter
 import com.jellycine.player.core.PlayerState
 import com.jellycine.player.core.PlayerTrack
 import com.jellycine.player.core.PlayerUtils
 import com.jellycine.player.core.PreferredStreamIndexes
+import com.jellycine.player.core.mergeApiMediaStreams
+import com.jellycine.player.core.sourceVideoHeight
 import com.jellycine.player.preferences.PlayerPreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +71,8 @@ class PlayerViewModel @Inject constructor(
         mediaRepository = mediaRepository,
         scope = viewModelScope,
         positionProvider = { exoPlayer?.currentPosition ?: 0L },
-        isPausedProvider = { exoPlayer?.playWhenReady != true }
+        isPausedProvider = { exoPlayer?.playWhenReady != true },
+        onError = { message, error -> Log.e("PlayerPlaybackReporter", message, error) }
     )
     private var spatializerHelper: SpatializerHelper? = null
     private var playerContext: Context? = null
@@ -328,7 +332,7 @@ class PlayerViewModel @Inject constructor(
                 playbackReporter.updateSession(playbackSession)
 
                 // Get media info for spatial audio analysis
-                apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
+                apiMediaStreams = mergeApiMediaStreams(
                     itemDetails = itemDetails,
                     playbackMediaSource = primaryMediaSource
                 )
@@ -1109,6 +1113,6 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun getSourceVideoHeight(): Int? {
-        return PlayerMetadata.getSourceVideoHeight(apiMediaStreams)
+        return sourceVideoHeight(apiMediaStreams)
     }
 }

@@ -1,56 +1,46 @@
 package com.jellycine.app.ui.screens.player
 
-import androidx.activity.compose.BackHandler
+import android.content.Context
+import android.view.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.*
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.*
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
+import coil3.SingletonImageLoader
 import com.jellycine.app.discord.DiscordRpcEffect
 import com.jellycine.app.ui.screens.player.PlayerViewModel
-import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.player.core.SkippableSegmentType
-import com.jellycine.player.core.findActiveSkippableSegment
+import com.jellycine.player.core.*
 import com.jellycine.player.discord.NowPlayingInfo
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.ui.screens.player.*
+import kotlinx.coroutines.delay
 
 /**
- * Player state data class to group related states
- */
-data class PlayerUiState(
-    val controlsVisible: Boolean = true,
-    val currentPosition: Long = 0L,
-    val bufferedPosition: Long = 0L,
-    val isPlaying: Boolean = false,
-    val volumeLevel: Float? = null,
-    val brightnessLevel: Float? = null,
-    val seekPosition: String? = null,
-    val seekSide: SeekSide = SeekSide.CENTER,
-    val videoScale: Float = 1f,
-    val videoOffsetX: Float = 0f,
-    val videoOffsetY: Float = 0f
-)
-
-/**
- * Player Screen with proper immersive mode and gestures
+ * Android player screen: owns playback setup, lifecycle and the ExoPlayer/mpv surface, and
+ * hands everything else to the shared [PlayerContent].
  */
 @UnstableApi
 @Composable
@@ -74,78 +64,14 @@ fun PlayerScreen(
     val context = LocalContext.current
     val platform = remember(context) { AndroidPlayerPlatform(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Consolidated UI state
-    var uiState by remember { mutableStateOf(PlayerUiState()) }
-    var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
-    var autoHideKey by remember { mutableStateOf(0) }
-    var isScrubbing by remember { mutableStateOf(false) }
-    var dismissedCreditsPrompt by remember(mediaId) { mutableStateOf(false) }
-
-    // Helper function to reset auto-hide timer
-    val resetAutoHideTimer = {
-        autoHideKey++
-        platform.hideSystemBars()
-    }
-
-    // Dialog states
-    var showAudioTrackDialog by remember { mutableStateOf(false) }
-    var showSubtitleTrackDialog by remember { mutableStateOf(false) }
-    var showStreamingQualityDialog by remember { mutableStateOf(false) }
-    var showAudioTranscodingDialog by remember { mutableStateOf(false) }
-    var pendingStreamingQualitySelection by remember { mutableStateOf<String?>(null) }
-    var showMediaInfo by remember { mutableStateOf(false) }
-    val mediaInfoSnapshot = remember(showMediaInfo, viewModel) {
-        if (showMediaInfo) viewModel.getMediaMetadataInfo() else null
-    }
-
-    // Player state from ViewModel
-    val playerState by viewModel.playerState.collectAsState()
-    val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
-    val sourceVideoHeight = viewModel.getSourceVideoHeight()
-    val availableStreamingQualityOptions = remember(
-        sourceVideoHeight,
-        playerState.isVideoTranscodingAllowed
-    ) {
-        if (playerState.isVideoTranscodingAllowed) {
-            PlayerPreferences.getStreamingQualityOptions(sourceVideoHeight)
-        } else {
-            listOf(PlayerPreferences.STREAMING_QUALITY_ORIGINAL)
-        }
-    }
-
-    // System managers
     val playerPreferences = remember { PlayerPreferences(context) }
     val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
-    val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
 
-    // Player-level brightness and volume (persistent)
-    var playerBrightness by remember(useDeviceBrightnessInPlayer) {
-        mutableStateOf(
-            if (useDeviceBrightnessInPlayer) {
-                platform.deviceBrightness() ?: playerPreferences.getPlayerBrightness()
-            } else {
-                playerPreferences.getPlayerBrightness()
-            }
-        )
-    }
-    var playerVolume by remember(useDeviceVolumeInPlayer) {
-        mutableStateOf(
-            if (useDeviceVolumeInPlayer) {
-                platform.deviceVolume()
-            } else {
-                playerPreferences.getPlayerVolume()
-            }
-        )
-    }
-    var currentStreamingQuality by remember { mutableStateOf(playerPreferences.getStreamingQuality()) }
-    val skipIntroEnabled = remember { playerPreferences.isSkipIntroEnabled() }
-    var currentAudioTranscodeMode by remember {
-        mutableStateOf(playerPreferences.getAudioTranscodeMode())
-    }
-    val seekBackwardSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
-    val seekForwardSeconds = playerPreferences.getSeekForwardIntervalSeconds()
-    val chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
+    var lifecycle by remember { mutableStateOf(Lifecycle.Event.ON_CREATE) }
+    var shouldPrefetchNextEpisode by remember { mutableStateOf(false) }
+
+    val playerState by viewModel.playerState.collectAsState()
+    val preferredStreamIndexes by viewModel.preferredStreamIndexes.collectAsState()
 
     // Track initialized media so this screen can switch to a new episode in-place.
     var initializedMediaId by remember { mutableStateOf<String?>(null) }
@@ -165,21 +91,9 @@ fun PlayerScreen(
         preferredStreamIndexes = preferredStreamIndexes,
         playerState = playerState,
         useDeviceVolumeInPlayer = useDeviceVolumeInPlayer,
-        playerBrightness = playerBrightness,
-        playerVolume = playerVolume,
-        showAudioTrackDialog = showAudioTrackDialog,
-        showSubtitleTrackDialog = showSubtitleTrackDialog,
-        showStreamingQualityDialog = showStreamingQualityDialog,
-        showAudioTranscodingDialog = showAudioTranscodingDialog,
-        showMediaInfo = showMediaInfo,
-        autoHideKey = autoHideKey,
-        isScrubbing = isScrubbing,
-        uiStateProvider = { uiState },
-        onUiStateChange = { uiState = it },
         initializedMediaIdProvider = { initializedMediaId },
         onInitializedMediaIdChange = { initializedMediaId = it },
         onLifecycleChange = { lifecycle = it },
-        onCurrentAudioTranscodeModeChange = { currentAudioTranscodeMode = it },
         onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged
     )
 
@@ -197,403 +111,170 @@ fun PlayerScreen(
         imageUrlProvider = { viewModel.discordPosterUrl }
     )
 
-    val hasPlaybackSettings = playerState.isVideoTranscodingAllowed ||
-        playerState.isAudioTranscodingAllowed
-    val playbackDuration = viewModel.getDuration()
-    val activeSkippableSegment = remember(
-        skipIntroEnabled,
-        playerState.isLocked,
-        playerState.recapStartMs,
-        playerState.recapEndMs,
-        playerState.introStartMs,
-        playerState.introEndMs,
-        playerState.creditsStartMs,
-        playerState.creditsEndMs,
-        playerState.previewStartMs,
-        playerState.previewEndMs,
-        playbackDuration,
-        uiState.currentPosition
-    ) {
-        if (!skipIntroEnabled || playerState.isLocked) {
-            null
-        } else {
-            playerState.findActiveSkippableSegment(
-                positionMs = uiState.currentPosition,
-                durationMs = playbackDuration
-            )
-        }
-    }
-    val activeCreditsSegment = activeSkippableSegment?.takeIf {
-        it.type == SkippableSegmentType.CREDITS
-    }
-    val canWatchPreviousEpisode = !previousEpisodeId.isNullOrBlank() && onWatchPreviousEpisode != null
-    val canWatchNextEpisode = !nextEpisodeId.isNullOrBlank() && onWatchNextEpisode != null
-
-    LaunchedEffect(activeCreditsSegment?.startMs, activeCreditsSegment?.endMs) {
-        if (activeCreditsSegment == null) {
-            dismissedCreditsPrompt = false
-        }
-    }
-
     LaunchedEffect(
         initializedMediaId,
         nextEpisodeId,
-        activeCreditsSegment != null,
-        canWatchNextEpisode,
-        dismissedCreditsPrompt,
+        shouldPrefetchNextEpisode,
         preferredStreamIndexes.audioStreamIndex,
         preferredStreamIndexes.subtitleStreamIndex
     ) {
         viewModel.updateNextEpisodeCache(
             context = context,
             nextEpisodeId = nextEpisodeId.takeIf {
-                initializedMediaId == mediaId &&
-                    activeCreditsSegment != null &&
-                    canWatchNextEpisode &&
-                    !dismissedCreditsPrompt
+                initializedMediaId == mediaId && shouldPrefetchNextEpisode
             },
             preferredAudioStreamIndex = preferredStreamIndexes.audioStreamIndex,
             preferredSubtitleStreamIndex = preferredStreamIndexes.subtitleStreamIndex
         )
     }
 
-    val applyPlaybackSettingsSelection: (String, AudioTranscodeMode) -> Unit = applyPlaybackSettingsSelection@{ quality, audioMode ->
-        val selectedQuality = quality.trim()
-        val qualityChanged = selectedQuality.isNotEmpty() && selectedQuality != currentStreamingQuality
-        val audioModeChanged = audioMode != currentAudioTranscodeMode
-
-        pendingStreamingQualitySelection = null
-        showStreamingQualityDialog = false
-        showAudioTranscodingDialog = false
-
-        if (selectedQuality.isEmpty()) return@applyPlaybackSettingsSelection
-
-        playerPreferences.setStreamingQuality(selectedQuality)
-        currentStreamingQuality = playerPreferences.getStreamingQuality()
-        playerPreferences.setAudioTranscodeMode(audioMode)
-        currentAudioTranscodeMode = playerPreferences.getAudioTranscodeMode()
-
-        if (!qualityChanged && !audioModeChanged) {
-            return@applyPlaybackSettingsSelection
-        }
-
-        val resumePositionMs = viewModel.getCurrentPosition()
-        val shouldResumePlaying = viewModel.isPlayingNow()
-        val preferredAudio = preferredStreamIndexes.audioStreamIndex
-        val preferredSubtitle = preferredStreamIndexes.subtitleStreamIndex
-
-        uiState = uiState.copy(controlsVisible = true)
-        viewModel.releasePlayer()
-        initializedMediaId = null
-        viewModel.initializePlayer(
-            context = context,
-            mediaId = mediaId,
-            initialItemDetails = initialItemDetails,
-            preferredAudioStreamIndex = preferredAudio,
-            preferredSubtitleStreamIndex = preferredSubtitle,
-            initialSeekPositionMs = resumePositionMs,
-            startPlayback = shouldResumePlaying
+    PlayerContent(
+        controller = viewModel,
+        preferences = playerPreferences,
+        platform = platform,
+        mediaId = mediaId,
+        sourceVideoHeight = viewModel.getSourceVideoHeight(),
+        mediaInfoProvider = viewModel::getMediaMetadataInfo,
+        onApplyPlaybackSettings = { _, _ ->
+            val resumePositionMs = viewModel.getCurrentPosition()
+            val shouldResumePlaying = viewModel.isPlayingNow()
+            viewModel.releasePlayer()
+            initializedMediaId = null
+            viewModel.initializePlayer(
+                context = context,
+                mediaId = mediaId,
+                initialItemDetails = initialItemDetails,
+                preferredAudioStreamIndex = preferredStreamIndexes.audioStreamIndex,
+                preferredSubtitleStreamIndex = preferredStreamIndexes.subtitleStreamIndex,
+                initialSeekPositionMs = resumePositionMs,
+                startPlayback = shouldResumePlaying
+            )
+            initializedMediaId = mediaId
+        },
+        onBackPressed = onBackPressed,
+        modifier = modifier,
+        previousEpisodeId = previousEpisodeId,
+        onWatchPreviousEpisode = onWatchPreviousEpisode,
+        nextEpisodeId = nextEpisodeId,
+        onWatchNextEpisode = onWatchNextEpisode,
+        onNextEpisodePrefetchChange = { shouldPrefetchNextEpisode = it }
+    ) { surfaceModifier ->
+        VideoSurface(
+            player = viewModel.exoPlayer,
+            mpvPlayer = viewModel.mpvPlayer,
+            lifecycle = lifecycle,
+            scale = playerState.videoScale,
+            offsetX = playerState.videoOffsetX,
+            offsetY = playerState.videoOffsetY,
+            resizeMode = viewModel.getCurrentResizeMode(),
+            isHdr = playerState.isHdrEnabled,
+            modifier = surfaceModifier
         )
-        initializedMediaId = mediaId
+    }
+}
+
+private fun trimImageMemoryCacheForPlayback(context: Context) {
+    runCatching {
+        SingletonImageLoader.get(context).memoryCache?.clear()
+    }
+}
+
+@Composable
+private fun PlayerScreenEffects(
+    context: Context,
+    platform: PlayerPlatform,
+    lifecycleOwner: LifecycleOwner,
+    mediaId: String,
+    initialItemDetails: BaseItemDto?,
+    remoteMediaUrl: String?,
+    remoteMediaTitle: String?,
+    preferredAudioStreamIndex: Int?,
+    preferredSubtitleStreamIndex: Int?,
+    viewModel: PlayerViewModel,
+    onPlaybackCompleted: ((String) -> Unit)?,
+    preferredStreamIndexes: PreferredStreamIndexes,
+    playerState: PlayerState,
+    useDeviceVolumeInPlayer: Boolean,
+    initializedMediaIdProvider: () -> String?,
+    onInitializedMediaIdChange: (String?) -> Unit,
+    onLifecycleChange: (Lifecycle.Event) -> Unit,
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit
+) {
+    DisposableEffect(Unit) {
+        platform.enterPlayerMode()
+        onDispose { platform.exitPlayerMode(restoreVolume = !useDeviceVolumeInPlayer) }
     }
 
-    val applyStreamingQualitySelection: (String) -> Unit = { selectedQuality ->
-        if (!playerState.isVideoTranscodingAllowed) {
-            pendingStreamingQualitySelection = null
-            showAudioTranscodingDialog = false
-            showStreamingQualityDialog = false
-        } else {
-            val selection = selectedQuality.trim()
-            if (selection.isEmpty()) {
-                pendingStreamingQualitySelection = null
-                showAudioTranscodingDialog = false
-                showStreamingQualityDialog = false
-            } else {
-                val needsAudioPrompt = playerState.isAudioTranscodingAllowed
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            onLifecycleChange(event)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
-                if (needsAudioPrompt) {
-                    pendingStreamingQualitySelection = selection
-                    showStreamingQualityDialog = false
-                    showAudioTranscodingDialog = true
-                } else {
-                    applyPlaybackSettingsSelection(selection, currentAudioTranscodeMode)
-                }
+    val hdrPassthrough = remember { !PlayerPreferences(context).getMpvHdrToSdrTonemapping() }
+    DisposableEffect(viewModel.mpvPlayer, playerState.isHdrEnabled, hdrPassthrough) {
+        platform.setHdrMode(
+            viewModel.mpvPlayer != null && playerState.isHdrEnabled && hdrPassthrough
+        )
+        onDispose { platform.setHdrMode(false) }
+    }
+
+    val initializationKey = remoteMediaUrl
+        ?.takeIf { it.isNotBlank() }
+        ?.let { "remote:$it" }
+        ?: mediaId
+
+    LaunchedEffect(initializationKey) {
+        if (initializedMediaIdProvider() == initializationKey) return@LaunchedEffect
+
+        try {
+            trimImageMemoryCacheForPlayback(context)
+            if (initializedMediaIdProvider() != null) {
+                viewModel.releasePlayer()
             }
+            if (!remoteMediaUrl.isNullOrBlank()) {
+                viewModel.initializeRemotePlayer(
+                    context = context,
+                    mediaId = initializationKey,
+                    remoteUrl = remoteMediaUrl,
+                    title = remoteMediaTitle
+                )
+            } else {
+                viewModel.initializePlayer(
+                    context = context,
+                    mediaId = mediaId,
+                    initialItemDetails = initialItemDetails,
+                    preferredAudioStreamIndex = preferredAudioStreamIndex,
+                    preferredSubtitleStreamIndex = preferredSubtitleStreamIndex
+                )
+            }
+            onInitializedMediaIdChange(initializationKey)
+        } catch (_: Exception) {
+        }
+    }
+
+    LaunchedEffect(viewModel, onPlaybackCompleted) {
+        viewModel.playbackCompletedEvents.collect { completedMediaId ->
+            onPlaybackCompleted?.invoke(completedMediaId)
         }
     }
 
     LaunchedEffect(
-        playerState.isVideoTranscodingAllowed,
-        playerState.isAudioTranscodingAllowed
+        initializedMediaIdProvider(),
+        preferredStreamIndexes.audioStreamIndex,
+        preferredStreamIndexes.subtitleStreamIndex
     ) {
-        if (!playerState.isVideoTranscodingAllowed) {
-            pendingStreamingQualitySelection = null
-            showAudioTranscodingDialog = false
-            showStreamingQualityDialog = false
-        }
-        if (!playerState.isAudioTranscodingAllowed) {
-            pendingStreamingQualitySelection = null
-            showAudioTranscodingDialog = false
-        }
-    }
-
-    // Back handler
-    BackHandler {
-        viewModel.releasePlayer()
-        onBackPressed?.invoke()
-    }
-
-    CompositionLocalProvider(LocalPlayerPlatform provides platform) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .focusable()
-        ) {
-            VideoSurface(
-                player = viewModel.exoPlayer,
-                mpvPlayer = viewModel.mpvPlayer,
-                lifecycle = lifecycle,
-                scale = playerState.videoScale,
-                offsetX = playerState.videoOffsetX,
-                offsetY = playerState.videoOffsetY,
-                resizeMode = viewModel.getCurrentResizeMode(),
-                isHdr = playerState.isHdrEnabled,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            PlayerGestureSurface(
-                preferences = playerPreferences,
-                getVolume = { playerVolume },
-                onTap = {
-                    resetAutoHideTimer()
-                    uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
-                },
-                onSeek = { delta ->
-                    if (!playerState.isLocked) {
-                        viewModel.seekBy(delta)
-
-                        // Show seek indicator
-                        val isForward = delta > 0
-                        val seconds = kotlin.math.abs(delta) / 1000
-                        val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                        val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
-
-                        uiState = uiState.copy(seekPosition = seekText, seekSide = side)
-                    }
-                },
-                onTogglePlayPause = viewModel::togglePlayPause,
-                onVolumeChange = { level ->
-                    if (!playerState.isLocked) {
-                        playerVolume = level.coerceIn(0f, 1f)
-                        if (!useDeviceVolumeInPlayer) {
-                            playerPreferences.setPlayerVolume(playerVolume)
-                        }
-
-                        platform.setDeviceVolume(playerVolume)
-
-                        uiState = uiState.copy(volumeLevel = playerVolume)
-                    }
-                },
-                onBrightnessChange = { delta ->
-                    if (!playerState.isLocked) {
-                        val newPlayerBrightness = (playerBrightness + delta).coerceIn(0.01f, 1f)
-                        playerBrightness = newPlayerBrightness
-                        if (!useDeviceBrightnessInPlayer) {
-                            playerPreferences.setPlayerBrightness(newPlayerBrightness)
-                        }
-                        platform.setBrightness(newPlayerBrightness)
-                        uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
-                    }
-                },
-                onZoomChange = { isZooming -> viewModel.handlePinchZoom(isZooming) },
-                modifier = Modifier.fillMaxSize()
-            )
-
-            PlayerOverlayHost(
-                uiState = uiState,
-                playerState = playerState,
-                currentStreamingQuality = currentStreamingQuality,
-                hasPlaybackSettings = hasPlaybackSettings,
-                chapterMarkersEnabled = chapterMarkersEnabled,
-                seekBackwardSeconds = seekBackwardSeconds,
-                seekForwardSeconds = seekForwardSeconds,
-                activeSkippableSegment = activeSkippableSegment,
-                activeCreditsSegment = activeCreditsSegment,
-                dismissedCreditsPrompt = dismissedCreditsPrompt,
-                canWatchPreviousEpisode = canWatchPreviousEpisode,
-                canWatchNextEpisode = canWatchNextEpisode,
-                viewModel = viewModel,
-                onBackPressed = onBackPressed,
-                resetAutoHideTimer = resetAutoHideTimer,
-                onScrubbingChange = { isScrubbing = it },
-                onWatchCredits = {
-                    dismissedCreditsPrompt = true
-                    uiState = uiState.copy(controlsVisible = false)
-                },
-                onWatchPreviousEpisode = {
-                    previousEpisodeId
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { onWatchPreviousEpisode?.invoke(it) }
-                },
-                onWatchNextEpisode = {
-                    nextEpisodeId
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { onWatchNextEpisode?.invoke(it) }
-                },
-                onShowMediaInfo = { showMediaInfo = true },
-                onShowStreamingQualityDialog = { showStreamingQualityDialog = true },
-                onShowAudioTranscodingDialog = {
-                    pendingStreamingQualitySelection = null
-                    showAudioTranscodingDialog = true
-                },
-                onShowAudioTrackDialog = { showAudioTrackDialog = true },
-                onShowSubtitleTrackDialog = { showSubtitleTrackDialog = true }
-            )
-
-            PlayerDialogsHost(
-                playerState = playerState,
-                showAudioTrackDialog = showAudioTrackDialog,
-                showSubtitleTrackDialog = showSubtitleTrackDialog,
-                showStreamingQualityDialog = showStreamingQualityDialog,
-                showAudioTranscodingDialog = showAudioTranscodingDialog,
-                showMediaInfo = showMediaInfo,
-                availableStreamingQualityOptions = availableStreamingQualityOptions,
-                currentStreamingQuality = currentStreamingQuality,
-                currentAudioTranscodeMode = currentAudioTranscodeMode,
-                mediaInfoSnapshot = mediaInfoSnapshot,
-                onAudioTrackSelected = { trackId ->
-                    viewModel.selectAudioTrack(trackId)
-                    showAudioTrackDialog = false
-                },
-                onSubtitleTrackSelected = { trackId ->
-                    viewModel.selectSubtitleTrack(trackId)
-                    showSubtitleTrackDialog = false
-                },
-                onStreamingQualitySelected = applyStreamingQualitySelection,
-                onAudioTranscodingSelected = { selectedMode ->
-                    val targetQuality = pendingStreamingQualitySelection ?: currentStreamingQuality
-                    applyPlaybackSettingsSelection(targetQuality, selectedMode)
-                },
-                onDismissAudioTrackDialog = { showAudioTrackDialog = false },
-                onDismissSubtitleTrackDialog = { showSubtitleTrackDialog = false },
-                onDismissStreamingQualityDialog = { showStreamingQualityDialog = false },
-                onDismissAudioTranscodingDialog = {
-                    pendingStreamingQualitySelection = null
-                    showAudioTranscodingDialog = false
-                },
-                onDismissMediaInfo = { showMediaInfo = false }
+        if (initializedMediaIdProvider() == initializationKey && remoteMediaUrl.isNullOrBlank()) {
+            onPreferredStreamIndexesChanged(
+                preferredStreamIndexes.audioStreamIndex,
+                preferredStreamIndexes.subtitleStreamIndex
             )
         }
     }
-}
-
-@Composable
-fun SpatialAudioInfoDialog(
-    spatialInfo: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Spatial Audio Status",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        },
-        text = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = spatialInfo,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("OK")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
-    )
-}
-
-@Composable
-fun HdrFormatInfoDialog(
-    hdrInfo: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "HDR Format & Fallback Status",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        },
-        text = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = hdrInfo,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("OK")
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
-    )
 }
 
 @Preview(

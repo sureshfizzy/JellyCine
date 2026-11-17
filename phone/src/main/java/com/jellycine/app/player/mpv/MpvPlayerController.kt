@@ -83,7 +83,8 @@ class MpvPlayerController(
         subtitleTrackId: String?,
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
-        startPlayback: Boolean
+        startPlayback: Boolean,
+        requestHeaders: Map<String, String>
     ) {
         if (released) return
         ready = false

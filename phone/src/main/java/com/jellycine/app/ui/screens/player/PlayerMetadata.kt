@@ -280,26 +280,6 @@ internal object PlayerMetadata {
         )
     }
 
-    fun getSourceVideoHeight(mediaStreams: List<MediaStream>?): Int? {
-        return mediaStreams
-            .orEmpty()
-            .asSequence()
-            .filter { it.type == "Video" }
-            .mapNotNull { stream ->
-                val width = stream.width ?: 0
-                val height = stream.height ?: 0
-                when {
-                    width >= 3840 || height >= 2160 -> 2160
-                    width >= 1920 || height >= 1080 -> 1080
-                    width >= 1280 || height >= 720 -> 720
-                    width >= 854 || height >= 480 -> 480
-                    height > 0 -> height
-                    else -> null
-                }
-            }
-            .maxOrNull()
-    }
-
     private fun getDisplayVideoCodecName(codec: String): String {
         return when (codec.uppercase()) {
             "H264", "AVC", "AVC1" -> "H.264"

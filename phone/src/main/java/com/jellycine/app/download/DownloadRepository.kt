@@ -124,7 +124,7 @@ class DownloadRepository(context: Context) : PlayerOfflineSource {
         return label != TranscodeProfiles.ORIGINAL
     }
 
-    override fun getOfflineSubtitlePaths(itemId: String): Map<Int, String> {
+    fun getOfflineSubtitlePaths(itemId: String): Map<Int, String> {
         val metadata = metadataStore.read(itemId)
         val persisted = metadata?.subtitlePaths.orEmpty().filter { (_, path) ->
             storage.exists(path)
@@ -145,7 +145,7 @@ class DownloadRepository(context: Context) : PlayerOfflineSource {
         return result
     }
 
-    override suspend fun ensureOfflineSubtitles(itemId: String) {
+    suspend fun ensureOfflineSubtitles(itemId: String) {
         val metadata = metadataStore.read(itemId) ?: return
         val currentSubtitles = getOfflineSubtitlePaths(itemId)
         if (currentSubtitles.isNotEmpty()) return
@@ -155,10 +155,10 @@ class DownloadRepository(context: Context) : PlayerOfflineSource {
         downloadExternalSubtitles(itemId, item)
     }
 
-    override fun updatePlaybackPosition(
+    fun updatePlaybackPosition(
         itemId: String,
         positionMs: Long,
-        markCompleted: Boolean
+        markCompleted: Boolean = false
     ) {
         scope.launch {
             val metadata = metadataStore.read(itemId) ?: return@launch
@@ -572,7 +572,7 @@ class DownloadRepository(context: Context) : PlayerOfflineSource {
         val fetchedItem = mediaRepository.getItemById(itemId).getOrNull() ?: item
         val playbackInfo = mediaRepository.getPlaybackInfo(itemId).getOrNull()
         val primarySource = playbackInfo?.mediaSources?.firstOrNull()
-        val mergedStreams = com.jellycine.player.core.PlayerTrack.resolveApiMediaStreams(fetchedItem, primarySource)
+        val mergedStreams = com.jellycine.player.core.mergeApiMediaStreams(fetchedItem, primarySource)
         return if (mergedStreams.isNotEmpty()) {
             fetchedItem.copy(
                 mediaStreams = mergedStreams

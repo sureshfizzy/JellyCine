@@ -30,6 +30,7 @@ import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.detail.canSpatializeAudioStream
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.core.*
+import com.jellycine.player.mpv.MPVPlayer
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.ui.screens.player.MediaMetadataInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,14 +55,14 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val mediaRepository: MediaRepository
-) : ViewModel() {
+) : ViewModel(), PlayerController {
     companion object {
         private const val TAG = "PlayerViewModel"
         private const val MPV_FALLBACK_FIRST_FRAME_TIMEOUT_MS = 2_500L
     }
 
     private val _playerState = MutableStateFlow(PlayerState())
-    val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
+    override val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
     private val _preferredStreamIndexes = MutableStateFlow(PreferredStreamIndexes())
     val preferredStreamIndexes: StateFlow<PreferredStreamIndexes> = _preferredStreamIndexes.asStateFlow()
     private val _playbackCompletedEvents = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -81,7 +82,8 @@ class PlayerViewModel @Inject constructor(
         mediaRepository = mediaRepository,
         scope = viewModelScope,
         positionProvider = { getCurrentPosition() },
-        isPausedProvider = { !isPlayingNow() }
+        isPausedProvider = { !isPlayingNow() },
+        onError = { message, error -> Log.e("PlayerPlaybackReporter", message, error) }
     )
     private var spatializerHelper: SpatializerHelper? = null
     private var playerContext: Context? = null
@@ -236,7 +238,8 @@ class PlayerViewModel @Inject constructor(
                 defaultAudioStreamIndex = playback.defaultAudioStreamIndex
                 defaultSubtitleStreamIndex = playback.defaultSubtitleStreamIndex
 
-                val mediaItem = if (playback.offlineFilePath != null) {
+                val offlineFilePath = playback.offlineFilePath
+                val mediaItem = if (offlineFilePath != null) {
                     if (playback.isTranscodedDownload) {
                         activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
                     }
@@ -267,7 +270,7 @@ class PlayerViewModel @Inject constructor(
                     }
 
                     MediaItem.Builder()
-                        .setUri(downloadLocationUri(playback.offlineFilePath!!))
+                        .setUri(downloadLocationUri(offlineFilePath))
                         .setSubtitleConfigurations(subtitleConfigs)
                         .build()
                 } else {
@@ -626,13 +629,13 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun seekTo(position: Long) {
+    override fun seekTo(position: Long) {
         exoPlayer?.seekTo(position)
         mpvPlayer?.seekTo(position)
         _playerState.value = _playerState.value.copy(currentPosition = position)
     }
 
-    fun play() {
+    override fun play() {
         exoPlayer?.play()
         mpvPlayer?.play()
         if (isMpvPlayback()) {
@@ -640,7 +643,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun pause() {
+    override fun pause() {
         exoPlayer?.pause()
         mpvPlayer?.pause()
         if (isMpvPlayback()) {
@@ -649,14 +652,14 @@ class PlayerViewModel @Inject constructor(
         persistPosition()
     }
 
-    fun seekToProgress(progress: Float) {
+    override fun seekToProgress(progress: Float) {
         val duration = getDuration()
         if (duration > 0L) {
             seekTo((duration * progress).toLong())
         }
     }
 
-    fun seekBy(deltaMs: Long) {
+    override fun seekBy(deltaMs: Long) {
         val currentPosition = getCurrentPosition()
         val duration = getDuration()
         val targetPosition = if (duration > 0L) {
@@ -667,9 +670,9 @@ class PlayerViewModel @Inject constructor(
         seekTo(targetPosition)
     }
 
-    fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
+    override fun getCurrentPosition(): Long = exoPlayer?.currentPosition ?: mpvPlayer?.currentPosition ?: 0L
 
-    fun getBufferedPosition(): Long {
+    override fun getBufferedPosition(): Long {
         val raw = if (isMpvPlayback()) {
             mpvPlayer?.bufferedPosition ?: 0L
         } else {
@@ -684,9 +687,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
+    override fun isPlayingNow(): Boolean = exoPlayer?.isPlaying == true || mpvPlayer?.isPlaying == true
 
-    fun getDuration(): Long {
+    override fun getDuration(): Long {
         val playerDuration = exoPlayer?.duration?.coerceAtLeast(0L) ?: mpvPlayer?.duration ?: 0L
         if (playerDuration > 0L) return playerDuration
         return currentItemDetails?.runTimeTicks?.takeIf { it > 0L }?.div(10_000L) ?: 0L
@@ -839,7 +842,7 @@ class PlayerViewModel @Inject constructor(
         nextEpisodePrefetchSignature = null
     }
 
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         if (exoPlayer != null || mpvPlayer != null) {
             if (isPlayingNow()) pause() else play()
             playbackReporter.onPlaybackPauseStateChanged()
@@ -860,7 +863,7 @@ class PlayerViewModel @Inject constructor(
         _playerState.value = _playerState.value.copy(showControls = !_playerState.value.showControls)
     }
 
-    fun releasePlayer() {
+    override fun releasePlayer() {
         persistPosition()
         playbackReporter.reportPlaybackStopped()
         cancelNextEpisodePrefetch()
@@ -924,7 +927,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Toggle lock state - when locked, disable all gestures and hide controls
      */
-    fun toggleLock() {
+    override fun toggleLock() {
         val currentState = _playerState.value
         _playerState.value = currentState.copy(
             isLocked = !currentState.isLocked,
@@ -1085,7 +1088,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Select audio track by ID
      */
-    fun selectAudioTrack(trackId: String) {
+    override fun selectAudioTrack(trackId: String) {
         if (trackId == _playerState.value.currentAudioTrack?.id) return
         val selectedTrack = _playerState.value.availableAudioTracks.firstOrNull { it.id == trackId } ?: return
         if (isMpvPlayback()) {
@@ -1117,7 +1120,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Select subtitle track by ID
      */
-    fun selectSubtitleTrack(trackId: String) {
+    override fun selectSubtitleTrack(trackId: String) {
         Log.d(TAG, "Selecting subtitle track: $trackId")
         if (trackId == _playerState.value.currentSubtitleTrack?.id) {
             Log.d(TAG, "Subtitle track $trackId already selected")
@@ -1208,7 +1211,7 @@ class PlayerViewModel @Inject constructor(
      * Toggle between fit and zoom modes
      * Uses ExoPlayer's native AspectRatioFrameLayout resize modes for proper aspect ratio handling
      */
-    fun cycleAspectRatio() {
+    override fun cycleAspectRatio() {
         setAspectRatioMode((currentAspectRatio + 1) % aspectRatioModes.size)
     }
 
@@ -1220,7 +1223,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Handle pinch-to-zoom gesture to set appropriate resize mode
      */
-    fun handlePinchZoom(isZooming: Boolean) {
+    override fun handlePinchZoom(isZooming: Boolean) {
         if (isZooming && currentAspectRatio == 0) {
             setAspectRatioMode(1)
         } else if (!isZooming && currentAspectRatio == 1) {
@@ -1256,7 +1259,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Seek backward by the configured interval
      */
-    fun seekBackward() {
+    override fun seekBackward() {
         val seconds = PlayerPreferences(playerContext ?: return)
             .getSeekBackwardIntervalSeconds()
         seekBy(deltaMs = -(seconds * 1000L))
@@ -1265,7 +1268,7 @@ class PlayerViewModel @Inject constructor(
     /**
      * Seek forward by the configured interval
      */
-    fun seekForward() {
+    override fun seekForward() {
         val seconds = PlayerPreferences(playerContext ?: return)
             .getSeekForwardIntervalSeconds()
         seekBy(deltaMs = seconds * 1000L)
@@ -1416,7 +1419,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun getSourceVideoHeight(): Int? {
-        return PlayerMetadata.getSourceVideoHeight(apiMediaStreams)
+        return sourceVideoHeight(apiMediaStreams)
     }
 
 }

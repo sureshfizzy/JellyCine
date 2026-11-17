@@ -8,6 +8,8 @@ import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.data.model.PlaybackSegmentWindow
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.player.preferences.PlayerPreferences
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.getString
 
 private const val TICKS_PER_MS = 10_000L
 
@@ -16,9 +18,6 @@ interface PlayerOfflineSource {
     fun getOfflineFilePath(itemId: String): String?
     fun offlineItemMetadata(itemId: String): BaseItemDto?
     fun isTranscodedDownload(itemId: String): Boolean
-    fun getOfflineSubtitlePaths(itemId: String): Map<Int, String>
-    suspend fun ensureOfflineSubtitles(itemId: String)
-    fun updatePlaybackPosition(itemId: String, positionMs: Long, markCompleted: Boolean)
 }
 
 /** Everything the player needs to know about one item before an engine starts playing it. */
@@ -78,7 +77,7 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
 
         val offlinePath = offline?.getOfflineFilePath(mediaId)
         val hasOfflineFile = !offlinePath.isNullOrBlank()
-        val offlineItemDetails = if (hasOfflineFile) offline?.offlineItemMetadata(mediaId) else null
+        val offlineItemDetails = if (hasOfflineFile) offline.offlineItemMetadata(mediaId) else null
 
         val itemDetails = when {
             initialItemDetails?.id == mediaId -> initialItemDetails
@@ -90,8 +89,8 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
         val storedResumePositionMs = resumePositionTicks?.takeIf { it > 0 }?.div(TICKS_PER_MS)
         val logoSourceId = when {
             itemDetails?.imageTags?.containsKey("Logo") == true && !itemDetails.id.isNullOrBlank() -> itemDetails.id
-            !itemDetails?.parentLogoItemId.isNullOrBlank() && !itemDetails?.parentLogoImageTag.isNullOrBlank() ->
-                itemDetails?.parentLogoItemId
+            !itemDetails?.parentLogoItemId.isNullOrBlank() && !itemDetails.parentLogoImageTag.isNullOrBlank() ->
+                itemDetails.parentLogoItemId
             else -> null
         }
         val mediaLogoUrl = logoSourceId?.let { sourceId ->
@@ -132,7 +131,7 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
 
         if (hasOfflineFile) {
             playMethod = PlayMethod.OFFLINE
-            isTranscodedDownload = offline?.isTranscodedDownload(mediaId) == true
+            isTranscodedDownload = offline.isTranscodedDownload(mediaId)
             val offlineItem = offlineItemDetails ?: itemDetails
             mediaStreams = offlineItem?.let {
                 mergeApiMediaStreams(itemDetails = it, playbackMediaSource = null)
@@ -150,10 +149,10 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
             ).let { result ->
                 if (result.isFailure) {
                     return PlaybackResolution.Failed(
-                        result.exceptionOrNull()?.message ?: "Failed to get playback info"
+                        result.exceptionOrNull()?.message ?: getString(Res.string.player_error_playback_info_failed)
                     )
                 }
-                result.getOrNull() ?: return PlaybackResolution.Failed("Playback info is null")
+                result.getOrNull() ?: return PlaybackResolution.Failed(getString(Res.string.player_error_playback_info_missing))
             }
 
             primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
@@ -185,13 +184,13 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
             )
             if (requestResult.isFailure) {
                 return PlaybackResolution.Failed(
-                    requestResult.exceptionOrNull()?.message ?: "Failed to get playback request"
+                    requestResult.exceptionOrNull()?.message ?: getString(Res.string.player_error_playback_request_failed)
                 )
             }
             playbackRequest = requestResult.getOrNull()
             streamUrl = playbackRequest?.url
             if (streamUrl.isNullOrEmpty()) {
-                return PlaybackResolution.Failed("Failed to get playback URL")
+                return PlaybackResolution.Failed(getString(Res.string.player_error_playback_url_missing))
             }
             (streamUrl.queryParameter("PlaySessionId") ?: streamUrl.queryParameter("playSessionId"))
                 ?.takeIf { it.isNotBlank() }
@@ -202,7 +201,7 @@ class PlayerPlayback(private val mediaRepository: MediaRepository) {
         return PlaybackResolution.Ready(
             ResolvedPlayback(
                 itemDetails = itemDetails,
-                mediaTitle = itemDetails?.name ?: "Unknown Title",
+                mediaTitle = itemDetails?.name ?: getString(Res.string.player_title_unknown),
                 mediaLogoUrl = mediaLogoUrl,
                 posterUrl = posterUrl,
                 seasonEpisodeLabel = itemDetails?.let(::seasonEpisodeLabel),
@@ -320,7 +319,7 @@ fun mergeApiMediaStreams(
         ?.mediaSources
         .orEmpty()
         .firstOrNull { source ->
-            !playbackMediaSource?.id.isNullOrBlank() && source.id == playbackMediaSource?.id
+            !playbackMediaSource?.id.isNullOrBlank() && source.id == playbackMediaSource.id
         }
         ?.mediaStreams
         .orEmpty()
@@ -343,4 +342,25 @@ fun mergeApiMediaStreams(
                 ?: group.firstOrNull { it.deliveryMethod != null }
                 ?: group.first()
         }
+}
+
+/** Highest source video resolution bucket (2160, 1080, 720, 480) among the streams, if any. */
+fun sourceVideoHeight(mediaStreams: List<MediaStream>?): Int? {
+    return mediaStreams
+        .orEmpty()
+        .asSequence()
+        .filter { it.type == "Video" }
+        .mapNotNull { stream ->
+            val width = stream.width ?: 0
+            val height = stream.height ?: 0
+            when {
+                width >= 3840 || height >= 2160 -> 2160
+                width >= 1920 || height >= 1080 -> 1080
+                width >= 1280 || height >= 720 -> 720
+                width >= 854 || height >= 480 -> 480
+                height > 0 -> height
+                else -> null
+            }
+        }
+        .maxOrNull()
 }

@@ -1,11 +1,11 @@
-package com.jellycine.app.player.mpv
+package com.jellycine.player.mpv
 
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.player.core.AudioTrackInfo
+import com.jellycine.player.core.PlayerEngine
 import com.jellycine.player.core.PlayerTrackState
 import com.jellycine.player.core.SubtitleTrackInfo
-import java.net.URI
 
 object MPVPlayer {
     fun trackState(
@@ -76,7 +76,7 @@ object MPVPlayer {
     }
 
     fun selectAudioTrack(
-        controller: MpvPlayerController?,
+        controller: PlayerEngine?,
         track: AudioTrackInfo
     ): Int? {
         val streamIndex = track.streamIndex ?: return null
@@ -86,7 +86,7 @@ object MPVPlayer {
     }
 
     fun selectSubtitleTrack(
-        controller: MpvPlayerController?,
+        controller: PlayerEngine?,
         track: SubtitleTrackInfo,
         externalSubtitleUrls: Map<Int, String>
     ): Int? {
@@ -109,9 +109,10 @@ object MPVPlayer {
         val request = playbackRequest ?: return emptyMap()
         val streamingUrl = request.url
         if (streamingUrl.isBlank()) return emptyMap()
-        
-        val baseUri = try { java.net.URI.create(streamingUrl) } catch (e: Exception) { return emptyMap() }
-        val baseUrl = "${baseUri.scheme}://${baseUri.authority}/"
+
+        val origin = Regex("^([a-zA-Z][a-zA-Z0-9+.-]*)://([^/?#]*)").find(streamingUrl)
+            ?: return emptyMap()
+        val baseUrl = "${origin.groupValues[1]}://${origin.groupValues[2]}/"
         val requestHeaders = request.requestHeaders
 
         return mediaStreams
@@ -121,13 +122,13 @@ object MPVPlayer {
             .mapNotNull { stream ->
                 val streamIndex = stream.index ?: return@mapNotNull null
                 var deliveryUrl = stream.deliveryUrl?.takeIf { it.isNotBlank() }
-                
+
                 if (deliveryUrl == null && itemId != null) {
                     val isEmby = requestHeaders["Authorization"]?.startsWith("Emby", ignoreCase = true) == true ||
                         requestHeaders["X-Emby-Authorization"]?.startsWith("Emby", ignoreCase = true) == true
-            
+
                     val codec = when (stream.codec?.lowercase()) {
-                        "subrip", "srt" -> if (isEmby) "vtt" else "subrip" 
+                        "subrip", "srt" -> if (isEmby) "vtt" else "subrip"
                         "webvtt", "vtt" -> "vtt"
                         else -> if (isEmby) "vtt" else "subrip"
                     }
@@ -141,15 +142,15 @@ object MPVPlayer {
                         "Videos/$guidItemId/$sourceId/Subtitles/$streamIndex/0/Stream.$codec"
                     }
                 }
-                
+
                 if (deliveryUrl == null) return@mapNotNull null
-                
+
                 val fullUrl = if (deliveryUrl.startsWith("http", ignoreCase = true)) {
                     deliveryUrl
                 } else {
                     baseUrl + deliveryUrl.trimStart('/')
                 }
-                
+
                 streamIndex to request.authorizeRelatedUrl(fullUrl)
             }
             .toMap()
