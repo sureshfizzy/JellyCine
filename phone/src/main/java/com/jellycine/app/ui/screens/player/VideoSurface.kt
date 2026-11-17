@@ -1,8 +1,5 @@
 package com.jellycine.app.ui.screens.player
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.media.AudioManager
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -16,14 +13,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.jellycine.player.preferences.PlayerPreferences
 import androidx.lifecycle.Lifecycle
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.CaptionStyleCompat
-import androidx.media3.ui.PlayerView
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.*
 import com.jellycine.app.player.mpv.MpvPlayerController
+import com.jellycine.player.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 
 @UnstableApi
@@ -37,14 +32,6 @@ fun VideoSurface(
     offsetY: Float,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_FIT,
     isHdr: Boolean = false,
-    onVolumeChange: (Float) -> Unit,
-    onBrightnessChange: (Float) -> Unit,
-    getCurrentVolumeLevel: () -> Float,
-    getCurrentBrightnessLevel: () -> Float,
-    onSeek: (Long) -> Unit,
-    onToggleControls: () -> Unit,
-    onTogglePlayPause: () -> Unit = {},
-    onZoomChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -64,7 +51,6 @@ fun VideoSurface(
         animationSpec = tween(durationMillis = 200),
         label = "video_offset_y"
     )
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val surfaceModifier = Modifier
         .fillMaxSize()
         .clip(RoundedCornerShape(0.dp))
@@ -84,16 +70,7 @@ fun VideoSurface(
                 player = mpvPlayer,
                 lifecycle = lifecycle,
                 resizeMode = resizeMode,
-                audioManager = audioManager,
                 isHdr = isHdr,
-                onToggleControls = onToggleControls,
-                onSeek = onSeek,
-                onVolumeChange = onVolumeChange,
-                onBrightnessChange = onBrightnessChange,
-                getCurrentVolumeLevel = getCurrentVolumeLevel,
-                getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                onZoomChange = onZoomChange,
-                onTogglePlayPause = onTogglePlayPause,
                 modifier = surfaceModifier
             )
         } else if (player != null) {
@@ -101,37 +78,18 @@ fun VideoSurface(
                 player = player,
                 lifecycle = lifecycle,
                 resizeMode = resizeMode,
-                audioManager = audioManager,
-                onToggleControls = onToggleControls,
-                onSeek = onSeek,
-                onVolumeChange = onVolumeChange,
-                onBrightnessChange = onBrightnessChange,
-                getCurrentVolumeLevel = getCurrentVolumeLevel,
-                getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                onZoomChange = onZoomChange,
-                onTogglePlayPause = onTogglePlayPause,
                 modifier = surfaceModifier
             )
         }
     }
 }
 
-@SuppressLint("ClickableViewAccessibility")
 @UnstableApi
 @Composable
 private fun ExoPlayerView(
     player: ExoPlayer?,
     lifecycle: Lifecycle.Event,
     resizeMode: Int,
-    audioManager: AudioManager,
-    onToggleControls: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onVolumeChange: (Float) -> Unit,
-    onBrightnessChange: (Float) -> Unit,
-    getCurrentVolumeLevel: () -> Float,
-    getCurrentBrightnessLevel: () -> Float,
-    onZoomChange: (Boolean) -> Unit,
-    onTogglePlayPause: () -> Unit,
     modifier: Modifier
 ) {
     val context = LocalContext.current
@@ -151,22 +109,6 @@ private fun ExoPlayerView(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 setDefaultArtwork(null)
-
-                val helper = GestureHelper(
-                    context = viewContext,
-                    touchView = this,
-                    audioManager = audioManager,
-                    onShowControls = onToggleControls,
-                    onSeek = onSeek,
-                    onVolumeChange = onVolumeChange,
-                    onBrightnessChange = onBrightnessChange,
-                    getCurrentVolumeLevel = getCurrentVolumeLevel,
-                    getCurrentBrightnessLevel = getCurrentBrightnessLevel,
-                    onZoomChange = onZoomChange,
-                    onTogglePlayPause = onTogglePlayPause,
-                    getPlayer = { this.player }
-                )
-                setOnTouchListener { _, event -> helper.handleTouchEvent(event) }
             }
         },
         update = { playerView ->

@@ -1,7 +1,5 @@
 package com.jellycine.app.ui.screens.player
 
-import android.content.Context
-import android.media.AudioManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -117,7 +115,6 @@ fun PlayerScreen(
     }
 
     // System managers
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val playerPreferences = remember { PlayerPreferences(context) }
     val useDeviceVolumeInPlayer = remember { playerPreferences.isUseDeviceVolumeInPlayerEnabled() }
     val useDeviceBrightnessInPlayer = remember { playerPreferences.isUseDeviceBrightnessInPlayerEnabled() }
@@ -362,6 +359,30 @@ fun PlayerScreen(
                 offsetY = playerState.videoOffsetY,
                 resizeMode = viewModel.getCurrentResizeMode(),
                 isHdr = playerState.isHdrEnabled,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            PlayerGestureSurface(
+                preferences = playerPreferences,
+                getVolume = { playerVolume },
+                onTap = {
+                    resetAutoHideTimer()
+                    uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
+                },
+                onSeek = { delta ->
+                    if (!playerState.isLocked) {
+                        viewModel.seekBy(delta)
+
+                        // Show seek indicator
+                        val isForward = delta > 0
+                        val seconds = kotlin.math.abs(delta) / 1000
+                        val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
+                        val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
+
+                        uiState = uiState.copy(seekPosition = seekText, seekSide = side)
+                    }
+                },
+                onTogglePlayPause = viewModel::togglePlayPause,
                 onVolumeChange = { level ->
                     if (!playerState.isLocked) {
                         playerVolume = level.coerceIn(0f, 1f)
@@ -385,29 +406,7 @@ fun PlayerScreen(
                         uiState = uiState.copy(brightnessLevel = newPlayerBrightness)
                     }
                 },
-                getCurrentVolumeLevel = { playerVolume },
-                getCurrentBrightnessLevel = { playerBrightness },
-                onSeek = { delta ->
-                    if (!playerState.isLocked) {
-                        viewModel.seekBy(delta)
-
-                        // Show seek indicator
-                        val isForward = delta > 0
-                        val seconds = kotlin.math.abs(delta) / 1000
-                        val seekText = if (isForward) "+${seconds}s" else "-${seconds}s"
-                        val side = if (isForward) SeekSide.RIGHT else SeekSide.LEFT
-
-                        uiState = uiState.copy(seekPosition = seekText, seekSide = side)
-                    }
-                },
-                onToggleControls = {
-                    resetAutoHideTimer()
-                    uiState = uiState.copy(controlsVisible = !uiState.controlsVisible)
-                },
-                onTogglePlayPause = viewModel::togglePlayPause,
-                onZoomChange = { isZooming ->
-                    viewModel.handlePinchZoom(isZooming)
-                },
+                onZoomChange = { isZooming -> viewModel.handlePinchZoom(isZooming) },
                 modifier = Modifier.fillMaxSize()
             )
 
