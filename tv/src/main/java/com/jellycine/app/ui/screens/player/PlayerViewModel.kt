@@ -20,6 +20,7 @@ import com.jellycine.data.model.MediaSource
 import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecCapabilityManager
+import com.jellycine.detail.canSpatializeAudioStream
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlayerState
@@ -322,7 +323,7 @@ class PlayerViewModel @Inject constructor(
                     isOfflinePlayback = sessionIsOfflinePlayback
                 )
                 playbackReporter.updateSession(playbackSession)
-                
+
                 // Get media info for spatial audio analysis
                 apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
                     itemDetails = itemDetails,
@@ -339,7 +340,7 @@ class PlayerViewModel @Inject constructor(
                         null
                     }
                 }
-                
+
                 exoPlayer?.apply {
                     addListener(playerListener)
                     if (streamingMediaSource != null) {
@@ -352,7 +353,7 @@ class PlayerViewModel @Inject constructor(
                     if (resolvedStartPositionMs != null && resolvedStartPositionMs > 0) {
                         seekTo(resolvedStartPositionMs)
                     }
-                    
+
                     playWhenReady = startPlayback
                 }
 
@@ -365,7 +366,7 @@ class PlayerViewModel @Inject constructor(
                 // Update track information after player is ready
                 updateTrackInformation()
                 val isHdrPlayback = PlayerMetadata.isCurrentPlaybackHdr(exoPlayer)
-                
+
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
 
@@ -886,7 +887,7 @@ class PlayerViewModel @Inject constructor(
     // Aspect ratio states
     private var currentAspectRatio by mutableIntStateOf(0)
     private val aspectRatioModes = listOf("Fit", "Zoom")
-    
+
     // Keep track of ExoPlayer resize mode
     private var currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
 
@@ -896,13 +897,13 @@ class PlayerViewModel @Inject constructor(
      */
     fun cycleAspectRatio() {
         currentAspectRatio = (currentAspectRatio + 1) % aspectRatioModes.size
-        
+
         currentResizeMode = when (currentAspectRatio) {
             0 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT // Respects video aspect ratio
             1 -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM // Fills screen, crops if needed
             else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
-        
+
         val mode = aspectRatioModes[currentAspectRatio]
         _playerState.value = _playerState.value.copy(
             aspectRatioMode = mode,
@@ -911,12 +912,12 @@ class PlayerViewModel @Inject constructor(
             videoOffsetY = 0f
         )
     }
-    
+
     /**
      * Get current resize mode for VideoSurface
      */
     fun getCurrentResizeMode(): Int = currentResizeMode
-    
+
 
     /**
      * Apply start maximized setting based on user preference
@@ -925,7 +926,7 @@ class PlayerViewModel @Inject constructor(
     private fun applyStartMaximizedSetting(context: Context) {
         val playerPreferences = com.jellycine.player.preferences.PlayerPreferences(context)
         val startMaximized = playerPreferences.isStartMaximizedEnabled()
-        
+
         if (startMaximized) {
             currentAspectRatio = 1 // Zoom mode
             currentResizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -984,7 +985,7 @@ class PlayerViewModel @Inject constructor(
                 Player.STATE_READY -> playWhenReady && !hasRenderedFirstFrame
                 else -> false
             }
-            
+
             _playerState.value = currentState.copy(
                 isLoading = shouldShowLoading,
                 isPlaying = isNowPlaying,

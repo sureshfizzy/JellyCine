@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -47,7 +46,6 @@ fun EpisodePreviewCard(
     thumbnailHeight: Dp = 158.dp,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
     var isHovered by remember { mutableStateOf(false) }
     var showPreviewOverlay by remember { mutableStateOf(false) }
@@ -98,7 +96,6 @@ fun EpisodePreviewCard(
                 ) {
                     episodeImageUrl?.let { imageUrl ->
                         JellyfinPosterImage(
-                            context = context,
                             imageUrl = imageUrl,
                             contentDescription = episode.name,
                             modifier = Modifier.fillMaxSize(),

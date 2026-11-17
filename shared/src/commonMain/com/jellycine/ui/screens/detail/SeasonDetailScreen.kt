@@ -1,6 +1,5 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,39 +17,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
-import com.jellycine.app.download.DownloadRepositoryProvider
 import com.jellycine.ui.components.common.BackButton
-import com.jellycine.ui.components.common.BackButton
-import com.jellycine.app.ui.components.common.DownloadActionMenu
-import com.jellycine.app.ui.components.common.DownloadContent
-import com.jellycine.app.ui.components.common.CompactTopLogo
-import com.jellycine.app.ui.components.common.DetailBackdropHero
-import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.ui.components.common.CompactTopLogo
+import com.jellycine.ui.components.common.DetailBackdropHero
 import com.jellycine.ui.components.common.compactHeaderLogo
 import com.jellycine.ui.components.common.containerHeightDp
 import com.jellycine.ui.components.common.containerWidthDp
-import com.jellycine.app.ui.components.common.hasActiveDownloads
 import com.jellycine.ui.components.common.isTabletDetailLayout
-import com.jellycine.app.ui.components.common.pausableItemIds
-import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
-import com.jellycine.app.ui.components.common.rememberDownloadPanelState
 import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.playback.UserDataRefreshSignals
 import com.jellycine.ui.components.common.WatchedIndicatorBadge
 import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.util.image.getBackdrop
-import com.jellycine.data.model.BatchDownloadCandidate
-import com.jellycine.data.model.BatchDownloadEstimate
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.UserItemDataDto
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
 import com.jellycine.playback.UserDataRefreshEvent
 import kotlinx.coroutines.flow.first
@@ -60,31 +45,27 @@ import kotlinx.coroutines.launch
 fun SeasonDetailScreen(
     seriesId: String,
     seasonId: String,
+    mediaRepository: MediaRepository,
     seasonName: String? = null,
+    seasonDownloadAction: (@Composable (seasonId: String, episodes: List<BaseItemDto>) -> Unit)? = null,
     initialHeroImageUrl: String? = null,
     initialLogoImageUrl: String? = null,
     onBackPressed: () -> Unit = {},
     onEpisodeClick: (String) -> Unit = {},
     onSeriesOverviewClick: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
     val screenWidthDp = containerWidthDp()
     val screenHeightDp = containerHeightDp()
     val useTabletBackdropLayout = isTabletDetailLayout(
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    
+
     var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var seasonQueueInProgress by remember(seasonId) { mutableStateOf(false) }
-    var downloadErrorDialogMessage by remember(seasonId) { mutableStateOf<String?>(null) }
-    var storageSelectionDialogState by remember(seasonId) { mutableStateOf<SeasonEpisodeSelectionDialogState?>(null) }
     var seriesTitle by remember(seriesId) { mutableStateOf<String?>(null) }
     val initialHeroImageCandidates = remember(seasonId, seriesId, initialHeroImageUrl) {
         listOfNotNull(initialHeroImageUrl?.takeIf { it.isNotBlank() }).distinct()
@@ -102,7 +83,6 @@ fun SeasonDetailScreen(
     var logoImageIndex by remember(seasonId, seriesId) { mutableIntStateOf(0) }
     var logoCandidateLookup by remember(seasonId, seriesId) { mutableStateOf(true) }
     var logoLoadError by remember(seasonId, seriesId) { mutableStateOf(false) }
-    val trackedDownloads by downloadRepository.observeTrackedDownloads().collectAsState(initial = emptyList())
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
 
     // Load episodes for this season
@@ -237,26 +217,6 @@ fun SeasonDetailScreen(
     ) {
         onSeriesOverviewClick(seriesId)
     }
-    val seasonEpisodeIds = remember(episodes) { episodes.mapNotNull { it.id }.toSet() }
-    val seasonDownloadEntries = remember(trackedDownloads, seasonEpisodeIds) {
-        trackedDownloads.filter { seasonEpisodeIds.contains(it.itemId) }
-    }
-    val seasonDownload = rememberDownloadPanelState(
-        entries = seasonDownloadEntries,
-        expectedCount = seasonEpisodeIds.size
-    )
-    val hasActiveSeasonDownloads = seasonDownload.hasActiveDownloads
-    val canResumeSeasonDownloads = seasonDownload.canResumeDownloads
-    var seasonDownloadActionMenu by remember(
-        seasonId,
-        seasonDownload.status,
-        seasonDownload.activeItemIds.size,
-        seasonDownload.pausedItemIds.size
-    ) { mutableStateOf(false) }
-    val animatedSeasonDownloadProgress = rememberDownloadPanelProgress(
-        panelState = seasonDownload,
-        label = "season_download_progress"
-    )
     val heroHeight = if (useTabletBackdropLayout) 430.dp else 380.dp
     val logoCompactProgress = rememberCompactProgress(
         state = listState,
@@ -309,7 +269,6 @@ fun SeasonDetailScreen(
                             ) {
                                 if (showLogoImage) {
                                     JellyfinPosterImage(
-                                        context = context,
                                         imageUrl = currentLogoImageUrl,
                                         contentDescription = seasonName,
                                         modifier = Modifier
@@ -393,75 +352,14 @@ fun SeasonDetailScreen(
                                     )
                                 }
 
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(46.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            when {
-                                                hasActiveSeasonDownloads -> seasonDownloadActionMenu = true
-                                                else -> {
-                                                    coroutineScope.launch {
-                                                        seasonQueueInProgress = true
-                                                        try {
-                                                            val estimateResult = downloadRepository.buildEpisodeBatchEstimate(episodes)
-                                                            estimateResult.fold(
-                                                                onSuccess = { estimate ->
-                                                                    storageSelectionDialogState = SeasonEpisodeSelectionDialogState.fromEstimate(estimate)
-                                                                },
-                                                                onFailure = { throwable ->
-                                                                    downloadErrorDialogMessage = throwable.message
-                                                                        ?: "Failed to prepare season download."
-                                                                }
-                                                            )
-                                                        } finally {
-                                                            seasonQueueInProgress = false
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        enabled = episodes.isNotEmpty() && (!seasonQueueInProgress || hasActiveSeasonDownloads),
-                                        modifier = Modifier.fillMaxSize(),
-                                        shape = RoundedCornerShape(23.dp),
-                                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = Color(0xFF1F1F24),
-                                            contentColor = Color.White
-                                        )
+                                seasonDownloadAction?.let { downloadAction ->
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(46.dp)
                                     ) {
-                                        DownloadContent(
-                                            panelState = seasonDownload,
-                                            isQueueing = seasonQueueInProgress,
-                                            supportsCompleted = true,
-                                            progress = animatedSeasonDownloadProgress,
-                                            idleLabelRes = R.string.downloads_action_download,
-                                            fontSize = 13.sp,
-                                            iconSize = 18.dp,
-                                            progressSize = 16.dp
-                                        )
+                                        downloadAction(seasonId, episodes)
                                     }
-
-                                    DownloadActionMenu(
-                                        expanded = seasonDownloadActionMenu,
-                                        canResume = canResumeSeasonDownloads,
-                                        hasActiveDownloads = hasActiveSeasonDownloads,
-                                        onDismissRequest = { seasonDownloadActionMenu = false },
-                                        onPauseResume = {
-                                            seasonDownloadActionMenu = false
-                                            if (canResumeSeasonDownloads) {
-                                                seasonDownload.pausedItemIds.forEach(downloadRepository::resumeDownload)
-                                            } else {
-                                                seasonDownload.pausableItemIds.forEach(downloadRepository::pauseDownload)
-                                            }
-                                        },
-                                        onCancel = {
-                                            seasonDownloadActionMenu = false
-                                            seasonDownload.activeItemIds.forEach(downloadRepository::cancelDownload)
-                                        }
-                                    )
                                 }
                             }
                         }
@@ -524,65 +422,6 @@ fun SeasonDetailScreen(
             }
         }
     }
-
-    storageSelectionDialogState?.let { dialogState ->
-        DownloadDialog(
-            title = "Choose Episodes",
-            subtitle = "Pick episodes to download. Selected total must fit available storage.",
-            availableBytes = dialogState.availableBytes,
-            options = dialogState.options,
-            initialSelection = dialogState.options.map { it.id }.toSet(),
-            confirmLabel = "Download Episodes",
-            onDismiss = { storageSelectionDialogState = null },
-            onConfirm = { selectedIds ->
-                val selectedEpisodes = dialogState.options
-                    .filter { selectedIds.contains(it.id) }
-                    .mapNotNull { option -> dialogState.episodesById[option.id] }
-                storageSelectionDialogState = null
-                coroutineScope.launch {
-                    seasonQueueInProgress = true
-                    try {
-                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes).onFailure { throwable ->
-                            downloadErrorDialogMessage = throwable.message
-                                ?: "Failed to queue selected episodes."
-                        }
-                    } finally {
-                        seasonQueueInProgress = false
-                    }
-                }
-            }
-        )
-    }
-
-    downloadErrorDialogMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = { downloadErrorDialogMessage = null },
-            containerColor = Color(0xFF1A1C22),
-            titleContentColor = Color.White,
-            textContentColor = Color.White.copy(alpha = 0.92f),
-            shape = RoundedCornerShape(16.dp),
-            title = {
-                Text(
-                    text = "Download Failed",
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 20.sp
-                )
-            },
-            text = {
-                Text(text = message)
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { downloadErrorDialogMessage = null },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFF22D3EE)
-                    )
-                ) {
-                    Text("OK", fontWeight = FontWeight.SemiBold)
-                }
-            }
-        )
-    }
 }
 
 private fun List<BaseItemDto>.withUserDataRefresh(
@@ -605,58 +444,6 @@ private fun List<BaseItemDto>.withUserDataRefresh(
     }
 }
 
-private data class SeasonEpisodeSelectionDialogState(
-    val availableBytes: Long,
-    val options: List<StorageSelectionOption>,
-    val episodesById: Map<String, BaseItemDto>
-) {
-    companion object {
-        fun fromEstimate(estimate: BatchDownloadEstimate): SeasonEpisodeSelectionDialogState {
-            val candidates = estimate.candidates
-                .filter { !it.item.id.isNullOrBlank() }
-                .sortedWith(
-                    compareBy<BatchDownloadCandidate>(
-                        { it.item.parentIndexNumber ?: Int.MAX_VALUE },
-                        { it.item.indexNumber ?: Int.MAX_VALUE },
-                        { it.item.name.orEmpty() }
-                    )
-                )
-
-            val options = candidates.map { candidate ->
-                val episode = candidate.item
-                val episodeId = episode.id.orEmpty()
-                val episodeCode = buildString {
-                    episode.parentIndexNumber?.let { season ->
-                        episode.indexNumber?.let { episodeNumber ->
-                            append("S$season:E$episodeNumber")
-                        }
-                    }
-                }
-                val episodeSubtitle = buildString {
-                    if (episodeCode.isNotBlank()) append(episodeCode)
-                    if (!episode.seriesName.isNullOrBlank()) {
-                        if (isNotBlank()) append("  |  ")
-                        append(episode.seriesName)
-                    }
-                }.ifBlank { null }
-
-                StorageSelectionOption(
-                    id = episodeId,
-                    title = episode.name?.takeIf { it.isNotBlank() } ?: "Episode",
-                    subtitle = episodeSubtitle,
-                    requiredBytes = candidate.remainingBytes ?: 0L
-                )
-            }
-
-            return SeasonEpisodeSelectionDialogState(
-                availableBytes = estimate.availableBytes,
-                options = options,
-                episodesById = candidates.associate { it.item.id.orEmpty() to it.item }
-            )
-        }
-    }
-}
-
 @Composable
 private fun EpisodeListItem(
     episode: BaseItemDto,
@@ -664,7 +451,6 @@ private fun EpisodeListItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(episode.id) {
@@ -697,7 +483,6 @@ private fun EpisodeListItem(
                         .background(Color(0xFF1E1E1E))
                 ) {
                     JellyfinPosterImage(
-                        context = context,
                         imageUrl = episodeImageUrl,
                         contentDescription = episode.name,
                         modifier = Modifier.fillMaxSize(),

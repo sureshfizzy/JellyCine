@@ -2,6 +2,7 @@ package com.jellycine.detail
 
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaStream
+import com.jellycine.util.formatDecimal
 
 /**
  * Utility functions for codec display formatting and media information
@@ -179,7 +180,7 @@ object CodecUtils {
             videoStream.bitRate?.let { bitrate ->
                 if (isNotEmpty()) append(" • ")
                 val mbps = bitrate / 1000000.0
-                append("%.1f Mbps".format(mbps))
+                append("${formatDecimal(mbps, 1)} Mbps")
             }
         }
     }
@@ -260,7 +261,7 @@ object CodecUtils {
         val totalBitrate = item.mediaStreams?.sumOf { it.bitRate ?: 0 } ?: 0
         return if (totalBitrate > 0) {
             val mbps = totalBitrate / 1000000.0
-            "%.1f Mbps".format(mbps)
+            "${formatDecimal(mbps, 1)} Mbps"
         } else null
     }
 
@@ -274,8 +275,8 @@ object CodecUtils {
         val mb = sizeBytes / (1024.0 * 1024.0)
 
         return when {
-            gb >= 1.0 -> "%.1f GB".format(gb)
-            mb >= 1.0 -> "%.0f MB".format(mb)
+            gb >= 1.0 -> "${formatDecimal(gb, 1)} GB"
+            mb >= 1.0 -> "${formatDecimal(mb, 0)} MB"
             else -> "< 1 MB"
         }
     }

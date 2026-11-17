@@ -1,5 +1,9 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+import com.jellycine.util.formatDecimal
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,16 +32,13 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,7 +86,6 @@ private fun BoxSetMovieCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     var posterUrl by remember(item.id) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(item.id) {
@@ -120,7 +120,6 @@ private fun BoxSetMovieCard(
         ) {
             posterUrl?.let { url ->
                 JellyfinPosterImage(
-                    context = context,
                     imageUrl = url,
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
@@ -170,7 +169,7 @@ private fun BoxSetMovieCard(
                             modifier = Modifier.size(11.dp)
                         )
                         Text(
-                            text = String.format("%.1f", rating),
+                            text = (formatDecimal(rating, 1)),
                             color = Color.White.copy(alpha = 0.85f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium

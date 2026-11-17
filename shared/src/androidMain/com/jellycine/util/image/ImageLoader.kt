@@ -2,14 +2,12 @@ package com.jellycine.util.image
 
 import android.content.Context
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -21,7 +19,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.*
-import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.preferences.Preferences
@@ -29,7 +26,6 @@ import com.jellycine.ui.components.common.ShimmerEffect
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 
 // Skeleton loading animation with optional placeholder
@@ -148,41 +144,6 @@ class ImageUrlViewModel @Inject constructor(
     }
 }
 
-suspend fun getBackdrop(
-    episode: BaseItemDto,
-    mediaRepository: MediaRepository,
-    width: Int,
-    height: Int,
-    quality: Int
-): String? {
-    val episodeId = episode.id ?: return null
-    return mediaRepository.getImageUrl(
-        itemId = episodeId,
-        imageType = "Primary",
-        width = width,
-        height = height,
-        quality = quality,
-        enableImageEnhancers = false,
-        imageTag = episode.imageTagFor(
-            imageType = "Primary",
-            targetItemId = episodeId
-        )
-    ).first() ?: episode.seriesId?.let { seriesId ->
-        mediaRepository.getBackdropImageUrl(
-            itemId = seriesId,
-            imageIndex = 0,
-            width = width,
-            height = height,
-            quality = quality,
-            enableImageEnhancers = false,
-            imageTag = episode.imageTagFor(
-                imageType = "Backdrop",
-                targetItemId = seriesId
-            )
-        ).first()
-    }
-}
-
 // Composable functions
 @Composable
 fun disableEmbyPosterEnhancers(): Boolean {
@@ -198,51 +159,6 @@ fun disableEmbyPosterEnhancers(): Boolean {
 
 @Composable
 fun DisableEmbyPosterEnhancers(): Boolean = disableEmbyPosterEnhancers()
-
-@Composable
-fun rememberImageUrl(
-    itemId: String?,
-    imageType: String = "Primary",
-    width: Int? = null,
-    height: Int? = null,
-    quality: Int? = 90,
-    enableImageEnhancers: Boolean = true,
-    imageTag: String? = null,
-    mediaRepository: MediaRepository
-): String? {
-    val disablePosterEnhancers = disableEmbyPosterEnhancers()
-    val context = LocalContext.current
-    val authRepository = remember(context) { AuthRepositoryProvider.getInstance(context) }
-    val currentServerType by authRepository.getServerType().collectAsStateWithLifecycle(initialValue = null)
-    val effectiveEnhancersEnabled = enableImageEnhancers && !disablePosterEnhancers
-    val imageUrlFlow = remember(
-        itemId,
-        imageType,
-        width,
-        height,
-        quality,
-        effectiveEnhancersEnabled,
-        imageTag,
-        currentServerType
-    ) {
-        if (itemId.isNullOrBlank() || currentServerType == null) {
-            flowOf(null)
-        } else {
-            mediaRepository.getImageUrl(
-                itemId = itemId,
-                imageType = imageType,
-                width = width,
-                height = height,
-                quality = quality,
-                enableImageEnhancers = effectiveEnhancersEnabled,
-                imageTag = imageTag
-            )
-        }
-    }
-    val imageUrl by imageUrlFlow.collectAsStateWithLifecycle(initialValue = null)
-
-    return imageUrl
-}
 
 @Composable
 fun rememberImageUrl(

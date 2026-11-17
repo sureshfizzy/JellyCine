@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -14,7 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -149,7 +150,7 @@ fun CodecBadges(
 fun CapabilityBadge(
     text: String,
     icon: ImageVector? = null,
-    customIcon: Int? = null,
+    customIcon: DrawableResource? = null,
     iconTintUnspecified: Boolean = false,
     customIconTint: Color? = null
 ) {

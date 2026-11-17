@@ -29,6 +29,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecCapabilityManager
+import com.jellycine.detail.canSpatializeAudioStream
 import com.jellycine.player.audio.SpatializerHelper
 import com.jellycine.player.core.PlaybackMarkerUtils
 import com.jellycine.player.core.PlayerState
@@ -377,12 +378,12 @@ class PlayerViewModel @Inject constructor(
                     }
 
                     primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
-                    
+
                     apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
                         itemDetails = itemDetails,
                         playbackMediaSource = primaryMediaSource
                     )
-                    
+
                     defaultAudioStreamIndex = primaryMediaSource?.defaultAudioStreamIndex
                     defaultSubtitleStreamIndex = primaryMediaSource?.defaultSubtitleStreamIndex
                     sessionPlaySessionId = playbackInfo.playSessionId
@@ -431,7 +432,7 @@ class PlayerViewModel @Inject constructor(
                         activePreferredSubtitleStreamIndex
                             ?: primaryMediaSource?.defaultSubtitleStreamIndex
                         )?.takeIf { it >= 0 }
-                    
+
                     val activeSubtitleStream = apiMediaStreams
                         ?.firstOrNull { stream ->
                             stream.type.equals("Subtitle", ignoreCase = true) &&
@@ -465,7 +466,7 @@ class PlayerViewModel @Inject constructor(
                     isOfflinePlayback = sessionIsOfflinePlayback
                 )
                 playbackReporter.updateSession(playbackSession)
-                
+
                 mpvExternalSubtitleUrls = if (sessionIsOfflinePlayback) {
                     downloadRepository?.getOfflineSubtitlePaths(mediaId).orEmpty()
                 } else {
@@ -534,7 +535,7 @@ class PlayerViewModel @Inject constructor(
                     resolveExoHdrFormatLabel()
                 }
                 val isHdrPlayback = hdrFormat.isNotBlank()
-                
+
                 // Apply start maximized setting if enabled
                 applyStartMaximizedSetting(context)
 
@@ -1346,7 +1347,7 @@ class PlayerViewModel @Inject constructor(
             Log.w(TAG, "Could not find subtitle track with id $trackId in available tracks")
             return
         }
-        
+
         Log.d(TAG, "Selected track info: label=${selectedTrack.label} streamIndex=${selectedTrack.streamIndex} requiresRestart=${selectedTrack.requiresPlaybackRestart}")
 
         if (isMpvPlayback()) {
@@ -1430,12 +1431,12 @@ class PlayerViewModel @Inject constructor(
     fun cycleAspectRatio() {
         setAspectRatioMode((currentAspectRatio + 1) % aspectRatioModes.size)
     }
-    
+
     /**
      * Get current resize mode for VideoSurface
      */
     fun getCurrentResizeMode(): Int = currentResizeMode
-    
+
     /**
      * Handle pinch-to-zoom gesture to set appropriate resize mode
      */
@@ -1454,7 +1455,7 @@ class PlayerViewModel @Inject constructor(
     private fun applyStartMaximizedSetting(context: Context) {
         val playerPreferences = PlayerPreferences(context)
         val startMaximized = playerPreferences.isStartMaximizedEnabled()
-        
+
         setAspectRatioMode(if (startMaximized) 1 else 0)
     }
 
@@ -1508,7 +1509,7 @@ class PlayerViewModel @Inject constructor(
                 Player.STATE_READY -> playWhenReady && !hasRenderedFirstFrame
                 else -> false
             }
-            
+
             _playerState.value = currentState.copy(
                 isLoading = shouldShowLoading,
                 isPlaying = isNowPlaying,

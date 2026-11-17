@@ -29,7 +29,7 @@ fun ScreenWrapper(
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
-    
+
     // transformation states
     val scale by animateFloatAsState(
         targetValue = if (isActive) 1f else 0.95f,
@@ -38,7 +38,7 @@ fun ScreenWrapper(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val alpha by animateFloatAsState(
         targetValue = if (isActive) 1f else 0f,
         animationSpec = tween(
@@ -80,7 +80,7 @@ fun AnimatedCard(
     var isHovered by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    
+
     // Animation states
     val scale by animateFloatAsState(
         targetValue = when {
@@ -94,7 +94,7 @@ fun AnimatedCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val rotationX by animateFloatAsState(
         targetValue = when {
             !enabled -> 0f
@@ -107,7 +107,7 @@ fun AnimatedCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val rotationY by animateFloatAsState(
         targetValue = when {
             !enabled -> 0f
@@ -120,7 +120,7 @@ fun AnimatedCard(
             stiffness = Spring.StiffnessMedium
         )
     )
-    
+
     val dynamicElevation by animateDpAsState(
         targetValue = when {
             !enabled -> 2.dp
@@ -181,7 +181,7 @@ fun ListItem(
     var isPressed by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
-    
+
     // Subtle effects for list items
     val scale by animateFloatAsState(
         targetValue = when {
@@ -194,7 +194,7 @@ fun ListItem(
             stiffness = Spring.StiffnessHigh
         )
     )
-    
+
     val rotationX by animateFloatAsState(
         targetValue = when {
             !enabled -> 0f

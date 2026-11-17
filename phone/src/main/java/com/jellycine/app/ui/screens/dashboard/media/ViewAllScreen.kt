@@ -50,7 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jellycine.shared.R
 import com.jellycine.ui.components.common.BackButton
 import com.jellycine.ui.components.common.CompactPageHeader
-import com.jellycine.app.ui.components.common.CompactTopLogo
+import com.jellycine.ui.components.common.CompactTopLogo
 import com.jellycine.ui.components.common.CompactTopText
 import com.jellycine.ui.components.common.compactHeaderLogo
 import com.jellycine.ui.components.common.containerWidthDp

@@ -1,6 +1,14 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
-import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+import com.jellycine.util.image.LocalDisablePosterEnhancers
+import com.jellycine.preferences.Preferences
+import kotlinx.coroutines.flow.flowOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,39 +25,35 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.util.UnstableApi
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.detail_person_load_failed
+import com.jellycine.resources.detail_person_no_related_titles
+import com.jellycine.resources.detail_person_unknown
 import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.util.image.imageTagFor
 import com.jellycine.util.image.rememberImageUrl
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrItemIds
+import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
 import com.jellycine.ui.components.common.BackButton
-import com.jellycine.app.ui.components.common.SeerTitlesRow
-import com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson
+import com.jellycine.ui.components.common.SeerTitlesRow
 import com.jellycine.ui.components.common.CompactTopText
 import com.jellycine.ui.components.common.rememberCompactProgress
 import com.jellycine.ui.components.common.PosterCountBadge
@@ -71,18 +75,24 @@ object PersonImageCache {
     }
 }
 
-@UnstableApi
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PersonScreenContainer(
     personId: String,
+    mediaRepository: MediaRepository,
+    authRepository: AuthRepository,
+    platform: DetailPlatform = remember { DefaultDetailPlatform() },
+    preferences: Preferences? = null,
     onBackPressed: () -> Unit = {},
     onItemClick: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val serverType by authRepository.getServerType().collectAsState(initial = null)
+    val posterEnhancersEnabled by (preferences?.PosterEnhancersEnabled() ?: flowOf(false))
+        .collectAsState(initial = preferences?.isPosterEnhancersEnabled() ?: false)
+    val disablePosterEnhancers =
+        serverType.equals("EMBY", ignoreCase = true) && posterEnhancersEnabled
+
     val cachedImageUrl = remember(personId) { PersonImageCache.get(personId) }
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val seerrRepository = remember(context) { SeerrRepository(context) }
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
     val seerTmdbId = remember(personId) { SeerrItemIds.personTmdbId(personId) }
@@ -99,28 +109,16 @@ fun PersonScreenContainer(
 
         try {
             if (seerTmdbId != null) {
-                val scopeId = activeServerId?.takeIf { it.isNotBlank() }
-                if (scopeId == null) {
+                val seerrPerson = platform.loadSeerrPerson(seerTmdbId, activeServerId)
+                if (seerrPerson == null) {
                     person = null
                     relatedTitles = emptyList()
                     seerrRelatedTitles = emptyList()
                     hasError = true
                 } else {
-                    val (personResult, directedTitles) = coroutineScope {
-                        val personDeferred = async { seerrRepository.getPersonDetails(scopeId, seerTmdbId) }
-                        val directedTitlesDeferred = async {
-                            fetchSeerDirectedTitlesForTmdbPerson(
-                                personTmdbId = seerTmdbId,
-                                activeServerId = activeServerId,
-                                seerrRepository = seerrRepository
-                            )
-                        }
-                        personDeferred.await() to directedTitlesDeferred.await()
-                    }
-
-                    person = personResult.getOrNull()
+                    person = seerrPerson.first
                     relatedTitles = emptyList()
-                    seerrRelatedTitles = directedTitles
+                    seerrRelatedTitles = seerrPerson.second
                     hasError = person == null
                 }
             } else {
@@ -147,6 +145,7 @@ fun PersonScreenContainer(
 
     BackHandler(onBack = onBackPressed)
 
+    CompositionLocalProvider(LocalDisablePosterEnhancers provides disablePosterEnhancers) {
     PersonScreen(
         person = person,
         relatedTitles = relatedTitles,
@@ -158,6 +157,7 @@ fun PersonScreenContainer(
         onBackPressed = onBackPressed,
         onItemClick = onItemClick
     )
+    }
 }
 
 @Composable
@@ -223,7 +223,7 @@ private fun PersonScreen(
         } else if (hasError) {
             item {
                 Text(
-                    text = stringResource(R.string.detail_person_load_failed),
+                    text = stringResource(Res.string.detail_person_load_failed),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
@@ -291,7 +291,7 @@ private fun PersonScreen(
         if (!isLoading && movies.isEmpty() && shows.isEmpty() && episodes.isEmpty() && seerrRelatedTitles.isEmpty() && !hasError) {
             item {
                 Text(
-                    text = stringResource(R.string.detail_person_no_related_titles),
+                    text = stringResource(Res.string.detail_person_no_related_titles),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 14.sp,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp)
@@ -331,7 +331,6 @@ private fun PersonHeader(
     initialImageUrl: String? = null,
     compactProgress: Float = 0f
 ) {
-    val context = LocalContext.current
     val personId = person?.id
     val personImageUrl = when {
         !initialImageUrl.isNullOrBlank() -> initialImageUrl
@@ -367,8 +366,7 @@ private fun PersonHeader(
                     imageUrl = personImageUrl,
                     contentDescription = person?.name,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    context = context
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Icon(
@@ -384,7 +382,7 @@ private fun PersonHeader(
 
         val nameAlpha = (1f - compactProgress * 2f).coerceIn(0f, 1f)
         Text(
-            text = person?.name ?: if (isLoading) "" else stringResource(R.string.detail_person_unknown),
+            text = person?.name ?: if (isLoading) "" else stringResource(Res.string.detail_person_unknown),
             color = Color.White.copy(alpha = nameAlpha),
             fontSize = 26.sp,
             lineHeight = 30.sp,
@@ -432,7 +430,6 @@ private fun FilmographyCard(
     mediaRepository: MediaRepository,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
     val imageItemId = when {
         item.type?.equals("Episode", ignoreCase = true) == true && !item.seriesId.isNullOrBlank() -> item.seriesId
         else -> item.id
@@ -474,7 +471,6 @@ private fun FilmographyCard(
                     imageUrl = imageUrl,
                     contentDescription = item.name,
                     modifier = Modifier.fillMaxSize(),
-                    context = context,
                     contentScale = ContentScale.Crop
                 )
             }

@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.ui.components.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jellycine.ui.components.common.WatchedActionButton
@@ -115,7 +114,6 @@ fun DetailBackdropHero(
     onErrorStateChange: (Boolean) -> Unit = {},
     overlayContent: @Composable BoxScope.() -> Unit = {}
 ) {
-    val context = LocalContext.current
     val styleSpec = detailBackdropHeroStyleSpec(style)
     val resolvedBottomFadeHeight = bottomFadeHeight ?: styleSpec.bottomFadeHeight
     val resolvedImageAlignment = imageAlignment ?: styleSpec.imageAlignment
@@ -136,7 +134,6 @@ fun DetailBackdropHero(
                 imageUrl = imageUrl,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
-                context = context,
                 contentScale = ContentScale.Crop,
                 alignment = resolvedImageAlignment,
                 onErrorStateChange = onErrorStateChange
@@ -180,7 +177,7 @@ fun BoxScope.DetailHeroCastButtonOverlay(
     showWatchedButton: Boolean,
     isWatched: Boolean,
     onWatchedClick: () -> Unit,
-    onCastButtonClick: () -> Unit
+    castButton: @Composable () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -196,6 +193,6 @@ fun BoxScope.DetailHeroCastButtonOverlay(
                 onClick = onWatchedClick
             )
         }
-        ScreenCastButton(onConnectedClick = onCastButtonClick)
+        castButton()
     }
 }

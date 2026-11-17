@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -11,22 +11,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.util.image.getBackdrop
 import com.jellycine.ui.components.common.AnimatedCard
@@ -43,7 +34,6 @@ fun EpisodeCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     var episodeImageUrl by remember(episode.id) { mutableStateOf<String?>(null) }
     var hasImageLoadError by remember(episode.id) { mutableStateOf(false) }
 
@@ -81,7 +71,6 @@ fun EpisodeCard(
             ) {
                 if (episodeImageUrl != null && !hasImageLoadError) {
                     JellyfinPosterImage(
-                        context = context,
                         imageUrl = episodeImageUrl!!,
                         contentDescription = episode.name,
                         modifier = Modifier.fillMaxSize(),

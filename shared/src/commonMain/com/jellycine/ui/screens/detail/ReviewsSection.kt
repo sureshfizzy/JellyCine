@@ -1,4 +1,7 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -33,17 +36,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,10 +53,10 @@ import coil3.compose.AsyncImage
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.TmdbReview
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.R
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.jellycine.resources.Res
+import com.jellycine.resources.detail_reviews
+import com.jellycine.resources.detail_reviews_rating
+import com.jellycine.resources.detail_reviews_read_full
 
 private val REVIEW_CARD_COLOR = Color(0xFF1E1E22)
 
@@ -79,7 +80,7 @@ internal fun ReviewsSection(
 
     Column(modifier = modifier) {
         Text(
-            text = stringResource(R.string.detail_reviews),
+            text = stringResource(Res.string.detail_reviews),
             fontSize = 21.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -159,7 +160,7 @@ private fun ReviewCard(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(R.string.detail_reviews_read_full),
+                    text = stringResource(Res.string.detail_reviews_read_full),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF6FA8FF)
@@ -255,7 +256,7 @@ private fun RatingChip(rating: Double) {
         )
         Spacer(modifier = Modifier.width(3.dp))
         Text(
-            text = stringResource(R.string.detail_reviews_rating, rating.formatRating()),
+            text = stringResource(Res.string.detail_reviews_rating, rating.formatRating()),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             color = accent
@@ -322,14 +323,19 @@ private fun ReviewDetailSheet(
     }
 }
 
-private val REVIEW_DATE_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+private val REVIEW_MONTHS = listOf(
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+)
 
+/** Formats an ISO date (yyyy-MM-dd...) as "MMM d, yyyy". */
 private fun TmdbReview.formattedDate(): String? {
     val raw = createdAt?.takeIf { it.length >= 10 } ?: return null
-    return runCatching {
-        LocalDate.parse(raw.substring(0, 10)).format(REVIEW_DATE_FORMATTER)
-    }.getOrNull()
+    val parts = raw.substring(0, 10).split('-')
+    if (parts.size != 3) return null
+    val year = parts[0].toIntOrNull() ?: return null
+    val month = parts[1].toIntOrNull()?.takeIf { it in 1..12 } ?: return null
+    val day = parts[2].toIntOrNull()?.takeIf { it in 1..31 } ?: return null
+    return "${REVIEW_MONTHS[month - 1]} $day, $year"
 }
 
 private fun Double.formatRating(): String =

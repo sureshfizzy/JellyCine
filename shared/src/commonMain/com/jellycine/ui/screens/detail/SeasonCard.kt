@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,13 +13,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.preferences.Preferences
 import com.jellycine.util.image.JellyfinPosterImage
+import com.jellycine.util.image.LocalDisablePosterEnhancers
 import com.jellycine.util.image.imageTagFor
 import com.jellycine.ui.components.common.AnimatedCard
 import com.jellycine.ui.components.common.ShimmerEffect
@@ -28,9 +27,7 @@ import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.SeerrSeasonRequestOption
 import com.jellycine.data.model.seerTitleParams
-import com.jellycine.data.repository.AuthRepositoryProvider
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,13 +40,7 @@ fun SeasonCard(
     isLoading: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val preferences = remember { Preferences(context) }
-    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val currentServerType by authRepository.getServerType().collectAsState(initial = null)
-    val posterEnhancersEnabled by preferences.PosterEnhancersEnabled()
-        .collectAsState(initial = preferences.isPosterEnhancersEnabled())
-    val disableImageEnhancers = currentServerType.equals("EMBY", ignoreCase = true) && posterEnhancersEnabled
+    val disableImageEnhancers = LocalDisablePosterEnhancers.current
     var seasonImageCandidates by remember(season.id, season.seriesId, season.imageUrl) { mutableStateOf<List<String>>(emptyList()) }
     var seasonImageIndex by remember(season.id, season.seriesId, season.imageUrl) { mutableIntStateOf(0) }
     var hasImageLoadError by remember(season.id, season.seriesId, season.imageUrl) { mutableStateOf(false) }
@@ -129,7 +120,6 @@ fun SeasonCard(
                 ) {
                     if (seasonImageUrl != null && !hasImageLoadError) {
                         JellyfinPosterImage(
-                            context = context,
                             imageUrl = seasonImageUrl,
                             contentDescription = season.name,
                             modifier = Modifier.fillMaxSize(),
@@ -237,13 +227,13 @@ fun SeasonCard(
 }
 
 @Composable
-internal fun SeasonsSection(
+fun SeasonsSection(
     series: BaseItemDto,
     seriesId: String,
     mediaRepository: MediaRepository,
-    seerrRepository: SeerrRepository,
     activeServerId: String?,
     refreshKey: Int,
+    loadSeerrSeasons: (suspend (scopeId: String, tmdbId: String) -> List<SeerrSeasonRequestOption>)? = null,
     loadingSeasonNumber: Int? = null,
     onSeasonRequest: (Int) -> Unit,
     onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
@@ -298,11 +288,14 @@ internal fun SeasonsSection(
             return@LaunchedEffect
         }
 
+        val loader = loadSeerrSeasons
+        if (loader == null) {
+            seerrSeasons = emptyList()
+            isLoadingSeerr = false
+            return@LaunchedEffect
+        }
         isLoadingSeerr = true
-        seerrSeasons = seerrRepository.getTitleSeasons(
-            scopeId = scopeId,
-            tmdbId = tmdbId
-        ).getOrDefault(emptyList())
+        seerrSeasons = loader(scopeId, tmdbId)
         isLoadingSeerr = false
     }
 

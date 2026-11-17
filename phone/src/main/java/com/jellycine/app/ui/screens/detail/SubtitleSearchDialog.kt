@@ -1,5 +1,7 @@
 package com.jellycine.app.ui.screens.detail
 
+import com.jellycine.ui.screens.detail.OptionSelectorRow
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable

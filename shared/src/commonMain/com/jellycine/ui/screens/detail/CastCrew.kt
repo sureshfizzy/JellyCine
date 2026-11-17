@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi

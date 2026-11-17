@@ -12,6 +12,15 @@ def syncComposeResources = tasks.register('syncComposeResources', Sync) {
         include 'drawable/jellycine_logo.png'
         include 'drawable/ic_emby_placeholder.xml'
         include 'drawable/ic_jellyfin_placeholder.xml'
+        include 'drawable/ic_dolby_logo.xml'
+        include 'drawable/ic_dolby_atmos.xml'
+        include 'drawable/ic_spatial_audio.xml'
+        include 'drawable/ic_immersive_audio.xml'
+        include 'drawable/ic_resume_playback.xml'
+        include 'drawable/hdr_badge.png'
+        include 'drawable/hdr10_badge.png'
+        include 'drawable/hdr10plus_badge.png'
+        include 'drawable/dolby_vision_badge.png'
     }
     from('../data/src/androidMain/res') {
         include 'values*/strings.xml'

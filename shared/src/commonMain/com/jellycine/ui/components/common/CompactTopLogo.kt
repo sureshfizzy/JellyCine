@@ -1,4 +1,4 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.ui.components.common
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,7 +32,6 @@ fun CompactTopLogo(
     verticalImagePadding: Dp = 7.dp,
     overlayTitle: String? = null
 ) {
-    val context = LocalContext.current
 
     CompactTopChip(
         modifier = modifier
@@ -51,7 +49,6 @@ fun CompactTopLogo(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = horizontalImagePadding, vertical = verticalImagePadding),
-            context = context,
             contentScale = contentScale,
             alignment = Alignment.Center
         )

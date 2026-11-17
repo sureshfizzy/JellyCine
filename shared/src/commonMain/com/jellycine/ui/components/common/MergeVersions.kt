@@ -3,7 +3,7 @@ package com.jellycine.ui.components.common
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSourceInfo
 import com.jellycine.data.model.MediaStream
-import java.util.Locale
+import com.jellycine.util.formatDecimal
 
 fun BaseItemDto.activeDetailMediaSources(): List<MediaSourceInfo> {
     val sources = mediaSources.orEmpty()
@@ -138,8 +138,8 @@ private fun formatFileSize(
     val mb = sizeBytes / (1024.0 * 1024.0)
 
     return when {
-        gb >= 1.0 -> String.format(Locale.US, "%.1f GB", gb)
-        mb >= 1.0 -> String.format(Locale.US, "%.0f MB", mb)
+        gb >= 1.0 -> formatDecimal(gb, 1) + " GB"
+        mb >= 1.0 -> formatDecimal(mb, 0) + " MB"
         else -> smallFileSizeLabel
     }
 }
@@ -147,7 +147,7 @@ private fun formatFileSize(
 private fun formatBitrate(bitsPerSecond: Long?): String? {
     val value = bitsPerSecond?.takeIf { it > 0L } ?: return null
     return if (value >= 1_000_000L) {
-        "${String.format(Locale.US, "%.1f", value / 1_000_000.0)} Mbps"
+        "${formatDecimal(value / 1_000_000.0, 1)} Mbps"
     } else {
         "${value / 1000L} kbps"
     }

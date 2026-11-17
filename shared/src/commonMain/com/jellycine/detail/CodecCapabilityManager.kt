@@ -1,8 +1,6 @@
 package com.jellycine.detail
 
-import android.content.Context
 import com.jellycine.data.model.MediaStream
-import com.jellycine.player.audio.SpatializerHelper
 
 /**
  * Manager class for codec capability detection and spatial audio analysis
@@ -13,10 +11,10 @@ object CodecCapabilityManager {
      * Detect spatial audio format from media stream metadata
      */
     fun detectSpatialAudio(
-        codec: String, 
-        channels: Int, 
-        channelLayout: String?, 
-        title: String?, 
+        codec: String,
+        channels: Int,
+        channelLayout: String?,
+        title: String?,
         profile: String?
     ): String {
         val codecLower = codec.lowercase()
@@ -27,7 +25,7 @@ object CodecCapabilityManager {
         // Spatial Audio Detection
         when {
             // === DOLBY ATMOS DETECTION ===
-            
+
             // Explicit Atmos indicators in metadata (most reliable)
             titleLower.contains("dolby atmos") ||
             titleLower.contains("atmos") ||
@@ -66,7 +64,7 @@ object CodecCapabilityManager {
             ) -> return "Dolby Atmos"
 
             // === DTS:X DETECTION ===
-            
+
             // Explicit DTS:X indicators
             titleLower.contains("dts:x") ||
             titleLower.contains("dtsx") ||
@@ -82,7 +80,7 @@ object CodecCapabilityManager {
             ) -> return "DTS:X"
 
             // === SPATIAL CHANNEL LAYOUTS ===
-            
+
             // Object-based audio detection by specific channel layouts
             layoutLower.contains("7.1.4") || layoutLower.contains("(7.1.4)") -> return "7.1.4 (Atmos)"
             layoutLower.contains("5.1.4") || layoutLower.contains("(5.1.4)") -> return "5.1.4 (Atmos)"
@@ -92,7 +90,7 @@ object CodecCapabilityManager {
             layoutLower.contains("11.1.4") || layoutLower.contains("(11.1.4)") -> return "11.1.4 (Atmos)"
 
             // === OTHER SPATIAL FORMATS ===
-            
+
             // Sony 360 Reality Audio
             titleLower.contains("360 reality audio") ||
             titleLower.contains("360ra") ||
@@ -139,7 +137,7 @@ object CodecCapabilityManager {
         val doviTitle = videoStream.videoDoViTitle?.lowercase().orEmpty()
         val displayTitle = videoStream.displayTitle?.lowercase().orEmpty()
         val comment = videoStream.comment?.lowercase().orEmpty()
-        
+
         // Check for Dolby Vision
         when {
             videoRangeType.contains("dovi") ||
@@ -161,13 +159,13 @@ object CodecCapabilityManager {
             // Check for DV profile indicators
             videoStream.dvProfile != null ||
             videoStream.rpuPresentFlag == 1 -> return "Dolby Vision"
-            
+
             // Check for HDR10+
             videoRangeType.contains("hdr10+") ||
             videoRange.contains("hdr10+") ||
             title.contains("hdr10+") ||
             profile.contains("hdr10+") -> return "HDR10+"
-            
+
             // Check for HDR10
             videoRangeType.contains("hdr10") ||
             videoRange.contains("hdr10") ||
@@ -176,7 +174,7 @@ object CodecCapabilityManager {
             colorTransfer.contains("smpte2084") ||
             colorTransfer.contains("2084") ||
             colorTransfer.contains("pq") -> return "HDR10"
-            
+
             // Generic HDR detection
             videoRange.contains("hdr") ||
             videoRangeType.contains("hdr") ||
@@ -184,7 +182,7 @@ object CodecCapabilityManager {
             colorTransfer.contains("hlg") ||
             colorSpace.contains("bt2020") -> return "HDR"
         }
-        
+
         return ""
     }
 
@@ -237,67 +235,8 @@ object CodecCapabilityManager {
         )
         return spatialInfo.isNotEmpty()
     }
-    
-    /**
-     * Check if the device can spatialize the given audio stream.
-     * Returns true only when content is spatializable and the current route can render it.
-     */
-    fun canSpatializeAudioStream(
-        context: Context,
-        audioStream: MediaStream,
-        spatializerHelper: SpatializerHelper? = null
-    ): SpatializationResult {
-        val spatialFormat = detectSpatialAudio(
-            audioStream.codec?.uppercase() ?: "",
-            audioStream.channels ?: 0,
-            audioStream.channelLayout,
-            audioStream.title,
-            audioStream.profile
-        )
-        
-        if (spatialFormat.isEmpty()) {
-            return SpatializationResult(
-                canSpatialize = false,
-                reason = "Content is not multichannel/object-based spatial audio",
-                spatialFormat = "Stereo"
-            )
-        }
 
-        val helper = spatializerHelper ?: SpatializerHelper(context)
-        val requestedChannelCount = (audioStream.channels ?: 2).coerceAtLeast(2)
-        val audioFormat = helper.getRecommendedAudioFormat(requestedChannelCount)
 
-        if (audioFormat == null) {
-            return SpatializationResult(
-                canSpatialize = false,
-                reason = "Spatializable content detected, but no compatible spatial audio format is available",
-                spatialFormat = spatialFormat
-            )
-        }
-
-        val routeSupportsSpatialization = helper.canSpatializeOnTrack(audioFormat)
-        val spatializerActive = helper.canSpatializeAudio(audioFormat)
-
-        return if (spatializerActive) {
-            SpatializationResult(
-                canSpatialize = true,
-                reason = "Spatializable content detected and device spatializer is active for this route",
-                spatialFormat = spatialFormat
-            )
-        } else if (routeSupportsSpatialization) {
-            SpatializationResult(
-                canSpatialize = false,
-                reason = "Spatializable content detected, but device spatializer is disabled in system settings",
-                spatialFormat = spatialFormat
-            )
-        } else {
-            SpatializationResult(
-                canSpatialize = false,
-                reason = "Spatializable content detected, but device spatializer is unavailable for current route/format",
-                spatialFormat = spatialFormat
-            )
-        }
-    }
 
     private fun String.containsDoviToken(): Boolean {
         return Regex("""\bdv(?:\d+)?\b""").containsMatchIn(this)

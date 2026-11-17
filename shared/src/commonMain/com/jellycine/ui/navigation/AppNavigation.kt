@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.preferences.NetworkSettingsStore
 import com.jellycine.data.repository.*
@@ -21,6 +22,10 @@ import com.jellycine.ui.theme.JellyCineTheme
 import com.jellycine.ui.screens.dashboard.settings.*
 import com.jellycine.ui.screens.dashboard.DashboardDestination
 import com.jellycine.ui.screens.dashboard.DashboardShell
+import com.jellycine.ui.screens.detail.DefaultDetailPlatform
+import com.jellycine.ui.screens.detail.DetailPlatform
+import com.jellycine.ui.screens.detail.DetailScreenContainer
+import com.jellycine.ui.screens.detail.PersonScreenContainer
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -32,6 +37,7 @@ fun AppNavigation(
     networkSettings: NetworkSettingsStore? = null,
     serverDiscovery: (() -> Flow<DiscoveredServer>)? = null,
     appVersion: String = "",
+    detailPlatform: DetailPlatform = remember { DefaultDetailPlatform() },
     onOpenLanguageSettings: () -> Unit = {}
 ) {
     val isAuthenticated by authRepository.isAuthenticated.collectAsState(initial = null)
@@ -50,6 +56,7 @@ fun AppNavigation(
                 networkSettings = networkSettings,
                 serverDiscovery = serverDiscovery,
                 appVersion = appVersion,
+                detailPlatform = detailPlatform,
                 onOpenLanguageSettings = onOpenLanguageSettings
             )
         }
@@ -66,6 +73,7 @@ private fun AppContent(
     networkSettings: NetworkSettingsStore?,
     serverDiscovery: (() -> Flow<DiscoveredServer>)?,
     appVersion: String,
+    detailPlatform: DetailPlatform,
     onOpenLanguageSettings: () -> Unit
 ) {
     when (isAuthenticated) {
@@ -83,9 +91,15 @@ private fun AppContent(
             preferences = preferences,
             networkSettings = networkSettings,
             appVersion = appVersion,
+            detailPlatform = detailPlatform,
             onOpenLanguageSettings = onOpenLanguageSettings
         )
     }
+}
+
+private sealed interface DetailRoute {
+    data class Detail(val itemId: String) : DetailRoute
+    data class Person(val personId: String) : DetailRoute
 }
 
 private enum class SettingsPage { ABOUT, INTERFACE, CACHE }
@@ -98,8 +112,15 @@ private fun Dashboard(
     preferences: Preferences?,
     networkSettings: NetworkSettingsStore?,
     appVersion: String,
+    detailPlatform: DetailPlatform,
     onOpenLanguageSettings: () -> Unit
 ) {
+    var detailStack by remember { mutableStateOf<List<DetailRoute>>(emptyList()) }
+    val openDetail: (BaseItemDto) -> Unit = { item ->
+        item.id?.takeIf { it.isNotBlank() }?.let { itemId ->
+            detailStack = detailStack + DetailRoute.Detail(itemId)
+        }
+    }
     var settingsPage by remember { mutableStateOf<SettingsPage?>(null) }
     val settingsViewModel: SettingsViewModel? = if (preferences != null && networkSettings != null) {
         viewModel { SettingsViewModel(authRepository, mediaRepository, preferences, networkSettings) }
@@ -116,20 +137,23 @@ private fun Dashboard(
                 HomeScreen(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
-                    listState = homeScrollState
+                    listState = homeScrollState,
+                    onItemClick = openDetail
                 )
             } else if (route == DashboardDestination.MyMedia.route) {
                 Discover(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
                     disablePosterEnhancers = false,
-                    awardsRepository = awardsRepository
+                    awardsRepository = awardsRepository,
+                    onItemClick = openDetail
                 )
             } else if (route == DashboardDestination.Search.route) {
                 SearchContainer(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
                     disablePosterEnhancers = false,
+                    onNavigateToDetail = openDetail,
                     onCancel = { navigateTo(DashboardDestination.Home) }
                 )
             } else if (route == DashboardDestination.Settings.route && settingsViewModel != null) {
@@ -151,6 +175,46 @@ private fun Dashboard(
                         color = Color.White,
                         modifier = Modifier.align(Alignment.Center)
                     )
+                }
+            }
+        }
+
+        val detailRoute = detailStack.lastOrNull()
+        if (detailRoute != null && preferences != null) {
+            val closeDetail = { detailStack = detailStack.dropLast(1) }
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black
+            ) {
+                key(detailRoute) {
+                    when (detailRoute) {
+                        is DetailRoute.Detail -> DetailScreenContainer(
+                            itemId = detailRoute.itemId,
+                            mediaRepository = mediaRepository,
+                            authRepository = authRepository,
+                            preferences = preferences,
+                            platform = detailPlatform,
+                            forceMergeVersions = true,
+                            onBackPressed = closeDetail,
+                            onNavigateToDetail = { itemId ->
+                                detailStack = detailStack + DetailRoute.Detail(itemId)
+                            },
+                            onNavigateToPerson = { personId ->
+                                detailStack = detailStack + DetailRoute.Person(personId)
+                            }
+                        )
+
+                        is DetailRoute.Person -> PersonScreenContainer(
+                            personId = detailRoute.personId,
+                            mediaRepository = mediaRepository,
+                            authRepository = authRepository,
+                            platform = detailPlatform,
+                            onBackPressed = closeDetail,
+                            onItemClick = { itemId ->
+                                detailStack = detailStack + DetailRoute.Detail(itemId)
+                            }
+                        )
+                    }
                 }
             }
         }

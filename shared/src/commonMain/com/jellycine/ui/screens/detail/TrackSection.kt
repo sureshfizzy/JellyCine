@@ -1,5 +1,10 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+import com.jellycine.player.core.defaultSubtitleDisplayTitle
+import com.jellycine.player.core.mediaStreamDisplayTitles
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,16 +32,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,9 +50,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.jellycine.data.model.MediaStream
-import com.jellycine.player.core.defaultSubtitleDisplayTitle
-import com.jellycine.player.core.mediaStreamDisplayTitles
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.dolby_vision_badge
+import com.jellycine.resources.hdr10_badge
+import com.jellycine.resources.hdr10plus_badge
+import com.jellycine.resources.hdr_badge
+import com.jellycine.resources.ic_dolby_atmos
 
 @Composable
 internal fun TrackSection(
@@ -234,25 +241,25 @@ internal fun TrackField(
     }
 }
 
-private data class TrackBadge(val keyword: String, val res: Int, val w: Int, val h: Int)
+private data class TrackBadge(val keyword: String, val res: DrawableResource, val w: Int, val h: Int)
 
 private val trackBadges = listOf(
-    TrackBadge("HDR10+", R.drawable.hdr10plus_badge, 56, 20),
-    TrackBadge("HDR 10+", R.drawable.hdr10plus_badge, 56, 20),
-    TrackBadge("HDR10", R.drawable.hdr10_badge, 52, 20),
-    TrackBadge("HDR 10", R.drawable.hdr10_badge, 52, 20),
-    TrackBadge("HDR", R.drawable.hdr_badge, 44, 20),
-    TrackBadge("Dolby Vision", R.drawable.dolby_vision_badge, 56, 22),
-    TrackBadge("DoVi", R.drawable.dolby_vision_badge, 56, 22),
-    TrackBadge("Dolby Atmos", R.drawable.ic_dolby_atmos, 22, 22),
-    TrackBadge("Atmos", R.drawable.ic_dolby_atmos, 22, 22),
+    TrackBadge("HDR10+", Res.drawable.hdr10plus_badge, 56, 20),
+    TrackBadge("HDR 10+", Res.drawable.hdr10plus_badge, 56, 20),
+    TrackBadge("HDR10", Res.drawable.hdr10_badge, 52, 20),
+    TrackBadge("HDR 10", Res.drawable.hdr10_badge, 52, 20),
+    TrackBadge("HDR", Res.drawable.hdr_badge, 44, 20),
+    TrackBadge("Dolby Vision", Res.drawable.dolby_vision_badge, 56, 22),
+    TrackBadge("DoVi", Res.drawable.dolby_vision_badge, 56, 22),
+    TrackBadge("Dolby Atmos", Res.drawable.ic_dolby_atmos, 22, 22),
+    TrackBadge("Atmos", Res.drawable.ic_dolby_atmos, 22, 22),
 )
 
-private val hdrRes = setOf(R.drawable.hdr_badge, R.drawable.hdr10_badge, R.drawable.hdr10plus_badge)
+private val hdrRes = setOf(Res.drawable.hdr_badge, Res.drawable.hdr10_badge, Res.drawable.hdr10plus_badge)
 
 private fun matchingBadges(option: String): List<TrackBadge> {
     val text = option.lowercase()
-    val used = mutableSetOf<Int>()
+    val used = mutableSetOf<DrawableResource>()
     return trackBadges.filter { badge ->
         if (badge.res in used) return@filter false
         val match = text.contains(badge.keyword.lowercase())
@@ -265,7 +272,7 @@ private fun matchingBadges(option: String): List<TrackBadge> {
 }
 
 @Composable
-internal fun OptionSelectorRow(
+fun OptionSelectorRow(
     label: String,
     selectedOption: String,
     options: List<String>,

@@ -1,5 +1,8 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
+import com.jellycine.data.repository.MediaRepository
+import com.jellycine.data.repository.AuthRepository
+import com.jellycine.util.formatDecimal
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -13,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -22,70 +24,56 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.detail_file_size_under_1_mb
+import com.jellycine.resources.detail_video_fallback
+import com.jellycine.resources.ic_dolby_atmos
+import com.jellycine.resources.ic_dolby_logo
+import com.jellycine.resources.ic_spatial_audio
 import com.jellycine.preferences.Preferences
 import com.jellycine.util.image.JellyfinPosterImage
-import com.jellycine.util.image.imageTagFor
 import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.DownloadStatus
-import com.jellycine.data.model.ItemDownloadState
 import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.MediaUrl
-import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.model.UserItemDataDto
-import com.jellycine.data.repository.AuthRepositoryProvider
-import com.jellycine.data.repository.MediaRepositoryProvider
 import com.jellycine.detail.CodecUtils
 import com.jellycine.ui.components.common.activeDetailMediaSources
 import com.jellycine.ui.components.common.buildInlineText
 import com.jellycine.ui.components.common.buildLocalVersionEntries
 import com.jellycine.ui.components.common.OverviewSection
-import com.jellycine.ui.components.common.SeerrRequestButtonRow
 import com.jellycine.ui.components.common.WatchedActionButton
 import com.jellycine.ui.components.common.selectedVideoOption
 import com.jellycine.ui.components.common.BackButton
 import com.jellycine.ui.components.common.CompactTopChip
-import com.jellycine.app.ui.components.common.CompactTopLogo
-import com.jellycine.app.ui.components.common.canResumeDownloads
+import com.jellycine.ui.components.common.CompactTopLogo
 import com.jellycine.ui.components.common.compactHeaderLogo
-import com.jellycine.app.ui.components.common.hasActiveDownloads
-import com.jellycine.app.ui.components.common.pausableItemIds
-import com.jellycine.app.ui.components.common.isPausedDownloadState
-import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
-import com.jellycine.app.ui.components.common.rememberDownloadPanelState
-import com.jellycine.app.cast.CastController
-import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.player.preferences.TranscodeProfile
 import com.jellycine.playback.UserDataRefreshEvent
 import com.jellycine.playback.UserDataRefreshSignals
-import com.jellycine.app.ui.components.common.DetailBackdropHero
-import com.jellycine.app.ui.components.common.DetailBackdropHeroStyle
-import com.jellycine.app.ui.components.common.DetailHeroCastButtonOverlay
-import com.jellycine.app.ui.components.common.ScreenCastButton
+import com.jellycine.ui.components.common.DetailBackdropHero
+import com.jellycine.ui.components.common.DetailBackdropHeroStyle
+import com.jellycine.ui.components.common.DetailHeroCastButtonOverlay
 import com.jellycine.ui.components.common.containerHeightDp
 import com.jellycine.ui.components.common.containerWidthDp
 import com.jellycine.ui.components.common.detailActionWidth
 import com.jellycine.ui.components.common.isTabletDetailLayout
 import com.jellycine.ui.components.common.isTabletLayout
 import com.jellycine.ui.components.common.rememberCompactProgress
-import java.util.Locale
 import kotlinx.coroutines.launch
 
 
 @Composable
 fun DetailContent(
     item: BaseItemDto,
+    mediaRepository: MediaRepository,
+    authRepository: AuthRepository,
+    preferences: Preferences,
+    platform: DetailPlatform,
     isLoading: Boolean = false,
     forceMergeVersions: Boolean = false,
     trackSelectionSyncVersion: Int = 0,
@@ -101,15 +89,7 @@ fun DetailContent(
     onSeriesOverviewClick: (String) -> Unit = {},
     onSeasonClick: (String, String, String?, String?, String?) -> Unit = { _, _, _, _, _ -> }
 ) {
-    val context = LocalContext.current
-    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
-    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
-    val seerrRepository = rememberSeerrRepository(context)
-    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
-    val playerPreferences = remember { PlayerPreferences(context) }
-    val preferences = remember { Preferences(context) }
     val coroutineScope = rememberCoroutineScope()
-    val castPlaybackState by CastController.playbackState.collectAsState()
     val userDataRefreshEvent by UserDataRefreshSignals.refreshEvent.collectAsState()
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
@@ -120,11 +100,6 @@ fun DetailContent(
         screenWidthDp = screenWidthDp,
         screenHeightDp = screenHeightDp
     )
-    val isSeerDetail = item.isSeerDetailItem()
-    val seerrConnected = remember(activeServerId) {
-        !activeServerId.isNullOrBlank() &&
-            seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
-    }
     val mergeVersionsEnabled by preferences.MergeVersionsEnabled()
         .collectAsState(initial = preferences.isMergeVersionsEnabled())
     val shouldMergeVersions = forceMergeVersions || mergeVersionsEnabled
@@ -170,18 +145,26 @@ fun DetailContent(
             if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
         }
     }
+    val extras = platform.rememberExtras(
+        item = item,
+        mediaStreams = effectiveMediaStreams,
+        onMediaStreamsRefreshed = { refreshedMediaStreams = it },
+        onRemoteTrailerClick = onRemoteTrailerClick,
+        onCastClick = onCastButtonClick
+    )
+    val isSeerDetail = extras.isSeerDetail
     val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
         val currentItemId = item.id ?: return@remember null
         AudioStreamIndex(
             streams = effectiveMediaStreams,
-            streamIndex = playerPreferences.getPreferredAudioStreamIndex(currentItemId)
+            streamIndex = platform.trackPreferences.getPreferredAudioStreamIndex(currentItemId)
         )
     }
     val savedSubtitleOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
         val currentItemId = item.id ?: return@remember null
         SubtitleStreamIndex(
             streams = effectiveMediaStreams,
-            streamIndex = playerPreferences.getPreferredSubtitleStreamIndex(currentItemId)
+            streamIndex = platform.trackPreferences.getPreferredSubtitleStreamIndex(currentItemId)
         )
     }
     val initialVideoOption = remember(item.id, effectiveMediaStreams) {
@@ -254,43 +237,6 @@ fun DetailContent(
         }
     }
     val hasDescriptionContent = !item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()
-    val canDownloadItem = item.id != null && item.canDownload != false && !isSeerDetail
-    val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
-    val itemDownloadStateFlow = if (isSeerDetail) null else item.id?.let { downloadRepository.observeItemDownload(it) }
-    val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
-        ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
-    val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
-    val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
-            itemDownloadState.status == DownloadStatus.QUEUED
-    val isSyncTranscodingAllowed = remember {
-        mediaRepository.getPersistedHomeSnapshot()?.isSyncTranscodingAllowed ?: true
-    }
-    var showDownloadQualityPicker by remember(item.id) { mutableStateOf(false) }
-    var pendingSeriesEpisodes by remember(item.id) { mutableStateOf<List<BaseItemDto>?>(null) }
-    var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
-    val canManageSubtitles = remember {
-        !isSeerDetail && mediaRepository.getPersistedHomeSnapshot()?.canManageSubtitles == true
-    }
-    val subtitlePreferredLanguage = remember {
-        mediaRepository.getPersistedHomeSnapshot()?.subtitleLanguagePreference
-    }
-    var showSubtitleSearch by remember(item.id) { mutableStateOf(false) }
-    var downloadActionMenu by remember(
-        item.id,
-        itemDownloadState.status,
-        itemDownloadState.message
-    ) {
-        mutableStateOf(false)
-    }
-    var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
-    var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
-    var seriesStorageSelectionDialogState by remember(item.id) {
-        mutableStateOf<SeriesSeasonSelectionDialogState?>(
-            null
-        )
-    }
-    val trackedDownloads by downloadRepository.observeTrackedDownloads()
-        .collectAsState(initial = emptyList())
     var isFavorite by remember(item.id, item.userData?.isFavorite) {
         mutableStateOf(item.userData?.isFavorite == true)
     }
@@ -314,31 +260,6 @@ fun DetailContent(
     }
     var boxSetItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     var localVersions by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-    val seerrRequestState = seerrRequestState(
-        item = item,
-        isSeerDetail = isSeerDetail,
-        activeServerId = activeServerId,
-        seerrRepository = seerrRepository,
-        coroutineScope = coroutineScope
-    )
-    val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
-        val seriesId = item.id
-        if (isSeerDetail || item.type != "Series" || seriesId.isNullOrBlank()) {
-            emptyList()
-        } else {
-            trackedDownloads.filter { it.item?.seriesId == seriesId }
-        }
-    }
-    val seriesDownload = rememberDownloadPanelState(entries = seriesDownloadEntries)
-    val hasActiveSeriesDownloads = seriesDownload.hasActiveDownloads
-    val canResumeSeriesDownloads = seriesDownload.canResumeDownloads
-    var seriesDownloadActionMenu by remember(
-        item.id,
-        seriesDownload.status,
-        seriesDownload.activeItemIds.size,
-        seriesDownload.pausedItemIds.size
-    ) { mutableStateOf(false) }
-
     fun toggleFavorite() {
         if (isSeerDetail) return
         val currentItemId = item.id ?: return
@@ -387,7 +308,7 @@ fun DetailContent(
             .maxByOrNull { trailer ->
                 val label = listOfNotNull(trailer.name, trailer.url)
                     .joinToString(separator = " ")
-                    .lowercase(Locale.US)
+                    .lowercase()
                 when {
                     "official trailer" in label -> 3
                     "trailer" in label -> 2
@@ -406,20 +327,6 @@ fun DetailContent(
         }
     }
 
-    val animatedDownloadProgress by animateFloatAsState(
-        targetValue = when (itemDownloadState.status) {
-            DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
-            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
-            DownloadStatus.COMPLETED -> 1f
-            else -> 0f
-        },
-        animationSpec = tween(durationMillis = 350),
-        label = "detail_download_progress"
-    )
-    val animatedSeriesDownloadProgress = rememberDownloadPanelProgress(
-        panelState = seriesDownload,
-        label = "series_download_progress"
-    )
     val layout = detailScreenLayoutSpec(
         isWidescreenLayout = isWidescreenLayout,
         useTabletBackdropLayout = useTabletBackdropLayout,
@@ -448,16 +355,6 @@ fun DetailContent(
             heroImageIndex += 1
         }
     }
-    LaunchedEffect(itemDownloadState.status) {
-        if (
-            previousDownloadStatus != DownloadStatus.FAILED &&
-            itemDownloadState.status == DownloadStatus.FAILED
-        ) {
-            downloadErrorDialogMessage = downloadFailure(state = itemDownloadState)
-        }
-        previousDownloadStatus = itemDownloadState.status
-    }
-
     LaunchedEffect(item.id) {
         if (item.id == null) {
             return@LaunchedEffect
@@ -482,12 +379,10 @@ fun DetailContent(
         logoLookup = true
         logoLoadError = false
         try {
-            val nextLogoImageUrl = detailLogoImage(
+            val nextLogoImageUrl = platform.loadLogoImage(
                 item = item,
                 activeServerId = activeServerId,
-                isSeerDetail = isSeerDetail,
-                mediaRepository = mediaRepository,
-                seerrRepository = seerrRepository
+                mediaRepository = mediaRepository
             )
             if (nextLogoImageUrl != logoImageUrl) {
                 logoImageUrl = nextLogoImageUrl
@@ -499,14 +394,6 @@ fun DetailContent(
     }
 
     val hasTrailer = selectedRemoteTrailer != null
-    val seerrRequestBusyLabel = stringResource(
-        if (seerrRequestState.optionsLoading) {
-            R.string.detail_seerr_loading_options
-        } else {
-            R.string.detail_seerr_requesting
-        }
-    )
-
     LaunchedEffect(
         item.id,
         item.type,
@@ -610,8 +497,8 @@ fun DetailContent(
     }
 
     val baseVideoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
-    val videoFallbackLabel = stringResource(R.string.detail_video_fallback)
-    val smallFileSizeLabel = stringResource(R.string.detail_file_size_under_1_mb)
+    val videoFallbackLabel = stringResource(Res.string.detail_video_fallback)
+    val smallFileSizeLabel = stringResource(Res.string.detail_file_size_under_1_mb)
     val localVersionEntries = remember(localVersions, item.id, videoFallbackLabel, smallFileSizeLabel) {
         buildLocalVersionEntries(
             localVersions = localVersions,
@@ -639,13 +526,6 @@ fun DetailContent(
         selectedVideo = displayedSelectedVideo,
         selectedAudio = selectedAudio
     )
-    val alternateVersionRequestState = versionRequestState(
-        item = item,
-        isSeerDetail = isSeerDetail,
-        activeServerId = activeServerId,
-        seerrRepository = seerrRepository,
-        requestOptions = seerrRequestState.requestOptions
-    )
     val videoInlineMetaText = remember(
         activeMediaSources,
         effectiveMediaStreams,
@@ -671,8 +551,8 @@ fun DetailContent(
             selectedOption = subtitleOption
         )
         item.id?.let { currentItemId ->
-            playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
-            playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
+            platform.trackPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
+            platform.trackPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
         }
         onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
         return audioStreamIndex to subtitleStreamIndex
@@ -729,7 +609,7 @@ fun DetailContent(
                         showWatchedButton = true,
                         isWatched = isWatched,
                         onWatchedClick = ::toggleWatched,
-                        onCastButtonClick = onCastButtonClick
+                        castButton = { extras.HeroCastButton() }
                     )
                 }
             }
@@ -760,7 +640,7 @@ fun DetailContent(
                                 showWatchedButton = true,
                                 isWatched = isWatched,
                                 onWatchedClick = ::toggleWatched,
-                                onCastButtonClick = onCastButtonClick
+                                castButton = { extras.HeroCastButton() }
                             )
                         }
                     }
@@ -800,7 +680,6 @@ fun DetailContent(
                                             .height(layout.logoContainerHeight)
                                             .align(Alignment.CenterStart)
                                             .compactHeaderLogo(detailLogoCompactProgress),
-                                        context = context,
                                         contentScale = ContentScale.Fit,
                                         alignment = Alignment.CenterStart,
                                         onErrorStateChange = { hasError ->
@@ -865,7 +744,7 @@ fun DetailContent(
                                         modifier = Modifier.size(17.dp)
                                     )
                                     Text(
-                                        text = String.format(Locale.US, "%.1f", rating),
+                                        text = (formatDecimal(rating, 1)),
                                         fontSize = 14.sp,
                                         color = Color.White,
                                         fontWeight = FontWeight.SemiBold,
@@ -911,20 +790,7 @@ fun DetailContent(
                                 )
                             }
 
-                            if (alternateVersionRequestState.visible) {
-                                CompactSeerrRequestButton(
-                                    state = alternateVersionRequestState,
-                                    isBusy = seerrRequestState.isBusy &&
-                                        seerrRequestState.prefer4KRequest &&
-                                        seerrRequestState.preferredRequest ==
-                                        alternateVersionRequestState.targetIs4K,
-                                    onClick = {
-                                        seerrRequestState.onLoadQualityRequestOptions(
-                                            alternateVersionRequestState.targetIs4K
-                                        )
-                                    }
-                                )
-                            }
+                            extras.VersionRequestBadge()
 
                             if (isWidescreenLayout && !genresText.isNullOrBlank()) {
                                 Text(
@@ -950,37 +816,7 @@ fun DetailContent(
                             )
                         }
 
-                        if (castPlaybackState.isConnected && !isSeerDetail) {
-                            Surface(
-                                color = Color(0xFF173025),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Cast,
-                                        contentDescription = null,
-                                        tint = Color(0xFFA7FFD7),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = if (castPlaybackState.isCastingMedia) {
-                                            "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                        } else {
-                                            "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
-                                        },
-                                        fontSize = 12.sp,
-                                        color = Color(0xFFE6FFF3),
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
+                        extras.CastStatusBanner()
 
                         if (codecBadges.hasAnyBadges) {
                             LazyRow(
@@ -1010,7 +846,7 @@ fun DetailContent(
                                                     "Dolby Vision",
                                                     ignoreCase = true
                                                 )
-                                            ) R.drawable.ic_dolby_logo else null,
+                                            ) Res.drawable.ic_dolby_logo else null,
                                             iconTintUnspecified = codecBadges.hdrBadgeText.equals(
                                                 "Dolby Vision",
                                                 ignoreCase = true
@@ -1023,7 +859,7 @@ fun DetailContent(
                                     item {
                                         CapabilityBadge(
                                             text = "Spatial Audio",
-                                            customIcon = R.drawable.ic_spatial_audio,
+                                            customIcon = Res.drawable.ic_spatial_audio,
                                             customIconTint = Color(0xFF8DFFB3)
                                         )
                                     }
@@ -1033,7 +869,7 @@ fun DetailContent(
                                     item {
                                         CapabilityBadge(
                                             text = codecBadges.dolbyAudioBadgeText,
-                                            customIcon = if (codecBadges.hasDolbyAtmos) R.drawable.ic_dolby_atmos else R.drawable.ic_dolby_logo,
+                                            customIcon = if (codecBadges.hasDolbyAtmos) Res.drawable.ic_dolby_atmos else Res.drawable.ic_dolby_logo,
                                             iconTintUnspecified = true
                                         )
                                     }
@@ -1057,15 +893,8 @@ fun DetailContent(
                             )
                         }
 
-                        if (isWidescreenLayout && isSeerDetail && seerrConnected) {
-                            SeerrRequestButtonRow(
-                                requestState = seerrRequestState.requestState,
-                                isBusy = seerrRequestState.isBusy,
-                                busyLabel = seerrRequestBusyLabel,
-                                onRequestClick = { seerrRequestState.onLoadRequestOptions(null) },
-                                buttonHeight = detailActionButtonHeight,
-                                hasTrailer = hasTrailer,
-                                onTrailerClick = ::playTrailer,
+                        if (isWidescreenLayout && extras.showSeerrRequestRow) {
+                            extras.SeerrRequestRow(
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -1073,7 +902,10 @@ fun DetailContent(
                                             useTabletLayout = useTabletBackdropLayout
                                         )
                                     )
-                                    .padding(top = if (hasDescriptionContent) 12.dp else 14.dp)
+                                    .padding(top = if (hasDescriptionContent) 12.dp else 14.dp),
+                                buttonHeight = detailActionButtonHeight,
+                                hasTrailer = hasTrailer,
+                                onTrailerClick = ::playTrailer
                             )
                         }
 
@@ -1109,15 +941,9 @@ fun DetailContent(
                                 playButtonText = playButtonText,
                                 isPartiallyWatched = isPartiallyWatched,
                                 resumeProgress = resumeProgress,
-                                canDownloadItem = canDownloadItem,
-                                itemDownloadState = itemDownloadState,
-                                isPausedDownload = isPausedDownload,
-                                hasActiveDownload = hasActiveDownload,
-                                downloadActionMenu = downloadActionMenu,
-                                downloadProgress = animatedDownloadProgress,
                                 isFavorite = isFavorite,
                                 hasTrailer = hasTrailer,
-                                canSearchSubtitles = canManageSubtitles,
+                                extras = extras,
                                 onPlayClick = {
                                     val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) =
                                         persistTrackSelection(
@@ -1130,39 +956,7 @@ fun DetailContent(
                                     )
                                 },
                                 onTrailerClick = ::playTrailer,
-                                onDownloadClick = {
-                                    if (isSyncTranscodingAllowed) {
-                                        showDownloadQualityPicker = true
-                                    } else {
-                                        coroutineScope.launch {
-                                            downloadRepository.enqueueItemDownload(
-                                                item, TranscodeProfile("Original", null, null), null
-                                            ).onFailure { throwable ->
-                                                downloadErrorDialogMessage =
-                                                    downloadFailure(rawMessage = throwable.message)
-                                            }
-                                        }
-                                    }
-                                },
-                                onDownloadMenuChange = { expanded ->
-                                    downloadActionMenu = expanded
-                                },
-                                onPauseResumeDownload = {
-                                    downloadActionMenu = false
-                                    item.id?.let { itemId ->
-                                        if (isPausedDownload) {
-                                            downloadRepository.resumeDownload(itemId)
-                                        } else {
-                                            downloadRepository.pauseDownload(itemId)
-                                        }
-                                    }
-                                },
-                                onCancelDownload = {
-                                    downloadActionMenu = false
-                                    item.id?.let(downloadRepository::cancelDownload)
-                                },
-                                onFavoriteClick = ::toggleFavorite,
-                                onSubtitleSearchClick = { showSubtitleSearch = true }
+                                onFavoriteClick = ::toggleFavorite
                             )
                         }
 
@@ -1174,15 +968,8 @@ fun DetailContent(
                             )
                         }
 
-                        if (!isWidescreenLayout && isSeerDetail && seerrConnected) {
-                            SeerrRequestButtonRow(
-                                requestState = seerrRequestState.requestState,
-                                isBusy = seerrRequestState.isBusy,
-                                busyLabel = seerrRequestBusyLabel,
-                                onRequestClick = { seerrRequestState.onLoadRequestOptions(null) },
-                                buttonHeight = detailActionButtonHeight,
-                                hasTrailer = hasTrailer,
-                                onTrailerClick = ::playTrailer,
+                        if (!isWidescreenLayout && extras.showSeerrRequestRow) {
+                            extras.SeerrRequestRow(
                                 modifier = Modifier
                                     .fillMaxWidth(
                                         detailActionWidth(
@@ -1190,7 +977,10 @@ fun DetailContent(
                                             useTabletLayout = useTabletBackdropLayout
                                         )
                                     )
-                                    .padding(top = if (hasDescriptionContent) 14.dp else 18.dp)
+                                    .padding(top = if (hasDescriptionContent) 14.dp else 18.dp),
+                                buttonHeight = detailActionButtonHeight,
+                                hasTrailer = hasTrailer,
+                                onTrailerClick = ::playTrailer
                             )
                         }
 
@@ -1247,85 +1037,22 @@ fun DetailContent(
                                 screenWidthDp = screenWidthDp,
                                 useTabletLayout = useTabletBackdropLayout,
                                 buttonHeight = detailActionButtonHeight,
-                                seriesDownload = seriesDownload,
-                                seriesQueueInProgress = seriesQueueInProgress,
-                                seriesDownloadProgress = animatedSeriesDownloadProgress,
-                                seriesDownloadActionMenu = seriesDownloadActionMenu,
-                                canResumeSeriesDownloads = canResumeSeriesDownloads,
-                                hasActiveSeriesDownloads = hasActiveSeriesDownloads,
                                 isFavorite = isFavorite,
                                 hasTrailer = hasTrailer,
+                                extras = extras,
                                 onTrailerClick = ::playTrailer,
-                                onSeriesDownloadClick = {
-                                    coroutineScope.launch {
-                                        val seriesId = item.id
-                                        if (seriesId.isNullOrBlank()) {
-                                            return@launch
-                                        }
-                                        seriesQueueInProgress = true
-                                        try {
-                                            val estimateResult =
-                                                downloadRepository.buildSeriesDownloadEstimate(
-                                                    seriesId
-                                                )
-                                            estimateResult.fold(
-                                                onSuccess = { estimate ->
-                                                    seriesStorageSelectionDialogState =
-                                                        SeriesSeasonSelectionDialogState
-                                                            .fromEstimate(estimate)
-                                                },
-                                                onFailure = { throwable ->
-                                                    downloadErrorDialogMessage =
-                                                        downloadFailure(
-                                                            rawMessage = throwable.message
-                                                        )
-                                                }
-                                            )
-                                        } finally {
-                                            seriesQueueInProgress = false
-                                        }
-                                    }
-                                },
-                                onSeriesDownloadMenuChange = { expanded ->
-                                    seriesDownloadActionMenu = expanded
-                                },
-                                onPauseResumeSeriesDownloads = {
-                                    seriesDownloadActionMenu = false
-                                    if (canResumeSeriesDownloads) {
-                                        seriesDownload.pausedItemIds.forEach(
-                                            downloadRepository::resumeDownload
-                                        )
-                                    } else {
-                                        seriesDownload.pausableItemIds.forEach(
-                                            downloadRepository::pauseDownload
-                                        )
-                                    }
-                                },
-                                onCancelSeriesDownloads = {
-                                    seriesDownloadActionMenu = false
-                                    seriesDownload.activeItemIds.forEach(
-                                        downloadRepository::cancelDownload
-                                    )
-                                },
                                 onFavoriteClick = ::toggleFavorite
                             )
 
                             item.id?.let { seriesId ->
-                                SeasonsSection(
+                                extras.Seasons(
                                     series = item,
                                     seriesId = seriesId,
                                     mediaRepository = mediaRepository,
-                                    seerrRepository = seerrRepository,
                                     activeServerId = activeServerId,
-                                    refreshKey = seerrRequestState.seasonRefreshKey,
-                                    loadingSeasonNumber = seerrRequestState.pendingSeasonRequestNumber
-                                        ?.takeIf { seerrRequestState.isBusy },
-                                    onSeasonRequest = { seasonNumber ->
-                                        seerrRequestState.onLoadRequestOptions(seasonNumber)
-                                    },
-                                    onSeasonClick = { seriesId, seasonId, seasonName ->
+                                    onSeasonClick = { seasonSeriesId, seasonId, seasonName ->
                                         onSeasonClick(
-                                            seriesId,
+                                            seasonSeriesId,
                                             seasonId,
                                             seasonName,
                                             backdropImageUrl,
@@ -1359,13 +1086,11 @@ fun DetailContent(
                             )
                         }
 
-                        Recommendations(
+                        extras.Recommendations(
                             item = item,
                             directors = directors,
-                            isSeerDetail = isSeerDetail,
-                            activeServerId = activeServerId,
                             mediaRepository = mediaRepository,
-                            seerrRepository = seerrRepository,
+                            activeServerId = activeServerId,
                             onItemClick = onSimilarItemClick
                         )
                     }
@@ -1400,124 +1125,13 @@ fun DetailContent(
                 progress = detailLogoCompactProgress,
                 isWatched = isWatched,
                 onWatchedClick = ::toggleWatched,
-                onCastButtonClick = onCastButtonClick,
+                extras = extras,
                 modifier = Modifier.align(Alignment.TopEnd)
             )
         }
     }
 
-    Dialogs(
-        seriesStorageSelectionDialogState = seriesStorageSelectionDialogState,
-        downloadErrorDialogMessage = downloadErrorDialogMessage,
-        seerrRequestState = seerrRequestState,
-        itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
-        backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl,
-        onDismissSeriesSelection = {
-            seriesStorageSelectionDialogState = null
-        },
-        onConfirmSeriesSelection = { selectedIds ->
-            seriesStorageSelectionDialogState?.let { dialogState ->
-                val selectedEpisodes = selectedIds
-                    .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
-                    .distinctBy { it.id }
-                seriesStorageSelectionDialogState = null
-                if (isSyncTranscodingAllowed) {
-                    pendingSeriesEpisodes = selectedEpisodes
-                    showDownloadQualityPicker = true
-                } else {
-                    coroutineScope.launch {
-                        seriesQueueInProgress = true
-                        try {
-                            downloadRepository.enqueueEpisodeDownloads(
-                                selectedEpisodes, TranscodeProfile("Original", null, null), null
-                            ).onFailure { throwable ->
-                                downloadErrorDialogMessage =
-                                    downloadFailure(rawMessage = throwable.message)
-                            }
-                        } finally {
-                            seriesQueueInProgress = false
-                        }
-                    }
-                }
-            }
-        },
-        onDismissDownloadError = {
-            downloadErrorDialogMessage = null
-        }
-    )
-
-    if (showSubtitleSearch) {
-        item.id?.let { subtitleItemId ->
-            SubtitleSearchDialog(
-                itemId = subtitleItemId,
-                defaultLanguage = subtitlePreferredLanguage,
-                canDelete = canManageSubtitles,
-                onSubtitlesChanged = {
-                    coroutineScope.launch {
-                        mediaRepository.getItemById(subtitleItemId).getOrNull()?.let { fresh ->
-                            val sources = fresh.activeDetailMediaSources()
-                            refreshedMediaStreams = sources
-                                .flatMap { it.mediaStreams.orEmpty() }
-                                .ifEmpty { fresh.mediaStreams.orEmpty() }
-                        }
-                    }
-                },
-                onDismiss = { showSubtitleSearch = false }
-            )
-        }
-    }
-
-    if (showDownloadQualityPicker) {
-        val videoStream = remember(item.id, effectiveMediaStreams) {
-            effectiveMediaStreams
-                .firstOrNull { it.type.equals("Video", ignoreCase = true) }
-        }
-        val primarySource = remember(item.id, item.mediaSources) {
-            item.mediaSources?.firstOrNull()
-        }
-        val audioStreams = remember(item.id, effectiveMediaStreams) {
-            effectiveMediaStreams.filter { it.type.equals("Audio", ignoreCase = true) }
-        }
-        DownloadQualityPicker(
-            runtimeTicks = item.runTimeTicks,
-            sourceHeight = videoStream?.height,
-            sourceBitrate = primarySource?.bitrate ?: videoStream?.bitRate,
-            sourceFileSize = primarySource?.size,
-            audioStreams = audioStreams,
-            onDismiss = {
-                showDownloadQualityPicker = false
-                pendingSeriesEpisodes = null
-            },
-            onSelected = { selection ->
-                showDownloadQualityPicker = false
-                val episodes = pendingSeriesEpisodes
-                pendingSeriesEpisodes = null
-                coroutineScope.launch {
-                    if (episodes != null) {
-                        seriesQueueInProgress = true
-                        try {
-                            downloadRepository.enqueueEpisodeDownloads(
-                                episodes, selection.quality, selection.audioStreamIndex
-                            ).onFailure { throwable ->
-                                downloadErrorDialogMessage =
-                                    downloadFailure(rawMessage = throwable.message)
-                            }
-                        } finally {
-                            seriesQueueInProgress = false
-                        }
-                    } else {
-                        downloadRepository.enqueueItemDownload(
-                            item, selection.quality, selection.audioStreamIndex
-                        ).onFailure { throwable ->
-                            downloadErrorDialogMessage =
-                                downloadFailure(rawMessage = throwable.message)
-                        }
-                    }
-                }
-            }
-        )
-    }
-
+    extras.Dialogs(backdropImageUrl = backdropImageUrl ?: item.backdropImageUrl ?: item.imageUrl)
 }
 
 @Composable
@@ -1525,7 +1139,7 @@ private fun DetailActionsOverlay(
     progress: Float,
     isWatched: Boolean,
     onWatchedClick: () -> Unit,
-    onCastButtonClick: () -> Unit,
+    extras: DetailExtras,
     modifier: Modifier = Modifier
 ) {
     CompactTopChip(
@@ -1547,10 +1161,7 @@ private fun DetailActionsOverlay(
                 onClick = onWatchedClick,
                 size = 30.dp
             )
-            ScreenCastButton(
-                onConnectedClick = onCastButtonClick,
-                size = 30.dp
-            )
+            extras.HeroCastButton(size = 30.dp)
         }
     }
 }
@@ -1573,112 +1184,4 @@ private fun List<BaseItemDto>.withUserDataRefresh(
             )
         }
     }
-}
-
-@Composable
-internal fun CompactSeerrRequestButton(
-    state: SeerrVersions,
-    isBusy: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isRequested = state.requestState == SeerrRequestState.REQUESTED
-    val contentDescription = if (state.targetIs4K) {
-        stringResource(R.string.detail_seerr_request_4k)
-    } else {
-        stringResource(R.string.detail_seerr_request_1080p)
-    }
-    val enabled = !isBusy && !isRequested
-    val accentColor = if (state.targetIs4K) Color(0xFF9B7CFF) else Color(0xFF22D3EE)
-
-    Surface(
-        modifier = modifier
-            .size(28.dp)
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(7.dp),
-        color = if (isRequested) {
-            Color(0xFF1F1F24)
-        } else {
-            accentColor.copy(alpha = 0.18f)
-        },
-        border = BorderStroke(
-            1.dp,
-            if (isRequested) {
-                Color.White.copy(alpha = 0.18f)
-            } else {
-                accentColor.copy(alpha = 0.55f)
-            }
-        )
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isBusy -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(15.dp),
-                        strokeWidth = 2.dp,
-                        color = accentColor
-                    )
-                }
-
-                isRequested -> {
-                    Icon(
-                        imageVector = Icons.Rounded.Schedule,
-                        contentDescription = stringResource(R.string.detail_seerr_requested),
-                        tint = Color(0xFF9CDCFE),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                else -> {
-                    Icon(
-                        imageVector = Icons.Rounded.AddCircle,
-                        contentDescription = contentDescription,
-                        tint = accentColor,
-                        modifier = Modifier.size(17.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Dialogs(
-    seriesStorageSelectionDialogState: SeriesSeasonSelectionDialogState?,
-    downloadErrorDialogMessage: String?,
-    seerrRequestState: SeerrRequestUiState,
-    itemName: String,
-    backdropImageUrl: String?,
-    onDismissSeriesSelection: () -> Unit,
-    onConfirmSeriesSelection: (Set<String>) -> Unit,
-    onDismissDownloadError: () -> Unit
-) {
-    seriesStorageSelectionDialogState?.let { dialogState ->
-        DownloadDialog(
-            title = "Choose Seasons",
-            subtitle = "Pick seasons to download. Selected total must fit available storage.",
-            availableBytes = dialogState.availableBytes,
-            options = dialogState.options,
-            initialSelection = dialogState.options.map { it.id }.toSet(),
-            confirmLabel = "Download Seasons",
-            onDismiss = onDismissSeriesSelection,
-            onConfirm = onConfirmSeriesSelection
-        )
-    }
-
-    downloadErrorDialogMessage?.let { message ->
-        FailureDialog(
-            message = message,
-            onDismiss = onDismissDownloadError
-        )
-    }
-
-    SeerrRequestDialogs(
-        state = seerrRequestState,
-        itemName = itemName,
-        backdropImageUrl = backdropImageUrl
-    )
 }

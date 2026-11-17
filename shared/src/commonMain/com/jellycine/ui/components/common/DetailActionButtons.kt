@@ -43,15 +43,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.SeerrRequestState
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.detail_continue_playback
+import com.jellycine.resources.detail_play_trailer
+import com.jellycine.resources.detail_seerr_request
+import com.jellycine.resources.detail_seerr_requested
+import com.jellycine.resources.detail_unfavorite
+import com.jellycine.resources.downloads_action_download
+import com.jellycine.resources.downloads_status_downloaded
+import com.jellycine.resources.downloads_status_paused
+import com.jellycine.resources.downloads_status_queued
+import com.jellycine.resources.favorite
+import com.jellycine.resources.ic_resume_playback
+import com.jellycine.resources.play
+import com.jellycine.resources.settings_unavailable
+import com.jellycine.resources.subtitle_search_title
 
 enum class DetailDownloadActionState {
     Idle,
@@ -134,15 +148,15 @@ private fun DetailPlayActionButtonContent(
     ) {
         if (isPartiallyWatched) {
             Icon(
-                painter = painterResource(R.drawable.ic_resume_playback),
-                contentDescription = stringResource(R.string.detail_continue_playback),
+                painter = painterResource(Res.drawable.ic_resume_playback),
+                contentDescription = stringResource(Res.string.detail_continue_playback),
                 modifier = Modifier.size(22.dp),
                 tint = iconTint
             )
         } else {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(R.string.play),
+                contentDescription = stringResource(Res.string.play),
                 modifier = Modifier.size(22.dp),
                 tint = iconTint
             )
@@ -212,7 +226,7 @@ fun DetailDownloadActionButton(
                 DetailDownloadActionState.Queued -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.downloads_status_queued),
+                        label = stringResource(Res.string.downloads_status_queued),
                         iconOnly = iconOnly
                     )
                 }
@@ -220,7 +234,7 @@ fun DetailDownloadActionButton(
                 DetailDownloadActionState.Completed -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.CheckCircle,
-                        label = stringResource(R.string.downloads_status_downloaded),
+                        label = stringResource(Res.string.downloads_status_downloaded),
                         fontSize = 12.sp,
                         tint = Color(0xFF4CAF50),
                         textColor = Color(0xFF4CAF50),
@@ -231,7 +245,7 @@ fun DetailDownloadActionButton(
                 DetailDownloadActionState.Paused -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.PauseCircle,
-                        label = stringResource(R.string.downloads_status_paused),
+                        label = stringResource(Res.string.downloads_status_paused),
                         tint = Color(0xFFFFC107),
                         iconOnly = iconOnly
                     )
@@ -240,7 +254,7 @@ fun DetailDownloadActionButton(
                 DetailDownloadActionState.Unavailable -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.settings_unavailable),
+                        label = stringResource(Res.string.settings_unavailable),
                         iconOnly = iconOnly
                     )
                 }
@@ -248,7 +262,7 @@ fun DetailDownloadActionButton(
                 DetailDownloadActionState.Idle -> {
                     DetailDownloadLabelContent(
                         icon = Icons.Rounded.Download,
-                        label = stringResource(R.string.downloads_action_download),
+                        label = stringResource(Res.string.downloads_action_download),
                         iconOnly = iconOnly
                     )
                 }
@@ -335,13 +349,13 @@ fun SeerrRequestActionButton(
             isRequested -> {
                 Icon(
                     imageVector = Icons.Rounded.Schedule,
-                    contentDescription = stringResource(R.string.detail_seerr_requested),
+                    contentDescription = stringResource(Res.string.detail_seerr_requested),
                     modifier = Modifier.size(20.dp),
                     tint = Color(0xFF9CDCFE)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.detail_seerr_requested),
+                    text = stringResource(Res.string.detail_seerr_requested),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -352,12 +366,12 @@ fun SeerrRequestActionButton(
             else -> {
                 Icon(
                     imageVector = Icons.Rounded.AddCircle,
-                    contentDescription = stringResource(R.string.detail_seerr_request),
+                    contentDescription = stringResource(Res.string.detail_seerr_request),
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.detail_seerr_request),
+                    text = stringResource(Res.string.detail_seerr_request),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -422,9 +436,9 @@ fun FavoriteActionButton(
         Icon(
             imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
             contentDescription = if (isFavorite) {
-                stringResource(R.string.detail_unfavorite)
+                stringResource(Res.string.detail_unfavorite)
             } else {
-                stringResource(R.string.favorite)
+                stringResource(Res.string.favorite)
             },
             modifier = Modifier.size(20.dp),
             tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White
@@ -451,7 +465,7 @@ fun SubtitleSearchActionButton(
     ) {
         Icon(
             imageVector = Icons.Rounded.ClosedCaption,
-            contentDescription = stringResource(R.string.subtitle_search_title),
+            contentDescription = stringResource(Res.string.subtitle_search_title),
             modifier = Modifier.size(20.dp),
             tint = Color.White
         )
@@ -477,7 +491,7 @@ fun DetailTrailerButton(
     ) {
         Icon(
             imageVector = Icons.Rounded.LocalMovies,
-            contentDescription = stringResource(R.string.detail_play_trailer),
+            contentDescription = stringResource(Res.string.detail_play_trailer),
             modifier = Modifier.size(22.dp),
             tint = Color.White
         )

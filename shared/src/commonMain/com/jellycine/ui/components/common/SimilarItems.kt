@@ -28,8 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +40,11 @@ import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.shared.R
+import com.jellycine.resources.Res
+import com.jellycine.resources.detail_similar_item_unknown
+import com.jellycine.resources.detail_similar_items_title
+import com.jellycine.resources.suggestions_type_movie
+import com.jellycine.resources.suggestions_type_tv_series
 import com.jellycine.util.image.JellyfinPosterImage
 import com.jellycine.util.image.imageTagFor
 import com.jellycine.util.image.rememberImageUrl
@@ -56,7 +59,7 @@ fun SimilarItemsSection(
     seerrItems: List<SeerrRecommendationTitle> = emptyList()
 ) {
     if (similarItems.isEmpty() && seerrItems.isEmpty()) return
-    val sectionTitle = title ?: stringResource(R.string.detail_similar_items_title)
+    val sectionTitle = title ?: stringResource(Res.string.detail_similar_items_title)
 
     Column(
         modifier = modifier.padding(top = 24.dp),
@@ -125,7 +128,6 @@ private fun SimilarTitleCard(
     mediaRepository: MediaRepository,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
     val imageItemId = remember(item.id, item.type, item.seriesId) {
         when {
             item.type == "Episode" && !item.seriesId.isNullOrBlank() -> item.seriesId
@@ -171,7 +173,6 @@ private fun SimilarTitleCard(
                         imageUrl = imageUrl,
                         contentDescription = item.name,
                         modifier = Modifier.fillMaxSize(),
-                        context = context,
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -190,7 +191,7 @@ private fun SimilarTitleCard(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
+                text = item.name ?: stringResource(Res.string.detail_similar_item_unknown),
                 fontSize = 13.sp,
                 lineHeight = 15.sp,
                 color = Color.White,
@@ -318,8 +319,8 @@ private fun SeerrRecommendationCard(
             )
 
             val mediaTypeLabel = when {
-                item.mediaType.equals("movie", ignoreCase = true) -> stringResource(R.string.suggestions_type_movie)
-                item.mediaType.equals("tv", ignoreCase = true) -> stringResource(R.string.suggestions_type_tv_series)
+                item.mediaType.equals("movie", ignoreCase = true) -> stringResource(Res.string.suggestions_type_movie)
+                item.mediaType.equals("tv", ignoreCase = true) -> stringResource(Res.string.suggestions_type_tv_series)
                 else -> item.mediaType
             }
             val subtitle = item.productionYear?.toString() ?: mediaTypeLabel
