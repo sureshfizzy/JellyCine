@@ -5,7 +5,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
 import com.jellycine.data.model.MediaStream
-import java.util.Locale
 
 data class PlayerTrackState(
     val availableAudioTracks: List<AudioTrackInfo>,
@@ -64,7 +63,7 @@ object PlayerTrack {
                 }?.takeIf { it.index !in usedStreamIndexes }
 
                 val stream = matchingStream ?: subtitleStreams.firstOrNull { it.index !in usedStreamIndexes }
-                
+
                 if (stream != null) {
                     usedStreamIndexes.add(stream.index!!)
                 }
@@ -163,37 +162,7 @@ object PlayerTrack {
     fun resolveApiMediaStreams(
         itemDetails: BaseItemDto?,
         playbackMediaSource: MediaSource?
-    ): List<MediaStream> {
-        val playbackStreams = playbackMediaSource?.mediaStreams.orEmpty()
-        val sourceStreams = itemDetails
-            ?.mediaSources
-            .orEmpty()
-            .firstOrNull { source ->
-                !playbackMediaSource?.id.isNullOrBlank() && source.id == playbackMediaSource?.id
-            }
-            ?.mediaStreams
-            .orEmpty()
-        val itemStreams = sourceStreams.ifEmpty {
-            itemDetails?.mediaStreams.orEmpty().ifEmpty {
-                itemDetails
-                    ?.mediaSources
-                    .orEmpty()
-                    .firstOrNull()
-                    ?.mediaStreams
-                    .orEmpty()
-            }
-        }
-
-        // Merge streams, prioritizing those with delivery information
-        val allStreams = playbackStreams + itemStreams
-        return allStreams
-            .groupBy { "${it.type.orEmpty().lowercase(Locale.US)}:${it.index ?: "na"}" }
-            .map { (_, group) ->
-                group.firstOrNull { !it.deliveryUrl.isNullOrBlank() }
-                    ?: group.firstOrNull { it.deliveryMethod != null }
-                    ?: group.first()
-            }
-    }
+    ): List<MediaStream> = mergeApiMediaStreams(itemDetails, playbackMediaSource)
 
     private fun indexedStreams(
         mediaStreams: List<MediaStream>?,

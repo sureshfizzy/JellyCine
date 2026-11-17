@@ -23,6 +23,7 @@ import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.preferences.DownloadPreferences
 import com.jellycine.data.repository.MediaRepository.ItemDownloadRequest
 import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.player.core.PlayerOfflineSource
 import com.jellycine.player.preferences.TranscodeProfile
 import com.jellycine.player.preferences.TranscodeProfiles
 import kotlinx.coroutines.CancellationException
@@ -44,7 +45,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 
-class DownloadRepository(context: Context) {
+class DownloadRepository(context: Context) : PlayerOfflineSource {
     private val appContext = context.applicationContext
     private val mediaRepository = MediaRepositoryProvider.getInstance(appContext)
     private val preferences = Preferences(appContext)
@@ -103,7 +104,7 @@ class DownloadRepository(context: Context) {
     fun observeTrackedDownloads(): StateFlow<List<TrackedDownload>> = trackedDownloadsFlow.asStateFlow()
     fun trackedDownloadsSnapshot(): List<TrackedDownload> = trackedDownloadsFlow.value
 
-    fun getOfflineFilePath(itemId: String): String? {
+    override fun getOfflineFilePath(itemId: String): String? {
         val statePath = stateFlows[itemId]?.value?.filePath
         val metadataPath = metadataStore.read(itemId)?.localPath
         return sequenceOf(statePath, metadataPath)
@@ -111,19 +112,19 @@ class DownloadRepository(context: Context) {
             .firstOrNull(storage::exists)
     }
 
-    fun offlineItemMetadata(itemId: String): BaseItemDto? {
+    override fun offlineItemMetadata(itemId: String): BaseItemDto? {
         return metadataStore.read(itemId)?.let { metadata ->
             metadataStore.parseItem(metadata.fullItemJson, metadata.itemId)
         }
     }
 
-    fun isTranscodedDownload(itemId: String): Boolean {
+    override fun isTranscodedDownload(itemId: String): Boolean {
         val metadata = metadataStore.read(itemId) ?: return false
         val label = metadata.qualityLabel ?: return false
         return label != TranscodeProfiles.ORIGINAL
     }
 
-    fun getOfflineSubtitlePaths(itemId: String): Map<Int, String> {
+    override fun getOfflineSubtitlePaths(itemId: String): Map<Int, String> {
         val metadata = metadataStore.read(itemId)
         val persisted = metadata?.subtitlePaths.orEmpty().filter { (_, path) ->
             storage.exists(path)
@@ -144,7 +145,7 @@ class DownloadRepository(context: Context) {
         return result
     }
 
-    suspend fun ensureOfflineSubtitles(itemId: String) {
+    override suspend fun ensureOfflineSubtitles(itemId: String) {
         val metadata = metadataStore.read(itemId) ?: return
         val currentSubtitles = getOfflineSubtitlePaths(itemId)
         if (currentSubtitles.isNotEmpty()) return
@@ -154,10 +155,10 @@ class DownloadRepository(context: Context) {
         downloadExternalSubtitles(itemId, item)
     }
 
-    fun updatePlaybackPosition(
+    override fun updatePlaybackPosition(
         itemId: String,
         positionMs: Long,
-        markCompleted: Boolean = false
+        markCompleted: Boolean
     ) {
         scope.launch {
             val metadata = metadataStore.read(itemId) ?: return@launch

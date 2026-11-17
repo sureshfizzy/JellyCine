@@ -25,7 +25,6 @@ import com.jellycine.data.model.AudioTranscodeMode
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.model.MediaSource
 import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.PlaybackRequest
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.detail.CodecCapabilityManager
 import com.jellycine.detail.canSpatializeAudioStream
@@ -75,6 +74,7 @@ class PlayerViewModel @Inject constructor(
     private var activePlayerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE
     private var bufferedHighWaterMarkMs: Long = 0L
 
+    private val playerPlayback = PlayerPlayback(mediaRepository)
     private val trackSelectionCoordinator = PlayerTrackSelection()
     private var playbackSession = PlaybackSessionContext()
     private val playbackReporter = PlayerPlaybackReporter(
@@ -89,8 +89,6 @@ class PlayerViewModel @Inject constructor(
     private var defaultAudioStreamIndex: Int? = null
     private var defaultSubtitleStreamIndex: Int? = null
     private var hasHandledPlaybackCompletion = false
-    private var videoTranscodingAllowed: Boolean? = null
-    private var audioTranscodingAllowed: Boolean? = null
     private var audioDiagnosticsSignature: String? = null
     private var downloadRepository: DownloadRepository? = null
     private var communityPlaybackSegmentsJob: Job? = null
@@ -175,23 +173,6 @@ class PlayerViewModel @Inject constructor(
                     ?: playerPreferences.getPreferredAudioStreamIndex(mediaId)
                 val activePreferredSubtitleStreamIndex = preferredSubtitleStreamIndex
                     ?: playerPreferences.getPreferredSubtitleStreamIndex(mediaId)
-                val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
-                val isAudioTranscodingAllowed = isAudioTranscodingAllowedForUser()
-                val audioTranscodeMode = if (isAudioTranscodingAllowed) {
-                    playerPreferences.getAudioTranscodeMode()
-                } else {
-                    AudioTranscodeMode.AUTO
-                }
-                val maxStreamingBitrate = if (isVideoTranscodingAllowed) {
-                    playerPreferences.getMaxStreamingBitrate()
-                } else {
-                    null
-                }
-                val maxStreamingHeight = if (isVideoTranscodingAllowed) {
-                    playerPreferences.getStreamingQualityMaxHeight()
-                } else {
-                    null
-                }
                 trackSelectionCoordinator.resetPendingSelections(
                     preferredAudioStreamIndex = resolvedPreferredAudioStreamIndex,
                     preferredSubtitleStreamIndex = activePreferredSubtitleStreamIndex
@@ -213,112 +194,52 @@ class PlayerViewModel @Inject constructor(
                 hasRenderedFirstFrame = false
                 spatializerHelper = SpatializerHelper(context)
                 downloadRepository = DownloadRepositoryProvider.getInstance(context)
-                val offlinePath = downloadRepository?.getOfflineFilePath(mediaId)
-                val hasOfflineFile = !offlinePath.isNullOrBlank()
-                val offlineItemDetails = if (hasOfflineFile) {
-                    downloadRepository?.offlineItemMetadata(mediaId)
-                } else {
-                    null
-                }
 
-                // Get item details to check for resume position
-                val itemDetails = if (initialItemDetails?.id == mediaId) {
-                    initialItemDetails
-                } else if (hasOfflineFile) {
-                    offlineItemDetails ?: mediaRepository.getItemById(mediaId).getOrNull()
-                } else {
-                    mediaRepository.getItemById(mediaId).getOrNull()
-                }
-                currentItemDetails = itemDetails
-                val resumePositionTicks = itemDetails?.userData?.playbackPositionTicks
-                val storedResumePositionMs = if (resumePositionTicks != null && resumePositionTicks > 0) {
-                    resumePositionTicks / 10000L
-                } else {
-                    null
-                }
-                val mediaTitle = itemDetails?.name ?: "Unknown Title"
-                val logoSourceId = when {
-                    itemDetails?.imageTags?.containsKey("Logo") == true && !itemDetails.id.isNullOrBlank() -> itemDetails.id
-                    !itemDetails?.parentLogoItemId.isNullOrBlank() && !itemDetails?.parentLogoImageTag.isNullOrBlank() -> itemDetails?.parentLogoItemId
-                    else -> null
-                }
-                val mediaLogoUrl = logoSourceId?.let { sourceId ->
-                    mediaRepository.getImageUrlString(
-                        itemId = sourceId,
-                        imageType = "Logo",
-                        width = 320,
-                        quality = 90,
-                        enableImageEnhancers = false
+                val playback = when (
+                    val resolution = playerPlayback.resolve(
+                        mediaId = mediaId,
+                        initialItemDetails = initialItemDetails,
+                        preferences = playerPreferences,
+                        preferredAudioStreamIndex = resolvedPreferredAudioStreamIndex,
+                        preferredSubtitleStreamIndex = activePreferredSubtitleStreamIndex,
+                        offline = downloadRepository,
+                        includeAccessToken = isMpvPlayback()
                     )
-                } ?: itemDetails?.let { mediaRepository.getTmdbLogoUrl(it) }
-                val posterItemId = if (itemDetails?.type.equals("Episode", ignoreCase = true)) {
-                    itemDetails?.seriesId ?: itemDetails?.id
-                } else {
-                    itemDetails?.id
-                }
-                discordPosterUrl = posterItemId?.let { id ->
-                    mediaRepository.getImageUrlString(
-                        itemId = id,
-                        imageType = "Primary",
-                        width = 300,
-                        quality = 80
-                    )
-                }
-                val seasonEpisodeLabel = itemDetails?.let { item ->
-                    val isEpisodeItem = item.type.equals("Episode", ignoreCase = true)
-                    val season = item.parentIndexNumber
-                    val episode = item.indexNumber
-                    if (isEpisodeItem && season != null && episode != null) {
-                        val episodeName = item.episodeTitle
-                            ?.takeIf { it.isNotBlank() }
-                            ?: item.name?.takeIf { it.isNotBlank() }
-                        buildString {
-                            append("S")
-                            append(season)
-                            append(":E")
-                            append(episode)
-                            episodeName?.let {
-                                append(" - ")
-                                append(it)
-                            }
-                        }
-                    } else {
-                        null
+                ) {
+                    is PlaybackResolution.Failed -> {
+                        _playerState.value = _playerState.value.copy(
+                            isLoading = false,
+                            error = resolution.message
+                        )
+                        return@launch
                     }
+                    is PlaybackResolution.Ready -> resolution.playback
                 }
-                val chapterMarkers = PlaybackMarkerUtils.buildChapterMarkers(itemDetails?.chapters)
-                val playerStartPositionMs = initialSeekPositionMs ?: storedResumePositionMs
-                val introSegment = PlaybackMarkerUtils.extractIntroWindow(itemDetails?.chapters)
 
-                var primaryMediaSource: MediaSource? = null
-                var sessionPlaySessionId: String? = null
-                var sessionMediaSourceId: String? = null
-                var sessionMediaSourceContainer: String? = null
-                var sessionMediaSourceBitrateKbps: Int? = null
-                var sessionPlayMethod = PlayMethod.DIRECT_PLAY
-                var sessionIsOfflinePlayback = false
+                val itemDetails = playback.itemDetails
+                currentItemDetails = itemDetails
+                val mediaTitle = playback.mediaTitle
+                val mediaLogoUrl = playback.mediaLogoUrl
+                discordPosterUrl = playback.posterUrl
+                val seasonEpisodeLabel = playback.seasonEpisodeLabel
+                val chapterMarkers = playback.chapterMarkers
+                val introSegment = playback.introSegment
+                val playerStartPositionMs = initialSeekPositionMs ?: playback.storedResumePositionMs
+                val isVideoTranscodingAllowed = playback.isVideoTranscodingAllowed
+                val isAudioTranscodingAllowed = playback.isAudioTranscodingAllowed
+                val audioTranscodeMode = playback.audioTranscodeMode
+                val playbackRequest = playback.playbackRequest
+                val sessionIsOfflinePlayback = playback.session.isOfflinePlayback
+                val sessionMediaSourceId = playback.session.mediaSourceId
                 var streamingMediaSource: androidx.media3.exoplayer.source.MediaSource? = null
-                var playbackRequest: PlaybackRequest? = null
-                defaultAudioStreamIndex = null
-                defaultSubtitleStreamIndex = null
+                apiMediaStreams = playback.mediaStreams
+                defaultAudioStreamIndex = playback.defaultAudioStreamIndex
+                defaultSubtitleStreamIndex = playback.defaultSubtitleStreamIndex
 
-                val mediaItem = if (hasOfflineFile) {
-                    val localFilePath = requireNotNull(offlinePath)
-                    sessionIsOfflinePlayback = true
-                    sessionPlayMethod = PlayMethod.OFFLINE
-                    if (downloadRepository?.isTranscodedDownload(mediaId) == true) {
+                val mediaItem = if (playback.offlineFilePath != null) {
+                    if (playback.isTranscodedDownload) {
                         activePlayerEngine = PlayerPreferences.PLAYER_ENGINE_MPV
                     }
-
-                    val offlineItem = offlineItemDetails ?: itemDetails
-                    apiMediaStreams = offlineItem?.let {
-                        PlayerTrack.resolveApiMediaStreams(
-                            itemDetails = it,
-                            playbackMediaSource = null
-                        )
-                    }
-                    defaultAudioStreamIndex = offlineItem?.mediaSources?.firstOrNull()?.defaultAudioStreamIndex
-                    defaultSubtitleStreamIndex = offlineItem?.mediaSources?.firstOrNull()?.defaultSubtitleStreamIndex
 
                     val offlineSubtitles = downloadRepository?.getOfflineSubtitlePaths(mediaId).orEmpty()
                     if (offlineSubtitles.isEmpty()) {
@@ -346,86 +267,14 @@ class PlayerViewModel @Inject constructor(
                     }
 
                     MediaItem.Builder()
-                        .setUri(downloadLocationUri(localFilePath))
+                        .setUri(downloadLocationUri(playback.offlineFilePath!!))
                         .setSubtitleConfigurations(subtitleConfigs)
                         .build()
                 } else {
-                    sessionIsOfflinePlayback = false
-
-                    // Get playback info first to obtain session details
-                    val playbackInfoResult = mediaRepository.getPlaybackInfo(
-                        itemId = mediaId,
-                        maxStreamingBitrate = maxStreamingBitrate,
-                        audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = activePreferredSubtitleStreamIndex,
-                        audioTranscodeMode = audioTranscodeMode
-                    )
-                    if (playbackInfoResult.isFailure) {
-                        val error = playbackInfoResult.exceptionOrNull()?.message ?: "Failed to get playback info"
-                        _playerState.value = _playerState.value.copy(isLoading = false, error = error)
-                        return@launch
-                    }
-
-                    val playbackInfo = playbackInfoResult.getOrNull()
-                    if (playbackInfo == null) {
-                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Playback info is null")
-                        return@launch
-                    }
-
-                    primaryMediaSource = playbackInfo.mediaSources?.firstOrNull()
-
-                    apiMediaStreams = PlayerTrack.resolveApiMediaStreams(
-                        itemDetails = itemDetails,
-                        playbackMediaSource = primaryMediaSource
-                    )
-
-                    defaultAudioStreamIndex = primaryMediaSource?.defaultAudioStreamIndex
-                    defaultSubtitleStreamIndex = primaryMediaSource?.defaultSubtitleStreamIndex
-                    sessionPlaySessionId = playbackInfo.playSessionId
-                    sessionMediaSourceId = primaryMediaSource?.id
-                    sessionMediaSourceContainer = primaryMediaSource?.container
-                    sessionMediaSourceBitrateKbps = primaryMediaSource?.bitrate?.div(1000)
-                    sessionPlayMethod = when {
-                        primaryMediaSource?.supportsDirectPlay == true -> PlayMethod.DIRECT_PLAY
-                        primaryMediaSource?.supportsDirectStream == true -> PlayMethod.DIRECT_STREAM
-                        else -> PlayMethod.TRANSCODE
-                    }
-                    val playbackRequestResult = mediaRepository.getPlaybackRequest(
-                        itemId = mediaId,
-                        maxStreamingBitrate = maxStreamingBitrate,
-                        maxStreamingHeight = maxStreamingHeight,
-                        audioStreamIndex = resolvedPreferredAudioStreamIndex,
-                        subtitleStreamIndex = activePreferredSubtitleStreamIndex,
-                        audioTranscodeMode = audioTranscodeMode,
-                        playbackInfo = playbackInfo,
-                        includeAccessToken = isMpvPlayback()
-                    )
-                    if (playbackRequestResult.isFailure) {
-                        val error = playbackRequestResult.exceptionOrNull()?.message ?: "Failed to get playback request"
-                        _playerState.value = _playerState.value.copy(isLoading = false, error = error)
-                        return@launch
-                    }
-
-                    playbackRequest = playbackRequestResult.getOrNull()
-                    val streamingUrl = playbackRequest?.url
-                    if (streamingUrl.isNullOrEmpty()) {
-                        _playerState.value = _playerState.value.copy(isLoading = false, error = "Failed to get playback URL")
-                        return@launch
-                    }
-                    val streamUri = Uri.parse(streamingUrl)
-                    val streamPlaySessionId = streamUri.getQueryParameter("PlaySessionId")
-                        ?: streamUri.getQueryParameter("playSessionId")
-                    if (!streamPlaySessionId.isNullOrBlank()) {
-                        sessionPlaySessionId = streamPlaySessionId
-                    }
-                    sessionPlayMethod = getPlayMethod(
-                        streamingUrl = streamingUrl,
-                        fallback = sessionPlayMethod
-                    )
-
+                    val streamingUrl = requireNotNull(playback.streamUrl)
                     val activeSubtitleStreamIndex = (
                         activePreferredSubtitleStreamIndex
-                            ?: primaryMediaSource?.defaultSubtitleStreamIndex
+                            ?: playback.defaultSubtitleStreamIndex
                         )?.takeIf { it >= 0 }
 
                     val activeSubtitleStream = apiMediaStreams
@@ -451,15 +300,7 @@ class PlayerViewModel @Inject constructor(
                     streamingMediaItem
                 }
 
-                playbackSession = PlaybackSessionContext(
-                    mediaId = mediaId,
-                    playSessionId = sessionPlaySessionId,
-                    mediaSourceId = sessionMediaSourceId,
-                    mediaSourceContainer = sessionMediaSourceContainer,
-                    mediaSourceBitrateKbps = sessionMediaSourceBitrateKbps,
-                    playMethod = sessionPlayMethod,
-                    isOfflinePlayback = sessionIsOfflinePlayback
-                )
+                playbackSession = playback.session
                 playbackReporter.updateSession(playbackSession)
 
                 mpvExternalSubtitleUrls = if (sessionIsOfflinePlayback) {
@@ -916,8 +757,8 @@ class PlayerViewModel @Inject constructor(
             return
         }
 
-        val isVideoTranscodingAllowed = isVideoTranscodingAllowedForUser()
-        val isAudioTranscodingAllowed = isAudioTranscodingAllowedForUser()
+        val isVideoTranscodingAllowed = playerPlayback.isVideoTranscodingAllowedForUser()
+        val isAudioTranscodingAllowed = playerPlayback.isAudioTranscodingAllowedForUser()
         val audioTranscodeMode = if (isAudioTranscodingAllowed) {
             playerPreferences.getAudioTranscodeMode()
         } else {
@@ -996,62 +837,6 @@ class PlayerViewModel @Inject constructor(
         nextEpisodePrefetchJob?.cancel()
         nextEpisodePrefetchJob = null
         nextEpisodePrefetchSignature = null
-    }
-
-    private fun getPlayMethod(
-        streamingUrl: String,
-        fallback: PlayMethod
-    ): PlayMethod {
-        val streamUri = Uri.parse(streamingUrl)
-        val path = streamUri.encodedPath.orEmpty().lowercase()
-        val isTranscodingUrl =
-            path.contains("master.m3u8") ||
-                path.contains("transcode") ||
-                path.contains("transcoding")
-
-        if (isTranscodingUrl) {
-            return PlayMethod.TRANSCODE
-        }
-
-        return when (streamUri.getQueryParameter("static")?.lowercase()) {
-            "true" -> PlayMethod.DIRECT_PLAY
-            "false" -> PlayMethod.DIRECT_STREAM
-            else -> fallback
-        }
-    }
-
-    private suspend fun isVideoTranscodingAllowedForUser(): Boolean {
-        videoTranscodingAllowed?.let { return it }
-        mediaRepository.loadPersistedHomeSnapshot()?.isVideoTranscodingAllowed?.let {
-            videoTranscodingAllowed = it
-            return it
-        }
-
-        val user = mediaRepository.getCurrentUser().getOrNull()
-        val allowed = user?.policy?.enableVideoPlaybackTranscoding
-            ?: user?.let { true }
-            ?: false
-
-        videoTranscodingAllowed = allowed
-        mediaRepository.persistHomeSnapshot(isVideoTranscodingAllowed = allowed)
-        return allowed
-    }
-
-    private suspend fun isAudioTranscodingAllowedForUser(): Boolean {
-        audioTranscodingAllowed?.let { return it }
-        mediaRepository.loadPersistedHomeSnapshot()?.isAudioTranscodingAllowed?.let {
-            audioTranscodingAllowed = it
-            return it
-        }
-
-        val user = mediaRepository.getCurrentUser().getOrNull()
-        val allowed = user?.policy?.enableAudioPlaybackTranscoding
-            ?: user?.let { true }
-            ?: false
-
-        audioTranscodingAllowed = allowed
-        mediaRepository.persistHomeSnapshot(isAudioTranscodingAllowed = allowed)
-        return allowed
     }
 
     fun togglePlayPause() {
