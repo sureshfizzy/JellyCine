@@ -27,14 +27,14 @@
 		57A80ADA302C873A00B7A835 /* JellyCine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JellyCine.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57A80AE7302C873C00B7A835 /* JellyCineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JellyCineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		57A80AF1302C873C00B7A835 /* JellyCineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JellyCineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F958A6B830AC2ED200B10242 /* JellyCine.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = JellyCine.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		57A80B71302C930000B7A835 = {
+		57A80B71302C930000B7A835 /* Exceptions for "." folder in "JellyCine" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				JellyCine.entitlements,
 			);
 			target = 57A80AD9302C873A00B7A835 /* JellyCine */;
 		};
@@ -44,7 +44,7 @@
 		57A80ADC302C873A00B7A835 /* . */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				57A80B71302C930000B7A835,
+				57A80B71302C930000B7A835 /* Exceptions for "." folder in "JellyCine" target */,
 			);
 			path = .;
 			sourceTree = "<group>";
@@ -103,6 +103,11 @@
 				57A80AE7302C873C00B7A835 /* JellyCineTests.xctest */,
 				57A80AF1302C873C00B7A835 /* JellyCineUITests.xctest */,
 			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F958A6BA30AC2ED200B10242 /* Products */ = {
+			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -215,16 +220,8 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 57A80BA4302C9D1000B7A835 /* Products */;
-					ProjectRef = 57A80BA2302C9D1000B7A835 /* JellyCine.xcodeproj */;
-				},
-				{
-					ProductGroup = 57A80B67302C929D00B7A835 /* Products */;
-					ProjectRef = 57A80B65302C929D00B7A835 /* JellyCine.xcodeproj */;
-				},
-				{
-					ProductGroup = 57A80B08302C88D100B7A835 /* Products */;
-					ProjectRef = 57A80B06302C88D100B7A835 /* JellyCine.xcodeproj */;
+					ProductGroup = F958A6BA30AC2ED200B10242 /* Products */;
+					ProjectRef = F958A6B830AC2ED200B10242 /* JellyCine.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -278,7 +275,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\" || exit 1\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "cd \"$SRCROOT/..\" || exit 1\n./gradlew fetchLibmpvIos :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -437,16 +434,19 @@
 		57A80AFC302C873C00B7A835 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = JellyCine.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = JellyCine.entitlements;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -462,7 +462,48 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineShared);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					JellyCineShared,
+					"-lmpv-ios",
+					"-lc++",
+					"-liconv",
+					"-lz",
+					"-lbz2",
+					"-lresolv",
+					"-framework",
+					CoreVideo,
+					"-framework",
+					CoreMedia,
+					"-framework",
+					VideoToolbox,
+					"-framework",
+					AudioToolbox,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreText,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					Security,
+					"-framework",
+					IOSurface,
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../build/libmpv-ios/libmpv-ios.xcframework/ios-arm64",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../build/libmpv-ios/libmpv-ios.xcframework/ios-arm64-simulator",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/../build/libmpv-ios/include";
 				PRODUCT_BUNDLE_IDENTIFIER = com.JellyCine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -483,16 +524,19 @@
 		57A80AFD302C873C00B7A835 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = JellyCine.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_PREVIEWS = YES;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = JellyCine.entitlements;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				ENABLE_USER_SELECTED_FILES = readonly;
-				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -508,7 +552,48 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.7;
 				MARKETING_VERSION = 1.0;
-				OTHER_LDFLAGS = ("$(inherited)", "-framework", JellyCineShared);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					JellyCineShared,
+					"-lmpv-ios",
+					"-lc++",
+					"-liconv",
+					"-lz",
+					"-lbz2",
+					"-lresolv",
+					"-framework",
+					CoreVideo,
+					"-framework",
+					CoreMedia,
+					"-framework",
+					VideoToolbox,
+					"-framework",
+					AudioToolbox,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreText,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					Security,
+					"-framework",
+					IOSurface,
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../build/libmpv-ios/libmpv-ios.xcframework/ios-arm64",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../build/libmpv-ios/libmpv-ios.xcframework/ios-arm64-simulator",
+				);
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/../build/libmpv-ios/include";
 				PRODUCT_BUNDLE_IDENTIFIER = com.JellyCine;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

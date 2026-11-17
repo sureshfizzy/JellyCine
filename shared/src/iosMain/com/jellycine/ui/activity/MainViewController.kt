@@ -1,6 +1,8 @@
 package com.jellycine.ui.activity
 
 import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
@@ -17,7 +19,9 @@ import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.preferences.Preferences
 import com.jellycine.preferences.UserDefaultsStore
 import com.jellycine.ui.navigation.AppNavigation
+import com.jellycine.ui.screens.detail.DefaultDetailPlatform
 import com.jellycine.util.text
+import kotlinx.coroutines.launch
 import okio.Path.Companion.toPath
 import platform.Foundation.NSBundle
 import platform.Foundation.NSCachesDirectory
@@ -27,6 +31,7 @@ import platform.Foundation.NSUserDomainMask
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 
+private const val TICKS_PER_MS = 10_000L
 private const val IMAGE_CACHE_MAX_BYTES = 256L * 1024 * 1024
 
 private val imageCacheDirectory = run {
@@ -61,7 +66,17 @@ private val preferences by lazy { Preferences(UserDefaultsStore()) }
 
 private val networkPreferences by lazy { NetworkPreferences() }
 
-fun MainViewController() = ComposeUIViewController {
+interface IosPlayerLauncher {
+    fun play(
+        url: String,
+        title: String?,
+        headers: Map<String, String>,
+        startPositionMs: Long
+    )
+}
+
+fun MainViewController(playerLauncher: IosPlayerLauncher) = ComposeUIViewController {
+    val scope = rememberCoroutineScope()
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
             .components {
@@ -84,6 +99,27 @@ fun MainViewController() = ComposeUIViewController {
         preferences = preferences,
         networkSettings = networkPreferences,
         appVersion = appVersion,
+        detailPlatform = remember {
+            DefaultDetailPlatform(
+                onPlay = { item, fallbackItemId, audioStreamIndex, subtitleStreamIndex ->
+                    scope.launch {
+                        val request = mediaRepository.getPlaybackRequest(
+                            itemId = item?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId,
+                            audioStreamIndex = audioStreamIndex,
+                            subtitleStreamIndex = subtitleStreamIndex,
+                            includeAccessToken = true
+                        ).getOrNull() ?: return@launch
+                        playerLauncher.play(
+                            url = request.url,
+                            title = item?.name,
+                            headers = request.requestHeaders,
+                            startPositionMs = (item?.userData?.playbackPositionTicks ?: 0L) / TICKS_PER_MS
+                        )
+                    }
+                },
+                onRemoteTrailer = { url, title -> playerLauncher.play(url, title, emptyMap(), 0L) }
+            )
+        },
         onOpenLanguageSettings = {
             NSURL.URLWithString(UIApplicationOpenSettingsURLString)?.let { url ->
                 UIApplication.sharedApplication.openURL(url)

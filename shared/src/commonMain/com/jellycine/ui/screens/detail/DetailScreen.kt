@@ -1048,7 +1048,9 @@ interface DetailPlatform {
 }
 
 class DefaultDetailPlatform(
-    override val trackPreferences: DetailTrackPreferences = InMemoryDetailTrackPreferences()
+    override val trackPreferences: DetailTrackPreferences = InMemoryDetailTrackPreferences(),
+    private val onPlay: ((item: BaseItemDto?, fallbackItemId: String, audioStreamIndex: Int?, subtitleStreamIndex: Int?) -> Unit)? = null,
+    private val onRemoteTrailer: ((url: String, title: String?) -> Unit)? = null
 ) : DetailPlatform {
     @Composable
     override fun rememberExtras(
@@ -1065,5 +1067,32 @@ class DefaultDetailPlatform(
         item: BaseItemDto?,
         episodeItem: BaseItemDto?,
         onEpisodePlaybackChanged: (String) -> Unit
-    ): DetailController = NoDetailController
+    ): DetailController {
+        val play = onPlay ?: return NoDetailController
+        return remember(play, onRemoteTrailer) { CallbackDetailController(play, onRemoteTrailer) }
+    }
+}
+
+private class CallbackDetailController(
+    private val onPlay: (BaseItemDto?, String, Int?, Int?) -> Unit,
+    private val onRemoteTrailer: ((String, String?) -> Unit)?
+) : DetailController {
+    override val coversContent: Boolean = false
+    override val trackSelectionSyncVersion: Int = 0
+    override fun play(
+        item: BaseItemDto?,
+        fallbackItemId: String,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) = onPlay(item, fallbackItemId, audioStreamIndex, subtitleStreamIndex)
+
+    override fun playRemoteTrailer(url: String, title: String?) {
+        onRemoteTrailer?.invoke(url, title)
+    }
+
+    override fun openCast() {}
+    override fun onPreferredStreamIndexesChanged(audioStreamIndex: Int?, subtitleStreamIndex: Int?) {}
+    override fun handleBack(): Boolean = false
+    @Composable override fun Content() {}
+    @Composable override fun Overlays() {}
 }

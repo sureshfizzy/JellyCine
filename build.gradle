@@ -14,3 +14,20 @@ ext {
     appVersionCode = 26
     appVersionName = "1.3.6"
 }
+
+def libmpvIos = configurations.detachedConfiguration(
+        dependencies.create('org.jellycine.mpv:libmpvios:1.0.0@zip'))
+
+tasks.register('fetchLibmpvIos', Sync) {
+    group = 'ios'
+    from { zipTree(libmpvIos.singleFile) }
+    into layout.buildDirectory.dir('libmpv-ios')
+    doLast {
+        file("$destinationDir/include").mkdirs()
+        file("$destinationDir/include/module.modulemap").text = """module Mpv [system] {
+    header "../libmpv-ios.xcframework/ios-arm64/Headers/client.h"
+    export *
+}
+"""
+    }
+}
