@@ -3,11 +3,10 @@ import QuartzCore
 import Mpv
 
 protocol MPVPlayerCoreDelegate: AnyObject {
-    func mpvTimeChanged(position: Double, duration: Double)
-    func mpvPauseChanged(isPaused: Bool)
     func mpvBufferingChanged(isBuffering: Bool)
     func mpvDidFail(message: String)
     func mpvDidFinish()
+    func mpvDidLoad()
 }
 
 /// mpv draws into a standalone CAMetalLayer added as a sublayer, not the UIView's own backing
@@ -15,6 +14,7 @@ protocol MPVPlayerCoreDelegate: AnyObject {
 /// layers owned by a UIView.
 final class MPVVideoView: UIView {
     let metalLayer = CAMetalLayer()
+    var onLayout: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -31,6 +31,7 @@ final class MPVVideoView: UIView {
         CATransaction.setDisableActions(true)
         metalLayer.frame = bounds
         CATransaction.commit()
+        onLayout?()
     }
 }
 
@@ -47,21 +48,67 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
     private weak var view: MPVVideoView?
     private var isShutDown = false
     private var hasStarted = false
+    private(set) var fileLoaded = false
     private var isLoaded = false
     private var lastSize: CGSize = .zero
 
     private(set) var duration: Double = 0
     private(set) var position: Double = 0
 
-    func start(in view: MPVVideoView, url: String, headers: [String: String], startPosition: Double) {
-        guard !hasStarted else { return }
-        hasStarted = true
-        self.view = view
-        syncLayerSize()
+    private var pendingSubtitleUrls: [String] = []
+    private var selectedSubtitleUrl: String?
+    private var volumeLevel: Double = 1
+    private var zoomEnabled = false
+    private(set) var isPaused = false
 
+    /// Starts mpv on first use; later calls replace the current file on the same instance.
+    func load(
+        in view: MPVVideoView,
+        url: String,
+        headers: [String: String],
+        startPosition: Double,
+        startPaused: Bool,
+        audioTrackId: String?,
+        subtitleTrackId: String?,
+        subtitleUrls: [String],
+        selectedSubtitleUrl: String?
+    ) {
+        self.view = view
+        pendingSubtitleUrls = subtitleUrls
+        self.selectedSubtitleUrl = selectedSubtitleUrl
+        isLoaded = false
+        fileLoaded = false
+        position = 0
+        duration = 0
+
+        if !hasStarted {
+            hasStarted = true
+            syncLayerSize()
+            guard createPlayer(in: view) else { return }
+        }
+        guard mpv != nil else { return }
+        applyVolume()
+        applyZoom()
+
+        if !headers.isEmpty {
+            setProperty("http-header-fields", headers.map { "\($0.key): \($0.value)" }.joined(separator: ","))
+        }
+        var options: [String] = []
+        if startPosition > 1 { options.append(String(format: "start=%.3f", startPosition)) }
+        if let audioTrackId { options.append("aid=\(audioTrackId)") }
+        if selectedSubtitleUrl == nil, let subtitleTrackId { options.append("sid=\(subtitleTrackId)") }
+        if startPaused { options.append("pause=yes") }
+        if options.isEmpty {
+            command(["loadfile", url, "replace"])
+        } else {
+            command(["loadfile", url, "replace", "-1", options.joined(separator: ",")])
+        }
+    }
+
+    private func createPlayer(in view: MPVVideoView) -> Bool {
         guard let handle = mpv_create() else {
             delegate?.mpvDidFail(message: "mpv_create failed")
-            return
+            return false
         }
         mpv = handle
 
@@ -80,25 +127,21 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         setOption("cache", "yes")
         setOption("demuxer-max-bytes", "64MiB")
         setOption("sub-font-provider", "none")
-        if !headers.isEmpty {
-            setOption("http-header-fields", headers.map { "\($0.key): \($0.value)" }.joined(separator: ","))
-        }
-        if startPosition > 1 {
-            setOption("start", String(format: "%.3f", startPosition))
-        }
+        setOption("sub-ass-override", "strip")
 
         let status = mpv_initialize(handle)
         guard status >= 0 else {
             delegate?.mpvDidFail(message: "mpv_initialize: \(String(cString: mpv_error_string(status)))")
-            return
+            return false
         }
 
+        mpv_request_log_messages(handle, "warn")
         observe("time-pos", MPV_FORMAT_DOUBLE)
         observe("duration", MPV_FORMAT_DOUBLE)
         observe("pause", MPV_FORMAT_FLAG)
         observe("paused-for-cache", MPV_FORMAT_FLAG)
         mpv_set_wakeup_callback(handle, mpvWakeup, Unmanaged.passUnretained(self).toOpaque())
-        command(["loadfile", url])
+        return true
     }
 
     private func syncLayerSize() {
@@ -138,14 +181,12 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
             switch (name, prop.format) {
             case ("time-pos", MPV_FORMAT_DOUBLE):
                 if let data = prop.data { position = data.assumingMemoryBound(to: Double.self).pointee }
-                report()
             case ("duration", MPV_FORMAT_DOUBLE):
                 if let data = prop.data { duration = data.assumingMemoryBound(to: Double.self).pointee; isLoaded = duration > 0 }
-                report()
             case ("pause", MPV_FORMAT_FLAG):
                 if let data = prop.data {
                     let paused = data.assumingMemoryBound(to: Int32.self).pointee != 0
-                    DispatchQueue.main.async { self.delegate?.mpvPauseChanged(isPaused: paused) }
+                    isPaused = paused
                 }
             case ("paused-for-cache", MPV_FORMAT_FLAG):
                 if let data = prop.data {
@@ -154,6 +195,19 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
                 }
             default: break
             }
+        case MPV_EVENT_LOG_MESSAGE:
+            guard let raw = event.data else { return }
+            let log = raw.assumingMemoryBound(to: mpv_event_log_message.self).pointee
+            if let prefix = log.prefix, let text = log.text {
+                NSLog("mpv[%@] %@", String(cString: prefix), String(cString: text).trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        case MPV_EVENT_FILE_LOADED:
+            fileLoaded = true
+            for url in pendingSubtitleUrls {
+                command(["sub-add", url, url == selectedSubtitleUrl ? "select" : "auto"])
+            }
+            pendingSubtitleUrls = []
+            DispatchQueue.main.async { self.delegate?.mpvDidLoad() }
         case MPV_EVENT_END_FILE:
             guard let raw = event.data else { return }
             let end = raw.assumingMemoryBound(to: mpv_event_end_file.self).pointee
@@ -167,22 +221,47 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         }
     }
 
-    private var lastReport: CFTimeInterval = 0
-    private func report() {
-        let now = CACurrentMediaTime()
-        guard now - lastReport > 0.25 else { return }
-        lastReport = now
-        let (p, d) = (position, duration)
-        DispatchQueue.main.async { self.delegate?.mpvTimeChanged(position: p, duration: d) }
-    }
-
     func setPaused(_ paused: Bool) { setProperty("pause", paused ? "yes" : "no") }
     func seek(to seconds: Double) { command(["seek", String(format: "%.3f", seconds), "absolute"]) }
-    func seek(by seconds: Double) { command(["seek", String(format: "%.3f", seconds), "relative"]) }
+    /// Volume and zoom can be set before the first load, so they are remembered and applied once mpv exists.
+    func setVolume(_ volume: Double) {
+        volumeLevel = max(0, min(1, volume))
+        applyVolume()
+    }
+    func setZoom(_ enabled: Bool) {
+        zoomEnabled = enabled
+        applyZoom()
+    }
+    private func applyVolume() { setProperty("volume", String(format: "%.1f", volumeLevel * 100)) }
+    private func applyZoom() { setProperty("panscan", zoomEnabled ? "1" : "0") }
+    func selectAudio(_ trackId: String) { setProperty("aid", trackId) }
+    func selectSubtitle(_ trackId: String, externalUrl: String?) {
+        if trackId == "no" {
+            setProperty("sid", "no")
+        } else if let externalUrl {
+            command(["sub-add", externalUrl, "select"])
+        } else {
+            setProperty("sid", trackId)
+        }
+    }
+
+    /// Seconds of media buffered ahead in the demuxer cache, measured from the file start.
+    func bufferedPosition() -> Double {
+        guard let mpv, !isShutDown else { return 0 }
+        var value: Double = 0
+        guard mpv_get_property(mpv, "demuxer-cache-time", MPV_FORMAT_DOUBLE, &value) >= 0 else { return position }
+        return max(value, position)
+    }
 
     private func setOption(_ name: String, _ value: String) { mpv_set_option_string(mpv, name, value) }
-    private func setProperty(_ name: String, _ value: String) { mpv_set_property_string(mpv, name, value) }
-    private func observe(_ name: String, _ format: mpv_format) { mpv_observe_property(mpv, 0, name, format) }
+    private func setProperty(_ name: String, _ value: String) {
+        guard let mpv, !isShutDown else { return }
+        mpv_set_property_string(mpv, name, value)
+    }
+    private func observe(_ name: String, _ format: mpv_format) {
+        guard let mpv else { return }
+        mpv_observe_property(mpv, 0, name, format)
+    }
 
     private func command(_ args: [String]) {
         guard let mpv else { return }

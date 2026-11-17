@@ -1,8 +1,13 @@
 package com.jellycine.ui.activity
 
-import androidx.compose.ui.window.ComposeUIViewController
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.ComposeUIViewController
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.disk.DiskCache
@@ -20,8 +25,10 @@ import com.jellycine.preferences.Preferences
 import com.jellycine.preferences.UserDefaultsStore
 import com.jellycine.ui.navigation.AppNavigation
 import com.jellycine.ui.screens.detail.DefaultDetailPlatform
+import com.jellycine.ui.screens.player.IosMpvBridgeFactory
+import com.jellycine.ui.screens.player.IosPlayerRequest
+import com.jellycine.ui.screens.player.IosPlayerScreen
 import com.jellycine.util.text
-import kotlinx.coroutines.launch
 import okio.Path.Companion.toPath
 import platform.Foundation.NSBundle
 import platform.Foundation.NSCachesDirectory
@@ -31,7 +38,6 @@ import platform.Foundation.NSUserDomainMask
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 
-private const val TICKS_PER_MS = 10_000L
 private const val IMAGE_CACHE_MAX_BYTES = 256L * 1024 * 1024
 
 private val imageCacheDirectory = run {
@@ -66,17 +72,8 @@ private val preferences by lazy { Preferences(UserDefaultsStore()) }
 
 private val networkPreferences by lazy { NetworkPreferences() }
 
-interface IosPlayerLauncher {
-    fun play(
-        url: String,
-        title: String?,
-        headers: Map<String, String>,
-        startPositionMs: Long
-    )
-}
-
-fun MainViewController(playerLauncher: IosPlayerLauncher) = ComposeUIViewController {
-    val scope = rememberCoroutineScope()
+fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewController {
+    var playerRequest by remember { mutableStateOf<IosPlayerRequest?>(null) }
     setSingletonImageLoaderFactory { context ->
         ImageLoader.Builder(context)
             .components {
@@ -92,38 +89,41 @@ fun MainViewController(playerLauncher: IosPlayerLauncher) = ComposeUIViewControl
             .build()
     }
 
-    AppNavigation(
-        authRepository = authRepository,
-        mediaRepository = mediaRepository,
-        awardsRepository = awardsRepository,
-        preferences = preferences,
-        networkSettings = networkPreferences,
-        appVersion = appVersion,
-        detailPlatform = remember {
-            DefaultDetailPlatform(
-                onPlay = { item, fallbackItemId, audioStreamIndex, subtitleStreamIndex ->
-                    scope.launch {
-                        val request = mediaRepository.getPlaybackRequest(
-                            itemId = item?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId,
+    Box(modifier = Modifier.fillMaxSize()) {
+        AppNavigation(
+            authRepository = authRepository,
+            mediaRepository = mediaRepository,
+            awardsRepository = awardsRepository,
+            preferences = preferences,
+            networkSettings = networkPreferences,
+            appVersion = appVersion,
+            detailPlatform = remember {
+                DefaultDetailPlatform(
+                    onPlay = { item, fallbackItemId, audioStreamIndex, subtitleStreamIndex ->
+                        playerRequest = IosPlayerRequest.Item(
+                            mediaId = item?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId,
+                            item = item,
                             audioStreamIndex = audioStreamIndex,
-                            subtitleStreamIndex = subtitleStreamIndex,
-                            includeAccessToken = true
-                        ).getOrNull() ?: return@launch
-                        playerLauncher.play(
-                            url = request.url,
-                            title = item?.name,
-                            headers = request.requestHeaders,
-                            startPositionMs = (item?.userData?.playbackPositionTicks ?: 0L) / TICKS_PER_MS
+                            subtitleStreamIndex = subtitleStreamIndex
                         )
-                    }
-                },
-                onRemoteTrailer = { url, title -> playerLauncher.play(url, title, emptyMap(), 0L) }
-            )
-        },
-        onOpenLanguageSettings = {
-            NSURL.URLWithString(UIApplicationOpenSettingsURLString)?.let { url ->
-                UIApplication.sharedApplication.openURL(url)
+                    },
+                    onRemoteTrailer = { url, title -> playerRequest = IosPlayerRequest.Remote(url, title) }
+                )
+            },
+            onOpenLanguageSettings = {
+                NSURL.URLWithString(UIApplicationOpenSettingsURLString)?.let { url ->
+                    UIApplication.sharedApplication.openURL(url)
+                }
             }
+        )
+
+        playerRequest?.let { request ->
+            IosPlayerScreen(
+                request = request,
+                mediaRepository = mediaRepository,
+                bridgeFactory = bridgeFactory,
+                onClose = { playerRequest = null }
+            )
         }
-    )
+    }
 }
