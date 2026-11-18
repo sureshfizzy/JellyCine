@@ -11,11 +11,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -30,6 +26,7 @@ import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.playback.UserDataRefreshSignals
+import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.preferences.Preferences
 import com.jellycine.ui.components.common.BackButton
 import com.jellycine.ui.components.common.ScreenWrapper
@@ -864,6 +861,16 @@ interface DetailTrackPreferences {
     fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?)
 }
 
+/** Shares the track choice with the player by storing it in the player's own preferences. */
+class PlayerPreferencesTrackPreferences(private val preferences: PlayerPreferences) : DetailTrackPreferences {
+    override fun getPreferredAudioStreamIndex(itemId: String) = preferences.getPreferredAudioStreamIndex(itemId)
+    override fun getPreferredSubtitleStreamIndex(itemId: String) = preferences.getPreferredSubtitleStreamIndex(itemId)
+    override fun setPreferredAudioStreamIndex(itemId: String, streamIndex: Int?) =
+        preferences.setPreferredAudioStreamIndex(itemId, streamIndex)
+    override fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?) =
+        preferences.setPreferredSubtitleStreamIndex(itemId, streamIndex)
+}
+
 class InMemoryDetailTrackPreferences : DetailTrackPreferences {
     private val audio = mutableMapOf<String, Int?>()
     private val subtitle = mutableMapOf<String, Int?>()
@@ -1049,6 +1056,7 @@ interface DetailPlatform {
 
 class DefaultDetailPlatform(
     override val trackPreferences: DetailTrackPreferences = InMemoryDetailTrackPreferences(),
+    private val trackSelectionSyncVersion: () -> Int = { 0 },
     private val onPlay: ((item: BaseItemDto?, fallbackItemId: String, audioStreamIndex: Int?, subtitleStreamIndex: Int?) -> Unit)? = null,
     private val onRemoteTrailer: ((url: String, title: String?) -> Unit)? = null
 ) : DetailPlatform {
@@ -1069,16 +1077,19 @@ class DefaultDetailPlatform(
         onEpisodePlaybackChanged: (String) -> Unit
     ): DetailController {
         val play = onPlay ?: return NoDetailController
-        return remember(play, onRemoteTrailer) { CallbackDetailController(play, onRemoteTrailer) }
+        return remember(play, onRemoteTrailer) {
+            CallbackDetailController(play, onRemoteTrailer, trackSelectionSyncVersion)
+        }
     }
 }
 
 private class CallbackDetailController(
     private val onPlay: (BaseItemDto?, String, Int?, Int?) -> Unit,
-    private val onRemoteTrailer: ((String, String?) -> Unit)?
+    private val onRemoteTrailer: ((String, String?) -> Unit)?,
+    private val syncVersion: () -> Int
 ) : DetailController {
     override val coversContent: Boolean = false
-    override val trackSelectionSyncVersion: Int = 0
+    override val trackSelectionSyncVersion: Int get() = syncVersion()
     override fun play(
         item: BaseItemDto?,
         fallbackItemId: String,

@@ -1,8 +1,5 @@
 package com.jellycine.app.ui.screens.detail
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-
 import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -17,21 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AddCircle
-import androidx.compose.material.icons.rounded.Cast
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,9 +45,7 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.SeerrItemIds
 import com.jellycine.data.model.SeerrRecommendationTitle
 import com.jellycine.data.model.SeerrRequestState
-import com.jellycine.data.repository.AuthRepository
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.data.repository.*
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.player.preferences.TranscodeProfile
 import com.jellycine.preferences.Preferences
@@ -72,11 +55,7 @@ import com.jellycine.ui.components.common.DetailDownloadActionState
 import com.jellycine.ui.components.common.SeerrRequestButtonRow
 import com.jellycine.ui.components.common.SubtitleSearchActionButton
 import com.jellycine.ui.components.common.activeDetailMediaSources
-import com.jellycine.ui.screens.detail.DetailController
-import com.jellycine.ui.screens.detail.DetailExtras
-import com.jellycine.ui.screens.detail.DetailPlatform
-import com.jellycine.ui.screens.detail.DetailTrackPreferences
-import com.jellycine.ui.screens.detail.SeasonsSection
+import com.jellycine.ui.screens.detail.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -91,19 +70,7 @@ internal class DetailScreenPlatform(
     private val authRepository: AuthRepository
 ) : DetailPlatform {
 
-    override val trackPreferences: DetailTrackPreferences = object : DetailTrackPreferences {
-        override fun getPreferredAudioStreamIndex(itemId: String) =
-            playerPreferences.getPreferredAudioStreamIndex(itemId)
-
-        override fun getPreferredSubtitleStreamIndex(itemId: String) =
-            playerPreferences.getPreferredSubtitleStreamIndex(itemId)
-
-        override fun setPreferredAudioStreamIndex(itemId: String, streamIndex: Int?) =
-            playerPreferences.setPreferredAudioStreamIndex(itemId, streamIndex)
-
-        override fun setPreferredSubtitleStreamIndex(itemId: String, streamIndex: Int?) =
-            playerPreferences.setPreferredSubtitleStreamIndex(itemId, streamIndex)
-    }
+    override val trackPreferences: DetailTrackPreferences = PlayerPreferencesTrackPreferences(playerPreferences)
 
     override val seasonDownloadAction: (@Composable (String, List<BaseItemDto>) -> Unit) =
         { seasonId, episodes -> SeasonDownloadAction(seasonId, episodes) }

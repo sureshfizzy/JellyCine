@@ -1,22 +1,14 @@
 package com.jellycine.ui.screens.player
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import com.jellycine.data.model.BaseItemDto
 import com.jellycine.data.repository.MediaRepository
-import com.jellycine.player.core.EnginePlayerController
-import com.jellycine.player.core.PlayerEngine
-import com.jellycine.player.core.PlayerEngineListener
+import com.jellycine.player.core.*
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.preferences.UserDefaultsStore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import platform.Foundation.NSUserDefaults
+import kotlinx.coroutines.*
 import platform.UIKit.UIApplication
 import platform.UIKit.UIScreen
 import platform.UIKit.UIView
@@ -229,12 +221,10 @@ private fun IosVideoSurface(engine: IosMpvEngine, modifier: Modifier) {
 fun IosPlayerScreen(
     request: IosPlayerRequest,
     mediaRepository: MediaRepository,
+    preferences: PlayerPreferences,
     bridgeFactory: IosMpvBridgeFactory,
     onClose: () -> Unit
 ) {
-    val preferences = remember {
-        PlayerPreferences(UserDefaultsStore(NSUserDefaults(suiteName = PlayerPreferences.PREFS_NAME)))
-    }
     val controller = remember(request) {
         EnginePlayerController(
             mediaRepository = mediaRepository,
