@@ -22,6 +22,9 @@ def syncComposeResources = tasks.register('syncComposeResources', Sync) {
         include 'drawable/hdr10plus_badge.png'
         include 'drawable/dolby_vision_badge.png'
     }
+    from('src/commonMain/composeResources') {
+        include 'files/logos/*.svg'
+    }
     from('../data/src/androidMain/res') {
         include 'values*/strings.xml'
         rename 'strings.xml', 'data_strings.xml'

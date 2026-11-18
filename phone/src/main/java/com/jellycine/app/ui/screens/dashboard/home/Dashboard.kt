@@ -41,7 +41,8 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.model.HomeLibrarySectionData
 import com.jellycine.data.model.PersistedHomeSnapshot
 import com.jellycine.data.model.SeerrCatalog
-import com.jellycine.data.model.SeerrCatalogItem
+import com.jellycine.ui.screens.dashboard.home.SeerrCatalogSection
+import com.jellycine.ui.screens.dashboard.home.availableInLibrary
 import com.jellycine.data.network.NetworkModule
 import com.jellycine.data.network.NetworkStatus
 import com.jellycine.data.network.isAuthenticationStatusFailure
@@ -826,23 +827,17 @@ fun Dashboard(
         val seerrStudios = remember { SeerrCatalog.popularStudios(limit = 12) }
         val seerrNetworks = remember { SeerrCatalog.popularNetworks() }
 
-        fun availableInLibrary(items: List<SeerrCatalogItem>): List<SeerrCatalogItem> {
-            val names = localStudioNames ?: return emptyList()
-            return items.filter { item ->
-                item.localMatchNames.any { it.trim().lowercase() in names }
-            }
-        }
         val SeerrStudios = if (
             selectedCategory == HomeCategory.HOME && seerrStudiosEnabled
         ) {
-            availableInLibrary(seerrStudios)
+            availableInLibrary(seerrStudios, localStudioNames)
         } else {
             emptyList()
         }
         val SeerrNetworks = if (
             selectedCategory == HomeCategory.HOME && seerrNetworksEnabled
         ) {
-            availableInLibrary(seerrNetworks)
+            availableInLibrary(seerrNetworks, localStudioNames)
         } else {
             emptyList()
         }
@@ -1564,79 +1559,6 @@ private fun HomeMyMediaSection(
                             useLandscapeLayout = true,
                             onClick = stableOnClick
                         )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SeerrCatalogSection(
-    title: String,
-    items: List<SeerrCatalogItem>,
-    modifier: Modifier = Modifier,
-    onItemClick: (SeerrCatalogItem) -> Unit = {}
-) {
-    val context = LocalContext.current
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-    ) {
-        Text(
-            text = title,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = 16.dp)
-        ) {
-            itemsIndexed(
-                items = items,
-                key = { index, item -> "${item.id ?: "genre_${item.name}"}_$index" }
-            ) { _, item ->
-                Surface(
-                    modifier = Modifier
-                        .size(width = 124.dp, height = 62.dp)
-                        .clickable { onItemClick(item) }
-                        .border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.16f),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.10f)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(7.dp)
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        if (!item.logoUrl.isNullOrBlank()) {
-                            JellyfinPosterImage(
-                                imageUrl = item.logoUrl,
-                                contentDescription = item.name,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit,
-                                context = context
-                            )
-                        } else {
-                            Text(
-                                text = item.name,
-                                color = Color.White.copy(alpha = 0.78f),
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Center
-                            )
-                        }
                     }
                 }
             }

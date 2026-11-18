@@ -18,19 +18,39 @@ import com.jellycine.data.repository.MediaRepository
 import com.jellycine.resources.Res
 import com.jellycine.resources.dashboard_failed_next_up
 import com.jellycine.resources.dashboard_next_up
+import com.jellycine.data.model.SeerrCatalog
+import com.jellycine.preferences.Preferences
 import com.jellycine.ui.components.common.UserProfileAvatar
+import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun HomeScreen(
     mediaRepository: MediaRepository,
     authRepository: AuthRepository,
     modifier: Modifier = Modifier,
+    preferences: Preferences? = null,
     listState: LazyListState = rememberLazyListState(),
     onItemClick: (BaseItemDto) -> Unit = {}
 ) {
     val viewModel: HomeViewModel = viewModel { HomeViewModel(mediaRepository, authRepository) }
     val state by viewModel.uiState.collectAsState()
     var showAccountOverview by remember { mutableStateOf(false) }
+    val seerrStudiosEnabled by (preferences?.SeerrStudiosEnabled() ?: flowOf(false))
+        .collectAsState(initial = preferences?.isSeerrStudiosEnabled() ?: false)
+    val seerrNetworksEnabled by (preferences?.SeerrNetworksEnabled() ?: flowOf(false))
+        .collectAsState(initial = preferences?.isSeerrNetworksEnabled() ?: false)
+    var localStudioNames by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(seerrStudiosEnabled, seerrNetworksEnabled) {
+        if ((seerrStudiosEnabled || seerrNetworksEnabled) && localStudioNames == null) {
+            localStudioNames = mediaRepository.getAvailableStudioNames()
+        }
+    }
+    val seerrStudios = remember(seerrStudiosEnabled, localStudioNames) {
+        if (seerrStudiosEnabled) availableInLibrary(SeerrCatalog.popularStudios(limit = 12), localStudioNames) else emptyList()
+    }
+    val seerrNetworks = remember(seerrNetworksEnabled, localStudioNames) {
+        if (seerrNetworksEnabled) availableInLibrary(SeerrCatalog.popularNetworks(), localStudioNames) else emptyList()
+    }
     val isHomeCategory = state.selectedCategory == HomeCategory.HOME
     val parallaxOffsetPx by remember {
         derivedStateOf {
@@ -82,6 +102,12 @@ fun HomeScreen(
                 )
             }
 
+            if (isHomeCategory && seerrStudios.isNotEmpty()) {
+                item(key = "seerr_studios") {
+                    SeerrCatalogSection(title = "Studios", items = seerrStudios)
+                }
+            }
+
             if (isHomeCategory && state.continueWatching.isNotEmpty()) {
                 item(key = "continue_watching") {
                     ContinueWatchingSection(
@@ -92,6 +118,12 @@ fun HomeScreen(
                         imageHeaders = state.imageHeaders,
                         onItemClick = onItemClick
                     )
+                }
+            }
+
+            if (isHomeCategory && seerrNetworks.isNotEmpty()) {
+                item(key = "seerr_networks") {
+                    SeerrCatalogSection(title = "Networks", items = seerrNetworks)
                 }
             }
 

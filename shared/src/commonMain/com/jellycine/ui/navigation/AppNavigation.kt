@@ -137,6 +137,7 @@ private fun Dashboard(
                 HomeScreen(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
+                    preferences = preferences,
                     listState = homeScrollState,
                     onItemClick = openDetail
                 )
