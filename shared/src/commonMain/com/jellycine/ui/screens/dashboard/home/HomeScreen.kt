@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.ContentType
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.resources.Res
@@ -30,8 +31,13 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     preferences: Preferences? = null,
     listState: LazyListState = rememberLazyListState(),
-    onItemClick: (BaseItemDto) -> Unit = {}
+    onItemClick: (BaseItemDto) -> Unit = {},
+    onNavigateToViewAll: (ContentType, String?, String) -> Unit = { _, _, _ -> }
 ) {
+    val openViewAll: (String, String?, String) -> Unit = { type, parentId, title ->
+        val contentType = ContentType.entries.firstOrNull { it.name == type.uppercase() } ?: ContentType.ALL
+        onNavigateToViewAll(contentType, parentId, title)
+    }
     val viewModel: HomeViewModel = viewModel { HomeViewModel(mediaRepository, authRepository) }
     val state by viewModel.uiState.collectAsState()
     var showAccountOverview by remember { mutableStateOf(false) }
@@ -104,7 +110,11 @@ fun HomeScreen(
 
             if (isHomeCategory && seerrStudios.isNotEmpty()) {
                 item(key = "seerr_studios") {
-                    SeerrCatalogSection(title = "Studios", items = seerrStudios)
+                    SeerrCatalogSection(
+                        title = "Studios",
+                        items = seerrStudios,
+                        onItemClick = { studio -> openViewAll("SEERR_STUDIO", studio.id, studio.name) }
+                    )
                 }
             }
 
@@ -123,7 +133,11 @@ fun HomeScreen(
 
             if (isHomeCategory && seerrNetworks.isNotEmpty()) {
                 item(key = "seerr_networks") {
-                    SeerrCatalogSection(title = "Networks", items = seerrNetworks)
+                    SeerrCatalogSection(
+                        title = "Networks",
+                        items = seerrNetworks,
+                        onItemClick = { network -> openViewAll("SEERR_NETWORK", network.id, network.name) }
+                    )
                 }
             }
 
@@ -148,7 +162,8 @@ fun HomeScreen(
                         mediaRepository = mediaRepository,
                         imageHeaders = state.imageHeaders,
                         disablePosterEnhancers = false,
-                        onItemClick = onItemClick
+                        onItemClick = onItemClick,
+                        onNavigateToViewAll = openViewAll
                     )
                 }
             }
@@ -159,7 +174,8 @@ fun HomeScreen(
                         mediaRepository = mediaRepository,
                         imageHeaders = state.imageHeaders,
                         disablePosterEnhancers = false,
-                        onItemClick = onItemClick
+                        onItemClick = onItemClick,
+                        onNavigateToViewAll = openViewAll
                     )
                 }
             }
@@ -170,7 +186,8 @@ fun HomeScreen(
                     mediaRepository = mediaRepository,
                     disablePosterEnhancers = false,
                     imageHeaders = state.imageHeaders,
-                    onItemClick = onItemClick
+                    onItemClick = onItemClick,
+                    onNavigateToViewAll = openViewAll
                 )
             }
         }

@@ -105,47 +105,6 @@ fun SortDropdown(
 }
 
 @Composable
-fun FilterChip(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onClick() },
-        color = if (isSelected) Color(0xFF0080FF) else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (isSelected) Color(0xFF0080FF) else Color.White.copy(alpha = 0.3f)
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-            Text(
-                text = label,
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
-            )
-        }
-    }
-}
-
-@Composable
 fun FilterSection(
     title: String,
     filters: List<String>,
@@ -167,7 +126,7 @@ fun FilterSection(
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
             items(filters) { filter ->
-                FilterChip(
+                SortChip(
                     label = filter,
                     isSelected = selectedFilters.contains(filter),
                     onClick = { onFilterToggle(filter) }

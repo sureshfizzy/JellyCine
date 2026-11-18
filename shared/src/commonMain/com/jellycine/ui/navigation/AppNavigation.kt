@@ -10,12 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jellycine.data.model.BaseItemDto
+import com.jellycine.data.model.ContentType
 import com.jellycine.data.network.DiscoveredServer
 import com.jellycine.data.preferences.NetworkSettingsStore
 import com.jellycine.data.repository.*
 import com.jellycine.ui.screens.auth.AuthScreen
 import com.jellycine.ui.screens.dashboard.home.HomeScreen
 import com.jellycine.ui.screens.dashboard.media.Discover
+import com.jellycine.ui.screens.dashboard.media.ViewAllScreen
 import com.jellycine.preferences.Preferences
 import com.jellycine.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.ui.theme.JellyCineTheme
@@ -102,6 +104,12 @@ private sealed interface DetailRoute {
     data class Person(val personId: String) : DetailRoute
 }
 
+private data class ViewAllRoute(
+    val contentType: ContentType,
+    val parentId: String?,
+    val title: String
+)
+
 private enum class SettingsPage { ABOUT, INTERFACE, CACHE }
 
 @Composable
@@ -121,6 +129,10 @@ private fun Dashboard(
             detailStack = detailStack + DetailRoute.Detail(itemId)
         }
     }
+    var viewAllStack by remember { mutableStateOf<List<ViewAllRoute>>(emptyList()) }
+    val openViewAll: (ContentType, String?, String) -> Unit = { contentType, parentId, title ->
+        viewAllStack = viewAllStack + ViewAllRoute(contentType, parentId, title)
+    }
     var settingsPage by remember { mutableStateOf<SettingsPage?>(null) }
     val settingsViewModel: SettingsViewModel? = if (preferences != null && networkSettings != null) {
         viewModel { SettingsViewModel(authRepository, mediaRepository, preferences, networkSettings) }
@@ -139,7 +151,8 @@ private fun Dashboard(
                     authRepository = authRepository,
                     preferences = preferences,
                     listState = homeScrollState,
-                    onItemClick = openDetail
+                    onItemClick = openDetail,
+                    onNavigateToViewAll = openViewAll
                 )
             } else if (route == DashboardDestination.MyMedia.route) {
                 Discover(
@@ -147,7 +160,8 @@ private fun Dashboard(
                     authRepository = authRepository,
                     disablePosterEnhancers = false,
                     awardsRepository = awardsRepository,
-                    onItemClick = openDetail
+                    onItemClick = openDetail,
+                    onNavigateToViewAll = openViewAll
                 )
             } else if (route == DashboardDestination.Search.route) {
                 SearchContainer(
@@ -175,6 +189,27 @@ private fun Dashboard(
                         text = route,
                         color = Color.White,
                         modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+        }
+
+        val viewAllRoute = viewAllStack.lastOrNull()
+        if (viewAllRoute != null) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = Color.Black
+            ) {
+                key(viewAllRoute) {
+                    ViewAllScreen(
+                        mediaRepository = mediaRepository,
+                        authRepository = authRepository,
+                        awardsRepository = awardsRepository,
+                        contentType = viewAllRoute.contentType,
+                        parentId = viewAllRoute.parentId,
+                        title = viewAllRoute.title,
+                        onBackPressed = { viewAllStack = viewAllStack.dropLast(1) },
+                        onItemClick = openDetail
                     )
                 }
             }

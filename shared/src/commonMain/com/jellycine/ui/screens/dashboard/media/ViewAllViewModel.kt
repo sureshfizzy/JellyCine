@@ -1,40 +1,40 @@
-package com.jellycine.app.ui.screens.dashboard.media
+package com.jellycine.ui.screens.dashboard.media
 
-import com.jellycine.data.model.ContentType
-import com.jellycine.data.model.isSeerrCatalog
-import android.content.Context
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import com.jellycine.app.ui.screens.dashboard.favorites.FAVORITES_VIEW_ALL_PARENT_ID
-import com.jellycine.data.repository.AwardsRepositoryProvider
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.MediaRepositoryProvider
-import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.data.model.AwardMode
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.QueryResult
-import com.jellycine.data.model.SeerrCatalog
-import com.jellycine.data.model.SeerrCatalogItem
-import com.jellycine.data.model.SeerrItemIds
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
-@HiltViewModel
-class ViewAllViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context
+/** Seerr-backed studio and network catalogs. Platforms without Seerr pass `null` and use the local library. */
+interface ViewAllSeerrSource {
+    fun isConnected(scopeId: String): Boolean
+
+    suspend fun getStudios(
+        scopeId: String,
+        studioId: String,
+        limit: Int,
+        startIndex: Int
+    ): Result<QueryResult<BaseItemDto>>
+
+    suspend fun getNetworks(
+        scopeId: String,
+        networkId: String,
+        limit: Int,
+        startIndex: Int
+    ): Result<QueryResult<BaseItemDto>>
+}
+
+class ViewAllViewModel(
+    private val mediaRepository: MediaRepository,
+    private val authRepository: AuthRepository,
+    private val awardsRepository: AwardsRepository?,
+    private val seerr: ViewAllSeerrSource?,
+    private val contentType: ContentType,
+    private val parentId: String? = null,
+    private val genreId: String? = null
 ) : ViewModel() {
-
-    private lateinit var mediaRepository: MediaRepository
-    private val seerrRepository = SeerrRepository(context)
-    private val awardsRepository = AwardsRepositoryProvider.getInstance(context)
-    private val authRepository = com.jellycine.data.repository.AuthRepositoryProvider.getInstance(context)
 
     private val _uiState = MutableStateFlow(ViewAllUiState())
     val uiState: StateFlow<ViewAllUiState> = _uiState.asStateFlow()
@@ -42,31 +42,72 @@ class ViewAllViewModel @Inject constructor(
     private val _items = MutableStateFlow<List<BaseItemDto>>(emptyList())
     val items: StateFlow<List<BaseItemDto>> = _items.asStateFlow()
 
+    private val _serverGenres = MutableStateFlow<List<String>>(emptyList())
+
+    /** Items to show: genre-filtered (all selected genres must match) and de-duplicated. */
+    val displayItems: StateFlow<List<BaseItemDto>> = combine(_items, uiState.map { it.selectedGenres }) { items, genres ->
+        val filtered = if (genres.size > 1) {
+            items.filter { item -> item.genres.orEmpty().toSet().containsAll(genres) }
+        } else {
+            items
+        }
+        filtered.distinctBy(::viewAllItemKey)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val availableGenres: StateFlow<List<String>> = combine(_serverGenres, uiState.map { it.selectedGenres }) { genres, selected ->
+        (genres + selected).distinct().sorted()
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Logo for the Seerr studio or network being shown, if it is one of the bundled catalog entries. */
+    val seerrLogoUrl: String? = when (contentType) {
+        ContentType.SEERR_STUDIO -> SeerrCatalog.popularStudios()
+        ContentType.SEERR_NETWORK -> SeerrCatalog.popularNetworks()
+        else -> emptyList()
+    }.firstOrNull { it.id == parentId }?.logoUrl
+
+    private val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
+    private val isFavoritesRequest = parentId == FAVORITES_VIEW_ALL_PARENT_ID
+
+    private val genreIncludeItemTypes: String? = if (isWatchedRequest || isFavoritesRequest) {
+        null
+    } else when (contentType) {
+        ContentType.MOVIES, ContentType.MOVIES_GENRE -> "Movie"
+        ContentType.SERIES, ContentType.TVSHOWS_GENRE -> "Series"
+        ContentType.ALL -> "Movie,Series"
+        ContentType.EPISODES,
+        ContentType.SEERR_STUDIO,
+        ContentType.SEERR_NETWORK,
+        ContentType.AWARD -> null
+    }
+
     private var currentPage = 0
     private val pageSize = 50
     private var totalItems = 0
     private var hasMorePages = true
-    private var currentRequestKey: String? = null
 
-    fun ensureItemsLoaded(
-        contentType: ContentType,
-        parentId: String? = null,
-        genreId: String? = null
-    ) {
-        val requestKey = "$contentType|${parentId.orEmpty()}|${genreId.orEmpty()}"
-
-        if (currentRequestKey == requestKey && _items.value.isNotEmpty()) return
-        loadItems(contentType, parentId, refresh = true, genreId = genreId)
+    init {
+        loadItems(refresh = true)
+        loadGenres()
     }
 
-    fun loadItems(
-        contentType: ContentType,
-        parentId: String? = null,
-        refresh: Boolean = false,
-        genreId: String? = null
-    ) {
-        currentRequestKey = "$contentType|${parentId.orEmpty()}|${genreId.orEmpty()}"
+    private fun loadGenres() {
+        val includeItemTypes = genreIncludeItemTypes ?: return
+        viewModelScope.launch {
+            mediaRepository.getFilteredGenres(parentId = parentId, includeItemTypes = includeItemTypes).fold(
+                onSuccess = { genres ->
+                    _serverGenres.value = genres.mapNotNull { it.name?.trim()?.takeIf(String::isNotEmpty) }
+                },
+                onFailure = { _serverGenres.value = emptyList() }
+            )
+        }
+    }
 
+    /** Series lists change when playback marks things watched, so they reload on a user-data refresh. */
+    fun onUserDataChanged() {
+        if (contentType.includesSeriesItems()) loadItems(refresh = true)
+    }
+
+    fun loadItems(refresh: Boolean = false) {
         if (refresh) {
             currentPage = 0
             hasMorePages = true
@@ -78,24 +119,18 @@ class ViewAllViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
             try {
-                if (!::mediaRepository.isInitialized) {
-                    mediaRepository = MediaRepositoryProvider.getInstance(context)
-                }
-
-                withContext(Dispatchers.IO) {
+                withContext(Dispatchers.Default) {
                     val selectedGenres = _uiState.value.selectedGenres
                         .toList()
                         .sorted()
                         .joinToString("|")
                         .ifBlank { null }
                     val selectedGenreIds = genreId?.takeIf { it.isNotBlank() }
-                    val isWatchedRequest = parentId == WATCHED_VIEW_ALL_PARENT_ID
-                    val isFavoritesRequest = parentId == FAVORITES_VIEW_ALL_PARENT_ID
                     val result = when (contentType) {
                         ContentType.SEERR_STUDIO -> {
                             val scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty()
-                            if (isSeerrConnected(scopeId)) {
-                                seerrRepository.getStudios(
+                            if (seerr != null && seerr.isConnected(scopeId)) {
+                                seerr.getStudios(
                                     scopeId = scopeId,
                                     studioId = parentId.orEmpty(),
                                     limit = pageSize,
@@ -110,8 +145,8 @@ class ViewAllViewModel @Inject constructor(
                         }
                         ContentType.SEERR_NETWORK -> {
                             val scopeId = authRepository.getActiveSessionSnapshot().activeServerId.orEmpty()
-                            if (isSeerrConnected(scopeId)) {
-                                seerrRepository.getNetworks(
+                            if (seerr != null && seerr.isConnected(scopeId)) {
+                                seerr.getNetworks(
                                     scopeId = scopeId,
                                     networkId = parentId.orEmpty(),
                                     limit = pageSize,
@@ -268,8 +303,10 @@ class ViewAllViewModel @Inject constructor(
         val qid = parts.getOrNull(0)?.takeIf { it.isNotBlank() }
             ?: return Result.success(QueryResult(items = emptyList(), totalRecordCount = 0, startIndex = 0))
         val mode = if (parts.getOrNull(1) == AwardMode.NOMINEES.name) AwardMode.NOMINEES else AwardMode.WINNERS
-        val refs = awardsRepository.getCategoryRefs(listOf(qid), mode)[qid].orEmpty()
-        val items = awardsRepository.hydrate(refs, limit = refs.size).map { title ->
+        val repository = awardsRepository
+            ?: return Result.success(QueryResult(items = emptyList(), totalRecordCount = 0, startIndex = 0))
+        val refs = repository.getCategoryRefs(listOf(qid), mode)[qid].orEmpty()
+        val items = repository.hydrate(refs, limit = refs.size).map { title ->
             BaseItemDto(
                 id = title.jellyfinMediaId?.takeIf { it.isNotBlank() }
                     ?: SeerrItemIds.detailId(title.tmdbId, title.mediaType),
@@ -282,9 +319,6 @@ class ViewAllViewModel @Inject constructor(
         }
         return Result.success(QueryResult(items = items, totalRecordCount = items.size, startIndex = 0))
     }
-
-    private fun isSeerrConnected(scopeId: String): Boolean =
-        seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
 
     private suspend fun loadLocalCatalogItems(
         catalogItem: SeerrCatalogItem?,
@@ -310,31 +344,23 @@ class ViewAllViewModel @Inject constructor(
         )
     }
 
-    fun loadMoreItems(contentType: ContentType, parentId: String? = null, genreId: String? = null) {
-        loadItems(contentType, parentId, refresh = false, genreId = genreId)
-    }
+    fun loadMoreItems() = loadItems(refresh = false)
 
-    fun setSort(sortBy: String, sortOrder: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
+    fun setSort(sortBy: String, sortOrder: String) {
         _uiState.value = _uiState.value.copy(sortBy = sortBy, sortOrder = sortOrder)
-        loadItems(contentType, parentId, refresh = true, genreId = genreId)
+        loadItems(refresh = true)
     }
 
-    fun toggleGenreFilter(genre: String, contentType: ContentType, parentId: String? = null, genreId: String? = null) {
-        val currentGenres = LinkedHashSet(_uiState.value.selectedGenres)
-        if (currentGenres.contains(genre)) {
-            currentGenres.remove(genre)
-        } else {
-            currentGenres.add(genre)
-        }
-        _uiState.value = _uiState.value.copy(selectedGenres = currentGenres)
-        loadItems(contentType, parentId, refresh = true, genreId = genreId)
+    fun toggleGenreFilter(genre: String) {
+        val genres = LinkedHashSet(_uiState.value.selectedGenres)
+        if (!genres.remove(genre)) genres.add(genre)
+        _uiState.value = _uiState.value.copy(selectedGenres = genres)
+        loadItems(refresh = true)
     }
 
-    fun clearFilters(contentType: ContentType, parentId: String? = null, genreId: String? = null) {
-        _uiState.value = _uiState.value.copy(
-            selectedGenres = emptySet()
-        )
-        loadItems(contentType, parentId, refresh = true, genreId = genreId)
+    fun clearFilters() {
+        _uiState.value = _uiState.value.copy(selectedGenres = emptySet())
+        loadItems(refresh = true)
     }
 }
 
@@ -347,3 +373,28 @@ data class ViewAllUiState(
     val totalItems: Int = 0,
     val hasMorePages: Boolean = true
 )
+
+data class SortOption(
+    val sortBy: String,
+    val sortOrder: String
+)
+
+val ViewAllSortOptions = listOf(
+    SortOption("DateCreated", "Descending"),
+    SortOption("SortName", "Ascending"),
+    SortOption("SortName", "Descending"),
+    SortOption("ProductionYear", "Descending"),
+    SortOption("ProductionYear", "Ascending"),
+    SortOption("CommunityRating", "Descending"),
+    SortOption("CommunityRating", "Ascending")
+)
+
+fun viewAllItemKey(item: BaseItemDto): String {
+    return item.id ?: "${item.name}_${item.type}_${item.seriesId}_${item.indexNumber ?: 0}"
+}
+
+private fun ContentType.includesSeriesItems(): Boolean {
+    return this == ContentType.SERIES ||
+        this == ContentType.TVSHOWS_GENRE ||
+        this == ContentType.ALL
+}
