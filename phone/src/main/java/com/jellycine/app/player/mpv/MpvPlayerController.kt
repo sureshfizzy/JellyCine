@@ -1,6 +1,11 @@
 package com.jellycine.app.player.mpv
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import android.view.Surface
 import com.jellycine.player.preferences.PlayerPreferences
 import org.jellycine.mpv.MPVLib
@@ -24,6 +29,8 @@ class MpvPlayerController(
         fun onBuffering()
         fun onReady()
         fun onEnded()
+
+        fun onPlayWhenReadyChanged(playWhenReady: Boolean) = Unit
     }
 
     private val appContext = context.applicationContext
@@ -40,6 +47,26 @@ class MpvPlayerController(
     private val playerPreferences = PlayerPreferences(context.applicationContext)
     @Volatile
     private var listener: Listener = listener
+
+    private val audioManager = appContext.getSystemService(AudioManager::class.java)
+    private val audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                .build()
+        )
+        .setOnAudioFocusChangeListener(
+            { focusChange -> onAudioFocusChange(focusChange) },
+            Handler(Looper.getMainLooper())
+        )
+        .build()
+
+        @Volatile
+        private var hasAudioFocus = false
+
+        @Volatile
+        private var resumeOnFocusGain = false
 
     val isPlaying: Boolean
         get() = ready && playWhenReady
@@ -176,16 +203,21 @@ class MpvPlayerController(
         mpv.detachSurface()
     }
 
-    fun play() {
-        if (released) return
+    fun play(): Boolean {
+        if (released) return false
+        resumeOnFocusGain = false
+        if (!requestAudioFocus()) return false
         playWhenReady = true
         mpv.setPropertyBoolean("pause", false)
+        return true
     }
 
     fun pause() {
         if (released) return
+        resumeOnFocusGain = false
         playWhenReady = false
         mpv.setPropertyBoolean("pause", true)
+        abandonAudioFocus()
     }
 
     fun seekTo(positionMs: Long) {
@@ -221,6 +253,7 @@ class MpvPlayerController(
     fun release() {
         if (released) return
         released = true
+        abandonAudioFocus()
         runCatching { mpv.removeObserver(this) }
         runCatching { mpv.removeLogObserver(MpvLogBridge) }
         runCatching { mpv.detachSurface() }
@@ -255,7 +288,10 @@ class MpvPlayerController(
     override fun eventProperty(property: String, value: Boolean) {
         when (property) {
             "paused-for-cache" -> if (value) listener.onBuffering() else listener.onReady()
-            "eof-reached" -> if (value) listener.onEnded()
+            "eof-reached" -> if (value) {
+                abandonAudioFocus()
+                listener.onEnded()
+            }
         }
     }
 
@@ -280,7 +316,11 @@ class MpvPlayerController(
             MpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
                 ready = true
                 if (playWhenReady) {
-                    mpv.setPropertyBoolean("pause", false)
+                    if (requestAudioFocus()) {
+                        mpv.setPropertyBoolean("pause", false)
+                    } else {
+                        playWhenReady = false
+                    }
                 }
                 val gamma = mpv.getPropertyString("video-params/gamma").orEmpty()
                 val primaries = mpv.getPropertyString("video-params/primaries").orEmpty()
@@ -298,6 +338,49 @@ class MpvPlayerController(
             MpvEvent.MPV_EVENT_SHUTDOWN -> Unit
             else -> Unit
         }
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        hasAudioFocus = audioManager.requestAudioFocus(audioFocusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return hasAudioFocus
+    }
+
+    private fun abandonAudioFocus() {
+        if (!hasAudioFocus) return
+        hasAudioFocus = false
+        audioManager.abandonAudioFocusRequest(audioFocusRequest)
+    }
+
+    private fun onAudioFocusChange(focusChange: Int) {
+        if (released) return
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                resumeOnFocusGain = false
+                pauseForFocusLoss()
+                abandonAudioFocus()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                resumeOnFocusGain = playWhenReady
+                pauseForFocusLoss()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                if (resumeOnFocusGain) {
+                    resumeOnFocusGain = false
+                    playWhenReady = true
+                    mpv.setPropertyBoolean("pause", false)
+                    listener.onPlayWhenReadyChanged(true)
+                }
+            }
+        }
+    }
+
+    private fun pauseForFocusLoss() {
+        if (!playWhenReady) return
+        playWhenReady = false
+        mpv.setPropertyBoolean("pause", true)
+        listener.onPlayWhenReadyChanged(false)
     }
 
     private fun configureMpv() {
