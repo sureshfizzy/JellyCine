@@ -1,18 +1,7 @@
 package com.jellycine.app.ui.screens.detail
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-
 import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -26,15 +15,10 @@ import com.jellycine.data.model.MediaStream
 import com.jellycine.data.repository.AuthRepository
 import com.jellycine.data.repository.MediaRepository
 import com.jellycine.player.audio.ThemeMusicController
-import com.jellycine.player.core.RemoteTrailerUrl
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.preferences.Preferences
-import com.jellycine.ui.screens.detail.DetailController
+import com.jellycine.ui.screens.detail.*
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -52,10 +36,6 @@ internal fun rememberPhoneDetailController(
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val themeMusicController = remember { ThemeMusicController(context) }
-    val themeMusicMode by preferences.themeMusicMode()
-        .collectAsState(initial = preferences.getThemeMusicMode())
-    val themeMusicVolume by preferences.themeMusicVolume()
-        .collectAsState(initial = preferences.getThemeMusicVolume())
     val activeServerId by authRepository.getActiveServerId()
         .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
     val castPlaybackState by CastController.playbackState.collectAsState()
@@ -74,15 +54,11 @@ internal fun rememberPhoneDetailController(
     controller.castPlaybackState = castPlaybackState
     controller.onEpisodePlaybackChanged = onEpisodePlaybackChanged
 
-    DisposableEffect(lifecycleOwner, themeMusicController) {
+    DisposableEffect(lifecycleOwner, controller) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> controller.isLifecycleActive = true
-                Lifecycle.Event.ON_STOP -> {
-                    controller.isLifecycleActive = false
-                    themeMusicController.stop()
-                    controller.playingThemeUrls = null
-                }
+                Lifecycle.Event.ON_STOP -> controller.isLifecycleActive = false
                 else -> Unit
             }
         }
@@ -91,75 +67,25 @@ internal fun rememberPhoneDetailController(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            themeMusicController.release()
         }
     }
 
-    val activeThemeItemId = item?.let { it.seriesId?.takeIf(String::isNotBlank) ?: it.id }
-    val themePlaybackBlocked = controller.coversContent ||
-        controller.castingDisplay || castPlaybackState.isCastingMedia
-
-    LaunchedEffect(
-        activeThemeItemId,
-        activeServerId,
-        themeMusicMode,
-        themePlaybackBlocked,
-        controller.isLifecycleActive
-    ) {
-        val themeItemId = activeThemeItemId?.takeIf(String::isNotBlank)
-        if (
-            themeItemId == null || themeMusicMode == Preferences.THEME_MUSIC_NO ||
-            themePlaybackBlocked || !controller.isLifecycleActive
-        ) {
-            themeMusicController.stop()
-            controller.playingThemeUrls = null
-            return@LaunchedEffect
-        }
-
-        var urls = mediaRepository.getThemeSongUrls(themeItemId).getOrDefault(emptyList())
-        currentCoroutineContext().ensureActive()
-        if (urls.isEmpty()) {
-            val preloadedThemeItem = listOfNotNull(item, episodeItem).firstOrNull { it.id == themeItemId }
-            val audioUrl = coroutineScope {
-                val searchDeferred = async {
-                    val search = mediaRepository.getThemeYoutubeSearchQuery(themeItemId, preloadedThemeItem)
-                    search?.let { runCatching { RemoteTrailerUrl.searchAudioUrl(it.query, it.title) }.getOrNull() }
-                }
-                val youtubeThemeUrl = mediaRepository.getThemerrThemeYoutubeUrl(themeItemId, preloadedThemeItem)
-                if (!youtubeThemeUrl.isNullOrBlank()) {
-                    searchDeferred.cancel()
-                    runCatching { RemoteTrailerUrl.getAudioUrl(youtubeThemeUrl) }.getOrNull()
-                } else {
-                    searchDeferred.await()
-                }
-            }
-            currentCoroutineContext().ensureActive()
-            if (!audioUrl.isNullOrBlank()) {
-                urls = listOf(audioUrl)
-            }
-        }
-
-        if (urls.isEmpty()) {
-            themeMusicController.stop()
-            controller.playingThemeUrls = null
-            return@LaunchedEffect
-        }
-        if (urls == controller.playingThemeUrls) {
-            return@LaunchedEffect
-        }
-
-        themeMusicController.stop()
-        controller.playingThemeUrls = urls
-        themeMusicController.play(
-            urls = urls,
-            endless = themeMusicMode == Preferences.THEME_MUSIC_ENDLESS,
-            volume = themeMusicVolume
-        )
-    }
-
-    LaunchedEffect(themeMusicVolume) {
-        themeMusicController.setVolume(themeMusicVolume)
-    }
+    ThemeMusicEffect(
+        support = remember(themeMusicController, mediaRepository, preferences, controller, castPlaybackState) {
+            ThemeMusicSupport(
+                player = themeMusicController,
+                mediaRepository = mediaRepository,
+                preferences = preferences,
+                isBlocked = {
+                    controller.coversContent || controller.castingDisplay || castPlaybackState.isCastingMedia
+                },
+                isActive = { controller.isLifecycleActive }
+            )
+        },
+        item = item,
+        episodeItem = episodeItem,
+        refreshKey = activeServerId
+    )
 
     LaunchedEffect(context) {
         CastController.ensureInitialized(context)
@@ -204,7 +130,6 @@ private class PhoneDetailController(
     var onEpisodePlaybackChanged: (String) -> Unit = {}
 
     var isLifecycleActive by mutableStateOf(true)
-    var playingThemeUrls by mutableStateOf<List<String>?>(null)
 
     var showPlayer by mutableStateOf(false)
     var remoteTrailerUrl by mutableStateOf<String?>(null)

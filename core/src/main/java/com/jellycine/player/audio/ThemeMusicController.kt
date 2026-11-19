@@ -5,9 +5,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import com.jellycine.player.core.PlayerUtils
+import com.jellycine.ui.screens.detail.ThemeMusicPlayer
+import com.jellycine.ui.screens.detail.themeMusicGain
 
 @UnstableApi
-class ThemeMusicController(context: Context) {
+class ThemeMusicController(context: Context) : ThemeMusicPlayer {
     private val player = PlayerUtils.createPlayer(
         context.applicationContext,
         bufferOverride = PlayerUtils.PlaybackBufferOverride(
@@ -18,36 +20,26 @@ class ThemeMusicController(context: Context) {
         )
     )
 
-    fun play(urls: List<String>, endless: Boolean, volume: Float = 1f) {
+    override fun play(urls: List<String>, endless: Boolean, volume: Float) {
         stop()
         if (urls.isEmpty()) return
-        player.volume = perceptualGain(volume)
+        player.volume = themeMusicGain(volume)
         player.repeatMode = if (endless) Player.REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
         player.setMediaItems(urls.map(MediaItem::fromUri))
         player.prepare()
         player.playWhenReady = true
     }
 
-    fun setVolume(volume: Float) {
-        player.volume = perceptualGain(volume)
+    override fun setVolume(volume: Float) {
+        player.volume = themeMusicGain(volume)
     }
 
-    /**
-     * ExoPlayer's [Player.setVolume] takes a linear amplitude gain, but perceived loudness is
-     * roughly logarithmic, so a linear 0.5 sounds almost as loud as 1.0. Square the slider value
-     * to approximate a perceptual taper, so 50% on the UI sounds like ~half volume.
-     */
-    private fun perceptualGain(volume: Float): Float {
-        val v = volume.coerceIn(0f, 1f)
-        return v * v
-    }
-
-    fun stop() {
+    override fun stop() {
         player.stop()
         player.clearMediaItems()
     }
 
-    fun release() {
+    override fun release() {
         player.release()
     }
 }

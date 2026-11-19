@@ -7,6 +7,7 @@ import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.api.MediaServerApi
 import com.jellycine.data.api.ThemerrDbApi
 import com.jellycine.data.api.TmdbApi
+import com.jellycine.data.api.YoutubeAudioApi
 import com.jellycine.data.datastore.HomeSnapshotStore
 import com.jellycine.data.model.*
 import com.jellycine.data.network.HttpStatusException
@@ -51,6 +52,7 @@ class MediaRepository(
 
     fun createExternalHttpClient(): HttpClient = platform.createExternalHttpClient()
     private val themerrDbApi by lazy { ThemerrDbApi(platform.createExternalHttpClient()) }
+    private val youtubeAudioApi by lazy { YoutubeAudioApi(platform.createExternalHttpClient()) }
     private val themerrUrlCache = mutableMapOf<String, ThemerrCacheEntry>()
     private val themerrCacheMutex = Mutex()
     private val sessionMutex = Mutex()
@@ -553,6 +555,27 @@ class MediaRepository(
         }
         themerrCacheMutex.withLock { themerrUrlCache[itemId] = ThemerrCacheEntry(youtubeUrl) }
         youtubeUrl
+    }
+
+    /**
+     * Theme audio from YouTube for items whose server has no theme song: the Themerr link when one
+     * exists, otherwise a title search.
+     */
+    suspend fun getYoutubeThemeAudioUrl(
+        itemId: String,
+        preloadedItem: BaseItemDto? = null
+    ): String? = coroutineScope {
+        val search = async {
+            getThemeYoutubeSearchQuery(itemId, preloadedItem)
+                ?.let { runCatching { youtubeAudioApi.searchAudioUrl(it.query, it.title) }.getOrNull() }
+        }
+        val themerrUrl = getThemerrThemeYoutubeUrl(itemId, preloadedItem)
+        if (!themerrUrl.isNullOrBlank()) {
+            search.cancel()
+            runCatching { youtubeAudioApi.audioUrl(themerrUrl) }.getOrNull()
+        } else {
+            search.await()
+        }
     }
 
     suspend fun getCommunityPlaybackSegments(item: BaseItemDto): Result<PlaybackSegments?> {

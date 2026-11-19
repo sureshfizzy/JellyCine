@@ -18,17 +18,11 @@ import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.preferences.Preferences
 import com.jellycine.preferences.UserDefaultsStore
 import com.jellycine.ui.navigation.AppNavigation
-import com.jellycine.ui.screens.detail.DefaultDetailPlatform
-import com.jellycine.ui.screens.detail.PlayerPreferencesTrackPreferences
+import com.jellycine.ui.screens.detail.*
 import com.jellycine.ui.screens.player.*
 import com.jellycine.util.text
 import okio.Path.Companion.toPath
-import platform.Foundation.NSBundle
-import platform.Foundation.NSCachesDirectory
-import platform.Foundation.NSSearchPathForDirectoriesInDomains
-import platform.Foundation.NSURL
-import platform.Foundation.NSUserDefaults
-import platform.Foundation.NSUserDomainMask
+import platform.Foundation.*
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 
@@ -109,7 +103,13 @@ fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewContro
                             subtitleStreamIndex = subtitleStreamIndex
                         )
                     },
-                    onRemoteTrailer = { url, title -> playerRequest = IosPlayerRequest.Remote(url, title) }
+                    onRemoteTrailer = { url, title -> playerRequest = IosPlayerRequest.Remote(url, title) },
+                    themeMusic = ThemeMusicSupport(
+                        player = IosMusicPlayer(),
+                        mediaRepository = mediaRepository,
+                        preferences = preferences,
+                        isBlocked = { playerRequest != null }
+                    )
                 )
             },
             onOpenLanguageSettings = {

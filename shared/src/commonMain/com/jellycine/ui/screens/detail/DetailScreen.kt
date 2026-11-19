@@ -1058,7 +1058,8 @@ class DefaultDetailPlatform(
     override val trackPreferences: DetailTrackPreferences = InMemoryDetailTrackPreferences(),
     private val trackSelectionSyncVersion: () -> Int = { 0 },
     private val onPlay: ((item: BaseItemDto?, fallbackItemId: String, audioStreamIndex: Int?, subtitleStreamIndex: Int?) -> Unit)? = null,
-    private val onRemoteTrailer: ((url: String, title: String?) -> Unit)? = null
+    private val onRemoteTrailer: ((url: String, title: String?) -> Unit)? = null,
+    private val themeMusic: ThemeMusicSupport? = null
 ) : DetailPlatform {
     @Composable
     override fun rememberExtras(
@@ -1076,6 +1077,7 @@ class DefaultDetailPlatform(
         episodeItem: BaseItemDto?,
         onEpisodePlaybackChanged: (String) -> Unit
     ): DetailController {
+        themeMusic?.let { ThemeMusicEffect(it, item) }
         val play = onPlay ?: return NoDetailController
         return remember(play, onRemoteTrailer) {
             CallbackDetailController(play, onRemoteTrailer, trackSelectionSyncVersion)
