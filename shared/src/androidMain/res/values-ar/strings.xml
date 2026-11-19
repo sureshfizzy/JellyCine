@@ -143,20 +143,20 @@
     <string name="dashboard_discover_empty_message">ابدأ فيلمًا أو حلقة وستتحول هذه الشاشة إلى مركز التوصيات الخاص بك.</string>
     <string name="dashboard_discover_load_error">غير قادر على إنشاء خلاصتك</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="zero">%d المكتبات المتاحة</item>
-        <item quantity="one">مكتبة %d متوفرة</item>
-        <item quantity="two">%d المكتبات المتاحة</item>
-        <item quantity="few">%d المكتبات المتاحة</item>
+        <item quantity="zero">%1$d المكتبات المتاحة</item>
+        <item quantity="one">مكتبة %1$d متوفرة</item>
+        <item quantity="two">%1$d المكتبات المتاحة</item>
+        <item quantity="few">%1$d المكتبات المتاحة</item>
         <item quantity="many"/>
-        <item quantity="other">%d المكتبات المتاحة</item>
+        <item quantity="other">%1$d المكتبات المتاحة</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="zero">%d العناصر</item>
-        <item quantity="one">%d عنصر</item>
-        <item quantity="two">%d العناصر</item>
-        <item quantity="few">%d العناصر</item>
+        <item quantity="zero">%1$d العناصر</item>
+        <item quantity="one">%1$d عنصر</item>
+        <item quantity="two">%1$d العناصر</item>
+        <item quantity="few">%1$d العناصر</item>
         <item quantity="many"/>
-        <item quantity="other">%d العناصر</item>
+        <item quantity="other">%1$d العناصر</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">إعدادات المشغل</string>
@@ -303,12 +303,12 @@
     <string name="favorites_episode_code_fallback">حلقة</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="zero">%d الحلقات</item>
-        <item quantity="one">%d حلقة</item>
-        <item quantity="two">%d الحلقات</item>
-        <item quantity="few">%d الحلقات</item>
+        <item quantity="zero">%1$d الحلقات</item>
+        <item quantity="one">%1$d حلقة</item>
+        <item quantity="two">%1$d الحلقات</item>
+        <item quantity="few">%1$d الحلقات</item>
         <item quantity="many"/>
-        <item quantity="other">%d الحلقات</item>
+        <item quantity="other">%1$d الحلقات</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">لا توجد تنزيلات متاحة</string>
@@ -325,12 +325,12 @@
     <string name="downloads_settings_concurrent_downloads">تنزيلات متزامنة</string>
     <string name="downloads_settings_concurrent_downloads_summary">حدد عدد الملفات التي يتم تنزيلها في نفس الوقت.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="zero">تنزيلات %d</item>
-        <item quantity="one">تنزيل %d</item>
-        <item quantity="two">تنزيلات %d</item>
-        <item quantity="few">تنزيلات %d</item>
+        <item quantity="zero">تنزيلات %1$d</item>
+        <item quantity="one">تنزيل %1$d</item>
+        <item quantity="two">تنزيلات %1$d</item>
+        <item quantity="few">تنزيلات %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">تنزيلات %d</item>
+        <item quantity="other">تنزيلات %1$d</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">مساحة تخزين داخل التطبيق</string>
     <string name="downloads_settings_in_app_storage_summary">احتفظ بالتنزيلات داخل مساحة تخزين خاصة بالتطبيق.</string>
@@ -362,55 +362,55 @@
     <string name="downloads_notification_size_total">(%1$.0f ميجابايت/ %2$.0f ميجابايت)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f ميغابايت)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="zero">تنزيل عناصر %d</item>
-        <item quantity="one">تنزيل عنصر %d</item>
-        <item quantity="two">تنزيل عناصر %d</item>
-        <item quantity="few">تنزيل عناصر %d</item>
+        <item quantity="zero">تنزيل عناصر %1$d</item>
+        <item quantity="one">تنزيل عنصر %1$d</item>
+        <item quantity="two">تنزيل عناصر %1$d</item>
+        <item quantity="few">تنزيل عناصر %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">تنزيل عناصر %d</item>
+        <item quantity="other">تنزيل عناصر %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="zero">أصناف %d في قائمة الانتظار</item>
-        <item quantity="one">عنصر %d في قائمة الانتظار</item>
-        <item quantity="two">أصناف %d في قائمة الانتظار</item>
-        <item quantity="few">أصناف %d في قائمة الانتظار</item>
+        <item quantity="zero">أصناف %1$d في قائمة الانتظار</item>
+        <item quantity="one">عنصر %1$d في قائمة الانتظار</item>
+        <item quantity="two">أصناف %1$d في قائمة الانتظار</item>
+        <item quantity="few">أصناف %1$d في قائمة الانتظار</item>
         <item quantity="many"/>
-        <item quantity="other">أصناف %d في قائمة الانتظار</item>
+        <item quantity="other">أصناف %1$d في قائمة الانتظار</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="zero">عناصر %d متوقفة مؤقتًا</item>
-        <item quantity="one">عنصر %d تم إيقافه مؤقتًا</item>
-        <item quantity="two">عناصر %d متوقفة مؤقتًا</item>
-        <item quantity="few">عناصر %d متوقفة مؤقتًا</item>
+        <item quantity="zero">عناصر %1$d متوقفة مؤقتًا</item>
+        <item quantity="one">عنصر %1$d تم إيقافه مؤقتًا</item>
+        <item quantity="two">عناصر %1$d متوقفة مؤقتًا</item>
+        <item quantity="few">عناصر %1$d متوقفة مؤقتًا</item>
         <item quantity="many"/>
-        <item quantity="other">عناصر %d متوقفة مؤقتًا</item>
+        <item quantity="other">عناصر %1$d متوقفة مؤقتًا</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">جاري تنزيل %1$d من %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="zero">%d الحلقات</item>
-        <item quantity="one">%d حلقة</item>
-        <item quantity="two">%d الحلقات</item>
-        <item quantity="few">%d الحلقات</item>
+        <item quantity="zero">%1$d الحلقات</item>
+        <item quantity="one">%1$d حلقة</item>
+        <item quantity="two">%1$d الحلقات</item>
+        <item quantity="few">%1$d الحلقات</item>
         <item quantity="many"/>
-        <item quantity="other">%d الحلقات</item>
+        <item quantity="other">%1$d الحلقات</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="zero">حلقات في قائمة الانتظار %d</item>
-        <item quantity="one">حلقة في قائمة الانتظار %d</item>
-        <item quantity="two">حلقات في قائمة الانتظار %d</item>
-        <item quantity="few">حلقات في قائمة الانتظار %d</item>
+        <item quantity="zero">حلقات في قائمة الانتظار %1$d</item>
+        <item quantity="one">حلقة في قائمة الانتظار %1$d</item>
+        <item quantity="two">حلقات في قائمة الانتظار %1$d</item>
+        <item quantity="few">حلقات في قائمة الانتظار %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">حلقات في قائمة الانتظار %d</item>
+        <item quantity="other">حلقات في قائمة الانتظار %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="zero">حلقات %d متوقفة مؤقتًا</item>
-        <item quantity="one">حلقة %d متوقفة مؤقتًا</item>
-        <item quantity="two">حلقات %d متوقفة مؤقتًا</item>
-        <item quantity="few">حلقات %d متوقفة مؤقتًا</item>
+        <item quantity="zero">حلقات %1$d متوقفة مؤقتًا</item>
+        <item quantity="one">حلقة %1$d متوقفة مؤقتًا</item>
+        <item quantity="two">حلقات %1$d متوقفة مؤقتًا</item>
+        <item quantity="few">حلقات %1$d متوقفة مؤقتًا</item>
         <item quantity="many"/>
-        <item quantity="other">حلقات %d متوقفة مؤقتًا</item>
+        <item quantity="other">حلقات %1$d متوقفة مؤقتًا</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">مستخدم غير معروف</string>
@@ -528,28 +528,28 @@
     <string name="settings_auto">السيارات</string>
     <string name="cd_about_button">حول</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="zero">%d المستخدمون</item>
-        <item quantity="one">مستخدم %d</item>
-        <item quantity="two">%d المستخدمون</item>
-        <item quantity="few">%d المستخدمون</item>
+        <item quantity="zero">%1$d المستخدمون</item>
+        <item quantity="one">مستخدم %1$d</item>
+        <item quantity="two">%1$d المستخدمون</item>
+        <item quantity="few">%1$d المستخدمون</item>
         <item quantity="many"/>
-        <item quantity="other">%d المستخدمون</item>
+        <item quantity="other">%1$d المستخدمون</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="zero">%d مطلوب</item>
-        <item quantity="one">%d مطلوب</item>
-        <item quantity="two">%d مطلوب</item>
-        <item quantity="few">%d مطلوب</item>
+        <item quantity="zero">%1$d مطلوب</item>
+        <item quantity="one">%1$d مطلوب</item>
+        <item quantity="two">%1$d مطلوب</item>
+        <item quantity="few">%1$d مطلوب</item>
         <item quantity="many"/>
-        <item quantity="other">%d مطلوب</item>
+        <item quantity="other">%1$d مطلوب</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="zero">مواسم %d</item>
-        <item quantity="one">موسم %d</item>
-        <item quantity="two">مواسم %d</item>
-        <item quantity="few">مواسم %d</item>
+        <item quantity="zero">مواسم %1$d</item>
+        <item quantity="one">موسم %1$d</item>
+        <item quantity="two">مواسم %1$d</item>
+        <item quantity="few">مواسم %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">مواسم %d</item>
+        <item quantity="other">مواسم %1$d</item>
     </plurals>
     <!-- About -->
     <string name="about_title">حول</string>

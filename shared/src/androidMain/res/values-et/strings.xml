@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Alustage filmi või episoodi ja see ekraan muutub teie soovituskeskuseks.</string>
     <string name="dashboard_discover_load_error">Ei saa oma voogu üles ehitada</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">Saadaval on %d raamatukogu</item>
-        <item quantity="other">Saadaval on %d raamatukogud</item>
+        <item quantity="one">Saadaval on %1$d raamatukogu</item>
+        <item quantity="other">Saadaval on %1$d raamatukogud</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d toode</item>
-        <item quantity="other">%d tooted</item>
+        <item quantity="one">%1$d toode</item>
+        <item quantity="other">%1$d tooted</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Mängija seaded</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">Episood</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Allalaadimisi pole saadaval</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Samaaegsed allalaadi</string>
     <string name="downloads_settings_concurrent_downloads_summary">Piirake failide allalaadimist korraga.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d allalaadimine</item>
-        <item quantity="other">%d allalaadimine</item>
+        <item quantity="one">%1$d allalaadimine</item>
+        <item quantity="other">%1$d allalaadimine</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Rakendusesisene salvestus</string>
     <string name="downloads_settings_in_app_storage_summary">Hoidke allalaadimisi rakenduspõhises salvestusruumis.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Üksuse %d allalaadimine</item>
-        <item quantity="other">%d üksuste allalaadimine</item>
+        <item quantity="one">Üksuse %1$d allalaadimine</item>
+        <item quantity="other">%1$d üksuste allalaadimine</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Järjekorras %d toode</item>
-        <item quantity="other">Järjekorras %d üksused</item>
+        <item quantity="one">Järjekorras %1$d toode</item>
+        <item quantity="other">Järjekorras %1$d üksused</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Peatatud %d toode</item>
-        <item quantity="other">Peatatud %d üksused</item>
+        <item quantity="one">Peatatud %1$d toode</item>
+        <item quantity="other">Peatatud %1$d üksused</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">%1$d või %2$d allalaadimine</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Episood</item>
-        <item quantity="other">%d Episoodid</item>
+        <item quantity="one">%1$d Episood</item>
+        <item quantity="other">%1$d Episoodid</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Järjekorras %d episood</item>
-        <item quantity="other">Järjekorras %d episoodid</item>
+        <item quantity="one">Järjekorras %1$d episood</item>
+        <item quantity="other">Järjekorras %1$d episoodid</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Peatatud %d episood</item>
-        <item quantity="other">Peatatud %d episoodid</item>
+        <item quantity="one">Peatatud %1$d episood</item>
+        <item quantity="other">Peatatud %1$d episoodid</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Tundmatu kasutaja</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Automaatne</string>
     <string name="cd_about_button">Umbes</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d kasutaja</item>
-        <item quantity="other">%d kasutajad</item>
+        <item quantity="one">%1$d kasutaja</item>
+        <item quantity="other">%1$d kasutajad</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d req</item>
-        <item quantity="other">%d req</item>
+        <item quantity="one">%1$d req</item>
+        <item quantity="other">%1$d req</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d hooaeg</item>
-        <item quantity="other">%d hooajad</item>
+        <item quantity="one">%1$d hooaeg</item>
+        <item quantity="other">%1$d hooajad</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Umbes</string>

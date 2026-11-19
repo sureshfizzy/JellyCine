@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Start een film of aflevering en dit scherm wordt je aanbevelingshub.</string>
     <string name="dashboard_discover_load_error">Kan je feed niet samenstellen</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d bibliotheek beschikbaar</item>
-        <item quantity="other">%d bibliotheken beschikbaar</item>
+        <item quantity="one">%1$d bibliotheek beschikbaar</item>
+        <item quantity="other">%1$d bibliotheken beschikbaar</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d voorwerp</item>
-        <item quantity="other">%d artikelen</item>
+        <item quantity="one">%1$d voorwerp</item>
+        <item quantity="other">%1$d artikelen</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Instellingen voor de speler</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">Aflevering</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Geen downloads beschikbaar</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Gelijktijdige downloads</string>
     <string name="downloads_settings_concurrent_downloads_summary">Beperk het aantal bestanden dat tegelijkertijd wordt gedownload.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d downloaden</item>
-        <item quantity="other">%d downloaden</item>
+        <item quantity="one">%1$d downloaden</item>
+        <item quantity="other">%1$d downloaden</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Opslag in de app</string>
     <string name="downloads_settings_in_app_storage_summary">Bewaar downloads in een app-specifieke opslag.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">([X 1X] MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Item %d downloaden</item>
-        <item quantity="other">Items %d downloaden</item>
+        <item quantity="one">Item %1$d downloaden</item>
+        <item quantity="other">Items %1$d downloaden</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Item %d in de wachtrij</item>
-        <item quantity="other">Items in de wachtrij %d</item>
+        <item quantity="one">Item %1$d in de wachtrij</item>
+        <item quantity="other">Items in de wachtrij %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Object %d gepauzeerd</item>
-        <item quantity="other">Objecten die zijn gepauzeerd %d</item>
+        <item quantity="one">Object %1$d gepauzeerd</item>
+        <item quantity="other">Objecten die zijn gepauzeerd %1$d</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">%1$d van %2$d downloaden</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Aflevering</item>
-        <item quantity="other">%d Afleveringen</item>
+        <item quantity="one">%1$d Aflevering</item>
+        <item quantity="other">%1$d Afleveringen</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Aflevering %d in de wachtrij</item>
-        <item quantity="other">Afleveringen van %d in de wachtrij</item>
+        <item quantity="one">Aflevering %1$d in de wachtrij</item>
+        <item quantity="other">Afleveringen van %1$d in de wachtrij</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Aflevering %d gepauzeerd</item>
-        <item quantity="other">Afleveringen van %d gepauzeerd</item>
+        <item quantity="one">Aflevering %1$d gepauzeerd</item>
+        <item quantity="other">Afleveringen van %1$d gepauzeerd</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Onbekende gebruiker</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">Over</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d gebruiker</item>
-        <item quantity="other">%d gebruikers</item>
+        <item quantity="one">%1$d gebruiker</item>
+        <item quantity="other">%1$d gebruikers</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d vraag</item>
-        <item quantity="other">%d vraag</item>
+        <item quantity="one">%1$d vraag</item>
+        <item quantity="other">%1$d vraag</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d seizoen</item>
-        <item quantity="other">%d seizoenen</item>
+        <item quantity="one">%1$d seizoen</item>
+        <item quantity="other">%1$d seizoenen</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Over</string>

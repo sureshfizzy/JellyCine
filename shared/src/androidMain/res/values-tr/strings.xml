@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Bir film veya bölüm başlatın ve bu ekran öneri merkezinize dönüşecektir.</string>
     <string name="dashboard_discover_load_error">Feed\'iniz oluşturulamıyor</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d kütüphanesi mevcut</item>
-        <item quantity="other">%d kütüphaneleri mevcut</item>
+        <item quantity="one">%1$d kütüphanesi mevcut</item>
+        <item quantity="other">%1$d kütüphaneleri mevcut</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d öğe</item>
-        <item quantity="other">%d öğeler</item>
+        <item quantity="one">%1$d öğe</item>
+        <item quantity="other">%1$d öğeler</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Oyuncu Ayarları</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">bölüm</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">İndirilemiyor</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Eşzamanlı indirmeler</string>
     <string name="downloads_settings_concurrent_downloads_summary">Aynı anda kaç dosya indirildiğini sınırlayın.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d indir</item>
-        <item quantity="other">%d indirmeler</item>
+        <item quantity="one">%1$d indir</item>
+        <item quantity="other">%1$d indirmeler</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Uygulama içi depolama</string>
     <string name="downloads_settings_in_app_storage_summary">İndirmeleri uygulamaya özel depolama alanında tutun.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">%d öğesini indirme</item>
-        <item quantity="other">%d öğelerini indirme</item>
+        <item quantity="one">%1$d öğesini indirme</item>
+        <item quantity="other">%1$d öğelerini indirme</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Sıraya alınmış %d öğesi</item>
-        <item quantity="other">Sıraya alınmış %d öğeler</item>
+        <item quantity="one">Sıraya alınmış %1$d öğesi</item>
+        <item quantity="other">Sıraya alınmış %1$d öğeler</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Duraklatılmış %d öğesi</item>
-        <item quantity="other">Duraklatılmış %d öğeleri</item>
+        <item quantity="one">Duraklatılmış %1$d öğesi</item>
+        <item quantity="other">Duraklatılmış %1$d öğeleri</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">%1$d veya %2$d indiriliyor</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Bölüm</item>
-        <item quantity="other">%d Bölümler</item>
+        <item quantity="one">%1$d Bölüm</item>
+        <item quantity="other">%1$d Bölümler</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Kuyruk %d bölümü</item>
-        <item quantity="other">Kuyruklu %d bölümleri</item>
+        <item quantity="one">Kuyruk %1$d bölümü</item>
+        <item quantity="other">Kuyruklu %1$d bölümleri</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Duraklatıldı %d bölümü</item>
-        <item quantity="other">Duraklatılan %d bölümleri</item>
+        <item quantity="one">Duraklatıldı %1$d bölümü</item>
+        <item quantity="other">Duraklatılan %1$d bölümleri</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Bilinmeyen Kullanıcı</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Oto</string>
     <string name="cd_about_button">Hakkında</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d kullanıcı</item>
-        <item quantity="other">%d kullanıcılar</item>
+        <item quantity="one">%1$d kullanıcı</item>
+        <item quantity="other">%1$d kullanıcılar</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d Req</item>
-        <item quantity="other">%d Req</item>
+        <item quantity="one">%1$d Req</item>
+        <item quantity="other">%1$d Req</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d sezon</item>
-        <item quantity="other">%d mevsimler</item>
+        <item quantity="one">%1$d sezon</item>
+        <item quantity="other">%1$d mevsimler</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Hakkında</string>

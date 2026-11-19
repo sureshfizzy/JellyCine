@@ -143,10 +143,10 @@
     <string name="dashboard_discover_empty_message">开始看电影或剧集，这个屏幕就会变成你的推荐中心。</string>
     <string name="dashboard_discover_load_error">无法创建您的 Feed</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="other">%d 库可用</item>
+        <item quantity="other">%1$d 库可用</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="other">%d 物品</item>
+        <item quantity="other">%1$d 物品</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">玩家设置</string>
@@ -293,7 +293,7 @@
     <string name="favorites_episode_code_fallback">插曲</string>
     <string name="favorites_episode_subtitle">%1$s-%2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="other">%d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">没有可下载的内容</string>
@@ -310,7 +310,7 @@
     <string name="downloads_settings_concurrent_downloads">同步下载</string>
     <string name="downloads_settings_concurrent_downloads_summary">限制同时下载的文件数量。</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="other">%d 下载</item>
+        <item quantity="other">%1$d 下载</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">应用程序内存储</string>
     <string name="downloads_settings_in_app_storage_summary">将下载内容保存在应用程序专用的存储空间中。</string>
@@ -342,25 +342,25 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="other">正在下载 %d 物品</item>
+        <item quantity="other">正在下载 %1$d 物品</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="other">已排队的 %d 物品</item>
+        <item quantity="other">已排队的 %1$d 物品</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="other">已暂停 %d 物品</item>
+        <item quantity="other">已暂停 %1$d 物品</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">正在下载 %2$d 的 %1$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="other">%d 剧集</item>
+        <item quantity="other">%1$d 剧集</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="other">排队的 %d 剧集</item>
+        <item quantity="other">排队的 %1$d 剧集</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="other">%d 剧集已暂停</item>
+        <item quantity="other">%1$d 剧集已暂停</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">未知用户</string>
@@ -478,13 +478,13 @@
     <string name="settings_auto">汽车</string>
     <string name="cd_about_button">关于</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="other">%d 用户</item>
+        <item quantity="other">%1$d 用户</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="other">%d 请求</item>
+        <item quantity="other">%1$d 请求</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="other">%d 赛季</item>
+        <item quantity="other">%1$d 赛季</item>
     </plurals>
     <!-- About -->
     <string name="about_title">关于</string>

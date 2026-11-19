@@ -143,14 +143,14 @@
     <string name="dashboard_discover_empty_message">Démarrez un film ou un épisode et cet écran deviendra votre centre de recommandations.</string>
     <string name="dashboard_discover_load_error">Impossible de créer votre flux</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">bibliothèques %d disponibles</item>
+        <item quantity="one">bibliothèques %1$d disponibles</item>
         <item quantity="many"/>
-        <item quantity="other">bibliothèques %d disponibles</item>
+        <item quantity="other">bibliothèques %1$d disponibles</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d objets</item>
+        <item quantity="one">%1$d objets</item>
         <item quantity="many"/>
-        <item quantity="other">%d objets</item>
+        <item quantity="other">%1$d objets</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Paramètres du joueur</string>
@@ -297,9 +297,9 @@
     <string name="favorites_episode_code_fallback">Épisode</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d eps</item>
+        <item quantity="one">%1$d eps</item>
         <item quantity="many"/>
-        <item quantity="other">%d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Aucun téléchargement disponible</string>
@@ -316,9 +316,9 @@
     <string name="downloads_settings_concurrent_downloads">Téléchargements simultanés</string>
     <string name="downloads_settings_concurrent_downloads_summary">Limitez le nombre de fichiers téléchargés en même temps.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d téléchargements</item>
+        <item quantity="one">%1$d téléchargements</item>
         <item quantity="many"/>
-        <item quantity="other">%d téléchargements</item>
+        <item quantity="other">%1$d téléchargements</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Stockage intégré à l\'application</string>
     <string name="downloads_settings_in_app_storage_summary">Conservez les téléchargements dans le stockage spécifique à l\'application.</string>
@@ -350,37 +350,37 @@
     <string name="downloads_notification_size_total">(%1$.0f MO/ %2$.0f MO)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MO)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Téléchargement d\'éléments %d</item>
+        <item quantity="one">Téléchargement d\'éléments %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">Téléchargement d\'éléments %d</item>
+        <item quantity="other">Téléchargement d\'éléments %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Articles %d en file d\'attente</item>
+        <item quantity="one">Articles %1$d en file d\'attente</item>
         <item quantity="many"/>
-        <item quantity="other">Articles %d en file d\'attente</item>
+        <item quantity="other">Articles %1$d en file d\'attente</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Éléments %d en pause</item>
+        <item quantity="one">Éléments %1$d en pause</item>
         <item quantity="many"/>
-        <item quantity="other">Éléments %d en pause</item>
+        <item quantity="other">Éléments %1$d en pause</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Téléchargement de %1$d ou %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Épisodes</item>
+        <item quantity="one">%1$d Épisodes</item>
         <item quantity="many"/>
-        <item quantity="other">%d Épisodes</item>
+        <item quantity="other">%1$d Épisodes</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Épisodes %d en file d\'attente</item>
+        <item quantity="one">Épisodes %1$d en file d\'attente</item>
         <item quantity="many"/>
-        <item quantity="other">Épisodes %d en file d\'attente</item>
+        <item quantity="other">Épisodes %1$d en file d\'attente</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Épisodes %d en pause</item>
+        <item quantity="one">Épisodes %1$d en pause</item>
         <item quantity="many"/>
-        <item quantity="other">Épisodes %d en pause</item>
+        <item quantity="other">Épisodes %1$d en pause</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Utilisateur inconnu</string>
@@ -498,19 +498,19 @@
     <string name="settings_auto">Automatique</string>
     <string name="cd_about_button">À propos</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d utilisateurs</item>
+        <item quantity="one">%1$d utilisateurs</item>
         <item quantity="many"/>
-        <item quantity="other">%d utilisateurs</item>
+        <item quantity="other">%1$d utilisateurs</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d réq</item>
+        <item quantity="one">%1$d réq</item>
         <item quantity="many"/>
-        <item quantity="other">%d réq</item>
+        <item quantity="other">%1$d réq</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d saisons</item>
+        <item quantity="one">%1$d saisons</item>
         <item quantity="many"/>
-        <item quantity="other">%d saisons</item>
+        <item quantity="other">%1$d saisons</item>
     </plurals>
     <!-- About -->
     <string name="about_title">À propos</string>

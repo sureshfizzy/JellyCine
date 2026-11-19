@@ -143,16 +143,16 @@
     <string name="dashboard_discover_empty_message">Spusťte film nebo epizodu a tato obrazovka se změní na vaše centrum doporučení.</string>
     <string name="dashboard_discover_load_error">Nelze vytvořit zdroj</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d knihovna k dispozici</item>
-        <item quantity="few">%d dostupné knihovny</item>
-        <item quantity="many">%d dostupné knihovny</item>
-        <item quantity="other">%d dostupné knihovny</item>
+        <item quantity="one">%1$d knihovna k dispozici</item>
+        <item quantity="few">%1$d dostupné knihovny</item>
+        <item quantity="many">%1$d dostupné knihovny</item>
+        <item quantity="other">%1$d dostupné knihovny</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d položka</item>
-        <item quantity="few">%d položky</item>
-        <item quantity="many">%d položky</item>
-        <item quantity="other">%d položky</item>
+        <item quantity="one">%1$d položka</item>
+        <item quantity="few">%1$d položky</item>
+        <item quantity="many">%1$d položky</item>
+        <item quantity="other">%1$d položky</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Nastavení přehrávače</string>
@@ -299,10 +299,10 @@
     <string name="favorites_episode_code_fallback">Epizoda</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="few">%d eps</item>
-        <item quantity="many">%d eps</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="few">%1$d eps</item>
+        <item quantity="many">%1$d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Nejsou k dispozici žádné soubory ke stažení</string>
@@ -319,10 +319,10 @@
     <string name="downloads_settings_concurrent_downloads">Současné stahování</string>
     <string name="downloads_settings_concurrent_downloads_summary">Omezte počet souborů stažených současně.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d ke stažení</item>
-        <item quantity="few">%d stažení</item>
-        <item quantity="many">%d stažení</item>
-        <item quantity="other">%d stažení</item>
+        <item quantity="one">%1$d ke stažení</item>
+        <item quantity="few">%1$d stažení</item>
+        <item quantity="many">%1$d stažení</item>
+        <item quantity="other">%1$d stažení</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Úložiště v aplikaci</string>
     <string name="downloads_settings_in_app_storage_summary">Uchovávejte soubory ke stažení v úložišti specifickém pro aplikaci.</string>
@@ -354,43 +354,43 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Stahování položky %d</item>
-        <item quantity="few">Stahování položek %d</item>
-        <item quantity="many">Stahování položek %d</item>
-        <item quantity="other">Stahování položek %d</item>
+        <item quantity="one">Stahování položky %1$d</item>
+        <item quantity="few">Stahování položek %1$d</item>
+        <item quantity="many">Stahování položek %1$d</item>
+        <item quantity="other">Stahování položek %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Položka ve frontě %d</item>
-        <item quantity="few">Položky ve frontě %d</item>
-        <item quantity="many">Položky ve frontě %d</item>
-        <item quantity="other">Položky ve frontě %d</item>
+        <item quantity="one">Položka ve frontě %1$d</item>
+        <item quantity="few">Položky ve frontě %1$d</item>
+        <item quantity="many">Položky ve frontě %1$d</item>
+        <item quantity="other">Položky ve frontě %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Pozastavená položka %d</item>
-        <item quantity="few">Pozastavené položky %d</item>
-        <item quantity="many">Pozastavené položky %d</item>
-        <item quantity="other">Pozastavené položky %d</item>
+        <item quantity="one">Pozastavená položka %1$d</item>
+        <item quantity="few">Pozastavené položky %1$d</item>
+        <item quantity="many">Pozastavené položky %1$d</item>
+        <item quantity="other">Pozastavené položky %1$d</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Stažení %1$d nebo %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Epizoda</item>
-        <item quantity="few">%d Epizody</item>
-        <item quantity="many">%d Epizody</item>
-        <item quantity="other">%d Epizody</item>
+        <item quantity="one">%1$d Epizoda</item>
+        <item quantity="few">%1$d Epizody</item>
+        <item quantity="many">%1$d Epizody</item>
+        <item quantity="other">%1$d Epizody</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Epizoda ve frontě %d</item>
-        <item quantity="few">Epizody ve frontě %d</item>
-        <item quantity="many">Epizody ve frontě %d</item>
-        <item quantity="other">Epizody ve frontě %d</item>
+        <item quantity="one">Epizoda ve frontě %1$d</item>
+        <item quantity="few">Epizody ve frontě %1$d</item>
+        <item quantity="many">Epizody ve frontě %1$d</item>
+        <item quantity="other">Epizody ve frontě %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Pozastavená epizoda %d</item>
-        <item quantity="few">Pozastavené %d epizody</item>
-        <item quantity="many">Pozastavené %d epizody</item>
-        <item quantity="other">Pozastavené %d epizody</item>
+        <item quantity="one">Pozastavená epizoda %1$d</item>
+        <item quantity="few">Pozastavené %1$d epizody</item>
+        <item quantity="many">Pozastavené %1$d epizody</item>
+        <item quantity="other">Pozastavené %1$d epizody</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Neznámý uživatel</string>
@@ -508,22 +508,22 @@
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">O</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d uživatel</item>
-        <item quantity="few">%d uživatelé</item>
-        <item quantity="many">%d uživatelé</item>
-        <item quantity="other">%d uživatelé</item>
+        <item quantity="one">%1$d uživatel</item>
+        <item quantity="few">%1$d uživatelé</item>
+        <item quantity="many">%1$d uživatelé</item>
+        <item quantity="other">%1$d uživatelé</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d Req</item>
-        <item quantity="few">%d Req</item>
-        <item quantity="many">%d Req</item>
-        <item quantity="other">%d Req</item>
+        <item quantity="one">%1$d Req</item>
+        <item quantity="few">%1$d Req</item>
+        <item quantity="many">%1$d Req</item>
+        <item quantity="other">%1$d Req</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d sezóna</item>
-        <item quantity="few">%d roční období</item>
-        <item quantity="many">%d roční období</item>
-        <item quantity="other">%d roční období</item>
+        <item quantity="one">%1$d sezóna</item>
+        <item quantity="few">%1$d roční období</item>
+        <item quantity="many">%1$d roční období</item>
+        <item quantity="other">%1$d roční období</item>
     </plurals>
     <!-- About -->
     <string name="about_title">O</string>

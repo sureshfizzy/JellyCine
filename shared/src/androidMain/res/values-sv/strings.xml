@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Starta en film eller ett avsnitt så förvandlas den här skärmen till ditt rekommendationsnav.</string>
     <string name="dashboard_discover_load_error">Det går inte att bygga ditt flöde</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d bibliotek tillgängligt</item>
-        <item quantity="other">%d bibliotek tillgängliga</item>
+        <item quantity="one">%1$d bibliotek tillgängligt</item>
+        <item quantity="other">%1$d bibliotek tillgängliga</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d objekt</item>
-        <item quantity="other">%d artiklar</item>
+        <item quantity="one">%1$d objekt</item>
+        <item quantity="other">%1$d artiklar</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Spelarinställningar</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">Episod</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Inga nedladdningar tillgängliga</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Samtidiga nedladdningar</string>
     <string name="downloads_settings_concurrent_downloads_summary">Begränsa hur många filer som laddas ner samtidigt.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d ladda ner</item>
-        <item quantity="other">%d nedladdningar</item>
+        <item quantity="one">%1$d ladda ner</item>
+        <item quantity="other">%1$d nedladdningar</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Lagring i appen</string>
     <string name="downloads_settings_in_app_storage_summary">Behåll nedladdningar i appspecifik lagring.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Hämta %d -objekt</item>
-        <item quantity="other">Hämta %d -objekt</item>
+        <item quantity="one">Hämta %1$d -objekt</item>
+        <item quantity="other">Hämta %1$d -objekt</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Köad %d artikel</item>
-        <item quantity="other">Köade %d objekt</item>
+        <item quantity="one">Köad %1$d artikel</item>
+        <item quantity="other">Köade %1$d objekt</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Pausat %d -objekt</item>
-        <item quantity="other">Pausade %d -objekt</item>
+        <item quantity="one">Pausat %1$d -objekt</item>
+        <item quantity="other">Pausade %1$d -objekt</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Hämtar %1$d eller %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d avsnitt</item>
-        <item quantity="other">%d Avsnitt</item>
+        <item quantity="one">%1$d avsnitt</item>
+        <item quantity="other">%1$d Avsnitt</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Avsnitt i kö %d</item>
-        <item quantity="other">Avsnitt i kö %d</item>
+        <item quantity="one">Avsnitt i kö %1$d</item>
+        <item quantity="other">Avsnitt i kö %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Pausat %d avsnitt</item>
-        <item quantity="other">Pausade %d avsnitt</item>
+        <item quantity="one">Pausat %1$d avsnitt</item>
+        <item quantity="other">Pausade %1$d avsnitt</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Okänd användare</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Bil</string>
     <string name="cd_about_button">Om</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d användare</item>
-        <item quantity="other">%d användare</item>
+        <item quantity="one">%1$d användare</item>
+        <item quantity="other">%1$d användare</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d förfrågan</item>
-        <item quantity="other">%d förfrågan</item>
+        <item quantity="one">%1$d förfrågan</item>
+        <item quantity="other">%1$d förfrågan</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d säsong</item>
-        <item quantity="other">%d årstider</item>
+        <item quantity="one">%1$d säsong</item>
+        <item quantity="other">%1$d årstider</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Om</string>

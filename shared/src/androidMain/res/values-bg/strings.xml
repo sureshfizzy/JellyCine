@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Стартирайте филм или епизод и този екран ще се превърне във вашия център за препоръки.</string>
     <string name="dashboard_discover_load_error">Не може да се създаде вашата емисия</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d налична библиотека</item>
-        <item quantity="other">%d налични библиотеки</item>
+        <item quantity="one">%1$d налична библиотека</item>
+        <item quantity="other">%1$d налични библиотеки</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d артикул</item>
-        <item quantity="other">%d артикули</item>
+        <item quantity="one">%1$d артикул</item>
+        <item quantity="other">%1$d артикули</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Настройки на плейъра</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">Епизод</string>
     <string name="favorites_episode_subtitle">[Х0Х] - [Х7Х]</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d епи</item>
-        <item quantity="other">%d епс</item>
+        <item quantity="one">%1$d епи</item>
+        <item quantity="other">%1$d епс</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Няма налични изтегляния</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Едновременно изтегляне</string>
     <string name="downloads_settings_concurrent_downloads_summary">Ограничете колко файлове се изтеглят едновременно.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d Изтегляне</item>
-        <item quantity="other">%d изтегляния</item>
+        <item quantity="one">%1$d Изтегляне</item>
+        <item quantity="other">%1$d изтегляния</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Съхранение в приложението</string>
     <string name="downloads_settings_in_app_storage_summary">Съхранявайте изтеглянията в специфичното за приложението хранилище.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">([Х1Х] МБ/ [Х11Х] МБ)</string>
     <string name="downloads_notification_size_downloaded">([Х1Х] МБ)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Изтегляне на елемент %d</item>
-        <item quantity="other">Изтегляне на елементи %d</item>
+        <item quantity="one">Изтегляне на елемент %1$d</item>
+        <item quantity="other">Изтегляне на елементи %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Елемент на опашка %d</item>
-        <item quantity="other">Елементи на опашка %d</item>
+        <item quantity="one">Елемент на опашка %1$d</item>
+        <item quantity="other">Елементи на опашка %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Паузиран %d елемент</item>
-        <item quantity="other">Паузирани %d елементи</item>
+        <item quantity="one">Паузиран %1$d елемент</item>
+        <item quantity="other">Паузирани %1$d елементи</item>
     </plurals>
     <string name="downloads_progress_with_total">| [Х2Х]/[Х9Х]</string>
     <string name="downloads_progress_downloaded_only">| [Х2Х]</string>
     <string name="downloads_group_downloading">Изтегляне на %1$d или %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Епизод</item>
-        <item quantity="other">%d Епизоди</item>
+        <item quantity="one">%1$d Епизод</item>
+        <item quantity="other">%1$d Епизоди</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Епизод на опашка %d</item>
-        <item quantity="other">Епизоди на опашка %d</item>
+        <item quantity="one">Епизод на опашка %1$d</item>
+        <item quantity="other">Епизоди на опашка %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Пауза %d епизод</item>
-        <item quantity="other">Паузирани %d епизоди</item>
+        <item quantity="one">Пауза %1$d епизод</item>
+        <item quantity="other">Паузирани %1$d епизоди</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Неизвестен потребител</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Авто</string>
     <string name="cd_about_button">Относно</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d потребител</item>
-        <item quantity="other">%d потребители</item>
+        <item quantity="one">%1$d потребител</item>
+        <item quantity="other">%1$d потребители</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d изискване</item>
-        <item quantity="other">%d изискване</item>
+        <item quantity="one">%1$d изискване</item>
+        <item quantity="other">%1$d изискване</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d сезон</item>
-        <item quantity="other">%d сезони</item>
+        <item quantity="one">%1$d сезон</item>
+        <item quantity="other">%1$d сезони</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Относно</string>

@@ -143,10 +143,10 @@
     <string name="dashboard_discover_empty_message">영화나 에피소드를 시작하면 이 화면이 추천 허브로 바뀝니다.</string>
     <string name="dashboard_discover_load_error">피드를 만들 수 없음</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="other">%d 라이브러리 사용 가능</item>
+        <item quantity="other">%1$d 라이브러리 사용 가능</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="other">%d 아이템</item>
+        <item quantity="other">%1$d 아이템</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">플레이어 설정</string>
@@ -293,7 +293,7 @@
     <string name="favorites_episode_code_fallback">에피소드</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="other">%d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">다운로드 불가</string>
@@ -310,7 +310,7 @@
     <string name="downloads_settings_concurrent_downloads">동시 다운로드</string>
     <string name="downloads_settings_concurrent_downloads_summary">동시에 다운로드할 수 있는 파일 수를 제한합니다.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="other">%d 다운로드</item>
+        <item quantity="other">%1$d 다운로드</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">인앱 스토리지</string>
     <string name="downloads_settings_in_app_storage_summary">앱별 저장소에 다운로드를 보관하세요.</string>
@@ -342,25 +342,25 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="other">%d 아이템 다운로드</item>
+        <item quantity="other">%1$d 아이템 다운로드</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="other">대기 중인 %d 항목</item>
+        <item quantity="other">대기 중인 %1$d 항목</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="other">일시 중지된 %d 아이템</item>
+        <item quantity="other">일시 중지된 %1$d 아이템</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">%1$d 또는 %2$d 다운로드</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="other">%d 에피소드</item>
+        <item quantity="other">%1$d 에피소드</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="other">대기 중인 %d 에피소드</item>
+        <item quantity="other">대기 중인 %1$d 에피소드</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="other">일시 중지된 %d 에피소드</item>
+        <item quantity="other">일시 중지된 %1$d 에피소드</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">알 수 없는 사용자</string>
@@ -478,13 +478,13 @@
     <string name="settings_auto">자동</string>
     <string name="cd_about_button">에 대해</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="other">%d 사용자</item>
+        <item quantity="other">%1$d 사용자</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="other">%d 필수</item>
+        <item quantity="other">%1$d 필수</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="other">%d 시즌</item>
+        <item quantity="other">%1$d 시즌</item>
     </plurals>
     <!-- About -->
     <string name="about_title">에 대해</string>

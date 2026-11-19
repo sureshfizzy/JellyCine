@@ -144,15 +144,15 @@
     <string name="dashboard_discover_load_error">Не вдається створити свій канал</string>
     <plurals name="my_media_libraries_available">
         <item quantity="one"/>
-        <item quantity="few">Доступні бібліотеки %d</item>
-        <item quantity="many">Доступні бібліотеки %d</item>
-        <item quantity="other">Доступні бібліотеки %d</item>
+        <item quantity="few">Доступні бібліотеки %1$d</item>
+        <item quantity="many">Доступні бібліотеки %1$d</item>
+        <item quantity="other">Доступні бібліотеки %1$d</item>
     </plurals>
     <plurals name="my_media_items_count">
         <item quantity="one"/>
-        <item quantity="few">%d предметів</item>
-        <item quantity="many">%d предметів</item>
-        <item quantity="other">%d предметів</item>
+        <item quantity="few">%1$d предметів</item>
+        <item quantity="many">%1$d предметів</item>
+        <item quantity="other">%1$d предметів</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Налаштування плеєра</string>
@@ -300,9 +300,9 @@
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
         <item quantity="one"/>
-        <item quantity="few">%d EPS</item>
-        <item quantity="many">%d EPS</item>
-        <item quantity="other">%d EPS</item>
+        <item quantity="few">%1$d EPS</item>
+        <item quantity="many">%1$d EPS</item>
+        <item quantity="other">%1$d EPS</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Немає доступних завантажень</string>
@@ -320,9 +320,9 @@
     <string name="downloads_settings_concurrent_downloads_summary">Обмежте кількість файлів, які завантажуються одночасно.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
         <item quantity="one"/>
-        <item quantity="few">%d завантаження</item>
-        <item quantity="many">%d завантаження</item>
-        <item quantity="other">%d завантаження</item>
+        <item quantity="few">%1$d завантаження</item>
+        <item quantity="many">%1$d завантаження</item>
+        <item quantity="other">%1$d завантаження</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Зберігання в додатку</string>
     <string name="downloads_settings_in_app_storage_summary">Зберігайте завантаження в сховищі для конкретних додатків.</string>
@@ -355,42 +355,42 @@
     <string name="downloads_notification_size_downloaded">(%1$.0f МБ)</string>
     <plurals name="downloads_notification_downloading_items">
         <item quantity="one"/>
-        <item quantity="few">Завантаження елементів %d</item>
-        <item quantity="many">Завантаження елементів %d</item>
-        <item quantity="other">Завантаження елементів %d</item>
+        <item quantity="few">Завантаження елементів %1$d</item>
+        <item quantity="many">Завантаження елементів %1$d</item>
+        <item quantity="other">Завантаження елементів %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
         <item quantity="one"/>
-        <item quantity="few">Об\'єкти в черзі %d</item>
-        <item quantity="many">Об\'єкти в черзі %d</item>
-        <item quantity="other">Об\'єкти в черзі %d</item>
+        <item quantity="few">Об\'єкти в черзі %1$d</item>
+        <item quantity="many">Об\'єкти в черзі %1$d</item>
+        <item quantity="other">Об\'єкти в черзі %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
         <item quantity="one"/>
-        <item quantity="few">Призупинені %d елементи</item>
-        <item quantity="many">Призупинені %d елементи</item>
-        <item quantity="other">Призупинені %d елементи</item>
+        <item quantity="few">Призупинені %1$d елементи</item>
+        <item quantity="many">Призупинені %1$d елементи</item>
+        <item quantity="other">Призупинені %1$d елементи</item>
     </plurals>
     <string name="downloads_progress_with_total">| [Х2Х]/[Х9Х]</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Завантаження %1$d або %2$d</string>
     <plurals name="downloads_episodes_count">
         <item quantity="one"/>
-        <item quantity="few">%d Епізоди</item>
-        <item quantity="many">%d Епізоди</item>
-        <item quantity="other">%d Епізоди</item>
+        <item quantity="few">%1$d Епізоди</item>
+        <item quantity="many">%1$d Епізоди</item>
+        <item quantity="other">%1$d Епізоди</item>
     </plurals>
     <plurals name="downloads_group_queued">
         <item quantity="one"/>
-        <item quantity="few">Епізоди в черзі %d</item>
-        <item quantity="many">Епізоди в черзі %d</item>
-        <item quantity="other">Епізоди в черзі %d</item>
+        <item quantity="few">Епізоди в черзі %1$d</item>
+        <item quantity="many">Епізоди в черзі %1$d</item>
+        <item quantity="other">Епізоди в черзі %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
         <item quantity="one"/>
-        <item quantity="few">Призупинені епізоди %d</item>
-        <item quantity="many">Призупинені епізоди %d</item>
-        <item quantity="other">Призупинені епізоди %d</item>
+        <item quantity="few">Призупинені епізоди %1$d</item>
+        <item quantity="many">Призупинені епізоди %1$d</item>
+        <item quantity="other">Призупинені епізоди %1$d</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Невідомий користувач</string>
@@ -509,21 +509,21 @@
     <string name="cd_about_button">Про</string>
     <plurals name="settings_saved_users_count">
         <item quantity="one"/>
-        <item quantity="few">%d користувачів</item>
-        <item quantity="many">%d користувачів</item>
-        <item quantity="other">%d користувачів</item>
+        <item quantity="few">%1$d користувачів</item>
+        <item quantity="many">%1$d користувачів</item>
+        <item quantity="other">%1$d користувачів</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
         <item quantity="one"/>
-        <item quantity="few">%d запит</item>
-        <item quantity="many">%d запит</item>
-        <item quantity="other">%d запит</item>
+        <item quantity="few">%1$d запит</item>
+        <item quantity="many">%1$d запит</item>
+        <item quantity="other">%1$d запит</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
         <item quantity="one"/>
-        <item quantity="few">%d сезони</item>
-        <item quantity="many">%d сезони</item>
-        <item quantity="other">%d сезони</item>
+        <item quantity="few">%1$d сезони</item>
+        <item quantity="many">%1$d сезони</item>
+        <item quantity="other">%1$d сезони</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Про</string>

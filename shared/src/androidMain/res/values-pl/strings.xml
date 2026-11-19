@@ -143,16 +143,16 @@
     <string name="dashboard_discover_empty_message">Uruchom film lub odcinek, a ten ekran zamieni się w centrum rekomendacji.</string>
     <string name="dashboard_discover_load_error">Nie można zbudować kanału</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">Dostępna biblioteka %d</item>
-        <item quantity="few">Dostępne biblioteki %d</item>
-        <item quantity="many">Dostępne biblioteki %d</item>
-        <item quantity="other">Dostępne biblioteki %d</item>
+        <item quantity="one">Dostępna biblioteka %1$d</item>
+        <item quantity="few">Dostępne biblioteki %1$d</item>
+        <item quantity="many">Dostępne biblioteki %1$d</item>
+        <item quantity="other">Dostępne biblioteki %1$d</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d produkt</item>
-        <item quantity="few">%d przedmioty</item>
-        <item quantity="many">%d przedmioty</item>
-        <item quantity="other">%d przedmioty</item>
+        <item quantity="one">%1$d produkt</item>
+        <item quantity="few">%1$d przedmioty</item>
+        <item quantity="many">%1$d przedmioty</item>
+        <item quantity="other">%1$d przedmioty</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Ustawienia odtwarzacza</string>
@@ -299,10 +299,10 @@
     <string name="favorites_episode_code_fallback">Odcinek</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d odc</item>
-        <item quantity="few">%d eps</item>
-        <item quantity="many">%d eps</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d odc</item>
+        <item quantity="few">%1$d eps</item>
+        <item quantity="many">%1$d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Brak dostępnych plików do pobrania</string>
@@ -319,10 +319,10 @@
     <string name="downloads_settings_concurrent_downloads">Jednoczesne pobieranie</string>
     <string name="downloads_settings_concurrent_downloads_summary">Ogranicz liczbę plików pobieranych w tym samym czasie.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d pobierz</item>
-        <item quantity="few">%d pliki do pobrania</item>
-        <item quantity="many">%d pliki do pobrania</item>
-        <item quantity="other">%d pliki do pobrania</item>
+        <item quantity="one">%1$d pobierz</item>
+        <item quantity="few">%1$d pliki do pobrania</item>
+        <item quantity="many">%1$d pliki do pobrania</item>
+        <item quantity="other">%1$d pliki do pobrania</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Przechowywanie w aplikacji</string>
     <string name="downloads_settings_in_app_storage_summary">Przechowuj pliki do pobrania w pamięci masowej specyficznej dla aplikacji.</string>
@@ -354,43 +354,43 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Pobieranie pozycji %d</item>
-        <item quantity="few">Pobieranie przedmiotów %d</item>
-        <item quantity="many">Pobieranie przedmiotów %d</item>
-        <item quantity="other">Pobieranie przedmiotów %d</item>
+        <item quantity="one">Pobieranie pozycji %1$d</item>
+        <item quantity="few">Pobieranie przedmiotów %1$d</item>
+        <item quantity="many">Pobieranie przedmiotów %1$d</item>
+        <item quantity="other">Pobieranie przedmiotów %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Przedmiot w kolejce %d</item>
-        <item quantity="few">Elementy w kolejce %d</item>
-        <item quantity="many">Elementy w kolejce %d</item>
-        <item quantity="other">Elementy w kolejce %d</item>
+        <item quantity="one">Przedmiot w kolejce %1$d</item>
+        <item quantity="few">Elementy w kolejce %1$d</item>
+        <item quantity="many">Elementy w kolejce %1$d</item>
+        <item quantity="other">Elementy w kolejce %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Przedmiot wstrzymany %d</item>
-        <item quantity="few">Wstrzymane %d przedmioty</item>
-        <item quantity="many">Wstrzymane %d przedmioty</item>
-        <item quantity="other">Wstrzymane %d przedmioty</item>
+        <item quantity="one">Przedmiot wstrzymany %1$d</item>
+        <item quantity="few">Wstrzymane %1$d przedmioty</item>
+        <item quantity="many">Wstrzymane %1$d przedmioty</item>
+        <item quantity="other">Wstrzymane %1$d przedmioty</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Pobieranie %1$d lub %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Odcinek</item>
-        <item quantity="few">%d Odcinki</item>
-        <item quantity="many">%d Odcinki</item>
-        <item quantity="other">%d Odcinki</item>
+        <item quantity="one">%1$d Odcinek</item>
+        <item quantity="few">%1$d Odcinki</item>
+        <item quantity="many">%1$d Odcinki</item>
+        <item quantity="other">%1$d Odcinki</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Odcinek w kolejce %d</item>
-        <item quantity="few">Kolejkowe odcinki %d</item>
-        <item quantity="many">Kolejkowe odcinki %d</item>
-        <item quantity="other">Kolejkowe odcinki %d</item>
+        <item quantity="one">Odcinek w kolejce %1$d</item>
+        <item quantity="few">Kolejkowe odcinki %1$d</item>
+        <item quantity="many">Kolejkowe odcinki %1$d</item>
+        <item quantity="other">Kolejkowe odcinki %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Odcinek wstrzymany %d</item>
-        <item quantity="few">Wstrzymane odcinki %d</item>
-        <item quantity="many">Wstrzymane odcinki %d</item>
-        <item quantity="other">Wstrzymane odcinki %d</item>
+        <item quantity="one">Odcinek wstrzymany %1$d</item>
+        <item quantity="few">Wstrzymane odcinki %1$d</item>
+        <item quantity="many">Wstrzymane odcinki %1$d</item>
+        <item quantity="other">Wstrzymane odcinki %1$d</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Nieznany użytkownik</string>
@@ -508,22 +508,22 @@
     <string name="settings_auto">Automatyczny</string>
     <string name="cd_about_button">O</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d użytkownik</item>
-        <item quantity="few">%d użytkownicy</item>
-        <item quantity="many">%d użytkownicy</item>
-        <item quantity="other">%d użytkownicy</item>
+        <item quantity="one">%1$d użytkownik</item>
+        <item quantity="few">%1$d użytkownicy</item>
+        <item quantity="many">%1$d użytkownicy</item>
+        <item quantity="other">%1$d użytkownicy</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d req</item>
-        <item quantity="few">%d req</item>
-        <item quantity="many">%d req</item>
-        <item quantity="other">%d req</item>
+        <item quantity="one">%1$d req</item>
+        <item quantity="few">%1$d req</item>
+        <item quantity="many">%1$d req</item>
+        <item quantity="other">%1$d req</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d sezon</item>
-        <item quantity="few">%d sezony</item>
-        <item quantity="many">%d sezony</item>
-        <item quantity="other">%d sezony</item>
+        <item quantity="one">%1$d sezon</item>
+        <item quantity="few">%1$d sezony</item>
+        <item quantity="many">%1$d sezony</item>
+        <item quantity="other">%1$d sezony</item>
     </plurals>
     <!-- About -->
     <string name="about_title">O</string>

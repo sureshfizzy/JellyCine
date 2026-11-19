@@ -143,12 +143,12 @@
     <string name="dashboard_discover_empty_message">Start en film eller episode, og denne skærm bliver til dit anbefalingshub.</string>
     <string name="dashboard_discover_load_error">Kan ikke oprette dit feed</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">%d bibliotek tilgængeligt</item>
-        <item quantity="other">%d tilgængelige biblioteker</item>
+        <item quantity="one">%1$d bibliotek tilgængeligt</item>
+        <item quantity="other">%1$d tilgængelige biblioteker</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d vare</item>
-        <item quantity="other">%d varer</item>
+        <item quantity="one">%1$d vare</item>
+        <item quantity="other">%1$d varer</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Spillerindstillinger</string>
@@ -295,8 +295,8 @@
     <string name="favorites_episode_code_fallback">Episode</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
-        <item quantity="other">%d eps</item>
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Ingen downloads tilgængelige</string>
@@ -313,8 +313,8 @@
     <string name="downloads_settings_concurrent_downloads">Samtidige downloads</string>
     <string name="downloads_settings_concurrent_downloads_summary">Begræns hvor mange filer, der downloades på samme tid.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d download</item>
-        <item quantity="other">%d downloads</item>
+        <item quantity="one">%1$d download</item>
+        <item quantity="other">%1$d downloads</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Lagring i appen</string>
     <string name="downloads_settings_in_app_storage_summary">Opbevar downloads inde i appspecifikt lager.</string>
@@ -346,31 +346,31 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Download af %d -element</item>
-        <item quantity="other">Download af %d -elementer</item>
+        <item quantity="one">Download af %1$d -element</item>
+        <item quantity="other">Download af %1$d -elementer</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Varen i kø %d</item>
-        <item quantity="other">Varer i kø %d</item>
+        <item quantity="one">Varen i kø %1$d</item>
+        <item quantity="other">Varer i kø %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Pauset %d element</item>
-        <item quantity="other">Pausede %d elementer</item>
+        <item quantity="one">Pauset %1$d element</item>
+        <item quantity="other">Pausede %1$d elementer</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Henter %1$d eller %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Episode</item>
-        <item quantity="other">%d Episoder</item>
+        <item quantity="one">%1$d Episode</item>
+        <item quantity="other">%1$d Episoder</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Afsnit i kø %d</item>
-        <item quantity="other">Afsnit i kø %d</item>
+        <item quantity="one">Afsnit i kø %1$d</item>
+        <item quantity="other">Afsnit i kø %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Afsnittet på pause %d</item>
-        <item quantity="other">Pausede %d episoder</item>
+        <item quantity="one">Afsnittet på pause %1$d</item>
+        <item quantity="other">Pausede %1$d episoder</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Ukendt bruger</string>
@@ -488,16 +488,16 @@
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">Om</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">%d bruger</item>
-        <item quantity="other">%d brugere</item>
+        <item quantity="one">%1$d bruger</item>
+        <item quantity="other">%1$d brugere</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d Req</item>
-        <item quantity="other">%d Req</item>
+        <item quantity="one">%1$d Req</item>
+        <item quantity="other">%1$d Req</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d sæson</item>
-        <item quantity="other">%d sæsoner</item>
+        <item quantity="one">%1$d sæson</item>
+        <item quantity="other">%1$d sæsoner</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Om</string>

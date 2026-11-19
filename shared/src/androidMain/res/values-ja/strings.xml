@@ -143,10 +143,10 @@
     <string name="dashboard_discover_empty_message">映画やエピソードを開始すると、この画面がおすすめのハブになります。</string>
     <string name="dashboard_discover_load_error">フィードを作成できません</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="other">%d ライブラリが利用可能</item>
+        <item quantity="other">%1$d ライブラリが利用可能</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="other">%d のアイテム</item>
+        <item quantity="other">%1$d のアイテム</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">プレイヤー設定</string>
@@ -293,7 +293,7 @@
     <string name="favorites_episode_code_fallback">エピソード</string>
     <string name="favorites_episode_subtitle">%1$s-%2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="other">%d エプス</item>
+        <item quantity="other">%1$d エプス</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">ダウンロードできません</string>
@@ -310,7 +310,7 @@
     <string name="downloads_settings_concurrent_downloads">同時ダウンロード</string>
     <string name="downloads_settings_concurrent_downloads_summary">同時にダウンロードするファイルの数を制限します。</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="other">%d ダウンロード</item>
+        <item quantity="other">%1$d ダウンロード</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">アプリ内ストレージ</string>
     <string name="downloads_settings_in_app_storage_summary">ダウンロードしたファイルはアプリ固有のストレージに保存してください。</string>
@@ -342,25 +342,25 @@
     <string name="downloads_notification_size_total">(%1$.0f メガバイト/ %2$.0f メガバイト)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f メガバイト)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="other">%d アイテムをダウンロードする</item>
+        <item quantity="other">%1$d アイテムをダウンロードする</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="other">キューに入っている %d アイテム</item>
+        <item quantity="other">キューに入っている %1$d アイテム</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="other">一時停止中の %d アイテム</item>
+        <item quantity="other">一時停止中の %1$d アイテム</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| [倍率]</string>
     <string name="downloads_group_downloading">%2$d の %1$d をダウンロードしています</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="other">%d エピソード</item>
+        <item quantity="other">%1$d エピソード</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="other">キューに入っている %d エピソード</item>
+        <item quantity="other">キューに入っている %1$d エピソード</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="other">一時停止された %d エピソード</item>
+        <item quantity="other">一時停止された %1$d エピソード</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">不明なユーザ</string>
@@ -478,13 +478,13 @@
     <string name="settings_auto">オート</string>
     <string name="cd_about_button">について</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="other">%d ユーザー</item>
+        <item quantity="other">%1$d ユーザー</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="other">%d リクエスト</item>
+        <item quantity="other">%1$d リクエスト</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="other">%d シーズン</item>
+        <item quantity="other">%1$d シーズン</item>
     </plurals>
     <!-- About -->
     <string name="about_title">について</string>

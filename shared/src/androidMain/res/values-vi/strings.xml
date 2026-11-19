@@ -143,10 +143,10 @@
     <string name="dashboard_discover_empty_message">Bắt đầu một bộ phim hoặc tập phim và màn hình này sẽ biến thành trung tâm đề xuất của bạn.</string>
     <string name="dashboard_discover_load_error">Không thể xây dựng nguồn cấp dữ liệu của bạn</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="other">%d thư viện có sẵn</item>
+        <item quantity="other">%1$d thư viện có sẵn</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="other">%d sản phẩm</item>
+        <item quantity="other">%1$d sản phẩm</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Cài đặt người chơi</string>
@@ -293,7 +293,7 @@
     <string name="favorites_episode_code_fallback">Tập phim</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="other">%d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Không có tải xuống</string>
@@ -310,7 +310,7 @@
     <string name="downloads_settings_concurrent_downloads">Tải xuống đồng thời</string>
     <string name="downloads_settings_concurrent_downloads_summary">Giới hạn số lượng tệp tải xuống cùng một lúc.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="other">%d tải về</item>
+        <item quantity="other">%1$d tải về</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Lưu trữ trong ứng dụng</string>
     <string name="downloads_settings_in_app_storage_summary">Giữ tải xuống bên trong bộ nhớ dành riêng cho ứng dụng.</string>
@@ -342,25 +342,25 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="other">Tải xuống các mục %d</item>
+        <item quantity="other">Tải xuống các mục %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="other">Các mặt hàng %d xếp hàng</item>
+        <item quantity="other">Các mặt hàng %1$d xếp hàng</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="other">Các mục %d đã tạm dừng</item>
+        <item quantity="other">Các mục %1$d đã tạm dừng</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Đang tải về %1$d hoặc %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="other">%d Tập</item>
+        <item quantity="other">%1$d Tập</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="other">Tập phim xếp hàng %d</item>
+        <item quantity="other">Tập phim xếp hàng %1$d</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="other">Tập %d đã tạm dừng</item>
+        <item quantity="other">Tập %1$d đã tạm dừng</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Người dùng không xác định</string>
@@ -478,13 +478,13 @@
     <string name="settings_auto">Tự động</string>
     <string name="cd_about_button">Giới thiệu</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="other">%d người dùng</item>
+        <item quantity="other">%1$d người dùng</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="other">%d yêu cầu</item>
+        <item quantity="other">%1$d yêu cầu</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="other">%d mùa</item>
+        <item quantity="other">%1$d mùa</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Giới thiệu</string>

@@ -143,14 +143,14 @@
     <string name="dashboard_discover_empty_message">Avvia un film o un episodio e questa schermata si trasformerà nel tuo hub di consigli.</string>
     <string name="dashboard_discover_load_error">Impossibile creare il tuo feed</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="one">libreria %d disponibile</item>
+        <item quantity="one">libreria %1$d disponibile</item>
         <item quantity="many"/>
-        <item quantity="other">Librerie %d disponibili</item>
+        <item quantity="other">Librerie %1$d disponibili</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="one">%d elemento</item>
+        <item quantity="one">%1$d elemento</item>
         <item quantity="many"/>
-        <item quantity="other">%d articoli</item>
+        <item quantity="other">%1$d articoli</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">Impostazioni del giocatore</string>
@@ -297,9 +297,9 @@
     <string name="favorites_episode_code_fallback">Episodio</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="one">%d ep</item>
+        <item quantity="one">%1$d ep</item>
         <item quantity="many"/>
-        <item quantity="other">%d eps</item>
+        <item quantity="other">%1$d eps</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">Nessun download disponibile</string>
@@ -316,9 +316,9 @@
     <string name="downloads_settings_concurrent_downloads">Download simultanei</string>
     <string name="downloads_settings_concurrent_downloads_summary">Limita il numero di file scaricati contemporaneamente.</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="one">%d scarica</item>
+        <item quantity="one">%1$d scarica</item>
         <item quantity="many"/>
-        <item quantity="other">%d download</item>
+        <item quantity="other">%1$d download</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">Archiviazione in-app</string>
     <string name="downloads_settings_in_app_storage_summary">Conserva i download all\'interno dello spazio di archiviazione specifico dell\'app.</string>
@@ -350,37 +350,37 @@
     <string name="downloads_notification_size_total">(%1$.0f MB/ %2$.0f MB)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f MB)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="one">Scaricamento dell\'elemento %d</item>
+        <item quantity="one">Scaricamento dell\'elemento %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">Scaricamento di elementi %d</item>
+        <item quantity="other">Scaricamento di elementi %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="one">Elemento %d in coda</item>
+        <item quantity="one">Elemento %1$d in coda</item>
         <item quantity="many"/>
-        <item quantity="other">Elementi %d in coda</item>
+        <item quantity="other">Elementi %1$d in coda</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="one">Elemento %d in pausa</item>
+        <item quantity="one">Elemento %1$d in pausa</item>
         <item quantity="many"/>
-        <item quantity="other">Elementi %d in pausa</item>
+        <item quantity="other">Elementi %1$d in pausa</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">Scaricamento di %1$d di %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="one">%d Episodio</item>
+        <item quantity="one">%1$d Episodio</item>
         <item quantity="many"/>
-        <item quantity="other">%d Episodi</item>
+        <item quantity="other">%1$d Episodi</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="one">Episodio %d in coda</item>
+        <item quantity="one">Episodio %1$d in coda</item>
         <item quantity="many"/>
-        <item quantity="other">Episodi %d in coda</item>
+        <item quantity="other">Episodi %1$d in coda</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="one">Episodio %d in pausa</item>
+        <item quantity="one">Episodio %1$d in pausa</item>
         <item quantity="many"/>
-        <item quantity="other">Episodi %d in pausa</item>
+        <item quantity="other">Episodi %1$d in pausa</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">Utente sconosciuto</string>
@@ -498,19 +498,19 @@
     <string name="settings_auto">Auto</string>
     <string name="cd_about_button">Informazioni su</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="one">utente %d</item>
+        <item quantity="one">utente %1$d</item>
         <item quantity="many"/>
-        <item quantity="other">utenti %d</item>
+        <item quantity="other">utenti %1$d</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="one">%d richiesta</item>
+        <item quantity="one">%1$d richiesta</item>
         <item quantity="many"/>
-        <item quantity="other">%d richiesta</item>
+        <item quantity="other">%1$d richiesta</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="one">%d stagione</item>
+        <item quantity="one">%1$d stagione</item>
         <item quantity="many"/>
-        <item quantity="other">%d stagioni</item>
+        <item quantity="other">%1$d stagioni</item>
     </plurals>
     <!-- About -->
     <string name="about_title">Informazioni su</string>

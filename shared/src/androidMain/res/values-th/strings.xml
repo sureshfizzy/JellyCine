@@ -143,10 +143,10 @@
     <string name="dashboard_discover_empty_message">เริ่มภาพยนตร์หรือตอนและหน้าจอนี้จะกลายเป็นศูนย์กลางคำแนะนำของคุณ</string>
     <string name="dashboard_discover_load_error">ไม่สามารถสร้างฟีดของคุณได้</string>
     <plurals name="my_media_libraries_available">
-        <item quantity="other">มีไลบรารี %d</item>
+        <item quantity="other">มีไลบรารี %1$d</item>
     </plurals>
     <plurals name="my_media_items_count">
-        <item quantity="other">%d รายการ</item>
+        <item quantity="other">%1$d รายการ</item>
     </plurals>
     <!-- Player Settings -->
     <string name="player_settings_title">การตั้งค่าผู้เล่น</string>
@@ -293,7 +293,7 @@
     <string name="favorites_episode_code_fallback">ตอน</string>
     <string name="favorites_episode_subtitle">%1$s - %2$s</string>
     <plurals name="favorites_episode_count_short">
-        <item quantity="other">%d อีพีเอส</item>
+        <item quantity="other">%1$d อีพีเอส</item>
     </plurals>
     <!-- Downloads -->
     <string name="downloads_empty">ไม่มีการดาวน์โหลด</string>
@@ -310,7 +310,7 @@
     <string name="downloads_settings_concurrent_downloads">ดาวน์โหลดพร้อมกัน</string>
     <string name="downloads_settings_concurrent_downloads_summary">จำกัด จำนวนไฟล์ที่ดาวน์โหลดในเวลาเดียวกัน</string>
     <plurals name="downloads_settings_concurrent_downloads_value">
-        <item quantity="other">%d ดาวน์โหลด</item>
+        <item quantity="other">%1$d ดาวน์โหลด</item>
     </plurals>
     <string name="downloads_settings_in_app_storage">ที่เก็บข้อมูลในแอป</string>
     <string name="downloads_settings_in_app_storage_summary">เก็บการดาวน์โหลดไว้ภายในที่เก็บข้อมูลเฉพาะแอป</string>
@@ -342,25 +342,25 @@
     <string name="downloads_notification_size_total">(%1$.0f เมกะไบต์/ %2$.0f เมกะไบต์)</string>
     <string name="downloads_notification_size_downloaded">(%1$.0f เมกะไบต์)</string>
     <plurals name="downloads_notification_downloading_items">
-        <item quantity="other">การดาวน์โหลดรายการ %d</item>
+        <item quantity="other">การดาวน์โหลดรายการ %1$d</item>
     </plurals>
     <plurals name="downloads_notification_queued_items">
-        <item quantity="other">รายการในคิว %d</item>
+        <item quantity="other">รายการในคิว %1$d</item>
     </plurals>
     <plurals name="downloads_notification_paused_items">
-        <item quantity="other">รายการหยุดชั่วคราว %d</item>
+        <item quantity="other">รายการหยุดชั่วคราว %1$d</item>
     </plurals>
     <string name="downloads_progress_with_total">| %1$s/%2$s</string>
     <string name="downloads_progress_downloaded_only">| %1$s</string>
     <string name="downloads_group_downloading">การดาวน์โหลด %1$d หรือ %2$d</string>
     <plurals name="downloads_episodes_count">
-        <item quantity="other">%d ตอน</item>
+        <item quantity="other">%1$d ตอน</item>
     </plurals>
     <plurals name="downloads_group_queued">
-        <item quantity="other">ตอน %d ในคิว</item>
+        <item quantity="other">ตอน %1$d ในคิว</item>
     </plurals>
     <plurals name="downloads_group_paused">
-        <item quantity="other">ตอน %d หยุดชั่วคราว</item>
+        <item quantity="other">ตอน %1$d หยุดชั่วคราว</item>
     </plurals>
     <!-- Settings -->
     <string name="settings_unknown_user">ผู้ใช้ที่ไม่รู้จัก</string>
@@ -478,13 +478,13 @@
     <string name="settings_auto">รถยนต์</string>
     <string name="cd_about_button">เกี่ยวกับ</string>
     <plurals name="settings_saved_users_count">
-        <item quantity="other">ผู้ใช้ %d</item>
+        <item quantity="other">ผู้ใช้ %1$d</item>
     </plurals>
     <plurals name="settings_seerr_requests_count">
-        <item quantity="other">%d ข้อกำหนด</item>
+        <item quantity="other">%1$d ข้อกำหนด</item>
     </plurals>
     <plurals name="settings_seerr_seasons_count">
-        <item quantity="other">%d ฤดูกาล</item>
+        <item quantity="other">%1$d ฤดูกาล</item>
     </plurals>
     <!-- About -->
     <string name="about_title">เกี่ยวกับ</string>
