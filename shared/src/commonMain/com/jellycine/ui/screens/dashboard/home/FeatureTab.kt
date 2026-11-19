@@ -78,6 +78,8 @@ private data class FeatureCardImages(
     val versionKey: String? = null
 )
 
+private val TOP_BAR_CLEARANCE = 80.dp
+
 @Composable
 fun FeatureTab(
     mediaRepository: MediaRepository,
@@ -188,11 +190,17 @@ fun FeatureTab(
         screenWidth,
         screenHeight
     ) { mutableStateOf(false) }
-    val heroSizing = remember(screenHeight, carouselHeight) {
-        featureHeroSizing(
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val heroSizing = remember(screenHeight, carouselHeight, statusBarTop) {
+        val sizing = featureHeroSizing(
             heightMode = carouselHeight,
             screenHeight = screenHeight
         )
+        if (sizing.carouselTopPadding > 0.dp) {
+            sizing.copy(carouselTopPadding = maxOf(sizing.carouselTopPadding, statusBarTop + TOP_BAR_CLEARANCE))
+        } else {
+            sizing
+        }
     }
     val heroHeight = heroSizing.height
     val heroViewportHeight = heroHeight + heroSizing.carouselTopPadding

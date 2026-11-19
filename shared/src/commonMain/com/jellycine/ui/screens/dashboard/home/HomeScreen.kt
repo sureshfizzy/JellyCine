@@ -45,6 +45,17 @@ fun HomeScreen(
         .collectAsState(initial = preferences?.isSeerrStudiosEnabled() ?: false)
     val seerrNetworksEnabled by (preferences?.SeerrNetworksEnabled() ?: flowOf(false))
         .collectAsState(initial = preferences?.isSeerrNetworksEnabled() ?: false)
+    val featureCarouselEnabled by (preferences?.FeatureCarouselEnabled() ?: flowOf(true))
+        .collectAsState(initial = preferences?.isFeatureCarouselEnabled() ?: true)
+    val featureCarouselHeight by (preferences?.FeatureCarouselHeight() ?: flowOf(Preferences.FEATURE_CAROUSEL_HEIGHT_LARGE))
+        .collectAsState(initial = preferences?.getFeatureCarouselHeight() ?: Preferences.FEATURE_CAROUSEL_HEIGHT_LARGE)
+    val autoplayTrailersEnabled by (preferences?.autoplayTrailersEnabled() ?: flowOf(false))
+        .collectAsState(initial = preferences?.isAutoplayTrailersEnabled() ?: false)
+    LaunchedEffect(featureCarouselEnabled) {
+        if (!featureCarouselEnabled && state.selectedCategory != HomeCategory.HOME) {
+            viewModel.selectCategory(HomeCategory.HOME)
+        }
+    }
     var localStudioNames by remember { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(seerrStudiosEnabled, seerrNetworksEnabled) {
         if ((seerrStudiosEnabled || seerrNetworksEnabled) && localStudioNames == null) {
@@ -64,6 +75,16 @@ fun HomeScreen(
         }
     }
 
+    val profileAvatar: @Composable () -> Unit = {
+        UserProfileAvatar(
+            imageUrl = state.profileImageUrl,
+            serverTypeRaw = state.serverType,
+            imageHeaders = state.imageHeaders,
+            onClick = { showAccountOverview = true },
+            modifier = Modifier.size(34.dp)
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -76,36 +97,40 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item(key = "header") {
-                FeatureTab(
-                    mediaRepository = mediaRepository,
-                    imageHeaders = state.imageHeaders,
-                    featuredItems = state.featured,
-                    isLoading = state.isLoading,
-                    selectedCategory = state.selectedCategory,
-                    verticalParallaxOffsetPx = parallaxOffsetPx,
-                    onItemClick = onItemClick,
-                    topBar = {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CategoryChipMenu(
-                                selectedCategory = state.selectedCategory,
-                                onCategorySelected = viewModel::selectCategory
-                            )
-                            UserProfileAvatar(
-                                imageUrl = state.profileImageUrl,
-                                serverTypeRaw = state.serverType,
-                                imageHeaders = state.imageHeaders,
-                                onClick = { showAccountOverview = true },
-                                modifier = Modifier.size(34.dp)
-                            )
+                if (featureCarouselEnabled) {
+                    FeatureTab(
+                        mediaRepository = mediaRepository,
+                        imageHeaders = state.imageHeaders,
+                        featuredItems = state.featured,
+                        isLoading = state.isLoading,
+                        selectedCategory = state.selectedCategory,
+                        carouselHeight = featureCarouselHeight,
+                        autoplayTrailersEnabled = autoplayTrailersEnabled,
+                        verticalParallaxOffsetPx = parallaxOffsetPx,
+                        onItemClick = onItemClick,
+                        topBar = {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CategoryChipMenu(
+                                    selectedCategory = state.selectedCategory,
+                                    onCategorySelected = viewModel::selectCategory
+                                )
+                                profileAvatar()
+                            }
                         }
-                    }
-                )
+                    )
+                } else {
+                    BrandHeader(
+                        serverName = state.serverName,
+                        modifier = Modifier.statusBarsPadding(),
+                        actions = { profileAvatar() }
+                    )
+                }
             }
 
             if (isHomeCategory && seerrStudios.isNotEmpty()) {
