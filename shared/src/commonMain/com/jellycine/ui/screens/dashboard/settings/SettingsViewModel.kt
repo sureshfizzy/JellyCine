@@ -7,6 +7,8 @@ import com.jellycine.data.model.*
 import com.jellycine.data.network.trimTrailingSlash
 import com.jellycine.data.preferences.NetworkSettingsStore
 import com.jellycine.data.repository.*
+import com.jellycine.resources.*
+import org.jetbrains.compose.resources.getString
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
@@ -76,7 +78,49 @@ interface SettingsSeerrSource {
 
     suspend fun getRequestedItems(scopeId: String, mediaType: String): Result<List<SeerrRequestedItem>>
 
-    fun errorMessage(error: Throwable): String?
+    suspend fun errorMessage(error: Throwable): String?
+}
+
+class RepositorySettingsSeerrSource(
+    private val repository: SeerrRepository
+) : SettingsSeerrSource {
+    override fun getSavedConnectionInfo(scopeId: String?): SeerrConnectionInfo? =
+        repository.getSavedConnectionInfo(scopeId)
+
+    override suspend fun connect(
+        scopeId: String,
+        serverUrl: String,
+        username: String,
+        password: String,
+        mediaServerUrl: String
+    ): Result<SeerrConnectionInfo> = repository.connect(
+        scopeId = scopeId,
+        serverUrl = serverUrl,
+        username = username,
+        password = password,
+        mediaServerUrl = mediaServerUrl
+    )
+
+    override suspend fun refreshConnection(scopeId: String): Result<SeerrConnectionInfo> =
+        repository.refreshConnection(scopeId)
+
+    override fun disconnect(scopeId: String?) = repository.disconnect(scopeId)
+
+    override suspend fun getRequestedItems(
+        scopeId: String,
+        mediaType: String
+    ): Result<List<SeerrRequestedItem>> = repository.getRequestedItems(
+        scopeId = scopeId,
+        mediaType = mediaType
+    )
+
+    override suspend fun errorMessage(error: Throwable): String? = when (error) {
+        is SeerrHostnameAlreadyConfiguredException ->
+            getString(Res.string.settings_seerr_hostname_already_configured)
+        is SeerrSessionExpiredException ->
+            getString(Res.string.settings_seerr_session_expired)
+        else -> error.message
+    }
 }
 
 class SettingsViewModel(
@@ -531,7 +575,7 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(seerr = seerrState)
     }
 
-    private fun Throwable.seerrMessage(): String? = seerr?.errorMessage(this) ?: message
+    private suspend fun Throwable.seerrMessage(): String? = seerr?.errorMessage(this) ?: message
 
     private fun savedSeerrState(
         scopeId: String?,

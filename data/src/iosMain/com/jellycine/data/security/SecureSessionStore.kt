@@ -55,6 +55,16 @@ class SecureSessionStore : TokenStore {
 
     override fun hasToken(serverId: String?): Boolean = !getToken(serverId).isNullOrBlank()
 
+    fun getSecret(key: String): String? = keychainGet("secret_$key")
+
+    fun putSecret(key: String, value: String) {
+        keychainSet("secret_$key", value)
+    }
+
+    fun removeSecret(key: String) {
+        keychainDelete("secret_$key")
+    }
+
     private fun tokenKey(serverId: String): String = "token_${sha256(serverId)}"
 
     private fun keychainGet(account: String): String? = memScoped {

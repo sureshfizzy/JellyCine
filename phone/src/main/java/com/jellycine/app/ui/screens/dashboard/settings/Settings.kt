@@ -154,53 +154,10 @@ fun createSettingsViewModel(
         mediaRepository = MediaRepositoryProvider.getInstance(context),
         preferences = Preferences(context),
         networkPreferences = NetworkPreferences(context),
-        seerr = AndroidSettingsSeerrSource(context, SeerrRepository(context)),
+        seerr = RepositorySettingsSeerrSource(SeerrRepository(context)),
         includeProfileData = includeProfileData,
         includeLocalSettings = includeLocalSettings
     )
-}
-
-private class AndroidSettingsSeerrSource(
-    private val context: Context,
-    private val seerrRepository: SeerrRepository
-) : SettingsSeerrSource {
-    override fun getSavedConnectionInfo(scopeId: String?): SeerrConnectionInfo? =
-        seerrRepository.getSavedConnectionInfo(scopeId)
-
-    override suspend fun connect(
-        scopeId: String,
-        serverUrl: String,
-        username: String,
-        password: String,
-        mediaServerUrl: String
-    ): Result<SeerrConnectionInfo> = seerrRepository.connect(
-        scopeId = scopeId,
-        serverUrl = serverUrl,
-        username = username,
-        password = password,
-        mediaServerUrl = mediaServerUrl
-    )
-
-    override suspend fun refreshConnection(scopeId: String): Result<SeerrConnectionInfo> =
-        seerrRepository.refreshConnection(scopeId)
-
-    override fun disconnect(scopeId: String?) = seerrRepository.disconnect(scopeId)
-
-    override suspend fun getRequestedItems(
-        scopeId: String,
-        mediaType: String
-    ): Result<List<SeerrRequestedItem>> = seerrRepository.getRequestedItems(
-        scopeId = scopeId,
-        mediaType = mediaType
-    )
-
-    override fun errorMessage(error: Throwable): String? = when (error) {
-        is SeerrHostnameAlreadyConfiguredException ->
-            context.getString(R.string.settings_seerr_hostname_already_configured)
-        is SeerrSessionExpiredException ->
-            context.getString(R.string.settings_seerr_session_expired)
-        else -> error.message
-    }
 }
 
 @Composable

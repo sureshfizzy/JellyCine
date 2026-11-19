@@ -1,6 +1,7 @@
 package com.jellycine.app.ui.screens.dashboard.settings
 
 import com.jellycine.ui.screens.dashboard.settings.*
+import com.jellycine.ui.screens.dashboard.settings.ConnectionsSettingsScreen as SharedConnectionsSettingsScreen
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
@@ -34,7 +35,6 @@ fun ConnectionsSettingsScreen(
 ) {
     val context = LocalContext.current
     val viewModel: SettingsViewModel = viewModel { createSettingsViewModel(context) }
-    val uiState by viewModel.uiState.collectAsState()
 
     val discordSdkAvailable = remember { DiscordRpcManager.isSdkAvailable() }
     val discordRpcManager = remember(discordSdkAvailable) {
@@ -71,50 +71,13 @@ fun ConnectionsSettingsScreen(
     val discordUsername = remember(isDiscordAuthorized, discordRpcManager) {
         discordRpcManager?.getStoredUsername()
     }
-    var showSeerrDialog by remember { mutableStateOf(false) }
     var showDiscordDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.activeServerId) {
-        viewModel.reloadSeerrConnection()
-    }
-
-    BackHandler { onBackPressed() }
-
-    Scaffold(
-        containerColor = Color.Black,
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_connections)) },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = null
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(bottom = 32.dp)
-        ) {
-            item { SectionLabel(stringResource(R.string.settings_seerr)) }
-            item {
-                SeerrConnectionCard(
-                    seerr = uiState.seerr,
-                    onClick = { showSeerrDialog = true }
-                )
-            }
-
+    SharedConnectionsSettingsScreen(
+        viewModel = viewModel,
+        onBackPressed = onBackPressed,
+        onNavigateToRequestedItem = onNavigateToRequestedItem,
+        extraItems = {
             val discordManager = discordRpcManager
             if (discordManager != null) {
                 item { Spacer(modifier = Modifier.height(4.dp)) }
@@ -145,129 +108,29 @@ fun ConnectionsSettingsScreen(
                     }
                 }
             }
+        },
+        extraDialogs = {
+            val discordManager = discordRpcManager
+            if (showDiscordDialog && discordManager != null) {
+                DiscordConnectionDialog(
+                    username = discordUsername,
+                    rpcEnabled = discordRpcEnabled,
+                    onRpcEnabledChange = { enabled ->
+                        preferences.setDiscordRpcEnabled(enabled)
+                        discordRpcEnabled = enabled
+                    },
+                    onDisconnect = {
+                        discordManager.disconnect()
+                        preferences.setDiscordRpcEnabled(false)
+                        discordRpcEnabled = false
+                        isDiscordAuthorized = false
+                        showDiscordDialog = false
+                    },
+                    onDismiss = { showDiscordDialog = false }
+                )
+            }
         }
-    }
-
-    if (showSeerrDialog) {
-        SeerrConnectionDialog(
-            connectionState = uiState.seerr,
-            isBusy = uiState.seerr.status == SeerrConnectionStatus.CONNECTING ||
-                uiState.seerr.status == SeerrConnectionStatus.CHECKING,
-            onDismiss = {
-                if (uiState.seerr.status != SeerrConnectionStatus.CONNECTING &&
-                    uiState.seerr.status != SeerrConnectionStatus.CHECKING
-                ) {
-                    showSeerrDialog = false
-                }
-            },
-            onConnect = { serverUrl, username, password ->
-                viewModel.connectSeerr(
-                    serverUrl = serverUrl,
-                    username = username,
-                    password = password
-                ) { result ->
-                    if (result.isSuccess) {
-                        showSeerrDialog = false
-                    }
-                }
-            },
-            onDisconnect = {
-                viewModel.disconnectSeerr()
-                showSeerrDialog = false
-            },
-            onRefreshStatus = viewModel::refreshSeerrConnection
-        )
-    }
-
-    if (uiState.seerrRequestedItems.mediaType != null) {
-        SeerrRequestedItemsDialog(
-            state = uiState.seerrRequestedItems,
-            onDismiss = viewModel::clearSeerrRequestedItems,
-            onItemClick = { item ->
-                viewModel.clearSeerrRequestedItems()
-                onNavigateToRequestedItem(item.toBaseItem())
-            }
-        )
-    }
-
-    val discordManager = discordRpcManager
-    if (showDiscordDialog && discordManager != null) {
-        DiscordConnectionDialog(
-            username = discordUsername,
-            rpcEnabled = discordRpcEnabled,
-            onRpcEnabledChange = { enabled ->
-                preferences.setDiscordRpcEnabled(enabled)
-                discordRpcEnabled = enabled
-            },
-            onDisconnect = {
-                discordManager.disconnect()
-                preferences.setDiscordRpcEnabled(false)
-                discordRpcEnabled = false
-                isDiscordAuthorized = false
-                showDiscordDialog = false
-            },
-            onDismiss = { showDiscordDialog = false }
-        )
-    }
-}
-
-@Composable
-private fun SeerrConnectionCard(
-    seerr: SeerrUiState,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(
-                        color = seerrAccentColor(seerr.status).copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Link,
-                    contentDescription = null,
-                    tint = seerrAccentColor(seerr.status),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_seerr),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = seerrSubtitle(seerr),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-
-            SeerrStatusChip(seerr.status)
-        }
-    }
+    )
 }
 
 @Composable

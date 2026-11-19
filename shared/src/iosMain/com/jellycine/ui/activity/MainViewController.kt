@@ -51,6 +51,10 @@ private val mediaRepository: MediaRepository by lazy {
     )
 }
 
+private val seerrRepository by lazy {
+    SeerrRepository(SeerrPlatform(secureSessionStore) { message, args -> message.text(args) })
+}
+
 private val awardsRepository by lazy { AwardsRepository(mediaRepository) }
 
 private val appVersion: String =
@@ -90,6 +94,7 @@ fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewContro
             awardsRepository = awardsRepository,
             preferences = preferences,
             networkSettings = networkPreferences,
+            seerrRepository = seerrRepository,
             appVersion = appVersion,
             detailPlatform = remember {
                 DefaultDetailPlatform(

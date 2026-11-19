@@ -37,6 +37,7 @@ fun AppNavigation(
     awardsRepository: AwardsRepository? = null,
     preferences: Preferences? = null,
     networkSettings: NetworkSettingsStore? = null,
+    seerrRepository: SeerrRepository? = null,
     serverDiscovery: (() -> Flow<DiscoveredServer>)? = null,
     appVersion: String = "",
     detailPlatform: DetailPlatform = remember { DefaultDetailPlatform() },
@@ -56,6 +57,7 @@ fun AppNavigation(
                 awardsRepository = awardsRepository,
                 preferences = preferences,
                 networkSettings = networkSettings,
+                seerrRepository = seerrRepository,
                 serverDiscovery = serverDiscovery,
                 appVersion = appVersion,
                 detailPlatform = detailPlatform,
@@ -73,6 +75,7 @@ private fun AppContent(
     awardsRepository: AwardsRepository?,
     preferences: Preferences?,
     networkSettings: NetworkSettingsStore?,
+    seerrRepository: SeerrRepository?,
     serverDiscovery: (() -> Flow<DiscoveredServer>)?,
     appVersion: String,
     detailPlatform: DetailPlatform,
@@ -92,6 +95,7 @@ private fun AppContent(
             awardsRepository = awardsRepository,
             preferences = preferences,
             networkSettings = networkSettings,
+            seerrRepository = seerrRepository,
             appVersion = appVersion,
             detailPlatform = detailPlatform,
             onOpenLanguageSettings = onOpenLanguageSettings
@@ -110,7 +114,7 @@ private data class ViewAllRoute(
     val title: String
 )
 
-private enum class SettingsPage { ABOUT, INTERFACE, CACHE }
+private enum class SettingsPage { ABOUT, INTERFACE, CACHE, CONNECTIONS }
 
 @Composable
 private fun Dashboard(
@@ -119,6 +123,7 @@ private fun Dashboard(
     awardsRepository: AwardsRepository?,
     preferences: Preferences?,
     networkSettings: NetworkSettingsStore?,
+    seerrRepository: SeerrRepository?,
     appVersion: String,
     detailPlatform: DetailPlatform,
     onOpenLanguageSettings: () -> Unit
@@ -136,7 +141,15 @@ private fun Dashboard(
     }
     var settingsPage by remember { mutableStateOf<SettingsPage?>(null) }
     val settingsViewModel: SettingsViewModel? = if (preferences != null && networkSettings != null) {
-        viewModel { SettingsViewModel(authRepository, mediaRepository, preferences, networkSettings) }
+        viewModel {
+            SettingsViewModel(
+                authRepository,
+                mediaRepository,
+                preferences,
+                networkSettings,
+                seerr = seerrRepository?.let(::RepositorySettingsSeerrSource)
+            )
+        }
     } else {
         null
     }
@@ -178,7 +191,8 @@ private fun Dashboard(
                     onOpenLanguageSettings = onOpenLanguageSettings,
                     onNavigateToAbout = { settingsPage = SettingsPage.ABOUT },
                     onNavigateToInterfaceSettings = { settingsPage = SettingsPage.INTERFACE },
-                    onNavigateToCacheSettings = { settingsPage = SettingsPage.CACHE }
+                    onNavigateToCacheSettings = { settingsPage = SettingsPage.CACHE },
+                    onNavigateToConnections = { settingsPage = SettingsPage.CONNECTIONS }
                 )
             } else {
                 Box(
@@ -277,6 +291,14 @@ private fun Dashboard(
                     SettingsPage.CACHE -> CacheSettingsScreen(
                         viewModel = settingsViewModel,
                         onBackPressed = closePage
+                    )
+                    SettingsPage.CONNECTIONS -> ConnectionsSettingsScreen(
+                        viewModel = settingsViewModel,
+                        onBackPressed = closePage,
+                        onNavigateToRequestedItem = { item ->
+                            closePage()
+                            openDetail(item)
+                        }
                     )
                 }
             }
