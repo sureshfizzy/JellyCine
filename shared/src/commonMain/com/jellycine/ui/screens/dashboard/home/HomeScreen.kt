@@ -38,6 +38,7 @@ fun HomeScreen(
         val contentType = ContentType.entries.firstOrNull { it.name == type.uppercase() } ?: ContentType.ALL
         onNavigateToViewAll(contentType, parentId, title)
     }
+    val disablePosterEnhancers = com.jellycine.util.image.rememberDisablePosterEnhancers(preferences, authRepository)
     val viewModel: HomeViewModel = viewModel { HomeViewModel(mediaRepository, authRepository) }
     val state by viewModel.uiState.collectAsState()
     var showAccountOverview by remember { mutableStateOf(false) }
@@ -186,7 +187,7 @@ fun HomeScreen(
                     MovieGenreSections(
                         mediaRepository = mediaRepository,
                         imageHeaders = state.imageHeaders,
-                        disablePosterEnhancers = false,
+                        disablePosterEnhancers = disablePosterEnhancers,
                         onItemClick = onItemClick,
                         onNavigateToViewAll = openViewAll
                     )
@@ -198,7 +199,7 @@ fun HomeScreen(
                     TVShowGenreSections(
                         mediaRepository = mediaRepository,
                         imageHeaders = state.imageHeaders,
-                        disablePosterEnhancers = false,
+                        disablePosterEnhancers = disablePosterEnhancers,
                         onItemClick = onItemClick,
                         onNavigateToViewAll = openViewAll
                     )
@@ -209,7 +210,7 @@ fun HomeScreen(
                 BurstLibrarySection(
                     section = section.toUiSection(),
                     mediaRepository = mediaRepository,
-                    disablePosterEnhancers = false,
+                    disablePosterEnhancers = disablePosterEnhancers,
                     imageHeaders = state.imageHeaders,
                     onItemClick = onItemClick,
                     onNavigateToViewAll = openViewAll

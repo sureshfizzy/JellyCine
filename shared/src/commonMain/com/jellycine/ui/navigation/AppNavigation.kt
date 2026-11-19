@@ -123,6 +123,7 @@ private fun Dashboard(
     detailPlatform: DetailPlatform,
     onOpenLanguageSettings: () -> Unit
 ) {
+    val disablePosterEnhancers = com.jellycine.util.image.rememberDisablePosterEnhancers(preferences, authRepository)
     var detailStack by remember { mutableStateOf<List<DetailRoute>>(emptyList()) }
     val openDetail: (BaseItemDto) -> Unit = { item ->
         item.id?.takeIf { it.isNotBlank() }?.let { itemId ->
@@ -158,7 +159,7 @@ private fun Dashboard(
                 Discover(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
-                    disablePosterEnhancers = false,
+                    disablePosterEnhancers = disablePosterEnhancers,
                     awardsRepository = awardsRepository,
                     onItemClick = openDetail,
                     onNavigateToViewAll = openViewAll
@@ -167,7 +168,7 @@ private fun Dashboard(
                 SearchContainer(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
-                    disablePosterEnhancers = false,
+                    disablePosterEnhancers = disablePosterEnhancers,
                     onNavigateToDetail = openDetail,
                     onCancel = { navigateTo(DashboardDestination.Home) }
                 )
@@ -205,6 +206,7 @@ private fun Dashboard(
                         mediaRepository = mediaRepository,
                         authRepository = authRepository,
                         awardsRepository = awardsRepository,
+                        disablePosterEnhancers = disablePosterEnhancers,
                         contentType = viewAllRoute.contentType,
                         parentId = viewAllRoute.parentId,
                         title = viewAllRoute.title,
