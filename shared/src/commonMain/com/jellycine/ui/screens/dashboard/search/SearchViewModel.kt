@@ -1,5 +1,6 @@
 package com.jellycine.ui.screens.dashboard.search
 
+import com.jellycine.data.repository.SeerrRepository
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.*
@@ -30,6 +31,27 @@ interface SearchSeerrSource {
         category: SeerrDiscoveryCategory,
         limit: Int
     ): Result<List<SeerrRecommendationTitle>>
+}
+
+class SeerSearch(
+    private val seerrRepository: SeerrRepository
+) : SearchSeerrSource {
+    override fun isConnected(scopeId: String?): Boolean =
+        seerrRepository.getSavedConnectionInfo(scopeId)?.isVerified == true
+
+    override suspend fun searchTitles(
+        scopeId: String,
+        query: String,
+        limit: Int
+    ): Result<List<SeerrRecommendationTitle>> =
+        seerrRepository.searchTitles(scopeId = scopeId, query = query, limit = limit)
+
+    override suspend fun discoveryTitles(
+        scopeId: String,
+        category: SeerrDiscoveryCategory,
+        limit: Int
+    ): Result<List<SeerrRecommendationTitle>> =
+        seerrRepository.getDiscoveryTitles(scopeId = scopeId, category = category, limit = limit)
 }
 
 class SearchViewModel(

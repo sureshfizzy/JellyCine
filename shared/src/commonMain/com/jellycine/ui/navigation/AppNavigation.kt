@@ -19,6 +19,7 @@ import com.jellycine.ui.screens.dashboard.home.HomeScreen
 import com.jellycine.ui.screens.dashboard.media.Discover
 import com.jellycine.ui.screens.dashboard.media.ViewAllScreen
 import com.jellycine.preferences.Preferences
+import com.jellycine.ui.screens.dashboard.search.SeerSearch
 import com.jellycine.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.ui.theme.JellyCineTheme
 import com.jellycine.ui.screens.dashboard.settings.*
@@ -182,6 +183,7 @@ private fun Dashboard(
                     mediaRepository = mediaRepository,
                     authRepository = authRepository,
                     disablePosterEnhancers = disablePosterEnhancers,
+                    seerr = seerrRepository?.let(::SeerSearch),
                     onNavigateToDetail = openDetail,
                     onCancel = { navigateTo(DashboardDestination.Home) }
                 )
