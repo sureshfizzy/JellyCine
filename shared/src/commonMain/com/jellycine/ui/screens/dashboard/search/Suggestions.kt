@@ -1,5 +1,6 @@
 package com.jellycine.ui.screens.dashboard.search
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -394,29 +395,34 @@ private fun SuggestionImage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalPlatformContext.current
-    val imageUrl by produceState(item.imageUrl, item.id, item.imageUrl) {
-        if (value.isNullOrBlank()) {
-            value = item.id?.let { itemId ->
-                mediaRepository.getImageUrlString(
-                    itemId = itemId,
-                    imageType = "Primary",
-                    enableImageEnhancers = false
-                )
-            }
-        }
+    val directUrl = item.imageUrl?.takeIf { it.isNotBlank() }
+    val imageUrl by produceState(directUrl, item.id, directUrl) {
+        value = directUrl ?: item.id?.let { itemId ->
+            mediaRepository.getImageUrlString(
+                itemId = itemId,
+                imageType = "Primary",
+                enableImageEnhancers = false
+            )
+        } ?: value
     }
     val url = imageUrl ?: return
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(url)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
-            .platformBitmapConfig(allowRgb565 = true)
-            .crossfade(150)
-            .build(),
-        contentDescription = contentDescription,
+    Crossfade(
+        targetState = url,
+        animationSpec = tween(durationMillis = 600),
         modifier = modifier,
-        contentScale = ContentScale.Crop
-    )
+        label = "suggestion_backdrop"
+    ) { backdropUrl ->
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(backdropUrl)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .networkCachePolicy(CachePolicy.ENABLED)
+                .platformBitmapConfig(allowRgb565 = true)
+                .build(),
+            contentDescription = contentDescription,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+    }
 }
