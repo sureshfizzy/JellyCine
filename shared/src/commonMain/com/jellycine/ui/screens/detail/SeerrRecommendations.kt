@@ -1,17 +1,14 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
-import androidx.compose.ui.res.stringResource
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.shared.R
+import androidx.compose.runtime.*
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
+import com.jellycine.resources.*
 import com.jellycine.ui.components.common.SimilarItemsSection
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun Recommendations(
+internal fun SeerrRecommendations(
     item: BaseItemDto,
     directors: List<BaseItemPerson>,
     isSeerDetail: Boolean,
@@ -48,8 +45,8 @@ internal fun Recommendations(
                     mediaRepository = mediaRepository,
                     onItemClick = onItemClick,
                     title = stringResource(
-                        R.string.detail_directed_by,
-                        director.name ?: stringResource(R.string.detail_similar_item_unknown)
+                        Res.string.detail_directed_by,
+                        director.name ?: stringResource(Res.string.detail_similar_item_unknown)
                     )
                 )
             }
@@ -61,7 +58,7 @@ internal fun Recommendations(
         seerrItems = seerrRelatedItems.seerrRecommendedItems,
         mediaRepository = mediaRepository,
         onItemClick = onItemClick,
-        title = stringResource(R.string.detail_seerr_recommendations_title)
+        title = stringResource(Res.string.detail_seerr_recommendations_title)
     )
 
     SimilarItemsSection(

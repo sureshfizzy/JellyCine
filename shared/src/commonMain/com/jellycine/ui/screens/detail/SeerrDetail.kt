@@ -1,42 +1,19 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
-import android.content.Context
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.jellycine.app.ui.components.common.fetchSeerTmdbPersonId
-import com.jellycine.data.model.BaseItemDto
+import androidx.compose.ui.unit.*
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
+import com.jellycine.resources.*
+import com.jellycine.ui.components.common.fetchSeerTmdbPersonId
 import com.jellycine.util.image.logoImage
-import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrPersonRole
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.SeerrRequestOptions
-import com.jellycine.data.model.SeerrRequestSelection
-import com.jellycine.data.model.SeerrRequestState
-import com.jellycine.data.model.filterSeerTitlesForRow
-import com.jellycine.data.model.seerTitleParams
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
-import com.jellycine.shared.R
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import org.jetbrains.compose.resources.*
 
 internal data class SeerrRelatedItemsState(
     val localSimilarItems: List<BaseItemDto>,
@@ -76,11 +53,6 @@ internal data class SeerrVersions(
     val requestState: SeerrRequestState = SeerrRequestState.NONE
 )
 
-@Composable
-internal fun rememberSeerrRepository(context: Context): SeerrRepository {
-    return remember(context) { SeerrRepository(context) }
-}
-
 internal suspend fun loadDetailItem(
     itemId: String,
     activeServerId: String?,
@@ -104,7 +76,6 @@ internal fun seerrRequestState(
     seerrRepository: SeerrRepository,
     coroutineScope: CoroutineScope
 ): SeerrRequestUiState {
-    val context = androidx.compose.ui.platform.LocalContext.current
     var seerrRequestState by remember(item.id, item.seerrRequestState) {
         mutableStateOf(item.seerrRequestState ?: SeerrRequestState.NONE)
     }
@@ -116,6 +87,10 @@ internal fun seerrRequestState(
     var seerrSeasonRefreshKey by remember(item.id) { mutableIntStateOf(0) }
     var preferredRequest by remember(item.id) { mutableStateOf(false) }
     var prefer4KRequest by remember(item.id) { mutableStateOf(false) }
+
+    fun showError(message: suspend () -> String) {
+        coroutineScope.launch { seerrRequestErrorMessage = message() }
+    }
 
     fun qualityRequestState() {
         preferredRequest = false
@@ -133,7 +108,7 @@ internal fun seerrRequestState(
         val (mediaType, tmdbId) = item.seerTitleParams() ?: return
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
         if (scopeId == null) {
-            seerrRequestErrorMessage = context.getString(R.string.detail_seerr_not_connected)
+            showError { getString(Res.string.detail_seerr_not_connected) }
             return
         }
 
@@ -158,8 +133,7 @@ internal fun seerrRequestState(
                     },
                     onFailure = { throwable ->
                         pendingSeasonRequestNumber = null
-                        seerrRequestErrorMessage = throwable.message
-                            ?: context.getString(R.string.detail_seerr_request_failed)
+                        seerrRequestErrorMessage = throwable.requestFailureMessage()
                     }
                 )
             } finally {
@@ -179,7 +153,7 @@ internal fun seerrRequestState(
         if (isSeasonRequest && !mediaType.equals("tv", ignoreCase = true)) return
         val scopeId = activeServerId?.takeIf { it.isNotBlank() }
         if (scopeId == null) {
-            seerrRequestErrorMessage = context.getString(R.string.detail_seerr_not_connected)
+            showError { getString(Res.string.detail_seerr_not_connected) }
             return
         }
 
@@ -200,7 +174,7 @@ internal fun seerrRequestState(
                             pendingSeasonRequestNumber = null
                             qualityRequestState()
                             seerrRequestErrorMessage =
-                                context.getString(R.string.detail_seerr_request_4k_unavailable)
+                                getString(Res.string.detail_seerr_request_4k_unavailable)
                         } else {
                             seerrRequestOptions = options
                         }
@@ -208,8 +182,7 @@ internal fun seerrRequestState(
                     onFailure = { throwable ->
                         pendingSeasonRequestNumber = null
                         qualityRequestState()
-                        seerrRequestErrorMessage = throwable.message
-                            ?: context.getString(R.string.detail_seerr_request_failed)
+                        seerrRequestErrorMessage = throwable.requestFailureMessage()
                     }
                 )
             } finally {
@@ -543,7 +516,7 @@ internal fun SeerrRequestDialogs(
             shape = RoundedCornerShape(16.dp),
             title = {
                 Text(
-                    text = stringResource(R.string.detail_seerr_request_failed),
+                    text = stringResource(Res.string.detail_seerr_request_failed),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 20.sp
                 )
@@ -558,13 +531,12 @@ internal fun SeerrRequestDialogs(
                         contentColor = Color(0xFF22D3EE)
                     )
                 ) {
-                    Text(stringResource(R.string.ok), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(Res.string.ok), fontWeight = FontWeight.SemiBold)
                 }
             }
         )
     }
 }
 
-internal fun BaseItemDto.isSeerDetailItem(): Boolean {
-    return SeerrItemIds.isDetailId(id)
-}
+private suspend fun Throwable.requestFailureMessage(): String =
+    message ?: getString(Res.string.detail_seerr_request_failed)

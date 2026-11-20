@@ -2,10 +2,9 @@ package com.jellycine.app.ui.screens.dashboard.media
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import com.jellycine.ui.components.common.SeerTitleCard
-import com.jellycine.app.ui.components.common.fetchSeerCreditTitles
 import com.jellycine.data.model.*
 import com.jellycine.data.repository.*
+import com.jellycine.ui.components.common.*
 import com.jellycine.ui.screens.dashboard.media.DiscoverSeerrBridge
 import com.jellycine.util.image.disableEmbyPosterEnhancers
 

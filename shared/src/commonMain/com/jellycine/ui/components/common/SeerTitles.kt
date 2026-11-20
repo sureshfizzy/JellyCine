@@ -1,15 +1,9 @@
-package com.jellycine.app.ui.components.common
+package com.jellycine.ui.components.common
 
-import androidx.compose.material.icons.rounded.Movie
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrPersonRole
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.providerId
-import com.jellycine.data.repository.MediaRepository
-import com.jellycine.data.repository.SeerrRepository
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
 
-internal suspend fun fetchSeerCreditTitles(
+suspend fun fetchSeerCreditTitles(
     item: BaseItemDto,
     personId: String,
     role: SeerrPersonRole,
@@ -28,7 +22,7 @@ internal suspend fun fetchSeerCreditTitles(
     )
 }
 
-internal suspend fun fetchSeerTmdbPerson(
+suspend fun fetchSeerTmdbPerson(
     item: BaseItemDto,
     personTmdbId: String,
     role: SeerrPersonRole,
@@ -46,7 +40,7 @@ internal suspend fun fetchSeerTmdbPerson(
     ).getOrElse { emptyList() }
 }
 
-internal suspend fun fetchSeerTmdbPersonId(
+suspend fun fetchSeerTmdbPersonId(
     item: BaseItemDto,
     personId: String,
     role: SeerrPersonRole,
@@ -75,7 +69,7 @@ internal suspend fun fetchSeerTmdbPersonId(
     }
 }
 
-internal suspend fun fetchSeerDirectedTitlesForTmdbPerson(
+suspend fun fetchSeerDirectedTitlesForTmdbPerson(
     personTmdbId: String,
     activeServerId: String?,
     seerrRepository: SeerrRepository

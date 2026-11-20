@@ -1,7 +1,6 @@
 package com.jellycine.ui.activity
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
@@ -15,16 +14,14 @@ import com.jellycine.data.preferences.NetworkPreferences
 import com.jellycine.data.repository.*
 import com.jellycine.data.security.SecureSessionStore
 import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.preferences.Preferences
-import com.jellycine.preferences.UserDefaultsStore
+import com.jellycine.preferences.*
 import com.jellycine.ui.navigation.AppNavigation
 import com.jellycine.ui.screens.detail.*
 import com.jellycine.ui.screens.player.*
 import com.jellycine.util.text
 import okio.Path.Companion.toPath
 import platform.Foundation.*
-import platform.UIKit.UIApplication
-import platform.UIKit.UIApplicationOpenSettingsURLString
+import platform.UIKit.*
 
 private const val IMAGE_CACHE_MAX_BYTES = 256L * 1024 * 1024
 
@@ -109,6 +106,8 @@ fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewContro
                         )
                     },
                     onRemoteTrailer = { url, title -> playerRequest = IosPlayerRequest.Remote(url, title) },
+                    seerr = SeerrDetailSupport(seerrRepository),
+                    authRepository = authRepository,
                     themeMusic = ThemeMusicSupport(
                         player = IosMusicPlayer(),
                         mediaRepository = mediaRepository,

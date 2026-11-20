@@ -1,70 +1,24 @@
-package com.jellycine.app.ui.screens.detail
+package com.jellycine.ui.screens.detail
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.jellycine.data.model.SeerrRequestDestination
-import com.jellycine.data.model.SeerrRequestOptions
-import com.jellycine.data.model.SeerrRequestProfile
-import com.jellycine.data.model.SeerrRequestRootFolder
-import com.jellycine.data.model.SeerrRequestSelection
-import com.jellycine.data.model.SeerrRequestState
-import com.jellycine.data.model.SeerrSeasonRequestOption
-import com.jellycine.shared.R
+import androidx.compose.ui.text.style.*
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.window.*
+import com.jellycine.data.model.*
+import com.jellycine.resources.*
 import com.jellycine.util.image.JellyfinPosterImage
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun SeerrRequestDialog(
@@ -218,7 +172,7 @@ internal fun SeerrRequestDialog(
                         )
                     ) {
                         Text(
-                            text = stringResource(R.string.cancel),
+                            text = stringResource(Res.string.cancel),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -263,11 +217,11 @@ internal fun SeerrRequestDialog(
                     ) {
                         Text(
                             text = if (isSeriesRequest && !canRequest) {
-                                stringResource(R.string.detail_seerr_select_seasons)
+                                stringResource(Res.string.detail_seerr_select_seasons)
                             } else if (request4K) {
-                                stringResource(R.string.detail_seerr_request_4k)
+                                stringResource(Res.string.detail_seerr_request_4k)
                             } else {
-                                stringResource(R.string.detail_seerr_request)
+                                stringResource(Res.string.detail_seerr_request)
                             },
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 16.sp,
@@ -360,7 +314,7 @@ private fun Request4KToggle(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.detail_seerr_request_4k),
+                    text = stringResource(Res.string.detail_seerr_request_4k),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -369,7 +323,7 @@ private fun Request4KToggle(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = stringResource(R.string.detail_seerr_request_4k_subtitle),
+                    text = stringResource(Res.string.detail_seerr_request_4k_subtitle),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
@@ -469,9 +423,9 @@ private fun SeasonSelectionSection(
             SeasonRow(
                 checked = allSelected,
                 enabled = requestableSeasons.isNotEmpty(),
-                title = stringResource(R.string.detail_seerr_season),
-                episodeText = stringResource(R.string.detail_seerr_episode_count),
-                status = stringResource(R.string.detail_seerr_status),
+                title = stringResource(Res.string.detail_seerr_season),
+                episodeText = stringResource(Res.string.detail_seerr_episode_count),
+                status = stringResource(Res.string.detail_seerr_status),
                 isHeader = true,
                 onCheckedChange = { checked ->
                     onSelectedSeasonsChanged(if (checked) requestableSeasons else emptySet())
@@ -483,12 +437,12 @@ private fun SeasonSelectionSection(
                 SeasonRow(
                     checked = selectedSeasons.contains(season.seasonNumber),
                     enabled = enabled,
-                    title = stringResource(R.string.detail_seerr_season_number, season.seasonNumber),
+                    title = stringResource(Res.string.detail_seerr_season_number, season.seasonNumber),
                     episodeText = season.episodeCount?.toString().orEmpty(),
                     status = if (enabled) {
-                        stringResource(R.string.detail_seerr_not_requested)
+                        stringResource(Res.string.detail_seerr_not_requested)
                     } else {
-                        stringResource(R.string.detail_seerr_requested)
+                        stringResource(Res.string.detail_seerr_requested)
                     },
                     isHeader = false,
                     onCheckedChange = { checked ->
@@ -624,11 +578,11 @@ private fun RequestQuotaPanel(
     days: Int?
 ) {
     val contentType = if (mediaType == "movie") {
-        stringResource(R.string.detail_seerr_movie_requests)
+        stringResource(Res.string.detail_seerr_movie_requests)
     } else {
-        stringResource(R.string.detail_seerr_series_requests)
+        stringResource(Res.string.detail_seerr_series_requests)
     }
-    val remainingText = remaining?.toString() ?: stringResource(R.string.settings_seerr_unlimited)
+    val remainingText = remaining?.toString() ?: stringResource(Res.string.settings_seerr_unlimited)
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -641,7 +595,7 @@ private fun RequestQuotaPanel(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = stringResource(R.string.detail_seerr_requests_remaining, remainingText, contentType),
+                text = stringResource(Res.string.detail_seerr_requests_remaining, remainingText, contentType),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
@@ -652,7 +606,7 @@ private fun RequestQuotaPanel(
 
             if (limit != null && days != null) {
                 Text(
-                    text = stringResource(R.string.detail_seerr_allowed_requests, limit, contentType, days),
+                    text = stringResource(Res.string.detail_seerr_allowed_requests, limit, contentType, days),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -677,7 +631,6 @@ private fun RequestDialogBackdrop(
                 imageUrl = imageUrl,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
-                context = LocalContext.current,
                 contentScale = ContentScale.Crop
             )
         }
@@ -721,7 +674,7 @@ private fun RequestOptionFields(
 ) {
     if (showDestination) {
         RequestOptionsDropdown(
-            label = stringResource(R.string.detail_seerr_destination_server),
+            label = stringResource(Res.string.detail_seerr_destination_server),
             value = destination?.name.orEmpty(),
             options = options.destinations,
             optionLabel = { it.name },
@@ -732,7 +685,7 @@ private fun RequestOptionFields(
 
     if (destination != null && showQualityProfile) {
         RequestOptionsDropdown(
-            label = stringResource(R.string.detail_seerr_quality_profile),
+            label = stringResource(Res.string.detail_seerr_quality_profile),
             value = destination.qualityProfiles
                 .firstOrNull { it.id == selectedProfileId }
                 ?.name
@@ -746,7 +699,7 @@ private fun RequestOptionFields(
 
     if (destination != null && showRootFolder) {
         RequestOptionsDropdown(
-            label = stringResource(R.string.detail_seerr_root_folder),
+            label = stringResource(Res.string.detail_seerr_root_folder),
             value = selectedRootFolder.orEmpty(),
             options = destination.rootFolders,
             optionLabel = { it.path },

@@ -4,36 +4,22 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.backhandler.BackHandler
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.repository.AuthRepository
-import com.jellycine.data.repository.MediaRepository
+import androidx.compose.ui.unit.*
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
 import com.jellycine.playback.UserDataRefreshSignals
 import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.preferences.Preferences
-import com.jellycine.ui.components.common.BackButton
-import com.jellycine.ui.components.common.ScreenWrapper
-import com.jellycine.ui.components.common.ShimmerEffect
-import com.jellycine.ui.components.common.detailContentMaxWidth
-import com.jellycine.util.image.LocalDisablePosterEnhancers
-import com.jellycine.util.image.imageTagFor
+import com.jellycine.ui.components.common.*
+import com.jellycine.util.image.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -1059,8 +1045,30 @@ class DefaultDetailPlatform(
     private val trackSelectionSyncVersion: () -> Int = { 0 },
     private val onPlay: ((item: BaseItemDto?, fallbackItemId: String, audioStreamIndex: Int?, subtitleStreamIndex: Int?) -> Unit)? = null,
     private val onRemoteTrailer: ((url: String, title: String?) -> Unit)? = null,
-    private val themeMusic: ThemeMusicSupport? = null
+    private val themeMusic: ThemeMusicSupport? = null,
+    private val seerr: SeerrDetailSupport? = null,
+    private val authRepository: AuthRepository? = null
 ) : DetailPlatform {
+    override suspend fun loadItem(
+        itemId: String,
+        activeServerId: String?,
+        mediaRepository: MediaRepository
+    ): Result<BaseItemDto> = seerr?.loadItem(itemId, activeServerId, mediaRepository)
+        ?: super.loadItem(itemId, activeServerId, mediaRepository)
+
+    override suspend fun loadLogoImage(
+        item: BaseItemDto,
+        activeServerId: String?,
+        mediaRepository: MediaRepository
+    ): String? = seerr?.loadLogoImage(item, activeServerId, mediaRepository)
+        ?: super.loadLogoImage(item, activeServerId, mediaRepository)
+
+    override suspend fun loadSeerrPerson(
+        tmdbId: String,
+        activeServerId: String?
+    ): Pair<BaseItemDto?, List<com.jellycine.data.model.SeerrRecommendationTitle>>? =
+        seerr?.loadPerson(tmdbId, activeServerId)
+
     @Composable
     override fun rememberExtras(
         item: BaseItemDto,
@@ -1068,7 +1076,15 @@ class DefaultDetailPlatform(
         onMediaStreamsRefreshed: (List<MediaStream>) -> Unit,
         onRemoteTrailerClick: (String, String?) -> Unit,
         onCastClick: () -> Unit
-    ): DetailExtras = remember(item.id) { NoDetailExtras(item) }
+    ): DetailExtras {
+        if (seerr == null || authRepository == null) {
+            return remember(item.id) { NoDetailExtras(item) }
+        }
+        val activeServerId by authRepository.getActiveServerId()
+            .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+        val extras = rememberSeerrDetailExtras(item, seerr.repository, activeServerId)
+        return remember(extras) { SeerrDelegatingDetailExtras(extras) }
+    }
 
     @Composable
     override fun rememberController(

@@ -1,64 +1,31 @@
 package com.jellycine.app.ui.screens.detail
 
 import android.content.Context
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import com.jellycine.app.cast.CastController
 import com.jellycine.app.download.DownloadRepositoryProvider
-import com.jellycine.app.ui.components.common.DownloadActionMenu
-import com.jellycine.app.ui.components.common.DownloadContent
-import com.jellycine.app.ui.components.common.ScreenCastButton
-import com.jellycine.app.ui.components.common.canResumeDownloads
-import com.jellycine.app.ui.components.common.hasActiveDownloads
-import com.jellycine.app.ui.components.common.isPausedDownloadState
-import com.jellycine.app.ui.components.common.pausableItemIds
-import com.jellycine.app.ui.components.common.rememberDownloadPanelProgress
-import com.jellycine.app.ui.components.common.rememberDownloadPanelState
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.BaseItemPerson
-import com.jellycine.data.model.DownloadStatus
-import com.jellycine.data.model.ItemDownloadState
-import com.jellycine.data.model.MediaStream
-import com.jellycine.data.model.SeerrItemIds
-import com.jellycine.data.model.SeerrRecommendationTitle
-import com.jellycine.data.model.SeerrRequestState
+import com.jellycine.app.ui.components.common.*
+import com.jellycine.data.model.*
 import com.jellycine.data.repository.*
-import com.jellycine.player.preferences.PlayerPreferences
-import com.jellycine.player.preferences.TranscodeProfile
+import com.jellycine.player.preferences.*
 import com.jellycine.preferences.Preferences
 import com.jellycine.shared.R
-import com.jellycine.ui.components.common.DetailDownloadActionButton
-import com.jellycine.ui.components.common.DetailDownloadActionState
-import com.jellycine.ui.components.common.SeerrRequestButtonRow
-import com.jellycine.ui.components.common.SubtitleSearchActionButton
-import com.jellycine.ui.components.common.activeDetailMediaSources
+import com.jellycine.ui.components.common.*
 import com.jellycine.ui.screens.detail.*
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 /** Android implementation of the detail screen hooks: Seerr, downloads, cast, player. */
 internal class DetailScreenPlatform(
@@ -75,46 +42,25 @@ internal class DetailScreenPlatform(
     override val seasonDownloadAction: (@Composable (String, List<BaseItemDto>) -> Unit) =
         { seasonId, episodes -> SeasonDownloadAction(seasonId, episodes) }
 
+    private val seerrSupport = SeerrDetailSupport(seerrRepository)
+
     override suspend fun loadItem(
         itemId: String,
         activeServerId: String?,
         mediaRepository: MediaRepository
-    ): Result<BaseItemDto> = loadDetailItem(
-        itemId = itemId,
-        activeServerId = activeServerId,
-        mediaRepository = mediaRepository,
-        seerrRepository = seerrRepository
-    )
+    ): Result<BaseItemDto> = seerrSupport.loadItem(itemId, activeServerId, mediaRepository)
 
     override suspend fun loadLogoImage(
         item: BaseItemDto,
         activeServerId: String?,
         mediaRepository: MediaRepository
-    ): String? = detailLogoImage(
-        item = item,
-        activeServerId = activeServerId,
-        isSeerDetail = SeerrItemIds.isDetailId(item.id),
-        mediaRepository = mediaRepository,
-        seerrRepository = seerrRepository
-    )
+    ): String? = seerrSupport.loadLogoImage(item, activeServerId, mediaRepository)
 
     override suspend fun loadSeerrPerson(
         tmdbId: String,
         activeServerId: String?
-    ): Pair<BaseItemDto?, List<SeerrRecommendationTitle>>? {
-        val scopeId = activeServerId?.takeIf { it.isNotBlank() } ?: return null
-        return coroutineScope {
-            val person = async { seerrRepository.getPersonDetails(scopeId, tmdbId) }
-            val directed = async {
-                com.jellycine.app.ui.components.common.fetchSeerDirectedTitlesForTmdbPerson(
-                    personTmdbId = tmdbId,
-                    activeServerId = activeServerId,
-                    seerrRepository = seerrRepository
-                )
-            }
-            person.await().getOrNull() to directed.await()
-        }
-    }
+    ): Pair<BaseItemDto?, List<SeerrRecommendationTitle>>? =
+        seerrSupport.loadPerson(tmdbId, activeServerId)
 
     @Composable
     override fun rememberExtras(
@@ -129,10 +75,6 @@ internal class DetailScreenPlatform(
         val activeServerId by authRepository.getActiveServerId()
             .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
         val isSeerDetail = SeerrItemIds.isDetailId(item.id)
-        val seerrConnected = remember(activeServerId) {
-            !activeServerId.isNullOrBlank() &&
-                seerrRepository.getSavedConnectionInfo(activeServerId)?.isVerified == true
-        }
         val ui = remember(item.id) { DetailExtrasUiState() }
         val itemDownloadStateFlow =
             if (isSeerDetail) null else item.id?.let { downloadRepository.observeItemDownload(it) }
@@ -165,20 +107,7 @@ internal class DetailScreenPlatform(
             panelState = seriesDownload,
             label = "series_download_progress"
         )
-        val seerrRequestState = seerrRequestState(
-            item = item,
-            isSeerDetail = isSeerDetail,
-            activeServerId = activeServerId,
-            seerrRepository = seerrRepository,
-            coroutineScope = coroutineScope
-        )
-        val alternateVersionRequestState = versionRequestState(
-            item = item,
-            isSeerDetail = isSeerDetail,
-            activeServerId = activeServerId,
-            seerrRepository = seerrRepository,
-            requestOptions = seerrRequestState.requestOptions
-        )
+        val seerrExtras = rememberSeerrDetailExtras(item, seerrRepository, activeServerId)
         val canManageSubtitles = remember {
             !isSeerDetail && mediaRepository.getPersistedHomeSnapshot()?.canManageSubtitles == true
         }
@@ -188,14 +117,6 @@ internal class DetailScreenPlatform(
         val isSyncTranscodingAllowed = remember {
             mediaRepository.getPersistedHomeSnapshot()?.isSyncTranscodingAllowed ?: true
         }
-        val busyLabel = stringResource(
-            if (seerrRequestState.optionsLoading) {
-                R.string.detail_seerr_loading_options
-            } else {
-                R.string.detail_seerr_requesting
-            }
-        )
-
         LaunchedEffect(itemDownloadState.status, itemDownloadState.message) {
             ui.downloadActionMenu = false
         }
@@ -220,10 +141,8 @@ internal class DetailScreenPlatform(
             context = context,
             item = item,
             mediaStreams = mediaStreams,
-            isSeerDetail = isSeerDetail,
-            seerrConnected = seerrConnected,
+            seerr = seerrExtras,
             activeServerId = activeServerId,
-            seerrRepository = seerrRepository,
             mediaRepository = mediaRepository,
             downloadRepository = downloadRepository,
             coroutineScope = coroutineScope,
@@ -233,12 +152,9 @@ internal class DetailScreenPlatform(
             animatedDownloadProgress = animatedDownloadProgress,
             seriesDownload = seriesDownload,
             animatedSeriesDownloadProgress = animatedSeriesDownloadProgress,
-            seerrRequestState = seerrRequestState,
-            alternateVersionRequestState = alternateVersionRequestState,
             canManageSubtitles = canManageSubtitles,
             subtitlePreferredLanguage = subtitlePreferredLanguage,
             isSyncTranscodingAllowed = isSyncTranscodingAllowed,
-            busyLabel = busyLabel,
             onMediaStreamsRefreshed = onMediaStreamsRefreshed,
             onRemoteTrailerClick = onRemoteTrailerClick,
             onCastClick = onCastClick
@@ -282,10 +198,8 @@ private class PhoneDetailExtras(
     private val context: Context,
     private val item: BaseItemDto,
     private val mediaStreams: List<MediaStream>,
-    override val isSeerDetail: Boolean,
-    private val seerrConnected: Boolean,
+    private val seerr: SeerrDetailExtras,
     private val activeServerId: String?,
-    private val seerrRepository: SeerrRepository,
     private val mediaRepository: MediaRepository,
     private val downloadRepository: com.jellycine.app.download.DownloadRepository,
     private val coroutineScope: kotlinx.coroutines.CoroutineScope,
@@ -295,18 +209,14 @@ private class PhoneDetailExtras(
     private val animatedDownloadProgress: Float,
     private val seriesDownload: com.jellycine.app.ui.components.common.DownloadPanelState,
     private val animatedSeriesDownloadProgress: Float,
-    private val seerrRequestState: SeerrRequestUiState,
-    private val alternateVersionRequestState: SeerrVersions,
     private val canManageSubtitles: Boolean,
     private val subtitlePreferredLanguage: String?,
     private val isSyncTranscodingAllowed: Boolean,
-    private val busyLabel: String,
     private val onMediaStreamsRefreshed: (List<MediaStream>) -> Unit,
     private val onRemoteTrailerClick: (String, String?) -> Unit,
     private val onCastClick: () -> Unit
-) : DetailExtras {
+) : SeerrDelegatingDetailExtras(seerr) {
 
-    override val showSeerrRequestRow: Boolean get() = isSeerDetail && seerrConnected
     override val supportsDownload: Boolean get() = true
     override val canSearchSubtitles: Boolean get() = canManageSubtitles
 
@@ -354,39 +264,6 @@ private class PhoneDetailExtras(
                 )
             }
         }
-    }
-
-    @Composable
-    override fun VersionRequestBadge() {
-        if (!alternateVersionRequestState.visible) return
-        CompactSeerrRequestButton(
-            state = alternateVersionRequestState,
-            isBusy = seerrRequestState.isBusy &&
-                seerrRequestState.prefer4KRequest &&
-                seerrRequestState.preferredRequest == alternateVersionRequestState.targetIs4K,
-            onClick = {
-                seerrRequestState.onLoadQualityRequestOptions(alternateVersionRequestState.targetIs4K)
-            }
-        )
-    }
-
-    @Composable
-    override fun SeerrRequestRow(
-        modifier: Modifier,
-        buttonHeight: Dp,
-        hasTrailer: Boolean,
-        onTrailerClick: () -> Unit
-    ) {
-        SeerrRequestButtonRow(
-            requestState = seerrRequestState.requestState,
-            isBusy = seerrRequestState.isBusy,
-            busyLabel = busyLabel,
-            onRequestClick = { seerrRequestState.onLoadRequestOptions(null) },
-            buttonHeight = buttonHeight,
-            hasTrailer = hasTrailer,
-            onTrailerClick = onTrailerClick,
-            modifier = modifier
-        )
     }
 
     @Composable
@@ -527,52 +404,6 @@ private class PhoneDetailExtras(
     }
 
     @Composable
-    override fun Seasons(
-        series: BaseItemDto,
-        seriesId: String,
-        mediaRepository: MediaRepository,
-        activeServerId: String?,
-        onSeasonClick: (String, String, String?) -> Unit
-    ) {
-        SeasonsSection(
-            series = series,
-            seriesId = seriesId,
-            mediaRepository = mediaRepository,
-            activeServerId = activeServerId,
-            refreshKey = seerrRequestState.seasonRefreshKey,
-            loadingSeasonNumber = seerrRequestState.pendingSeasonRequestNumber
-                ?.takeIf { seerrRequestState.isBusy },
-            onSeasonRequest = { seasonNumber ->
-                seerrRequestState.onLoadRequestOptions(seasonNumber)
-            },
-            loadSeerrSeasons = { scopeId, tmdbId ->
-                seerrRepository.getTitleSeasons(scopeId = scopeId, tmdbId = tmdbId)
-                    .getOrDefault(emptyList())
-            },
-            onSeasonClick = onSeasonClick
-        )
-    }
-
-    @Composable
-    override fun Recommendations(
-        item: BaseItemDto,
-        directors: List<BaseItemPerson>,
-        mediaRepository: MediaRepository,
-        activeServerId: String?,
-        onItemClick: (String) -> Unit
-    ) {
-        Recommendations(
-            item = item,
-            directors = directors,
-            isSeerDetail = isSeerDetail,
-            activeServerId = activeServerId,
-            mediaRepository = mediaRepository,
-            seerrRepository = seerrRepository,
-            onItemClick = onItemClick
-        )
-    }
-
-    @Composable
     override fun Dialogs(backdropImageUrl: String?) {
         ui.seriesStorageSelectionDialogState?.let { dialogState ->
             DownloadDialog(
@@ -617,11 +448,7 @@ private class PhoneDetailExtras(
             )
         }
 
-        SeerrRequestDialogs(
-            state = seerrRequestState,
-            itemName = item.name?.takeIf { it.isNotBlank() } ?: "Unknown",
-            backdropImageUrl = backdropImageUrl
-        )
+        super.Dialogs(backdropImageUrl)
 
         if (ui.showSubtitleSearch) {
             item.id?.let { subtitleItemId ->
@@ -694,62 +521,6 @@ private class PhoneDetailExtras(
                     }
                 }
             )
-        }
-    }
-}
-
-@Composable
-internal fun CompactSeerrRequestButton(
-    state: SeerrVersions,
-    isBusy: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isRequested = state.requestState == SeerrRequestState.REQUESTED
-    val contentDescription = if (state.targetIs4K) {
-        stringResource(R.string.detail_seerr_request_4k)
-    } else {
-        stringResource(R.string.detail_seerr_request_1080p)
-    }
-    val enabled = !isBusy && !isRequested
-    val accentColor = if (state.targetIs4K) Color(0xFF9B7CFF) else Color(0xFF22D3EE)
-
-    Surface(
-        modifier = modifier
-            .size(28.dp)
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(7.dp),
-        color = if (isRequested) Color(0xFF1F1F24) else accentColor.copy(alpha = 0.18f),
-        border = BorderStroke(
-            1.dp,
-            if (isRequested) Color.White.copy(alpha = 0.18f) else accentColor.copy(alpha = 0.55f)
-        )
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isBusy -> CircularProgressIndicator(
-                    modifier = Modifier.size(15.dp),
-                    strokeWidth = 2.dp,
-                    color = accentColor
-                )
-
-                isRequested -> Icon(
-                    imageVector = Icons.Rounded.Schedule,
-                    contentDescription = stringResource(R.string.detail_seerr_requested),
-                    tint = Color(0xFF9CDCFE),
-                    modifier = Modifier.size(16.dp)
-                )
-
-                else -> Icon(
-                    imageVector = Icons.Rounded.AddCircle,
-                    contentDescription = contentDescription,
-                    tint = accentColor,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
         }
     }
 }
