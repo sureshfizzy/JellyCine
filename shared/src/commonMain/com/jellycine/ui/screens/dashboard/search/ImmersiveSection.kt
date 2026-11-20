@@ -213,12 +213,19 @@ private fun SuggestionsShimmer() {
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 60.dp, vertical = 0.dp).padding(bottom = 72.dp + navBarPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        BoxWithConstraints(
+            Modifier
+                .fillMaxSize()
+                .padding(top = suggestionsPagerTopPadding(), bottom = suggestionsPagerBottomPadding()),
+            contentAlignment = Alignment.Center
         ) {
-            Box(Modifier.widthIn(max = 280.dp).fillMaxWidth().aspectRatio(0.67f).background(brush, RoundedCornerShape(20.dp)))
+            Box(Modifier.width(minOf(280.dp, maxHeight * 0.67f)).aspectRatio(0.67f).background(brush, RoundedCornerShape(20.dp)))
+        }
+        Box(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 200.dp + navBarPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(Modifier.width(140.dp).height(28.dp).background(brush, RoundedCornerShape(6.dp)))
         }
         Box(
             Modifier.align(Alignment.BottomCenter).padding(bottom = 160.dp + navBarPadding),

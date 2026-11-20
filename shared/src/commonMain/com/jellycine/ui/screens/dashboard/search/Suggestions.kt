@@ -34,6 +34,14 @@ import kotlin.math.round
 import com.jellycine.data.repository.MediaRepository
 
 @Composable
+internal fun suggestionsPagerTopPadding() =
+    WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 60.dp + 40.dp + 20.dp
+
+@Composable
+internal fun suggestionsPagerBottomPadding() =
+    160.dp + 40.dp + 40.dp + 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+@Composable
 fun SuggestionsStoriesView(
     mediaRepository: MediaRepository,
     suggestions: List<BaseItemDto>,
@@ -78,7 +86,8 @@ fun SuggestionsStoriesView(
     } else {
         60.dp
     }
-    val pagerBottomPadding = 72.dp + navigationBarInset
+    val pagerTopPadding = suggestionsPagerTopPadding()
+    val pagerBottomPadding = suggestionsPagerBottomPadding()
     val detailsBottomPadding = 160.dp + navigationBarInset
     val indicatorBottomPadding = 118.dp + navigationBarInset
 
@@ -129,7 +138,7 @@ fun SuggestionsStoriesView(
             state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = pagerBottomPadding),
+                .padding(top = pagerTopPadding, bottom = pagerBottomPadding),
             contentPadding = PaddingValues(horizontal = horizontalContentPadding),
             pageSpacing = 16.dp,
             pageSize = if (isTablet) PageSize.Fixed(tabletPageWidth) else PageSize.Fill
@@ -326,7 +335,7 @@ private fun SuggestionsCard(
         label = "alpha"
     )
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -355,9 +364,10 @@ private fun SuggestionsCard(
             },
         contentAlignment = Alignment.Center
     ) {
+        val cardWidth = minOf(280.dp, maxHeight * 0.67f)
         Card(
             modifier = Modifier
-                .width(280.dp)
+                .width(cardWidth)
                 .aspectRatio(0.67f),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Black
