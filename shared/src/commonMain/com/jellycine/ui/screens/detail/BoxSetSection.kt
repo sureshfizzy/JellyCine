@@ -1,5 +1,6 @@
 package com.jellycine.ui.screens.detail
 
+import com.jellycine.data.model.SeerrItemIds
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -267,16 +268,20 @@ internal fun BoxSetCastRow(
         contentPadding = PaddingValues(end = 16.dp)
     ) {
         items(uniquePeople.take(20), key = { it.id ?: it.name.orEmpty() }) { person ->
-            var imageUrl by remember(person.id) { mutableStateOf<String?>(null) }
-            LaunchedEffect(person.id) {
-                val personId = person.id ?: return@LaunchedEffect
+            val jellyfinTag = person.primaryImageTagOrNull()
+            val tmdbImageUrl = person.imageUrl?.takeIf { jellyfinTag == null && it.isNotBlank() }
+            var imageUrl by remember(person.id, tmdbImageUrl) { mutableStateOf(tmdbImageUrl) }
+            LaunchedEffect(person.id, jellyfinTag, tmdbImageUrl) {
+                if (tmdbImageUrl != null) return@LaunchedEffect
+                val personId = person.id?.takeIf { SeerrItemIds.personTmdbId(it) == null }
+                    ?: return@LaunchedEffect
                 imageUrl = mediaRepository.getImageUrl(
                     itemId = personId,
                     imageType = "Primary",
                     width = 160,
                     height = 160,
                     quality = 85,
-                    imageTag = person.primaryImageTagOrNull()
+                    imageTag = jellyfinTag
                 ).first()
             }
 
