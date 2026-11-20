@@ -156,76 +156,17 @@ fun SuggestionsStoriesView(
             )
         }
 
-        val typeText = when (currentItem.type) {
-            "Movie" -> stringResource(Res.string.suggestions_type_movie)
-            "Series" -> stringResource(Res.string.suggestions_type_tv_series)
-            else -> currentItem.type ?: stringResource(Res.string.suggestions_type_media)
-        }
-        val yearText = currentItem.productionYear
-            ?: currentItem.premiereDate?.take(4)?.toIntOrNull()
-        val displayText = buildAnnotatedString {
-            var needsSep = false
-            currentItem.communityRating?.let { rating ->
-                withStyle(SpanStyle(color = Color(0xFFFF4D4F))) { append("★ ") }
-                append((round(rating * 10f) / 10f).toString())
-                needsSep = true
-            }
-            yearText?.let {
-                if (needsSep) append("  •  ")
-                append(it.toString())
-                needsSep = true
-            }
-            if (typeText.isNotBlank()) {
-                if (needsSep) append("  •  ")
-                append(typeText)
-            }
-        }
-
-        var logoUrl by remember(currentItem.id) { mutableStateOf<String?>(null) }
-        LaunchedEffect(currentItem.id) {
-            logoUrl = logoImage(item = currentItem, mediaRepository = mediaRepository)
-                ?: mediaRepository.getTmdbLogoUrl(currentItem)
-        }
-        var logoLoaded by remember(currentItem.id) { mutableStateOf(false) }
-        if (!logoUrl.isNullOrBlank()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = detailsBottomPadding + 40.dp)
-                    .padding(horizontal = 60.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = logoUrl,
-                    contentDescription = currentItem.name,
-                    modifier = Modifier
-                        .heightIn(max = 40.dp)
-                        .widthIn(max = 180.dp)
-                        .graphicsLayer { alpha = if (logoLoaded) 1f else 0f },
-                    contentScale = ContentScale.Fit,
-                    onState = { state ->
-                        logoLoaded = state is AsyncImagePainter.State.Success
-                    }
-                )
-            }
-        }
-
-        Box(
+        SuggestionCrossfade(
+            target = currentItem,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .padding(bottom = detailsBottomPadding)
                 .padding(horizontal = 32.dp)
-                .padding(bottom = detailsBottomPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = displayText,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
+                .fillMaxWidth()
+                .height(80.dp),
+            label = "suggestion_details"
+        ) { item ->
+            SuggestionDetails(item = item, mediaRepository = mediaRepository)
         }
 
         if (suggestions.size > 1) {
@@ -406,9 +347,8 @@ private fun SuggestionImage(
         } ?: value
     }
     val url = imageUrl ?: return
-    Crossfade(
-        targetState = url,
-        animationSpec = tween(durationMillis = 600),
+    SuggestionCrossfade(
+        target = url,
         modifier = modifier,
         label = "suggestion_backdrop"
     ) { backdropUrl ->
@@ -424,5 +364,87 @@ private fun SuggestionImage(
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
+    }
+}
+
+@Composable
+private fun SuggestionDetails(item: BaseItemDto, mediaRepository: MediaRepository) {
+    val context = LocalPlatformContext.current
+    val logoUrl by produceState<String?>(null, item.id) {
+        value = logoImage(item = item, mediaRepository = mediaRepository)
+            ?: mediaRepository.getTmdbLogoUrl(item)
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(width = 180.dp, height = 40.dp), contentAlignment = Alignment.Center) {
+            logoUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(url).crossfade(300).build(),
+                    contentDescription = item.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        Box(modifier = Modifier.height(20.dp), contentAlignment = Alignment.Center) {
+            SuggestionMeta(item)
+        }
+    }
+}
+
+@Composable
+private fun SuggestionMeta(item: BaseItemDto) {
+    val typeText = when (item.type) {
+        "Movie" -> stringResource(Res.string.suggestions_type_movie)
+        "Series" -> stringResource(Res.string.suggestions_type_tv_series)
+        else -> item.type ?: stringResource(Res.string.suggestions_type_media)
+    }
+    val yearText = item.productionYear ?: item.premiereDate?.take(4)?.toIntOrNull()
+    val displayText = buildAnnotatedString {
+        var needsSep = false
+        item.communityRating?.let { rating ->
+            withStyle(SpanStyle(color = Color(0xFFFF4D4F))) { append("★ ") }
+            append((round(rating * 10f) / 10f).toString())
+            needsSep = true
+        }
+        yearText?.let {
+            if (needsSep) append("  •  ")
+            append(it.toString())
+            needsSep = true
+        }
+        if (typeText.isNotBlank()) {
+            if (needsSep) append("  •  ")
+            append(typeText)
+        }
+    }
+    Text(
+        text = displayText,
+        color = Color.White.copy(alpha = 0.85f),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center
+    )
+}
+
+private const val SuggestionFadeMillis = 600
+
+@Composable
+private fun <T> SuggestionCrossfade(
+    target: T,
+    modifier: Modifier = Modifier,
+    label: String,
+    content: @Composable (T) -> Unit
+) {
+    Crossfade(
+        targetState = target,
+        modifier = modifier,
+        animationSpec = tween(durationMillis = SuggestionFadeMillis),
+        label = label
+    ) { value ->
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            content(value)
+        }
     }
 }
