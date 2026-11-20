@@ -157,15 +157,23 @@ class EnginePlayerController(
 
                 val selectedAudio = audioIndex ?: defaultAudioStreamIndex
                 val selectedSubtitle = subtitleIndex ?: defaultSubtitleStreamIndex
+                val selectedSubtitleUrl = selectedSubtitle?.let(externalSubtitleUrls::get)
                 engine.load(
                     url = playback.streamUrl.orEmpty(),
                     subtitleUrls = externalSubtitleUrls.values.toList(),
                     audioTrackId = MPVPlayer.audioTrackId(apiMediaStreams, selectedAudio),
                     subtitleTrackId = MPVPlayer.subtitleTrackId(apiMediaStreams, selectedSubtitle),
-                    selectedSubtitleUrl = selectedSubtitle?.let(externalSubtitleUrls::get),
+                    selectedSubtitleUrl = selectedSubtitleUrl,
                     startPositionMs = initialSeekPositionMs ?: playback.storedResumePositionMs,
                     startPlayback = startPlayback,
-                    requestHeaders = playback.playbackRequest?.requestHeaders.orEmpty()
+                    requestHeaders = playback.playbackRequest?.requestHeaders.orEmpty(),
+                    useAppleDisplay = CodecCapabilityManager.usesAppleDolbyVisionDisplay(
+                        mediaStreams = apiMediaStreams,
+                        container = playback.session.mediaSourceContainer,
+                        streamUrl = playback.streamUrl,
+                        transcoded = playback.session.playMethod == PlayMethod.TRANSCODE,
+                        externalSubtitleSelected = selectedSubtitleUrl != null
+                    )
                 )
 
                 val hdrFormat = hdrFormatLabel()

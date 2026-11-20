@@ -42,7 +42,8 @@ final class MPVBridge: NSObject, IosMpvBridge, MPVPlayerCoreDelegate {
         audioTrackId: String?,
         subtitleTrackId: String?,
         subtitleUrls: [String],
-        selectedSubtitleUrl: String?
+        selectedSubtitleUrl: String?,
+        useAppleDisplay: Bool
     ) {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
@@ -55,7 +56,8 @@ final class MPVBridge: NSObject, IosMpvBridge, MPVPlayerCoreDelegate {
             audioTrackId: audioTrackId,
             subtitleTrackId: subtitleTrackId,
             subtitleUrls: subtitleUrls,
-            selectedSubtitleUrl: selectedSubtitleUrl
+            selectedSubtitleUrl: selectedSubtitleUrl,
+            useAppleDisplay: useAppleDisplay
         )
     }
 
@@ -68,10 +70,10 @@ final class MPVBridge: NSObject, IosMpvBridge, MPVPlayerCoreDelegate {
     func viewSizeChanged() { core.viewSizeChanged() }
     func attachListener(listener: IosMpvBridgeListener) { self.listener = listener }
 
-    func position() -> Int64 { Int64(core.position * 1000) }
-    func duration() -> Int64 { Int64(core.duration * 1000) }
+    func position() -> Int64 { Int64(core.readoutPosition() * 1000) }
+    func duration() -> Int64 { Int64(core.readoutDuration() * 1000) }
     func bufferedPosition() -> Int64 { Int64(core.bufferedPosition() * 1000) }
-    func isPlaying() -> Bool { core.fileLoaded && !core.isPaused }
+    func isPlaying() -> Bool { core.readoutPlaying() }
 
     func shutdown() {
         core.shutdown()

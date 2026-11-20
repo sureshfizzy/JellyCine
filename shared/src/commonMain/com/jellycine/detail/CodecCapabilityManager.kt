@@ -197,6 +197,22 @@ object CodecCapabilityManager {
             .orEmpty()
     }
 
+    fun usesAppleDolbyVisionDisplay(
+        mediaStreams: List<MediaStream>?,
+        container: String?,
+        streamUrl: String?,
+        transcoded: Boolean,
+        externalSubtitleSelected: Boolean
+    ): Boolean {
+        if (externalSubtitleSelected || transcoded) return false
+        val video = mediaStreams.orEmpty().firstOrNull { it.type.equals("Video", ignoreCase = true) } ?: return false
+        if (detectHDRFormat(video) != "Dolby Vision" || video.dvProfile == 7) return false
+        val name = container?.substringBefore(',')?.trim()?.lowercase().orEmpty()
+        if (name in APPLE_DOLBY_VISION_CONTAINERS) return true
+        val path = streamUrl.orEmpty().substringBefore('?').lowercase()
+        return APPLE_DOLBY_VISION_EXTENSIONS.any { path.endsWith(it) }
+    }
+
     /**
      * Check if audio stream is Dolby-based
      */
@@ -251,6 +267,9 @@ object CodecCapabilityManager {
             else -> 0
         }
     }
+
+    private val APPLE_DOLBY_VISION_CONTAINERS = setOf("mp4", "m4v", "mov", "m3u8", "hls")
+    private val APPLE_DOLBY_VISION_EXTENSIONS = listOf(".mp4", ".m4v", ".mov", ".m3u8")
 }
 
 /**
