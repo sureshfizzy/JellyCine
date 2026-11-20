@@ -313,38 +313,27 @@ private fun SuggestionsCard(
 ) {
     var isPressed by remember { mutableStateOf(false) }
     
-    val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.95f
-            isActive -> 1.0f
-            else -> 0.85f
-        },
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
         ),
-        label = "scale"
-    )
-    
-    val alpha by animateFloatAsState(
-        targetValue = if (isActive) 1.0f else 0.6f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "alpha"
+        label = "pressScale"
     )
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
+                val distance = kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
                 val rotation = pageOffset * 25f
                 val translationX = pageOffset * 50f
-                
+                val scale = (1f - 0.15f * distance) * pressScale
+
                 scaleX = scale
                 scaleY = scale
-                this.alpha = alpha
+                this.alpha = 1f - 0.4f * distance
                 rotationY = rotation
                 this.translationX = translationX
                 cameraDistance = 12f * density
