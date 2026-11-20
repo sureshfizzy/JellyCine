@@ -274,11 +274,14 @@ private fun PersonScreen(
             }
         }
 
-        if (seerrRelatedTitles.isNotEmpty()) {
+        listOf(
+            "Movies" to seerrRelatedTitles.filter { it.mediaType.equals("movie", ignoreCase = true) },
+            "TV Shows" to seerrRelatedTitles.filter { it.mediaType.equals("tv", ignoreCase = true) }
+        ).filter { (_, titles) -> titles.isNotEmpty() }.forEach { (title, titles) ->
             item {
                 SeerTitlesRow(
-                    title = "Directed",
-                    items = seerrRelatedTitles,
+                    title = title,
+                    items = titles,
                     onItemClick = onItemClick,
                     topPadding = 24.dp,
                     verticalSpacing = 10.dp,

@@ -50,7 +50,7 @@ class SeerrDetailSupport(val repository: SeerrRepository) {
         return coroutineScope {
             val person = async { repository.getPersonDetails(scopeId, tmdbId) }
             val directed = async {
-                fetchSeerDirectedTitlesForTmdbPerson(
+                fetchSeerFilmographyForTmdbPerson(
                     personTmdbId = tmdbId,
                     activeServerId = activeServerId,
                     seerrRepository = repository
