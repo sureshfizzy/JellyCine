@@ -1,3 +1,4 @@
+import AVFoundation
 import UIKit
 import QuartzCore
 import Mpv
@@ -11,16 +12,25 @@ protocol MPVPlayerCoreDelegate: AnyObject {
 
 /// mpv draws into a standalone CAMetalLayer added as a sublayer, not the UIView's own backing
 /// layer: MoltenVK changes layer properties from mpv's video thread, which UIKit forbids for
-/// layers owned by a UIView.
+/// layers owned by a UIView. Dolby Vision uses [appleLayer], because only AVFoundation puts the
+/// display into Dolby Vision mode.
 final class MPVVideoView: UIView {
     let metalLayer = CAMetalLayer()
+    let appleLayer = AVPlayerLayer()
     var onLayout: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
         metalLayer.isOpaque = true
+        metalLayer.pixelFormat = .rgba16Float
+        metalLayer.wantsExtendedDynamicRangeContent = true
+        metalLayer.colorspace = CGColorSpace(name: CGColorSpace.extendedLinearITUR_2020)
+        appleLayer.videoGravity = .resizeAspect
+        appleLayer.backgroundColor = UIColor.black.cgColor
+        appleLayer.isHidden = true
         layer.addSublayer(metalLayer)
+        layer.addSublayer(appleLayer)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
@@ -30,8 +40,14 @@ final class MPVVideoView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         metalLayer.frame = bounds
+        appleLayer.frame = bounds
         CATransaction.commit()
         onLayout?()
+    }
+
+    func showAppleDisplay(_ show: Bool) {
+        appleLayer.isHidden = !show
+        metalLayer.isHidden = show
     }
 }
 
@@ -60,6 +76,16 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
     private var volumeLevel: Double = 1
     private var zoomEnabled = false
     private(set) var isPaused = false
+    private var apple: AppleDisplayPlayer?
+    private var appleActive = false
+    private var appleFailedOver = false
+    private var lastRequest: LoadRequest?
+
+    func readoutPosition() -> Double { appleActive ? (apple?.position ?? position) : position }
+    func readoutDuration() -> Double { appleActive ? (apple?.duration ?? duration) : duration }
+    func readoutPlaying() -> Bool {
+        appleActive ? (apple?.isPlaying ?? false) : (fileLoaded && !isPaused)
+    }
 
     /// Starts mpv on first use; later calls replace the current file on the same instance.
     func load(
@@ -71,7 +97,8 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         audioTrackId: String?,
         subtitleTrackId: String?,
         subtitleUrls: [String],
-        selectedSubtitleUrl: String?
+        selectedSubtitleUrl: String?,
+        useAppleDisplay: Bool
     ) {
         self.view = view
         pendingSubtitleUrls = subtitleUrls
@@ -80,7 +107,50 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         fileLoaded = false
         position = 0
         duration = 0
+        lastRequest = LoadRequest(
+            url: url,
+            headers: headers,
+            startPosition: startPosition,
+            startPaused: startPaused,
+            audioTrackId: audioTrackId,
+            subtitleTrackId: subtitleTrackId,
+            subtitleUrls: subtitleUrls,
+            selectedSubtitleUrl: selectedSubtitleUrl
+        )
+        appleFailedOver = false
+        stopApple()
+        view.showAppleDisplay(false)
 
+        if useAppleDisplay, startApple(
+            url: url,
+            headers: headers,
+            startPosition: startPosition,
+            startPaused: startPaused,
+            audioTrackId: audioTrackId,
+            subtitleTrackId: subtitleTrackId
+        ) {
+            return
+        }
+
+        beginMpv(
+            url: url,
+            headers: headers,
+            startPosition: startPosition,
+            startPaused: startPaused,
+            audioTrackId: audioTrackId,
+            subtitleTrackId: subtitleTrackId
+        )
+    }
+
+    private func beginMpv(
+        url: String,
+        headers: [String: String],
+        startPosition: Double,
+        startPaused: Bool,
+        audioTrackId: String?,
+        subtitleTrackId: String?
+    ) {
+        guard let view else { return }
         if !hasStarted {
             hasStarted = true
             syncLayerSize()
@@ -103,6 +173,72 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         } else {
             command(["loadfile", url, "replace", "-1", options.joined(separator: ",")])
         }
+    }
+
+    private func startApple(
+        url: String,
+        headers: [String: String],
+        startPosition: Double,
+        startPaused: Bool,
+        audioTrackId: String?,
+        subtitleTrackId: String?
+    ) -> Bool {
+        guard let view, let mediaURL = Self.mediaURL(url) else { return false }
+        if mpv != nil { command(["stop"]) }
+        let player = AppleDisplayPlayer(layer: view.appleLayer)
+        player.onReady = { [weak self] in self?.delegate?.mpvDidLoad() }
+        player.onBuffering = { [weak self] buffering in self?.delegate?.mpvBufferingChanged(isBuffering: buffering) }
+        player.onEnded = { [weak self] in self?.delegate?.mpvDidFinish() }
+        player.onFailed = { [weak self] message in
+            guard let self else { return }
+            if self.appleFailedOver {
+                self.delegate?.mpvDidFail(message: message)
+            } else {
+                self.failOverToMpv()
+            }
+        }
+        apple = player
+        appleActive = true
+        view.showAppleDisplay(true)
+        applyZoom()
+        player.load(
+            url: mediaURL,
+            headers: headers,
+            startPosition: startPosition,
+            startPaused: startPaused,
+            volume: volumeLevel,
+            audioTrackId: audioTrackId,
+            subtitleTrackId: subtitleTrackId
+        )
+        return true
+    }
+
+    private func failOverToMpv() {
+        guard !appleFailedOver, let lastRequest else { return }
+        appleFailedOver = true
+        stopApple()
+        view?.showAppleDisplay(false)
+        beginMpv(
+            url: lastRequest.url,
+            headers: lastRequest.headers,
+            startPosition: lastRequest.startPosition,
+            startPaused: lastRequest.startPaused,
+            audioTrackId: lastRequest.audioTrackId,
+            subtitleTrackId: lastRequest.subtitleTrackId
+        )
+    }
+
+    private func stopApple() {
+        apple?.stop()
+        apple = nil
+        appleActive = false
+        view?.appleLayer.player = nil
+    }
+
+    private static func mediaURL(_ raw: String) -> URL? {
+        if let url = URL(string: raw), url.scheme != nil { return url }
+        if raw.hasPrefix("/") { return URL(fileURLWithPath: raw) }
+        return nil
     }
 
     private func createPlayer(in view: MPVVideoView) -> Bool {
@@ -149,6 +285,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         let scale = view.window?.screen.scale ?? UIScreen.main.scale
         layer.frame = view.bounds
         layer.contentsScale = scale
+        view.appleLayer.contentsScale = scale
         layer.drawableSize = CGSize(width: view.bounds.width * scale, height: view.bounds.height * scale)
     }
 
@@ -160,7 +297,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         }
         lastSize = view.bounds.size
         syncLayerSize()
-        command(["video-reload"])
+        if !appleActive { command(["video-reload"]) }
     }
 
     func drainEvents() {
@@ -221,8 +358,12 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         }
     }
 
-    func setPaused(_ paused: Bool) { setProperty("pause", paused ? "yes" : "no") }
-    func seek(to seconds: Double) { command(["seek", String(format: "%.3f", seconds), "absolute"]) }
+    func setPaused(_ paused: Bool) {
+        if appleActive { apple?.setPaused(paused) } else { setProperty("pause", paused ? "yes" : "no") }
+    }
+    func seek(to seconds: Double) {
+        if appleActive { apple?.seek(to: seconds) } else { command(["seek", String(format: "%.3f", seconds), "absolute"]) }
+    }
     /// Volume and zoom can be set before the first load, so they are remembered and applied once mpv exists.
     func setVolume(_ volume: Double) {
         volumeLevel = max(0, min(1, volume))
@@ -232,10 +373,22 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         zoomEnabled = enabled
         applyZoom()
     }
-    private func applyVolume() { setProperty("volume", String(format: "%.1f", volumeLevel * 100)) }
-    private func applyZoom() { setProperty("panscan", zoomEnabled ? "1" : "0") }
-    func selectAudio(_ trackId: String) { setProperty("aid", trackId) }
+    private func applyVolume() {
+        if appleActive { apple?.setVolume(volumeLevel) }
+        setProperty("volume", String(format: "%.1f", volumeLevel * 100))
+    }
+    private func applyZoom() {
+        view?.appleLayer.videoGravity = zoomEnabled ? .resizeAspectFill : .resizeAspect
+        setProperty("panscan", zoomEnabled ? "1" : "0")
+    }
+    func selectAudio(_ trackId: String) {
+        if appleActive { apple?.selectAudio(trackId) } else { setProperty("aid", trackId) }
+    }
     func selectSubtitle(_ trackId: String, externalUrl: String?) {
+        if appleActive {
+            apple?.selectSubtitle(trackId)
+            return
+        }
         if trackId == "no" {
             setProperty("sid", "no")
         } else if let externalUrl {
@@ -247,6 +400,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
 
     /// Seconds of media buffered ahead in the demuxer cache, measured from the file start.
     func bufferedPosition() -> Double {
+        if appleActive { return apple?.buffered() ?? position }
         guard let mpv, !isShutDown else { return 0 }
         var value: Double = 0
         guard mpv_get_property(mpv, "demuxer-cache-time", MPV_FORMAT_DOUBLE, &value) >= 0 else { return position }
@@ -272,13 +426,174 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         mpv_command(mpv, &constPointers)
     }
 
+    private struct LoadRequest {
+        let url: String
+        let headers: [String: String]
+        let startPosition: Double
+        let startPaused: Bool
+        let audioTrackId: String?
+        let subtitleTrackId: String?
+        let subtitleUrls: [String]
+        let selectedSubtitleUrl: String?
+    }
+
     func shutdown() {
         isShutDown = true
+        stopApple()
         guard let handle = mpv else { return }
         mpv_set_wakeup_callback(handle, nil, nil)
         mpv = nil
         DispatchQueue.global(qos: .userInitiated).async { mpv_terminate_destroy(handle) }
     }
 
-    deinit { if mpv != nil { shutdown() } }
+    deinit { if mpv != nil || apple != nil { shutdown() } }
+}
+
+/// AVPlayerLayer is the display path that puts the screen into Dolby Vision. mpv stays in
+/// charge of every other file, on the Metal layer.
+private final class AppleDisplayPlayer {
+    var onReady: (() -> Void)?
+    var onBuffering: ((Bool) -> Void)?
+    var onEnded: (() -> Void)?
+    var onFailed: ((String) -> Void)?
+
+    private let player = AVPlayer()
+    private let layer: AVPlayerLayer
+    private var item: AVPlayerItem?
+    private var statusObs: NSKeyValueObservation?
+    private var controlObs: NSKeyValueObservation?
+    private var endObserver: NSObjectProtocol?
+    private var wantsPlay = false
+    private var startAt: Double = 0
+    private var didReportReady = false
+    private var stopped = false
+    private var audioTrackId: String?
+    private var subtitleTrackId: String?
+
+    init(layer: AVPlayerLayer) {
+        self.layer = layer
+        layer.player = player
+    }
+
+    var position: Double { finite(player.currentTime().seconds) }
+    var duration: Double { finite(item?.duration.seconds ?? 0) }
+    var isPlaying: Bool { didReportReady && wantsPlay }
+
+    func buffered() -> Double {
+        let end = item?.loadedTimeRanges.reduce(0.0) { partial, value in
+            let rangeEnd = CMTimeGetSeconds(CMTimeRangeGetEnd(value.timeRangeValue))
+            return max(partial, finite(rangeEnd))
+        } ?? 0
+        return max(end, position)
+    }
+
+    func load(
+        url: URL,
+        headers: [String: String],
+        startPosition: Double,
+        startPaused: Bool,
+        volume: Double,
+        audioTrackId: String?,
+        subtitleTrackId: String?
+    ) {
+        wantsPlay = !startPaused
+        startAt = startPosition
+        self.audioTrackId = audioTrackId
+        self.subtitleTrackId = subtitleTrackId
+        player.volume = Float(volume)
+        let asset = AVURLAsset(
+            url: url,
+            options: headers.isEmpty ? nil : [AVURLAssetHTTPHeaderFieldsKey: headers]
+        )
+        let item = AVPlayerItem(asset: asset)
+        self.item = item
+        statusObs = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+            DispatchQueue.main.async { self?.handleStatus(item) }
+        }
+        controlObs = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+            DispatchQueue.main.async {
+                guard let self, self.didReportReady, !self.stopped else { return }
+                self.onBuffering?(player.timeControlStatus == .waitingToPlayAtSpecifiedRate)
+            }
+        }
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.stopped else { return }
+            self.wantsPlay = false
+            self.onEnded?()
+        }
+        player.replaceCurrentItem(with: item)
+    }
+
+    func setPaused(_ paused: Bool) {
+        wantsPlay = !paused
+        if paused { player.pause() } else { player.play() }
+    }
+
+    func seek(to seconds: Double) {
+        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    func setVolume(_ volume: Double) { player.volume = Float(volume) }
+
+    func selectAudio(_ trackId: String) {
+        audioTrackId = trackId
+        select(trackId, characteristic: .audible)
+    }
+
+    func selectSubtitle(_ trackId: String) {
+        subtitleTrackId = trackId
+        select(trackId, characteristic: .legible)
+    }
+
+    func stop() {
+        stopped = true
+        statusObs = nil
+        controlObs = nil
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        endObserver = nil
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        layer.player = nil
+        item = nil
+    }
+
+    private func handleStatus(_ item: AVPlayerItem) {
+        guard !stopped else { return }
+        switch item.status {
+        case .readyToPlay:
+            guard !didReportReady else { return }
+            didReportReady = true
+            select(audioTrackId, characteristic: .audible)
+            select(subtitleTrackId, characteristic: .legible)
+            if startAt > 1 {
+                player.seek(to: CMTime(seconds: startAt, preferredTimescale: 600)) { [weak self] _ in
+                    guard let self, self.wantsPlay, !self.stopped else { return }
+                    self.player.play()
+                }
+            } else if wantsPlay {
+                player.play()
+            }
+            onReady?()
+        case .failed:
+            onFailed?(item.error?.localizedDescription ?? "AVPlayer failed")
+        default:
+            break
+        }
+    }
+
+    private func select(_ trackId: String?, characteristic: AVMediaCharacteristic) {
+        guard let item, let group = item.asset.mediaSelectionGroup(forMediaCharacteristic: characteristic) else { return }
+        if trackId == nil || trackId == "no" {
+            if characteristic == .legible { item.select(nil, in: group) }
+            return
+        }
+        guard let index = Int(trackId ?? ""), group.options.indices.contains(index - 1) else { return }
+        item.select(group.options[index - 1], in: group)
+    }
+
+    private func finite(_ value: Double) -> Double { value.isFinite ? value : 0 }
 }

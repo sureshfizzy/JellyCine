@@ -25,7 +25,8 @@ interface IosMpvBridge {
         audioTrackId: String?,
         subtitleTrackId: String?,
         subtitleUrls: List<String>,
-        selectedSubtitleUrl: String?
+        selectedSubtitleUrl: String?,
+        useAppleDisplay: Boolean
     )
 
     fun setPaused(paused: Boolean)
@@ -101,7 +102,8 @@ class IosMpvEngine(private val bridge: IosMpvBridge) : PlayerEngine {
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
         startPlayback: Boolean,
-        requestHeaders: Map<String, String>
+        requestHeaders: Map<String, String>,
+        useAppleDisplay: Boolean
     ) {
         if (released) return
         bridge.load(
@@ -112,7 +114,8 @@ class IosMpvEngine(private val bridge: IosMpvBridge) : PlayerEngine {
             audioTrackId = audioTrackId,
             subtitleTrackId = subtitleTrackId,
             subtitleUrls = subtitleUrls,
-            selectedSubtitleUrl = selectedSubtitleUrl
+            selectedSubtitleUrl = selectedSubtitleUrl,
+            useAppleDisplay = useAppleDisplay
         )
     }
 

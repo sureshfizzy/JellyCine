@@ -84,7 +84,8 @@ class MpvPlayerController(
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
         startPlayback: Boolean,
-        requestHeaders: Map<String, String>
+        requestHeaders: Map<String, String>,
+        useAppleDisplay: Boolean
     ) {
         if (released) return
         ready = false

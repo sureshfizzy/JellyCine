@@ -20,7 +20,8 @@ interface PlayerEngine {
         selectedSubtitleUrl: String?,
         startPositionMs: Long?,
         startPlayback: Boolean,
-        requestHeaders: Map<String, String> = emptyMap()
+        requestHeaders: Map<String, String> = emptyMap(),
+        useAppleDisplay: Boolean = false
     )
 
     fun setListener(listener: PlayerEngineListener)
