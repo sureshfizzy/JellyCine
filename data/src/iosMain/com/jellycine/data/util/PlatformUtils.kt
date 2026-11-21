@@ -1,8 +1,7 @@
 package com.jellycine.data.util
 
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDate
-import platform.Foundation.timeIntervalSince1970
+import platform.Foundation.*
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun currentTimeMillis(): Long {
@@ -10,3 +9,5 @@ actual fun currentTimeMillis(): Long {
     return (now.timeIntervalSince1970 * 1000).toLong()
 }
 actual val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.Default
+
+actual val platformName: String = "iOS"

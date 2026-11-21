@@ -1,39 +1,26 @@
 package com.jellycine.data.network
 
 import com.jellycine.data.DataModuleConfig
-import com.jellycine.data.api.MediaServerApi
-import com.jellycine.data.api.MediaServerApiClient
+import com.jellycine.data.api.*
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.preferences.NetworkTimeoutConfig
+import com.jellycine.data.util.platformName
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
-import kotlinx.cinterop.value
+import kotlinx.cinterop.*
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.*
 import platform.Foundation.NSUUID
-import platform.SystemConfiguration.SCNetworkReachabilityCreateWithName
-import platform.SystemConfiguration.SCNetworkReachabilityFlags
-import platform.SystemConfiguration.SCNetworkReachabilityFlagsVar
-import platform.SystemConfiguration.SCNetworkReachabilityGetFlags
-import platform.SystemConfiguration.kSCNetworkReachabilityFlagsConnectionRequired
-import platform.SystemConfiguration.kSCNetworkReachabilityFlagsReachable
+import platform.SystemConfiguration.*
 
 @OptIn(ExperimentalForeignApi::class)
 object NetworkModule {
 
     private const val CLIENT_NAME = "JellyCine"
-    private const val DEVICE_NAME = "iOS"
     private const val OFFLINE_DEBOUNCE_MS = 4000L
     private val deviceId by lazy {
         "jellycine-ios-${NSUUID().UUIDString}"
@@ -204,7 +191,7 @@ object NetworkModule {
             version = DataModuleConfig.CLIENT_VERSION,
             accessToken = accessToken,
             clientName = CLIENT_NAME,
-            deviceName = DEVICE_NAME
+            deviceName = platformName
         ).asHeaderValue()
     }
 }

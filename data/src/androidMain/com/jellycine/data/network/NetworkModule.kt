@@ -1,42 +1,30 @@
 package com.jellycine.data.network
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
+import android.net.*
 import android.util.Log
-import com.jellycine.data.R
-import com.jellycine.data.DataModuleConfig
-import com.jellycine.data.api.MediaServerApi
-import com.jellycine.data.api.MediaServerApiClient
+import com.jellycine.data.*
+import com.jellycine.data.api.*
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.preferences.NetworkTimeoutConfig
+import com.jellycine.data.util.platformName
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.launch
-import okhttp3.Cache
-import okhttp3.ConnectionPool
-import okhttp3.Dispatcher
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
 import java.io.File
 import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import okhttp3.*
 
 object NetworkModule {
 
     private const val CLIENT_NAME = "JellyCine"
-    private const val DEVICE_NAME = "Android"
     private const val NETWORK_LOG_TAG = "JellyCineNetwork"
     private const val OFFLINE_DEBOUNCE_MS = 3000L
     private val deviceId by lazy { "jellycine-android-${UUID.randomUUID()}" }
@@ -366,7 +354,7 @@ object NetworkModule {
             version = DataModuleConfig.CLIENT_VERSION,
             accessToken = accessToken,
             clientName = CLIENT_NAME,
-            deviceName = DEVICE_NAME
+            deviceName = platformName
         ).asHeaderValue()
     }
 

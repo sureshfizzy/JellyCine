@@ -1,11 +1,12 @@
 package com.jellycine.data.model
 
 import com.jellycine.data.network.ServerType
+import com.jellycine.data.util.platformName
 
 data class AuthHeaderDto(
     val scheme: String,
     val clientName: String = "JellyCine",
-    val deviceName: String = "Android",
+    val deviceName: String = platformName,
     val deviceId: String,
     val version: String,
     val accessToken: String? = null
@@ -31,7 +32,7 @@ data class AuthHeaderDto(
             version: String,
             accessToken: String? = null,
             clientName: String = "JellyCine",
-            deviceName: String = "Android"
+            deviceName: String = platformName
         ): AuthHeaderDto {
             val scheme = if (serverType == ServerType.EMBY) "Emby" else "MediaBrowser"
             return AuthHeaderDto(

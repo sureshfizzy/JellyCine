@@ -1,6 +1,7 @@
 package com.jellycine.data.repository
 
 import com.jellycine.data.model.*
+import com.jellycine.data.util.platformName
 
 internal object PlaybackDeviceProfileFactory {
     fun create(
@@ -12,7 +13,7 @@ internal object PlaybackDeviceProfileFactory {
         val videoTranscodeAudioCodecs = videoTranscodeAudioCodecs(audioTranscodeMode)
 
         return DeviceProfile(
-            name = "JellyCine Android",
+            name = "JellyCine $platformName",
             maxStreamingBitrate = bitrate,
             maxStaticBitrate = bitrate,
             supportedMediaTypes = "Video,Audio",
