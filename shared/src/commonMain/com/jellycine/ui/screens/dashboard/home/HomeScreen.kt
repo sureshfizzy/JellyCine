@@ -134,6 +134,24 @@ fun HomeScreen(
                 }
             }
 
+            if (isHomeCategory && state.libraries.isNotEmpty()) {
+                item(key = "libraries") {
+                    HomeLibrariesRow(
+                        libraries = state.libraries,
+                        mediaRepository = mediaRepository,
+                        imageHeaders = state.imageHeaders,
+                        disablePosterEnhancers = disablePosterEnhancers,
+                        onLibraryClick = { library ->
+                            openViewAll(
+                                viewAllContentType(library.collectionType),
+                                library.id,
+                                library.name ?: "Library"
+                            )
+                        }
+                    )
+                }
+            }
+
             if (isHomeCategory && seerrStudios.isNotEmpty()) {
                 item(key = "seerr_studios") {
                     SeerrCatalogSection(

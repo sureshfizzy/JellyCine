@@ -44,6 +44,12 @@ data class HomeLibrarySectionUi(
     val items: List<BaseItemDto>
 )
 
+fun viewAllContentType(collectionType: String?): String = when (collectionType) {
+    "movies" -> "MOVIES"
+    "tvshows" -> "SERIES"
+    else -> "ALL"
+}
+
 fun HomeLibrarySectionUi.toPersistedSection(): HomeLibrarySectionData {
     val library = BaseItemDto(
         id = libraryId,
@@ -110,12 +116,7 @@ fun BurstLibrarySection(
 
             IconButton(
                 onClick = {
-                    val contentType = when (section.collectionType) {
-                        "movies" -> "MOVIES"
-                        "tvshows" -> "SERIES"
-                        else -> "ALL"
-                    }
-                    onNavigateToViewAll(contentType, section.libraryId, sectionTitle)
+                    onNavigateToViewAll(viewAllContentType(section.collectionType), section.libraryId, sectionTitle)
                 },
                 modifier = Modifier.size(32.dp)
             ) {

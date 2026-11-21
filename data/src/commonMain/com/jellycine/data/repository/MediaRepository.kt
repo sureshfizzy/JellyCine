@@ -963,6 +963,19 @@ class MediaRepository(
         }
     }
 
+    suspend fun getHomeLibraries(): Result<List<BaseItemDto>> =
+        getUserViews().map { result ->
+            result.items.orEmpty()
+                .filter { library ->
+                    library.id != null &&
+                        !library.name.isNullOrBlank() &&
+                        library.collectionType != "playlists" &&
+                        library.collectionType != "folders" &&
+                        (library.type == "CollectionFolder" || library.type == "Folder")
+                }
+                .distinctBy { it.id }
+        }
+
     private fun List<BaseItemDto>.orderedViews(orderedViewIds: List<String>?): List<BaseItemDto> {
         val orderedLookup = orderedViewIds
             .orEmpty()

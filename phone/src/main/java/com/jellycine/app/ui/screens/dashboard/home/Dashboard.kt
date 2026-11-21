@@ -746,28 +746,7 @@ fun Dashboard(
                 requestTimeoutMs = networkRequestTimeoutMs
             )
         ) {
-            val result = mediaRepository.getUserViews()
-            result.fold(
-                onSuccess = { queryResult ->
-                    queryResult.items
-                        .orEmpty()
-                        .asSequence()
-                        .filter { library ->
-                            val libraryId = library.id
-                            val libraryName = library.name
-                            val type = library.type
-                            val collectionType = library.collectionType
-                            libraryId != null &&
-                                !libraryName.isNullOrBlank() &&
-                                collectionType != "playlists" &&
-                                collectionType != "folders" &&
-                                (type == "CollectionFolder" || type == "Folder")
-                        }
-                        .distinctBy { it.id }
-                        .toList()
-                },
-                onFailure = { throw it }
-            )
+            mediaRepository.getHomeLibraries().getOrThrow()
         }
 
         val localStudioNamesQuery = useQuery(
@@ -1078,20 +1057,15 @@ fun Dashboard(
 
                 if (ShowMyMediaSection) {
                     item(key = "my_media_section") {
-                        HomeMyMediaSection(
+                        HomeLibrariesRow(
                             libraries = MyMediaLibraries,
                             isLoading = homeMyMediaLibrariesQuery.isLoading && MyMediaLibraries.isEmpty(),
-                            error = if (homeMyMediaLibrariesQuery.isError) homeMyMediaLibrariesQuery.error else null,
+                            hasError = homeMyMediaLibrariesQuery.isError,
                             mediaRepository = mediaRepository,
                             disablePosterEnhancers = disablePosterEnhancers,
                             onLibraryClick = { library ->
-                                val contentType = when (library.collectionType) {
-                                    "movies" -> "MOVIES"
-                                    "tvshows" -> "SERIES"
-                                    else -> "ALL"
-                                }
                                 onNavigateToViewAll(
-                                    contentType,
+                                    viewAllContentType(library.collectionType),
                                     library.id,
                                     library.name ?: "Library"
                                 )
@@ -1483,84 +1457,6 @@ private fun OfflineState(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeMyMediaSection(
-    libraries: List<BaseItemDto>,
-    isLoading: Boolean,
-    error: String?,
-    mediaRepository: MediaRepository,
-    disablePosterEnhancers: Boolean,
-    onLibraryClick: (BaseItemDto) -> Unit = {}
-) {
-    val lazyRowState = rememberLazyListState()
-    val flingBehavior = ScrollOptimization.rememberUltraSmoothFlingBehavior()
-    val firstLibraryId = libraries.firstOrNull()?.id
-
-    LaunchedEffect(firstLibraryId, libraries.size) {
-        val hasScrolled = lazyRowState.firstVisibleItemIndex > 0 ||
-            lazyRowState.firstVisibleItemScrollOffset > 0
-        if (hasScrolled) {
-            lazyRowState.scrollToItem(0)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.Black)
-    ) {
-        Text(
-            text = stringResource(R.string.libraries),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        when {
-            isLoading -> Unit
-            error != null && libraries.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.dashboard_failed_load_my_media),
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 13.sp
-                    )
-                }
-            }
-            libraries.isNotEmpty() -> {
-                LazyRow(
-                    state = lazyRowState,
-                    horizontalArrangement = Arrangement.spacedBy(ScrollOptimization.listItemSpacing),
-                    contentPadding = ScrollOptimization.optimizedContentPadding,
-                    flingBehavior = flingBehavior,
-                    modifier = ScrollOptimization.getScrollContainerModifier()
-                ) {
-                    itemsIndexed(
-                        items = libraries,
-                        key = { index, library ->
-                            "${library.id ?: library.name ?: "library_item"}_$index"
-                        }
-                    ) { _, library ->
-                        val stableOnClick = remember(library.id, library.name) { { onLibraryClick(library) } }
-                        LibraryItemCard(
-                            item = library,
-                            mediaRepository = mediaRepository,
-                            disableImageEnhancers = disablePosterEnhancers,
-                            useLandscapeLayout = true,
-                            onClick = stableOnClick
-                        )
-                    }
-                }
             }
         }
     }

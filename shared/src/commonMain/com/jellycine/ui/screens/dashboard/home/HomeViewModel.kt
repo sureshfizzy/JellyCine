@@ -17,6 +17,7 @@ data class HomeUiState(
     val featured: List<BaseItemDto> = emptyList(),
     val continueWatching: List<BaseItemDto> = emptyList(),
     val nextUp: List<BaseItemDto> = emptyList(),
+    val libraries: List<BaseItemDto> = emptyList(),
     val sections: List<HomeLibrarySectionData> = emptyList(),
     val imageHeaders: Map<String, String> = emptyMap(),
     val serverName: String? = null,
@@ -59,6 +60,7 @@ class HomeViewModel(
                     featured = snapshot?.featuredHomeItems.orEmpty(),
                     continueWatching = snapshot?.continueWatchingItems.orEmpty(),
                     nextUp = snapshot?.nextUpItems.orEmpty(),
+                    libraries = snapshot?.myMediaLibraries.orEmpty(),
                     sections = snapshot?.homeLibrarySections.orEmpty().filter { section -> section.items.isNotEmpty() },
                     profileImageUrl = snapshot?.profileImageUrl
                 )
@@ -88,6 +90,11 @@ class HomeViewModel(
                     }
                 }
                 launch {
+                    mediaRepository.getHomeLibraries().getOrNull()?.let { libraries ->
+                        _uiState.update { it.copy(libraries = libraries) }
+                    }
+                }
+                launch {
                     mediaRepository.getUserProfileImageUrl()?.let { url ->
                         _uiState.update { it.copy(profileImageUrl = url) }
                     }
@@ -107,6 +114,7 @@ class HomeViewModel(
             continueWatchingItems = state.continueWatching,
             nextUpItems = state.nextUp,
             homeLibrarySections = state.sections,
+            myMediaLibraries = state.libraries,
             username = state.username,
             serverName = state.serverName,
             profileImageUrl = state.profileImageUrl
