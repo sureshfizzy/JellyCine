@@ -126,7 +126,6 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         setOption("framedrop", "vo")
         setOption("vd-lavc-threads", "0")
         setOption("cache", "yes")
-        setOption("demuxer-max-bytes", "64MiB")
         setOption("sub-font-provider", "none")
         setOption("sub-ass-override", "strip")
         for (name, value) in userOptions { setOption(name, value) }

@@ -26,7 +26,14 @@ fun iosMpvOptions(preferences: PlayerPreferences): Map<String, String> {
             }
         }
 
+    val cacheSizeMb = preferences.getPlayerCacheSizeMb()
+    val cacheTimeSeconds = preferences.getPlayerCacheTimeSeconds().toString()
+
     return buildMap {
+        put("cache-secs", cacheTimeSeconds)
+        put("demuxer-readahead-secs", cacheTimeSeconds)
+        put("demuxer-max-bytes", "${cacheSizeMb}MiB")
+        put("demuxer-max-back-bytes", "${cacheSizeMb / 2}MiB")
         put("vo", preferences.getMpvVideoOutput())
         put("hwdec", hardwareDecoding)
         put("ao", preferences.getMpvAudioOutput().orElse(IOS_AUDIO_OUTPUT, PlayerPreferences.MPV_AUDIO_OUTPUT_AUDIOUNIT))
