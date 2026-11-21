@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeUIViewController
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
-import coil3.disk.DiskCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.svg.SvgDecoder
 import com.jellycine.data.datastore.DataStoreProvider
@@ -18,12 +17,14 @@ import com.jellycine.preferences.*
 import com.jellycine.ui.navigation.AppNavigation
 import com.jellycine.ui.screens.detail.*
 import com.jellycine.ui.screens.player.*
+import com.jellycine.util.image.applyImageCacheSettings
 import com.jellycine.util.text
 import okio.Path.Companion.toPath
 import platform.Foundation.*
 import platform.UIKit.*
 
 private const val IMAGE_CACHE_MAX_BYTES = 256L * 1024 * 1024
+private const val IMAGE_MEMORY_AUTO_PERCENT = 0.15
 
 private val imageCacheDirectory = run {
     val caches = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, true).first() as String
@@ -75,12 +76,13 @@ fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewContro
                 add(KtorNetworkFetcherFactory())
                 add(SvgDecoder.Factory())
             }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(imageCacheDirectory)
-                    .maxSizeBytes(IMAGE_CACHE_MAX_BYTES)
-                    .build()
-            }
+            .applyImageCacheSettings(
+                context = context,
+                settings = networkPreferences,
+                diskDirectory = imageCacheDirectory,
+                autoMemoryPercent = IMAGE_MEMORY_AUTO_PERCENT,
+                autoDiskBytes = IMAGE_CACHE_MAX_BYTES
+            )
             .build()
     }
 

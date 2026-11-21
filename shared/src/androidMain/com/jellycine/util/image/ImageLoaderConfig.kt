@@ -3,38 +3,27 @@ package com.jellycine.util.image
 import android.app.ActivityManager
 import android.content.Context
 import androidx.datastore.preferences.core.stringPreferencesKey
-import coil3.ComponentRegistry
-import coil3.ImageLoader
-import coil3.disk.DiskCache
-import coil3.memory.MemoryCache
+import coil3.*
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import coil3.request.CachePolicy
 import com.jellycine.data.DataModuleConfig
 import com.jellycine.data.datastore.DataStoreProvider
 import com.jellycine.data.model.AuthHeaderDto
 import com.jellycine.data.network.ServerType
 import com.jellycine.data.preferences.NetworkPreferences
-import com.jellycine.data.security.AuthSessionIds
-import com.jellycine.data.security.LEGACY_ACCESS_TOKEN_KEY
-import com.jellycine.data.security.SecureSessionStore
+import com.jellycine.data.security.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import okhttp3.ConnectionPool
-import okhttp3.Dispatcher
-import okhttp3.Interceptor
-import okhttp3.OkHttpClient
+import okhttp3.*
 import okio.Path.Companion.toOkioPath
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import kotlin.math.max
-import kotlin.math.min
+import kotlin.math.*
 
 object ImageLoaderConfig {
     private val SERVER_URL_KEY = stringPreferencesKey("server_url")
     private val USER_ID_KEY = stringPreferencesKey("user_id")
     private val SERVER_TYPE_KEY = stringPreferencesKey("server_type")
-    private const val BYTES_PER_MB = 1024L * 1024L
 
     private val deviceId by lazy { UUID.randomUUID().toString() }
     private const val IMAGE_STORE_DIR = "media_store/image_cache"
@@ -61,14 +50,6 @@ object ImageLoaderConfig {
         return finalSize
     }
 
-    private fun configuredImageCacheBytes(context: Context): Long? {
-        val configuredMb = NetworkPreferences(context).getImageMemoryCacheMb()
-        if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
-            return null
-        }
-        return configuredMb * BYTES_PER_MB
-    }
-
     private fun getOptimalMemoryPercent(context: Context): Double {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memoryInfo = ActivityManager.MemoryInfo()
@@ -85,14 +66,6 @@ object ImageLoaderConfig {
         }
 
         return max(0.08, min(0.30, basePercent))
-    }
-
-    private fun ImageMemoryCacheBytes(context: Context): Long? {
-        val configuredMb = NetworkPreferences(context).getImageMemoryCacheMb()
-        if (configuredMb == NetworkPreferences.AUTO_IMAGE_MEMORY_CACHE_MB) {
-            return null
-        }
-        return configuredMb * BYTES_PER_MB
     }
 
     private fun createAuthenticatedOkHttpClient(context: Context): OkHttpClient {
@@ -173,10 +146,6 @@ object ImageLoaderConfig {
     }
 
     fun createOptimizedImageLoader(context: Context): ImageLoader {
-        val networkPreferences = NetworkPreferences(context)
-        val imageCachingEnabled = networkPreferences.isImageCachingEnabled()
-        val configuredMemoryCacheBytes = ImageMemoryCacheBytes(context)
-
         val componentRegistry = ComponentRegistry.Builder()
             .add(
                 OkHttpNetworkFetcherFactory(
@@ -185,36 +154,16 @@ object ImageLoaderConfig {
             )
             .build()
 
-        val builder = ImageLoader.Builder(context)
+        return ImageLoader.Builder(context)
             .components(componentRegistry)
-            .memoryCache {
-                val memoryCacheBuilder = MemoryCache.Builder()
-                if (configuredMemoryCacheBytes != null) {
-                    memoryCacheBuilder.maxSizeBytes(configuredMemoryCacheBytes)
-                } else {
-                    memoryCacheBuilder.maxSizePercent(context, getOptimalMemoryPercent(context))
-                }
-                memoryCacheBuilder.build()
-            }
-
-        builder.diskCache {
-            DiskCache.Builder()
-                .directory(persistentImageCacheDir(context).toOkioPath())
-                .maxSizeBytes(configuredImageCacheBytes(context) ?: DiskCacheSize(context))
-                .build()
-        }
-
-        if (imageCachingEnabled) {
-            builder.memoryCachePolicy(CachePolicy.ENABLED)
-            builder.diskCachePolicy(CachePolicy.ENABLED)
-            builder.networkCachePolicy(CachePolicy.ENABLED)
-        } else {
-            builder.memoryCachePolicy(CachePolicy.DISABLED)
-            builder.diskCachePolicy(CachePolicy.DISABLED)
-            builder.networkCachePolicy(CachePolicy.DISABLED)
-        }
-
-        return builder.build()
+            .applyImageCacheSettings(
+                context = context,
+                settings = NetworkPreferences(context),
+                diskDirectory = persistentImageCacheDir(context).toOkioPath(),
+                autoMemoryPercent = getOptimalMemoryPercent(context),
+                autoDiskBytes = DiskCacheSize(context)
+            )
+            .build()
     }
 
 }
