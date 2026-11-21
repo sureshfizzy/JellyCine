@@ -1,11 +1,7 @@
 package com.jellycine.ui.screens.dashboard.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -84,6 +80,7 @@ fun HomeLibrariesRow(
                         imageHeaders = imageHeaders,
                         disableImageEnhancers = disablePosterEnhancers,
                         useLandscapeLayout = true,
+                        titleAreaHeightOverride = 40.dp,
                         onClick = onClick
                     )
                 }

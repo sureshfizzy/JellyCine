@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.request.*
@@ -205,6 +206,7 @@ fun LibraryItemCard(
     disableImageEnhancers: Boolean = false,
     useLandscapeLayout: Boolean = false,
     watchedFeedStyle: Boolean = false,
+    titleAreaHeightOverride: Dp? = null,
     onClick: () -> Unit = {}
 ) {
     val stableItem = remember(item.id, item.userData) { StableBaseItem.from(item) }
@@ -224,9 +226,9 @@ fun LibraryItemCard(
 
     val landscapeLayout = useLandscapeLayout || useWatchedEpisodeImage
     val cardWidth = if (landscapeLayout) 200.dp else 112.dp
-    val cardHeight = if (landscapeLayout) 182.dp else 214.dp
     val imageHeight = if (landscapeLayout) 120.dp else 166.dp
-    val titleAreaHeight = if (landscapeLayout) 64.dp else 46.dp
+    val titleAreaHeight = titleAreaHeightOverride ?: if (landscapeLayout) 64.dp else 46.dp
+    val cardHeight = titleAreaHeightOverride?.let { imageHeight + it } ?: if (landscapeLayout) 182.dp else 214.dp
     val titleTopPadding = if (landscapeLayout) 6.dp else 4.dp
     val titleFontSize = 13.sp
     val titleLineHeight = 15.sp
