@@ -121,6 +121,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         setOption("hwdec", "videotoolbox")
         setOption("target-colorspace-hint", "yes")
         setOption("ao", "audiounit")
+        setOption("tls-verify", "no")
         setOption("keep-open", "yes")
         setOption("idle", "yes")
         setOption("framedrop", "vo")
