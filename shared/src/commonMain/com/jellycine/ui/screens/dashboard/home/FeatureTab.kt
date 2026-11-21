@@ -218,29 +218,14 @@ fun FeatureTab(
             }?.index ?: featuredRowState.firstVisibleItemIndex
         }
     }
-    val initialCarouselIndex = remember(heroSizing, infiniteStartIndex) {
-        heroSizing.initialCarouselIndex(infiniteStartIndex)
-    }
-    val initialCarouselScrollOffsetPx = remember(
-        screenWidth,
-        heroCardWidth,
-        density,
-        heroSizing
-    ) {
-        heroSizing.initialCarouselScrollOffsetPx(
-            screenWidth = screenWidth,
-            cardWidth = heroCardWidth,
-            density = density
-        )
+    val carouselSidePadding = remember(screenWidth, heroSizing, heroCardWidth) {
+        heroSizing.carouselSidePadding(screenWidth, heroCardWidth)
     }
 
-    LaunchedEffect(featuredKeys, isLoading, selectedCategory, initialCarouselIndex, initialCarouselScrollOffsetPx) {
+    LaunchedEffect(featuredKeys, isLoading, selectedCategory, infiniteStartIndex) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
         runCatching {
-            featuredRowState.scrollToItem(
-                index = initialCarouselIndex,
-                scrollOffset = initialCarouselScrollOffsetPx
-            )
+            featuredRowState.scrollToItem(infiniteStartIndex)
         }
         hasSeededCarousel = true
     }
@@ -360,7 +345,6 @@ fun FeatureTab(
         featuredKeys,
         isLoading,
         autoScroll,
-        initialCarouselScrollOffsetPx,
         autoplayTrailersEnabled
     ) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || !autoScroll) return@LaunchedEffect
@@ -396,10 +380,7 @@ fun FeatureTab(
                 val nextIndex = currentIndex + 1
                 isAutoScrolling = true
                 runCatching {
-                    featuredRowState.animateScrollToItem(
-                        index = nextIndex,
-                        scrollOffset = initialCarouselScrollOffsetPx
-                    )
+                    featuredRowState.animateScrollToItem(nextIndex)
                 }
                 isAutoScrolling = false
             }
@@ -425,9 +406,9 @@ fun FeatureTab(
                         modifier = Modifier
                             .fillMaxSize(),
                         contentPadding = PaddingValues(
-                            start = heroSizing.carouselHorizontalPadding,
+                            start = carouselSidePadding,
                             top = heroSizing.carouselTopPadding,
-                            end = heroSizing.carouselHorizontalPadding
+                            end = carouselSidePadding
                         ),
                         horizontalArrangement = Arrangement.spacedBy(heroSizing.carouselItemSpacing),
                         flingBehavior = featuredFlingBehavior

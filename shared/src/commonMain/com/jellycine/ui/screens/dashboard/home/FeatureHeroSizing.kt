@@ -1,6 +1,5 @@
 package com.jellycine.ui.screens.dashboard.home
 
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jellycine.preferences.Preferences
@@ -44,29 +43,9 @@ internal fun FeatureHeroSizing.compactCardWidth(screenWidth: Dp): Dp? {
         .coerceAtMost(560.dp)
 }
 
-internal fun FeatureHeroSizing.initialCarouselIndex(infiniteStartIndex: Int): Int {
-    return if (isCompact && infiniteStartIndex > 0) infiniteStartIndex - 1 else infiniteStartIndex
-}
-
-internal fun FeatureHeroSizing.initialCarouselScrollOffsetPx(
-    screenWidth: Dp,
-    cardWidth: Dp?,
-    density: Density
-): Int {
-    if (!isCompact || cardWidth == null) return 0
-
-    return with(density) {
-        val availableWidth = viewportWidth(screenWidth)
-        val activeCardStart = if (availableWidth >= 520.dp) {
-            ((availableWidth - cardWidth) / 2f).coerceAtLeast(32.dp)
-        } else {
-            32.dp
-        }
-
-        (cardWidth + carouselItemSpacing - activeCardStart)
-            .roundToPx()
-            .coerceAtLeast(0)
-    }
+internal fun FeatureHeroSizing.carouselSidePadding(screenWidth: Dp, cardWidth: Dp?): Dp {
+    if (!isCompact || cardWidth == null) return carouselHorizontalPadding
+    return ((screenWidth - cardWidth) / 2f).coerceAtLeast(carouselHorizontalPadding)
 }
 
 internal fun featureHeroSizing(
