@@ -1,110 +1,63 @@
-package com.jellycine.app.ui.screens.screentime
+package com.jellycine.ui.screens.screentime
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.automirrored.rounded.*
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.jellycine.data.model.*
+import com.jellycine.data.repository.*
+import com.jellycine.resources.*
+import com.jellycine.ui.components.common.ShimmerEffect
 import com.jellycine.ui.components.common.containerWidthDp
 import com.jellycine.ui.components.common.isTabletLayout
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.shared.R
-import com.jellycine.ui.components.common.ShimmerEffect
-import com.jellycine.ui.components.screentime.DailyBreakdownChart
-import com.jellycine.ui.components.screentime.PeakHoursChart
-import com.jellycine.ui.components.screentime.SectionCard
-import com.jellycine.ui.components.screentime.StatCard
-import com.jellycine.ui.components.screentime.formatDelta
-import com.jellycine.ui.components.screentime.formatMinutes
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.WeekFields
-import java.util.Locale
+import com.jellycine.ui.components.screentime.*
+import kotlinx.datetime.*
+import org.jetbrains.compose.resources.stringResource
 
+private const val TYPE_MOVIE = "Movie"
+private const val TYPE_EPISODE = "Episode"
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ScreenTimeScreen(
-    onBack: () -> Unit,
-    viewModel: ScreenTimeViewModel = viewModel(
-        factory = ScreenTimeViewModelFactory(LocalContext.current.applicationContext)
-    )
+    viewModel: ScreenTimeViewModel,
+    onBack: () -> Unit
 ) {
     val state by viewModel.screenTimeState.collectAsState()
-    var selectedItemType by remember { mutableStateOf("Movie") }
+    var selectedItemType by remember { mutableStateOf(TYPE_MOVIE) }
     var dayFilter by remember { mutableStateOf<Int?>(null) }
     var hourFilter by remember { mutableStateOf<Int?>(null) }
 
-    val timeFilteredItems = remember(state.items, dayFilter, hourFilter, state.stats?.dailyBreakdown, state.period) {
+    val timeFilteredItems = remember(state.items, dayFilter, hourFilter, state.stats?.dailyBreakdown) {
         var items = state.items
-        if (dayFilter != null) {
-            val epochDays = getDaysForBucket(dayFilter!!, state.stats?.dailyBreakdown.orEmpty(), state.period)
-            items = items.filter { item ->
-                val date = parseItemDate(item.userData?.lastPlayedDate ?: item.dateCreated)
-                date != null && date.toEpochDay() in epochDays
-            }
-        }
-        if (hourFilter != null) {
-            val range = hourRanges.getOrNull(hourFilter!!)
+        dayFilter?.let { items = itemsInDayBucket(items, it, state.stats?.dailyBreakdown.orEmpty()) }
+        hourFilter?.let { index ->
+            val range = hourRanges.getOrNull(index)
             if (range != null) {
-                items = items.filter { item ->
-                    val hour = parseItemHour(item.userData?.lastPlayedDate ?: item.dateCreated)
-                    hour != null && hour in range
-                }
+                items = items.filter { item -> parseItemHour(item.screenTimeDateString())?.let { it in range } == true }
             }
         }
         items
     }
-    val movieCount = remember(timeFilteredItems) { timeFilteredItems.count { it.type == "Movie" } }
-    val episodeCount = remember(timeFilteredItems) { timeFilteredItems.count { it.type == "Episode" } }
-    if (selectedItemType == "Movie" && movieCount == 0 && episodeCount > 0) selectedItemType = "Episode"
-    else if (selectedItemType == "Episode" && episodeCount == 0 && movieCount > 0) selectedItemType = "Movie"
+    val movieCount = remember(timeFilteredItems) { timeFilteredItems.count { it.type == TYPE_MOVIE } }
+    val episodeCount = remember(timeFilteredItems) { timeFilteredItems.count { it.type == TYPE_EPISODE } }
+    if (selectedItemType == TYPE_MOVIE && movieCount == 0 && episodeCount > 0) selectedItemType = TYPE_EPISODE
+    else if (selectedItemType == TYPE_EPISODE && episodeCount == 0 && movieCount > 0) selectedItemType = TYPE_MOVIE
 
     BackHandler { onBack() }
 
@@ -112,7 +65,7 @@ fun ScreenTimeScreen(
         containerColor = Color.Black,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(R.string.settings_screen_time)) },
+                title = { Text(stringResource(Res.string.settings_screen_time)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -172,13 +125,9 @@ fun ScreenTimeScreen(
             } else if (state.stats != null) {
                 val stats = state.stats!!
 
-                val peakHoursData = if (dayFilter != null) {
-                    val dayItems = state.items.filter { item ->
-                        val date = parseItemDate(item.userData?.lastPlayedDate ?: item.dateCreated)
-                        date != null && date.toEpochDay() in getDaysForBucket(dayFilter!!, stats.dailyBreakdown, state.period)
-                    }
-                    computePeakHoursFromItems(dayItems)
-                } else stats.peakHours
+                val peakHoursData = dayFilter?.let {
+                    computePeakHoursFromItems(itemsInDayBucket(state.items, it, stats.dailyBreakdown))
+                } ?: stats.peakHours
 
                 if (isTablet) {
                     item {
@@ -225,11 +174,11 @@ fun ScreenTimeScreen(
                 }
 
                 val hasFilter = dayFilter != null || hourFilter != null
-                val filteredTotal = if (hasFilter) timeFilteredItems.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.totalMinutes
-                val filteredShows = if (hasFilter) timeFilteredItems.filter { it.type == "Episode" }.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.showMinutes
-                val filteredMovies = if (hasFilter) timeFilteredItems.filter { it.type == "Movie" }.sumOf { (it.runTimeTicks ?: 0L) / 600_000_000L } else stats.movieMinutes
+                val filteredTotal = if (hasFilter) timeFilteredItems.sumOf { it.runMinutes() } else stats.totalMinutes
+                val filteredShows = if (hasFilter) timeFilteredItems.filter { it.type == TYPE_EPISODE }.sumOf { it.runMinutes() } else stats.showMinutes
+                val filteredMovies = if (hasFilter) timeFilteredItems.filter { it.type == TYPE_MOVIE }.sumOf { it.runMinutes() } else stats.movieMinutes
                 val filteredAvg = if (hasFilter) {
-                    val days = timeFilteredItems.mapNotNull { parseItemDate(it.userData?.lastPlayedDate ?: it.dateCreated) }.distinct().size
+                    val days = timeFilteredItems.mapNotNull { parseItemDate(it.screenTimeDateString()) }.distinct().size
                     if (days > 0) filteredTotal / days else filteredTotal
                 } else stats.dailyAverageMinutes
 
@@ -239,13 +188,13 @@ fun ScreenTimeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         StatCard(
-                            label = stringResource(R.string.screen_time_total),
+                            label = stringResource(Res.string.screen_time_total),
                             value = formatMinutes(filteredTotal),
                             delta = if (hasFilter) null else formatDelta(stats.totalDelta),
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
-                            label = stringResource(R.string.screen_time_daily_average),
+                            label = stringResource(Res.string.screen_time_daily_average),
                             value = formatMinutes(filteredAvg),
                             delta = if (hasFilter) null else formatDelta(stats.dailyAverageDelta),
                             modifier = Modifier.weight(1f)
@@ -259,12 +208,12 @@ fun ScreenTimeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         StatCard(
-                            label = stringResource(R.string.screen_time_shows),
+                            label = stringResource(Res.string.screen_time_shows),
                             value = formatMinutes(filteredShows),
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
-                            label = stringResource(R.string.screen_time_movies),
+                            label = stringResource(Res.string.screen_time_movies),
                             value = formatMinutes(filteredMovies),
                             modifier = Modifier.weight(1f)
                         )
@@ -274,8 +223,8 @@ fun ScreenTimeScreen(
                 if (state.items.isNotEmpty()) {
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (movieCount > 0) ScreenTimeChip("Movies ($movieCount)", selectedItemType == "Movie") { selectedItemType = "Movie" }
-                            if (episodeCount > 0) ScreenTimeChip("Episodes ($episodeCount)", selectedItemType == "Episode") { selectedItemType = "Episode" }
+                            if (movieCount > 0) ScreenTimeChip("${stringResource(Res.string.screen_time_movies)} ($movieCount)", selectedItemType == TYPE_MOVIE) { selectedItemType = TYPE_MOVIE }
+                            if (episodeCount > 0) ScreenTimeChip("${stringResource(Res.string.screen_time_episodes)} ($episodeCount)", selectedItemType == TYPE_EPISODE) { selectedItemType = TYPE_EPISODE }
                         }
                     }
 
@@ -328,9 +277,9 @@ private fun PeriodSelector(selected: ScreenTimePeriod, onSelect: (ScreenTimePeri
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ScreenTimePeriod.entries.forEach { period ->
             val label = when (period) {
-                ScreenTimePeriod.WEEK -> stringResource(R.string.screen_time_period_week)
-                ScreenTimePeriod.MONTH -> stringResource(R.string.screen_time_period_month)
-                ScreenTimePeriod.YEAR -> stringResource(R.string.screen_time_period_year)
+                ScreenTimePeriod.WEEK -> stringResource(Res.string.screen_time_period_week)
+                ScreenTimePeriod.MONTH -> stringResource(Res.string.screen_time_period_month)
+                ScreenTimePeriod.YEAR -> stringResource(Res.string.screen_time_period_year)
             }
             ScreenTimeChip(label, selected == period) { onSelect(period) }
         }
@@ -346,24 +295,16 @@ private fun DateRangeSubtitle(
     onPrevious: () -> Unit = {},
     onNext: () -> Unit = {}
 ) {
-    val today = LocalDate.now()
-    val formatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
+    val today = currentLocalDate()
+    val todayLabel = stringResource(Res.string.screen_time_today)
+    val (rangeStart, rangeEnd) = resolveRange(period, today, year, monthOffset, weekOffset)
 
     val text = when (period) {
-        ScreenTimePeriod.WEEK -> {
-            val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-            val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
-            val start = currentWeekStart.plusWeeks(weekOffset.toLong())
-            val end = start.plusDays(6)
-            "${start.format(formatter)}  –  ${if (weekOffset == 0) "Today" else end.format(formatter)}"
+        ScreenTimePeriod.WEEK, ScreenTimePeriod.MONTH -> {
+            val isCurrent = if (period == ScreenTimePeriod.WEEK) weekOffset == 0 else monthOffset == 0
+            "${formatFullDate(rangeStart)}  –  ${if (isCurrent) todayLabel else formatFullDate(rangeEnd)}"
         }
-        ScreenTimePeriod.MONTH -> {
-            val target = today.plusMonths(monthOffset.toLong())
-            val start = target.withDayOfMonth(1)
-            val end = if (monthOffset == 0) today else target.withDayOfMonth(target.lengthOfMonth())
-            "${start.format(formatter)}  –  ${if (monthOffset == 0) "Today" else end.format(formatter)}"
-        }
-        ScreenTimePeriod.YEAR -> if (year == today.year) "$year – Today" else year.toString()
+        ScreenTimePeriod.YEAR -> if (year == today.year) "$year – $todayLabel" else year.toString()
     }
     val canGoNext = when (period) {
         ScreenTimePeriod.WEEK -> weekOffset < 0
@@ -372,10 +313,9 @@ private fun DateRangeSubtitle(
     }
     val canGoPrevious = when (period) {
         ScreenTimePeriod.WEEK -> {
-            val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-            val currentWeekStart = today.with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
-            val monthFirstWeekStart = today.withDayOfMonth(1).with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
-            val minWeekOffset = -ChronoUnit.WEEKS.between(monthFirstWeekStart, currentWeekStart)
+            val currentWeekStart = weekStartOf(today)
+            val monthFirstWeekStart = weekStartOf(LocalDate(today.year, today.month, 1))
+            val minWeekOffset = -(monthFirstWeekStart.daysUntil(currentWeekStart) / 7)
             weekOffset > minWeekOffset
         }
         else -> true
@@ -413,7 +353,7 @@ private fun LoadingShimmer() {
 
 @Composable
 private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
-    val runtime = item.runTimeTicks?.let { it / 600_000_000L } ?: 0L
+    val runtime = item.runMinutes()
     val watchedDate = remember(item.userData?.lastPlayedDate) {
         parseWatchedDate(item.userData?.lastPlayedDate)
     }
@@ -441,7 +381,7 @@ private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
                 .clip(RoundedCornerShape(8.dp))
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-            val title = if (item.type == "Episode") {
+            val title = if (item.type == TYPE_EPISODE) {
                 val ep = buildString {
                     item.parentIndexNumber?.let { append("S$it") }
                     item.indexNumber?.let { append("E$it") }
@@ -449,7 +389,7 @@ private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
                 listOfNotNull(item.seriesName, ep.ifEmpty { null }).joinToString(" · ").ifEmpty { item.name ?: "" }
             } else item.name ?: ""
             Text(title, style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 1)
-            if (item.type == "Episode" && !item.name.isNullOrBlank()) {
+            if (item.type == TYPE_EPISODE && !item.name.isNullOrBlank()) {
                 Text(item.name!!, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
             }
             val meta = listOfNotNull(if (runtime > 0) formatMinutes(runtime) else null, watchedDate).joinToString(" · ")
@@ -461,53 +401,43 @@ private fun WatchedItemRow(item: BaseItemDto, viewModel: ScreenTimeViewModel) {
 
 private val hourRanges = listOf(6..11, 12..17, 18..23, 0..5)
 
-private fun parseZoned(dateStr: String?): java.time.ZonedDateTime? {
-    if (dateStr.isNullOrBlank()) return null
-    val zone = java.time.ZoneId.systemDefault()
-    return try {
-        java.time.Instant.parse(dateStr).atZone(zone)
-    } catch (_: Exception) {
-        try {
-            java.time.ZonedDateTime.parse(dateStr, DateTimeFormatter.ISO_DATE_TIME)
-        } catch (_: Exception) {
-            try {
-                java.time.LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(zone)
-            } catch (_: Exception) { null }
-        }
+private fun parseWatchedDate(dateStr: String?): String? =
+    parseScreenTimeDateTime(dateStr)?.let(::formatWatchedDateTime)
+
+private fun parseItemDate(dateStr: String?) = parseScreenTimeDateTime(dateStr)?.date
+
+private fun parseItemHour(dateStr: String?) = parseScreenTimeDateTime(dateStr)?.hour
+
+private fun itemsInDayBucket(
+    items: List<BaseItemDto>,
+    bucketIndex: Int,
+    dailyBreakdown: List<DailyWatchTime>
+): List<BaseItemDto> {
+    val epochDays = getDaysForBucket(bucketIndex, dailyBreakdown)
+    return items.filter { item ->
+        parseItemDate(item.screenTimeDateString())?.toEpochDays()?.toLong()?.let { it in epochDays } == true
     }
 }
 
-private fun parseWatchedDate(dateStr: String?): String? {
-    val zdt = parseZoned(dateStr) ?: return null
-    val date = zdt.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))
-    val time = zdt.format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
-    return "$date, $time"
-}
-
-private fun parseItemDate(dateStr: String?) = parseZoned(dateStr)?.toLocalDate()
-
-private fun parseItemHour(dateStr: String?) = parseZoned(dateStr)?.hour
-
 private fun getDaysForBucket(
     bucketIndex: Int,
-    dailyBreakdown: List<com.jellycine.data.model.DailyWatchTime>,
-    period: ScreenTimePeriod
+    dailyBreakdown: List<DailyWatchTime>
 ): Set<Long> {
     if (dailyBreakdown.isEmpty()) return emptySet()
+    fun dateOf(day: DailyWatchTime) = LocalDate.fromEpochDays(day.dateEpochDay.toInt())
     val grouped = when {
         dailyBreakdown.size <= 7 -> return dailyBreakdown.getOrNull(bucketIndex)?.let { setOf(it.dateEpochDay) } ?: emptySet()
-        dailyBreakdown.size <= 31 -> {
-            val weekField = java.time.temporal.WeekFields.of(Locale.getDefault()).weekOfMonth()
-            dailyBreakdown.groupBy { LocalDate.ofEpochDay(it.dateEpochDay).get(weekField) }.toSortedMap().values.toList()
-        }
-        else -> dailyBreakdown.groupBy { LocalDate.ofEpochDay(it.dateEpochDay).month }.entries.sortedBy { it.key }.map { it.value }
+        dailyBreakdown.size <= 31 ->
+            dailyBreakdown.groupBy { weekOfMonth(dateOf(it)) }.entries.sortedBy { it.key }.map { it.value }
+        else ->
+            dailyBreakdown.groupBy { dateOf(it).month }.entries.sortedBy { it.key }.map { it.value }
     }
     return grouped.getOrNull(bucketIndex)?.map { it.dateEpochDay }?.toSet() ?: emptySet()
 }
 
 private val peakLabels = arrayOf("Morning", "Afternoon", "Evening", "Night")
 
-private fun computePeakHoursFromItems(items: List<BaseItemDto>): List<com.jellycine.data.model.PeakHourBucket> {
-    val hours = items.mapNotNull { parseItemHour(it.userData?.lastPlayedDate ?: it.dateCreated) }
-    return hourRanges.mapIndexed { i, range -> com.jellycine.data.model.PeakHourBucket(peakLabels[i], hours.count { it in range }) }
+private fun computePeakHoursFromItems(items: List<BaseItemDto>): List<PeakHourBucket> {
+    val hours = items.mapNotNull { parseItemHour(it.screenTimeDateString()) }
+    return hourRanges.mapIndexed { i, range -> PeakHourBucket(peakLabels[i], hours.count { it in range }) }
 }

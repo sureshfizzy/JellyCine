@@ -32,9 +32,12 @@ import com.jellycine.app.ui.screens.dashboard.settings.SubtitleSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.ClipsSettingsScreen
 import com.jellycine.app.ui.screens.dashboard.settings.InterfaceSettingsScreen
 import com.jellycine.app.ui.screens.player.PlayerScreen
-import com.jellycine.app.ui.screens.screentime.ScreenTimeScreen
+import com.jellycine.data.repository.MediaRepositoryProvider
+import com.jellycine.ui.screens.screentime.ScreenTimeScreen
+import com.jellycine.ui.screens.screentime.ScreenTimeViewModel
 import com.jellycine.app.player.mpv.MpvWarmPool
 import com.jellycine.auth.AuthStateManager
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 
@@ -579,7 +582,9 @@ fun AppNavigation() {
                 enterTransition = { textTransition(500) },
                 exitTransition = { textExitTransition(400) }
             ) {
+                val context = LocalContext.current.applicationContext
                 ScreenTimeScreen(
+                    viewModel = viewModel { ScreenTimeViewModel(MediaRepositoryProvider.getInstance(context)) },
                     onBack = { navController.popBackStack() }
                 )
             }

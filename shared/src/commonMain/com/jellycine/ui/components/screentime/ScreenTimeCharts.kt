@@ -3,29 +3,18 @@ package com.jellycine.ui.components.screentime
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -34,10 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jellycine.data.model.DailyWatchTime
 import com.jellycine.data.model.PeakHourBucket
-import com.jellycine.shared.R
-import java.time.LocalDate
-import java.time.format.TextStyle as DateTextStyle
-import java.util.Locale
+import com.jellycine.resources.*
+import com.jellycine.ui.screens.screentime.localizedShortDayName
+import com.jellycine.ui.screens.screentime.localizedShortMonthName
+import com.jellycine.ui.screens.screentime.weekOfMonth
+import kotlinx.datetime.LocalDate
+import org.jetbrains.compose.resources.stringResource
 
 private val BarColor = Color(0xFF22D3EE)
 private val BarColorDark = Color(0xFF0891B2)
@@ -69,7 +60,7 @@ fun DailyBreakdownChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.screen_time_daily_breakdown),
+                text = stringResource(Res.string.screen_time_daily_breakdown),
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White
             )
@@ -172,34 +163,21 @@ private fun aggregateBuckets(dailyData: List<DailyWatchTime>): List<ChartBucket>
     if (dailyData.isEmpty()) return emptyList()
 
     val days = dailyData.size
+    fun dateOf(data: DailyWatchTime) = LocalDate.fromEpochDays(data.dateEpochDay.toInt())
 
     return when {
-        days <= 7 -> {
-            dailyData.map { data ->
-                val date = LocalDate.ofEpochDay(data.dateEpochDay)
-                val label = date.dayOfWeek.getDisplayName(DateTextStyle.SHORT, Locale.getDefault())
-                ChartBucket(label, data.minutes)
-            }
+        days <= 7 -> dailyData.map { data ->
+            ChartBucket(localizedShortDayName(dateOf(data).dayOfWeek), data.minutes)
         }
         days <= 31 -> {
-            dailyData.groupBy { data ->
-                val date = LocalDate.ofEpochDay(data.dateEpochDay)
-                val weekField = java.time.temporal.WeekFields.of(Locale.getDefault()).weekOfMonth()
-                date.get(weekField)
-            }.toSortedMap().entries.mapIndexed { index, (_, weekDays) ->
-                val totalMinutes = weekDays.sumOf { it.minutes }
-                ChartBucket("W${index + 1}", totalMinutes)
-            }
+            dailyData.groupBy { weekOfMonth(dateOf(it)) }
+                .entries.sortedBy { it.key }
+                .mapIndexed { index, (_, weekDays) -> ChartBucket("W${index + 1}", weekDays.sumOf { it.minutes }) }
         }
         else -> {
-            dailyData.groupBy { data ->
-                val date = LocalDate.ofEpochDay(data.dateEpochDay)
-                date.month
-            }.entries.sortedBy { it.key }.map { (month, monthDays) ->
-                val totalMinutes = monthDays.sumOf { it.minutes }
-                val label = month.getDisplayName(DateTextStyle.SHORT, Locale.getDefault())
-                ChartBucket(label, totalMinutes)
-            }
+            dailyData.groupBy { dateOf(it).month }
+                .entries.sortedBy { it.key }
+                .map { (month, monthDays) -> ChartBucket(localizedShortMonthName(month), monthDays.sumOf { it.minutes }) }
         }
     }
 }
@@ -224,7 +202,7 @@ fun PeakHoursChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.screen_time_peak_hours),
+                text = stringResource(Res.string.screen_time_peak_hours),
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White
             )
@@ -240,10 +218,10 @@ fun PeakHoursChart(
 
         peakHours.forEachIndexed { index, bucket ->
             val localizedLabel = when (bucket.label) {
-                "Morning" -> stringResource(R.string.screen_time_morning)
-                "Afternoon" -> stringResource(R.string.screen_time_afternoon)
-                "Evening" -> stringResource(R.string.screen_time_evening)
-                "Night" -> stringResource(R.string.screen_time_night)
+                "Morning" -> stringResource(Res.string.screen_time_morning)
+                "Afternoon" -> stringResource(Res.string.screen_time_afternoon)
+                "Evening" -> stringResource(Res.string.screen_time_evening)
+                "Night" -> stringResource(Res.string.screen_time_night)
                 else -> bucket.label
             }
             val isActive = selectedIndex == null || selectedIndex == index

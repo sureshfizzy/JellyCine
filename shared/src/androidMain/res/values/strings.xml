@@ -625,6 +625,7 @@
     <string name="screen_time_daily_average">Daily Average</string>
     <string name="screen_time_shows">Shows</string>
     <string name="screen_time_movies">Movies</string>
+    <string name="screen_time_episodes">Episodes</string>
     <string name="screen_time_period_week">Week</string>
     <string name="screen_time_period_month">Month</string>
     <string name="screen_time_period_year">Year</string>
@@ -636,6 +637,7 @@
     <string name="screen_time_morning">Morning</string>
     <string name="screen_time_afternoon">Afternoon</string>
     <string name="screen_time_evening">Evening</string>
+    <string name="screen_time_today">Today</string>
     <string name="screen_time_night">Night</string>
 
     <!-- Connections Settings -->

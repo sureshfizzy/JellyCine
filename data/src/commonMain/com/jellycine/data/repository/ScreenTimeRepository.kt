@@ -1,22 +1,24 @@
 package com.jellycine.data.repository
 
-import com.jellycine.data.model.BaseItemDto
-import com.jellycine.data.model.DailyWatchTime
-import com.jellycine.data.model.PeakHourBucket
-import com.jellycine.data.model.ScreenTimeStats
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import com.jellycine.data.model.*
+import kotlin.time.Clock
+import kotlin.time.Instant
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
 
 private const val TICKS_PER_MINUTE = 600_000_000L
 
-suspend fun loadScreenTimeItems(
-    mediaRepository: MediaRepository,
-    startDate: LocalDate,
-    endDate: LocalDate
-): List<BaseItemDto> {
+fun BaseItemDto.runMinutes(): Long = (runTimeTicks ?: 0L) / TICKS_PER_MINUTE
+
+fun currentLocalDate(): LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+
+suspend fun loadScreenTimeItems(mediaRepository: MediaRepository): List<BaseItemDto> {
     val result = mediaRepository.getUserItems(
         includeItemTypes = "Movie,Episode",
         recursive = true,
@@ -27,14 +29,16 @@ suspend fun loadScreenTimeItems(
         enableUserData = true
     ).getOrNull() ?: return emptyList()
 
-    val allItems = result.items.orEmpty()
+    return result.items.orEmpty()
         .filter { it.id != null && it.type in setOf("Movie", "Episode") && it.userData?.played == true }
         .filter { item -> !isBriefReopen(item) }
         .distinctBy { item -> dedupKey(item) ?: item.id }
+}
 
-    return allItems.filter { item ->
+fun filterScreenTimeItems(items: List<BaseItemDto>, startDate: LocalDate, endDate: LocalDate): List<BaseItemDto> {
+    return items.filter { item ->
         val itemDate = resolveItemDate(item) ?: return@filter false
-        !itemDate.isBefore(startDate) && !itemDate.isAfter(endDate)
+        itemDate >= startDate && itemDate <= endDate
     }
 }
 
@@ -65,10 +69,10 @@ fun computeScreenTimeStats(
     startDate: LocalDate,
     endDate: LocalDate
 ): ScreenTimeStats {
-    val daysInPeriod = ChronoUnit.DAYS.between(startDate, endDate) + 1
+    val daysInPeriod = startDate.daysUntil(endDate) + 1L
 
-    val totalMinutes = current.sumOf { it.runTimeTicks ?: 0L } / TICKS_PER_MINUTE
-    val prevTotalMinutes = previous.sumOf { it.runTimeTicks ?: 0L } / TICKS_PER_MINUTE
+    val totalMinutes = current.sumOf { it.runMinutes() }
+    val prevTotalMinutes = previous.sumOf { it.runMinutes() }
 
     val dailyAvg = if (daysInPeriod > 0) totalMinutes / daysInPeriod else 0L
     val prevDailyAvg = if (daysInPeriod > 0) prevTotalMinutes / daysInPeriod else 0L
@@ -77,9 +81,9 @@ fun computeScreenTimeStats(
     val peakHours = buildPeakHours(current)
 
     val movieMinutes = current.filter { it.type == "Movie" }
-        .sumOf { it.runTimeTicks ?: 0L } / TICKS_PER_MINUTE
+        .sumOf { it.runMinutes() }
     val showMinutes = current.filter { it.type == "Episode" }
-        .sumOf { it.runTimeTicks ?: 0L } / TICKS_PER_MINUTE
+        .sumOf { it.runMinutes() }
 
     return ScreenTimeStats(
         totalMinutes = totalMinutes,
@@ -101,13 +105,13 @@ private fun buildDailyBreakdown(
     val minutesByDate = items.groupBy { resolveItemDate(it) }
         .filterKeys { it != null }
         .mapKeys { it.key!! }
-        .mapValues { (_, dayItems) -> dayItems.sumOf { it.runTimeTicks ?: 0L } / TICKS_PER_MINUTE }
+        .mapValues { (_, dayItems) -> dayItems.sumOf { it.runMinutes() } }
 
     val result = mutableListOf<DailyWatchTime>()
     var date = startDate
-    while (!date.isAfter(endDate)) {
-        result.add(DailyWatchTime(dateEpochDay = date.toEpochDay(), minutes = minutesByDate[date] ?: 0L))
-        date = date.plusDays(1)
+    while (date <= endDate) {
+        result.add(DailyWatchTime(dateEpochDay = date.toEpochDays().toLong(), minutes = minutesByDate[date] ?: 0L))
+        date = date.plus(1, DateTimeUnit.DAY)
     }
     return result
 }
@@ -127,6 +131,8 @@ private fun buildPeakHours(items: List<BaseItemDto>): List<PeakHourBucket> {
     )
 }
 
+fun BaseItemDto.screenTimeDateString(): String? = userData?.lastPlayedDate ?: dateCreated
+
 private fun resolveItemDate(item: BaseItemDto): LocalDate? {
     return parseLocalDate(item.userData?.lastPlayedDate)
         ?: parseLocalDate(item.dateCreated)
@@ -137,18 +143,16 @@ private fun resolveItemHour(item: BaseItemDto): Int? {
         ?: parseHour(item.dateCreated)
 }
 
-private fun parseZoned(dateStr: String?): java.time.ZonedDateTime? {
+fun parseScreenTimeDateTime(dateStr: String?): LocalDateTime? {
     if (dateStr.isNullOrBlank()) return null
-    val zone = ZoneId.systemDefault()
+    val zone = TimeZone.currentSystemDefault()
     return try {
-        Instant.parse(dateStr).atZone(zone)
+        Instant.parse(dateStr).toLocalDateTime(zone)
     } catch (_: Exception) {
         try {
-            java.time.ZonedDateTime.parse(dateStr, DateTimeFormatter.ISO_DATE_TIME)
+            LocalDateTime.parse(dateStr)
         } catch (_: Exception) {
-            try {
-                java.time.LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(zone)
-            } catch (_: Exception) { null }
+            null
         }
     }
 }
@@ -158,10 +162,6 @@ private fun isBriefReopen(item: BaseItemDto): Boolean {
     return position > 0L
 }
 
-private fun parseLocalDate(dateStr: String?): LocalDate? {
-    return parseZoned(dateStr)?.toLocalDate()
-}
+private fun parseLocalDate(dateStr: String?): LocalDate? = parseScreenTimeDateTime(dateStr)?.date
 
-private fun parseHour(dateStr: String?): Int? {
-    return parseZoned(dateStr)?.hour
-}
+private fun parseHour(dateStr: String?): Int? = parseScreenTimeDateTime(dateStr)?.hour

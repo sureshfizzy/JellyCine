@@ -30,6 +30,8 @@ import com.jellycine.ui.screens.detail.DefaultDetailPlatform
 import com.jellycine.ui.screens.detail.DetailPlatform
 import com.jellycine.ui.screens.detail.DetailScreenContainer
 import com.jellycine.ui.screens.detail.PersonScreenContainer
+import com.jellycine.ui.screens.screentime.ScreenTimeScreen
+import com.jellycine.ui.screens.screentime.ScreenTimeViewModel
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -120,7 +122,7 @@ private data class ViewAllRoute(
     val title: String
 )
 
-private enum class SettingsPage { ABOUT, INTERFACE, CACHE, CONNECTIONS, PLAYER, SUBTITLES }
+private enum class SettingsPage { ABOUT, INTERFACE, CACHE, CONNECTIONS, PLAYER, SUBTITLES, SCREEN_TIME }
 
 @Composable
 private fun Dashboard(
@@ -204,7 +206,8 @@ private fun Dashboard(
                     onNavigateToPlayerSettings = playerPreferences?.let { { settingsPage = SettingsPage.PLAYER } },
                     onNavigateToInterfaceSettings = { settingsPage = SettingsPage.INTERFACE },
                     onNavigateToCacheSettings = { settingsPage = SettingsPage.CACHE },
-                    onNavigateToConnections = { settingsPage = SettingsPage.CONNECTIONS }
+                    onNavigateToConnections = { settingsPage = SettingsPage.CONNECTIONS },
+                    onNavigateToScreenTime = { settingsPage = SettingsPage.SCREEN_TIME }
                 )
             } else {
                 Box(
@@ -321,6 +324,10 @@ private fun Dashboard(
                             onBackPressed = { settingsPage = SettingsPage.PLAYER }
                         )
                     }
+                    SettingsPage.SCREEN_TIME -> ScreenTimeScreen(
+                        viewModel = viewModel { ScreenTimeViewModel(mediaRepository) },
+                        onBack = closePage
+                    )
                     SettingsPage.CONNECTIONS -> ConnectionsSettingsScreen(
                         viewModel = settingsViewModel,
                         onBackPressed = closePage,

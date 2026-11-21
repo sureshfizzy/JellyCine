@@ -47,6 +47,7 @@ kotlin {
                 implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
                 implementation 'androidx.datastore:datastore-preferences-core:1.2.1'
                 implementation 'com.squareup.okio:okio:3.18.2'
+                implementation 'org.jetbrains.kotlinx:kotlinx-datetime:0.7.1'
             }
         }
         androidMain {
