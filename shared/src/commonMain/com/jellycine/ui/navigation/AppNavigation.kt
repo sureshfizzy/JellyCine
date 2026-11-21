@@ -19,6 +19,7 @@ import com.jellycine.ui.screens.dashboard.home.HomeScreen
 import com.jellycine.ui.screens.dashboard.media.Discover
 import com.jellycine.ui.screens.dashboard.media.ViewAllScreen
 import com.jellycine.preferences.Preferences
+import com.jellycine.player.preferences.PlayerPreferences
 import com.jellycine.ui.screens.dashboard.search.SeerSearch
 import com.jellycine.ui.screens.dashboard.search.SearchContainer
 import com.jellycine.ui.theme.JellyCineTheme
@@ -37,6 +38,7 @@ fun AppNavigation(
     mediaRepository: MediaRepository,
     awardsRepository: AwardsRepository? = null,
     preferences: Preferences? = null,
+    playerPreferences: PlayerPreferences? = null,
     networkSettings: NetworkSettingsStore? = null,
     seerrRepository: SeerrRepository? = null,
     serverDiscovery: (() -> Flow<DiscoveredServer>)? = null,
@@ -57,6 +59,7 @@ fun AppNavigation(
                 mediaRepository = mediaRepository,
                 awardsRepository = awardsRepository,
                 preferences = preferences,
+                playerPreferences = playerPreferences,
                 networkSettings = networkSettings,
                 seerrRepository = seerrRepository,
                 serverDiscovery = serverDiscovery,
@@ -75,6 +78,7 @@ private fun AppContent(
     mediaRepository: MediaRepository,
     awardsRepository: AwardsRepository?,
     preferences: Preferences?,
+    playerPreferences: PlayerPreferences?,
     networkSettings: NetworkSettingsStore?,
     seerrRepository: SeerrRepository?,
     serverDiscovery: (() -> Flow<DiscoveredServer>)?,
@@ -95,6 +99,7 @@ private fun AppContent(
             authRepository = authRepository,
             awardsRepository = awardsRepository,
             preferences = preferences,
+            playerPreferences = playerPreferences,
             networkSettings = networkSettings,
             seerrRepository = seerrRepository,
             appVersion = appVersion,
@@ -115,7 +120,7 @@ private data class ViewAllRoute(
     val title: String
 )
 
-private enum class SettingsPage { ABOUT, INTERFACE, CACHE, CONNECTIONS }
+private enum class SettingsPage { ABOUT, INTERFACE, CACHE, CONNECTIONS, PLAYER, SUBTITLES }
 
 @Composable
 private fun Dashboard(
@@ -123,6 +128,7 @@ private fun Dashboard(
     authRepository: AuthRepository,
     awardsRepository: AwardsRepository?,
     preferences: Preferences?,
+    playerPreferences: PlayerPreferences?,
     networkSettings: NetworkSettingsStore?,
     seerrRepository: SeerrRepository?,
     appVersion: String,
@@ -153,6 +159,9 @@ private fun Dashboard(
         }
     } else {
         null
+    }
+    val playerSettingsViewModel: PlayerSettingsViewModel? = playerPreferences?.let { prefs ->
+        viewModel { PlayerSettingsViewModel(prefs, mediaRepository) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -192,6 +201,7 @@ private fun Dashboard(
                     viewModel = settingsViewModel,
                     onOpenLanguageSettings = onOpenLanguageSettings,
                     onNavigateToAbout = { settingsPage = SettingsPage.ABOUT },
+                    onNavigateToPlayerSettings = playerPreferences?.let { { settingsPage = SettingsPage.PLAYER } },
                     onNavigateToInterfaceSettings = { settingsPage = SettingsPage.INTERFACE },
                     onNavigateToCacheSettings = { settingsPage = SettingsPage.CACHE },
                     onNavigateToConnections = { settingsPage = SettingsPage.CONNECTIONS }
@@ -294,6 +304,23 @@ private fun Dashboard(
                         viewModel = settingsViewModel,
                         onBackPressed = closePage
                     )
+                    SettingsPage.PLAYER -> if (playerSettingsViewModel != null) {
+                        PlayerSettingsScreen(
+                            viewModel = playerSettingsViewModel,
+                            showPlaybackEngineSettings = false,
+                            showAsyncMediaCodec = false,
+                            hardwareDecodingOptions = IosHardwareDecodingOptions,
+                            audioOutputOptions = IosAudioOutputOptions,
+                            onBackPressed = closePage,
+                            onNavigateToSubtitleSettings = { settingsPage = SettingsPage.SUBTITLES }
+                        )
+                    }
+                    SettingsPage.SUBTITLES -> if (playerPreferences != null) {
+                        SubtitleSettingsScreen(
+                            playerPreferences = playerPreferences,
+                            onBackPressed = { settingsPage = SettingsPage.PLAYER }
+                        )
+                    }
                     SettingsPage.CONNECTIONS -> ConnectionsSettingsScreen(
                         viewModel = settingsViewModel,
                         onBackPressed = closePage,

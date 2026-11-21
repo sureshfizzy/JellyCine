@@ -92,6 +92,7 @@ fun MainViewController(bridgeFactory: IosMpvBridgeFactory) = ComposeUIViewContro
             mediaRepository = mediaRepository,
             awardsRepository = awardsRepository,
             preferences = preferences,
+            playerPreferences = playerPreferences,
             networkSettings = networkPreferences,
             seerrRepository = seerrRepository,
             appVersion = appVersion,

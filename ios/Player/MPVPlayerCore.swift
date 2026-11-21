@@ -59,6 +59,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
     private var selectedSubtitleUrl: String?
     private var volumeLevel: Double = 1
     private var zoomEnabled = false
+    var userOptions: [String: String] = [:]
     private(set) var isPaused = false
 
     /// Starts mpv on first use; later calls replace the current file on the same instance.
@@ -128,6 +129,7 @@ nonisolated final class MPVPlayerCore: @unchecked Sendable {
         setOption("demuxer-max-bytes", "64MiB")
         setOption("sub-font-provider", "none")
         setOption("sub-ass-override", "strip")
+        for (name, value) in userOptions { setOption(name, value) }
 
         let status = mpv_initialize(handle)
         guard status >= 0 else {

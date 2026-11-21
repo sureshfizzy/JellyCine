@@ -59,6 +59,7 @@ final class MPVBridge: NSObject, IosMpvBridge, MPVPlayerCoreDelegate {
         )
     }
 
+    func setOptions(options: [String: String]) { core.userOptions = options }
     func setPaused(paused: Bool) { core.setPaused(paused) }
     func seekTo(positionMs: Int64) { core.seek(to: Double(positionMs) / 1000) }
     func setVolume(volume: Float) { core.setVolume(Double(volume)) }

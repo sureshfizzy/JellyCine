@@ -28,6 +28,8 @@ interface IosMpvBridge {
         selectedSubtitleUrl: String?
     )
 
+    fun setOptions(options: Map<String, String>)
+
     fun setPaused(paused: Boolean)
     fun seekTo(positionMs: Long)
     fun setVolume(volume: Float)
@@ -56,11 +58,15 @@ fun interface IosMpvBridgeFactory {
     fun create(): IosMpvBridge
 }
 
-class IosMpvEngine(private val bridge: IosMpvBridge) : PlayerEngine {
+class IosMpvEngine(
+    private val bridge: IosMpvBridge,
+    private val options: Map<String, String> = emptyMap()
+) : PlayerEngine {
     private var listener: PlayerEngineListener? = null
     private var released = false
 
     init {
+        bridge.setOptions(options)
         bridge.attachListener(
             object : IosMpvBridgeListener {
                 override fun onBuffering(isBuffering: Boolean) {
@@ -230,7 +236,7 @@ fun IosPlayerScreen(
             mediaRepository = mediaRepository,
             preferences = preferences,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
-            engineFactory = { IosMpvEngine(bridgeFactory.create()) },
+            engineFactory = { IosMpvEngine(bridgeFactory.create(), iosMpvOptions(preferences)) },
             onPlaybackCompleted = { onClose() }
         )
     }

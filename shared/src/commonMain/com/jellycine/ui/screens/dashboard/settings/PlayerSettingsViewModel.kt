@@ -1,15 +1,12 @@
-package com.jellycine.app.ui.screens.dashboard.settings
+package com.jellycine.ui.screens.dashboard.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jellycine.data.model.AudioTranscodeMode
-import com.jellycine.data.repository.MediaRepositoryProvider
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import com.jellycine.data.repository.MediaRepository
 import com.jellycine.player.preferences.PlayerPreferences
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 data class PlayerSettingsUiState(
     val playerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE,
@@ -57,10 +54,11 @@ data class PlayerSettingsUiState(
     val error: String? = null
 )
 
-class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
+class PlayerSettingsViewModel(
+    private val playerPreferences: PlayerPreferences,
+    private val mediaRepository: MediaRepository
+) : ViewModel() {
     
-    private val playerPreferences = PlayerPreferences(context)
-    private val mediaRepository = MediaRepositoryProvider.getInstance(context)
     private val initialPersistedSnapshot = mediaRepository.getPersistedHomeSnapshot()
     
     private val _uiState = MutableStateFlow(

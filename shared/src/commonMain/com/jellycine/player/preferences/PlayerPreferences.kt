@@ -136,11 +136,15 @@ class PlayerPreferences(private val prefs: KeyValueStore) {
         const val MPV_HARDWARE_DECODING_NONE = "no"
         const val MPV_HARDWARE_DECODING_MEDIACODEC = "mediacodec"
         const val MPV_HARDWARE_DECODING_MEDIACODEC_COPY = "mediacodec-copy"
+        const val MPV_HARDWARE_DECODING_VIDEOTOOLBOX = "videotoolbox"
+        const val MPV_HARDWARE_DECODING_VIDEOTOOLBOX_COPY = "videotoolbox-copy"
         const val DEFAULT_MPV_HARDWARE_DECODING = MPV_HARDWARE_DECODING_MEDIACODEC
         val MPV_HARDWARE_DECODING_OPTIONS = listOf(
             MPV_HARDWARE_DECODING_NONE,
             MPV_HARDWARE_DECODING_MEDIACODEC,
-            MPV_HARDWARE_DECODING_MEDIACODEC_COPY
+            MPV_HARDWARE_DECODING_MEDIACODEC_COPY,
+            MPV_HARDWARE_DECODING_VIDEOTOOLBOX,
+            MPV_HARDWARE_DECODING_VIDEOTOOLBOX_COPY
         )
         const val MPV_VIDEO_OUTPUT_GPU_NEXT = "gpu-next"
         const val MPV_VIDEO_OUTPUT_GPU = "gpu"
@@ -149,11 +153,13 @@ class PlayerPreferences(private val prefs: KeyValueStore) {
         const val MPV_AUDIO_OUTPUT_AAUDIO = "aaudio"
         const val MPV_AUDIO_OUTPUT_AUDIOTRACK = "audiotrack"
         const val MPV_AUDIO_OUTPUT_OPENSLES = "opensles"
+        const val MPV_AUDIO_OUTPUT_AUDIOUNIT = "audiounit"
         const val DEFAULT_MPV_AUDIO_OUTPUT = MPV_AUDIO_OUTPUT_AUDIOTRACK
         val MPV_AUDIO_OUTPUT_OPTIONS = listOf(
             MPV_AUDIO_OUTPUT_AAUDIO,
             MPV_AUDIO_OUTPUT_AUDIOTRACK,
-            MPV_AUDIO_OUTPUT_OPENSLES
+            MPV_AUDIO_OUTPUT_OPENSLES,
+            MPV_AUDIO_OUTPUT_AUDIOUNIT
         )
 
         const val MPV_UPSCALE_FILTER_BILINEAR = "bilinear"
